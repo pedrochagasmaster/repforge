@@ -261,18 +261,21 @@ async function runAdaptationCases(browser,manifest){
       assert.equal(await page.evaluate(()=>window.__repforgeWorkoutDraft.state().programMeta.name),"Concurrent edit","reopening Review proposes against the new editor token");
     }catch(error){failures.push(error)}finally{await context.close()}
   }
-  {
+  for(const timing of ["after","before"]){
     const state=appState("progress/review-evaluated","en"),record=state.programMeta.adaptations[0];
     delete record.evaluation;
     state.sessionEvents["weekly-second"]={v:1,skips:[structuredClone(state.sessionEvents["weekly-2"].skips[0])],pain:[]};
+    if(timing==="before")state.log=state.log.map(row=>["weekly-2","weekly-second"].includes(row.session)
+      ?{...row,date:record.week,created:`${record.week}T09:00:00.000Z`}:row);
+    const expected=timing==="after"?"pattern_continued":"insufficient";
     const {page,context}=await openPage(browser,manifest,{flow:"progress",screen:"review-evaluated",viewport:"phone-390",theme:"light",locale:"en",text:"normal",motion:"normal"},state);
     try{
       await dismissChrome(page);await APP_SCENARIOS["progress/review-evaluated"](page);
       await page.waitForFunction(()=>window.__repforgeWorkoutDraft.state().programMeta.adaptations[0].evaluation);
-      assert.equal(await page.evaluate(()=>window.__repforgeWorkoutDraft.state().programMeta.adaptations[0].evaluation.outcome),"pattern_continued","evaluation retains the recorded observations when the affected slot is no longer in the current program");
+      assert.equal(await page.evaluate(()=>window.__repforgeWorkoutDraft.state().programMeta.adaptations[0].evaluation.outcome),expected,"evaluation uses post-approval observations of the captured lift, including a removed slot");
       await page.evaluate(()=>window.__repforgeStorage.flush());
       await page.reload({waitUntil:"domcontentloaded"});await waitForAppBoot(page);
-      assert.equal(await page.evaluate(()=>window.__repforgeWorkoutDraft.state().programMeta.adaptations[0].evaluation.outcome),"pattern_continued","the evaluated receipt survives the actual loader");
+      assert.equal(await page.evaluate(()=>window.__repforgeWorkoutDraft.state().programMeta.adaptations[0].evaluation.outcome),expected,"the evaluated receipt survives the actual loader");
     }catch(error){failures.push(error)}finally{await context.close()}
   }
   for(const action of ["accept","decline","later","change"]){

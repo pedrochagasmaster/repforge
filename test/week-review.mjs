@@ -105,3 +105,11 @@ assert.equal(Model.detectPatterns(patternLog,{},patternProgram,{blockId:'block',
 assert.equal(fatiguePatterns({p0:['b1','b2'],p1:['b1','b2']}).length,0,'lifts moved to another day cannot trigger a change to the old day');
 assert.equal(Model.detectPatterns(patternLog,patternEvents,[],{blockId:'block',observationTargets:[{slotId:'slot',exerciseId:'lift',day:'A'}]},'2026-11-02').filter(pattern=>pattern.pattern==='recurring_skip').length,1,'evaluation can follow a removed slot through its captured identity');
 assert.equal(Transition.evaluateAdaptation(swappedRecord,[{pattern:'recurring_skip',slotId:'slot',exerciseId:'lift'}],{week:'2026-11-09',observed:true}).outcome,'pattern_continued','recurrence on the original movement after an accepted swap is not a stopped pattern');
+const followupRows=[
+  {session:'before',date:'2026-11-02',created:'2026-11-02T09:00:00.000Z',blockId:'block'},
+  {session:'after',date:'2026-11-03',created:'2026-11-03T09:00:00Z',blockId:'block'},
+  {session:'next-week',date:'2026-11-09',created:'2026-11-09T09:00:00.000Z',blockId:'block'},
+  {session:'unknown-time',date:'2026-11-04',blockId:'block'},
+  {session:'other-block',date:'2026-11-04',created:'2026-11-04T09:00:00.000Z',blockId:'other'},
+];
+assert.deepEqual(Transition.adaptationFollowupRows(record,followupRows).map(row=>row.session),['after'],'effect evaluation excludes sessions before the approval, unknown timing, later weeks and other blocks');
