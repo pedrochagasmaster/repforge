@@ -410,6 +410,70 @@ try {
       `an explicit ${chip} chip replaces held ${value} with matching provenance`, draft.sets[0]);
   }
 
+  phase("Completed legacy counts without touch markers");
+  for (const value of ["8", "2.5"]) {
+    await boot(page);
+    await page.evaluate(value => {
+      for (const key of Object.keys(localStorage)) if (key.startsWith("repforge_draft_v1")) localStorage.removeItem(key);
+      localStorage.setItem("repforge_draft_v1", JSON.stringify({
+        "seed-ex-1_1_load": "60", "seed-ex-1_1_reps": "8", "seed-ex-1_1_rir": value,
+        __day: "Day 1", __done: ["seed-ex-1_1"], __lastCommitAt: Date.now()
+      }));
+    }, value);
+    for (const pass of ["migration", "reload"]) {
+      await resume();
+      const actual = await page.evaluate(() => {
+        const d = window.__repforgeWorkoutDraft.current(), ex = d.exercises[d.exerciseOrder[0]], set = ex.sets[ex.setOrder[0]];
+        return { rir: set.edited.rir, touched: !!set.touched.effort, completed: typeof set.completion === "object",
+          ledger: document.querySelector('#workout .exercise.is-current [data-editn="1"] [data-lv="rir"]').textContent.trim() };
+      });
+      assert(actual.rir === value && !actual.touched && actual.completed && actual.ledger === value,
+        `completed untouched legacy ${value} is exact after ${pass}`, actual);
+    }
+    await finishEarly(page);
+    const saved = await page.evaluate(k => JSON.parse(localStorage.getItem(k)).log.find(row => row.exerciseId === "seed-ex-1" && row.set === 1), KEY);
+    assert(saved?.rir === Number(value), `final Finish preserves completed untouched legacy ${value}`, saved);
+  }
+
+  phase("An effort acknowledgement preserves open sheet anchors");
+  for (const kind of ["rest", "why", "wheel"]) {
+    await boot(page);
+    await logOpenSet(page);
+    await page.locator(`${SHELF} [data-shelf-field="rir"]`).click();
+    await page.evaluate(() => new Promise(resolve => navigator.locks.request("repforge:state-write", () => new Promise(release => {
+      window.__releaseEffortSheetWrite = release; resolve();
+    }))));
+    await page.locator(`${SHELF} [data-effchip][data-e="2"]`).click();
+    const anchor = kind === "rest" ? "#restTab" : kind === "why" ? '#workout .exercise.is-current [data-why]' : `${SHELF} [data-shelf-field^="metric_"]`;
+    if (kind === "wheel") await page.locator(anchor).first().click();
+    await page.evaluate(sel => { window.__effortReturnAnchor = document.querySelector(sel); }, anchor);
+    const clock = await page.evaluate(() => window.__repforgeRest.state());
+    await page.locator(anchor).first().click();
+    const sheet = kind === "rest" ? "#restSheet" : kind === "why" ? "#whySheet" : "#wheelSheet";
+    await page.waitForSelector(`${sheet}.is-open`);
+    await page.evaluate(async () => { window.__releaseEffortSheetWrite(); await window.__repforgeWorkoutDraft.flush(); });
+    const acknowledged = await page.evaluate(sheet => {
+      const d = window.__repforgeWorkoutDraft.current(), ex = d.exercises[d.exerciseOrder[0]];
+      return { connected: window.__effortReturnAnchor.isConnected, inside: document.querySelector(sheet).contains(document.activeElement),
+        rir: ex.sets[ex.setOrder[1]].edited.rir, clock: window.__repforgeRest.state() };
+    }, sheet);
+    assert(acknowledged.connected && acknowledged.inside && acknowledged.rir === "2" && acknowledged.clock.active && acknowledged.clock.endMs === clock.endMs,
+      `${kind}: held effort acknowledges without replacing the opener, stealing focus or changing the clock`, acknowledged);
+    await page.locator(kind === "rest" ? "#restSheetClose" : kind === "why" ? "#whyClose" : "#wheelDone").click();
+    await page.waitForSelector(sheet, { state: "hidden" });
+    const returned = await page.evaluate(() => ({ same: document.activeElement === window.__effortReturnAnchor,
+      connected: document.activeElement.isConnected, tag: document.activeElement.tagName }));
+    assert(returned.same && returned.connected, `${kind}: closing returns focus to its live opener after the held write`, returned);
+    if (kind === "rest") {
+      await page.locator("#restTab").click();
+      await page.waitForSelector("#restSheet.is-open");
+      await page.locator("#restSheetClose").click();
+      await page.waitForSelector("#restSheet", { state: "hidden" });
+      assert(await page.evaluate(() => document.activeElement === document.querySelector("#restTab")),
+        "an ordinary settled Rest open/close also returns focus to the live Rest tab");
+    }
+  }
+
   phase("Voice and held numeric input");
   await boot(page, { settings: { rirMode: "numeric", voiceInputEnabled: true } });
   assert(await page.evaluate(() => window.__repforgeApplyCommandText("60 x 8 @9")),
