@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { legacyRelease } from "./fixtures/legacy-release.mjs";
 import {readFileSync} from "node:fs";
-import { launchChromium, waitForAppBoot, openShelfField, chooseRepsLeft } from "./browser.mjs";
+import { launchChromium, waitForAppBoot, waitForAsyncCondition, openShelfField, chooseRepsLeft } from "./browser.mjs";
 import { cases as engineFixtures } from "./fixtures/engine-standing.mjs";
 import { installGeneratedProgram, definitionSlot, isWeightRepsSlot, metricLogRow } from "./fixtures/history-metric-rows.mjs";
 import { openActions, exerciseAction, finishEarly } from "./fixtures/focus-workout.mjs";
@@ -57,6 +57,24 @@ async function field(page,semantic,value){
   const input=page.locator(`${card} input[data-metric-id="${id}"]`);
   if(await input.getAttribute("aria-hidden")==="true")await openShelfField(page,`${card} [data-shelf-field="metric_${id}"]`);
   await input.fill(String(value));await page.evaluate(()=>window.__repforgeWorkoutDraft.flush());
+}
+// A click does not await startFocusRamp's flush and acknowledged draft command.
+// Read the same working-set identity only after its opening reaches that boundary.
+async function waitForOpening(page){
+  const identity=await page.evaluate(()=>{
+    const draft=window.__repforgeWorkoutDraft.current(),ex=draft.exercises[draft.session.selectedExerciseId];
+    return{draftId:draft.draftId,exerciseId:ex.exerciseInstanceId,
+      setId:ex.setOrder.find(id=>ex.sets[id].role==="working"&&ex.sets[id].completion==="pending")};
+  });
+  return waitForAsyncCondition(page,async ({draftId,exerciseId,setId})=>{
+    const api=window.__repforgeWorkoutDraft;await api.flush();
+    const draft=api.current(),set=draft?.exercises[exerciseId]?.sets[setId];
+    return draft?.draftId===draftId&&set?.startingLoad?set:false;
+  },identity);
+}
+async function startOpening(page){
+  await page.locator(`${card} [data-ramp-start]`).click();
+  return waitForOpening(page);
 }
 async function answer(page,value){
   if(typeof value==="number")await chooseRepsLeft(page,String(value));
@@ -328,7 +346,7 @@ try{
   check((await sp.evaluate(()=>window.__repforgeSaveWorkout())).committed===true,"#730: restored pending sets stay reachable through normal completion");
   await swapRestore.context.close();
   const compatibility=await open(browser),cp=compatibility.page;
-  await cp.locator(`${card} [data-ramp-start]`).click();await answer(cp,"easy");await waitWarmups(cp,1);
+  await startOpening(cp);await answer(cp,"easy");await waitWarmups(cp,1);
   const retained=await cp.evaluate(()=>({raw:localStorage.getItem("repforge_draft_v1"),checkpoint:localStorage.getItem("repforge_draft_v1:v2-checkpoint")}));
   // Serve the complete previous release, including its matching shell. A newer
   // script or service worker must not rescue its compatibility decision.
@@ -387,7 +405,7 @@ try{
     check(Object.values((await exercise(wp)).sets).every(set=>!set.startingLoad),`the old offer during a held write (${value||"removed"}) never silently applies the new load`);
   }
   await bodyweight("80");
-  await start.click();await wp.evaluate(()=>window.__repforgeWorkoutDraft.flush());
+  await startOpening(wp);
   let accepted=Object.values((await exercise(wp)).sets)[0];
   check(accepted.startingLoad.openingKg===62.5,"acceptance applies exactly the newly advertised load");
   await bodyweight("40");await bodyweight("");
@@ -397,7 +415,7 @@ try{
   check((await start.innerText())==="Start at 35 kg","bodyweight edits preserve a load the lifter typed into the pending set");
   await weight.context.close();
   const anchor=await open(browser);
-  await anchor.page.locator(`${card} [data-ramp-start]`).click();
+  await startOpening(anchor.page);
   await answer(anchor.page,"easy");await waitWarmups(anchor.page,1);
   await field(anchor.page,"loadKg",40);await answer(anchor.page,"hard");await nextWorking(anchor.page,1);
   const live=await anchor.page.evaluate(id=>{const api=window.__repforgeProgression;const rec=api.recommendation(api.programSlot(id));return {...rec,progressionInputs:rec.progressionInputs};},anchor.target.id);
@@ -424,7 +442,7 @@ try{
     "Review's week facts and every observed trend reader receive only the 40 kg first working set");
   await anchor.context.close();
   const warmOnly=await open(browser);
-  await warmOnly.page.locator(`${card} [data-ramp-start]`).click();await answer(warmOnly.page,"easy");await waitWarmups(warmOnly.page,1);
+  await startOpening(warmOnly.page);await answer(warmOnly.page,"easy");await waitWarmups(warmOnly.page,1);
   await finishEarly(warmOnly.page);await warmOnly.page.reload();await waitForAppBoot(warmOnly.page,{base:BASE});
   await warmOnly.page.evaluate(id=>window.__repforgeGoToLogExercise(id),warmOnly.target.id);
   check(await warmOnly.page.locator(`${card} [data-ramp-start]`).count()===1,"after reload a warm-up-only session still offers session zero");
@@ -438,8 +456,13 @@ try{
     return window.RepForgeStartingLoads.openingLoad({exercise:raw,lookup:id=>window.RepForgeExerciseCatalog.getObject(id),bodyweightKg:80,
       experience:"beginner",convention:"external",grid:Array.from({length:400},(_,i)=>(i+1)*2.5)}).loadKg;
   },target.libraryId);
-  await page.locator(`${card} [data-ramp-start]`).click();
-  let ex=await exercise(page),working=Object.values(ex.sets).find(set=>set.role==="working");
+  await page.evaluate(()=>new Promise(ready=>{navigator.locks.request("repforge:draft-write",()=>new Promise(release=>{window.__releaseOpeningProof=release;ready();}));}));
+  try{
+    await page.locator(`${card} [data-ramp-start]`).click();
+    const blocked=await exercise(page),set=blocked.sets[blocked.setOrder.find(id=>blocked.sets[id].role==="working")];
+    check(!set.startingLoad,"Start click returns while its draft acknowledgement is blocked");
+  }finally{await page.evaluate(()=>window.__releaseOpeningProof());}
+  let working=await waitForOpening(page),ex=await exercise(page);
   check(working.startingLoad.openingKg===expected&&working.startingLoad.version==="priors@079.1","Start uses the declared 80 kg beginner opening");
   for(let count=1;count<=3;count++){
     await answer(page,"easy");await waitWarmups(page,count);
@@ -486,7 +509,7 @@ try{
   await run.context.close();
 
   const interrupted=await open(browser);
-  await interrupted.page.locator(`${card} [data-ramp-start]`).click();
+  await startOpening(interrupted.page);
   await answer(interrupted.page,"easy");await waitWarmups(interrupted.page,1);
   await finishEarly(interrupted.page);
   const partial=await interrupted.page.evaluate(()=>JSON.parse(localStorage.getItem("repforge_v1")).log);
@@ -504,14 +527,14 @@ try{
   await typed.context.close();
 
   const hard=await open(browser);
-  await hard.page.locator(`${card} [data-ramp-start]`).click();
+  await startOpening(hard.page);
   await answer(hard.page,"hard");await nextWorking(hard.page,1);
   const hardSet=Object.values((await exercise(hard.page)).sets).find(set=>set.completion!=="pending");
   check(hardSet.role==="working"&&hardSet.startingLoad.ramps===0&&hardSet.completion.effortSource==="effort","Hard is the first working set at the opening weight");
   await hard.context.close();
 
   const max=await open(browser,{mode:"numeric"});
-  await max.page.locator(`${card} [data-ramp-start]`).click();
+  await startOpening(max.page);
   await field(max.page,"loadKg",40);await field(max.page,"reps",1);
   await answer(max.page,0);await nextWorking(max.page,1);
   check(Object.values((await exercise(max.page)).sets).every(set=>!set.origin),"Max becomes working set one without inserting a ramp");
