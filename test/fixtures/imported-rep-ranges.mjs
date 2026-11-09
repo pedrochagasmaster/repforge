@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { legacyRelease } from "./legacy-release.mjs";
 import { answerEffortChoice } from "../browser.mjs";
 import { importInto } from "./install-transfer-import.mjs";
 
+const OLD_RELEASE_SHA = "349054ab156ffe8dc8fc49565cfa427b8ef6be9d";
 const KEY = "repforge_program_setup_draft_v1";
 const REPS = '["2555c6f170d88072bbf6d9ad3f16ea86"]';
 const DURATION = '["2555c6f170d88063941ef7c8956d760c"]';
@@ -50,6 +53,67 @@ async function replicas(page) {
   });
 }
 
+async function verifyPreviousRelease(browser, base, storage, check) {
+  const release = legacyRelease(OLD_RELEASE_SHA);
+  for (const control of [false, true]) {
+    const context = await browser.newContext({ storageState: storage, serviceWorkers: "block" });
+    try {
+      const page = await context.newPage();
+      await page.route("**/*", route => {
+        const path = decodeURIComponent(new URL(route.request().url()).pathname).replace(/^\//, "") || "index.html";
+        const body = release.file(path);
+        if (!body) return route.abort();
+        const ext = path.split(".").pop();
+        return route.fulfill({ body, contentType: ({ html: "text/html", js: "application/javascript", css: "text/css", json: "application/json", svg: "image/svg+xml" })[ext] || "application/octet-stream" });
+      });
+      if (control) await page.addInitScript(key => {
+        const record = JSON.parse(localStorage.getItem(key));
+        delete record.state.result.preview.importedRepRanges;
+        localStorage.setItem(key, JSON.stringify(record));
+        localStorage.removeItem("repforge_import_ranges_v1");
+      }, KEY);
+      await page.goto(base);await boot(page);
+      const resumable = await page.locator("#firstRunResumeSetup").isVisible();
+      await page.click(resumable ? "#firstRunResumeSetup" : "#firstRunCreate");
+      await page.waitForSelector("#onboarding.active");
+      const kept = await page.evaluate(key => {
+        const raw = localStorage.getItem(key);
+        return raw && window.RepForgeProgramEntry.normalizeSetupDraftEnvelope(raw).ok;
+      }, KEY);
+      check(resumable && kept, `previous complete release keeps and resumes ${control ? "the unchanged control" : "the pending-range draft"}`);
+    } finally { await context.close(); }
+  }
+}
+
+async function verifyRecoveryExport(page, active, check) {
+  // Recreate termination after the durable commit and before setup cleanup.
+  await page.evaluate(async ({ key, raw }) => {
+    localStorage.setItem(key, raw);
+    const db = await new Promise((resolve, reject) => {
+      const request = indexedDB.open("repforge");
+      request.onsuccess = () => resolve(request.result);request.onerror = () => reject(request.error);
+    });
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction("kv", "readwrite");
+      tx.objectStore("kv").put({ bad: true }, "repforge_v1");
+      tx.oncomplete = resolve;tx.onerror = () => reject(tx.error);
+    });
+    db.close();
+  }, { key: KEY, raw: active.local._storageSetupActivation.raw });
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.locator("#storageExportA").waitFor();
+  const download = page.waitForEvent("download");
+  await page.click("#storageExportA");
+  const file = await download;
+  const bytes = await readFile(await file.path(), "utf8");
+  check(file.suggestedFilename() === "taurifer_copy_a.json" && !bytes.includes("importedRepRanges") && !bytes.includes("repforge_import_ranges_v1"),
+    "the visible Copy A recovery download excludes pending ranges inside activation receipts");
+  await page.click("#storageOverwrite");await boot(page);
+  const restored = await replicas(page);
+  check(restored.setup === null && restored.local.program[0].max === 8 && restored.idb.program[0].max === 8,
+    "boot recovers the committed activation and cleans the exact captured setup after replica damage");
+}
+
 export async function verifyImportedRepRanges(browser, base) {
   let passed = 0;
   const check = (condition, message, detail) => {
@@ -88,6 +152,13 @@ export async function verifyImportedRepRanges(browser, base) {
     const original = await read(page);
     const initial = original.result.preview;
     const [a, b, time] = slots(initial).map(slot => slot.id);
+    const pendingStorage = await source.storageState();
+    const revisionFailures = [];
+    const revisionCheck = (condition, message) => {
+      if (!condition) { revisionFailures.push(message);console.log(`  ✗ #739: ${message}`); }
+      else check(condition, message);
+    };
+    await verifyPreviousRelease(browser, base, pendingStorage, revisionCheck);
     await configure(page, a, REPS);
     let preview = (await read(page)).result.preview;
     check(preview.program[0].min === 6 && preview.program[0].max === 8,
@@ -176,7 +247,9 @@ export async function verifyImportedRepRanges(browser, base) {
           "pending import metadata never enters published program, custom identities, logs, history, backup or transfer data");
       }
       check(active.setup === null, "activation removes the setup candidate and its unconsumed metadata");
+      if (target === page) await verifyRecoveryExport(target, active, revisionCheck);
     }
+    assert.deepEqual(revisionFailures, [], "#739 revision regressions");
     return passed;
   } finally {
     await source.close();await destination.close();
