@@ -9732,10 +9732,14 @@ function focusRamp(ex,n,r){
   const load=Number(set.edited?.metrics?.[loadMetric.id]);
   return{set,de,loadMetric,repsMetric,grid,loadKg:load>0?load:opening.loadKg,
     record:recorded||{v:1,openingKg:opening.loadKg,basis:opening.basis,ramps:0,version:loads.PRIORS_VERSION}}}
-async function startFocusRamp(exId,n,typed=false){
+async function startFocusRamp(exId,n,typed=false,offered=null){
   await WorkoutSession.flush();
   const base=prog.find(exId),ex=base?sessionExercise(base):null,r=ex?recommendation(ex):null;
   const ramp=ex?focusRamp(ex,n,r):null;if(!ramp)return;
+  // A queued bodyweight edit can settle after the button was pressed. Show
+  // the revised offer before accepting it; an accepted or typed load stays put.
+  if(offered&&(ramp.loadKg!==offered.loadKg||ramp.record.basis!==offered.basis)){
+    renderWorkout();return}
   const record={...ramp.record,...(typed?{basis:"typed",openingKg:ramp.loadKg}:{})};
   const fields={metrics:{[ramp.loadMetric.id]:String(ramp.loadKg),[ramp.repsMetric.id]:String(ex.min)}};
   const result=await WorkoutSession.dispatch("refreshUntouchedSuggestions",{sourceRevision:activeWorkoutDraft.revision,
@@ -9906,7 +9910,7 @@ function focusCueBlockHtml(ex,n,r,cue,{peek,name,draft}){
     ?`<button type="button" class="text-link fx-cue__cancel"${peek?dead():" data-fcancel"}>${esc(t("focus.cancel_edit"))}</button>`:"";
   return `<div class="fx-cue is-${cue.kind}"><p class="fx-cue__l1">${mark}${cue.headHtml}</p>`+
     (cue.sub?`<p class="fx-cue__l2">${esc(cue.sub)}</p>`:"")+
-    (cue.kind==="ramp"?`<div class="fx-ramp-actions"><button type="button" class="btn"${peek?dead():` data-ramp-start="${esc(ex.id)}" data-ramp-n="${n}"`}>${esc(t("focus.cue.start_at",{load:fmtLoad(cue.ramp.loadKg),unit:unitLabel()}))}</button>`+
+    (cue.kind==="ramp"?`<div class="fx-ramp-actions"><button type="button" class="btn"${peek?dead():` data-ramp-start="${esc(ex.id)}" data-ramp-n="${n}" data-ramp-load="${cue.ramp.loadKg}" data-ramp-basis="${cue.ramp.record.basis}"`}>${esc(t("focus.cue.start_at",{load:fmtLoad(cue.ramp.loadKg),unit:unitLabel()}))}</button>`+
       `<button type="button" class="text-link"${peek?dead():` data-ramp-skip="${esc(ex.id)}" data-ramp-n="${n}"`}>${esc(t("focus.cue.know_weight"))}</button>`+
       (cue.ramp.record.basis==="floor"&&!cue.ramp.set.startingLoad?`<button type="button" class="text-link"${peek?dead():" data-ramp-bodyweight"}>${esc(t("session.sheet.bodyweight"))}</button>`:"")+`</div>`:"")+
     (evidence||why?`<p class="fx-cue__evidence">${evidence}${evidence&&why?" ":""}${why}</p>`:"")+cancel+`</div>`}
@@ -11268,7 +11272,7 @@ function applyDraftIssue(issues){
 const $w=sel=>$$(`#workout ${sel}`).filter(el=>!el.closest(".is-peek"));
 function bindWorkout(){
   $$("#workout [data-ramp-bodyweight]").forEach(button=>button.onclick=()=>{openSessionSheet();$("#sessionBodyweight")?.focus()});
-  $$("#workout [data-ramp-start]").forEach(button=>button.onclick=()=>startFocusRamp(button.dataset.rampStart,+button.dataset.rampN));
+  $$("#workout [data-ramp-start]").forEach(button=>button.onclick=()=>startFocusRamp(button.dataset.rampStart,+button.dataset.rampN,false,{loadKg:+button.dataset.rampLoad,basis:button.dataset.rampBasis}));
   $$("#workout [data-ramp-skip]").forEach(button=>button.onclick=()=>startFocusRamp(button.dataset.rampSkip,+button.dataset.rampN,true));
   $w("input").forEach(i=>{i.oninput=async()=>{const row=i.closest(".shelf__field"),target=draftTargetFromKey(i.dataset.k);
     const padDir=padTap.get(i)||0;padTap.delete(i);
@@ -25732,7 +25736,10 @@ function init(){
 
   const sessBw=$("#sessionBodyweight");if(sessBw)sessBw.addEventListener("input",async()=>{
     contextTouched.bodyweight=true;syncSessionBodyweightUnit();
-    if(activeWorkoutDraft)await WorkoutSession.dispatch("setBodyweight",{value:canonicalDraftBodyweight(sessBw.value)},{pendingValue:sessBw.value});
+    if(activeWorkoutDraft){
+      const result=await WorkoutSession.dispatch("setBodyweight",{value:canonicalDraftBodyweight(sessBw.value)},{pendingValue:sessBw.value});
+      if(result.status==="applied"&&$("#workout [data-ramp-start]"))renderWorkout();
+    }
   });
 
   // The sheet's head takes its hairline once content is under it (UI kit §4).
