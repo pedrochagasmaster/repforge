@@ -1131,13 +1131,14 @@ const ROUTE_PUSH_DEADLINE_MS=1500;
    route does not push it a second time. While a pull is live the page it returns
    to is mounted beneath it (History has none to mount: its list is rendered
    over the session page, so the pull shows the paper beneath). */
-const EDGE_BACK={exercise:"#exBack",library:"#libBack",exercisePreview:"#previewBack",history:"[data-history-back]"};
+const EDGE_BACK={stats:"#summaryProfileBack",exercise:"#exBack",library:"#libBack",exercisePreview:"#previewBack",history:"[data-history-back]"};
 let routeEdge=null,routeEdgeFrame=0;
 function edgeBackPage(){
   if(document.body.classList.contains("is-focus-wo"))return null;
   const view=$(".view.active");
   if(!view||!EDGE_BACK[view.id])return null;
   if(view.id==="history"&&!view.classList.contains("is-session-page"))return null;
+  if(view.id==="stats"&&!sessionSummaryProfileReturn)return null;
   return view}
 function syncEdgeSwipe(){
   routeEdgeFrame=0;
@@ -1203,6 +1204,7 @@ function openPushedRoutes(){
   if(body.contains("is-preview"))open.push("exercisePreview");
   if(body.contains("is-exercise"))open.push("exercise");
   if(history?.classList.contains("active")&&HistoryUi.hasPushedPage())open.push("history");
+  if(sessionSummaryProfileReturn&&$("#stats")?.classList.contains("active"))open.push("stats");
   return open}
 function syncRouteHistory(){
   if(expectedRouteDepth!==null)return;
@@ -8021,7 +8023,8 @@ function renderOverviewProfile(){
       `<small class="calcheck__result">${esc(line)}</small></span></li>`}).join("")
     :`<li class="calcheck calcheck--empty">${esc(t("calib.empty"))}</li>`;
   const lifts=days().flatMap(day=>state.program.filter(ex=>ex.day===day));
-  el.innerHTML=`<div class="ovsec"><h3 class="ovsec__title">${esc(t("profile.title"))}</h3></div>`+
+  el.innerHTML=(sessionSummaryProfileReturn?`<button type="button" class="back-link" id="summaryProfileBack">${esc(t("exercise.back"))}</button>`:"")+
+    `<div class="ovsec"><h3 class="ovsec__title">${esc(t("profile.title"))}</h3></div>`+
     profileFindingsHtml()+
     `<p class="profile-stage">${esc(t("profile.stage",{stage:t(STAGE_LABEL[effortStage()])}))}</p>`+
     `<p class="profile-effort">${esc(t("profile.chosen",effort))}</p>`+
@@ -8031,7 +8034,8 @@ function renderOverviewProfile(){
     `<p class="profile-history-label">${esc(t("profile.history"))}</p><ul class="profile-signals">${lifts.map(ex=>{
       const n=(state.log||[]).filter(row=>!row.warmup&&maxSetRowKey(row)===programGaugeKey(ex)).length;
       return `<li class="profile-signal"><span>${esc(exerciseDisplayName(ex))}</span><span>${esc(t("profile.history_sets",{n}))}</span></li>`}).join("")}</ul>`+
-    `<div class="ovsec"><h3 class="ovsec__title">${esc(t("calib.recent"))}</h3></div><ul class="calchecks">${rows}</ul>`}
+    `<div class="ovsec"><h3 class="ovsec__title">${esc(t("calib.recent"))}</h3></div><ul class="calchecks">${rows}</ul>`;
+  const back=$("#summaryProfileBack");if(back)back.onclick=returnFromSummaryProfile}
 /* "Not now" closes the prompt for that exercise in this workout. */
 const maxSetDeclined=new Set();
 let maxSetUi=null;
@@ -12227,15 +12231,30 @@ function rampSessionStats(root){
     run.raf=requestAnimationFrame(step)};
   run.raf=requestAnimationFrame(step)}
 
-let sessionSummaryCurrent=null;
+let sessionSummaryCurrent=null,sessionSummaryProfileReturn=null;
+function clearSummaryProfileReturn(){
+  if(sessionSummaryProfileReturn)sessionSummaryCurrent=null;
+  sessionSummaryProfileReturn=null;$("#summaryProfileBack")?.remove()}
+async function openSummaryProfile(summary){
+  const sheet=$("#sessionSummary");
+  const returning={summary,view:currentViewId(),scroll:sheet.scrollTop};
+  stopSummaryRamp();await closeModal(sheet);
+  sessionSummaryProfileReturn=returning;
+  navTo("stats");setStatsSeg("overview");syncRouteHistory();
+  const profile=$("#overviewProfile");
+  if(profile){profile.setAttribute("tabindex","-1");profile.scrollIntoView({block:"start"});profile.focus({preventScroll:true})}}
+function returnFromSummaryProfile(){
+  const returning=sessionSummaryProfileReturn;if(!returning)return;
+  clearSummaryProfileReturn();returnToTab(returning.view);render();syncRouteHistory();
+  openSessionSummary(returning.summary);
+  $("#sessionSummary").scrollTop=returning.scroll;
+  $("#sumFinding")?.focus({preventScroll:true})}
+
 function renderSessionSummary(s){
   const body=$("#sessionSummaryBody");if(!body)return;
   stopSummaryRamp();
   body.innerHTML=sessionSummaryHtml(s);
-  const finding=$("#sumFinding");if(finding)finding.onclick=()=>{
-    closeSessionSummary({nav:"stats"});setStatsSeg("overview");
-    const profile=$("#overviewProfile");
-    if(profile){profile.setAttribute("tabindex","-1");profile.scrollIntoView({block:"start"});profile.focus({preventScroll:true})}};
+  const finding=$("#sumFinding");if(finding)finding.onclick=()=>openSummaryProfile(s);
   const done=$("#sumDone");if(done)done.onclick=()=>closeSessionSummary();
   const share=$("#sumShare");if(share)share.onclick=()=>openShareSheet(share);
   const see=$("#sumSee");if(see)see.onclick=()=>{
@@ -12243,6 +12262,7 @@ function renderSessionSummary(s){
     closeSessionSummary({nav:"history"})}}
 
 function clearSessionSummaryView(){
+  clearSummaryProfileReturn();syncRouteHistory();
   sessionSummaryCurrent=null;
   stopSummaryRamp();
   const el=$("#sessionSummary");
@@ -12270,6 +12290,7 @@ function openSessionSummary(s){
   return true}
 
 function closeSessionSummary(opts={}){
+  clearSummaryProfileReturn();
   const el=$("#sessionSummary");
   sessionSummaryCurrent=null;
   stopSummaryRamp();
@@ -25494,6 +25515,7 @@ function renderBuildRelease(){
   ask(sw.controller);
   sw.addEventListener("controllerchange",()=>ask(sw.controller))}
 function showSettings(){
+  clearSummaryProfileReturn();
   $$("nav button").forEach(x=>{x.classList.remove("active");x.setAttribute("aria-current","false")});
   $$(".view").forEach(v=>v.classList.toggle("active",v.id==="settings"));
   document.body.classList.add("is-settings");document.body.classList.remove("is-exercise","is-onboarding","is-workout");
@@ -26108,6 +26130,7 @@ function init(){
     }
     if(programEditMode)finishInstalledEditor();
     if(dockRetap(b))return;
+    if(b.dataset.view!=="stats")clearSummaryProfileReturn();
     abandonVoiceOp();
     exView=null;cancelWorkoutEntry();workoutActive=false;workoutLeft=true;
     // Progress remembers its segment, so arriving there can itself open the review.
