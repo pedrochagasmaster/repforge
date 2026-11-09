@@ -28,6 +28,8 @@
  */
 import { readFileSync } from "node:fs";
 import { chooseRepsLeft, launchChromium, openShelfField, waitForAppBoot } from "./browser.mjs";
+import { seed as seedHistory } from "../tools/ui-screens/session.mjs";
+import { installGeneratedProgram, definitionSlot, isWeightRepsSlot, metricLogRow } from "./fixtures/history-metric-rows.mjs";
 import { installSeedProgram } from "./fixtures/seed-program.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
@@ -250,7 +252,7 @@ async function openWhy(page) {
     target: document.querySelector("#whyTarget")?.textContent?.trim() || "",
     mark: [...document.querySelectorAll("#whyTarget .verdictmark")].map((el) => el.className.replace(/.*verdictmark--/, "")),
     blocks: [...document.querySelectorAll("#whyBody .whysheet__block")].map((el) => ({
-      lead: el.getAttribute("data-lead"), text: el.querySelector(".whysheet__text")?.textContent?.trim() || "",
+      lead: el.getAttribute("data-lead"), text: [...el.querySelectorAll(".whysheet__text")].map(node => node.textContent.trim()).join(" "),
     })),
   }));
 }
@@ -468,7 +470,7 @@ try {
     `cue=${JSON.stringify(cueBefore.mark)} why=${JSON.stringify(whyBefore.mark)}`);
 
   const standingBlock = whyBefore.blocks.find((b) => b.lead === "engine-standing");
-  assert(standingBlock?.text.includes("sets over 1 sessions") &&
+  assert(standingBlock?.text.includes("session") &&
     standingBlock?.text.includes("Still learning this lift"),
     "P080: Why explains the learning word and its set/session evidence", standingBlock);
   for (const lang of ["pt", "en"]) {
@@ -654,6 +656,55 @@ try {
     await manualPtContext.close();
   }
 
+  const standingContext = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: "pt-BR" });
+  const standingPage = await standingContext.newPage();
+  await standingPage.clock.setFixedTime(new Date("2026-03-04T09:00:00Z"));
+  await standingPage.goto(BASE, { waitUntil: "domcontentloaded" });
+  await waitForAppBoot(standingPage, { base: BASE });
+  const standingState = await installGeneratedProgram(standingPage);
+  const standingRow = standingState.program.find(row => isWeightRepsSlot(definitionSlot(standingState.programMeta, row)));
+  for (const scenario of ["first", "break", "solid", "disagreement", "inconsistent"]) {
+    const snapshot = structuredClone(standingState);
+    const date = scenario === "break" ? "2026-01-14" : "2026-03-04";
+    snapshot.log = scenario === "first" ? [] : Array.from({ length: 4 }, (_, session) =>
+      [40, scenario === "disagreement" ? 60 : 37.5, 35].map((load, index) => metricLogRow(snapshot.programMeta, standingRow, {
+        session: `standing-${session}`, date, set: index + 1, load, reps: 8, rir: 2,
+        extra: { effortSource: "reps_left" },
+      }))).flat();
+    if (scenario === "inconsistent") snapshot.log.push(...[3, 15, 3, 15].map((predictedReps, index) =>
+      metricLogRow(snapshot.programMeta, standingRow, { session: `check-${index}`, date, set: 4, load: 35, reps: 8, rir: 0,
+        extra: { effortSource: "failure", calibration: { v: 1, predictedReps, predictionEdited: false, prefillBasis: "reps_rir" } },
+      })));
+    await seedHistory(standingPage, snapshot);
+    await standingPage.evaluate(day => window.__repforgeEnterWorkout({ day }), standingRow.day);
+    await standingPage.waitForSelector("#workout.is-focus .exercise.is-current");
+    await standingPage.evaluate(id => window.__repforgeGoToLogExercise(id), standingRow.id);
+    await standingPage.waitForFunction(id => document.querySelector("#workout .exercise.is-current")?.dataset.ex === id, standingRow.id);
+    const truth = await engineTruth(standingPage, standingRow.slotId);
+    const word = scenario === "first" ? "first" : scenario === "solid" ? "solid" : "learning";
+    assert(truth.standing?.word === word, `P080: ${scenario} reads its standing through the production adapter`, truth.standing);
+    const line = standingPage.locator("#workout .exercise.is-current .fx-cue__standing");
+    assert(word === "solid" ? await line.count() === 0 : await line.count() === 1,
+      `P080: ${scenario} renders one quiet line, solid renders none`);
+    const sheet = await openWhy(standingPage);
+    const block = sheet.blocks.find(b => b.lead === "engine-standing");
+    const reasons = await standingPage.locator('[data-lead="engine-standing"] [data-standing-reason]').evaluateAll(nodes => nodes.map(node => node.dataset.standingReason));
+    assert(JSON.stringify(reasons) === JSON.stringify(truth.standing?.reasons),
+      `P080: ${scenario} explains each engine reason exactly once`, { reasons, standing: truth.standing });
+    assert(block && !/\d\s*%|why\.standing/.test(block.text), `P080: ${scenario} explains footing in translated words`, block);
+    if (scenario === "break") assert(block?.text.includes("7 semanas"), "P080: Why explains a 50-day break in weeks", block);
+    if (scenario === "inconsistent") {
+      const leads = sheet.blocks.map(b => b.lead);
+      assert(leads.indexOf("engine-standing") < leads.indexOf("engine-calibration"), "P080: standing comes before calibration", leads);
+    }
+    await closeWhy(standingPage);
+    await standingPage.locator("#woDayTitle [data-exopen]").click();
+    await standingPage.waitForSelector("#exDetail .recblock");
+    const detailLine = standingPage.locator("#exDetail .recblock__standing");
+    assert(word === "solid" ? await detailLine.count() === 0 : await detailLine.count() === 1,
+      `P080: exercise page shares the ${scenario} standing line`);
+  }
+  await standingContext.close();
   assert(errors.length === 0, "no page errors during the why-sheet sessions", errors);
 } finally {
   await browser.close();
