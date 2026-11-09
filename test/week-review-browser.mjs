@@ -193,8 +193,25 @@ async function runRoundFourCases(browser,manifest){
   if(failures.length)throw new AggregateError(failures,"round 4 zero-count proofs failed");
 }
 
+async function runCatalogWeekCardCases(browser,manifest){
+  for(const [key,now,seen] of [["today/ready",undefined,"2026-W36"],["today/ready","2027-01-01T12:00:00Z","2026-W53"],["today/week-card",undefined,undefined]]){
+    const [flow,screen]=key.split("/"),capture={flow,screen,viewport:"phone-390",theme:"dark",locale:"en",text:"normal",motion:"normal"};
+    const {page,context}=await openPage(browser,manifest,capture,appState(key,"en"),{catalog:true,now});
+    try{
+      await dismissChrome(page);await APP_SCENARIOS[key](page);
+      assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem("repforge_ui_v1")).weekCardSeen),seen,"catalog seeds only ordinary states as seen for their pinned ISO week");
+      assert.equal(await page.locator("#todayWeekCard:not(.hidden)").count(),seen?0:1,"the dedicated card state remains visible");
+      await seed(page,appState(key,"en"));await dismissChrome(page);
+      assert.equal(await page.locator("#todayWeekCard:not(.hidden)").count(),seen?0:1,"catalog preferences survive scenario reseeding and reload");
+      assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem("repforge_ui_v1")).theme),"dark","theme updates retain fixture preferences");
+      console.log(`PASS catalog week card: ${key} ${now||"default clock"}`);
+    }finally{await context.close()}
+  }
+}
+
 export async function runWeekReviewBrowser(browser) {
   const manifest=loadManifest();
+  await runCatalogWeekCardCases(browser,manifest);
   await runRoundFourCases(browser,manifest);
   await runRoundThreeCases(browser,manifest);
   await runRoundTwoCases(browser,manifest);
