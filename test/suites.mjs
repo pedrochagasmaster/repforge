@@ -310,6 +310,7 @@ export const FULL_SUITES = {
 };
 
 export const SUPPORT = {
+  "test/session-zero-browser.mjs": "Session-zero browser journeys executed by workout-draft-parity.mjs in the PR lane.",
   "test/week-review-browser.mjs": "Plan 082 weekly facts journeys executed by test/progress-lifecycle.mjs in the PR lane.",
   "test/week-review.mjs": "Plan 082 weekly-facts assertions executed by test/progress-model.mjs in the PR lane.",
   "test/engine-standing.mjs": "Standing and frozen selection proofs executed by progression-engine-plan067.mjs in the PR lane.",

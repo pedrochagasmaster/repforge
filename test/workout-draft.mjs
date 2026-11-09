@@ -1216,6 +1216,10 @@ console.log("\nIssue #320: create() clamps a target RIR that falls back to the l
     d=inserted;
     assert(same(d.exercises["slot-squat"].setOrder,["ramp-1","squat-set-1","squat-set-2"]),"ramp precedes the first working set");
     assert(d.exercises["slot-squat"].setOrder.every((id,i)=>d.exercises["slot-squat"].sets[id].ordinal===i+1),"insertion renumbers every ordinal");
+    const reset=command(fresh(),"insertSet",{...payload,nextLoadKg:22.5}).result;
+    assert(!Draft.isDomainError(reset)&&reset.exercises["slot-squat"].sets["squat-set-1"].edited.load==="22.5"&&
+      Object.values(reset.exercises["slot-squat"].sets["squat-set-1"].touched).every(value=>value===false),
+      "the next ramp load is an untouched prefill, never a performed working set");
     assert(Draft.validate(d).ok&&Draft.parse(JSON.stringify(d)).draft.exercises["slot-squat"].sets["ramp-1"].origin==="ramp","ramp and opening provenance survive production parse");
     d=apply(d,"completeSet",{exerciseInstanceId:"slot-squat",setId:"ramp-1",completedAt:"2026-08-15T11:00:00.000Z"});
     for(let i=2;i<=3;i++)d=apply(d,"insertSet",{...payload,setId:`ramp-${i}`,startingLoad:{...opening,ramps:i}});
@@ -1224,7 +1228,7 @@ console.log("\nIssue #320: create() clamps a target RIR that falls back to the l
     d=apply(d,"editSetField",{exerciseInstanceId:"slot-squat",setId:"squat-set-1",field:"reps",value:"6"});
     d=apply(d,"completeSet",{exerciseInstanceId:"slot-squat",setId:"squat-set-1",completedAt:"2026-08-15T11:01:00.000Z"});
     assert(Draft.isDomainError(command(d,"insertSet",{...payload,setId:"late-ramp"}).result),"completed working set prevents mid-exercise insertion");
-    const rows=Draft.toHistoryRows(d,"2026-08-15T11:02:00.000Z");
+    const rows=Draft.toHistoryRows(apply(d,"beginFinish"),"2026-08-15T11:02:00.000Z");
     assert(rows[0]?.warmup===true&&!rows[0]?.startingLoad,"ramp saves as an ordinary warm-up without first-working provenance");
     assert(rows.find(row=>!row.warmup)?.startingLoad?.ramps===3,"only first working row carries the opening and ramp count");
     const bad=structuredClone(d);bad.exercises["slot-squat"].sets["squat-set-1"].startingLoad.extra=true;
