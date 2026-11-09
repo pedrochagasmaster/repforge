@@ -365,7 +365,7 @@ try {
     knownPerSideTruth.executionMode === "bilateral",
     "P069-S3-WHY: entering the generated known-bilateral slot establishes m=2 in the actual workout context", knownPerSideContext);
   const knownPerSideCue = await focusCue(perSidePage);
-  assert(await perSidePage.locator("#workout .exercise.is-current .fx-cue__standing").textContent().catch(() => null) === "First time on this lift",
+  assert(await perSidePage.evaluate(() => document.querySelector("#workout .exercise.is-current .fx-cue__standing")?.textContent ?? null) === "First time on this lift",
     "P080: Focus names a first lift without inventing evidence");
   assert(knownPerSideCue.line1 === `Pick a load for ${knownPerSideTruth.min}–${knownPerSideTruth.max} reps` && !knownPerSideCue.line2,
     "P069-S3-CUE: generated known-bilateral Focus asks for a load without claiming setup is missing",
@@ -468,7 +468,7 @@ try {
   assert(truthBefore.standing?.word === "learning" &&
     JSON.stringify(truthBefore.standing) === JSON.stringify(truthBefore.resultStanding),
     "P080: recommendation carries the engine's standing without recomputing it", truthBefore);
-  const standingLine = await page.locator("#workout .exercise.is-current .fx-cue__standing").textContent().catch(() => null);
+  const standingLine = await page.evaluate(() => document.querySelector("#workout .exercise.is-current .fx-cue__standing")?.textContent ?? null);
   assert(standingLine === "Still learning this lift", "P080: Focus quietly names a learning target", standingLine);
 
   // RT-05, before any set this session: the headline is exactly the Focus cue.
