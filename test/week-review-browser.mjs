@@ -163,8 +163,28 @@ async function runRoundThreeCases(browser,manifest){
   if(failures.length)throw new AggregateError(failures,"round 3 regression proofs failed");
 }
 
+async function runRoundFourCases(browser,manifest){
+  const failures=[];
+  for(const locale of ["en","pt"])for(const kind of ["some","none"]){
+    const state=appState("today/week-card",locale),stall=state.program.filter(ex=>ex.day==="Day 1")[1];
+    if(kind==="some")state.log=state.log.filter(row=>row.exerciseId!==stall.id||row.date>="2026-08-24");
+    else{state.log=state.log.filter(row=>row.session==="weekly-2");delete state.sessionEvents}
+    const {page,context}=await openPage(browser,manifest,{flow:"today",screen:"week-card",viewport:"phone-390",theme:"light",locale,text:"normal",motion:"normal"},state);
+    try{
+      await dismissChrome(page);await APP_SCENARIOS["today/week-card"](page);
+      const card=page.locator("#todayWeekCard"),paragraphs=card.locator("p");
+      if(kind==="some")assert.equal(await paragraphs.nth(2).innerText(),locale==="pt"?"Melhoraram: 1. Dor ou desconforto: 1.":"Moved up: 1. Pain or discomfort: 1.","zero stalled count is absent while nonzero facts retain their order");
+      else assert.equal(await paragraphs.count(),2,"all-zero facts omit the entire facts paragraph");
+      console.log(`PASS round 4: ${locale} ${kind} nonzero facts`);
+    }catch(error){failures.push(new Error(`${locale} ${kind}: ${error.message}`,{cause:error}))}
+    finally{await context.close()}
+  }
+  if(failures.length)throw new AggregateError(failures,"round 4 zero-count proofs failed");
+}
+
 export async function runWeekReviewBrowser(browser) {
   const manifest=loadManifest();
+  await runRoundFourCases(browser,manifest);
   await runRoundThreeCases(browser,manifest);
   await runRoundTwoCases(browser,manifest);
   for(const kind of ["first-week","empty-day","cross-block"]){
