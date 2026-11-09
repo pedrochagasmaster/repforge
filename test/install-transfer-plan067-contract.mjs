@@ -827,3 +827,19 @@ for (const location of ["row", "draft"]) {
     assert.equal((await Contract.validateEnvelopeIntegrity(envelope,webcrypto)).ok,value===opening079,`${location}: strict starting-load provenance ${JSON.stringify(value)}`);
   }
 }
+{
+  const envelope=structuredClone(valid),logical=envelope.workoutDraft;
+  const draft={...logical,revision:0,writer:{installationId:"ramp-source",tabId:"ramp-tab",operationId:"ramp-create"},
+    program:{...logical.program,durableRevision:0}};
+  const ex=draft.exercises[activeSlot.id],first=ex.sets[ex.setOrder[0]];
+  const inserted=WorkoutDraft.reduce(draft,{type:"insertSet",operationId:"ramp-insert",expectedRevision:0,
+    writer:{installationId:"ramp-source",tabId:"ramp-tab"},updatedAt:"2026-10-06T09:00:00.000Z",
+    exerciseInstanceId:activeSlot.id,beforeSetId:first.setId,setId:"ramp-before-first",role:"warmup",origin:"ramp",
+    programmed:first.programmed,edited:first.edited,startingLoad:{...opening079,ramps:1},nextLoadKg:22.5});
+  assert.equal(WorkoutDraft.isDomainError(inserted),false,JSON.stringify(inserted));
+  envelope.workoutDraft=WorkoutDraft.logicalCloneSection(inserted);
+  envelope.integrity.canonicalPayloadHash=canonicalHash(envelope);
+  const accepted=await Contract.validateEnvelopeIntegrity(envelope,webcrypto);
+  assert.equal(accepted.ok,true,`an actual inserted ramp and its untouched working prefill cross transfer: ${JSON.stringify(accepted)}`);
+}
+console.log("PASS session-zero transfer: 10 strict provenance cases and an inserted production draft");

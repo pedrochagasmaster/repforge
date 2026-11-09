@@ -1214,12 +1214,18 @@ console.log("\nIssue #320: create() clamps a target RIR that falls back to the l
   assert(!Draft.isDomainError(inserted),"ramp insertion is a supported draft command",JSON.stringify(inserted));
   if(!Draft.isDomainError(inserted)){
     d=inserted;
+    assert(Draft.isDomainError(command(d,"insertSet",{...payload,setId:"duplicate-easy"}).result),"two callers cannot consume the same Easy answer twice");
     assert(same(d.exercises["slot-squat"].setOrder,["ramp-1","squat-set-1","squat-set-2"]),"ramp precedes the first working set");
     assert(d.exercises["slot-squat"].setOrder.every((id,i)=>d.exercises["slot-squat"].sets[id].ordinal===i+1),"insertion renumbers every ordinal");
     const reset=command(fresh(),"insertSet",{...payload,nextLoadKg:22.5}).result;
     assert(!Draft.isDomainError(reset)&&reset.exercises["slot-squat"].sets["squat-set-1"].edited.load==="22.5"&&
       Object.values(reset.exercises["slot-squat"].sets["squat-set-1"].touched).every(value=>value===false),
       "the next ramp load is an untouched prefill, never a performed working set");
+    const mid=apply(fresh(),"completeSet",{exerciseInstanceId:"slot-squat",setId:"squat-set-1",completedAt:"2026-08-15T11:00:00.000Z"});
+    assert(Draft.isDomainError(command(mid,"insertSet",payload).result),"a working set blocks insertion even before the ramp limit");
+    const undone=apply(mid,"uncommitSet",{exerciseInstanceId:"slot-squat",setId:"squat-set-1"});
+    assert(Draft.isDomainError(command(undone,"insertSet",payload).result),"undoing a working set cannot start a mid-exercise ramp");
+    assert(!Draft.isPristine(reset),"an accepted opening remains recoverable before any working set is completed");
     assert(Draft.validate(d).ok&&Draft.parse(JSON.stringify(d)).draft.exercises["slot-squat"].sets["ramp-1"].origin==="ramp","ramp and opening provenance survive production parse");
     d=apply(d,"completeSet",{exerciseInstanceId:"slot-squat",setId:"ramp-1",completedAt:"2026-08-15T11:00:00.000Z"});
     for(let i=2;i<=3;i++)d=apply(d,"insertSet",{...payload,setId:`ramp-${i}`,startingLoad:{...opening,ramps:i}});

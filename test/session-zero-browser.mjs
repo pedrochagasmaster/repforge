@@ -1,5 +1,6 @@
 /** Session-zero journeys, composed into the existing draft-parity PR command. */
 import assert from "node:assert/strict";
+import {readFileSync} from "node:fs";
 import { launchChromium, waitForAppBoot, openShelfField, chooseRepsLeft } from "./browser.mjs";
 import { installGeneratedProgram, definitionSlot, isWeightRepsSlot } from "./fixtures/history-metric-rows.mjs";
 import { finishEarly } from "./fixtures/focus-workout.mjs";
@@ -14,7 +15,7 @@ async function open(browser,{mode="effort",planned=false}={}){
   const state=await installGeneratedProgram(page,{name:"Opening-load proof"});
   const target=state.program.find(row=>isWeightRepsSlot(definitionSlot(state.programMeta,row))&&row.sets>=3);
   assert.ok(target,"generated fixture has a weighted slot");
-  await page.evaluate(({id,mode,planned})=>{
+  await page.evaluate(async ({id,mode,planned})=>{
     const state=JSON.parse(localStorage.getItem("repforge_v1"));
     state.profile={weightKg:80};state.programMeta.experience="beginner";
     state.settings.rirMode=mode;delete state.settings.effortScale;
@@ -22,7 +23,8 @@ async function open(browser,{mode="effort",planned=false}={}){
       const slot=state.programMeta.programDefinition.days.flatMap(day=>day.slots||[]).find(slot=>slot.id===id);
       for(const cycle of slot.prescriptionsByCycle)for(const set of cycle.sets)set.targets.loadKg=40;
     }
-    localStorage.setItem("repforge_v1",JSON.stringify(state));
+    await window.__repforgeCommitProposedState(state);
+    await window.__repforgeStorage.flush();
   },{id:target.id,mode,planned});
   await page.reload();await waitForAppBoot(page,{base:BASE});
   await page.evaluate(id=>window.__repforgeGoToLogExercise(id),target.id);
@@ -95,7 +97,30 @@ try{
   check(rows.filter(row=>row.warmup).length===3&&rows.filter(row=>row.startingLoad).length===1,"history contains three warm-ups and exactly one opening record");
   await page.reload();await waitForAppBoot(page,{base:BASE});
   check((await page.evaluate(()=>JSON.parse(localStorage.getItem("repforge_v1")).log)).find(row=>row.startingLoad)?.startingLoad.ramps===3,"durable loader retains the opening record");
+  await page.evaluate(()=>window.__repforgeShowSettings());
+  await page.locator("#dataBackupRow").click();
+  const [download]=await Promise.all([page.waitForEvent("download"),page.locator("#exportJson").click()]);
+  const backup=JSON.parse(readFileSync(await download.path(),"utf8"));
+  check(backup.log.find(row=>row.startingLoad)?.startingLoad.ramps===3,"backup export includes the opening provenance");
+  await page.locator("#dataImportRow").click();
+  await page.locator("#importJson").setInputFiles({name:"opening-backup.json",mimeType:"application/json",buffer:Buffer.from(JSON.stringify(backup))});
+  await page.waitForFunction(()=>document.querySelector("#importChoice")?.open===true);
+  await page.locator("#importReplace").click();
+  await page.waitForFunction(()=>document.querySelector("#importChoice")?.open===false);
+  await page.evaluate(()=>window.__repforgeStorage.flush());
+  await page.reload();await waitForAppBoot(page,{base:BASE});
+  check((await page.evaluate(()=>JSON.parse(localStorage.getItem("repforge_v1")).log)).find(row=>row.startingLoad)?.startingLoad.ramps===3,"backup Replace and production reload retain the opening provenance");
+  await page.evaluate(id=>window.__repforgeGoToLogExercise(id),target.id);
+  check(await page.locator(`${card} .fx-cue.is-ramp`).count()===0,"the lift's own saved history skips the ramp on its next session");
   await run.context.close();
+
+  const interrupted=await open(browser);
+  await interrupted.page.locator(`${card} [data-ramp-start]`).click();
+  await answer(interrupted.page,"easy");await waitWarmups(interrupted.page,1);
+  await finishEarly(interrupted.page);
+  const partial=await interrupted.page.evaluate(()=>JSON.parse(localStorage.getItem("repforge_v1")).log);
+  check(partial.length===1&&partial[0].warmup&&!partial[0].startingLoad,"finishing during a ramp saves only the performed warm-up");
+  await interrupted.context.close();
 
   const typed=await open(browser,{mode:"numeric"});
   await typed.page.locator(`${card} [data-ramp-skip]`).click();
@@ -109,9 +134,15 @@ try{
 
   const max=await open(browser,{mode:"numeric"});
   await max.page.locator(`${card} [data-ramp-start]`).click();
+  await field(max.page,"loadKg",40);await field(max.page,"reps",1);
   await answer(max.page,0);await nextWorking(max.page,1);
   check(Object.values((await exercise(max.page)).sets).every(set=>!set.origin),"Max becomes working set one without inserting a ramp");
   await max.page.waitForFunction(()=>document.querySelector("#workout .exercise.is-current .fx-cue.is-now"));
+  const nextLoad=await max.page.evaluate(id=>{
+    const api=window.__repforgeProgression,rec=api.recommendation(api.programSlot(id));
+    return rec.targetSets.find(item=>item.prescription.setIndex===2)?.targets.loadKg;
+  },max.target.id);
+  check(nextLoad<40,`a one-rep Max below the prescribed minimum lowers the next target (${nextLoad})`);
   await max.context.close();
 
   const planned=await open(browser,{planned:true});

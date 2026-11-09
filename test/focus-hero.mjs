@@ -444,7 +444,7 @@ try {
   {
     const run = await open(browser, { width: 320, height: 568, lang: "pt", text: "text200" });
     const { page, target } = run;
-    ok((await card(page)).evidenceText === await t(page, "focus.evidence.none_history"), "the Portuguese no-history reason comes from the Portuguese catalog");
+    ok((await card(page)).evidenceText === await t(page, "focus.evidence.floor"), "the Portuguese no-history reason comes from the Portuguese catalog");
     for (let n = 1; n < target.sets; n++) await logSet(page, target.slotId, n, { load: 60, reps: 8, rir: 1 }, { stopRest: n < target.sets - 1 });
     const engine = await engineSet(page, target.rowId, target.sets);
     const now = await card(page);
