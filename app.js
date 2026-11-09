@@ -7934,6 +7934,73 @@ function profileEffortCounts(){
   const sessions=[...new Set(rows.map(row=>row.session))].slice(-10);
   const recent=rows.filter(row=>sessions.includes(row.session)&&!row.warmup&&row.effortSource&&row.effortSource!=="failure");
   return{n:recent.filter(row=>["effort","rir","reps_left","reps_left_3plus","reps_left_5plus"].includes(row.effortSource)).length,m:recent.length}}
+/** Historical profile readings use the engine and the same comparable history
+ * as Why. No live draft, future session or stored finding enters the replay. */
+function findingReadings(){
+  const compiler=window.RepForgeProgramCompiler,engine=window.RepForgeProgression;
+  const definition=state.programMeta?.programDefinition;
+  if(!compiler||!engine||!definition)return()=>[];
+  const plans=[],cycles=new Map();
+  for(const ex of state.program){
+    const matched=canonicalPrescriptionSlot(ex),key=String(ex.libraryId||ex.movementId||ex.name||"");
+    if(!matched)continue;
+    const slot=matched.slot,context=slotLoadingContext(slot);
+    plans.push({key,name:exerciseDisplayName(ex),slot,context,projection:slotLoadingProjection(slot)})}
+  return(log,asOf)=>{
+    const elapsed=state.programMeta?.started?Math.floor(RepForgeProgressModel.calendarDayDistance(state.programMeta.started,asOf)/7)+1:1;
+    const cycle=Math.max(1,Math.min(definition.cycles||1,elapsed));
+    if(!cycles.has(cycle))cycles.set(cycle,compiler.prescriptionsForCycle(definition,cycle));
+    return plans.flatMap(plan=>{
+    const{slot,context,key}=plan,first=cycles.get(cycle).find(item=>item.slotId===slot.id);if(!first)return[];
+    const history=progressionHistoryFor(first.exerciseId,first.metricIds,plan.projection,slot.metricDefinitions,log);
+    const calibration=liftCalibration(history,context,slot.metricDefinitions,[],asOf);
+    const recommendation=engine.recommendSets([first],history,[],{bySlotId:{[slot.id]:context}},
+      {now:asOf,weightMatch:state.settings.weightMatch===true,expandRepRange:state.settings.expandRepRange!==false,calibration})[0];
+    const compatible=log.filter(row=>String(row.performedLibraryId||row.performedMovementId||row.sourceLibraryId||row.performedName||row.name||"")===key&&
+      !row.warmup&&row.origin!=="ramp");
+    const bySession=new Map();
+    for(const row of compatible){if(!bySession.has(row.session))bySession.set(row.session,[]);bySession.get(row.session).push(row)}
+    const sessions=[...bySession.values()];
+    const withEffort=rows=>rows.every(row=>typeof row.rir==="number"&&Number.isFinite(row.rir));
+    const improved=sessions.length>1&&withEffort(sessions[0])&&withEffort(sessions.at(-1))&&compareProjectedSessionOutcome(sessions.at(-1),sessions[0]).status==="improved";
+    // W is the gauge's own first-set capacity rule, including its quality and
+    // two-week gap. Equipment/convention stays separate, as it does in Why.
+    const observations=compatible.filter(row=>row.strengthComparable!==false&&(row.equipmentId??null)===(context.equipmentId??null)&&row.loadingConvention===context.loadingConvention)
+      .map(row=>({key:`${key}|${row.strengthConvention||"load"}`,session:String(row.session),date:row.date,set:row.setIndex??Number(row.set)-1,
+        load:row.load,reps:row.reps,rir:row.rir,q:CalibrationGauge.rowQuality(row)}));
+    return[{key,name:plan.name,recommendation,standing:recommendation?.standing,calibration,weeks:CalibrationGauge.weeksFrom(observations,capE1rm),
+      records:detectPRs(compatible).filter(record=>record.deltaLoad>0||record.deltaReps>0||record.deltaE1rm>0),improved}]})}}
+let findingsCache={key:"",value:null};
+function profileFindings(){
+  const key=JSON.stringify([state.log,state.program,state.programMeta,state.settings,today(),I18N.getLang()]);
+  if(findingsCache.key!==key)findingsCache={key,value:RepForgeProgressModel.buildFindings(
+    readLogRows(),state.program,state.programMeta,today(),findingReadings())};
+  return findingsCache.value}
+function findingText(finding){
+  const vars={...finding};
+  if(finding.key)vars.lift=localizedMovementName(finding.lift,finding.key);
+  if(finding.loadingConvention==="bodyweight")vars.load=t("finding.bodyweight");
+  if(finding.load!=null)vars.load=`${fmtLoad(finding.load)} ${unitLabel()}`;
+  if(finding.becauseDate)vars.date=shortDate(finding.becauseDate);
+  if(finding.id==="month_one"){vars.sessionWord=tp(finding.sessions,"session");vars.liftWord=tp(finding.improved,"exercise")}
+  if(finding.sets!=null)vars.sets=fmt(Math.round(finding.sets*10)/10);
+  if(finding.cap1!=null){vars.cap1=`${fmtLoad(finding.cap1)} ${unitLabel()}`;vars.cap2=`${fmtLoad(finding.cap2)} ${unitLabel()}`}
+  const key=finding.id==="weights_found"&&finding.n===1?"finding.weights_found_one":finding.id==="effort_read"?`finding.effort_read_${finding.state}`:`finding.${finding.id}`;
+  const record=finding.record?t("finding.record",{load:`${fmtLoad(finding.record.load)} ${unitLabel()}`,reps:finding.record.reps}):"";
+  return t(key,vars)+(record?" "+record:"")}
+function findingNeedText(next){
+  const vars={...next.need,lift:localizedMovementName(next.need.lift,next.need.key)};
+  const suffix=next.id==="month_one"&&vars.d===1?"_one":next.id==="weights_found"&&vars.m===1?"_one":next.id==="effort_read"&&vars.k===1?"_one":next.id==="first_solid"&&vars.reason==="sets"&&vars.m===1?"_one":next.id==="effort_read"&&vars.reason==="agreement"?"_agreement"
+    :next.id==="first_solid"&&vars.reason!=="sets"?`_${vars.reason}`:"";
+  return t(`finding.need.${next.id}${suffix}`,vars)}
+function profileFindingsHtml(){
+  const findings=profileFindings();
+  return `<div class="ovsec"><h3 class="ovsec__title">${esc(t("profile.findings"))}</h3></div>`+
+    (findings.released.length?`<ul class="profile-findings">${findings.released.map(finding=>
+      `<li class="profile-finding" data-finding="${finding.id}"><time datetime="${finding.date}">${esc(shortDate(finding.date))}</time>`+
+      `<p>${esc(findingText(finding))}</p></li>`).join("")}</ul>`:`<p class="profile-finding-empty">${esc(t("finding.empty"))}</p>`)+
+    (findings.next?`<p class="profile-finding-need" data-finding-next="${findings.next.id}">${esc(t("finding.next",{need:findingNeedText(findings.next)}))}</p>`:"")}
+
 /** Progress › Overview reads counts from the six signals. No component or combined percentage is presented. */
 function renderOverviewProfile(){
   const el=$("#overviewProfile");if(!el)return;
@@ -7955,6 +8022,7 @@ function renderOverviewProfile(){
     :`<li class="calcheck calcheck--empty">${esc(t("calib.empty"))}</li>`;
   const lifts=days().flatMap(day=>state.program.filter(ex=>ex.day===day));
   el.innerHTML=`<div class="ovsec"><h3 class="ovsec__title">${esc(t("profile.title"))}</h3></div>`+
+    profileFindingsHtml()+
     `<p class="profile-stage">${esc(t("profile.stage",{stage:t(STAGE_LABEL[effortStage()])}))}</p>`+
     `<p class="profile-effort">${esc(t("profile.chosen",effort))}</p>`+
     `<ul class="profile-lifts">${lifts.map(ex=>profileLiftHtml(ex)).join("")}</ul>`+

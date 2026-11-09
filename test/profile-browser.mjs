@@ -104,6 +104,9 @@ try {
     "the profile includes every active program slot before history exists");
   assert((await page.locator("#overviewProfile").innerText()).includes("0 of 0"), "empty evidence is a count, not a target");
 
+  assert(await page.locator("#overviewProfile [data-finding-next=weights_found]").count() === 1,
+    "the empty profile says how many lifts still start from a guess");
+
   await boot(page);
   assert(await page.locator("#todayCalRing, #todayCalRingBar").count() === 0, "Today has no ring after history either");
   await page.evaluate(() => window.scrollTo(0, 400));
@@ -111,6 +114,16 @@ try {
   await page.click('[data-view="stats"]');
   await page.waitForSelector("#overviewProfile .profile-lift");
   const profile = await page.locator("#overviewProfile").innerText();
+  const findings = await page.locator("#overviewProfile [data-finding]").evaluateAll(nodes => nodes.map(node => ({
+    id:node.dataset.finding, date:node.querySelector("time")?.dateTime, text:node.textContent
+  })));
+  assert(findings.length === 4 && new Set(findings.map(f=>f.id)).size === 4,
+    "manual prescriptions release four findings without inventing a target or solid standing", findings);
+  assert(findings.every(f=>/^\d{4}-\d{2}-\d{2}$/.test(f.date)) &&
+    findings.every((f,i)=>!i||findings[i-1].date>=f.date), "findings are dated and newest first", findings);
+  assert(await page.locator("#overviewProfile [data-finding-next=first_target]").count() === 1 &&
+    (await page.locator("#overviewProfile .profile-finding-need").innerText()).includes("one more session"),
+    "a manual program keeps its first target pending");
   const names = await page.locator("#overviewProfile .profile-lift__name").allTextContents();
   assert(JSON.stringify(names) === JSON.stringify(program.map(ex => ex.name)), "profile rows follow training-day order", names);
   assert(await page.locator("#overviewProfile .profile-lift__standing").count() === program.length,
@@ -148,6 +161,59 @@ try {
   assert(sizes.every(([, rows]) => rows.length === 0), "counts wrap without overlap at 200% in PT/EN at 390/320", sizes);
   await page.evaluate(() => { document.documentElement.style.fontSize = ""; I18N.setLang("en"); render(); });
   await page.setViewportSize({ width: 390, height: 844 });
+
+  phase("Adaptive findings use the production engine and performed movement");
+  const findingsContext=await browser.newContext({viewport:{width:390,height:844},serviceWorkers:"block"});
+  try {
+    const findingPage=await findingsContext.newPage();
+    await findingPage.goto(BASE,{waitUntil:"domcontentloaded"});
+    await findingPage.waitForFunction(()=>window.__repforgeBooted===true);
+    const generated=await installGeneratedProgram(findingPage);
+    const ex=generated.program.find(ex=>isWeightRepsSlot(definitionSlot(generated.programMeta,ex)));
+    const history=[];
+    for(let w=0;w<6;w++)for(let set=1;set<=4;set++)history.push(metricLogRow(generated.programMeta,ex,{
+      session:`finding-${w}`,date:day(42-w*7),set,load:60,reps:11-set,rir:2,
+      extra:{effortSource:"rir",...(w===0&&set===1?{startingLoad:{v:1,openingKg:40,basis:"floor",ramps:1,version:"priors@079.1"}}:{})}
+    }));
+    history.at(-1).effortSource="failure";history.at(-1).rir=0;
+    history.at(-1).calibration={v:1,predictedReps:7,predictionEdited:false,prefillBasis:"reps_rir"};
+    generated.log=history;generated.settings.lang="en";
+    await findingPage.evaluate(async next=>{
+      const result=await window.__repforgeCommitProposedState(next);
+      if(!result.committed)throw new Error("finding fixture proposal refused");
+      await window.__repforgeStorage.flush();
+    },generated);
+    await findingPage.click('[data-view="stats"]');
+    const items=await findingPage.locator("#overviewProfile [data-finding]").evaluateAll(nodes=>nodes.map(n=>n.dataset.finding));
+    assert(items.length===6&&!items.includes("effort_read"),"adaptive history releases six truthful findings",items);
+    assert((await findingPage.locator("#overviewProfile [data-finding-next=effort_read]").innerText()).includes("2 more test sets"),
+      "one check leaves two checks on the named lift");
+    const original=generated.program.find(other=>other.libraryId!==ex.libraryId);
+    for(const row of history){row.exerciseId=original.id;row.name=original.name;}
+    await findingPage.evaluate(async next=>{
+      const result=await window.__repforgeCommitProposedState(next);
+      if(!result.committed)throw new Error("finding edit proposal refused");
+      await window.__repforgeStorage.flush();
+    },generated);
+    await findingPage.click('[data-view="log"]');await findingPage.click('[data-view="stats"]');
+    const solid=await findingPage.locator('[data-finding=first_solid]').innerText();
+    assert(solid.includes(ex.name)&&!solid.includes(original.name),"a swap credits the performed lift, never its source slot",solid);
+    generated.log=[];
+    await findingPage.evaluate(async next=>{
+      const result=await window.__repforgeCommitProposedState(next);
+      if(!result.committed)throw new Error("finding edit proposal refused");
+      await window.__repforgeStorage.flush();
+    },generated);
+    await findingPage.click('[data-view="log"]');await findingPage.click('[data-view="stats"]');
+    await findingPage.waitForFunction(()=>document.querySelectorAll("#overviewProfile [data-finding]").length===0);
+    assert(await findingPage.locator("#overviewProfile [data-finding]").count()===0,
+      "removing History rederives and removes every finding");
+    await findingPage.reload({waitUntil:"domcontentloaded"});
+    await findingPage.waitForFunction(()=>window.__repforgeBooted===true);
+    await findingPage.click('[data-view="stats"]');
+    assert(await findingPage.locator("#overviewProfile [data-finding]").count()===0,
+      "findings do not return from stored presentation state after reload");
+  } finally {await findingsContext.close();}
 
   phase("Chosen effort uses only the last ten sessions");
   const windowHistory = Array.from({length:12},(_,i)=>({...log[0],session:`recent-${i}`,date:day(12-i),
