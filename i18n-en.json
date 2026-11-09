@@ -3048,6 +3048,8 @@
   "review.week.last": "Last week",
   "review.week.current": "This week so far",
   "review.week.sessions": "{done} of {planned} sessions completed.",
+  "review.week.sessions_only.one": "{done} session completed.",
+  "review.week.sessions_only.other": "{done} sessions completed.",
   "review.week.missed": "Training days not completed: {days}.",
   "review.week.improved": "Moved up: {lifts}.",
   "review.week.maintained": "Held: {lifts}.",

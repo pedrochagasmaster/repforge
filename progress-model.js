@@ -339,8 +339,9 @@
     const rows = rowsInRange(log,start,end);
     const sessions = new Set(rows.map(row => String(row.session ?? "")).filter(Boolean));
     const authored=meta?.trainingDays || meta?.programDefinition?.days?.filter(day=>day.kind==="training").map(day=>day.name);
-    const programExisted=sessions.size>0 || !meta?.started || isoDate(meta.started)<=end;
-    const days=(programExisted || meta?.completedWeek===false)?[...new Set(authored || normalizeProgram(program,meta).exercises.map(exercise=>exercise.day).filter(Boolean))]:[];
+    const hasTarget=meta?.completedWeek===false || !meta?.started || isoDate(meta.started)<=start;
+    const programExisted=hasTarget || sessions.size>0;
+    const days=[...new Set(authored || normalizeProgram(program,meta).exercises.map(exercise=>exercise.day).filter(Boolean))];
     const completedDays = new Set(rows.map(row => row.day));
     const skips = [], pain = [];
     for (const id of sessions) {
@@ -350,8 +351,8 @@
       for (const event of events.pain || []) pain.push({...event});
     }
     const facts = meta?.weekFacts?.start === start && meta?.weekFacts?.end === end ? meta.weekFacts : {};
-    return {start,end,programExisted,completedSessions:sessions.size,plannedSessions:days.length,
-      missedDays:meta?.completedWeek===false?[]:days.filter(day => !completedDays.has(day)),
+    return {start,end,programExisted,completedSessions:sessions.size,plannedSessions:hasTarget?days.length:null,
+      missedDays:!hasTarget || meta?.completedWeek===false?[]:days.filter(day => !completedDays.has(day)),
       outcomes:(facts.outcomes || []).filter(fact => OUTCOMES.includes(fact.outcome)).map(fact => ({...fact})),
       stalled:[...(facts.stalled || [])],fatigue:[...(facts.fatigue || [])],skips,pain,
       trimUsed:skips.some(event => event.reason === "trim")};

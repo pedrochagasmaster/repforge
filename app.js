@@ -4272,9 +4272,14 @@ function weekFactName(id){
   const row=readLogRows().find(row=>liftKey(row)===id||row.exerciseId===id);
   return row?displayName(row):id;
 }
+function weekSessionSentence(facts){
+  return facts.plannedSessions===null
+    ? t(`review.week.sessions_only.${facts.completedSessions===1?"one":"other"}`,{done:facts.completedSessions})
+    : t("review.week.sessions",{done:facts.completedSessions,planned:facts.plannedSessions});
+}
 function weekFactSentences(facts){
   const names=ids=>[...new Set(ids.map(weekFactName))].join(", ");
-  const lines=[t("review.week.sessions",{done:facts.completedSessions,planned:facts.plannedSessions})];
+  const lines=[weekSessionSentence(facts)];
   if(facts.missedDays.length)lines.push(t("review.week.missed",{days:facts.missedDays.map(dayLabel).join(", ")}));
   for(const event of facts.pain)lines.push(t(`review.week.${event.kind}${event.swapped?"_swapped":""}`,{lift:event.name}));
   for(const event of facts.skips)lines.push(!event.reason||event.reason==="other"
@@ -4309,7 +4314,7 @@ function renderWeekCard(){
   const facts=weekReviewFacts(shiftDate(weekStart(today()),-7));
   const visible=facts.programExisted&&facts.completedSessions>0;
   el.classList.toggle("hidden",!visible);el.replaceChildren();if(!visible)return;
-  const summary=t("review.week.sessions",{done:facts.completedSessions,planned:facts.plannedSessions});
+  const summary=weekSessionSentence(facts);
   el.innerHTML=`<p class="section-label">${esc(t("review.week.last"))}</p><p>${esc(summary)}</p>`+
     `<p>${esc(t("review.week.card_facts",{improved:facts.outcomes.filter(fact=>fact.outcome==="improved").length,stalled:facts.stalled.length,pain:facts.pain.length}))}</p><div class="week-card__actions">`+
     `<button type="button" class="text-link" id="weekCardReview">${esc(t("review.week.open"))}</button>`+
