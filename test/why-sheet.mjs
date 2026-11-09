@@ -27,6 +27,8 @@
  * Run: REPFORGE_URL=http://localhost:8000/ node test/why-sheet.mjs
  */
 import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
+import { cases as standingCases } from "./fixtures/engine-standing.mjs";
 import { chooseRepsLeft, launchChromium, openShelfField, waitForAppBoot } from "./browser.mjs";
 import { seed as seedHistory } from "../tools/ui-screens/session.mjs";
 import { installGeneratedProgram, definitionSlot, isWeightRepsSlot, metricLogRow } from "./fixtures/history-metric-rows.mjs";
@@ -308,6 +310,16 @@ async function expectedAnchorText(page, truth) {
   }, { anchor, cap, displayLoad, fatigueCap, showFatigue, unit: "kg" });
 }
 
+const Engine = createRequire(import.meta.url)("../progression-engine.js");
+for (const { name, input } of standingCases) {
+  const [prescriptions, ...rest] = structuredClone(input);
+  const batch = [prescriptions[0], { ...prescriptions[0], id: "second", setIndex: 2 },
+    { ...prescriptions[0], id: "different-load-model", setIndex: 3, loadingModel: { bodyweightCoefficient: 1 } },
+    { ...prescriptions[0], id: "other-slot", slotId: "other-slot" }, prescriptions[0]];
+  assert(JSON.stringify(Engine.recommendSets(batch, ...rest)) ===
+    JSON.stringify(batch.map(p => Engine.recommendSets([p], ...rest)[0])),
+    `P080: batched results equal independent prescriptions for ${name}`);
+}
 const browser = await launchChromium();
 try {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
