@@ -231,6 +231,11 @@ try {
     ok(!/\d+(?:[.,]\d+)?\s*kg/.test(now.evidenceText), "the no-suggestion line names no weight", now.evidenceText);
     ok(!now.marks.length && !now.markColumn, "a cue without a verdict has no mark and no reserved column", now);
     ok(now.l1Size === 34 && now.largest === 34, "the hero is 34px and the largest text on the card", now);
+    await page.locator("#workout .exercise.is-current [data-ramp-bodyweight]").click();
+    await page.locator("#sessionSheet.is-open").waitFor();
+    ok(await page.locator("#sessionBodyweight").isVisible(), "the floor cue opens the existing Session bodyweight field");
+    await page.locator("#sessionSheetClose").click();
+    await page.locator("#sessionSheet").waitFor({state:"hidden"});
   }
 
   console.log("Set 2 after set 1: the engine's target, and the evidence the Why sheet names");

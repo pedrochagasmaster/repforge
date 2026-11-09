@@ -13,8 +13,10 @@ async function open(browser,{mode="effort",planned=false}={}){
   const context=await browser.newContext({viewport:{width:390,height:844}}),page=await context.newPage();
   await page.goto(BASE);await waitForAppBoot(page,{base:BASE});
   const state=await installGeneratedProgram(page,{name:"Opening-load proof"});
-  const target=state.program.find(row=>isWeightRepsSlot(definitionSlot(state.programMeta,row))&&row.sets>=3);
-  assert.ok(target,"generated fixture has a weighted slot");
+  const squats=await page.evaluate(()=>window.RepForgeExerciseCatalog.snapshot().exercises
+    .filter(ex=>ex.movementPattern?.some(id=>window.RepForgeExerciseCatalog.getObject(id)?.name==="Squat")).map(ex=>ex.id));
+  const target=state.program.find(row=>squats.includes(row.libraryId)&&isWeightRepsSlot(definitionSlot(state.programMeta,row))&&row.sets>=3);
+  assert.ok(target,"generated fixture has a weighted squat");
   await page.evaluate(async ({id,mode,planned})=>{
     const state=JSON.parse(localStorage.getItem("repforge_v1"));
     state.profile={weightKg:80};state.programMeta.experience="beginner";
@@ -54,7 +56,7 @@ async function waitWarmups(page,count){
     const draft=window.__repforgeWorkoutDraft.current(),ex=draft.exercises[draft.session.selectedExerciseId];
     return Object.values(ex.sets).filter(set=>set.origin==="ramp"&&set.completion!=="pending").length===count;
   },count);
-  await page.waitForFunction(()=>window.__repforgeRest.state().active);
+  await page.locator(`${card} .saveset[data-save$="_${count+1}"]`).waitFor();
   check(await page.evaluate(()=>window.__repforgeRest.state().active),"a logged ramp keeps the ordinary rest clock");
   await page.evaluate(()=>window.stopRest());
   await page.waitForFunction(()=>!window.__repforgeRest.state().active);
@@ -81,6 +83,7 @@ try{
   for(let count=1;count<=3;count++){
     await answer(page,"easy");await waitWarmups(page,count);
     ex=await exercise(page);
+    check((await page.locator(`${card} .focus-ex__meta`).innerText()).startsWith(`${target.sets} ×`),"the prescription still names only the programmed working sets");
     check(ex.setOrder.length===target.sets+count&&Object.values(ex.sets).filter(set=>set.role==="working").length===target.sets,`Easy ${count} preserves every programmed working set`);
     const warm=ex.setOrder.map(id=>ex.sets[id]).filter(set=>set.origin==="ramp").at(-1);
     working=Object.values(ex.sets).find(set=>set.role==="working");
