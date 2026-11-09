@@ -372,8 +372,8 @@ try {
   const knownPerSideCue = await focusCue(perSidePage);
   assert(await perSidePage.evaluate(() => document.querySelector("#workout .exercise.is-current .fx-cue__standing")?.textContent ?? null) === "First time on this lift",
     "P080: Focus names a first lift without inventing evidence");
-  assert(knownPerSideCue.line1 === `Pick a load for ${knownPerSideTruth.min}–${knownPerSideTruth.max} reps` && !knownPerSideCue.line2,
-    "P069-S3-CUE: generated known-bilateral Focus asks for a load without claiming setup is missing",
+  assert(knownPerSideCue.line1 === "Find your weight" && knownPerSideCue.line2 === `aim for ${knownPerSideTruth.min} reps`,
+    "P069-S3-CUE: generated known-bilateral Focus starts the ramp without claiming setup is missing",
     JSON.stringify({ cue: knownPerSideCue, truth: knownPerSideTruth }));
 
   const perSideTruth = await engineTruth(perSidePage, perSideProgram.perSide.slotId);
@@ -822,7 +822,7 @@ try {
   await swapPage.evaluate(id => window.__repforgeGoToLogExercise(id), hack.id);
   const original = await openWhy(swapPage);
   const originalStanding = original.blocks.find(block => block.lead === "engine-standing")?.text;
-  assert(originalStanding?.includes("0.5") && originalStanding.includes("1 session"), "B1: saved Hack squat has its own half-set and session", originalStanding);
+  assert(originalStanding?.includes("0.5") && originalStanding.includes("Recorded sessions on this lift: 1."), "B1: saved Hack squat has its own half-set and session", originalStanding);
   await closeWhy(swapPage);
   await openActions(swapPage, hack.id);
   await swapPage.locator("#exActionDiscomfortBtn").click();
@@ -841,7 +841,7 @@ try {
     "B1: Focus does not inherit Hack squat standing");
   const swapped = await openWhy(swapPage);
   const swappedStanding = swapped.blocks.find(block => block.lead === "engine-standing")?.text;
-  assert(swappedStanding === "No comparable sessions recorded yet.", "B1: Why makes no claim to another movement's sets or sessions", swappedStanding);
+  assert(swappedStanding === "First time on this lift No comparable sessions recorded yet.", "B1: Why makes no claim to another movement's sets or sessions", swappedStanding);
   assert(swapped.target === original.target, "B1: substitution keeps the inherited selected load unchanged", { original: original.target, swapped: swapped.target });
   await closeWhy(swapPage);
   await swapPage.locator("#woDayTitle [data-exopen]").click();
