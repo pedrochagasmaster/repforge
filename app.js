@@ -8004,14 +8004,27 @@ function maxSetPainAllows(draft,movementId,date){
       observation.exerciseId===movementId&&["pain","discomfort"].includes(observation.kind))))return false;
     if(!Object.prototype.hasOwnProperty.call(state,"sessionEvents"))return true;
     if(!WorkoutDraft.validateSessionEvents(state.sessionEvents)||!Array.isArray(state.log))return false;
-    const dates=new Map(Object.entries(state.sessionEvents)
+    const completionDay=value=>{
+      if(typeof value!=="string"&&typeof value!=="number")return null;
+      const at=new Date(value);
+      if(!Number.isFinite(at.getTime())||typeof value==="string"&&at.toISOString()!==value)return null;
+      return `${at.getFullYear()}-${String(at.getMonth()+1).padStart(2,"0")}-${String(at.getDate()).padStart(2,"0")}`};
+    const records=new Map(Object.entries(state.sessionEvents)
       .filter(([,record])=>record.pain.some(observation=>observation.exerciseId===movementId))
-      .map(([session])=>[session,new Set()]));
-    for(const row of state.log)dates.get(String(row.session))?.add(row.date);
-    for(const days of dates.values()){
-      if(days.size!==1)return false;
-      const [reported]=days;
-      if(parseCalendarDate(reported).value!==reported||reported===date)return false;
+      .map(([session])=>[session,{workout:new Set(),completed:new Set()}]));
+    for(const row of state.log){
+      const record=records.get(String(row.session));if(!record)continue;
+      record.workout.add(row.date);
+      const completed=completionDay(row.created);if(completed)record.completed.add(completed)}
+    for(const [session,record] of records){
+      const timing=state.sessionTiming?.[session];
+      const verified=timing&&sessionTimingRecord(timing.startedAt,timing.completedAt);
+      if(verified&&verified.durationSeconds===timing.durationSeconds){
+        const completed=completionDay(verified.completedAt);if(completed)record.completed.add(completed)}
+      const [workout]=record.workout;
+      const workoutDay=record.workout.size===1?parseCalendarDate(workout).value:null;
+      if(workoutDay===date||record.completed.has(date))return false;
+      if(record.workout.size>1||record.completed.size>1||!workoutDay&&!record.completed.size)return false;
     }
     return true;
   }catch{return false}}
@@ -8037,7 +8050,7 @@ function maxSetCandidate(ex,n){
   const movement=de.substitution?.replacement||de;
   const movementId=movement.libraryId||movement.movementId||movement.programmed?.movementId||movement.sourceExerciseId;
   // Plan 082 owns both live observations and their saved session projection.
-  if(!maxSetPainAllows(draft,movementId,date))return null;
+  if(!maxSetPainAllows(draft,movementId,today()))return null;
   const rec=recommendation(ex);
   const now=Date.parse(`${date}T00:00:00Z`);
   const dates=history.filter(row=>row.exerciseKey===key).map(row=>Date.parse(`${row.date}T00:00:00Z`))

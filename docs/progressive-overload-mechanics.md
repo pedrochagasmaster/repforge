@@ -219,8 +219,11 @@ sets must be prescribed, and only the last working set can become a test set.
 It replaces that set. It is never offered immediately after a Max or zero
 reps-left set, during a lighter week, after pain or discomfort on that movement
 today, including earlier saved sessions, or on an excluded free-barbell squat,
-bench press or deadlift. Saved observations are dated by their session rows and
-matched by movement identity. A mark cleared before finishing is absent from
+bench press or deadlift. Saved observations match by movement identity. A
+session protects today when either its workout date or its completion falls on today locally. Completion
+comes from the saved session timing or the log row timestamp, so a session
+spanning midnight still protects the day it finished. If neither date can be
+read, the request is refused. A mark cleared before finishing is absent from
 the saved observations. Unreadable evidence prevents a test-set request.
 There must be a valid guess from the previous set, and rep targets above 20
 are excluded. Limits remain one test set per session, one per movement every
