@@ -167,6 +167,8 @@ export const FULL_SUITES = {
   "full-fast": [
     s("test/program-import-eval.mjs", [], {domains:["entry","program"],cost:"tiny",tier:"feedback"}),
     s("test/program-import-eval-api.mjs", [], {domains:["entry","program"],cost:"tiny",tier:"feedback"}),
+    s("test/program-managed-import-worker.mjs", [], {domains:["entry","privacy","service"],cost:"tiny",tier:"feedback",nodeArgs:["--test"]}),
+    s("tools/check-managed-import-prompts.mjs", ["--check"], {domains:["entry","program","service"],cost:"tiny",tier:"feedback"}),
     s("test/runtime-budget.mjs"),
     s("tools/check-design-md.mjs", [], { domains: ["shell"], cost: "tiny" }),
     s("test/landing-demo-copy.mjs", [], { domains: ["entry"], cost: "tiny" }),
@@ -181,6 +183,7 @@ export const FULL_SUITES = {
     s("test/programlab-archive-limits.mjs", [], { nodeArgs: ["--max-old-space-size=8192"], domains: ["program", "persistence"], cost: "long", tier: "candidate", seconds: 45 }),
   ],
   "full-browser": [
+    s("test/program-managed-import.mjs", [], {domains:["entry","privacy"],cost:"normal",tier:"feedback",seconds:8}),
     s("test/programlab-ui.mjs", [], { domains: ["program", "persistence", "privacy"], seconds: 103 }),
     s("test/programlab-ui.mjs", ["--shell"], { domains: ["program", "privacy"], seconds: 3 }),
     s("test/programlab-ui.mjs", ["--corpus"], { domains: ["program", "persistence", "privacy"], cost: "long", tier: "candidate", seconds: 26, timeoutMs: 1000000 }),

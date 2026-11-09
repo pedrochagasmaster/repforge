@@ -1,0 +1,16 @@
+{
+  "name": "@taurifer/managed-program-import",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "prompts:check": "node scripts/build-prompts.mjs --check",
+    "prompts:build": "node scripts/build-prompts.mjs",
+    "dev": "wrangler dev",
+    "deploy:dry": "wrangler deploy --dry-run --env production",
+    "deploy:production": "wrangler deploy --env production"
+  },
+  "devDependencies": {
+    "wrangler": "4.130.0"
+  }
+}
