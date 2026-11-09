@@ -79,6 +79,11 @@ async function installProgram(page) {
 /** Recommend → Review: swap the B-stance RDL into the hip-extension slot,
  *  answer "One side at a time", and activate (the #382 capture journey). */
 async function installAmbiguousProgram(page) {
+  await page.evaluate(async () => {
+    const proposal = window.__repforgeWorkoutDraft.state();
+    proposal.settings.rirMode = "numeric";
+    await window.__repforgeCommitProposedState(proposal);
+  });
   await page.click("#firstRunCreate");
   await page.waitForSelector("#onboarding.active #entryHeading", { timeout: 10000 });
   await answerRecommend(page, { days: 2, minutes: 90, skipBasics: true, deload: false });
