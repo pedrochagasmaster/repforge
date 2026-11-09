@@ -1328,6 +1328,17 @@
     }));
   }
 
+  function clearOpening(set) {
+    if (!set.startingLoad) return;
+    delete set.startingLoad;
+    set.edited.load = null;
+    set.touched.load = false;
+    for (const metric of set.programmed.metrics || []) if (LOAD_SEMANTICS.has(metric.semantic)) {
+      set.edited.metrics[metric.id] = null;
+      set.touched.metrics[metric.id] = false;
+    }
+  }
+
   function reduce(draft, command) {
     const checked = validate(draft);
     if (!checked.ok) return error("invalid-draft", { issues: checked.issues });
@@ -1361,7 +1372,9 @@
         if (issues.length) return error("invalid-insert-set", { issues });
         if (hasOwn(command, "startingLoad")) {
           if (!validStartingLoad(command.startingLoad) || command.startingLoad.ramps !==
-            exercise.setOrder.filter(id => exercise.sets[id].origin === "ramp").length + 1) return error("invalid-starting-load");
+            exercise.setOrder.filter(id => exercise.sets[id].origin === "ramp" &&
+              (exercise.sets[id].programmed.sourceLibraryId ?? exercise.libraryId) ===
+              (set.programmed.sourceLibraryId ?? exercise.libraryId)).length + 1) return error("invalid-starting-load");
           exercise.sets[command.beforeSetId].startingLoad = jsonClone(command.startingLoad);
         }
         if (hasOwn(command, "nextLoadKg")) {
@@ -1663,7 +1676,11 @@
           replacement: jsonClone(command.replacement),
           selectedAt: command.selectedAt,
         };
-        if (command.replacementProgram != null) {
+        const movementChanged = eventMovement(activeMovement(exercise)).exerciseId !== eventMovement(command.replacement).exerciseId;
+        if (!movementChanged && exercise.substitution?.originalPendingSets) {
+          substitution.originalPendingSets = jsonClone(exercise.substitution.originalPendingSets);
+        }
+        if (movementChanged && command.replacementProgram != null) {
           const program = validateReplacementProgram(command.replacementProgram, command.replacement, exercise.setOrder.length);
           if (!program.ok) return error("invalid-substitution-program", { issues: program.issues });
           // Completed sets keep the composition they were performed under; only
@@ -1681,6 +1698,7 @@
             const set = exercise.sets[setId];
             const spec = program.value.programmedSets[set.ordinal - 1];
             const metrics = editedMetricsFromPrevious(program.value, spec);
+            clearOpening(set);
             set.programmed = programmedSetFromReplacement(program.value, spec);
             set.edited = { load: editableText(spec.suggestedLoad), reps: editableText(spec.suggestedReps),
               rir: null, effort: null, metrics };
@@ -1689,6 +1707,7 @@
           }
           substitution.originalPendingSets = originalPendingSets;
         }
+        if (movementChanged) for (const setId of exercise.setOrder) if (exercise.sets[setId].completion === "pending") clearOpening(exercise.sets[setId]);
         exercise.substitution = substitution;
         syncObservationSwaps(exercise);
         exercise.status = "active";
@@ -1697,11 +1716,15 @@
       case "restoreOriginalExercise": {
         item = targetExercise(next, command);
         if (isDomainError(item)) return item;
-        const originals = item.exercise.substitution?.originalPendingSets;
+        const substitution = item.exercise.substitution;
+        if (!substitution) break;
+        const movementChanged = eventMovement(activeMovement(item.exercise)).exerciseId !== eventMovement(substitution.original).exerciseId;
+        const originals = movementChanged ? substitution.originalPendingSets : null;
         for (const [setId, original] of Object.entries(originals || {})) {
           const set = item.exercise.sets[setId];
           if (set?.completion === "pending") item.exercise.sets[setId] = { ...jsonClone(original), ordinal: set.ordinal };
         }
+        if (movementChanged) for (const setId of item.exercise.setOrder) if (item.exercise.sets[setId].completion === "pending") clearOpening(item.exercise.sets[setId]);
         item.exercise.substitution = null;
         syncObservationSwaps(item.exercise);
         break;

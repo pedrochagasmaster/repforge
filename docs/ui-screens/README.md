@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 266 screens,
-1570 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 269 screens,
+1594 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -242,6 +242,9 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Finding an opening load](screens/workout/focus-ramp__phone-390-light-en.png) | 8 | A fresh generated program with bodyweight 80 kg offers the declared opening and the skip. |
 | [After an Easy ramp set](screens/workout/focus-ramp-easy__phone-390-light-en.png) | 8 | A completed Easy set is a warm-up; the cue offers the next grid load before the working sets. |
 | [Finding a weight without bodyweight](screens/workout/focus-ramp-floor__phone-390-light-en.png) | 8 | Without bodyweight the opening uses the equipment floor and offers the existing Session bodyweight field. |
+| [Opening from a comparable movement](screens/workout/focus-ramp-ratio__phone-390-light-en.png) | 8 | A new lift opens at a logged working load from the same equipment class and table row. |
+| [Opening after a substitution](screens/workout/focus-ramp-substitution__phone-390-light-en.png) | 8 | A fresh substitution offers the original movement's working load within the same equipment class and table row. |
+| [New opening after a ramp and movement change](screens/workout/focus-ramp-changed-movement__phone-390-light-en.png) | 8 | After a machine squat ramp, a free-bar press opens from its own prior. The completed squat warm-up stays recorded. |
 | [Workout — Why, standing](screens/workout/why-standing__phone-390-light-en.png) | 3 | The standing block for a learning lift after a 50-day break, with few sets and few sessions. |
 | [Workout — test-set re-check](screens/workout/max-set-recheck__phone-390-light-en.png) | 8 | A solid calibrated lift, its last check 60 days ago with regular sessions since. The invite explains that it has been a while since the last check. |
 | [Workout: immediate pain swap](screens/workout/pain-swap__phone-390-light-en.png) | 3 | Second marked session on the same movement and slot opens the dismissible swap picker, with different equipment classes first. |

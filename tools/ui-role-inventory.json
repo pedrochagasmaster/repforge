@@ -1293,6 +1293,21 @@
       "content": "flat",
       "scenario": "Two warm-up ramp rows precede the first working row, whose opening provenance survives saving."
     },
+    "workout/focus-ramp-ratio": {
+      "owner": "plan-079",
+      "content": "flat",
+      "scenario": "A new lift opens at a logged working load from the same equipment class and table row."
+    },
+    "workout/focus-ramp-changed-movement": {
+      "owner": "plan-079",
+      "content": "flat",
+      "scenario": "A changed movement recomputes its own opening after a completed ramp warm-up."
+    },
+    "workout/focus-ramp-substitution": {
+      "owner": "plan-079",
+      "content": "flat",
+      "scenario": "A fresh substitution offers the original movement's working load within the same equipment class and table row."
+    },
     "workout/focus-ramp-floor": {
       "owner": "plan-079",
       "content": "flat",
@@ -2381,6 +2396,9 @@
         "workout/last-rep-slow",
         "workout/rest-overrun-finish",
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
         "workout/why-standing",
@@ -4057,6 +4075,9 @@
         "workout/stage-tip",
         "workout/last-rep-slow",
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
         "workout/pain-swap"
@@ -5967,6 +5988,9 @@
         "workout/stage-tip",
         "workout/last-rep-slow",
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
         "workout/pain-swap"
@@ -7054,6 +7078,9 @@
         "workout/stage-tip",
         "workout/last-rep-slow",
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
         "workout/pain-swap"
@@ -7117,6 +7144,9 @@
         "workout/last-rep-slow",
         "workout/rest-overrun-finish",
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
         "workout/why-standing",
@@ -7278,6 +7308,9 @@
         "workout/stage-tip",
         "workout/last-rep-slow",
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "history/ramp-rows",
         "workout/focus-ramp-floor",
@@ -7532,6 +7565,9 @@
         "workout/stage-tip",
         "workout/last-rep-slow",
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
         "workout/pain-swap"
@@ -7610,6 +7646,9 @@
         "workout/stage-tip",
         "workout/last-rep-slow",
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
         "workout/pain-swap"
@@ -8426,6 +8465,9 @@
         "workout/stage-tip",
         "workout/last-rep-slow",
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
         "workout/pain-swap"
@@ -8496,6 +8538,9 @@
         "workout/stage-tip",
         "workout/last-rep-slow",
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
         "workout/pain-swap"
@@ -8544,6 +8589,9 @@
         "workout/stage-tip",
         "workout/last-rep-slow",
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
         "workout/pain-swap"
@@ -9111,6 +9159,9 @@
         "workout/last-rep-slow",
         "workout/rest-overrun-finish",
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "history/ramp-rows",
         "workout/focus-ramp-floor",
@@ -9286,6 +9337,9 @@
         "workout/stage-tip",
         "workout/last-rep-slow",
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "history/ramp-rows",
         "workout/focus-ramp-floor",
@@ -9366,6 +9420,9 @@
         "workout/stage-tip",
         "workout/last-rep-slow",
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
         "workout/pain-swap"
@@ -9541,6 +9598,9 @@
         "workout/stage-tip",
         "workout/last-rep-slow",
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
         "workout/pain-swap"
@@ -9595,6 +9655,9 @@
         "workout/stage-tip",
         "workout/last-rep-slow",
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
         "workout/pain-swap"
@@ -9645,6 +9708,9 @@
         "workout/max-set-result",
         "workout/last-rep-slow",
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
         "workout/pain-swap"
@@ -9806,6 +9872,9 @@
         "workout/effort-stage-b",
         "workout/stage-tip",
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
         "workout/pain-swap"
@@ -9854,6 +9923,9 @@
         "workout/stage-tip",
         "workout/last-rep-slow",
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
         "workout/pain-swap"
@@ -9902,6 +9974,9 @@
         "workout/stage-tip",
         "workout/last-rep-slow",
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
         "workout/pain-swap"
@@ -9950,6 +10025,9 @@
         "workout/stage-tip",
         "workout/last-rep-slow",
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
         "workout/pain-swap"
@@ -13234,6 +13312,9 @@
       "owner": "plan-079",
       "catalogStates": [
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor"
       ]
@@ -13257,6 +13338,9 @@
       "owner": "plan-079",
       "catalogStates": [
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor"
       ]
@@ -13658,6 +13742,9 @@
         "workout/last-rep-slow",
         "workout/rest-overrun-finish",
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
         "workout/why-standing"
@@ -13866,6 +13953,9 @@
         "workout/stage-tip",
         "workout/last-rep-slow",
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor"
       ]
@@ -13888,6 +13978,9 @@
         "workout/effort-stage-b",
         "workout/stage-tip",
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor"
       ]
@@ -14070,6 +14163,9 @@
         "workout/stage-tip",
         "workout/last-rep-slow",
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor"
       ],
@@ -14105,6 +14201,9 @@
         "workout/effort-stage-b",
         "workout/stage-tip",
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor"
       ],
@@ -14131,6 +14230,9 @@
         "workout/effort-stage-b",
         "workout/stage-tip",
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor"
       ],
@@ -14352,6 +14454,9 @@
         "workout/effort-stage-b",
         "workout/stage-tip",
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor"
       ]
