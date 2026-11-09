@@ -102,7 +102,6 @@ async function boot(page, { lang = "en", rirMode = "numeric", size } = {}) {
     s.settings = { ...(s.settings || {}), lang: ${JSON.stringify(lang)}, rirMode: ${JSON.stringify(rirMode)} };
     s.program = ${JSON.stringify(seedProgram())};
     s.programMeta = ${JSON.stringify(seedProgramMeta())};
-    s.settings.rirMode = "numeric";
     s.log = [];`);
   await page.reload({ waitUntil: "domcontentloaded" });
   await settle(page);
@@ -1461,6 +1460,7 @@ async function main() {
   await persist(draftPage, `
     s.program = ${JSON.stringify(seedProgram())};
     s.programMeta = ${JSON.stringify(seedProgramMeta())};
+    s.settings.rirMode = "numeric";
     s.log = [];`);
   await reload(draftPage);
   const focusIds = await draftPage.evaluate(() => window.__repforgeFocus.list().map((e) => ({ id: e.id, name: e.name, day: e.day })));
