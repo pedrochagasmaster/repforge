@@ -11721,6 +11721,18 @@ function summaryLeadCard(prs,liftGroups){
   const top=lift.sets.reduce((a,b)=>b.load>a.load||(sameLoad(b.load,a.load)&&b.reps>a.reps)?b:a);
   return{kind:"improved",name:lift.name,liftKey:lift.liftKey,load:top.load,reps:top.reps,pr:null}}
 
+function sessionFinding(rows,prevLog,date){
+  const readings=findingReadings();
+  const derive=(log,asOf=date)=>RepForgeProgressModel.buildFindings(readLogRows(log),state.program,state.programMeta,asOf,readings);
+  const previous=prevLog||[];
+  // A calendar finding can become available between sessions, without a set on its release date.
+  const previousDate=previous.reduce((last,row)=>row.date<=date&&row.date>last?row.date:last,"")||date;
+  const before=new Set(derive(previous,previousDate).released.map(finding=>finding.id));
+  const after=derive([...(prevLog||[]),...rows]);
+  const finding=after.released.find(finding=>!before.has(finding.id));
+  const need=after.next?t("finding.next",{need:findingNeedText(after.next)}):"";
+  return{finding:finding?{id:finding.id,text:[findingText(finding),need].filter(Boolean).join(" ")}:null,findingNeed:need}}
+
 /** Everything the finished session earns the right to say about itself. */
 function buildSessionSummary({rows,prevLog,session,date,day:sessDay,startedAt}){
   // Test-only fault seam for the post-commit boundary. The completion owner
@@ -11739,6 +11751,7 @@ function buildSessionSummary({rows,prevLog,session,date,day:sessDay,startedAt}){
   const mins=startedAt?Math.round((Date.now()-startedAt)/60000):0;
   const strength=strengthGainedThisBlock(rows,prevLog);
   return{session,date,day:sessDay,
+    ...sessionFinding(rows,prevLog,date),
     strength,
     reps:sum(performedWorkingRows(rows).map(row=>+row.reps)),
     tiles:summaryTiles({strength,records:prs.length}),

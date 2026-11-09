@@ -518,8 +518,8 @@ async function run() {
     return { stops, last: document.activeElement?.id };
   });
   assert(
-    // Tab order follows the screen: the detour after the report, then Share and the way out in the pinned bar.
-    trap.stops.join(",") === "sumSee,sumShare,sumDone" && trap.last === "sumSee",
+    // Tab order follows the screen: profile, the session in History, then Share and Done.
+    trap.stops.join(",") === "sumFinding,sumSee,sumShare,sumDone" && trap.last === "sumSee",
     "every action is reachable by keyboard",
     JSON.stringify(trap)
   );

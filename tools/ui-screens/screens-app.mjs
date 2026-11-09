@@ -2671,7 +2671,10 @@ export const APP_SCENARIOS = {
   "session/summary-finding": async (page) => {
     await openFixtureSummary(page, DIRECTION_D_SUMMARY_SESSION["session/summary-finding"]);
     await page.waitForSelector('#sumFinding[data-finding="first_check"]');
-    await page.locator("#sumFinding").scrollIntoViewIfNeeded();
+    await page.evaluate(() => {
+      const sheet = document.querySelector("#sessionSummary"), finding = document.querySelector("#sumFinding");
+      sheet.scrollTop = Math.max(0, finding.getBoundingClientRect().top - sheet.getBoundingClientRect().top + sheet.scrollTop - 24);
+    });
   },
   "session/summary": async (page) => {
     await openFixtureSummary(page, DIRECTION_D_SUMMARY_SESSION["session/summary"]);
