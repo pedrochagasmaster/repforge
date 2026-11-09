@@ -81,10 +81,12 @@ function measureFocusCard(safeBottom) {
   const banner = q("#draftRecovery");
   const bannerRect = banner && !banner.classList.contains("hidden") ? banner.getBoundingClientRect() : null;
   const shelfRect = shelf.getBoundingClientRect();
+  const openRect = q(".ledgerline--open", art)?.getBoundingClientRect();
   const title = q("#woDayTitle"), name = q(".focus-ex__meta", art), tab = q("#restTab");
   const nameRect = name?.getBoundingClientRect(), tabRect = tab?.getBoundingClientRect();
   return {
     height: innerHeight,
+    openRow: openRect && { top: openRect.top, bottom: openRect.bottom, shelfTop: shelfRect.top },
     // A state that opens a sheet or the glossary is drawn with that layer over the card, and what lies over the action
     // there is the layer's; every other state must put the tap on the action itself.
     action: { top: rect.top, bottom: rect.bottom, inside: rect.top >= 0 && rect.bottom <= innerHeight - safeBottom + 0.5,
@@ -154,20 +156,22 @@ async function checkFocusStatesAtLargeText(browser) {
 async function checkFocusAtSmallestPhone(browser) {
   console.log("\nFocus on the smallest phone at the usual size: 320x568, EN/PT");
   const cases = [];
-  for (const key of ["workout/focus", "workout/rest-running", "workout/rest-done", "workout/stale-draft", "workout/persist-retry"]) for (const lang of ["en", "pt"]) cases.push({ key, lang });
+  for (const key of ["workout/focus", "workout/rest-running", "workout/rest-done", "workout/stale-draft", "workout/persist-retry"]) for (const lang of ["en", "pt"]) cases.push({ key, lang, width: 320, text: "normal" });
+  for (const lang of ["en", "pt"]) cases.push({ key: "workout/focus", lang, width: 390, text: "text200" });
   const failures = [];
-  await inPool(cases, 3, async ({ key, lang }) => {
-    const label = `${key} 320px ${lang} 100%`;
+  await inPool(cases, 3, async ({ key, lang, width, text }) => {
+    const label = `${key} ${width}px ${lang} ${text}`;
     let opened;
     try {
-      opened = await openCatalogState(browser, key, 320, lang, "normal");
+      opened = await openCatalogState(browser, key, width, lang, text);
       const m = await opened.page.evaluate(measureFocusCard, SAFE_AREA.bottom);
       const problems = focusCardProblems(m);
       if (!m.error) {
         if (m.title.lines > 2 || !m.title.label || !m.title.label.startsWith(m.title.text.replace(/…$/, ""))) problems.push(`the header's name takes ${m.title.lines} lines or the heading loses it (${JSON.stringify(m.title)})`);
         if (key === "workout/focus") {
-          if (m.window.scrollTop !== 0) problems.push(`the context region opens scrolled ${Math.round(m.window.scrollTop)}px`);
-          if (!m.name || m.name.top < m.window.top - 1 || m.name.bottom > m.window.bottom + 1) problems.push("the exercise's prescription line is not whole in the context window on first paint");
+          if (!m.openRow || m.openRow.bottom > Math.min(m.openRow.shelfTop, m.window.bottom) + 1 || m.openRow.top < m.window.top - 1) problems.push(`the current ledger row is clipped (${JSON.stringify(m.openRow)}, window ${JSON.stringify(m.window)})`);
+          if (text === "normal" && m.window.scrollTop !== 0) problems.push(`the context region opens scrolled ${Math.round(m.window.scrollTop)}px`);
+          if (text === "normal" && (!m.name || m.name.top < m.window.top - 1 || m.name.bottom > m.window.bottom + 1)) problems.push("the exercise's prescription line is not whole in the context window on first paint");
         }
         // The rest timer redesign: the rest is the tab over the shelf, whole on screen and a 44px target.
         if (/^workout\/rest-(running|done)$/.test(key) && (!m.tab || m.tab.top < 0 || m.tab.bottom > m.height + 0.5 || m.tab.left < -0.5 || m.tab.right > 320.5 || m.tab.height < 44 - 0.01)) problems.push(`the rest tab is not whole on screen with a 44px target (${JSON.stringify(m.tab)})`);

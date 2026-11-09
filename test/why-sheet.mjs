@@ -33,6 +33,7 @@ import { chooseRepsLeft, launchChromium, openShelfField, waitForAppBoot } from "
 import { seed as seedHistory } from "../tools/ui-screens/session.mjs";
 import { installGeneratedProgram, definitionSlot, isWeightRepsSlot, metricLogRow } from "./fixtures/history-metric-rows.mjs";
 import { installSeedProgram } from "./fixtures/seed-program.mjs";
+import { openCatalogState } from "./fixtures/catalog-state.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const DATA = new URL("../plans/067/data/", import.meta.url);
@@ -612,6 +613,40 @@ try {
     "P069-S1-WHY: a Build slot has no invented target and Why stays neutral about who chose the range", buildWhy);
   assert(buildErrors.length === 0, "no page errors in the Build Why journey", buildErrors);
   await buildContext.close();
+
+  for (const lang of ["pt", "en"]) {
+    const manual = await openCatalogState(browser, "workout/why-manual", 390, lang, "normal");
+    try {
+      const saved = await manual.page.evaluate(() => {
+        const state = JSON.parse(localStorage.getItem("repforge_v1"));
+        const id = document.querySelector("#workout .exercise.is-current").dataset.ex;
+        const row = state.program.find(row => row.id === id);
+        return { row, history: state.log.filter(row => row.exerciseId === id) };
+      });
+      assert(saved.history.length === 4 && new Set(saved.history.map(row => row.session)).size === 2,
+        `P080-R1: ${lang} manual regression has four saved sets in two sessions`, saved);
+      const truth = await engineTruth(manual.page, saved.row.slotId);
+      assert(truth.reasonCodes.includes("rir_target_required") && truth.load === null,
+        `P080-R1: ${lang} manual target keeps its missing-effort reason and no suggested load`, truth);
+      const footing = await manual.page.locator('#whyBody [data-lead="engine-standing"]').count();
+      assert(footing === 0, `P080-R1: ${lang} manual Why never invents first-time evidence over saved history`);
+      const manualText = await manual.page.locator('#whyBody [data-lead="manual"] .whysheet__text').textContent();
+      const expected = await manual.page.evaluate(() => window.RepForgeI18n.t("why.manual"));
+      assert(manualText.trim() === expected, `P080-R1: ${lang} manual Why keeps its original explanation`);
+      await closeWhy(manual.page);
+      const cue = await focusCue(manual.page);
+      assert(await manual.page.locator("#workout .exercise.is-current .fx-cue__standing").count() === 0,
+        `P080-R1: ${lang} manual Focus never claims this is the first time`);
+      assert(cue.line2 === `${saved.row.min}–${saved.row.max} reps`,
+        `P080-R1: ${lang} manual Focus keeps its programmed rep range`, cue);
+      await manual.page.locator("#woDayTitle [data-exopen]").click();
+      await manual.page.waitForSelector("#exDetail");
+      assert(await manual.page.locator("#exDetail .recblock__standing").count() === 0,
+        `P080-R1: ${lang} manual exercise page never claims this is the first time`);
+    } finally {
+      await manual.context.close();
+    }
+  }
 
   const setupPtContext = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: "pt-BR" });
   try {
