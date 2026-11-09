@@ -166,6 +166,7 @@ export const SUITES = {
 export const FULL_SUITES = {
   "full-fast": [
     s("test/program-import-eval.mjs", [], {domains:["entry","program"],cost:"tiny",tier:"feedback"}),
+    s("test/program-import-eval-api.mjs", [], {domains:["entry","program"],cost:"tiny",tier:"feedback"}),
     s("test/runtime-budget.mjs"),
     s("tools/check-design-md.mjs", [], { domains: ["shell"], cost: "tiny" }),
     s("test/landing-demo-copy.mjs", [], { domains: ["entry"], cost: "tiny" }),

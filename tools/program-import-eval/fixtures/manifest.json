@@ -1,6 +1,14 @@
 {
   "benchmark": "taurifer-program-import",
   "version": "1.0.0",
+  "stress": {
+    "stressCount": 40,
+    "positiveCount": 24,
+    "rejectCount": 16,
+    "adjudicationCount": 8,
+    "stressSha256": "75867b8c2cd592136bda95efb776cd8edc218dcffd55096508e9343a14f9dcb5",
+    "adjudicationSha256": "f5c3edf3a7211ab30d3a1073ba88d9820a0d4ebae8905a9f8fabc0ebf65d5665"
+  },
   "generatedAtPolicy": "reproducible (no volatile timestamps)",
   "generation": "20 researched format references x 10 original synthetic cases per reference",
   "referenceCount": 20,

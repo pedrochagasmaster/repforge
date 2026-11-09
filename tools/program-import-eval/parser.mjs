@@ -42,6 +42,7 @@ export async function withTauriferParser(repoRoot,fn){
       if(!parsed)return {status:"unreadable"};
       return {
         status:parsed.status||"unreadable",
+        metaName:parsed.meta?.name||parsed.envelope?.meta?.name||null,
         exercises:Array.isArray(parsed.exercises)?parsed.exercises.map(x=>({
           day:x.day,order:x.order,name:x.name,
           ...(x.sets==null?{}:{sets:x.sets}),

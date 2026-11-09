@@ -1,69 +1,87 @@
-# Program-import LLM benchmark (development tooling)
+# Taurifer program import — local LLM eval harness
 
-Runs cheap-model extraction evals against Taurifer's **actual** program-import
-parser, without changing the production importer. The long implementation
-specification is delivered separately as a Markdown document.
+Developer tooling to evaluate low-cost model extraction using the **actual**
+Taurifer free-form import parser. This is **not** a production inference
+integration; the current PWA behavior is unchanged.
 
-## Current scope
+Full implementation notes and current contracts:
+[docs/evals/program-import-llm.md](../../docs/evals/program-import-llm.md).
 
-- 20 researched public training-text **format** references, recorded as URL
-  plus broad format observation; no original posts or personal details copied.
-- Exactly 10 original synthetic programs per reference: 200 cases, 100 PT / 100
-  EN, 2,676 gold exercise rows, 60 gap cases, 120 unsupported-concept cases.
-- Family-exclusive splits: 120 development, 40 validation, 40 protected holdout.
-- Deterministic construction-time gold; no model-assisted gold writing.
-- Baseline prompt is read from the exact checked-out i18n catalogues.
-- Adapters for Claude Code `-p` and Codex `exec` (`e` alias), **not**
-  yet direct API adapters.
-- No network or model calls in CI. Browser parser contract validation requires
-  Playwright under the repository's `test/node_modules`.
+## Dataset
 
-## Commands
+- 20 researched public *format* references × 10 original synthetic workouts
+  = **200** baseline programs, 100 Portuguese / 100 English, with 2,676
+  annotated exercise rows.
+- Split by entire reference family: 120 development, 40 validation, 40 sealed
+  holdout. No holdout replays for prompt tuning.
+- **40 additional scored stress cases**: 24 difficult positives and 16
+  no-program messages that must be rejected.
+- **8 human-adjudication examples**: truly ambiguous prescriptions without
+  fabricated answer keys, excluded from automated scoring.
+- Reproducible JSONL generation and a signed-off content hash in
+  `fixtures/manifest.json`. Source texts are constructed synthetically,
+  never reproduced from public posts.
+
+## Quickstart
 
 ```bash
 cd /home/ubuntu/repforge-import-eval
 node tools/program-import-eval/cli.mjs generate
 node tools/program-import-eval/cli.mjs validate
-node tools/run-tests.mjs full-fast --suite-id test-program-import-eval-mjs
 node tools/program-import-eval/cli.mjs validate-parser
+node tools/run-tests.mjs full-fast --suite-id test-program-import-eval-mjs
+node tools/run-tests.mjs full-fast --suite-id test-program-import-eval-api-mjs
 
-# These commands spend model calls; the explicit --execute flag is required.
+# Inspect exactly which requests will be made; no costs.
+node tools/program-import-eval/cli.mjs plan \
+  --transport claude --model haiku --split stress \
+  --cases ptx-04,enx-06,ptn-03 --max-calls 3
+
+# Both CLIs are already installed on the devbox.
 node tools/program-import-eval/cli.mjs run \
   --transport claude --model haiku --split development \
-  --prompt baseline --limit 10 --execute
+  --indices 05,08,10 --max-calls 36 --execute
 
 node tools/program-import-eval/cli.mjs run \
-  --transport codex --model gpt-6-luna --split development \
-  --prompt strict-v1 --limit 10 --execute
+  --transport codex --model gpt-6-luna --prompt strict-v1 \
+  --split stress --cases ptx-04,enx-06,ptn-03 \
+  --max-calls 3 --execute
 
-node tools/program-import-eval/cli.mjs report --run /path/to/run
-node tools/program-import-eval/cli.mjs compare --left /path/to/base --right /path/to/candidate
+# Direct API mode: requires OPENAI_API_KEY or ANTHROPIC_API_KEY in env.
+node tools/program-import-eval/cli.mjs run \
+  --transport anthropic-api --model claude-haiku-5-5 \
+  --mode schema --prompt strict-v1 --split development \
+  --limit 3 --max-calls 3 --execute
+
+node tools/program-import-eval/cli.mjs compare --left RUN_A --right RUN_B
+node tools/program-import-eval/cli.mjs regrade --from RUN_OLD --out RUN_NEW
+node tools/program-import-eval/cli.mjs report --run RUN_A
 ```
 
-Use `--case pt03-05` for an individual case and `--repeat 3` to repeat each
-case independently. Runs can resume at an existing `--out` directory only
-when prompt and code identities match. Holdout requires `--unlock-holdout`.
+Only explicit `--execute` spends provider calls. Default request cap is 100,
+one process at a time, with bounded time and response size; no fallback models
+or retries. The runner fails closed for missing credentials and unapproved
+(expensive) models. Claude and Codex CLIs are proxies, not API cost benchmarks.
 
-Results are stored under `reports/runs/` and are ignored by Git. The runner
-stores raw **synthetic** model replies locally. Do not use it on personal
-programs until a consent and no-raw-output mode exists.
+All raw synthetic replies and reports go to Git-ignored
+`tools/program-import-eval/reports/runs/`. Use `--no-raw-replies` to suppress
+saving reply text. Never put private training data or credentials in fixture
+files. No model calls enter CI.
 
-## Evaluator and benchmarking rules
+## Development
 
-JSON parsing success is insufficient: `grade.mjs` compares the parse result
-against strict source-truth fields, including omissions and `notImported`.
-`unsafeComplete` flags wrong prescriptions that the importer would otherwise
-accept as a complete candidate. Treat these as blocking findings, not a
-negligible change in an average score.
+The canonical importing logic remains owned by `app.js`; `parser.mjs` starts
+the PWA in its existing Playwright infrastructure and calls
+`window.__repforgeFreeform.parseReply`. It never substitutes its own import
+acceptance parser. `grade.mjs` compares accepted data against authored gold:
+prescription integrity is more important than JSON syntax.
 
-Never use the holdout for routine prompt iteration. Its current protection
-flag is a workflow guard, not a permission boundary. Source-family splits
-reduce superficial contamination but generated cases share a grammar and do not
-represent genuine human-source performance. Before model selection, add
-independently reviewed, consented real programs, negative cases, and a direct
-API bake-off.
+Reported positive parse success excludes negative cases. Correct rejection is
+scored separately. `unsafeComplete` is a critical finding for wrong-but-
+accepted prescriptions or invented programs. Paired comparisons require equal
+case IDs, benchmark hashes and repeat indices and cannot promote to
+production automatically.
 
-Claude's `haiku` alias can change versions. Pin the actual model snapshot
-before comparative conclusions. Codex's wrapper can consume much more context
-than a bare API prompt. CLI tokens and subscription accounting are **not**
-production per-request API economics. Prices are intentionally not hardcoded.
+Direct provider HTTP requests are modeled on OpenAI Responses and Anthropic
+Messages; both `prompt` and `schema` modes are covered by no-network mocks.
+No live direct-API call has been proven without separately supplied keys.

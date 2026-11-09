@@ -12,6 +12,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
 import { REFERENCES } from "./sources.mjs";
+import { writeStress } from "./stress.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const OUT = resolve(HERE, "fixtures");
@@ -262,7 +263,9 @@ export function writeAll() {
   }
   const allText=cases.map(x=>JSON.stringify(x)).join("\n")+"\n";
   writeFileSync(resolve(OUT,"all.jsonl"),allText,"utf8");
+  const stress=writeStress();
   const manifest = {benchmark:"taurifer-program-import",version:"1.0.0",
+    stress,
     generatedAtPolicy:"reproducible (no volatile timestamps)",
     generation:"20 researched format references x 10 original synthetic cases per reference",
     referenceCount:REFERENCES.length, syntheticCaseCount:cases.length,
