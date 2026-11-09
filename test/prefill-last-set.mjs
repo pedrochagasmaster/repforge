@@ -14,7 +14,7 @@
  *    same prefill; Log set stores what was shown.
  * 4. A typed value wins over the carry, field by field.
  * 5. Warm-ups neither give nor take.
- * 6. Set 1 of the next session falls back to the previous session's set.
+ * 6. Numeric set 1 uses its programmed target before history; without a target it falls back to history.
  * 7. Portuguese, and effort mode.
  *
  * Requires a static server on REPFORGE_URL (default http://localhost:8000/).
@@ -257,10 +257,14 @@ try {
   }
 
   console.log("\n3–6. A manual slot: reps and RIR carry with the load, typed values win, warm-ups sit out, set 1 falls back");
-  {
-    const { context, page } = await start(browser, seedProgramMeta({}).programDefinition);
+  for (const target of [1, null]) {
+    const definition = seedProgramMeta({}).programDefinition;
+    for (const day of definition.days) for (const slot of day.slots)
+      for (const cycle of slot.prescriptionsByCycle) for (const set of cycle.sets) set.rir = target;
+    const { context, page } = await start(browser, definition);
     try {
       let r = await reading(page, 1);
+      if (target == null) check(r.stored.targetRir == null, "an authored absent target stays absent in the live draft", r.stored);
       check(r.load.value === "—" && r.rir.value === "1", "with nothing logged and no history, set 1 reads — and RIR 1", r);
       await enter(page, { load: "32.5", reps: "8", rir: "3" });
       await logShown(page);
@@ -313,39 +317,24 @@ try {
       const finished = await finishEarly(page);
       check(finished?.localOk || finished?.idbOk, "the session is saved", finished);
 
-      // The next session: set 1 has nothing above it and falls back to the previous session's set 1.
+      // Numeric targets precede history; the prior session is the fallback only without a target.
+      const expected = String(target ?? 3);
       await enterFocus(page);
       r = await reading(page, 1);
-      check(same([r.load.value, r.reps.value, r.rir.value], ["32.5", "8", "1"]),
-        "set 1 carries history load and reps but offers the programmed effort target before history", r);
+      check(same([r.load.value, r.reps.value, r.rir.value], ["32.5", "8", expected]),
+        `next-session set 1 keeps saved load/reps and ${target == null ? "falls back to saved effort 3" : "offers programmed effort 1 before saved 3"}`, r);
       await reboot(page);
       await enterFocus(page);
       r = await reading(page, 1);
-      check(r.rir.value === "1" && untouched(r.stored), "the programmed effort offer survives a reload without becoming a new edit", r);
+      check(r.rir.value === expected && untouched(r.stored), "the target/history offer survives reload without becoming a new edit", r);
       await logShown(page);
       r = await reading(page, 1);
-      check(r.stored.done && Number(r.stored.rir) === 1, "logging the programmed offer stores the effort that was shown", r);
+      check(r.stored.done && Number(r.stored.rir) === Number(expected), "logging the target/history offer stores the effort shown", r);
+
     } finally { await context.close(); }
   }
 
-  console.log("\n7. History effort is the fallback when there is no programmed target");
-  {
-    const definition = seedProgramMeta({}).programDefinition;
-    for (const cycle of definition.days[0].slots[0].prescriptionsByCycle)
-      for (const set of cycle.sets) set.rir = null;
-    const { context, page } = await start(browser, definition);
-    try {
-      await enter(page, { load: "30", reps: "8", rir: "3" });
-      await logShown(page);
-      await finishEarly(page);
-      await enterFocus(page);
-      const r = await reading(page, 1);
-      check(r.stored.targetRir == null && r.rir.value === "3" && untouched(r.stored),
-        "without a programmed effort target, set 1 offers last session's 3 without writing an edit", r);
-    } finally { await context.close(); }
-  }
-
-  console.log("\n8. Portuguese, and effort mode");
+  console.log("\n7. Portuguese, and effort mode");
   {
     let opened = await start(browser, seedProgramMeta({}).programDefinition, { lang: "pt" });
     try {
@@ -357,7 +346,10 @@ try {
         r.ledger.load.value === "32,5", "in Portuguese set 2 shows 32,5 / 8 / 2, grey, and the ledger agrees", r);
     } finally { await opened.context.close(); }
 
-    opened = await start(browser, seedProgramMeta({}).programDefinition, { effort: true });
+    const wordsDefinition = seedProgramMeta({}).programDefinition;
+    for (const day of wordsDefinition.days) for (const slot of day.slots)
+      for (const cycle of slot.prescriptionsByCycle) for (const set of cycle.sets) set.rir = 1;
+    opened = await start(browser, wordsDefinition, { effort: true });
     try {
       const { page } = opened;
       await enter(page, { load: "30", reps: "8", effort: "easy" });
@@ -367,6 +359,10 @@ try {
       await logShown(page);
       r = await reading(page, 2);
       check(r.stored.done && r.stored.effort === "easy" && Number(r.stored.load) === 30, "logging it untouched stores effort easy", r.stored);
+      await finishEarly(page);
+      await enterFocus(page);
+      r = await reading(page, 1);
+      check(r.effort === "easy" && r.stored.targetRir === 1, "words still offer saved Easy ahead of programmed 1", r);
     } finally { await opened.context.close(); }
   }
 } finally {

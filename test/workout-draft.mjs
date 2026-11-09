@@ -100,6 +100,16 @@ function fresh(options) {
   });
 }
 
+{
+  const context = programContext();
+  context.exercises[0].programmedSets[0].targetRir = null;
+  const draft = Draft.create(context, sessionSelection(), {
+    "slot-squat": { exerciseInstanceId: "slot-squat", sets: [{ ordinal: 1, rir: 5 }] },
+  });
+  assert(!Draft.isDomainError(draft) && draft.exercises["slot-squat"].sets["squat-set-1"].programmed.targetRir === null,
+    "an explicit absent set target remains absent ahead of exercise defaults and history", JSON.stringify(draft));
+}
+
 let operation = 0;
 function command(draft, type, values = {}) {
   const id = `operation-${++operation}`;
