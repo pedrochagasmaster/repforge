@@ -214,10 +214,11 @@ async function runAdaptationCases(browser,manifest){
   const failures=[];
   {
     const state=appState("progress/review-proposal","en");
+    state.log=state.log.filter(row=>row.session!=="weekly-stall");
     const {page,context}=await openPage(browser,manifest,{flow:"progress",screen:"review-proposal",viewport:"phone-390",theme:"light",locale:"en",text:"normal",motion:"normal"},state);
     try{
       await dismissChrome(page);await APP_SCENARIOS["progress/review-proposal"](page);
-      assert.equal(await page.locator('[data-adaptation-why]').count(),1,"the established hard-set stall is acknowledged without a program change");
+      assert.equal(await page.locator('[data-adaptation-why]').count(),1,"the existing three-session hard-set stall remains visible when its first exposure precedes the two-week event window");
       await page.evaluate(()=>{
         window.weeklyObservedEvents=[];
         const telemetry=window.RepForgeTelemetry;
