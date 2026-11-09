@@ -7160,7 +7160,7 @@ function stageTipTarget(){
   const to="c",pref=stageTipPref(to);
   if(pref.n>=2||pref.until&&Date.now()<Date.parse(pref.until))return null;
   return stageTipQualifyingWorkouts(stage)>=STAGE_TIP_WORKOUTS?to:null}
-function setStageTipPref(to,value){setUiPref("stageTip",{...(uiPrefs.stageTip||{}),[to]:value})}
+function setStageTipPref(to,value){updateUiPrefs(prefs=>({...prefs,stageTip:{...(prefs.stageTip||{}),[to]:value}}))}
 function dismissStageTip(to){
   const n=stageTipPref(to).n+1;
   setStageTipPref(to,n>=2?{n:2}:{n,until:new Date(Date.now()+STAGE_TIP_SNOOZE_DAYS*864e5).toISOString()})}
@@ -12289,8 +12289,8 @@ function openSessionSummary(s){
   if(!ok){sessionSummaryCurrent=null;return false}
   const finding=summaryUnseenFinding(s);
   if(finding){
-    const prefs=loadUiPrefs(),seen=Array.isArray(prefs.findingsSeen)?prefs.findingsSeen:[];
-    replaceUiPrefs({...prefs,findingsSeen:[...new Set([...seen,finding.id])]})}
+    updateUiPrefs(prefs=>({...prefs,findingsSeen:[...new Set([
+      ...(Array.isArray(prefs.findingsSeen)?prefs.findingsSeen:[]),finding.id])]}))}
   // The blocks are all present and opaque on the first frame; only the totals count up. The ramp starts
   // before the first paint, so the finished figures are never seen and then reset to zero.
   rampSessionStats(el.querySelector(".sum-stats"));
@@ -15717,13 +15717,13 @@ function renderProgramHeader(){
 }
 
 // Collapsed program days live in UI prefs so the state survives reloads without touching training data.
-function collapsedProgramDays(){const v=uiPrefs.collapsedProgramDays;return Array.isArray(v)?v.filter(x=>typeof x==="string"):[]}
-function setDayCollapsed(d,on){const cur=new Set(collapsedProgramDays());
-  on?cur.add(d):cur.delete(d);
-  setUiPref("collapsedProgramDays",[...cur].filter(x=>programEditorProgram().days().includes(x)))}
-function renameCollapsedDay(oldName,newName){const cur=collapsedProgramDays();
-  if(!cur.includes(oldName))return;
-  setUiPref("collapsedProgramDays",cur.map(x=>x===oldName?newName:x))}
+function collapsedProgramDays(prefs=uiPrefs){const v=prefs.collapsedProgramDays;return Array.isArray(v)?v.filter(x=>typeof x==="string"):[]}
+function setDayCollapsed(d,on){updateUiPrefs(prefs=>{
+  const cur=new Set(collapsedProgramDays(prefs));on?cur.add(d):cur.delete(d);
+  return {...prefs,collapsedProgramDays:[...cur].filter(x=>programEditorProgram().days().includes(x))}})}
+function renameCollapsedDay(oldName,newName){updateUiPrefs(prefs=>{
+  const cur=collapsedProgramDays(prefs);
+  return cur.includes(oldName)?{...prefs,collapsedProgramDays:cur.map(x=>x===oldName?newName:x)}:prefs})}
 
 /* The raw JSON box is the one field a lifter types a whole document into, so a
    render() firing mid-edit used to throw the draft away — every route into
@@ -23289,26 +23289,22 @@ window.closeOnboarding=closeOnboarding;window.startOnboarding=startOnboarding;
 const UIKEY=INSTALL_UI_KEY;
 function loadUiPrefs(){try{const o=JSON.parse(localStorage.getItem(UIKEY));return o&&typeof o==="object"?o:{}}catch{return{}}}
 let uiPrefs=loadUiPrefs();
-function setUiPref(k,v){
+function updateUiPrefs(update){
   if(installTransferMutationFrozen())return false;
-  uiPrefs[k]=v;try{localStorage.setItem(UIKEY,JSON.stringify(uiPrefs));return true}
+  const live=loadUiPrefs(),next=update(live);
+  try{
+    if(JSON.stringify(next)!==JSON.stringify(live))localStorage.setItem(UIKEY,JSON.stringify(next));
+    uiPrefs=next;return true}
   catch(e){console.warn("ui prefs save failed",e);return false}}
+function setUiPref(k,v){return updateUiPrefs(prefs=>({...prefs,[k]:v}))}
 const INSTALL_PREF_DEFAULTS=Object.freeze({installLastOfferedMilestone:null,installLastOfferedAt:null,
   installDismissedMilestone:null,installDismissedAt:null});
-function replaceUiPrefs(next){
-  if(installTransferMutationFrozen())return false;
-  try{localStorage.setItem(UIKEY,JSON.stringify(next));uiPrefs=next;return true}
-  catch(e){console.warn("ui prefs save failed",e);return false}}
 function ensureInstallPolicyPrefs(){
-  let changed=false;const next={...uiPrefs};
-  for(const[key,value]of Object.entries(INSTALL_PREF_DEFAULTS)){
-    if(!Object.prototype.hasOwnProperty.call(next,key)){next[key]=value;changed=true}}
-  if(changed)replaceUiPrefs(next)}
+  updateUiPrefs(prefs=>({...INSTALL_PREF_DEFAULTS,...prefs}))}
 function ensureGuidePrefs({persist=true}={}){
   if(!GuideRegistry?.migrateLegacyTourDone)return;
-  const next=GuideRegistry.migrateLegacyTourDone(uiPrefs);
-  if(JSON.stringify(next)===JSON.stringify(uiPrefs))return;
-  if(persist)replaceUiPrefs({...next});else uiPrefs={...next}}
+  if(persist)updateUiPrefs(prefs=>({...GuideRegistry.migrateLegacyTourDone(prefs)}));
+  else uiPrefs={...GuideRegistry.migrateLegacyTourDone(loadUiPrefs())}}
 
 /* ---- Appearance ----
    A UI pref, not a setting: which paper this device prefers says nothing about
@@ -23392,10 +23388,10 @@ function installPolicyDecision(source="automatic"){
     uiPrefs,nowMs:Date.now(),source,transferAvailable:installPolicyTransferAvailable()})}
 function recordInstallPolicyOffer(decision){
   if(!Number.isInteger(decision?.milestone))return;
-  replaceUiPrefs({...InstallPolicy.recordInstallOffer(uiPrefs,{milestone:decision.milestone,nowMs:Date.now()})})}
+  updateUiPrefs(prefs=>({...InstallPolicy.recordInstallOffer(prefs,{milestone:decision.milestone,nowMs:Date.now()})}))}
 function recordInstallPolicyDismissal(decision){
   if(!Number.isInteger(decision?.milestone))return;
-  replaceUiPrefs({...InstallPolicy.recordInstallDismissal(uiPrefs,{milestone:decision.milestone,nowMs:Date.now()})})}
+  updateUiPrefs(prefs=>({...InstallPolicy.recordInstallDismissal(prefs,{milestone:decision.milestone,nowMs:Date.now()})}))}
 let installPresentedDecision=null;
 function installInstructions(){
   if(isIOS())return t("install.ios_instructions",{icon:IOS_SHARE_SVG});
@@ -25410,9 +25406,8 @@ function guideAnchor(guide){
 function guideStored(id){return uiPrefs.guideState?.[id]||null}
 function saveGuideTransition(id,status){
   const guide=guideDefinition(id);if(!guide||!GuideRegistry?.recordGuideTransition)return false;
-  const live=GuideRegistry.migrateLegacyTourDone(loadUiPrefs());
-  const next=GuideRegistry.recordGuideTransition(live,id,status,{version:guide.version,nowMs:Date.now()});
-  return replaceUiPrefs({...next})}
+  return updateUiPrefs(prefs=>({...GuideRegistry.recordGuideTransition(
+    GuideRegistry.migrateLegacyTourDone(prefs),id,status,{version:guide.version,nowMs:Date.now()})}))}
 function guideDialogElement(){
   let el=$("#guideDialog");
   if(el)return el;
@@ -25490,10 +25485,8 @@ function maybeShowContextualGuides(ids=GuideRegistry?.PLAN_054_GUIDE_IDS||[]){
   return false}
 function replayContextualGuide(id){
   const guide=guideDefinition(id);if(!guide||!GuideRegistry?.replayGuideState)return false;
-  uiPrefs=loadUiPrefs();
   if(activeGuideId===id)removeContextualGuide();
-  const next=GuideRegistry.replayGuideState(uiPrefs,id,{version:guide.version,nowMs:Date.now()});
-  if(!replaceUiPrefs({...next}))return false;
+  if(!updateUiPrefs(prefs=>({...GuideRegistry.replayGuideState(prefs,id,{version:guide.version,nowMs:Date.now()})})))return false;
   captureEvent("guide_replay",{guideId:id});
   const returnFocus=document.activeElement;
   queueMicrotask(()=>showContextualGuide(id,{returnFocus,persistDeferred:true}));return true}
