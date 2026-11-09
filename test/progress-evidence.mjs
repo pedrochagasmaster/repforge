@@ -101,7 +101,7 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
   const failures = [];
   let cases = 0;
   for (const lang of ["en", "pt"]) {
-    const { context, page } = await freshPage({ lang });
+    const { context, page } = await freshPage({ lang, seededLog: log.map(row => ({ ...row, load: 100 })) });
     await page.evaluate(() => window.__repforgeStatsNav.setEvidenceView("strength"));
     const keys = await page.evaluate(() => ["seed-ex-13", "seed-ex-8"].map(id => window.__repforgeProgressEvidence.keyForExerciseId(id)));
     for (const width of [320, 390]) for (const scale of [100, 200]) {
@@ -121,6 +121,14 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
           const cells = [...table.querySelectorAll("tr > :last-child")];
           return {
             text: head.textContent.trim(), expected: window.RepForgeI18n.t("focus.col.left"),
+            brokenNumbers: [...table.querySelectorAll("tbody td:not(:first-child)")].flatMap(cell => {
+              const range = document.createRange(); range.selectNodeContents(cell);
+              const rects = [...range.getClientRects()].filter(rect => rect.width && rect.height);
+              const box = cell.getBoundingClientRect();
+              const broken = new Set(rects.map(rect => Math.round(rect.top))).size !== 1
+                || rects.some(rect => rect.left < box.left - 0.5 || rect.right > box.right + 0.5);
+              return broken ? [cell.textContent.trim()] : [];
+            }),
             lines: new Set(rects.map(rect => Math.round(rect.top))).size,
             clipped: rects.some(rect => rect.left < box.left - 0.5 || rect.right > box.right + 0.5
               || rect.top < box.top - 0.5 || rect.bottom > box.bottom + 0.5),
@@ -129,7 +137,7 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
           };
         });
         const label = `${lang} ${width}px ${scale}% ${index === 0 ? "sparse" : "comparison"}`;
-        if (observation.text !== observation.expected || observation.lines !== 1 || observation.clipped || observation.outside)
+        if (observation.text !== observation.expected || observation.lines !== 1 || observation.clipped || observation.outside || observation.brokenNumbers.length)
           failures.push({ label, ...observation });
         cases++;
       }
