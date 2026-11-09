@@ -160564,7 +160564,7 @@
         },
         {
           "tag": "p",
-          "text": "This is the app's workout screen in a bench press session: the target, one tap to log the set, the rest, and what changes next time."
+          "text": "This is the app's workout screen in a Smith machine bench press session: the target, one tap to log the set, the rest, and what changes next time."
         },
         {
           "tag": "ol",
@@ -160601,6 +160601,15 @@
         {
           "tag": "span",
           "text": "Rest at a glance"
+        },
+        {
+          "tag": "button",
+          "name": "Test your guess",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Test your guess"
         },
         {
           "tag": "button",
@@ -161097,7 +161106,7 @@
         },
         {
           "tag": "p",
-          "text": "This is the app's workout screen in a bench press session: the target, one tap to log the set, the rest, and what changes next time."
+          "text": "This is the app's workout screen in a Smith machine bench press session: the target, one tap to log the set, the rest, and what changes next time."
         },
         {
           "tag": "ol",
@@ -161134,6 +161143,15 @@
         {
           "tag": "span",
           "text": "Rest at a glance"
+        },
+        {
+          "tag": "button",
+          "name": "Test your guess",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Test your guess"
         },
         {
           "tag": "button",
@@ -161630,7 +161648,7 @@
         },
         {
           "tag": "p",
-          "text": "Esta é a tela de treino do app numa sessão de supino: a meta, um toque para registrar a série, o descanso e o que muda na próxima vez."
+          "text": "Esta é a tela de treino do app numa sessão de supino reto no Smith: a meta, um toque para registrar a série, o descanso e o que muda na próxima vez."
         },
         {
           "tag": "ol",
@@ -161667,6 +161685,15 @@
         {
           "tag": "span",
           "text": "Descanso à vista"
+        },
+        {
+          "tag": "button",
+          "name": "Teste seu palpite",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Teste seu palpite"
         },
         {
           "tag": "button",
@@ -166630,7 +166657,7 @@
         },
         {
           "tag": "p",
-          "text": "This is the app's workout screen in a bench press session: the target, one tap to log the set, the rest, and what changes next time."
+          "text": "This is the app's workout screen in a Smith machine bench press session: the target, one tap to log the set, the rest, and what changes next time."
         },
         {
           "tag": "ol",
@@ -166667,6 +166694,15 @@
         {
           "tag": "span",
           "text": "Rest at a glance"
+        },
+        {
+          "tag": "button",
+          "name": "Test your guess",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Test your guess"
         },
         {
           "tag": "button",
@@ -167157,7 +167193,7 @@
         },
         {
           "tag": "p",
-          "text": "This is the app's workout screen in a bench press session: the target, one tap to log the set, the rest, and what changes next time."
+          "text": "This is the app's workout screen in a Smith machine bench press session: the target, one tap to log the set, the rest, and what changes next time."
         },
         {
           "tag": "ol",
@@ -167194,6 +167230,15 @@
         {
           "tag": "span",
           "text": "Rest at a glance"
+        },
+        {
+          "tag": "button",
+          "name": "Test your guess",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Test your guess"
         },
         {
           "tag": "button",
@@ -167684,7 +167729,7 @@
         },
         {
           "tag": "p",
-          "text": "This is the app's workout screen in a bench press session: the target, one tap to log the set, the rest, and what changes next time."
+          "text": "This is the app's workout screen in a Smith machine bench press session: the target, one tap to log the set, the rest, and what changes next time."
         },
         {
           "tag": "ol",
@@ -167721,6 +167766,15 @@
         {
           "tag": "span",
           "text": "Rest at a glance"
+        },
+        {
+          "tag": "button",
+          "name": "Test your guess",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Test your guess"
         },
         {
           "tag": "button",
@@ -168211,7 +168265,7 @@
         },
         {
           "tag": "p",
-          "text": "This is the app's workout screen in a bench press session: the target, one tap to log the set, the rest, and what changes next time."
+          "text": "This is the app's workout screen in a Smith machine bench press session: the target, one tap to log the set, the rest, and what changes next time."
         },
         {
           "tag": "ol",
@@ -168248,6 +168302,15 @@
         {
           "tag": "span",
           "text": "Rest at a glance"
+        },
+        {
+          "tag": "button",
+          "name": "Test your guess",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Test your guess"
         },
         {
           "tag": "button",
@@ -168738,7 +168801,7 @@
         },
         {
           "tag": "p",
-          "text": "This is the app's workout screen in a bench press session: the target, one tap to log the set, the rest, and what changes next time."
+          "text": "This is the app's workout screen in a Smith machine bench press session: the target, one tap to log the set, the rest, and what changes next time."
         },
         {
           "tag": "ol",
@@ -168775,6 +168838,15 @@
         {
           "tag": "span",
           "text": "Rest at a glance"
+        },
+        {
+          "tag": "button",
+          "name": "Test your guess",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Test your guess"
         },
         {
           "tag": "button",
@@ -169265,7 +169337,7 @@
         },
         {
           "tag": "p",
-          "text": "Esta é a tela de treino do app numa sessão de supino: a meta, um toque para registrar a série, o descanso e o que muda na próxima vez."
+          "text": "Esta é a tela de treino do app numa sessão de supino reto no Smith: a meta, um toque para registrar a série, o descanso e o que muda na próxima vez."
         },
         {
           "tag": "ol",
@@ -169302,6 +169374,15 @@
         {
           "tag": "span",
           "text": "Descanso à vista"
+        },
+        {
+          "tag": "button",
+          "name": "Teste seu palpite",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Teste seu palpite"
         },
         {
           "tag": "button",
@@ -169792,7 +169873,7 @@
         },
         {
           "tag": "p",
-          "text": "This is the app's workout screen in a bench press session: the target, one tap to log the set, the rest, and what changes next time."
+          "text": "This is the app's workout screen in a Smith machine bench press session: the target, one tap to log the set, the rest, and what changes next time."
         },
         {
           "tag": "ol",
@@ -169829,6 +169910,15 @@
         {
           "tag": "span",
           "text": "Rest at a glance"
+        },
+        {
+          "tag": "button",
+          "name": "Test your guess",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Test your guess"
         },
         {
           "tag": "button",
@@ -170319,7 +170409,7 @@
         },
         {
           "tag": "p",
-          "text": "This is the app's workout screen in a bench press session: the target, one tap to log the set, the rest, and what changes next time."
+          "text": "This is the app's workout screen in a Smith machine bench press session: the target, one tap to log the set, the rest, and what changes next time."
         },
         {
           "tag": "ol",
@@ -170356,6 +170446,15 @@
         {
           "tag": "span",
           "text": "Rest at a glance"
+        },
+        {
+          "tag": "button",
+          "name": "Test your guess",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Test your guess"
         },
         {
           "tag": "button",
@@ -170846,7 +170945,7 @@
         },
         {
           "tag": "p",
-          "text": "This is the app's workout screen in a bench press session: the target, one tap to log the set, the rest, and what changes next time."
+          "text": "This is the app's workout screen in a Smith machine bench press session: the target, one tap to log the set, the rest, and what changes next time."
         },
         {
           "tag": "ol",
@@ -170883,6 +170982,15 @@
         {
           "tag": "span",
           "text": "Rest at a glance"
+        },
+        {
+          "tag": "button",
+          "name": "Test your guess",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Test your guess"
         },
         {
           "tag": "button",
@@ -171373,7 +171481,7 @@
         },
         {
           "tag": "p",
-          "text": "Esta é a tela de treino do app numa sessão de supino: a meta, um toque para registrar a série, o descanso e o que muda na próxima vez."
+          "text": "Esta é a tela de treino do app numa sessão de supino reto no Smith: a meta, um toque para registrar a série, o descanso e o que muda na próxima vez."
         },
         {
           "tag": "ol",
@@ -171410,6 +171518,15 @@
         {
           "tag": "span",
           "text": "Descanso à vista"
+        },
+        {
+          "tag": "button",
+          "name": "Teste seu palpite",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Teste seu palpite"
         },
         {
           "tag": "button",
@@ -171900,7 +172017,7 @@
         },
         {
           "tag": "p",
-          "text": "This is the app's workout screen in a bench press session: the target, one tap to log the set, the rest, and what changes next time."
+          "text": "This is the app's workout screen in a Smith machine bench press session: the target, one tap to log the set, the rest, and what changes next time."
         },
         {
           "tag": "ol",
@@ -171937,6 +172054,15 @@
         {
           "tag": "span",
           "text": "Rest at a glance"
+        },
+        {
+          "tag": "button",
+          "name": "Test your guess",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Test your guess"
         },
         {
           "tag": "button",
@@ -172436,7 +172562,7 @@
         },
         {
           "tag": "p",
-          "text": "This is the app's workout screen in a bench press session: the target, one tap to log the set, the rest, and what changes next time."
+          "text": "This is the app's workout screen in a Smith machine bench press session: the target, one tap to log the set, the rest, and what changes next time."
         },
         {
           "tag": "ol",
@@ -172473,6 +172599,15 @@
         {
           "tag": "span",
           "text": "Rest at a glance"
+        },
+        {
+          "tag": "button",
+          "name": "Test your guess",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Test your guess"
         },
         {
           "tag": "button",
@@ -172972,7 +173107,7 @@
         },
         {
           "tag": "p",
-          "text": "Esta é a tela de treino do app numa sessão de supino: a meta, um toque para registrar a série, o descanso e o que muda na próxima vez."
+          "text": "Esta é a tela de treino do app numa sessão de supino reto no Smith: a meta, um toque para registrar a série, o descanso e o que muda na próxima vez."
         },
         {
           "tag": "ol",
@@ -173009,6 +173144,15 @@
         {
           "tag": "span",
           "text": "Descanso à vista"
+        },
+        {
+          "tag": "button",
+          "name": "Teste seu palpite",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Teste seu palpite"
         },
         {
           "tag": "button",
@@ -173508,7 +173652,7 @@
         },
         {
           "tag": "p",
-          "text": "This is the app's workout screen in a bench press session: the target, one tap to log the set, the rest, and what changes next time."
+          "text": "This is the app's workout screen in a Smith machine bench press session: the target, one tap to log the set, the rest, and what changes next time."
         },
         {
           "tag": "ol",
@@ -173545,6 +173689,15 @@
         {
           "tag": "span",
           "text": "Rest at a glance"
+        },
+        {
+          "tag": "button",
+          "name": "Test your guess",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Test your guess"
         },
         {
           "tag": "button",
@@ -174044,7 +174197,7 @@
         },
         {
           "tag": "p",
-          "text": "This is the app's workout screen in a bench press session: the target, one tap to log the set, the rest, and what changes next time."
+          "text": "This is the app's workout screen in a Smith machine bench press session: the target, one tap to log the set, the rest, and what changes next time."
         },
         {
           "tag": "ol",
@@ -174081,6 +174234,15 @@
         {
           "tag": "span",
           "text": "Rest at a glance"
+        },
+        {
+          "tag": "button",
+          "name": "Test your guess",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Test your guess"
         },
         {
           "tag": "button",
@@ -174580,7 +174742,7 @@
         },
         {
           "tag": "p",
-          "text": "Esta é a tela de treino do app numa sessão de supino: a meta, um toque para registrar a série, o descanso e o que muda na próxima vez."
+          "text": "Esta é a tela de treino do app numa sessão de supino reto no Smith: a meta, um toque para registrar a série, o descanso e o que muda na próxima vez."
         },
         {
           "tag": "ol",
@@ -174617,6 +174779,15 @@
         {
           "tag": "span",
           "text": "Descanso à vista"
+        },
+        {
+          "tag": "button",
+          "name": "Teste seu palpite",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Teste seu palpite"
         },
         {
           "tag": "button",
@@ -175116,7 +175287,7 @@
         },
         {
           "tag": "p",
-          "text": "This is the app's workout screen in a bench press session: the target, one tap to log the set, the rest, and what changes next time."
+          "text": "This is the app's workout screen in a Smith machine bench press session: the target, one tap to log the set, the rest, and what changes next time."
         },
         {
           "tag": "ol",
@@ -175153,6 +175324,15 @@
         {
           "tag": "span",
           "text": "Rest at a glance"
+        },
+        {
+          "tag": "button",
+          "name": "Test your guess",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Test your guess"
         },
         {
           "tag": "button",
@@ -175652,7 +175832,7 @@
         },
         {
           "tag": "p",
-          "text": "This is the app's workout screen in a bench press session: the target, one tap to log the set, the rest, and what changes next time."
+          "text": "This is the app's workout screen in a Smith machine bench press session: the target, one tap to log the set, the rest, and what changes next time."
         },
         {
           "tag": "ol",
@@ -175689,6 +175869,15 @@
         {
           "tag": "span",
           "text": "Rest at a glance"
+        },
+        {
+          "tag": "button",
+          "name": "Test your guess",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Test your guess"
         },
         {
           "tag": "button",
@@ -176188,7 +176377,7 @@
         },
         {
           "tag": "p",
-          "text": "Esta é a tela de treino do app numa sessão de supino: a meta, um toque para registrar a série, o descanso e o que muda na próxima vez."
+          "text": "Esta é a tela de treino do app numa sessão de supino reto no Smith: a meta, um toque para registrar a série, o descanso e o que muda na próxima vez."
         },
         {
           "tag": "ol",
@@ -176225,6 +176414,15 @@
         {
           "tag": "span",
           "text": "Descanso à vista"
+        },
+        {
+          "tag": "button",
+          "name": "Teste seu palpite",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Teste seu palpite"
         },
         {
           "tag": "button",
@@ -178669,7 +178867,7 @@
         },
         {
           "tag": "p",
-          "text": "RIR is the number of reps you could still complete before failure. RIR 2 means two reps left. If you are new to RIR, estimate whether you could do one or two more."
+          "text": "Reps left is the number of clean reps you could still complete before failure, also called RIR. 2 means two reps left. If you are new to counting, estimate whether you could do one or two more."
         },
         {
           "tag": "summary",
@@ -179209,7 +179407,7 @@
         },
         {
           "tag": "p",
-          "text": "RIR is the number of reps you could still complete before failure. RIR 2 means two reps left. If you are new to RIR, estimate whether you could do one or two more."
+          "text": "Reps left is the number of clean reps you could still complete before failure, also called RIR. 2 means two reps left. If you are new to counting, estimate whether you could do one or two more."
         },
         {
           "tag": "summary",
@@ -179749,7 +179947,7 @@
         },
         {
           "tag": "p",
-          "text": "RIR é o número de reps que você ainda conseguiria fazer antes da falha. RIR 2 significa duas reps sobrando. Se você é novo no RIR, estime se conseguiria fazer mais uma ou duas reps."
+          "text": "Reps sobrando é o número de reps que você ainda conseguiria fazer com boa técnica antes da falha, também chamado de RIR. 2 significa duas reps sobrando. Se você está começando a contar, estime se conseguiria fazer mais uma ou duas reps."
         },
         {
           "tag": "summary",
@@ -179952,7 +180150,7 @@
         },
         {
           "tag": "p",
-          "text": "This is the app's workout screen in a bench press session: the target, one tap to log the set, the rest, and what changes next time."
+          "text": "This is the app's workout screen in a Smith machine bench press session: the target, one tap to log the set, the rest, and what changes next time."
         },
         {
           "tag": "ol",
@@ -179989,6 +180187,15 @@
         {
           "tag": "span",
           "text": "Rest at a glance"
+        },
+        {
+          "tag": "button",
+          "name": "Test your guess",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Test your guess"
         },
         {
           "tag": "button",
@@ -180488,7 +180695,7 @@
         },
         {
           "tag": "p",
-          "text": "This is the app's workout screen in a bench press session: the target, one tap to log the set, the rest, and what changes next time."
+          "text": "This is the app's workout screen in a Smith machine bench press session: the target, one tap to log the set, the rest, and what changes next time."
         },
         {
           "tag": "ol",
@@ -180525,6 +180732,15 @@
         {
           "tag": "span",
           "text": "Rest at a glance"
+        },
+        {
+          "tag": "button",
+          "name": "Test your guess",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Test your guess"
         },
         {
           "tag": "button",
@@ -181024,7 +181240,7 @@
         },
         {
           "tag": "p",
-          "text": "Esta é a tela de treino do app numa sessão de supino: a meta, um toque para registrar a série, o descanso e o que muda na próxima vez."
+          "text": "Esta é a tela de treino do app numa sessão de supino reto no Smith: a meta, um toque para registrar a série, o descanso e o que muda na próxima vez."
         },
         {
           "tag": "ol",
@@ -181061,6 +181277,15 @@
         {
           "tag": "span",
           "text": "Descanso à vista"
+        },
+        {
+          "tag": "button",
+          "name": "Teste seu palpite",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Teste seu palpite"
         },
         {
           "tag": "button",

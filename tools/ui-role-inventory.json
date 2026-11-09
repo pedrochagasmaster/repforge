@@ -13146,6 +13146,23 @@
         "onboarding-start/effort-choice"
       ],
       "neverDisabledReason": "The question remains answerable or dismissible until its choice is submitted."
+    },
+    {
+      "id": "effort-choice-scrim",
+      "selector": "#effortChoiceScrim",
+      "roles": {
+        "elevation": "modal"
+      },
+      "variant": "scrim",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Dims the program activation behind the effort choice.",
+      "owner": "plan-078/pr2",
+      "catalogStates": [
+        "onboarding-start/effort-choice"
+      ]
     }
   ],
   "contextualVariants": [
