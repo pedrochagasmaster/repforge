@@ -63,7 +63,7 @@ test("catalog machine categories supply the declared prior without a machine wor
   assert.deepEqual(Loads.openingLoad(args("Pendulum squat", { grid: Array.from({ length: 14 }, (_, i) => (i + 1) * 5) })), { loadKg: 60, basis: "prior" });
 });
 test("a same-row ratio needs only the destination grid", () => {
-  assert.deepEqual(Loads.ratioLoad({ anchorLoadKg: 61, from: { ...from, grid: undefined }, to: args("Barbell front squat") }), { loadKg: 60, basis: "ratio" });
+  assert.deepEqual(Loads.ratioLoad({ anchorLoadKg: 61, from: { ...from, grid: undefined }, to: args("Cross-arm grip front squat") }), { loadKg: 60, basis: "ratio" });
 });
 test("an exact decimal boundary does not lose a grid step", () => {
   assert.deepEqual(Loads.openingLoad(args("Barbell bench press", { bodyweightKg: 90, experience: "advanced", grid: Array.from({ length: 100 }, (_, i) => i + 1) })), { loadKg: 63, basis: "prior" });
@@ -128,9 +128,10 @@ test("sharing a pattern cannot qualify different minimum-prior rows", () => {
   assert.deepEqual(Loads.ratioLoad({ anchorLoadKg: 100, from: args(squat.name, { exercise: mixed }), to }), Loads.openingLoad(to));
 });
 test("same-row carry rounds down and refuses a destination floor above the anchor", () => {
-  const to = args("Barbell front squat", { grid: [25, 30, 35] });
+  const to = args("Cross-arm grip front squat", { grid: [25, 30, 35] });
   assert.deepEqual(Loads.ratioLoad({ anchorLoadKg: 24, from, to }), Loads.openingLoad(to));
   assert.deepEqual(Loads.ratioLoad({ anchorLoadKg: 33, from, to }), { loadKg: 30, basis: "ratio" });
+  assert.deepEqual(Loads.ratioLoad({ anchorLoadKg: 33, from, to: { ...to, convention: "per_side" } }), Loads.openingLoad({ ...to, convention: "per_side" }));
   const changedExperience = { ...to, experience: "advanced" };
   assert.deepEqual(Loads.ratioLoad({ anchorLoadKg: 33, from, to: changedExperience }), Loads.openingLoad(changedExperience));
 });
