@@ -6,6 +6,7 @@ import {appState, APP_SCENARIOS} from "../tools/ui-screens/screens-app.mjs";
 import {openPage, dismissChrome, seed, settle} from "../tools/ui-screens/session.mjs";
 import {waitForAppBoot,openShelfField,answerRecommend} from "./browser.mjs";
 import {openActions,finishEarly} from "./fixtures/focus-workout.mjs";
+import {openInstalledEditor,applyInstalledEditor} from "./fixtures/installed-editor.mjs";
 
 async function holdDraftWrite(page){
   await page.evaluate(()=>{window.proofLockHeld=false;window.proofLock=navigator.locks.request("repforge:draft-write",()=>{window.proofLockHeld=true;return new Promise(resolve=>window.proofRelease=resolve)})});
@@ -224,6 +225,29 @@ async function runAdaptationCases(browser,manifest){
       });
       await page.locator('[data-adaptation-why]').click();await page.locator("#whySheet").waitFor({state:"visible"});
       assert.deepEqual(await page.evaluate(()=>window.weeklyObservedEvents),[],"the alpha review's Why reader does not claim a Focus telemetry interaction");
+    }catch(error){failures.push(error)}finally{await context.close()}
+  }
+  {
+    const state=appState("progress/review-proposal","en");
+    const {page,context}=await openPage(browser,manifest,{flow:"progress",screen:"review-proposal",viewport:"phone-390",theme:"light",locale:"en",text:"normal",motion:"normal"},state);
+    try{
+      await dismissChrome(page);await APP_SCENARIOS["progress/review-proposal"](page);
+      const sibling=await context.newPage();await sibling.goto(page.url(),{waitUntil:"domcontentloaded"});await waitForAppBoot(sibling);
+      await openInstalledEditor(sibling);
+      await sibling.locator('#programEditor [data-role="program-name-edit"]').click();
+      await sibling.locator('#reviewSheet [data-role="rename-input"]').fill("Concurrent edit");
+      await sibling.locator('#reviewSheet [data-role="rename-save"]').click();
+      await sibling.locator('#reviewSheet').waitFor({state:"hidden"});await applyInstalledEditor(sibling);
+      await page.waitForFunction(()=>window.__repforgeWorkoutDraft.state().programMeta.name==="Concurrent edit");
+      await page.locator('[data-adaptation-action="accept"]').click();
+      await page.locator('[data-adaptation-card] [role="alert"]').waitFor({state:"visible"});
+      assert.deepEqual(await page.evaluate(()=>window.__repforgeWorkoutDraft.state().programMeta.adaptations||[]),[],"a concurrent editor commit refuses the adaptation and its receipt together");
+      assert.equal(await page.evaluate(()=>window.__repforgeWorkoutDraft.state().programMeta.name),"Concurrent edit","the other tab's program edit survives");
+      await page.locator('#statsSeg [data-seg="review"]').click();
+      await page.locator('[data-adaptation-cause="equipment"]').click();
+      await page.locator('[data-adaptation-action="accept"]').click();
+      await page.waitForFunction(()=>window.__repforgeWorkoutDraft.state().programMeta.adaptations?.length===1);
+      assert.equal(await page.evaluate(()=>window.__repforgeWorkoutDraft.state().programMeta.name),"Concurrent edit","reopening Review proposes against the new editor token");
     }catch(error){failures.push(error)}finally{await context.close()}
   }
   for(const action of ["accept","decline","later","change"]){
