@@ -173,7 +173,7 @@ try {
   phase("Estimator request and every safety ceiling");
   const gates = await page.evaluate((id) => {
     const originalDraft = activeWorkoutDraft, originalLog = state.log, originalSettings = state.settings, originalMeta = state.programMeta;
-    const engine = window.RepForgeProgression;
+    const engine = window.RepForgeProgression, originalGauge = calibrationGauge;
     const draft = JSON.parse(JSON.stringify(originalDraft));
     const ex = sessionExercise(prog.find(id)), de = draft.exercises[id];
     const working = de.setOrder.map(key => de.sets[key]).filter(set => set.role === "working");
@@ -188,6 +188,15 @@ try {
     try {
       activeWorkoutDraft = draft;
       outcomes.learning = !!offer();
+      const signature = value => value ? {reason:value.reason,load:value.load,guess:value.guess,weightedSets:value.weightedSets} : null;
+      state.log = [...originalLog,{sourceLibraryId:"other-lift",date:ago(1),effortSource:"failure",
+        calibration:{v:1,predictedReps:10,predictionEdited:false,prefillBasis:"reps"}}];
+      calibrationGauge = () => ({percent:0}); const gaugeZero = signature(offer());
+      calibrationGauge = () => ({percent:100}); const gaugeFull = signature(offer());
+      outcomes.gaugePercentIndependent = !!gaugeZero && JSON.stringify(gaugeZero) === JSON.stringify(gaugeFull);
+      calibrationGauge = () => { throw new Error("global gauge is unavailable"); };
+      outcomes.gaugeUnavailable = !!offer();
+      state.log = originalLog;
       const status = draft.session.status; draft.session.status = "completed"; outcomes.activeSession = !offer(); draft.session.status = status;
       final.completion = JSON.parse(JSON.stringify(before.completion)); outcomes.pendingLast = !offer(); final.completion = "pending";
       const edited = JSON.parse(JSON.stringify(before.edited));
@@ -247,7 +256,7 @@ try {
         outcomes.tieOrder = !!offer() && !maxSetOffer(secondEx,secondWorking.at(-1).ordinal);
       } finally { recommendation = actualRecommendation; }
       return outcomes;
-    } finally { activeWorkoutDraft = originalDraft; state.log = originalLog; state.settings = originalSettings; state.programMeta = originalMeta; window.RepForgeProgression = engine; }
+    } finally { activeWorkoutDraft = originalDraft; state.log = originalLog; state.settings = originalSettings; state.programMeta = originalMeta; window.RepForgeProgression = engine; calibrationGauge = originalGauge; }
   }, exId);
   for (const [gate, passed] of Object.entries(gates)) assert(passed, `request gate: ${gate}`, gates);
   await page.locator(`${TIP} [data-maxset-guess]`).click();
