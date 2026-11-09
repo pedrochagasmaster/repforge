@@ -54,7 +54,7 @@ const trimmed=structuredClone(patternEvents);for(const record of Object.values(t
 assert.equal(Model.detectPatterns(patternLog,trimmed,patternProgram,{blockId:'block'},'2026-11-02').some(p=>p.pattern==='recurring_skip'),false);
 const painEvents=structuredClone(patternEvents);for(const record of Object.values(painEvents)){record.skips=[];record.pain=[{exerciseId:'lift',slotId:'slot',name:'Lift',kind:'discomfort',swapped:false}]}
 assert.equal(Model.detectPatterns(patternLog,painEvents,patternProgram,{blockId:'block'},'2026-11-02')[0].pattern,'recurring_pain');
-const definition={cycles:6,days:[{id:'day',name:'A',kind:'training',slots:[{id:'first',exerciseId:'compound',order:1,role:'compound',prescriptionsByCycle:[]},{id:'slot',exerciseId:'lift',role:'manual',order:2,alternates:['alternate'],prescriptionsByCycle:[1,2,3,4,5,6].map(cycleIndex=>({cycleIndex,sets:[1,2,3].map(i=>({id:`s${cycleIndex}-${i}`,targets:{load:40,reps:8}}))}))}]}]};
+const definition={cycles:6,days:[{id:'day',name:'A',kind:'training',slots:[{id:'first',exerciseId:'compound',order:1,role:'compound',prescriptionsByCycle:[]},{id:'slot',exerciseId:'lift',role:'hypertrophyAccessory',order:2,alternates:['alternate'],prescriptionsByCycle:[1,2,3,4,5,6].map(cycleIndex=>({cycleIndex,sets:[1,2,3].map(i=>({id:`s${cycleIndex}-${i}`,targets:{load:40,reps:8}}))}))}]}]};
 const document={program:patternProgram,programMeta:{blockId:'block',programDefinition:definition}};
 const props={week:'2026-11-02',cycleIndex:4};
 const swap=Transition.proposeAdaptation(detected[0],document,{...props,cause:'equipment'});
@@ -88,3 +88,6 @@ const swappedRecord={...record,kind:'swap_exercise',target:{slotId:'slot',exerci
 assert.equal(Transition.evaluateAdaptation(swappedRecord,[{pattern:'recurring_skip',slotId:'slot',exerciseId:'alternate'}],{week:'2026-11-09',observed:true}).outcome,'pattern_continued','a recurring skip on the replacement is still the same affected slot pattern');
 const editorReceipt=structuredClone(record);editorReceipt.appliedEdit.expectedToken.fingerprint=JSON.stringify({program:Array.from({length:30},(_,i)=>({id:`slot-${i}`,sets:3,libraryId:'lift'}))});
 assert.equal(Transition.validateAdaptations([editorReceipt]),true,'the installed editor token carries its canonical serialized program, not a short digest');
+
+const manualCompound=structuredClone(document);manualCompound.programMeta.programDefinition.days[0].slots[1].role='manual';
+assert.equal(Transition.proposeAdaptation({pattern:'recurring_fatigue',day:'A',slotId:'slot',exerciseId:'lift'},manualCompound,{...props,cause:'recovery'}),null,'an unclassified manual compound is not treated as an accessory');
