@@ -3066,7 +3066,7 @@ const EN = {
   "review.week.open": "Review last week",
   "review.week.dismiss": "Dismiss",
   "focus.actions.discomfort": "Pain or discomfort on this lift",
-  "focus.actions.discomfort_marked": "Discomfort recorded for this session.",
+  "focus.actions.discomfort_marked": "Discomfort recorded. Tap again to clear.",
   "focus.skip_reason.title": "Why skip this exercise?",
   "focus.skip_reason.time": "Time",
   "focus.skip_reason.recovery": "Recovery",
@@ -3075,6 +3075,8 @@ const EN = {
   "focus.skip_reason.schedule": "Schedule",
   "focus.skip_reason.trim": "Session trimmed",
   "focus.skip_reason.other": "Other",
+  "review.week.skipped_unspecified": "Skipped {lift}.",
+  "review.week.performance_scope": "Performance in the current block:",
 };
 const PT = {
   "catalog.unavailable.title": "Biblioteca de exercícios indisponível",
@@ -6142,7 +6144,7 @@ const PT = {
   "review.week.open": "Revisar a semana passada",
   "review.week.dismiss": "Dispensar",
   "focus.actions.discomfort": "Dor ou desconforto neste exercício",
-  "focus.actions.discomfort_marked": "Desconforto registrado nesta sessão.",
+  "focus.actions.discomfort_marked": "Desconforto registrado. Toque de novo para apagar.",
   "focus.skip_reason.title": "Por que pular este exercício?",
   "focus.skip_reason.time": "Tempo",
   "focus.skip_reason.recovery": "Recuperação",
@@ -6151,6 +6153,8 @@ const PT = {
   "focus.skip_reason.schedule": "Horários",
   "focus.skip_reason.trim": "Sessão reduzida",
   "focus.skip_reason.other": "Outro",
+  "review.week.skipped_unspecified": "{lift} pulado.",
+  "review.week.performance_scope": "Desempenho no bloco atual:",
 };
 (function (root) {
   const STRINGS = { en: EN, pt: PT };

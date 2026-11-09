@@ -3494,7 +3494,7 @@ function trimmedNamesText(ids){
   if(names.length===2)return t("log.trimmed_named.two",{a:names[0],b:names[1]});
   return t("log.trimmed_named.more",{a:names[0],b:names[1],n:names.length-2})}
 /* The Trim toast: the day-change toast's shape (an Undo beside the text, no focus moved, a second one replaces it).
-   Undo restores the lifts this Trim hid and re-hides any it had brought back, by hand, so no reason is recorded. */
+   Undo restores the lifts this Trim hid and re-hides any it had brought back without recording a new reason. */
 let trimToastEl=null,trimToastTimer=null;
 function hideTrimToast(){clearTimeout(trimToastTimer);trimToastTimer=null;trimToastEl?.remove();trimToastEl=null}
 function showTrimToast(trimmed,restored,draftId){
@@ -4242,7 +4242,7 @@ function weekReviewFacts(date){
     const trend=window.RepForgeProgression?.performanceTrend?.(first,history,{bySlotId:{[matched.slot.id]:slotLoadingContext(matched.slot)}});
     if(fatigueSignal({performanceTrend:trend}))fatigue.push(key);
   }
-  const meta={...state.programMeta,blockId,weekFacts:{start,end,outcomes,stalled,fatigue}};
+  const meta={...state.programMeta,blockId,trainingDays:prog.days(),completedWeek:end<today(),weekFacts:{start,end,outcomes,stalled,fatigue}};
   return Model.buildWeekReview(readLogRows(),state.sessionEvents,prog.toJSON(),meta,date);
 }
 function weekFactName(id){
@@ -4255,17 +4255,21 @@ function weekFactSentences(facts){
   const names=ids=>[...new Set(ids.map(weekFactName))].join(", ");
   const lines=[t("review.week.sessions",{done:facts.completedSessions,planned:facts.plannedSessions})];
   if(facts.missedDays.length)lines.push(t("review.week.missed",{days:facts.missedDays.map(dayLabel).join(", ")}));
+  for(const event of facts.pain)lines.push(t(`review.week.${event.kind}${event.swapped?"_swapped":""}`,{lift:event.name}));
+  for(const event of facts.skips)lines.push(!event.reason||event.reason==="other"
+    ? t("review.week.skipped_unspecified",{lift:event.name})
+    : t("review.week.skipped",{lift:event.name,reason:t(`focus.skip_reason.${event.reason}`)}));
+  if(facts.trimUsed)lines.push(t("review.week.trim"));
+  if(facts.outcomes.length||facts.stalled.length||facts.fatigue.length)lines.push(t("review.week.performance_scope"));
   for(const outcome of REVIEW_OUTCOME_ORDER){const ids=facts.outcomes.filter(fact=>fact.outcome===outcome).map(fact=>fact.exerciseId);
     if(ids.length)lines.push(t(`review.week.${outcome}`,{lifts:names(ids)}))}
   if(facts.stalled.length)lines.push(t("review.week.stalled",{lifts:names(facts.stalled)}));
-  for(const event of facts.pain)lines.push(t(`review.week.${event.kind}${event.swapped?"_swapped":""}`,{lift:weekFactName(event.exerciseId)}));
-  for(const event of facts.skips)lines.push(t("review.week.skipped",{lift:weekFactName(event.exerciseId),reason:t(`focus.skip_reason.${event.reason}`)}));
   if(facts.fatigue.length)lines.push(t("review.week.fatigue",{lifts:names(facts.fatigue)}));
-  if(facts.trimUsed)lines.push(t("review.week.trim"));
   return lines;
 }
 function weekReviewHtml(date,period){
   const facts=weekReviewFacts(date);
+  if(period==="last"&&!facts.programExisted)return "";
   return `<section class="review__week" data-week-review="${period}" aria-labelledby="weekReview-${period}">`+
     `<h4 class="section-label" id="weekReview-${period}">${esc(t(period==="last"?"review.week.last":"review.week.current"))}</h4>`+
     weekFactSentences(facts).map(line=>`<p>${esc(line)}</p>`).join("")+`</section>`;
@@ -4279,15 +4283,17 @@ function isoWeekId(date){
 }
 function renderWeekCard(){
   const el=$("#todayWeekCard");if(!el)return;
-  const id=isoWeekId(today()),facts=weekReviewFacts(shiftDate(weekStart(today()),-7));
-  const visible=facts.completedSessions>0&&uiPrefs.weekCardSeen!==id;
+  const id=isoWeekId(today());
+  if(uiPrefs.weekCardSeen===id){el.classList.add("hidden");el.replaceChildren();return}
+  const facts=weekReviewFacts(shiftDate(weekStart(today()),-7));
+  const visible=facts.programExisted&&facts.completedSessions>0;
   el.classList.toggle("hidden",!visible);el.replaceChildren();if(!visible)return;
-  const lines=weekFactSentences(facts);
-  el.innerHTML=`<p class="section-label">${esc(t("review.week.last"))}</p><p>${esc(lines[0])}</p>`+
+  const summary=t("review.week.sessions",{done:facts.completedSessions,planned:facts.plannedSessions});
+  el.innerHTML=`<p class="section-label">${esc(t("review.week.last"))}</p><p>${esc(summary)}</p>`+
     `<p>${esc(t("review.week.card_facts",{improved:facts.outcomes.filter(fact=>fact.outcome==="improved").length,stalled:facts.stalled.length,pain:facts.pain.length}))}</p><div class="week-card__actions">`+
     `<button type="button" class="text-link" id="weekCardReview">${esc(t("review.week.open"))}</button>`+
     `<button type="button" class="text-link" id="weekCardDismiss">${esc(t("review.week.dismiss"))}</button></div>`;
-  $("#weekCardReview").onclick=()=>{navTo("stats");setStatsSeg("review")};
+  $("#weekCardReview").onclick=()=>{setUiPref("weekCardSeen",id);renderWeekCard();navTo("stats");setStatsSeg("review")};
   $("#weekCardDismiss").onclick=()=>{if(setUiPref("weekCardSeen",id))renderWeekCard()};
 }
 
@@ -9368,7 +9374,11 @@ function renderExActionsSheet(exId) {
     ? exerciseDisplayName(draftEx.substitution.replacement)
     : draftEx.displayName ? exerciseDisplayName(draftEx)
       : progEx ? exerciseDisplayName(sessionExercise(progEx)) : exId;
-  $("#exActionDiscomfortStatus")?.classList.toggle("hidden",!draftEx.discomfort);
+  const movement=draftEx.substitution?.replacement || draftEx;
+  const movementId=movement.libraryId || movement.movementId || movement.programmed?.movementId || movement.sourceExerciseId;
+  const hasMark=(draftEx.discomfort || []).some(observation=>observation.exerciseId===movementId);
+  $("#exActionDiscomfortStatus")?.classList.toggle("hidden",!hasMark);
+  $("#exActionDiscomfortBtn")?.setAttribute("aria-pressed",String(hasMark));
   const nameEl = $("#exActionsName");
   if (nameEl) nameEl.textContent = shownName;
 
@@ -10881,8 +10891,11 @@ function openSkipReasonSheet(exerciseInstanceId){
     if(skipReasonTarget!==target)return;
     choices.querySelectorAll("button").forEach(control=>control.disabled=true);
     const result=await WorkoutSession.dispatch("skipExercise",{exerciseInstanceId,reason:button.dataset.skipReason},{draftId:target.draftId});
-    if(result.status==="applied"){if(workoutActive)renderWorkout();else renderToday();await closeSkipReasonSheet()}
-    else choices.querySelectorAll("button").forEach(control=>control.disabled=false);
+    if(result.status==="applied"){
+      if(workoutActive)renderWorkout();else renderToday();
+      if(skipReasonTarget===target)await closeSkipReasonSheet();
+      else if(!activeModal)quietFocus(workoutActive?$("#woOverflowBtn"):$("#startWorkout"));
+    }else if(skipReasonTarget===target)choices.querySelectorAll("button").forEach(control=>control.disabled=false);
   });
   openModal(sheet,{initialFocus:sheet,returnFocus:document.activeElement,onEscape:closeSkipReasonSheet,scrim});
   requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim.classList.add("is-open")});
@@ -16533,7 +16546,11 @@ function showPickerReasonStep(entry){
     `</div></div>`+
     `<button type="button" class="text-link pick__skip" id="exPickReasonSkip">${esc(t("picker.reason_skip"))}</button></div>`;
   list.querySelectorAll("[data-pick-reason]").forEach(button=>button.onclick=async()=>{
-    button.disabled=true;await settleSubstitutionEvent(button.dataset.pickReason);closeExercisePicker()});
+    if(pickerState?.reasonSaving)return;
+    const active=pickerState;active.reasonSaving=true;
+    list.querySelectorAll("[data-pick-reason],#exPickReasonSkip").forEach(control=>control.disabled=true);
+    await settleSubstitutionEvent(button.dataset.pickReason);
+    if(pickerState===active)closeExercisePicker()});
   const skip=$("#exPickReasonSkip");if(skip)skip.onclick=()=>{settleSubstitutionEvent(null);closeExercisePicker()};
   list.querySelector("[data-pick-reason]")?.focus({preventScroll:true})}
 function renderPickerFilters(){
@@ -25657,7 +25674,8 @@ function init(){
   if(discomfort)discomfort.onclick=async()=>{
     const id=activeExActionsId,draftId=activeWorkoutDraft?.draftId;
     if(!id||!draftId)return;
-    const result=await WorkoutSession.dispatch("markDiscomfort",{exerciseInstanceId:id,kind:"discomfort"},{draftId});
+    const type=discomfort.getAttribute("aria-pressed")==="true"?"clearDiscomfort":"markDiscomfort";
+    const result=await WorkoutSession.dispatch(type,{exerciseInstanceId:id,kind:"discomfort"},{draftId});
     if(result.status==="applied"){renderWorkout();renderExActionsSheet(id)}
   };
   $("#skipReasonClose").onclick=closeSkipReasonSheet;

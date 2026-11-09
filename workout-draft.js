@@ -131,6 +131,37 @@
     return snapshot;
   }
 
+  function activeMovement(exercise) {
+    return exercise.substitution?.replacement || snapshotFromExercise(exercise);
+  }
+
+  function eventMovement(movement) {
+    return {exerciseId:movement.libraryId || movement.movementId || movement.sourceExerciseId,
+      name:movement.displayName};
+  }
+
+  function validObservation(value) {
+    return isPlainObject(value) && Object.keys(value).every(key => ["exerciseId","name","kind","swapped","replacementId"].includes(key)) &&
+      isText(value.exerciseId,{max:MAX_ID}) && isText(value.name) &&
+      ["pain","discomfort"].includes(value.kind) && typeof value.swapped === "boolean" &&
+      (!hasOwn(value,"replacementId") || isText(value.replacementId,{max:MAX_ID}));
+  }
+
+  function observe(exercise,movement,kind,replacementId=null) {
+    const identity=eventMovement(movement),observations=exercise.discomfort || [];
+    const existing=observations.find(item => item.exerciseId===identity.exerciseId);
+    if(existing){
+      if(kind==="pain")existing.kind="pain";
+      if(replacementId){existing.replacementId=replacementId;existing.swapped=true;}
+    }else observations.push({...identity,kind,swapped:!!replacementId,...(replacementId?{replacementId}:{})});
+    exercise.discomfort=observations;
+  }
+
+  function syncObservationSwaps(exercise) {
+    for(const observation of exercise.discomfort || [])
+      observation.swapped=!!observation.replacementId && observation.replacementId===exercise.substitution?.replacement.exerciseInstanceId;
+  }
+
   function movementSnapshotMatches(left, right) {
     const fields = [
       "exerciseInstanceId",
@@ -532,9 +563,10 @@
     if (value.substitution != null) {
       if (!isPlainObject(value.substitution)) issues.push(`${path}.substitution:object`);
       else {
+        if(hasOwn(value.substitution,"reportedFrom"))validateMovementSnapshot(value.substitution.reportedFrom,`${path}.substitution.reportedFrom`,issues);
         validateMovementSnapshot(value.substitution.original, `${path}.substitution.original`, issues);
         validateMovementSnapshot(value.substitution.replacement, `${path}.substitution.replacement`, issues);
-        if (Object.keys(value.substitution).some(key => !["original", "replacement", "selectedAt", "originalPendingSets"].includes(key))) {
+        if (Object.keys(value.substitution).some(key => !["original", "replacement", "selectedAt", "originalPendingSets", "reportedFrom"].includes(key))) {
           issues.push(`${path}.substitution:unknown-field`);
         }
         if (isPlainObject(value.substitution.original) && isPlainObject(value.programmed) &&
@@ -550,9 +582,10 @@
     if (value.status !== "active" && value.status !== "skipped") issues.push(`${path}.status`);
     if (hasOwn(value, "skipReason") && (!SKIP_REASONS.includes(value.skipReason) || value.status !== "skipped")) issues.push(`${path}.skipReason`);
     if (hasOwn(value, "swapReason") && !SWAP_REASONS.includes(value.swapReason)) issues.push(`${path}.swapReason`);
-    if (hasOwn(value, "discomfort") && (!isPlainObject(value.discomfort) ||
-      Object.keys(value.discomfort).some(key => !["kind", "swapped"].includes(key)) ||
-      !["pain", "discomfort"].includes(value.discomfort.kind) || typeof value.discomfort.swapped !== "boolean")) {
+    if (hasOwn(value,"discomfort") && (!Array.isArray(value.discomfort) || value.discomfort.length>2000 ||
+      !value.discomfort.every(validObservation) ||
+      value.discomfort.some(item=>item.swapped!==(!!item.replacementId && item.replacementId===value.substitution?.replacement.exerciseInstanceId)) ||
+      new Set(value.discomfort.map(item=>item.exerciseId)).size!==value.discomfort.length)) {
       issues.push(`${path}.discomfort`);
     }
     if (!isText(value.setupNotes, { empty: true })) issues.push(`${path}.setupNotes`);
@@ -1510,7 +1543,7 @@
         if (command.type === "skipExercise" && hasOwn(command, "reason")) {
           if (!SKIP_REASONS.includes(command.reason)) return error("invalid-skip-reason");
           item.exercise.skipReason = command.reason;
-          if (command.reason === "pain") item.exercise.discomfort = { kind: "pain", swapped: false };
+          if (command.reason === "pain") observe(item.exercise,activeMovement(item.exercise),"pain");
         } else delete item.exercise.skipReason;
         if (command.type === "skipExercise" && next.session.selectedExerciseId === item.exercise.exerciseInstanceId) {
           next.session.selectedExerciseId = next.exerciseOrder.find((id) => next.exercises[id].status === "active") ?? null;
@@ -1526,14 +1559,22 @@
           substitution.replacement.exerciseInstanceId !== command.replacementId) return error("stale-substitution");
         if (!SWAP_REASONS.includes(command.reason)) return error("invalid-swap-reason");
         item.exercise.swapReason = command.reason;
-        if (command.reason === "pain") item.exercise.discomfort = {kind:"pain",swapped:true};
+        if (command.reason === "pain") observe(item.exercise,substitution.reportedFrom || substitution.original,"pain",substitution.replacement.exerciseInstanceId);
         break;
       }
       case "markDiscomfort": {
         item = targetExercise(next, command);
         if (isDomainError(item)) return item;
         if (!["pain", "discomfort"].includes(command.kind)) return error("invalid-discomfort");
-        item.exercise.discomfort = { kind: command.kind, swapped: false };
+        observe(item.exercise,activeMovement(item.exercise),command.kind);
+        break;
+      }
+      case "clearDiscomfort": {
+        item=targetExercise(next,command);
+        if(isDomainError(item))return item;
+        const identity=eventMovement(activeMovement(item.exercise));
+        item.exercise.discomfort=(item.exercise.discomfort || []).filter(observation=>observation.exerciseId!==identity.exerciseId);
+        if(!item.exercise.discomfort.length)delete item.exercise.discomfort;
         break;
       }
       case "substituteExercise": {
@@ -1551,6 +1592,7 @@
         const exercise = item.exercise;
         const substitution = {
           original: exercise.substitution?.original || snapshotFromExercise(exercise),
+          reportedFrom: jsonClone(activeMovement(exercise)),
           replacement: jsonClone(command.replacement),
           selectedAt: command.selectedAt,
         };
@@ -1581,6 +1623,7 @@
           substitution.originalPendingSets = originalPendingSets;
         }
         exercise.substitution = substitution;
+        syncObservationSwaps(exercise);
         exercise.status = "active";
         break;
       }
@@ -1592,6 +1635,7 @@
           if (item.exercise.sets[setId]?.completion === "pending") item.exercise.sets[setId] = jsonClone(original);
         }
         item.exercise.substitution = null;
+        syncObservationSwaps(item.exercise);
         break;
       }
       case "repeatPreviousSetValues": {
@@ -1735,18 +1779,21 @@
     return Object.entries(value).every(([id, record]) => isText(id,{max:MAX_ID}) &&
       exact(record,["v","skips","pain"]) && record.v === 1 &&
       ["skips","pain"].every(field => Array.isArray(record[field]) && record[field].length <= 2000 &&
-        record[field].every(event => exact(event,field === "skips" ? ["exerciseId","slotId","reason"] : ["exerciseId","slotId","kind","swapped"]) &&
-          isText(event.exerciseId,{max:MAX_ID}) && isText(event.slotId,{max:MAX_ID}) &&
-          (field === "skips" ? SKIP_REASONS.includes(event.reason) : ["pain","discomfort"].includes(event.kind) && typeof event.swapped === "boolean"))));
+        record[field].every(event => exact(event,field === "skips" ? ["exerciseId","slotId","name",...(hasOwn(event,"reason")?["reason"]:[])] : ["exerciseId","slotId","name","kind","swapped"]) &&
+          isText(event.exerciseId,{max:MAX_ID}) && isText(event.slotId,{max:MAX_ID}) && isText(event.name) &&
+          (field === "skips" ? (!hasOwn(event,"reason") || SKIP_REASONS.includes(event.reason)) : ["pain","discomfort"].includes(event.kind) && typeof event.swapped === "boolean"))));
   }
 
   function sessionEventsOf(draft) {
     const events = {v:1,skips:[],pain:[]};
     for (const id of draft.exerciseOrder) {
       const exercise = draft.exercises[id];
-      const identity = {exerciseId:exercise.exerciseInstanceId,slotId:exercise.sourceExerciseId};
-      if (exercise.status === "skipped") events.skips.push({...identity,reason:exercise.skipReason || "other"});
-      if (exercise.discomfort) events.pain.push({...identity,...exercise.discomfort});
+      const identity = {...eventMovement(activeMovement(exercise)),slotId:exercise.sourceExerciseId};
+      if (exercise.status === "skipped") events.skips.push({...identity,...(exercise.skipReason?{reason:exercise.skipReason}:{})});
+      for(const observation of exercise.discomfort || []) {
+        const {replacementId,...fact}=observation;
+        events.pain.push({...fact,slotId:exercise.sourceExerciseId});
+      }
     }
     return events;
   }

@@ -9,8 +9,8 @@ const meta={started:"2026-10-01",blockId:"block",weekFacts:{start:"2026-10-26",e
 const before=JSON.stringify({log,sessionEvents,program,meta});
 const facts=Model.buildWeekReview(log,sessionEvents,program,meta,"2026-10-29");
 assert.equal(facts.start,"2026-10-26");assert.equal(facts.end,"2026-11-01");
-assert.equal(facts.completedSessions,1);assert.equal(facts.plannedSessions,2);
-assert.deepEqual(facts.missedDays,["Thursday"]);
+assert.equal(facts.completedSessions,2);assert.equal(facts.plannedSessions,2);
+assert.deepEqual(facts.missedDays,[]);
 assert.deepEqual(facts.skips,sessionEvents.one.skips);assert.deepEqual(facts.pain,sessionEvents.one.pain);
 assert.equal(facts.trimUsed,true);assert.deepEqual(facts.outcomes,meta.weekFacts.outcomes);
 assert.deepEqual(facts.stalled,["b"]);assert.deepEqual(facts.fatigue,["a"]);
@@ -19,4 +19,4 @@ const empty=Model.buildWeekReview(log,sessionEvents,program,meta,"2026-11-09");
 assert.equal(empty.completedSessions,0);assert.deepEqual(empty.skips,[]);assert.deepEqual(empty.pain,[]);
 assert.deepEqual(empty.outcomes,[]);assert.deepEqual(empty.stalled,[]);assert.deepEqual(empty.fatigue,[]);
 assert.equal(Object.hasOwn(facts,"status"),false);assert.equal(Object.hasOwn(facts,"percent"),false);
-console.log("PASS weekly facts: calendar bounds, session deduplication, block isolation, events, authoritative outcomes and purity");
+console.log("PASS weekly facts: calendar bounds, session deduplication, block-scoped performance, events, authoritative outcomes and purity");

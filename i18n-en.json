@@ -3064,7 +3064,7 @@
   "review.week.open": "Review last week",
   "review.week.dismiss": "Dismiss",
   "focus.actions.discomfort": "Pain or discomfort on this lift",
-  "focus.actions.discomfort_marked": "Discomfort recorded for this session.",
+  "focus.actions.discomfort_marked": "Discomfort recorded. Tap again to clear.",
   "focus.skip_reason.title": "Why skip this exercise?",
   "focus.skip_reason.time": "Time",
   "focus.skip_reason.recovery": "Recovery",
@@ -3072,5 +3072,7 @@
   "focus.skip_reason.equipment": "Equipment unavailable",
   "focus.skip_reason.schedule": "Schedule",
   "focus.skip_reason.trim": "Session trimmed",
-  "focus.skip_reason.other": "Other"
+  "focus.skip_reason.other": "Other",
+  "review.week.skipped_unspecified": "Skipped {lift}.",
+  "review.week.performance_scope": "Performance in the current block:"
 }

@@ -1277,7 +1277,9 @@ async function exerciseAction(page, exId, button) {
   await selectFocusExercise(page, exId);
   await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
   await page.locator("#exActionsSheet.is-open").waitFor({ state: "visible" });
+  const willSkip=button==="#exActionSkipBtn"&&await page.evaluate(id=>window.__repforgeWorkoutDraft.current()?.exercises?.[id]?.status!=="skipped",exId);
   await page.locator(button).click();
+  if(willSkip){await page.locator('[data-skip-reason="other"]').click();await page.locator("#skipReasonSheet").waitFor({state:"hidden"})}
   await page.locator("#exActionsSheet").waitFor({state: "hidden"});
   await flushDraftWork(page);
 }
@@ -4121,6 +4123,8 @@ async function main() {
   }));
   await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
   await page.locator("#exActionSkipBtn").click();
+  await page.locator('[data-skip-reason="other"]').click();
+  await page.locator("#skipReasonSheet").waitFor({state:"hidden"});
   await page.waitForTimeout(320);
   const afterSkip = await page.evaluate(() => ({
     ex: document.querySelector("#workout .exercise.is-current")?.dataset.ex,

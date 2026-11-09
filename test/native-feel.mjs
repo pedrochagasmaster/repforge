@@ -675,6 +675,7 @@ async function nativeControls(browser) {
     await page.waitForSelector('#nativeContextMenu:not([hidden])');
     const item = await center(page, '#nativeContextMenu [data-menu-value="skip"]');
     await touch('touchMove', [{ x: item.x, y: item.y }]); await touch('touchEnd');
+    await page.locator('[data-skip-reason="time"]').click();
     await page.waitForFunction(() => JSON.parse(localStorage.getItem('repforge_draft_v1'))?.exerciseOrder?.some(id => JSON.parse(localStorage.getItem('repforge_draft_v1')).exercises[id].status === 'skipped'));
     assert(await onToday(page), "long press and slide-to-select skips only in today's draft, without starting Focus");
     // The skip opens today's session, so Today reads it through the live card's rows (option A): "Skipped today".

@@ -1,9 +1,26 @@
 import assert from "node:assert/strict";
 import {join} from "node:path";
+import {mkdirSync} from "node:fs";
 import {loadManifest} from "../tools/ui-screens/manifest.mjs";
 import {appState, APP_SCENARIOS} from "../tools/ui-screens/screens-app.mjs";
-import {openPage, dismissChrome} from "../tools/ui-screens/session.mjs";
-import {waitForAppBoot} from "./browser.mjs";
+import {openPage, dismissChrome, seed, settle} from "../tools/ui-screens/session.mjs";
+import {waitForAppBoot,openShelfField} from "./browser.mjs";
+import {openActions,finishEarly} from "./fixtures/focus-workout.mjs";
+
+async function holdDraftWrite(page){
+  await page.evaluate(()=>{window.proofLockHeld=false;window.proofLock=navigator.locks.request("repforge:draft-write",()=>{window.proofLockHeld=true;return new Promise(resolve=>window.proofRelease=resolve)})});
+  await page.waitForFunction(()=>window.proofLockHeld);
+}
+async function releaseDraftWrite(page){await page.evaluate(async()=>{window.proofRelease();await window.proofLock;await window.__repforgeWorkoutDraft.flush()})}
+async function saveCurrentSet(page,id){
+  for(const [metric,value] of [["2555c6f170d8805cafa6d16d3fdddbaa",40],["2555c6f170d88072bbf6d9ad3f16ea86",8]]){
+    const input=page.locator(`#workout .exercise.is-current .focus-shelf input[data-metric-id="${metric}"]`);
+    if(await input.getAttribute("aria-hidden")==="true")await openShelfField(page,`#workout .exercise.is-current .focus-shelf [data-shelf-field="metric_${metric}"]`);
+    await input.fill(String(value));await page.evaluate(()=>window.__repforgeWorkoutDraft.flush());
+  }
+  await page.locator(`#workout .exercise.is-current [data-save="${id}_1"]`).click();
+  await page.waitForFunction(id=>Object.values(window.__repforgeWorkoutDraft.current().exercises[id].sets).some(set=>set.completion!=="pending"),id);
+}
 
 export async function runWeekReviewBrowser(browser) {
   const manifest=loadManifest();
@@ -15,6 +32,7 @@ export async function runWeekReviewBrowser(browser) {
       state.program=state.program.filter(exercise=>exercise.day!=="Day 3");
     }
     if(kind==="cross-block"){
+      state.programMeta.blockId="current-block";state.programMeta.started="2026-08-31";
       state.log=state.log.filter(row=>["weekly-2","weekly-second"].includes(row.session)).map((row,index)=>({...row,date:"2026-08-31",blockId:row.session==="weekly-2"?"previous-block":state.programMeta.blockId}));
     }
     const {page,context}=await openPage(browser,manifest,{flow:"progress",screen:"review-active",viewport:"phone-390",theme:"light",locale:"en",text:"normal",motion:"normal"},state);
@@ -24,6 +42,11 @@ export async function runWeekReviewBrowser(browser) {
       if(kind==="first-week")assert.equal(await last.count(),0,"B1: no invented pre-activation week");
       else assert.match(await (kind==="cross-block"?current:last).innerText(),/2 of 3 sessions/,`B4: ${kind} uses Today's calendar inventory`);
       assert.doesNotMatch(await current.innerText(),/not completed:/,"unfinished current week says nothing about missed days");
+      if(kind!=="first-week"){
+        await page.locator('nav [data-view="log"]').click();
+        assert.match(await page.locator(".ov-week-line").innerText(),kind==="cross-block"?/2 of 3 sessions/:/0 of 3 sessions/,"Today uses the same calendar count and authored days");
+        if(kind==="empty-day")assert.match(await page.locator("#todayWeekCard").innerText(),/2 of 3 sessions/,"last week matches Today card too");
+      }
     }finally{await context.close()}
   }
   for (const locale of ["en","pt"]) {
@@ -50,6 +73,9 @@ export async function runWeekReviewBrowser(browser) {
       await page.locator('#weekCardReview').click();
       assert.equal(await page.locator('#stats.view.active [data-week-review="last"]').count(),1,"card opens Review");
       await page.locator('nav [data-view="log"]').click();
+      assert.equal(await page.locator('#todayWeekCard:not(.hidden)').count(),0,"Review retires the card too");
+      await page.evaluate(()=>window.__repforgeUi.setPref("weekCardSeen",null));
+      await page.reload({waitUntil:"domcontentloaded"});await waitForAppBoot(page);
       await page.locator('#weekCardDismiss').click();
       assert.equal(await page.locator('#todayWeekCard:not(.hidden)').count(),0);
       assert.match(await page.evaluate(()=>JSON.parse(localStorage.getItem("repforge_ui_v1")).weekCardSeen),/^\d{4}-W\d{2}$/);
@@ -73,10 +99,90 @@ export async function runWeekReviewBrowser(browser) {
       await page.locator('[data-pick-reason="pain"]').click();
       await page.waitForFunction(id=>window.__repforgeWorkoutDraft.current()?.exercises?.[id]?.swapReason==="pain",id);
       const marked=await page.evaluate(id=>window.__repforgeWorkoutDraft.current().exercises[id],id);
-      assert.deepEqual(marked.discomfort,{kind:"pain",swapped:true},"picker reason reaches the acknowledged substitution");
+      assert.equal(marked.discomfort[0].kind,"pain");assert.equal(marked.discomfort[0].swapped,true,"picker reason reaches the acknowledged substitution");
       await page.reload({waitUntil:"domcontentloaded"});await waitForAppBoot(page);
       assert.equal(await page.evaluate(id=>window.__repforgeWorkoutDraft.current()?.exercises?.[id]?.swapReason,id),"pain","picker mark survives recovery");
     } finally {await context.close();}
+  }
+  for(const sequence of ["pain-restore","pain-and-discomfort","replacement-discomfort"]){
+    const state=appState("workout/discomfort-mark","en");state.log=[];delete state.sessionEvents;
+    const capture={flow:"workout",screen:"discomfort-mark",viewport:"phone-390",theme:"light",locale:"en",text:"normal",motion:"normal"};
+    const {page,context}=await openPage(browser,manifest,capture,state);
+    try{
+      await dismissChrome(page);await APP_SCENARIOS["workout/focus"](page);
+      const id=await page.locator("#workout .exercise.is-current").getAttribute("data-ex");
+      const original=state.program.find(exercise=>exercise.id===id),replacement=state.program.find(exercise=>exercise.id!==id),skipped=state.program[2];
+      await openActions(page,id);await page.locator("#exActionSubstBtn").click();
+      const replacementLabel=await page.locator(`#exPickList [data-pick="${replacement.libraryId}"] .pickrow__name`).innerText();
+      await page.locator(`#exPickList [data-pick="${replacement.libraryId}"]`).click();
+      if(sequence==="pain-and-discomfort"){
+        await page.locator('[data-pick-reason="pain"]').waitFor({state:"visible"});
+        await holdDraftWrite(page);await page.locator('[data-pick-reason="pain"]').click();
+        await page.waitForFunction(()=>[...document.querySelectorAll('[data-pick-reason],#exPickReasonSkip')].every(button=>button.disabled));
+        await page.locator("#exPickReasonSkip").evaluate(button=>button.click());
+        assert.equal(await page.locator("#exPickSheet").isVisible(),true,"chosen reason cannot be discarded by Skip during a held write");
+        await releaseDraftWrite(page);
+      }else await page.locator(sequence==="replacement-discomfort"?"#exPickReasonSkip":'[data-pick-reason="pain"]').click();
+      await page.locator("#exPickSheet").waitFor({state:"hidden"});
+      if(sequence==="pain-restore"){
+        await openActions(page,id);await page.locator("#exActionRestoreOrigBtn").click();
+        await page.locator("#exActionsSheet").waitFor({state:"hidden"});
+      }else{
+        await openActions(page,id);await page.locator("#exActionDiscomfortBtn").click();
+        await page.waitForFunction(()=>document.querySelector("#exActionDiscomfortBtn").getAttribute("aria-pressed")==="true");
+        if(sequence==="pain-and-discomfort"){
+          await page.locator("#exActionDiscomfortBtn").click();
+          await page.waitForFunction(()=>document.querySelector("#exActionDiscomfortBtn").getAttribute("aria-pressed")==="false");
+          const retained=await page.evaluate(id=>window.__repforgeWorkoutDraft.current().exercises[id].discomfort,id);
+          assert.equal(retained.length,1,"clearing the replacement leaves original pain intact");
+          assert.equal(retained[0].kind,"pain");
+          await page.locator("#exActionDiscomfortBtn").click();
+          await page.waitForFunction(()=>document.querySelector("#exActionDiscomfortBtn").getAttribute("aria-pressed")==="true");
+        }
+        await page.locator("#exActionsClose").click();
+      }
+      await saveCurrentSet(page,id);
+      if(sequence==="replacement-discomfort"){
+        await openActions(page,skipped.id);await page.locator("#exActionSkipBtn").click();
+        await page.locator("#skipReasonSheet").waitFor({state:"visible"});
+        await holdDraftWrite(page);await page.locator('[data-skip-reason="other"]').click();
+        await page.locator("#skipReasonClose").click();await page.locator("#skipReasonSheet").waitFor({state:"hidden"});
+        await releaseDraftWrite(page);
+        assert.equal(await page.evaluate(()=>document.activeElement?.isConnected&&!document.activeElement.closest('[hidden],.hidden')),true,"a dismissed skip write returns focus to a live control");
+      }
+      const projected=await page.evaluate(()=>{
+        const draft=window.__repforgeWorkoutDraft.current();
+        const finishing=window.RepForgeWorkoutDraft.reduce(draft,{type:"beginFinish",operationId:"projection-proof",expectedRevision:draft.revision,updatedAt:new Date().toISOString(),writer:{installationId:"proof",tabId:"proof"}});
+        return window.RepForgeWorkoutDraft.toHistoryRows(finishing,new Date().toISOString(),{includeSessionEvents:true}).sessionEvents;
+      });
+      const expectedCount=sequence==="pain-and-discomfort"?2:1;
+      assert.equal(projected.pain.length,expectedCount,sequence);
+      assert.equal(projected.pain[0].exerciseId,sequence==="replacement-discomfort"?replacement.libraryId:original.libraryId);
+      assert.equal(projected.pain[0].swapped,sequence==="pain-and-discomfort");
+      const result=await finishEarly(page);assert.ok(result.localOk||result.idbOk);
+      let saved=await page.evaluate(()=>structuredClone(window.__repforgeWorkoutDraft.state()));
+      assert.deepEqual(Object.values(saved.sessionEvents)[0],projected,"save retains the projected observations");
+      await page.locator("#sumDone").click();
+      if(sequence==="replacement-discomfort"){
+        const removed=new Set([original.id,skipped.id]);
+        saved.program=saved.program.filter(exercise=>!removed.has(exercise.id));
+        for(const day of saved.programMeta.programDefinition.days)day.slots=day.slots.filter(slot=>!removed.has(slot.id)).map((slot,order)=>({...slot,order:order+1}));
+        const orderById=new Map(saved.programMeta.programDefinition.days.flatMap(day=>day.slots.map(slot=>[slot.id,slot.order])));
+        saved.program=saved.program.map(exercise=>({...exercise,order:orderById.get(exercise.id)}));
+        const valid=await page.evaluate(definition=>window.RepForgeProgramCompiler.validateProgramDefinition(definition,window.RepForgeExerciseCatalog.snapshot(),[]),saved.programMeta.programDefinition);
+        assert.equal(valid.ok,true,JSON.stringify(valid.issues));
+        await seed(page,saved);
+      }
+      await page.locator('nav [data-view="stats"]').click();await page.locator('#statsSeg [data-seg="review"]').click();
+      const current=await page.locator('[data-week-review="current"]').innerText();
+      assert.match(current,new RegExp(sequence==="replacement-discomfort"?replacementLabel:original.name));
+      assert.equal(current.includes(sequence==="replacement-discomfort"?`Discomfort reported: ${original.name}`:"not-a-fact"),false);
+      if(sequence==="replacement-discomfort"){
+        assert.ok(current.includes(`Skipped ${skipped.name}.`),"removed skipped slot retains its historical name");
+        assert.ok(!current.includes("Reason: Other")&&!current.includes(skipped.id),"unspecified reason and raw ids stay off screen");
+      }else if(sequence==="pain-restore")assert.ok(!current.includes("the exercise was swapped"),"Review does not claim an undone swap");
+      else assert.ok(current.includes("the exercise was swapped")&&current.includes(`Discomfort reported: ${replacementLabel}`),"Review preserves both original pain swap and replacement discomfort");
+    }finally{await context.close()}
   }
   console.log("PASS weekly review browser: EN/PT facts, active lifecycle, Today navigation, dismissal/reload and empty week");
 }

@@ -463,7 +463,7 @@ export function appState(key, lang) {
     })));
     const date=isoDaysAgo(4);
     state.log.push(metricLogRow(state.programMeta,up,{session:"weekly-second",date,day:"Day 1",set:1,load:55,reps:11,rir:2,created:`${date}T12:00:00.000Z`}));
-    state.sessionEvents={"weekly-2":{v:1,skips:[{exerciseId:skipped.id,slotId:skipped.id,reason:"time"}],pain:[{exerciseId:stall.id,slotId:stall.id,kind:"discomfort",swapped:false}]}};
+    state.sessionEvents={"weekly-2":{v:1,skips:[{exerciseId:skipped.libraryId,name:skipped.name,slotId:skipped.id,reason:"time"}],pain:[{exerciseId:stall.libraryId,name:stall.name,slotId:stall.id,kind:"discomfort",swapped:false}]}};
   }
 
   if (key === "progress/overview-baseline" || key === "progress/review-insufficient") {
@@ -2202,6 +2202,8 @@ export const APP_SCENARIOS = {
     const id=await page.locator("#workout .exercise.is-current").getAttribute("data-ex");
     await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
     await page.locator("#exActionSkipBtn").click();
+    await page.locator('[data-skip-reason="other"]').click();
+    await page.locator("#skipReasonSheet").waitFor({state:"hidden"});
     await page.locator("#exActionsSheet").waitFor({state:"hidden"});
     await page.locator("#sessionSheetBtn").click();
     await page.locator(`[data-session-map-jump="${id}"]`).click();
@@ -3195,6 +3197,8 @@ export const APP_SCENARIOS = {
   "today/skipped": async page => {
     await dismissChrome(page); await page.locator('#todayExList [data-context-row]').first().click({ button: 'right' });
     await page.locator('#nativeContextMenu [data-menu-value="skip"]').click();
+    await page.locator('[data-skip-reason="other"]').click();
+    await page.locator("#skipReasonSheet").waitFor({state:"hidden"});
     await page.waitForSelector('#todayExList .is-skipped');
   },
   "today/context-menu": async page => {

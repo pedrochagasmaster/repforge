@@ -410,6 +410,8 @@ async function main() {
       return list[idx]?.id;
     });
     await skipBtn.click();
+    await page.locator('[data-skip-reason="other"]').click();
+    await page.locator("#skipReasonSheet").waitFor({state:"hidden"});
     await page.waitForTimeout(300);
 
     const skipStatus = await page.evaluate((id) => {

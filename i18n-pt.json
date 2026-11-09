@@ -3064,7 +3064,7 @@
   "review.week.open": "Revisar a semana passada",
   "review.week.dismiss": "Dispensar",
   "focus.actions.discomfort": "Dor ou desconforto neste exercício",
-  "focus.actions.discomfort_marked": "Desconforto registrado nesta sessão.",
+  "focus.actions.discomfort_marked": "Desconforto registrado. Toque de novo para apagar.",
   "focus.skip_reason.title": "Por que pular este exercício?",
   "focus.skip_reason.time": "Tempo",
   "focus.skip_reason.recovery": "Recuperação",
@@ -3072,5 +3072,7 @@
   "focus.skip_reason.equipment": "Equipamento indisponível",
   "focus.skip_reason.schedule": "Horários",
   "focus.skip_reason.trim": "Sessão reduzida",
-  "focus.skip_reason.other": "Outro"
+  "focus.skip_reason.other": "Outro",
+  "review.week.skipped_unspecified": "{lift} pulado.",
+  "review.week.performance_scope": "Desempenho no bloco atual:"
 }

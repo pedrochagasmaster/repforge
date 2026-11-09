@@ -15,7 +15,7 @@ import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
 import { launchChromium, openShelfField, waitForAppBoot } from "./browser.mjs";
 import { finishEarly, openEarlyFinish, selectExercise } from "./fixtures/focus-workout.mjs";
-import { installSeedProgram } from "./fixtures/seed-program.mjs";
+import { seedProgram, installSeedProgram } from "./fixtures/seed-program.mjs";
 
 const require = createRequire(import.meta.url);
 const RAW_CATALOG = require("../assets/exercise-catalog.json");
@@ -34,6 +34,7 @@ const SEED_A = "seed-ex-1";
 const STARTED = "2026-10-05T12:00:00.000Z";
 const FINISHED = "2026-10-05T12:42:10.000Z";
 
+const canonical=value=>Array.isArray(value)?value.map(canonical):value&&typeof value==="object"?Object.fromEntries(Object.keys(value).sort().map(key=>[key,canonical(value[key])])):value;
 let passed = 0;
 const failures = [];
 function check(condition, message, detail) {
@@ -254,7 +255,7 @@ async function main() {
     await source.locator('[data-workout-action="exercise"]').click();
     check(await source.locator("#exActionDiscomfortBtn").count()===1,"exercise actions offer a discomfort mark");
     await source.locator("#exActionDiscomfortBtn").click();
-    await source.waitForFunction(()=>window.__repforgeWorkoutDraft.current()?.exercises?.["seed-ex-1"]?.discomfort?.kind==="discomfort");
+    await source.waitForFunction(()=>window.__repforgeWorkoutDraft.current()?.exercises?.["seed-ex-1"]?.discomfort?.[0]?.kind==="discomfort");
     await source.locator("#exActionsClose").click();
     await selectExercise(source, "seed-ex-2");
     await source.locator("#woOverflowBtn").click();
@@ -263,21 +264,22 @@ async function main() {
     await source.locator('[data-skip-reason="time"]').click();
     await source.waitForFunction(()=>window.__repforgeWorkoutDraft.current()?.exercises?.["seed-ex-2"]?.skipReason==="time");
     await reload(source);
-    check((await source.evaluate(()=>window.__repforgeWorkoutDraft.current()?.exercises?.["seed-ex-1"]?.discomfort?.kind))==="discomfort","draft recovery keeps discomfort");
+    check((await source.evaluate(()=>window.__repforgeWorkoutDraft.current()?.exercises?.["seed-ex-1"]?.discomfort?.[0]?.kind))==="discomfort","draft recovery keeps discomfort");
     check((await source.evaluate(()=>window.__repforgeWorkoutDraft.current()?.exercises?.["seed-ex-2"]?.skipReason))==="time","draft recovery keeps the skip reason");
     await source.clock.setFixedTime(new Date(FINISHED));
     const finished = await finishEarly(source);
     let state = await durable(source);
     const [sid] = sessionIds(state);
     const expected = { startedAt: STARTED, completedAt: FINISHED, durationSeconds: 2530 };
-    const expectedEvents = {v:1,skips:[{exerciseId:"seed-ex-2",slotId:"seed-ex-2",reason:"time"}],pain:[{exerciseId:"seed-ex-1",slotId:"seed-ex-1",kind:"discomfort",swapped:false}]};
-    check(JSON.stringify(state.sessionEvents?.[sid])===JSON.stringify(expectedEvents),"session events commit beside the rows",state.sessionEvents);
+    const [first,second]=seedProgram();
+    const expectedEvents = {v:1,skips:[{exerciseId:second.libraryId,name:second.name,slotId:"seed-ex-2",reason:"time"}],pain:[{exerciseId:first.libraryId,name:first.name,slotId:"seed-ex-1",kind:"discomfort",swapped:false}]};
+    check(JSON.stringify(canonical(state.sessionEvents?.[sid]))===JSON.stringify(canonical(expectedEvents)),"session events commit beside the rows",state.sessionEvents);
     const replica=await source.evaluate(async()=>{
       const db=await new Promise((resolve,reject)=>{const r=indexedDB.open("repforge",1);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)});
       const value=await new Promise((resolve,reject)=>{const r=db.transaction("kv").objectStore("kv").get("repforge_v1");r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)});
       db.close();return value;
     });
-    check(JSON.stringify(replica.sessionEvents?.[sid])===JSON.stringify(expectedEvents),"the acknowledged replica carries the same session events",replica.sessionEvents);
+    check(JSON.stringify(canonical(replica.sessionEvents?.[sid]))===JSON.stringify(canonical(expectedEvents)),"the acknowledged replica carries the same session events",replica.sessionEvents);
     check(finished?.localOk || finished?.idbOk, "the early finish saved the session", finished);
     check(JSON.stringify(state.sessionTiming?.[sid]) === JSON.stringify(expected),
       "the session keeps its start, its finish and 42 min 10 s of wall-clock time", state.sessionTiming);
@@ -288,7 +290,7 @@ async function main() {
     await reload(source);
     state = await durable(source);
     check(JSON.stringify(state.sessionTiming?.[sid]) === JSON.stringify(expected), "a reload reads the same timing", state.sessionTiming);
-    check(JSON.stringify(state.sessionEvents?.[sid])===JSON.stringify(expectedEvents),"session events survive this reload/import boundary",state.sessionEvents);
+    check(JSON.stringify(canonical(state.sessionEvents?.[sid]))===JSON.stringify(canonical(expectedEvents)),"session events survive this reload/import boundary",state.sessionEvents);
     await source.evaluate(()=>window.__repforgeUi.setPref("weekCardSeen","2026-W40"));
     const backup = await exportBackup(source);
     check(JSON.stringify(backup.sessionTiming?.[sid]) === JSON.stringify(expected), "the backup export carries it", backup.sessionTiming);
@@ -302,7 +304,7 @@ async function main() {
     await reload(restored);
     state = await durable(restored);
     check(JSON.stringify(state.sessionTiming?.[sid]) === JSON.stringify(expected), "a backup Replace and reload keep it", state.sessionTiming);
-    check(JSON.stringify(state.sessionEvents?.[sid])===JSON.stringify(expectedEvents),"session events survive this reload/import boundary",state.sessionEvents);
+    check(JSON.stringify(canonical(state.sessionEvents?.[sid]))===JSON.stringify(canonical(expectedEvents)),"session events survive this reload/import boundary",state.sessionEvents);
 
     const transferred = await bootFresh(await context({ guides: "live" }), FINISHED,{withoutTelemetry:true});
     await reload(transferred);
@@ -319,7 +321,7 @@ async function main() {
     await reload(transferred);
     state = await durable(transferred);
     check(JSON.stringify(state.sessionTiming?.[sid]) === JSON.stringify(expected), "an install-transfer import and reload keep it", state.sessionTiming);
-    check(JSON.stringify(state.sessionEvents?.[sid])===JSON.stringify(expectedEvents),"session events survive this reload/import boundary",state.sessionEvents);
+    check(JSON.stringify(canonical(state.sessionEvents?.[sid]))===JSON.stringify(canonical(expectedEvents)),"session events survive this reload/import boundary",state.sessionEvents);
 
     const merged = await bootFresh(await context(), FINISHED);
     await installSeedProgram(merged, { waitFor: () => waitForAppBoot(merged, { base: BASE }) });
@@ -327,7 +329,7 @@ async function main() {
     await reload(merged);
     state = await durable(merged);
     check(JSON.stringify(state.sessionTiming?.[sid]) === JSON.stringify(expected), "a backup Merge brings the added session's timing", state.sessionTiming);
-    check(JSON.stringify(state.sessionEvents?.[sid])===JSON.stringify(expectedEvents),"session events survive this reload/import boundary",state.sessionEvents);
+    check(JSON.stringify(canonical(state.sessionEvents?.[sid]))===JSON.stringify(canonical(expectedEvents)),"session events survive this reload/import boundary",state.sessionEvents);
 
     phase("A reader takes a payload that carries timing without refusing it");
     // Built by hand, so this phase also runs against a release that writes none.

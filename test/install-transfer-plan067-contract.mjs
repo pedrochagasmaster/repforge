@@ -805,7 +805,7 @@ for (const bad of ["yes", 1, null]) {
 
 {
   const withEvents = structuredClone(valid);
-  withEvents.durableState.sessionEvents = {session:{v:1,skips:[{exerciseId:"slot",slotId:"slot",reason:"time"}],pain:[]}};
+  withEvents.durableState.sessionEvents = {session:{v:1,skips:[{exerciseId:"slot",slotId:"slot",name:"Hack squat",reason:"time"}],pain:[]}};
   withEvents.integrity.canonicalPayloadHash = canonicalHash(withEvents);
   assert.equal((await Contract.validateEnvelopeIntegrity(withEvents,webcrypto)).ok,true,"valid session events cross transfer");
   withEvents.durableState.sessionEvents.session.skips[0].reason = "free text";

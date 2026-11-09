@@ -12887,6 +12887,19 @@
       "rationale": "Opens last week in Review.",
       "owner": "plan-082",
       "catalogStates": [
+        "today/ready",
+        "today/calibration-mini",
+        "today/calibration-ring-bar",
+        "today/dock-viewer",
+        "today/ready-scrolled",
+        "today/rest-bar",
+        "today/day-picker",
+        "today/done",
+        "today/deload-week",
+        "today/draft-resume",
+        "today/in-progress",
+        "today/context-menu",
+        "today/skipped",
         "today/week-card"
       ]
     },
@@ -12908,6 +12921,19 @@
       "rationale": "Dismisses the current ISO week on this device.",
       "owner": "plan-082",
       "catalogStates": [
+        "today/ready",
+        "today/calibration-mini",
+        "today/calibration-ring-bar",
+        "today/dock-viewer",
+        "today/ready-scrolled",
+        "today/rest-bar",
+        "today/day-picker",
+        "today/done",
+        "today/deload-week",
+        "today/draft-resume",
+        "today/in-progress",
+        "today/context-menu",
+        "today/skipped",
         "today/week-card"
       ]
     },
