@@ -26,7 +26,7 @@ function readings(log,now) {
   const calibration=Calibration.estimate(Calibration.checkErrors({today:now,sessions:history.map(s=>({date:s.date,checks:s.sets.filter(r=>r.calibration).map(r=>({predictedReps:r.calibration.predictedReps,reps:r.reps}))}))}));
   const recommendation=Engine.recommendSets(prescriptions,history,[],context,{now,calibration})[0];
   const observations=rows.map(r=>({key,session:r.session,date:r.date,set:r.setIndex,load:r.load,reps:r.reps,rir:r.rir,q:Gauge.rowQuality(r)}));
-  return [{key,name:'Leg press',recommendation,standing:recommendation.standing,calibration,observations,improved:false}];
+  return [{key,name:'Leg press',recommendation,standing:recommendation.standing,calibration,weeks:Gauge.weeksFrom(observations,(load,reps,rir)=>load*(1+(reps+rir)/30)),improved:false}];
 }
 const build=(log,now='2026-11-09',p=program,read=readings)=>Model.buildFindings(log,p,{},now,read);
 const found=(result,id)=>result.released.find(f=>f.id===id);
@@ -132,5 +132,16 @@ proof('needs include named lifts and exact remaining calendar days',()=>{
   const log=[...one,...two,...three, ...session('check','2026-10-16',{checks:true})];
   const next=build(log,'2026-10-20',program,noTestsRead).next;
   assert.equal(next.id,'month_one');assert.equal(next.need.d,9);
+});
+proof('the first trend includes only a record already observed on its release date',()=>{
+  const read=(rows,now)=>readings(rows,now).map(f=>({...f,records:[{date:'2026-10-08',load:105,reps:8},{date:'2026-11-05',load:110,reps:8}]}));
+  const result=build([...one,...two],undefined,program,read);
+  assert.equal(found(result,'first_trend').record.load,105);
+});
+proof('the first target belongs to the slot actually performed that session',()=>{
+  const wrong=(rows,now)=>readings(rows,now).map(f=>({...f,slotId:'another-slot'}));
+  assert.equal(found(build([...one,...two],undefined,program,wrong),'first_target'),undefined);
+  const right=(rows,now)=>readings(rows,now).map(f=>({...f,slotId:'exercise-a'}));
+  assert.equal(found(build([...one,...two],undefined,program,right),'first_target').date,'2026-10-08');
 });
 console.log(`PASS findings: ${checks} rule, chronology, identity and need proofs`);

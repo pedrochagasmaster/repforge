@@ -602,12 +602,10 @@
 
   // `standings(rows, asOf)` replays the authoritative engine on exactly this
   // prefix. Each reading has key/name, recommendation, standing, calibration,
-  // gauge observations and an observed `improved` fact. Keeping the adapter at
+  // weekly pairs and an observed `improved` fact. Keeping the adapter at
   // the caller preserves the model's pure boundary and the engine's sole
   // ownership of comparability, standing and effort thresholds.
   function buildFindings(log, program, meta, now, standings = () => []) {
-    const gauge = root?.RepForgeCalibrationGauge ||
-      (typeof require === "function" ? require("./calibration-gauge.js") : null);
     const today = isoDate(now);
     const keyOf = (row) => String(row.performedLibraryId || row.performedMovementId ||
       row.sourceLibraryId || row.performedName || row.name || "");
@@ -634,14 +632,13 @@
       ...history.filter((row) => row.startingLoad).map(keyOf),
       ...facts.filter(hasAnchor).map((fact) => fact.key),
     ]);
-    const capacity = (load, reps, rir) => load * (1 + (reps + rir) / 30);
     for (const session of sessions.values()) {
       const date = isoDate(session[0].date);
       const before = read(prefix, date);
       // A target belongs to the session it was available for, not a target
       // reconstructed using that session's own future performance.
       const target = before.find((fact) => hasAnchor(fact) && fact.recommendation?.reasonCodes?.includes("history_anchor") &&
-        fact.recommendation.status === "recommended" && session.some((row) => keyOf(row) === fact.key));
+        fact.recommendation.status === "recommended" && session.some((row) => keyOf(row) === fact.key && (!fact.slotId || String(row.exerciseId) === fact.slotId)));
       if (target) {
         const rec = target.recommendation;
         const anchor = prefix.find((row) => String(row.session) === String(rec.historyAnchor.sessionId) && keyOf(row) === target.key);
@@ -665,9 +662,10 @@
           { key: fact.key, lift: fact.name, state: fact.calibration.state });
         if (fact.standing?.word === "solid") release("first_solid", date,
           { key: fact.key, lift: fact.name, sets: fact.standing.evidence.sets, sessions: fact.standing.evidence.sessions });
-        const pair = gauge?.weeksFrom(fact.observations || [], capacity)[0];
+        const pair = (fact.weeks || []).slice().sort((a, b) => a.date.localeCompare(b.date))[0];
         if (pair) release("first_trend", pair.date,
-          { key: fact.key, lift: fact.name, cap1: pair.before, cap2: pair.after });
+          { key: fact.key, lift: fact.name, cap1: pair.before, cap2: pair.after,
+            record: (fact.records || []).find((record) => record.date <= pair.date) || null });
       }
     }
     const monthDate = rows.length ? addDays(rows[0].date, 28) : null;
