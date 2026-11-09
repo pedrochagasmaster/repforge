@@ -707,7 +707,7 @@
         // falling back to it when the program specifies no target can still
         // produce a value above the engine's 0-4 ceiling, so clamp it the
         // same way a pre-Plan-067 stored draft is clamped on parse.
-        const targetRir = spec.targetRir ?? source.targetRir ?? old.rir ?? null;
+        const targetRir = hasOwn(spec, "targetRir") ? spec.targetRir : source.targetRir ?? old.rir ?? null;
         const targetRirNumber = targetRir == null ? null : Number(targetRir);
         const targetRirClamp = clampLegacyTargetRir(targetRirNumber);
         const effort = spec.suggestedEffort ?? source.suggestedEffort ?? null;
