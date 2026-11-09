@@ -187,6 +187,28 @@ try {
     assert(items.length===6&&!items.includes("effort_read"),"adaptive history releases six truthful findings",items);
     assert((await findingPage.locator("#overviewProfile [data-finding-next=effort_read]").innerText()).includes("2 more test sets"),
       "one check leaves two checks on the named lift");
+    for(const kind of ['reps','load']) {
+      const baseline=[0,1].flatMap(w=>[1,2,3,4].map(set=>metricLogRow(generated.programMeta,ex,{
+        session:`baseline-${w}`,date:day(14-w*7),set,load:kind==='load'?50+set*2.5:60,reps:kind==='reps'?6+set:8,rir:2,extra:{effortSource:'rir'}
+      })));
+      const recordFacts=await findingPage.evaluate(async next=>{
+        const commit=await window.__repforgeCommitProposedState(next);if(!commit.committed)throw new Error('record proposal refused');
+        const rows=readLogRows(),read=findingReadings();
+        const facts=read(rows,today());
+        return {records:facts.flatMap(f=>f.records),owner:sessionPRs(rows.slice(0,4),[]).concat(sessionPRs(rows.slice(4),rows.slice(0,4)))};
+      },{...generated,log:baseline});
+      assert(recordFacts.owner.length===0&&recordFacts.records.length===0,
+        `${kind}: changes inside the baseline and an identical session create no record`,recordFacts);
+      const later=[...baseline,...[1,2,3,4].map(set=>metricLogRow(generated.programMeta,ex,{
+        session:'record-later',date:day(1),set,load:75,reps:8,rir:2,extra:{effortSource:'rir'}
+      }))];
+      const real=await findingPage.evaluate(async next=>{
+        const commit=await window.__repforgeCommitProposedState(next);if(!commit.committed)throw new Error('record proposal refused');
+        return findingReadings()(readLogRows(),today()).flatMap(f=>f.records);
+      },{...generated,log:later});
+      assert(real.length>0&&real.every(r=>r.date===day(1)&&r.load===75&&r.reps===8),
+        `${kind}: the first real record retains its own date and values`,real);
+    }
     const original=generated.program.find(other=>other.libraryId!==ex.libraryId);
     for(const row of history){row.exerciseId=original.id;row.name=original.name;}
     await findingPage.evaluate(async next=>{
