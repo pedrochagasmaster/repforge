@@ -274,7 +274,8 @@ async function engineTruth(page, slotId) {
       engineStatus: rec.engineStatus, reason: rec.reason, reasonCodes: rec.reasonCodes,
       min: ex.min, max: ex.max, sets: ex.sets, executionMode: slot?.executionMode ?? null,
       historyAnchor: rec.historyAnchor, fatigue: rec.fatigue,
-      loadingAssumptions: rec.loadingAssumptions,
+      loadingAssumptions: rec.loadingAssumptions, standing: rec.standing,
+      resultStanding: rec.targetSets?.[0]?.result?.standing,
       metricDefinitions: rec.metricDefinitions,
       firstTargets: rec.targetSets?.[0]?.result?.targets || null,
       firstRir: rec.targetSets?.[0]?.prescription?.rir ?? null,
@@ -350,6 +351,8 @@ try {
     knownPerSideTruth.executionMode === "bilateral",
     "P069-S3-WHY: entering the generated known-bilateral slot establishes m=2 in the actual workout context", knownPerSideContext);
   const knownPerSideCue = await focusCue(perSidePage);
+  assert(await perSidePage.locator("#workout .exercise.is-current .fx-cue__standing").textContent().catch(() => null) === "First time on this lift",
+    "P080: Focus names a first lift without inventing evidence");
   assert(knownPerSideCue.line1 === `Pick a load for ${knownPerSideTruth.min}–${knownPerSideTruth.max} reps` && !knownPerSideCue.line2,
     "P069-S3-CUE: generated known-bilateral Focus asks for a load without claiming setup is missing",
     JSON.stringify({ cue: knownPerSideCue, truth: knownPerSideTruth }));
@@ -448,6 +451,12 @@ try {
   assert(truthBefore.status !== "manual" && truthBefore.status !== "new",
     "the generated program has a real adaptive recommendation after one session", truthBefore);
 
+  assert(truthBefore.standing?.word === "learning" &&
+    JSON.stringify(truthBefore.standing) === JSON.stringify(truthBefore.resultStanding),
+    "P080: recommendation carries the engine's standing without recomputing it", truthBefore);
+  const standingLine = await page.locator("#workout .exercise.is-current .fx-cue__standing").textContent().catch(() => null);
+  assert(standingLine === "Still learning this lift", "P080: Focus quietly names a learning target", standingLine);
+
   // RT-05, before any set this session: the headline is exactly the Focus cue.
   const cueBefore = await focusCue(page);
   const whyBefore = await openWhy(page);
@@ -458,6 +467,19 @@ try {
     "RT-05: before any set this session, the verdict mark is the cue's",
     `cue=${JSON.stringify(cueBefore.mark)} why=${JSON.stringify(whyBefore.mark)}`);
 
+  const standingBlock = whyBefore.blocks.find((b) => b.lead === "engine-standing");
+  assert(standingBlock?.text.includes("sets over 1 sessions") &&
+    standingBlock?.text.includes("Still learning this lift"),
+    "P080: Why explains the learning word and its set/session evidence", standingBlock);
+  for (const lang of ["pt", "en"]) {
+    await closeWhy(page);
+    await page.evaluate((lang) => window.RepForgeI18n.setLang(lang), lang);
+    const localized = await openWhy(page);
+    const footing = localized.blocks.find((b) => b.lead === "engine-standing");
+    const expected = lang === "pt" ? "Ainda conhecendo este exercício" : "Still learning this lift";
+    assert(footing?.text.includes(expected) && !/why\.standing|standing\.learning/.test(footing.text),
+      `P080: Why standing is translated in ${lang}`, footing);
+  }
   // RT-01: the "What you showed" block (data-lead="engine-anchor") names each
   // of last session's two sets at its own load — never one shared sentence.
   const anchorBlock = whyBefore.blocks.find((b) => b.lead === "engine-anchor");
