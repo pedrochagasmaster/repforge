@@ -20,3 +20,8 @@ assert.equal(empty.completedSessions,0);assert.deepEqual(empty.skips,[]);assert.
 assert.deepEqual(empty.outcomes,[]);assert.deepEqual(empty.stalled,[]);assert.deepEqual(empty.fatigue,[]);
 assert.equal(Object.hasOwn(facts,"status"),false);assert.equal(Object.hasOwn(facts,"percent"),false);
 console.log("PASS weekly facts: calendar bounds, session deduplication, block-scoped performance, events, authoritative outcomes and purity");
+
+const later={...meta,started:"2026-11-09",completedWeek:true};
+assert.equal(Model.buildWeekReview(log,sessionEvents,program,later,"2026-10-29").programExisted,true,"retained sessions establish a real historical week");
+assert.equal(Model.buildWeekReview([],{},program,later,"2026-10-29").programExisted,false,"no-history pre-activation week stays absent");
+assert.equal(Model.buildWeekReview([],{},program,{...later,completedWeek:false},"2026-10-29").plannedSessions,2,"current calendar denominator always follows authored days");

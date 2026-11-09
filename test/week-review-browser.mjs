@@ -22,8 +22,96 @@ async function saveCurrentSet(page,id){
   await page.waitForFunction(id=>Object.values(window.__repforgeWorkoutDraft.current().exercises[id].sets).some(set=>set.completion!=="pending"),id);
 }
 
+async function runRoundTwoCases(browser,manifest){
+  const failures=[];
+  const check=async(name,proof)=>{try{await proof();console.log(`PASS round 2: ${name}`)}catch(error){failures.push(new Error(`${name}: ${error.message}`,{cause:error}))}};
+  for(const kind of ["repeat","restored-later-start","future-start"]){
+    await check(kind,async()=>{
+      const state=appState("progress/review-active","en");
+      if(kind==="repeat")state.programMeta.mesocycleStatus="completed";
+      else state.programMeta.started=kind==="future-start"?"2026-09-07":"2026-08-31";
+      if(kind==="future-start")state.log=state.log.filter(row=>["weekly-2","weekly-second"].includes(row.session)).map(row=>({...row,date:"2026-08-31"}));
+      const {page,context}=await openPage(browser,manifest,{flow:"progress",screen:"review-active",viewport:"phone-390",theme:"light",locale:"en",text:"normal",motion:"normal"},state);
+      try{
+        await dismissChrome(page);await APP_SCENARIOS["progress/review-active"](page);
+        if(kind==="repeat"){
+          const block=state.programMeta.blockId;
+          await page.locator('[data-review-action="repeat"]').click();
+          await page.waitForFunction(block=>window.__repforgeWorkoutDraft.state().programMeta.blockId!==block,block);
+          await page.evaluate(()=>window.__repforgeStorage.flush());
+          await page.reload({waitUntil:"domcontentloaded"});await waitForAppBoot(page);
+          await APP_SCENARIOS["progress/review-active"](page);
+          const retained=await page.evaluate(()=>({log:window.__repforgeWorkoutDraft.state().log,events:window.__repforgeWorkoutDraft.state().sessionEvents}));
+          assert.deepEqual(retained.log,state.log,"Repeat retains every session row");
+          assert.deepEqual(retained.events,state.sessionEvents,"Repeat retains historical observations");
+        }
+        if(kind!=="future-start"){
+          assert.equal(await page.locator('[data-week-review="last"]').count(),1,"retained sessions establish that last week existed");
+          const last=await page.locator('[data-week-review="last"]').innerText();
+          assert.match(last,/2 of 3 sessions/);
+          for(const event of Object.values(state.sessionEvents).flatMap(record=>[...record.pain,...record.skips]))assert.ok(last.includes(event.name),"retained observations remain visible");
+        }else assert.match(await page.locator('[data-week-review="current"]').innerText(),/2 of 3 sessions/);
+        await page.locator('nav [data-view="log"]').click();
+        if(kind==="future-start")assert.match(await page.locator(".ov-week-line").innerText(),/2 of 3 sessions/);
+        else assert.match(await page.locator("#todayWeekCard").innerText(),/2 of 3 sessions/,"retained last week also keeps its Today card");
+      }finally{await context.close()}
+    });
+  }
+  for(const action of ["retry","cancel"]){
+    await check(`frozen reason ${action}`,async()=>{
+      const state=appState("workout/discomfort-mark","en");state.log=[];delete state.sessionEvents;
+      const {page,context}=await openPage(browser,manifest,{flow:"workout",screen:"discomfort-mark",viewport:"phone-390",theme:"light",locale:"en",text:"normal",motion:"normal"},state);
+      try{
+        await dismissChrome(page);await APP_SCENARIOS["workout/focus"](page);
+        await page.evaluate(()=>{
+          window.reasonEvents=[];localStorage.setItem("repforge_telemetry_enabled_v1","true");
+          window.RepForgeTelemetry.boot({adapter:{capture:(name,properties)=>{if(name==="substitution_used")window.reasonEvents.push(properties)},setEnabled(){}},storage:localStorage});
+        });
+        const id=await page.locator("#workout .exercise.is-current").getAttribute("data-ex"),original=state.program.find(ex=>ex.id===id),replacement=state.program.find(ex=>ex.id!==id);
+        await openActions(page,id);await page.locator("#exActionSubstBtn").click();
+        await page.locator(`#exPickList [data-pick="${replacement.libraryId}"]`).click();
+        await page.locator('[data-pick-reason="pain"]').waitFor({state:"visible"});
+        await page.evaluate(()=>localStorage.setItem("repforge_install_transfer_freeze_v1",JSON.stringify({version:1,owner:"another-tab",createdAt:new Date().toISOString()})));
+        await page.locator('[data-pick-reason="pain"]').click();
+        await page.evaluate(()=>window.__repforgeWorkoutDraft.flush());
+        assert.equal(await page.locator("#exPickSheet").isVisible(),true,"refused Pain stays open for retry or cancel");
+        assert.match(await page.locator(".pick__followup-done").innerText(),/not.*saved|could not be saved/i,"refusal visibly says the answer is unsaved");
+        assert.equal(await page.locator('[data-pick-reason="pain"]').isEnabled(),true,"refused reason can be retried");
+        assert.deepEqual(await page.evaluate(()=>window.reasonEvents),[],"refusal emits no unsaved reason");
+        await page.evaluate(()=>localStorage.removeItem("repforge_install_transfer_freeze_v1"));
+        await page.locator(action==="retry"?'[data-pick-reason="pain"]':"#exPickCancel").click();
+        await page.locator("#exPickSheet").waitFor({state:"hidden"});
+        const exercise=await page.evaluate(id=>window.__repforgeWorkoutDraft.current().exercises[id],id);
+        const events=await page.evaluate(()=>window.reasonEvents.map(({source,reason})=>({source,...(reason?{reason}:{})})));
+        assert.deepEqual(events,[{source:"library",...(action==="retry"?{reason:"pain"}:{})}],"exactly one event describes the acknowledged swap");
+        if(action==="retry"){
+          assert.equal(exercise.swapReason,"pain");assert.equal(exercise.discomfort.length,1);
+          assert.equal(exercise.discomfort[0].exerciseId,original.libraryId);assert.equal(exercise.discomfort[0].kind,"pain");
+          await saveCurrentSet(page,id);await finishEarly(page);
+          const pain=await page.evaluate(()=>Object.values(window.__repforgeWorkoutDraft.state().sessionEvents)[0].pain);
+          assert.equal(pain.length,1);assert.equal(pain[0].exerciseId,original.libraryId);
+          assert.equal(await page.evaluate(()=>window.reasonEvents.length),1,"saving does not emit the swap again");
+        }else{assert.equal(exercise.swapReason,undefined);assert.equal(exercise.discomfort,undefined)}
+      }finally{await context.close()}
+    });
+  }
+  await check("single skip separators",async()=>{
+    const {page,context}=await openPage(browser,manifest,{flow:"workout",screen:"skip-reason",viewport:"phone-390",theme:"light",locale:"en",text:"normal",motion:"normal"},appState("workout/skip-reason","en"));
+    try{
+      await dismissChrome(page);await APP_SCENARIOS["workout/focus"](page);
+      const id=await page.locator("#workout .exercise.is-current").getAttribute("data-ex");await openActions(page,id);
+      const bottom=await page.locator("#exActionSkipBtn").evaluate(el=>parseFloat(getComputedStyle(el).borderBottomWidth));
+      await page.locator("#exActionSkipBtn").click();await page.locator('[data-skip-reason="time"]').waitFor({state:"visible"});
+      const borders=await page.locator("#skipReasonChoices button").evaluateAll(rows=>rows.map(row=>{const s=getComputedStyle(row);return{top:parseFloat(s.borderTopWidth),bottom:parseFloat(s.borderBottomWidth)}}));
+      assert.ok(borders.every(row=>row.top===0&&row.bottom===bottom),"skip rows use the same single bottom border as exercise actions");
+    }finally{await context.close()}
+  });
+  if(failures.length)throw new AggregateError(failures,"round 2 regression proofs failed");
+}
+
 export async function runWeekReviewBrowser(browser) {
   const manifest=loadManifest();
+  await runRoundTwoCases(browser,manifest);
   for(const kind of ["first-week","empty-day","cross-block"]){
     const state=appState("progress/review-active","en");
     if(kind==="first-week"){state.programMeta.started="2026-08-31";state.log=[];delete state.sessionEvents}
