@@ -1,0 +1,28 @@
+/**
+ * Public workout examples inspected for text/format characteristics ONLY.
+ * Source post prose and personal details are not copied into the benchmark.
+ * Each reference yields exactly ten original deterministic synthetic cases.
+ * These URLs were checked against indexed public post excerpts on 2026-11-08.
+ */
+export const REFERENCES = Object.freeze([
+  { id:"pt01", locale:"pt", split:"development", style:"abc", feature:"ABC groups, incomplete set-only shorthand", url:"https://www.reddit.com/r/Maromba/comments/18ug30n" },
+  { id:"pt02", locale:"pt", split:"development", style:"coach", feature:"longhand weekday prescription with exercises and reps", url:"https://www.reddit.com/r/Maromba/comments/1tjpiat/" },
+  { id:"pt03", locale:"pt", split:"development", style:"warmup", feature:"warmup sets, dense A/B routines, 3x6-8", url:"https://www.reddit.com/r/Maromba/comments/1j6gmuz" },
+  { id:"pt04", locale:"pt", split:"development", style:"weekly", feature:"AB A1/B1/A2/B2 day labels and ranges", url:"https://www.reddit.com/r/Maromba/comments/1ixjci8" },
+  { id:"pt05", locale:"pt", split:"development", style:"advanced", feature:"multiple workout days, failure and bi-set annotations", url:"https://www.reddit.com/r/Maromba/comments/17kx9qe" },
+  { id:"pt06", locale:"pt", split:"development", style:"loads", feature:"logs mixing working loads and set/rep targets", url:"https://www.reddit.com/r/Maromba/comments/1vjp2x8/" },
+  { id:"pt07", locale:"pt", split:"validation", style:"alternatives", feature:"alternative lifts, top sets and missing reps", url:"https://www.reddit.com/r/Maromba/comments/18zftog" },
+  { id:"pt08", locale:"pt", split:"validation", style:"sport", feature:"running concurrent with ABC lifting", url:"https://www.reddit.com/r/Maromba/comments/1nqs358" },
+  { id:"pt09", locale:"pt", split:"holdout", style:"rir", feature:"low-volume full-body, back-off/percentage notes", url:"https://www.reddit.com/r/Maromba/comments/1xdoqzz/" },
+  { id:"pt10", locale:"pt", split:"holdout", style:"dense", feature:"multi-day compact prescription with loads and timed holds", url:"https://www.reddit.com/r/Maromba/comments/1x6xcif/" },
+  { id:"en01", locale:"en", split:"development", style:"table", feature:"Markdown tables, explicit set/rep/rest columns", url:"https://www.reddit.com/r/workout/comments/1txstvw/" },
+  { id:"en02", locale:"en", split:"development", style:"numbered", feature:"numbered multi-day sets and drop-set notes", url:"https://www.reddit.com/r/workout/comments/10e81qk" },
+  { id:"en03", locale:"en", split:"development", style:"finisher", feature:"finisher movements and progressive overload prose", url:"https://www.reddit.com/r/workout/comments/1t9wmrn/" },
+  { id:"en04", locale:"en", split:"development", style:"spreadsheet", feature:"compact day-grouped A/B/C prescription", url:"https://www.reddit.com/r/WorkoutRoutines/comments/1v14psg/" },
+  { id:"en05", locale:"en", split:"development", style:"weights", feature:"mixed working loads, missing reps, set-by-set notes", url:"https://www.reddit.com/r/workout/comments/158f1hc" },
+  { id:"en06", locale:"en", split:"development", style:"warmup", feature:"warmup/cardio inside A/B workout sessions", url:"https://www.reddit.com/r/WorkoutRoutines/comments/1w4tcjv/" },
+  { id:"en07", locale:"en", split:"validation", style:"rir", feature:"explicit RIR and rest per numbered exercise", url:"https://www.reddit.com/r/workout/comments/1w884ic/" },
+  { id:"en08", locale:"en", split:"validation", style:"schedule", feature:"7-day rotating schedule, time-based working exercises", url:"https://www.reddit.com/r/WorkoutRoutines/comments/1ulxr13/" },
+  { id:"en09", locale:"en", split:"holdout", style:"superset", feature:"superset notation and weekly progression instructions", url:"https://www.reddit.com/r/LiftingRoutines/comments/1iz8eci/fierce_5_comprehensive_program_list/" },
+  { id:"en10", locale:"en", split:"holdout", style:"prose", feature:"longhand frequency and optional-exercise notes", url:"https://www.reddit.com/r/WorkoutRoutines/comments/1vj36vf/" }
+]);

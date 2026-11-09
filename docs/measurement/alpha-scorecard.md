@@ -48,6 +48,8 @@ Health queries are explicitly broader so bad or absent labels remain visible.
 | Repeated use | first observed `session_completed` → later-date, different-SDK-session `session_completed` | Unique new installation | Repeat within 7, 30, or 60 elapsed days | activation route and version category | Mature anchors; compiled view requires a witnessed first-run boot |
 | Week-1 and week-4 training by route | first `program_activated` (route) → `session_completed` on a later date within 7 days; another in days 22–28 | Unique new installation | 7 and 28 days from activation | first activation route | Mature anchors only, with a witnessed first-run boot |
 
+The optional founder-funded managed-import route (ADR 0025) does **not** leave the app for an external assistant. Its observed path is `program_import_started` → `program_import_parsed` → `program_import_review_reached` → `program_activated`, without a `program_import_handoff` event. Report that cohort separately from the external handoff funnel; a missing handoff event in managed import is not abandonment. The existing privacy-safe events intentionally carry no provider response text, input programs or exercise names.
+
 Unsupported workout concepts are measured separately by
 `program_import_unsupported_concept`. Each accepted free-form import
 emits at most one event per recognized category. The event count and

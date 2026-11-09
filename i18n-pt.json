@@ -3044,5 +3044,17 @@
   "exercise.chart.cap.top": "maior carga",
   "exercise.chart.cap.e1rm": "melhor e1RM",
   "exercise.chart.cap.change": "no bloco",
-  "stats.cap.moved": "carga total"
+  "stats.cap.moved": "carga total",
+  "entry.freeform.managed_lede": "Cole a ficha enviada pelo seu treinador, por mensagem ou planilha. O Taurifer converte o treino e mostra cada exercício para você revisar antes de ativar.",
+  "entry.freeform.managed_privacy": "Ao tocar em Importar com Taurifer, este texto é enviado à Anthropic para ser convertido. Ele não fica no seu histórico, nas exportações nem nas análises, e seu histórico de treinos nunca é enviado. Você revisa cada exercício antes de salvar.",
+  "entry.freeform.managed_verify": "Verificação para importar treino",
+  "entry.freeform.managed_submit": "Importar com Taurifer",
+  "entry.freeform.managed_working": "Lendo seu treino…",
+  "entry.freeform.managed_external": "Usar ChatGPT ou Claude",
+  "entry.freeform.managed_failed": "Não foi possível importar agora. Tente novamente ou use seu assistente.",
+  "entry.freeform.managed_rate_limited": "O limite de importações foi atingido. Tente mais tarde ou use seu assistente.",
+  "entry.freeform.managed_challenge_failed": "A verificação não foi concluída. Tente novamente acima.",
+  "entry.freeform.managed_provider_failed": "O serviço não conseguiu ler seu treino. Nenhuma alteração foi salva.",
+  "entry.freeform.managed_invalid": "Cole uma ficha de treino com os exercícios prescritos.",
+  "entry.freeform.managed_unavailable": "A importação direta está indisponível. Use seu assistente por enquanto."
 }

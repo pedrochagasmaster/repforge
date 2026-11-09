@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 252 screens,
-1479 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 254 screens,
+1490 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -144,6 +144,8 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Import — resolve gaps](screens/onboarding-import/freeform-gaps__phone-390-light-en.png) | 7 | Gap resolution screen with inputs for missing sets and reps, and the non-imported disclosure. |
 | [Import — gap validation error](screens/onboarding-import/freeform-gaps-invalid__phone-390-light-en.png) | 3 | Gap resolution screen after submitting empty inputs, highlighting invalid fields with .is-invalid and aria-invalid. |
 | [Import — unreadable reply](screens/onboarding-import/freeform-unreadable__phone-390-light-en.png) | 3 | Unreadable reply recovery block with Copy repair prompt and Try another assistant actions. |
+| [Import — import with Taurifer](screens/onboarding-import/freeform-managed__phone-390-light-en.png) | 8 | Managed import available: a pasted program, one note that the text goes to Anthropic, the verification widget, Import with Taurifer, and the ChatGPT or Claude hand-off as a quiet alternative. |
+| [Import — import limit reached](screens/onboarding-import/freeform-managed-limit__phone-390-light-en.png) | 3 | Managed import after the daily limit: the alert under Import, the pasted source kept, and the ChatGPT or Claude hand-off still available. |
 | [Import — exercise review](screens/onboarding-import/review__phone-390-light-en.png) | 7 | Reviewing candidate matches: collapsed candidate chips, disclosure expanded, and unmatched flat escape hatches. |
 | [Import — review](screens/onboarding-import/preview__phone-390-light-en.png) | 8 | A mapped exercise with manual progression ownership and provenance. |
 

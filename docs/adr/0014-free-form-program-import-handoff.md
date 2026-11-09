@@ -1,5 +1,7 @@
 # A free-form program is converted by the lifter's own assistant, not by us
 
+**Scope update, November 9, 2026:** This ADR documents the original no-backend handoff, which remains available as a fallback. [ADR 0025](0025-founder-funded-managed-import.md) authorizes a separate founder-funded API import action in the same PWA route; the user must explicitly choose to send their pasted text to Taurifer's managed Anthropic proxy. The parser, review and activation requirements below remain binding.
+
 Import already existed, and it only ever accepted a Taurifer file. That is the
 wrong shape for the person it is for. A lifter who says "I already have a
 program" almost never has it as JSON. They have a coach's WhatsApp message, a
