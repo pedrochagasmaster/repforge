@@ -357,7 +357,7 @@ try {
   assert(cal.why === cal.moved, "the Why sheet names the tendency exactly when the shift moved the suggestion", cal);
 
   phase("Saved pain protects the movement for the whole day");
-  const safetyContext = await browser.newContext({viewport:{width:390,height:844},locale:"en-US"});
+  const safetyContext = await browser.newContext({viewport:{width:390,height:844},locale:"en-US",timezoneId:"America/Sao_Paulo"});
   const safety = await safetyContext.newPage();
   safety.on("pageerror", error => errors.push(String(error)));
   safety.on("dialog", dialog => dialog.accept());
@@ -423,6 +423,57 @@ try {
   await enterFirstDay(); await logSet(safety,safetyId,1);
   await safety.locator(`${TIP}[data-tip="max-set"]`).waitFor({state:"visible"});
   assert(await safety.locator(`${TIP}[data-tip="max-set"]`).isVisible(),"a saved cleared mark does not block a later same-day workout after reload");
+  phase("Pain reported after local midnight survives the session's earlier workout date");
+  await finishSafety();
+  await safety.clock.setFixedTime(new Date("2026-11-11T02:58:00Z"));
+  await safety.reload({waitUntil:"domcontentloaded"}); await settle(safety);
+  await enterFirstDay(); await logSet(safety,safetyId,1);
+  await safety.locator(`${TIP}[data-tip="max-set"]`).waitFor({state:"visible"});
+  await safety.clock.setFixedTime(new Date("2026-11-11T03:02:00Z"));
+  await openActions(safety,safetyId); await safety.locator("#exActionDiscomfortBtn").click();
+  await safety.waitForFunction(() => document.querySelector("#exActionDiscomfortBtn")?.getAttribute("aria-pressed") === "true");
+  await safety.locator("#exActionsClose").click(); await safety.locator("#exActionsSheet").waitFor({state:"hidden"});
+  assert(await safety.locator(`${TIP}[data-tip="max-set"]`).count() === 0,"a real after-midnight mark blocks the live offer");
+  const spanningSessionIds = new Set(Object.keys((await readReplicas(safety)).local.sessionEvents));
+  await finishSafety();
+  const spanning = (await readReplicas(safety)).local;
+  const spanningId = Object.keys(spanning.sessionEvents).find(id => !spanningSessionIds.has(id));
+  const spanningRow = spanning.log.find(row => row.session === spanningId);
+  assert(spanningRow.date === "2026-11-10" && spanningRow.created === "2026-11-11T03:02:00.000Z" &&
+    spanning.sessionTiming[spanningId].completedAt === spanningRow.created &&
+    spanning.sessionEvents[spanningId].pain.some(item => item.exerciseId === movementId && item.kind === "discomfort"),
+    "the real finish retains yesterday's workout date and today's local completion with the discomfort observation");
+  await safety.reload({waitUntil:"domcontentloaded"}); await settle(safety);
+  await enterFirstDay(); await logSet(safety,safetyId,1);
+  assert(await safety.evaluate(() => today()) === "2026-11-11","the restarted workout is on the next local day in Sao Paulo");
+  assert(await safety.locator(`${TIP}[data-tip="max-set"]`).count() === 0,
+    "after-midnight saved discomfort blocks the same movement after finish, reload and restart");
+  const calendarCases = await safety.evaluate(({session,id}) => {
+    const original = {log:state.log,events:state.sessionEvents,timing:state.sessionTiming};
+    const rows = state.log.filter(row => row.session === session), events = {[session]:state.sessionEvents[session]};
+    const ex = sessionExercise(prog.find(id)), de = activeWorkoutDraft.exercises[id];
+    const n = de.setOrder.map(key => de.sets[key]).filter(set => set.role === "working").at(-1).ordinal;
+    const previous = "2026-11-11T02:58:00.000Z", current = "2026-11-11T03:02:00.000Z";
+    const scenarios = [
+      {name:"row completion protects today without sessionTiming",date:"2026-11-10",created:current,allowed:false},
+      {name:"sessionTiming protects today when row completion is yesterday",date:"2026-11-10",created:previous,
+        timing:{startedAt:"2026-11-11T03:00:00.000Z",completedAt:current,durationSeconds:120},allowed:false},
+      {name:"workout date protects today despite an earlier completion",date:"2026-11-11",created:previous,allowed:false},
+      {name:"a UTC-today completion confined to local yesterday permits today",date:"2026-11-10",created:previous,allowed:true},
+      {name:"a readable old workout date suffices without completion evidence",date:"2026-11-10",created:null,allowed:true},
+      {name:"a readable old completion suffices without a workout date",date:null,created:previous,allowed:true},
+      {name:"unreadable workout and completion dates refuse the offer",date:null,created:null,allowed:false},
+    ];
+    try {
+      state.sessionEvents = events;
+      return scenarios.map(scenario => {
+        state.log = rows.map(row => ({...row,date:scenario.date,created:scenario.created}));
+        state.sessionTiming = scenario.timing ? {[session]:scenario.timing} : {};
+        return {name:scenario.name,passed:!!maxSetOffer(ex,n) === scenario.allowed};
+      });
+    } finally {state.log=original.log;state.sessionEvents=original.events;state.sessionTiming=original.timing;}
+  }, {session:spanningId,id:safetyId});
+  for (const scenario of calendarCases) assert(scenario.passed,scenario.name);
   await safety.evaluate(() => window.__repforgeStorage.flush());
   await persist(safety, `s.sessionEvents[${JSON.stringify(painSession)}].pain = {unreadable:true};`);
   await safety.reload({waitUntil:"domcontentloaded"});
