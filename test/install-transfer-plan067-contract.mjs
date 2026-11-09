@@ -813,4 +813,21 @@ for (const bad of ["yes", 1, null]) {
   assert.equal((await Contract.validateEnvelopeIntegrity(withEvents,webcrypto)).ok,false,"malformed session events are refused");
 }
 
+{
+  const envelope=structuredClone(valid),slot=envelope.durableState.programMeta.programDefinition.days.flatMap(day=>day.slots)[0];
+  const adaptation={id:"weekly-proof",v:1,blockId:envelope.durableState.programMeta.blockId||envelope.durableState.programMeta.id,
+    week:"2026-10-05",pattern:"recurring_skip",cause:"time",kind:"drop_exercise",target:{slotId:slot.id,exerciseId:slot.exerciseId},
+    proposedAt:"2026-10-05T12:00:00.000Z",decision:"declined",decidedAt:"2026-10-05T12:00:00.000Z"};
+  envelope.durableState.programMeta.adaptations=[adaptation];
+  envelope.integrity.canonicalPayloadHash=canonicalHash(envelope);
+  const result=await Contract.validateEnvelopeIntegrity(envelope,webcrypto);
+  assert.equal(result.ok,true,"versioned adaptation crosses the transfer boundary");
+  assert.deepEqual(JSON.parse(JSON.stringify(envelope)).durableState.programMeta.adaptations,[adaptation]);
+  for(const patch of [{v:2},{kind:"change_load"},{decision:"automatic"},{target:{slotId:slot.id,exerciseId:slot.exerciseId,load:80}},{evaluation:{week:"2026-10-12",outcome:"pattern_stopped"}}]){
+    const malformed=structuredClone(envelope);malformed.durableState.programMeta.adaptations=[{...adaptation,...patch}];
+    malformed.integrity.canonicalPayloadHash=canonicalHash(malformed);
+    assert.equal((await Contract.validateEnvelopeIntegrity(malformed,webcrypto)).ok,false,`malformed adaptation refused: ${JSON.stringify(patch)}`);
+  }
+}
+
 console.log("PASS Plan 067 install-transfer clone contract");

@@ -54,7 +54,7 @@ const trimmed=structuredClone(patternEvents);for(const record of Object.values(t
 assert.equal(Model.detectPatterns(patternLog,trimmed,patternProgram,{blockId:'block'},'2026-11-02').some(p=>p.pattern==='recurring_skip'),false);
 const painEvents=structuredClone(patternEvents);for(const record of Object.values(painEvents)){record.skips=[];record.pain=[{exerciseId:'lift',slotId:'slot',name:'Lift',kind:'discomfort',swapped:false}]}
 assert.equal(Model.detectPatterns(patternLog,painEvents,patternProgram,{blockId:'block'},'2026-11-02')[0].pattern,'recurring_pain');
-const definition={cycles:6,days:[{id:'day',name:'A',kind:'training',slots:[{id:'first',exerciseId:'compound',order:1,role:'compound',prescriptionsByCycle:[]},{id:'slot',exerciseId:'lift',order:2,alternates:['alternate'],prescriptionsByCycle:[1,2,3,4,5,6].map(cycleIndex=>({cycleIndex,sets:[1,2,3].map(i=>({id:`s${cycleIndex}-${i}`,targets:{load:40,reps:8}}))}))}]}]};
+const definition={cycles:6,days:[{id:'day',name:'A',kind:'training',slots:[{id:'first',exerciseId:'compound',order:1,role:'compound',prescriptionsByCycle:[]},{id:'slot',exerciseId:'lift',role:'manual',order:2,alternates:['alternate'],prescriptionsByCycle:[1,2,3,4,5,6].map(cycleIndex=>({cycleIndex,sets:[1,2,3].map(i=>({id:`s${cycleIndex}-${i}`,targets:{load:40,reps:8}}))}))}]}]};
 const document={program:patternProgram,programMeta:{blockId:'block',programDefinition:definition}};
 const props={week:'2026-11-02',cycleIndex:4};
 const swap=Transition.proposeAdaptation(detected[0],document,{...props,cause:'equipment'});

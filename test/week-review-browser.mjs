@@ -209,8 +209,51 @@ async function runCatalogWeekCardCases(browser,manifest){
   }
 }
 
+async function runAdaptationCases(browser,manifest){
+  for(const action of ["accept","decline","later","change"]){
+    const state=appState("progress/review-active","en");
+    const skipped=state.program.filter(exercise=>exercise.day==="Day 1")[2];
+    const slot=state.programMeta.programDefinition.days.flatMap(day=>day.slots).find(slot=>slot.id===skipped.id);
+    slot.alternates=[state.program[0].libraryId];
+    state.sessionEvents["weekly-1"]={v:1,skips:[{exerciseId:skipped.libraryId,slotId:skipped.id,name:skipped.name,reason:"equipment"}],pain:[]};
+    const capture={flow:"progress",screen:"review-active",viewport:"phone-390",theme:"light",locale:"en",text:"normal",motion:"normal"};
+    const {page,context}=await openPage(browser,manifest,capture,state);
+    try{
+      await dismissChrome(page);await APP_SCENARIOS["progress/review-active"](page);
+      const card=page.locator('[data-adaptation-card]');
+      await card.waitFor({state:"visible"});
+      const before=await page.evaluate(()=>structuredClone(window.__repforgeWorkoutDraft.state()));
+      await page.locator('[data-adaptation-cause="equipment"]').click();
+      assert.equal((await page.evaluate(()=>window.__repforgeWorkoutDraft.state().programMeta.adaptations||[])).length,0,"view and why choice never write a program change");
+      await page.locator(`[data-adaptation-action="${action}"]`).click();
+      if(action==="change"){
+        await page.locator('#programEditor').waitFor({state:"visible"});
+        assert.equal((await page.evaluate(()=>window.__repforgeWorkoutDraft.state().programMeta.adaptations||[])).length,0,"Change only opens the ordinary editor");
+      }else{
+        await page.waitForFunction(()=>window.__repforgeWorkoutDraft.state().programMeta.adaptations?.length===1);
+        await page.evaluate(()=>window.__repforgeStorage.flush());
+        const saved=await page.evaluate(()=>structuredClone(window.__repforgeWorkoutDraft.state()));
+        const record=saved.programMeta.adaptations[0];
+        assert.equal(record.decision,{accept:"accepted",decline:"declined",later:"snoozed"}[action]);
+        assert.deepEqual(saved.log,before.log,"decisions never alter historical loads");
+        if(action==="accept"){
+          assert.equal(record.appliedEdit.intent,"adaptation_apply");
+          assert.equal(saved.programMeta.programDefinition.days.flatMap(day=>day.slots).find(slot=>slot.id===skipped.id).exerciseId,slot.alternates[0]);
+          assert.ok(saved._storageRevision>before._storageRevision,"editor commit bumps durable token");
+        }else assert.deepEqual(saved.program,before.program,"decline and snooze do not edit the program");
+        await page.reload({waitUntil:"domcontentloaded"});await waitForAppBoot(page);
+        await APP_SCENARIOS["progress/review-active"](page);
+        assert.equal(await page.locator('[data-adaptation-card]').count(),0,"decision survives reload and suppresses this week's second proposal");
+        assert.deepEqual(await page.evaluate(()=>window.__repforgeWorkoutDraft.state().programMeta.adaptations),saved.programMeta.adaptations,"normalization retains the complete receipt");
+      }
+    }finally{await context.close()}
+  }
+  console.log("PASS weekly adaptation browser: four actions, explicit approval, editor token, historical loads, durable receipt and reload suppression");
+}
+
 export async function runWeekReviewBrowser(browser) {
   const manifest=loadManifest();
+  await runAdaptationCases(browser,manifest);
   await runCatalogWeekCardCases(browser,manifest);
   await runRoundFourCases(browser,manifest);
   await runRoundThreeCases(browser,manifest);
