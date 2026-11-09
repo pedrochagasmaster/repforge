@@ -1166,6 +1166,9 @@ async function wheelPicker(browser) {
     await page.waitForSelector("#wheelSheet.is-open");
     await page.tap("#wheelKeyboard");
     await page.waitForSelector(`${CURRENT} .focus-shelf .shelf__field.is-editing .shelf__input`);
+    // Typed entry is available inside the tap, while the modal is still closing.
+    // Its focus trap must be disposed before testing shelf keyboard navigation.
+    await page.waitForSelector("#wheelSheet", { state: "hidden" });
     await page.keyboard.press("Backspace"); await page.keyboard.type("2"); await page.keyboard.press("Enter");
     // Enter submits the log form, which is inert while its save runs.
     await page.waitForFunction(() => !document.querySelector("#logForm").inert && !document.querySelector("#logForm").hasAttribute("aria-busy"));
