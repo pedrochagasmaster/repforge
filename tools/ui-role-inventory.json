@@ -13144,7 +13144,32 @@
       "owner": "plan-080",
       "catalogStates": [
         "workout/focus",
-        "library/exercise-detail-suggested"
+        "library/exercise-detail-suggested",
+        "workout/focus-glossary",
+        "workout/correction",
+        "workout/logged-sets",
+        "workout/deload-week",
+        "workout/fatigue",
+        "workout/focus-per-side",
+        "workout/rest-running",
+        "workout/rest-done",
+        "workout/exercise-note",
+        "workout/stale-draft",
+        "workout/persist-retry",
+        "workout/logged-sets-folded",
+        "workout/exercise-note-line",
+        "workout/max-set-prompt",
+        "workout/max-set-recheck",
+        "workout/max-set-guess",
+        "workout/max-set-active",
+        "workout/max-set-result",
+        "workout/effort-stage-a",
+        "workout/effort-stage-b",
+        "workout/stage-tip",
+        "workout/last-rep-slow",
+        "workout/focus-ramp",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor"
       ]
     },
     {

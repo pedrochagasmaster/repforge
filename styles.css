@@ -9284,6 +9284,6 @@ body.is-entry-editor #entryProgramName,
 #effortChoiceSheet{z-index:54}
 .week-proposal__causes,.week-proposal__actions{display:flex;flex-wrap:wrap;gap:var(--space-8);align-items:center}
 .week-proposal__cause{min-height:44px;padding:var(--space-8) var(--space-12);border:1px solid var(--control-selection-boundary);border-radius:var(--radius-control);background:var(--control-selection-bg);color:var(--control-selection-ink);font:inherit;white-space:normal}
-.week-proposal__causes [aria-pressed="true"]{font-weight:var(--weight-semibold);box-shadow:inset 0 -2px 0 var(--control-selected-boundary);border-color:var(--control-selection-boundary);background:var(--control-selection-active-bg);color:var(--control-selection-ink)}
+.week-proposal__causes [aria-pressed="true"]{font-weight:var(--weight-semibold);box-shadow:var(--elevation-selected-shadow);border-color:var(--control-selection-boundary);background:var(--control-selection-active-bg);color:var(--control-selection-ink)}
 .week-proposal__actions{margin-top:var(--space-16);gap:var(--space-16)}
 .week-proposal__actions .text-link{min-height:44px}

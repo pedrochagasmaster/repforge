@@ -9,6 +9,12 @@ import {openActions,finishEarly} from "./fixtures/focus-workout.mjs";
 import {openInstalledEditor,applyInstalledEditor} from "./fixtures/installed-editor.mjs";
 import {metricLogRow} from "./fixtures/history-metric-rows.mjs";
 
+async function enterFirstWorkout(page){
+  const day=await page.evaluate(()=>window.__repforgeWorkoutDraft.state().program[0]?.day);
+  await page.evaluate(day=>window.__repforgeEnterWorkout(day?{day}:{}),day);
+  await page.locator("#workout .exercise.is-current").waitFor({state:"visible"});
+}
+
 async function holdDraftWrite(page){
   await page.evaluate(()=>{window.proofLockHeld=false;window.proofLock=navigator.locks.request("repforge:draft-write",()=>{window.proofLockHeld=true;return new Promise(resolve=>window.proofRelease=resolve)})});
   await page.waitForFunction(()=>window.proofLockHeld);
@@ -65,7 +71,7 @@ async function runRoundTwoCases(browser,manifest){
       const state=appState("workout/discomfort-mark","en");state.log=[];delete state.sessionEvents;
       const {page,context}=await openPage(browser,manifest,{flow:"workout",screen:"discomfort-mark",viewport:"phone-390",theme:"light",locale:"en",text:"normal",motion:"normal"},state);
       try{
-        await dismissChrome(page);await APP_SCENARIOS["workout/focus"](page);
+        await dismissChrome(page);await enterFirstWorkout(page);
         await page.evaluate(()=>{
           window.reasonEvents=[];localStorage.setItem("repforge_telemetry_enabled_v1","true");
           window.RepForgeTelemetry.boot({adapter:{capture:(name,properties)=>{if(name==="substitution_used")window.reasonEvents.push(properties)},setEnabled(){}},storage:localStorage});
@@ -101,7 +107,7 @@ async function runRoundTwoCases(browser,manifest){
   await check("single skip separators",async()=>{
     const {page,context}=await openPage(browser,manifest,{flow:"workout",screen:"skip-reason",viewport:"phone-390",theme:"light",locale:"en",text:"normal",motion:"normal"},appState("workout/skip-reason","en"));
     try{
-      await dismissChrome(page);await APP_SCENARIOS["workout/focus"](page);
+      await dismissChrome(page);await enterFirstWorkout(page);
       const id=await page.locator("#workout .exercise.is-current").getAttribute("data-ex");await openActions(page,id);
       const bottom=await page.locator("#exActionSkipBtn").evaluate(el=>parseFloat(getComputedStyle(el).borderBottomWidth));
       await page.locator("#exActionSkipBtn").click();await page.locator('[data-skip-reason="time"]').waitFor({state:"visible"});
@@ -406,7 +412,7 @@ async function runImmediatePainCases(browser,manifest){
     }]}};
     const {page,context}=await openPage(browser,manifest,{flow:"workout",screen:"discomfort-mark",viewport:"phone-390",theme:"light",locale:"en",text:"normal",motion:"normal"},state);
     try{
-      await dismissChrome(page);await APP_SCENARIOS["workout/focus"](page);
+      await dismissChrome(page);await enterFirstWorkout(page);
       const id=await page.locator("#workout .exercise.is-current").getAttribute("data-ex");
       assert.equal(id,original.id);
       if(kind.startsWith("replacement-")||kind==="barbell-equipment"){
@@ -439,7 +445,7 @@ async function runImmediatePainCases(browser,manifest){
         assert.equal(await page.locator("#exPickSheet").isVisible(),false,"reload never repeats the opening");
         assert.equal(await page.evaluate(id=>window.__repforgeWorkoutDraft.current().exercises[id].discomfort.length,id),1);
         if(kind==="second-mark"){
-          await APP_SCENARIOS["workout/focus"](page);await openActions(page,id);
+          await enterFirstWorkout(page);await openActions(page,id);
           await page.locator("#exActionSubstBtn").click();
           await page.locator("#exPickSheet [data-pick]").first().waitFor({state:"visible"});
           assert.deepEqual((await page.locator("#exPickList [data-pick]").evaluateAll(rows=>rows.slice(0,2).map(row=>row.dataset.pick))),[machine,dumbbell],"ordinary swaps retain authored alternate order");
@@ -454,7 +460,7 @@ async function runImmediatePainCases(browser,manifest){
           await page.locator("#exActionDiscomfortBtn").click();
           await page.waitForFunction(()=>document.querySelector("#exActionDiscomfortBtn").getAttribute("aria-pressed")==="false");
           await page.reload({waitUntil:"domcontentloaded"});await waitForAppBoot(page);
-          await APP_SCENARIOS["workout/focus"](page);await openActions(page,id);await page.locator("#exActionDiscomfortBtn").click();
+          await enterFirstWorkout(page);await openActions(page,id);await page.locator("#exActionDiscomfortBtn").click();
           await page.waitForFunction(()=>document.querySelector("#exActionDiscomfortBtn").getAttribute("aria-pressed")==="true");
           assert.equal(await page.locator("#exPickSheet").isVisible(),false,"a cleared mark and re-mark are still one session");
         }
@@ -539,7 +545,7 @@ export async function runWeekReviewBrowser(browser) {
     const capture={flow:"workout",screen:"discomfort-mark",viewport:"phone-390",theme:"light",locale:"en",text:"normal",motion:"normal"};
     const {page,context}=await openPage(browser,manifest,capture,appState("workout/discomfort-mark","en"));
     try {
-      await dismissChrome(page);await APP_SCENARIOS["workout/focus"](page);
+      await dismissChrome(page);await enterFirstWorkout(page);
       const id=await page.locator("#workout .exercise.is-current").getAttribute("data-ex");
       const replacement=appState("workout/discomfort-mark","en").program.find(exercise=>exercise.id!==id).libraryId;
       await page.locator("#woOverflowBtn").click();await page.locator('[data-workout-action="exercise"]').click();
@@ -558,7 +564,7 @@ export async function runWeekReviewBrowser(browser) {
     const capture={flow:"workout",screen:"discomfort-mark",viewport:"phone-390",theme:"light",locale:"en",text:"normal",motion:"normal"};
     const {page,context}=await openPage(browser,manifest,capture,state);
     try{
-      await dismissChrome(page);await APP_SCENARIOS["workout/focus"](page);
+      await dismissChrome(page);await enterFirstWorkout(page);
       const id=await page.locator("#workout .exercise.is-current").getAttribute("data-ex");
       const original=state.program.find(exercise=>exercise.id===id),replacement=state.program.find(exercise=>exercise.id!==id),skipped=state.program[2];
       await openActions(page,id);await page.locator("#exActionSubstBtn").click();
