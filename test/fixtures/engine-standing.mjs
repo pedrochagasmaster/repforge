@@ -39,3 +39,5 @@ add('missing-rir',solid().map(s=>({...s,sets:s.sets.map(r=>({...r,rir:null}))}))
 add('missing-source',solid().map(s=>({...s,sets:s.sets.map(({effortSource,...r})=>r)})));
 add('undated-pair-endpoint',[session('a',[100,95,90],null),session('b',[100,95,90])]);
 cases.at(-1).input[1][0].sets[1].date = '2026-11-09';
+add('missing-rir-between-pairs',[session('a',[100,95,90]),session('b',[100,95,90])]);
+cases.at(-1).input[1][0].sets[1].rir = null;
