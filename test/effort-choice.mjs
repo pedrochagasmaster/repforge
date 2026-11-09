@@ -118,6 +118,7 @@ export async function verifyEffortChoice(browser) {
         proposal.settings.restSec = 180;
         await window.__repforgeCommitProposedState(proposal);
       });
+      check((await stored(page)).settings.restSec === 180, "the newer setting is durably committed while the question waits");
       await page.click("#effortChoiceContinue");
       const result = await page.evaluate(() => window.__effortActivation);
       const after = await stored(page);
