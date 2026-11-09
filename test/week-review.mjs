@@ -94,3 +94,4 @@ assert.equal(Transition.proposeAdaptation({pattern:'recurring_fatigue',day:'A',s
 const unansweredDecline={...record,cause:null,decision:'declined'};delete unansweredDecline.appliedEdit;
 assert.equal(Transition.validateAdaptations([unansweredDecline]),true,'declining does not invent an Other answer');
 assert.equal(Transition.validateAdaptations([{...record,cause:null}]),false,'accepting a cause-matched change requires its cause');
+assert.equal(Transition.adaptationEligible([{...record,evaluation:{week:'2026-11-09',outcome:'insufficient'}}],detected[0],'block','2026-11-16'),false,'an unevaluated effect cannot trigger another change to the same pattern');
