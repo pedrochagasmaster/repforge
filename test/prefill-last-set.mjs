@@ -261,6 +261,7 @@ try {
     const { context, page } = await start(browser, definition);
     try {
       let r = await reading(page, 1);
+      if (target == null) check(r.stored.targetRir == null, "an authored absent target stays absent in the live draft", r.stored);
       check(r.load.value === "—" && r.rir.value === "1", "with nothing logged and no history, set 1 reads — and RIR 1", r);
       await enter(page, { load: "32.5", reps: "8", rir: "3" });
       await logShown(page);
