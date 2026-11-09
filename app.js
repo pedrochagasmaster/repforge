@@ -7968,8 +7968,13 @@ function findingReadings(){
     const observations=compatible.filter(row=>row.strengthComparable!==false&&(row.equipmentId??null)===(context.equipmentId??null)&&row.loadingConvention===context.loadingConvention)
       .map(row=>({key:`${key}|${row.strengthConvention||"load"}`,session:String(row.session),date:row.date,set:row.setIndex??Number(row.set)-1,
         load:row.load,reps:row.reps,rir:row.rir,q:CalibrationGauge.rowQuality(row)}));
+    const records=[],past=[];
+    for(const session of sessions){
+      const record=sessionPRs(session,past)[0];
+      if(record){records.push({...record,date:session[0].date});break}
+      past.push(...session)}
     return[{key,name:plan.name,recommendation,targetEligible:first.status==="ready",standing:recommendation?.standing,nextSetQuality:CalibrationGauge.rowQuality({effortSource:effortStage()==="a"?"effort":"rir"}),calibration,weeks:CalibrationGauge.weeksFrom(observations,capE1rm),
-      records:detectPRs(compatible).filter(record=>record.deltaLoad>0||record.deltaReps>0||record.deltaE1rm>0),improved}]})}}
+      records,improved}]})}}
 let findingsCache={key:"",value:null};
 function profileFindings(){
   const key=JSON.stringify([state.log,state.program,state.programMeta,state.settings,today(),I18N.getLang()]);
