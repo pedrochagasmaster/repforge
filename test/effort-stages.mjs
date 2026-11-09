@@ -88,6 +88,7 @@ const shelfState = (page) => page.evaluate((shelf) => ({
   label: document.querySelector(`${shelf} [data-field="rir"] .shelf__lab`)?.textContent?.trim(),
   value: document.querySelector(`${shelf} [data-field="rir"] .shelf__val`)?.textContent?.trim(),
   chips: [...document.querySelectorAll(`${shelf} .shelf__chip`)].map((b) => b.textContent.trim()),
+  offered: [...document.querySelectorAll(`${shelf} .shelf__chip.is-offered`)].map(b => b.textContent.trim()),
   pressed: [...document.querySelectorAll(`${shelf} .shelf__chip[aria-pressed="true"]`)].map((b) => b.textContent.trim()),
   head: [...document.querySelectorAll("#workout .exercise.is-current .ledgerline__head .fx-col")].map((s) => s.textContent.trim()).at(-1),
   open: document.querySelector(`${shelf} .saveset`)?.dataset.save,
@@ -322,6 +323,92 @@ try {
   draft = await firstSets(page);
   assert(draft.sets[0].rir === "5" && draft.sets[0].source === "prefilled",
     "accepting the offered 5+ stores 5 and remains a prefill", draft);
+
+  phase("Programmed decimal targets are offered as chips");
+  await boot(page, { targetRir: 2.5 });
+  await page.locator(`${SHELF} [data-shelf-field="rir"]`).click();
+  st = await shelfState(page);
+  assert(st.value === "3" && st.offered.join() === "3" && st.pressed.length === 0,
+    "an untouched decimal target offers its nearest chip", st);
+  await logOpenSet(page);
+  draft = await firstSets(page);
+  assert(draft.sets[0].rir === "3" && draft.sets[0].source === "prefilled",
+    "accepting a decimal target saves the offered chip as prefilled", draft);
+
+  const resume = async () => {
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => window.__repforgeBooted === true);
+    await page.evaluate(async () => { await window.__repforgeEnterWorkout({}); window.__repforgeFocus.to(0); });
+    await page.locator(`${SHELF} [data-shelf-field="rir"]`).click();
+  };
+  const editRir = async value => {
+    await page.evaluate(async value => {
+      const api = window.__repforgeWorkoutDraft, d = api.current(), id = d.exerciseOrder[0], ex = d.exercises[id];
+      await api.dispatch("editSetField", { exerciseInstanceId: id, setId: ex.setOrder[0], field: "rir", value });
+      await api.flush();
+    }, value);
+  };
+  for (const value of ["", "abc"]) {
+    await boot(page);
+    await page.evaluate(value => {
+      for (const key of Object.keys(localStorage)) if (key.startsWith("repforge_draft_v1")) localStorage.removeItem(key);
+      localStorage.setItem("repforge_draft_v1", JSON.stringify({
+        "seed-ex-1_1_load": "60", "seed-ex-1_1_reps": "8", "seed-ex-1_1_rir": value, __day: "Day 1"
+      }));
+    }, value);
+    await resume();
+    st = await shelfState(page);
+    assert(st.value !== "0" && !st.offered.length && !st.pressed.length,
+      `legacy ${JSON.stringify(value)} is visibly missing or invalid, with no zero offer`, st);
+    await logOpenSet(page);
+    await resume();
+    draft = await firstSets(page);
+    assert(draft.sets[0].source === null && draft.sets[0].rir === value,
+      `legacy ${JSON.stringify(value)} cannot complete as zero and survives reload`, draft.sets[0]);
+  }
+  await boot(page);
+  await editRir("");
+  await resume();
+  st = await shelfState(page);
+  assert(st.value === "—" && !st.pressed.length && !st.offered.length,
+    "a resumed cleared V2 field has no selected or offered zero", st);
+  await logOpenSet(page);
+  await resume();
+  draft = await firstSets(page);
+  assert(draft.sets[0].rir === "" && draft.sets[0].source === null,
+    "cleared V2 effort remains pending after Log set and reload", draft.sets[0]);
+  await page.locator(`${SHELF} [data-effchip][data-e="0"]`).click();
+  await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+  await logOpenSet(page);
+  draft = await firstSets(page);
+  assert(draft.sets[0].rir === "0" && draft.sets[0].source === "reps_left",
+    "an explicit zero tap replaces the cleared field and completes as a real zero", draft.sets[0]);
+
+  for (const [value, chip] of [["2.5", "3"], ["8", "5"]]) {
+    await boot(page);
+    await editRir(value);
+    await resume();
+    st = await shelfState(page);
+    assert(st.value === value && !st.pressed.length && !st.offered.length,
+      `held ${value} is shown exactly with no canonical chip selected`, st);
+    await logOpenSet(page);
+    await resume();
+    const ledger = await page.locator('#workout .exercise.is-current [data-editn="1"] [data-lv="rir"]').textContent();
+    draft = await firstSets(page);
+    assert(ledger.trim() === value && draft.sets[0].rir === value,
+      `completed historical ${value} keeps its exact ledger value after reload`, { ledger, draft });
+
+    await boot(page);
+    await editRir(value);
+    await resume();
+    await page.locator(`${SHELF} [data-effchip][data-e="${chip}"]`).click();
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    await logOpenSet(page);
+    await resume();
+    draft = await firstSets(page);
+    assert(draft.sets[0].rir === chip && draft.sets[0].source === (chip === "5" ? "reps_left_5plus" : "reps_left"),
+      `an explicit ${chip} chip replaces held ${value} with matching provenance`, draft.sets[0]);
+  }
 
   phase("Voice and held numeric input");
   await boot(page, { settings: { rirMode: "numeric", voiceInputEnabled: true } });
