@@ -1699,7 +1699,8 @@
         if (isDomainError(item)) return item;
         const originals = item.exercise.substitution?.originalPendingSets;
         for (const [setId, original] of Object.entries(originals || {})) {
-          if (item.exercise.sets[setId]?.completion === "pending") item.exercise.sets[setId] = jsonClone(original);
+          const set = item.exercise.sets[setId];
+          if (set?.completion === "pending") item.exercise.sets[setId] = { ...jsonClone(original), ordinal: set.ordinal };
         }
         item.exercise.substitution = null;
         syncObservationSwaps(item.exercise);
