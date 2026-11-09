@@ -389,8 +389,76 @@ async function runAdaptationCases(browser,manifest){
   console.log("PASS weekly adaptation browser: four actions, explicit approval, editor token, historical loads, durable receipt and reload suppression");
 }
 
+async function runImmediatePainCases(browser,manifest){
+  const machine="1a25c6f170d88079a926dde776766181",dumbbell="1a25c6f170d880708256e9a8bf6337bf";
+  let passed=0;
+  for(const kind of ["second-mark","first-mark","other-slot","other-movement","cleared","no-alternates","dismiss-during-write"]){
+    const state=appState("workout/discomfort-mark","en"),original=state.program[0];
+    const slot=state.programMeta.programDefinition.days.flatMap(day=>day.slots).find(slot=>slot.id===original.id);
+    slot.alternates=kind==="no-alternates"?[]:[machine,dumbbell];
+    const date="2026-08-28",session="pain-path-prior";
+    state.log=[metricLogRow(state.programMeta,original,{session,date,day:original.day,set:1,load:40,reps:8,rir:2,created:`${date}T12:00:00.000Z`})];
+    state.sessionEvents={[session]:{v:1,skips:[],pain:kind==="first-mark"||kind==="cleared"?[]:[{
+      slotId:kind==="other-slot"?state.program[1].id:original.id,
+      exerciseId:kind==="other-movement"?machine:original.libraryId,name:original.name,kind:"pain",swapped:false,
+    }]}};
+    const {page,context}=await openPage(browser,manifest,{flow:"workout",screen:"discomfort-mark",viewport:"phone-390",theme:"light",locale:"en",text:"normal",motion:"normal"},state);
+    try{
+      await dismissChrome(page);await APP_SCENARIOS["workout/focus"](page);
+      const id=await page.locator("#workout .exercise.is-current").getAttribute("data-ex");
+      assert.equal(id,original.id);
+      const before=await page.evaluate(()=>structuredClone(window.__repforgeWorkoutDraft.state()));
+      await openActions(page,id);
+      if(kind==="dismiss-during-write")await holdDraftWrite(page);
+      await page.locator("#exActionDiscomfortBtn").click();
+      if(kind==="dismiss-during-write"){
+        await page.locator("#exActionsClose").click();
+        await page.locator("#exActionsSheet").waitFor({state:"hidden"});await releaseDraftWrite(page);
+        assert.equal(await page.locator("#exPickSheet").isVisible(),false,"a delayed write cannot reopen a dismissed flow");
+      }else if(["second-mark","no-alternates"].includes(kind)){
+        await page.locator("#exPickSheet").waitFor({state:"visible"});
+        assert.equal(await page.locator("#exActionsSheet").isVisible(),false,"the picker replaces the actions sheet");
+        const draft=await page.evaluate(()=>structuredClone(window.__repforgeWorkoutDraft.current()));
+        assert.equal(draft.exercises[id].discomfort.length,1);
+        assert.equal(draft.exercises[id].substitution,undefined,"opening the path does not swap");
+        assert.deepEqual(await page.evaluate(()=>window.__repforgeWorkoutDraft.state()),before,"opening never writes a program or proposal");
+        if(kind==="second-mark"){
+          assert.deepEqual((await page.locator("#exPickList [data-pick]").evaluateAll(rows=>rows.slice(0,2).map(row=>row.dataset.pick))),[dumbbell,machine],"different equipment class leads, same-class alternate stays reachable");
+        }else assert.ok(await page.locator("#exPickList [data-pick]").count()>0,"no alternates still offers the ordinary library");
+        await page.locator("#exPickCancel").click();await page.locator("#exPickSheet").waitFor({state:"hidden"});
+        assert.deepEqual(await page.evaluate(()=>window.__repforgeWorkoutDraft.current()),draft,"dismissal keeps the acknowledged mark and changes nothing else");
+        await page.reload({waitUntil:"domcontentloaded"});await waitForAppBoot(page);
+        assert.equal(await page.locator("#exPickSheet").isVisible(),false,"reload never repeats the opening");
+        assert.equal(await page.evaluate(id=>window.__repforgeWorkoutDraft.current().exercises[id].discomfort.length,id),1);
+        if(kind==="second-mark"){
+          await APP_SCENARIOS["workout/focus"](page);await openActions(page,id);
+          await page.locator("#exActionSubstBtn").click();
+          assert.deepEqual((await page.locator("#exPickList [data-pick]").evaluateAll(rows=>rows.slice(0,2).map(row=>row.dataset.pick))),[machine,dumbbell],"ordinary swaps retain authored alternate order");
+          await page.locator(`#exPickList [data-pick="${machine}"]`).click();await page.locator("#exPickReasonSkip").click();
+          assert.equal(await page.evaluate(id=>window.__repforgeWorkoutDraft.current().exercises[id].substitution.replacement.libraryId,id),machine,"only a pick changes the session movement");
+          assert.deepEqual(await page.evaluate(()=>window.__repforgeWorkoutDraft.state().programMeta.programDefinition),before.programMeta.programDefinition,"a session swap never edits the program");
+        }
+      }else{
+        await page.waitForFunction(()=>document.querySelector("#exActionDiscomfortBtn").getAttribute("aria-pressed")==="true");
+        assert.equal(await page.locator("#exPickSheet").isVisible(),false,`${kind} is not a second marked session on this movement and slot`);
+        if(kind==="cleared"){
+          await page.locator("#exActionDiscomfortBtn").click();
+          await page.waitForFunction(()=>document.querySelector("#exActionDiscomfortBtn").getAttribute("aria-pressed")==="false");
+          await page.reload({waitUntil:"domcontentloaded"});await waitForAppBoot(page);
+          await APP_SCENARIOS["workout/focus"](page);await openActions(page,id);await page.locator("#exActionDiscomfortBtn").click();
+          await page.waitForFunction(()=>document.querySelector("#exActionDiscomfortBtn").getAttribute("aria-pressed")==="true");
+          assert.equal(await page.locator("#exPickSheet").isVisible(),false,"a cleared mark and re-mark are still one session");
+        }
+      }
+      passed++;console.log(`PASS immediate pain: ${kind}`);
+    }finally{await context.close()}
+  }
+  console.log(`PASS immediate pain: ${passed} browser cases`);
+}
+
 export async function runWeekReviewBrowser(browser) {
   const manifest=loadManifest();
+  await runImmediatePainCases(browser,manifest);
   await runAdaptationCases(browser,manifest);
   await runCatalogWeekCardCases(browser,manifest);
   await runRoundFourCases(browser,manifest);
