@@ -33,6 +33,7 @@ import { chooseRepsLeft, launchChromium, openShelfField, waitForAppBoot } from "
 import { seed as seedHistory } from "../tools/ui-screens/session.mjs";
 import { installGeneratedProgram, definitionSlot, isWeightRepsSlot, metricLogRow } from "./fixtures/history-metric-rows.mjs";
 import { installSeedProgram } from "./fixtures/seed-program.mjs";
+import { openActions, exerciseAction, finishEarly } from "./fixtures/focus-workout.mjs";
 import { openCatalogState } from "./fixtures/catalog-state.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
@@ -761,6 +762,101 @@ try {
       `P080: exercise page shares the ${scenario} standing line`);
   }
   await standingContext.close();
+  const swapContext = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: "en-US", serviceWorkers: "block" });
+  const swapPage = await swapContext.newPage();
+  swapPage.on("pageerror", error => errors.push(String(error)));
+  swapPage.on("dialog", dialog => dialog.accept());
+  await swapPage.goto(BASE);
+  await waitForAppBoot(swapPage, { base: BASE });
+  const swapState = await installGeneratedProgram(swapPage);
+  const hack = swapState.program.find(row => row.name === "Hack squat");
+  await swapPage.evaluate(async () => {
+    const state = JSON.parse(localStorage.getItem("repforge_v1"));
+    state.settings.rirMode = "effort";
+    state.settings.lang = "en";
+    state.profile = { weightKg: 80 };
+    state.programMeta.experience = "beginner";
+    await window.__repforgeCommitProposedState(state);
+    await window.__repforgeStorage.flush();
+  });
+  const focus = "#workout .exercise.is-current";
+  const currentExercise = () => swapPage.evaluate(() => {
+    const draft = window.__repforgeWorkoutDraft.current();
+    return draft.exercises[draft.session.selectedExerciseId];
+  });
+  async function logRamp(effort, load) {
+    const exercise = await currentExercise();
+    const set = exercise.setOrder.map(id => exercise.sets[id]).find(set => set.completion === "pending");
+    const before = exercise.setOrder.filter(id => exercise.sets[id].completion !== "pending").length;
+    for (const [semantic, value] of [["loadKg", load], ["reps", 8]]) {
+      const metric = set.programmed.metrics.find(metric => metric.semantic === semantic);
+      const input = swapPage.locator(`${focus} input[data-metric-id="${metric.id}"]`);
+      if (await input.getAttribute("aria-hidden") === "true")
+        await openShelfField(swapPage, `${focus} [data-shelf-field="metric_${metric.id}"]`);
+      await input.fill(String(value));
+    }
+    await swapPage.locator(`${focus} [data-shelf-field="rir"]`).click();
+    await swapPage.locator(`${focus} [data-effchip][data-e="${effort}"]`).click();
+    await swapPage.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    await swapPage.locator(`${focus} .saveset`).click();
+    await swapPage.waitForFunction(({ id, before }) => Object.values(window.__repforgeWorkoutDraft.current().exercises[id].sets)
+      .filter(set => set.completion !== "pending").length > before, { id: exercise.exerciseInstanceId, before });
+    await swapPage.evaluate(() => window.stopRest());
+  }
+  await swapPage.reload();
+  await waitForAppBoot(swapPage, { base: BASE });
+  await swapPage.evaluate(id => window.__repforgeGoToLogExercise(id), hack.id);
+  await swapPage.locator(`${focus} [data-ramp-start]`).click();
+  await logRamp("easy", 20);
+  await swapPage.locator(`${focus} [data-ramp-start]`).click();
+  await logRamp("hard", 40);
+  await openActions(swapPage, hack.id);
+  await swapPage.locator("#exActionDiscomfortBtn").click();
+  assert(!await swapPage.locator("#exPickSheet").isVisible(), "B1: first discomfort records pain without a picker");
+  await swapPage.locator("#exActionsClose").click();
+  await finishEarly(swapPage);
+  await swapPage.locator("#sumDone").click();
+  await swapPage.evaluate(() => window.__repforgeStorage.flush());
+  await swapPage.reload();
+  await waitForAppBoot(swapPage, { base: BASE });
+  await swapPage.evaluate(id => window.__repforgeGoToLogExercise(id), hack.id);
+  const original = await openWhy(swapPage);
+  const originalStanding = original.blocks.find(block => block.lead === "engine-standing")?.text;
+  assert(originalStanding?.includes("0.5") && originalStanding.includes("1 session"), "B1: saved Hack squat has its own half-set and session", originalStanding);
+  await closeWhy(swapPage);
+  await openActions(swapPage, hack.id);
+  await swapPage.locator("#exActionDiscomfortBtn").click();
+  await swapPage.locator("#exPickSheet").waitFor({ state: "visible" });
+  await swapPage.locator("#exPickSearch").fill("Pendulum");
+  await swapPage.locator("#exPickList .pickrow__name").filter({ hasText: /^Pendulum squat$/i }).click();
+  await swapPage.locator('[data-pick-reason="pain"]').click();
+  await swapPage.locator("#exPickSheet").waitFor({ state: "hidden" });
+  await swapPage.evaluate(() => window.__repforgeWorkoutDraft.flush());
+  const replacement = await currentExercise();
+  const savedRows = await swapPage.evaluate(() => window.__repforgeWorkoutDraft.state().log);
+  assert(!savedRows.some(row => row.performedLibraryId === replacement.substitution.replacement.libraryId) &&
+    !replacement.setOrder.some(id => replacement.sets[id].completion !== "pending"),
+    "B1: Pendulum squat has no saved or live completed sets");
+  assert(await swapPage.locator(`${focus} .fx-cue__standing`).textContent() === "First time on this lift",
+    "B1: Focus does not inherit Hack squat standing");
+  const swapped = await openWhy(swapPage);
+  const swappedStanding = swapped.blocks.find(block => block.lead === "engine-standing")?.text;
+  assert(swappedStanding === "No comparable sessions recorded yet.", "B1: Why makes no claim to another movement's sets or sessions", swappedStanding);
+  assert(swapped.target === original.target, "B1: substitution keeps the inherited selected load unchanged", { original: original.target, swapped: swapped.target });
+  await closeWhy(swapPage);
+  await swapPage.locator("#woDayTitle [data-exopen]").click();
+  await swapPage.waitForSelector("#exDetail .recblock");
+  assert(await swapPage.locator("#exDetail .recblock__standing").textContent() === "First time on this lift",
+    "B1: exercise page does not inherit Hack squat standing");
+  await swapPage.locator("#exBack").click();
+  await exerciseAction(swapPage, hack.id, "#exActionRestoreOrigBtn");
+  const restored = await openWhy(swapPage);
+  assert(restored.blocks.find(block => block.lead === "engine-standing")?.text === originalStanding,
+    "B1: restoring Hack squat restores its own standing evidence");
+  assert(restored.target === original.target, "B1: restoration keeps the original selected load");
+  await closeWhy(swapPage);
+  assert(await swapPage.locator(`${focus} .fx-cue__standing`).textContent() === "Still learning this lift", "B1: restored Focus reads Hack squat standing");
+  await swapContext.close();
   assert(errors.length === 0, "no page errors during the why-sheet sessions", errors);
 } finally {
   await browser.close();
