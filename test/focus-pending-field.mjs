@@ -323,11 +323,12 @@ async function main() {
     await page.locator(`#workout .exercise.is-current .ledgerline[data-editn="1"]`).click();
     await page.waitForSelector(`${SHELF}.is-editing`);
     await page.locator(field("rir")).click();
+    const correctionRir0 = num((await readField(page, "rir")).input);
     if (rebuild) await holdLock(page);
-    await page.locator(pad(-1)).click();
+    await page.locator(`${SHELF} [data-effchip][data-e="${Math.max(0, correctionRir0 - 1)}"]`).click();
     if (rebuild) await page.locator(field("load")).click(); // rebuild
     if (rebuild) await page.locator(field("rir")).click();
-    await page.locator(pad(-1)).click();
+    await page.locator(`${SHELF} [data-effchip][data-e="${Math.max(0, correctionRir0 - 2)}"]`).click();
     if (rebuild) {
       await page.locator(field("reps")).click(); // rebuild
       await releaseLock(page);
@@ -342,7 +343,7 @@ async function main() {
     });
   }
   assert(JSON.stringify(corrected[true]) === JSON.stringify(corrected[false]),
-    "RT-03: correcting a logged set through two pad taps across a rebuild ends on the same draft as without one", corrected);
+    "RT-03: correcting a logged set through two count choices across a rebuild ends on the same draft as without one", corrected);
 
   // ---- h: failed and stale writes --------------------------------------------
   phase("RT-03: recovery takes over an in-flight edit, and Retry keeps it through another edit");
