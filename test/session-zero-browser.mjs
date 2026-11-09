@@ -80,11 +80,12 @@ try{
   const route=async request=>{
     const url=new URL(request.request().url());if(url.origin!==new URL(BASE).origin)return request.continue();
     const path=url.pathname==="/"?"index.html":decodeURIComponent(url.pathname).slice(1),bytes=previous.file(path);
-    if(!bytes)return request.continue();
+    if(!bytes)return request.fulfill({status:404,body:""});
     const type=path.endsWith(".html")?"text/html":path.endsWith(".js")?"text/javascript":path.endsWith(".json")?"application/json":path.endsWith(".css")?"text/css":undefined;
     await request.fulfill({body:bytes,...(type?{contentType:type}:{})});
   };
   await cp.route("**/*",route);await cp.reload();await waitForAppBoot(cp,{base:BASE});
+  check(await cp.locator('script[src^="app.js"]').getAttribute("src")===previous.file("index.html").toString().match(/src="(app\.js[^"]+)"/)[1],"compatibility uses the previous release's own shell and script revisions");
   await cp.evaluate(()=>window.__repforgeEnterWorkout({}));
   const old=await cp.evaluate(()=>({recovery:window.__repforgeWorkoutDraft.recovery(),raw:localStorage.getItem("repforge_draft_v1"),
     checkpoint:localStorage.getItem("repforge_draft_v1:v2-checkpoint"),active:window.__repforgeWorkoutDraft.current()}));
@@ -118,20 +119,26 @@ try{
     "acknowledged bodyweight refreshes both the offered load and its explanation");
   await bodyweight("40");check((await start.innerText())==="Start at 30 kg","decreasing bodyweight refreshes the offer");
   await bodyweight("");check((await start.innerText())==="Start at 2.5 kg","removing bodyweight restores the visible floor");
-  await wp.evaluate(()=>new Promise(ready=>{navigator.locks.request("repforge:draft-write",()=>new Promise(release=>{window.__releaseOpeningWrite=release;ready();}));}));
-  await wp.locator("#sessionSheetBtn").click();await wp.locator("#sessionBodyweight").fill("80");
-  await wp.locator("#sessionSheetClose").click();await wp.waitForFunction(()=>!document.body.classList.contains("is-sheet-open"));
-  check((await start.innerText())==="Start at 2.5 kg","a held bodyweight write has not advertised its new load");
-  await start.click();await wp.evaluate(()=>window.__releaseOpeningWrite());
-  await wp.evaluate(()=>window.__repforgeWorkoutDraft.flush());
-  await wp.waitForFunction(()=>document.querySelector("#workout .exercise.is-current [data-ramp-start]")?.textContent==="Start at 62.5 kg");
-  check(Object.values((await exercise(wp)).sets).every(set=>!set.startingLoad),"accepting the old offer during a held write never silently applies the new load");
+  for(const [value,label] of [["80","Start at 62.5 kg"],["40","Start at 30 kg"],["","Start at 2.5 kg"]]){
+    const before=await start.innerText();
+    await wp.evaluate(()=>new Promise(ready=>{navigator.locks.request("repforge:draft-write",()=>new Promise(release=>{window.__releaseOpeningWrite=release;ready();}));}));
+    await wp.locator("#sessionSheetBtn").click();await wp.locator("#sessionBodyweight").fill(value);
+    await wp.locator("#sessionSheetClose").click();await wp.waitForFunction(()=>!document.body.classList.contains("is-sheet-open"));
+    check((await start.innerText())===before,`a held bodyweight write (${value||"removed"}) has not advertised its new load`);
+    await start.click();await wp.evaluate(()=>window.__releaseOpeningWrite());
+    await wp.evaluate(()=>window.__repforgeWorkoutDraft.flush());
+    await wp.waitForFunction(label=>document.querySelector("#workout .exercise.is-current [data-ramp-start]")?.textContent===label,label);
+    check(Object.values((await exercise(wp)).sets).every(set=>!set.startingLoad),`the old offer during a held write (${value||"removed"}) never silently applies the new load`);
+  }
+  await bodyweight("80");
   await start.click();await wp.evaluate(()=>window.__repforgeWorkoutDraft.flush());
   let accepted=Object.values((await exercise(wp)).sets)[0];
   check(accepted.startingLoad.openingKg===62.5,"acceptance applies exactly the newly advertised load");
   await bodyweight("40");await bodyweight("");
   accepted=Object.values((await exercise(wp)).sets)[0];
   check(accepted.startingLoad.openingKg===62.5&&(await start.innerText())==="Start at 62.5 kg","bodyweight edits preserve an already accepted pending opening");
+  await field(wp,"loadKg",35);await bodyweight("80");
+  check((await start.innerText())==="Start at 35 kg","bodyweight edits preserve a load the lifter typed into the pending set");
   await weight.context.close();
   const anchor=await open(browser);
   await anchor.page.locator(`${card} [data-ramp-start]`).click();
@@ -145,12 +152,28 @@ try{
   const historical=await anchor.page.evaluate(id=>{const api=window.__repforgeProgression;const rec=api.recommendation(api.programSlot(id));return {...rec,progressionInputs:rec.progressionInputs};},anchor.target.id);
   check(historical.lastLoad===40&&historical.progressionInputs.history[0].sets.length===1&&historical.progressionInputs.history[0].sets[0].setIndex===0,
     "after reload history anchors only on the first 40 kg working set");
+  check(historical.engineResults[0].standing.evidence.sessions===1&&historical.engineResults[0].standing.evidence.sets<=1,
+    "standing counts the working observation without the ramp warm-up");
+  await anchor.page.evaluate(()=>{
+    window.__rampWeekInputs=[];const engine=window.RepForgeProgression;
+    window.RepForgeProgression={...engine,performanceTrend(prescription,history,...rest){
+      window.__rampWeekInputs.push({exerciseId:prescription.exerciseId,history});return engine.performanceTrend(prescription,history,...rest);
+    }};
+  });
+  await anchor.page.locator("#leaveWorkout").click();
+  await anchor.page.locator('nav [data-view="stats"]').click();await anchor.page.locator('#statsSeg [data-seg="review"]').click();
+  await anchor.page.locator('[data-week-review="current"]').waitFor();
+  const weeks=await anchor.page.evaluate(id=>window.__rampWeekInputs.filter(item=>item.exerciseId===id),anchor.target.libraryId);
+  check(weeks.some(item=>item.history.length===1)&&weeks.every(item=>item.history.every(session=>session.sets.length===1&&session.sets[0].setIndex===0&&session.sets[0].metricValues.some(value=>value.value===40))),
+    "Review's week facts and every observed trend reader receive only the 40 kg first working set");
   await anchor.context.close();
   const warmOnly=await open(browser);
   await warmOnly.page.locator(`${card} [data-ramp-start]`).click();await answer(warmOnly.page,"easy");await waitWarmups(warmOnly.page,1);
   await finishEarly(warmOnly.page);await warmOnly.page.reload();await waitForAppBoot(warmOnly.page,{base:BASE});
   await warmOnly.page.evaluate(id=>window.__repforgeGoToLogExercise(id),warmOnly.target.id);
   check(await warmOnly.page.locator(`${card} [data-ramp-start]`).count()===1,"after reload a warm-up-only session still offers session zero");
+  const warmStanding=await warmOnly.page.evaluate(id=>{const api=window.__repforgeProgression;return api.recommendation(api.programSlot(id)).engineResults[0].standing;},warmOnly.target.id);
+  check(warmStanding.word==="first"&&warmStanding.evidence.sessions===0,"warm-up-only history supplies no standing evidence");
   await warmOnly.context.close();
   const run=await open(browser),{page,target}=run;
   check(await page.locator(`${card} .fx-cue.is-ramp`).count()===1,"fresh no-load program offers Find your weight");
@@ -202,6 +225,8 @@ try{
   await page.evaluate(id=>window.__repforgeGoToLogExercise(id),target.id);
   await page.locator(`${card} .fx-cue.is-now`).waitFor();
   check(await page.locator(`${card} .fx-cue.is-ramp`).count()===0,"the lift's own saved history replaces the prior with a target on its next session");
+  const afterThree=await page.evaluate(id=>{const api=window.__repforgeProgression;return api.recommendation(api.programSlot(id)).lastLoad;},target.id);
+  check(afterThree===rows.find(row=>!row.warmup).load,"after three ramps the next session anchors on its first working row");
   await run.context.close();
 
   const interrupted=await open(browser);
