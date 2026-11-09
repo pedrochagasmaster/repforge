@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { answerEffortChoice } from "../browser.mjs";
 import { importInto } from "./install-transfer-import.mjs";
 
 const KEY = "repforge_program_setup_draft_v1";
@@ -13,6 +14,7 @@ async function resume(page) {
   await boot(page);
   await page.click("#firstRunResumeSetup");
   await page.locator("#entryEditorActivate, #entryEdit").first().waitFor();
+  if (await page.locator("#entryConflictReview").isVisible()) await page.click("#entryConflictReview");
   if (await page.locator("#entryEdit").isVisible()) await page.click("#entryEdit");
   await page.locator('#onbProgramEditor [data-role="metric-composition"]').first().waitFor();
 }
@@ -164,8 +166,7 @@ export async function verifyImportedRepRanges(browser, base) {
         !Object.hasOwn(ready.program[2], "min") && !!ready.importedRepRanges?.[time],
         "a non-repetition composition receives no repetition target and does not consume the pending range");
       await target.click("#entryEditorActivate");
-      // The transferred destination inherits the source's explicit effort choice.
-      await target.waitForFunction(() => !document.querySelector("#onboarding").classList.contains("active"));
+      await answerEffortChoice(target);
       const active = await replicas(target);
       for (const state of [active.local, active.idb]) {
         check(state.program[0].min === 6 && state.program[0].max === 8 && state.program[1].min === 10 && state.program[1].max === 14,
