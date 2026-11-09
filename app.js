@@ -4472,7 +4472,13 @@ async function decideWeeklyAdaptation(action){
   weeklyAdaptationBusy=false;
   if(result?.ok||result?.committed&&result?.settled){
     weeklyAdaptationView=null;render();renderReview();focusRoute($("#weekReview-current"));
-  }else{view.error=true;renderReview();focusRoute($(`[data-adaptation-action="${action}"]`))}
+  }else{
+    if(result?.conflict){
+      const refreshed=await refreshPersistenceHead();
+      if(!refreshed.conflict&&refreshed.head)applyAcceptedSnapshot(cloneSnapshot(state),refreshed.head);
+    }
+    view.error=true;renderReview();focusRoute($(`[data-adaptation-action="${action}"]`));
+  }
 }
 async function evaluateWeeklyAdaptations(){
   if(weeklyEvaluationPending)return;
