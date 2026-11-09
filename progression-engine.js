@@ -707,6 +707,8 @@
     const config = currentConfiguration(prescription, shape, loadingContext);
     const observations = [];
     let hasHistoryAnchor = false;
+    const day = (date) => Math.floor(Date.parse(date) / 86400000);
+    let latestComparableDay = null;
     for (const session of history) {
       if (!isPlainObject(session) || session.completed !== true || !Array.isArray(session.sets)) continue;
       for (const value of session.sets) {
@@ -716,6 +718,8 @@
         const comparable = set && set.ok !== false;
         if (comparable && set.setIndex === 0) hasHistoryAnchor = true;
         const date = value.date ?? session.date;
+        const at = comparable ? day(date) : NaN;
+        if (finite(at)) latestComparableDay = latestComparableDay == null ? at : Math.max(latestComparableDay, at);
         observations.push({ key: prescription.exerciseId, session: session.sessionId, set: value.setIndex, date,
           load: comparable ? set.effectiveLoadKg : null, reps: comparable ? set.reps : null, rir: value.rir,
           q: comparable && quality.decay(date, now) > 0 ? quality.rowQuality(set) : 0 });
@@ -736,8 +740,7 @@
       if (pair.agree) agreedWeight += weight;
     }
     evidence.agreement = pairWeight > 0 ? agreedWeight / pairWeight : null;
-    const day = (date) => Math.floor(Date.parse(date) / 86400000);
-    if (dated.length) evidence.gapDays = Math.max(0, day(now) - Math.max(...dated.map((obs) => day(obs.date))));
+    if (latestComparableDay != null && finite(day(now))) evidence.gapDays = Math.max(0, day(now) - latestComparableDay);
     const reasons = [];
     if (evidence.sets < 6) reasons.push("few_sets");
     if (evidence.sessions < 2) reasons.push("few_sessions");

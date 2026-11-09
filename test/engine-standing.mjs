@@ -54,9 +54,10 @@ for (const source of ["rir", "reps_left", "effort", "reps_left_3plus", "reps_lef
   assert.equal(evidence.pairs, 8);
   assert.equal(evidence.agreement, 1);
 }
-for (const name of ["quality-prefilled", "quality-unsure", "quality-failure", "missing-date", "warmup"]) {
-  assert.deepEqual(standing(name, "learning", ["few_sets", "few_sessions"]), empty);
+for (const name of ["quality-prefilled", "quality-unsure", "quality-failure", "warmup"]) {
+  assert.deepEqual(standing(name, "learning", ["few_sets", "few_sessions"]), { ...empty, gapDays: 0 });
 }
+assert.deepEqual(standing("missing-date", "learning", ["few_sets", "few_sessions"]), empty);
 assert.equal(standing("ninety-day-decay", "learning", ["few_sets", "break"]).sets, 3);
 assert.equal(standing("missing-source", "solid", []).sets, 6);
 const partlyDated = standing("undated-pair-endpoint", "learning", ["few_sets"]);
