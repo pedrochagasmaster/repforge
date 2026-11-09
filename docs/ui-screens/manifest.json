@@ -1742,7 +1742,7 @@
       "id": "exercise-detail-suggested",
       "flow": "library",
       "label": "Exercise library — detail with a suggestion",
-      "scenario": "Movement detail for an Adaptive lift: the suggested weight with Understand RIR and Why this weight?. The target shares Focus’s quiet standing line.",
+      "scenario": "An adaptive lift, scrolled to its recommendation and the profile section immediately below it: standing, first reason, test sets and opening load when recorded.",
       "variants": "standard"
     },
     {

@@ -1,7 +1,7 @@
 # UI screen catalog
 
 Phone-frame captures of every user-visible Taurifer surface — 259 screens,
-1535 frames. This folder is the visual reference for UI and Brand Designers.
+1530 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -170,8 +170,6 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | --- | --- | --- |
 | [Today — no program](screens/today/no-program__phone-390-light-en.png) | 3 | A fresh device after leaving setup, with no program or workout controls. |
 | [Today — ready to start](screens/today/ready__phone-390-light-en.png) | 12 | The Direction D lifter before Day 1 starts: the prescription table reads recommendation() for every exercise, with the verdict tally above it. |
-| [Today — calibration ring](screens/today/calibration-mini__phone-390-light-en.png) | 8 | The calibration ring beside Today's large title (owner direction B, 2026-11-06): the gauge's number in an accent arc, and one dot per test set across its foot, the done ones in the accent. |
-| [Today — calibration ring in the bar](screens/today/calibration-ring-bar__phone-390-light-en.png) | 8 | Today scrolled: the large title has gone under the bar, and the calibration ring rides in the bar at 30 px beside the gear. |
 | [Today — dock large-content viewer](screens/today/dock-viewer__phone-390-light-en.png) | 4 | A finger holds the dock's Progress tab. At 200% text the large-content viewer shows its icon and name large over Today, which keeps its one-row dock with capped labels; at the usual size (the canonical frame) the labels are whole, so the hold is only a press and no viewer is offered. |
 | [Today — ready to start, scrolled](screens/today/ready-scrolled__phone-390-light-en.png) | 3 | Plan 075 phase 3: the same ready state, scrolled past the large title, so the scroll-edge bar's material and its mirrored inline title are showing. |
 | [Today — running rest bar](screens/today/rest-bar__phone-390-light-en.png) | 8 | A rest running after leaving the workout: the live card's tag counts it down, and no rest pill floats above the dock. |
@@ -260,7 +258,8 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | Screen | Frames | What it shows |
 | --- | --- | --- |
 | [Progress — overview](screens/progress/overview__phone-390-light-en.png) | 8 | The Progress landing tab. |
-| [Progress — effort calibration](screens/progress/overview-calibration__phone-390-light-en.png) | 8 | Overview opens on the effort calibration gauge: the number with its test sets and lifts, what it measures, the six signals with plain counts, how evidence fades, and the recent test sets as guess and result (Plan 077, OD-20). |
+| [Progress — profile](screens/progress/overview-profile__phone-390-light-en.png) | 8 | Active program lifts with their standing, test sets and opening loads; evidence as counts, and recent test sets. Findings belong to Plan 081 PR2. |
+| [Progress — profile after two sessions](screens/progress/overview-profile-first__phone-390-light-en.png) | 8 | Two recorded sessions: early standing and counts, with no findings until Plan 081 PR2. |
 | [Mini bar on Progress](screens/progress/minibar__phone-390-light-en.png) | 8 | While a session is open, the frosted bar above the dock: a ring of the sets done, the session's name, the exercise and the time so far, and Resume. |
 | [Progress — overview guide](screens/progress/overview-guide__phone-390-light-en.png) | 8 | The progress guide on arrival: the guide dialog centred over the dimmed Overview. |
 | [Progress — baseline-building overview](screens/progress/overview-baseline__phone-390-light-en.png) | 8 | Sparse evidence remains neutral and contributes no Needs action items. |
@@ -316,7 +315,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Exercise library — selected movement](screens/library/list-selected__phone-390-light-en.png) | 8 | One movement is selected and the persistent add bar is visible. |
 | [Exercise library — preview](screens/library/exercise-preview__phone-390-light-en.png) | 3 | An illustrated movement preview. |
 | [Exercise library — detail](screens/library/exercise-detail__phone-390-light-en.png) | 3 | The full movement detail surface. |
-| [Exercise library — detail with a suggestion](screens/library/exercise-detail-suggested__phone-390-light-en.png) | 3 | Movement detail for an Adaptive lift: the suggested weight with Understand RIR and Why this weight?. The target shares Focus’s quiet standing line. |
+| [Exercise library — detail with a suggestion](screens/library/exercise-detail-suggested__phone-390-light-en.png) | 3 | An adaptive lift, scrolled to its recommendation and the profile section immediately below it: standing, first reason, test sets and opening load when recorded. |
 | [Exercise library — detail glossary definition](screens/library/exercise-detail-glossary__phone-390-light-en.png) | 8 | A definition is open after tapping a term in movement detail. |
 
 ### Program

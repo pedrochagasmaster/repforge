@@ -2721,12 +2721,18 @@ export const APP_SCENARIOS = {
   "progress/overview-profile": async (page) => {
     await view(page, "stats");
     await page.waitForSelector("#overviewProfile:not(.hidden) .profile-lift", { timeout: 20000 });
-    await page.locator("#overviewProfile").scrollIntoViewIfNeeded();
+    await page.evaluate(() => {
+      const profile=document.querySelector("#overviewProfile"),bar=document.querySelector("#statsTopbar");
+      window.scrollBy(0,profile.getBoundingClientRect().top-bar.getBoundingClientRect().bottom-16);
+    });
   },
   "progress/overview-profile-first": async page => {
     await view(page, "stats");
     await page.waitForSelector("#overviewProfile .profile-lift");
-    await page.locator("#overviewProfile").scrollIntoViewIfNeeded();
+    await page.evaluate(() => {
+      const profile=document.querySelector("#overviewProfile"),bar=document.querySelector("#statsTopbar");
+      window.scrollBy(0,profile.getBoundingClientRect().top-bar.getBoundingClientRect().bottom-16);
+    });
   },
   "progress/overview-guide": async (page) => { await view(page, "stats"); await replayGuide(page, "progress"); },
   "progress/overview-baseline": (page) => view(page, "stats"),
@@ -2999,7 +3005,11 @@ export const APP_SCENARIOS = {
     await row.scrollIntoViewIfNeeded({ timeout: 20000 });
     await row.click({ timeout: 20000 });
     await page.waitForSelector("#exDetail .recblock .recblock__why", { timeout: 20000 });
-    await sleep(page, 800);
+    await page.waitForSelector("#exDetail .exercise-profile");
+    await page.evaluate(() => {
+      const rec=document.querySelector("#exDetail .recblock"),head=document.querySelector("#exercise .exview-head");
+      window.scrollBy(0,rec.getBoundingClientRect().top-head.getBoundingClientRect().bottom-16);
+    });
   },
   "library/exercise-detail-glossary": async (page) => {
     // Day 3 opens on Leg extension, a movement with a licensed illustration.
