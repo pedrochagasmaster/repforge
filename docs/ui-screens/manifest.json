@@ -1088,20 +1088,6 @@
       "variants": "demandingDockText"
     },
     {
-      "id": "calibration-mini",
-      "flow": "today",
-      "label": "Today — calibration ring",
-      "scenario": "The calibration ring beside Today's large title (owner direction B, 2026-11-06): the gauge's number in an accent arc, and one dot per test set across its foot, the done ones in the accent.",
-      "variants": "demandingText"
-    },
-    {
-      "id": "calibration-ring-bar",
-      "flow": "today",
-      "label": "Today — calibration ring in the bar",
-      "scenario": "Today scrolled: the large title has gone under the bar, and the calibration ring rides in the bar at 30 px beside the gear.",
-      "variants": "demandingText"
-    },
-    {
       "id": "dock-viewer",
       "flow": "today",
       "label": "Today — dock large-content viewer",
@@ -1431,10 +1417,17 @@
       "variants": "demandingText"
     },
     {
-      "id": "overview-calibration",
+      "id": "overview-profile",
       "flow": "progress",
-      "label": "Progress — effort calibration",
-      "scenario": "Overview opens on the effort calibration gauge: the number with its test sets and lifts, what it measures, the six signals with plain counts, how evidence fades, and the recent test sets as guess and result (Plan 077, OD-20).",
+      "label": "Progress — profile",
+      "scenario": "Active program lifts with their standing, test sets and opening loads; evidence as counts, and recent test sets. Findings belong to Plan 081 PR2.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "overview-profile-first",
+      "flow": "progress",
+      "label": "Progress — profile after two sessions",
+      "scenario": "Two recorded sessions: early standing and counts, with no findings until Plan 081 PR2.",
       "variants": "demandingText"
     },
     {
@@ -1749,7 +1742,7 @@
       "id": "exercise-detail-suggested",
       "flow": "library",
       "label": "Exercise library — detail with a suggestion",
-      "scenario": "Movement detail for an Adaptive lift: the suggested weight with Understand RIR and Why this weight?. The target shares Focus’s quiet standing line.",
+      "scenario": "An adaptive lift, scrolled to its recommendation and the profile section immediately below it: standing, first reason, test sets and opening load when recorded.",
       "variants": "standard"
     },
     {

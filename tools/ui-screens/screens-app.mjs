@@ -383,10 +383,9 @@ const EFFORT_STAGE_STATES = Object.freeze({
   "workout/effort-stage-b": { rirMode: "numeric" },
   "workout/effort-menu": { rirMode: "effort" },
   "workout/stage-tip": { rirMode: "effort" },
-  // Plan 077 PR 4: the gauge and the last-rep question, on a lifter who logged RIR and took two test sets.
-  "progress/overview-calibration": { rirMode: "numeric" },
-  "today/calibration-mini": { rirMode: "numeric" },
-  "today/calibration-ring-bar": { rirMode: "numeric" },
+  // Profile and last-rep question on a lifter who logged numbers and took test sets.
+  "progress/overview-profile": { rirMode: "numeric" },
+  "progress/overview-profile-first": { rirMode: "numeric" },
   "workout/last-rep-slow": { rirMode: "numeric" },
 });
 /** Two test sets on the lifter's newest session, on its first two exercises: the guess beside a set to failure. */
@@ -410,7 +409,11 @@ function effortStageState(key, lang) {
   const drawn = localeState(key.startsWith("today/") ? directionDBeforeSession() : directionDState(), lang);
   drawn.settings = { ...drawn.settings, ...EFFORT_STAGE_STATES[key] };
   if (key === "workout/stage-tip") drawn.log = drawn.log.map((row) => row.warmup ? row : { ...row, effortSource: "effort" });
-  if (key === "progress/overview-calibration" || key === "today/calibration-mini" || key === "today/calibration-ring-bar" || key === "workout/last-rep-slow") drawn.log = withTestSets(drawn.log);
+  if (key === "progress/overview-profile" || key === "workout/last-rep-slow") drawn.log = withTestSets(drawn.log);
+  if (key === "progress/overview-profile-first") {
+    const sessions = [...new Set(drawn.log.map(row => row.session))].slice(0, 2);
+    drawn.log = drawn.log.filter(row => sessions.includes(row.session));
+  }
   return drawn;
 }
 
@@ -2031,21 +2034,6 @@ export const APP_SCENARIOS = {
     const copy = await page.evaluate(() => window.RepForgeI18n.t("today.deload_week"));
     if ((await note.innerText()).trim() !== copy) throw new Error("Today shows the wrong deload recovery note");
   },
-  // The calibration ring (owner direction B, 2026-11-06) beside Today's large title.
-  "today/calibration-mini": async (page) => {
-    await dismissChrome(page);
-    await page.waitForSelector("#todayCalRing:not(.hidden) svg", { timeout: 20000 });
-    await page.evaluate(() => window.scrollTo(0, 0));
-    await sleep(page, 300);
-  },
-  // Scrolled: the title under the bar, and the ring at 30 px in the bar beside the gear.
-  "today/calibration-ring-bar": async (page) => {
-    await dismissChrome(page);
-    await page.waitForSelector("#todayCalRing:not(.hidden) svg", { timeout: 20000 });
-    await page.evaluate(() => window.scrollTo(0, 320));
-    await page.waitForSelector("#todayCalRingBar.is-shown", { timeout: 20000 });
-    await sleep(page, 400);
-  },
   "today/ready": async (page) => {
     await dismissChrome(page);
     const rows = page.locator("#todayExList .rxrow");
@@ -2782,11 +2770,22 @@ export const APP_SCENARIOS = {
   },
 
   "progress/overview": (page) => view(page, "stats"),
-  // Plan 077 PR 4: the calibration gauge with its six signals and the recent test sets.
-  "progress/overview-calibration": async (page) => {
+  // The profile is the subject here; the generic Overview state stays at its page title.
+  "progress/overview-profile": async (page) => {
     await view(page, "stats");
-    await page.waitForSelector("#overviewCalibration:not(.hidden) .calcard", { timeout: 20000 });
-    await sleep(page, 300);
+    await page.waitForSelector("#overviewProfile:not(.hidden) .profile-lift", { timeout: 20000 });
+    await page.evaluate(() => {
+      const profile=document.querySelector("#overviewProfile"),bar=document.querySelector("#statsTopbar");
+      window.scrollBy(0,profile.getBoundingClientRect().top-bar.getBoundingClientRect().bottom-16);
+    });
+  },
+  "progress/overview-profile-first": async page => {
+    await view(page, "stats");
+    await page.waitForSelector("#overviewProfile .profile-lift");
+    await page.evaluate(() => {
+      const profile=document.querySelector("#overviewProfile"),bar=document.querySelector("#statsTopbar");
+      window.scrollBy(0,profile.getBoundingClientRect().top-bar.getBoundingClientRect().bottom-16);
+    });
   },
   "progress/overview-guide": async (page) => { await view(page, "stats"); await replayGuide(page, "progress"); },
   "progress/overview-baseline": (page) => view(page, "stats"),
@@ -3074,7 +3073,11 @@ export const APP_SCENARIOS = {
     await row.scrollIntoViewIfNeeded({ timeout: 20000 });
     await row.click({ timeout: 20000 });
     await page.waitForSelector("#exDetail .recblock .recblock__why", { timeout: 20000 });
-    await sleep(page, 800);
+    await page.waitForSelector("#exDetail .exercise-profile");
+    await page.evaluate(() => {
+      const rec=document.querySelector("#exDetail .recblock"),head=document.querySelector("#exercise .exview-head");
+      window.scrollBy(0,rec.getBoundingClientRect().top-head.getBoundingClientRect().bottom-16);
+    });
   },
   "library/exercise-detail-glossary": async (page) => {
     // Day 3 opens on Leg extension, a movement with a licensed illustration.

@@ -262,7 +262,7 @@ export const FULL_SUITES = {
     s("test/effort-provenance.mjs", [], { domains: ["workout", "history", "persistence"], seconds: 20 }),
     s("test/max-set-browser.mjs", [], { domains: ["workout", "settings", "history"], seconds: 25 }),
     s("test/effort-stages.mjs", [], { domains: ["workout", "settings", "persistence"], seconds: 60 }),
-    s("test/calibration-gauge-browser.mjs", [], { domains: ["workout", "progress", "today", "persistence"], seconds: 45 }),
+    s("test/profile-browser.mjs", [], { domains: ["workout", "progress", "today", "persistence", "library"], seconds: 45 }),
     s("test/release-skew.mjs", [], { domains: ["global"], seconds: 8 }),
     s("test/history-persistence-race.mjs", [], { seconds: 5 }),
     s("test/today-done.mjs", [], { seconds: 19 }),
