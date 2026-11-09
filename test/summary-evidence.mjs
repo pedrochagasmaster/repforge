@@ -165,7 +165,8 @@ try {
 
   const checkRow = { ...row("finding-current", "2026-09-17", "seed-ex-3", 60, 12, 0),
     effortSource: "failure", calibration: { v: 1, predictedReps: 10, predictionEdited: false, prefillBasis: "reps_rir" } };
-  const finding = await build(page, [], [checkRow], { open: false });
+  const beforeCheck = [row("before-check", "2026-09-16", "seed-ex-3", 60, 8, 2)];
+  const finding = await build(page, beforeCheck, [checkRow], { open: false });
   const unopened = await page.evaluate(summary => {
     const element = document.querySelector("#sessionSummary"), parent = element.parentElement;
     element.remove();
@@ -189,12 +190,20 @@ try {
       await page.locator("#overviewProfile").evaluate(el => document.activeElement === el),
       "the finding opens Progress Overview and focuses the profile");
   } else check(false, "the finding opens Progress Overview and focuses the profile");
-  const repeated = await build(page, [], [checkRow]);
+  const repeated = await build(page, beforeCheck, [checkRow]);
   check(await page.locator("#sumFinding").count() === 1 &&
     !/New today/.test(await page.locator("#sumFinding").textContent() || ""),
     "after reload the same finding is no longer new and the next need takes its place");
   check(!Object.hasOwn(JSON.parse(await page.evaluate(() => localStorage.getItem("repforge_v1"))), "findingsSeen"),
     "seen findings stay outside durable training state");
+
+  const month = await build(page,
+    [row("month-first", "2026-09-15", "seed-ex-3", 60, 8, 2)],
+    [row("month-current", "2026-10-15", "seed-ex-3", 60, 8, 2)]);
+  check(month.summary.finding?.id === "month_one" &&
+    await page.locator('#sumFinding[data-finding="month_one"]').count() === 1,
+    "the first finish after day 28 presents the month finding even without a session on its release date",
+    JSON.stringify(month.summary.finding));
 
   for (const lang of ["pt", "en"]) {
     await page.evaluate(() => {
@@ -203,7 +212,7 @@ try {
       localStorage.setItem("repforge_ui_v1", JSON.stringify(prefs));
     });
     await page.setViewportSize({ width: 320, height: 844 });
-    await build(page, [], [checkRow], { lang });
+    await build(page, beforeCheck, [checkRow], { lang });
     await page.evaluate(() => document.documentElement.style.fontSize = "200%");
     const layout = await page.evaluate(() => {
       const line = document.querySelector("#sumFinding"), box = line?.getBoundingClientRect();
