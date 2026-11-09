@@ -382,8 +382,9 @@
     for (const [id, session] of sessions) {
       const events = sessionEvents?.[id];
       if (!days.has(session.day)) days.set(session.day, []);
+      const daySlots = new Set(exercises.filter(exercise => exercise.day === session.day).map(exercise => exercise.slotId || exercise.id));
       days.get(session.day).push({id,...session,trim:events?.skips?.some(event => event.reason === "trim"),
-        flagged:new Set(meta?.fatigueSessions?.[id] || []).size >= 2});
+        flagged:new Set((meta?.fatigueSessions?.[id] || []).filter(slotId => daySlots.has(slotId))).size >= 2});
       for (const event of events?.skips || []) if (event.reason !== "trim") observe("recurring_skip",event,id);
       for (const event of events?.pain || []) observe("recurring_pain",event,id);
     }

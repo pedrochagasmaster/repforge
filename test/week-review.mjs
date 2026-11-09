@@ -54,8 +54,8 @@ const trimmed=structuredClone(patternEvents);for(const record of Object.values(t
 assert.equal(Model.detectPatterns(patternLog,trimmed,patternProgram,{blockId:'block'},'2026-11-02').some(p=>p.pattern==='recurring_skip'),false);
 const painEvents=structuredClone(patternEvents);for(const record of Object.values(painEvents)){record.skips=[];record.pain=[{exerciseId:'lift',slotId:'slot',name:'Lift',kind:'discomfort',swapped:false}]}
 assert.equal(Model.detectPatterns(patternLog,painEvents,patternProgram,{blockId:'block'},'2026-11-02')[0].pattern,'recurring_pain');
-const definition={cycles:6,days:[{id:'day',name:'A',kind:'training',slots:[{id:'first',exerciseId:'compound',order:1,role:'compound',prescriptionsByCycle:[]},{id:'slot',exerciseId:'lift',role:'hypertrophyAccessory',order:2,alternates:['alternate'],prescriptionsByCycle:[1,2,3,4,5,6].map(cycleIndex=>({cycleIndex,sets:[1,2,3].map(i=>({id:`s${cycleIndex}-${i}`,targets:{load:40,reps:8}}))}))}]}]};
-const document={program:patternProgram,programMeta:{blockId:'block',programDefinition:definition}};
+const definition={cycles:6,days:[{id:'day',name:'A',kind:'training',slots:[{id:'first',exerciseId:'compound',order:1,role:'hypertrophyPrimaryCompound',prescriptionsByCycle:[1,2,3,4,5,6].map(cycleIndex=>({cycleIndex,sets:[1,2,3].map(i=>({id:`c${cycleIndex}-${i}`,targets:{load:80,reps:6}}))}))},{id:'slot',exerciseId:'lift',role:'hypertrophyAccessory',order:2,alternates:['alternate'],prescriptionsByCycle:[1,2,3,4,5,6].map(cycleIndex=>({cycleIndex,sets:[1,2,3].map(i=>({id:`s${cycleIndex}-${i}`,targets:{load:40,reps:8}}))}))}]}]};
+const document={program:[{id:'first',slotId:'first',libraryId:'compound',day:'A',sets:3},...patternProgram],programMeta:{blockId:'block',programDefinition:definition}};
 const props={week:'2026-11-02',cycleIndex:4};
 const swap=Transition.proposeAdaptation(detected[0],document,{...props,cause:'equipment'});
 assert.equal(swap.kind,'swap_exercise');assert.equal(swap.target.replacementId,'alternate');
@@ -63,9 +63,9 @@ assert.equal(swap.kind,'swap_exercise');assert.equal(swap.target.replacementId,'
 assert.equal(swap.nextDocument,null);
 const dropDoc=structuredClone(document);delete dropDoc.programMeta.programDefinition.days[0].slots[1].alternates;
 const drop=Transition.proposeAdaptation(detected[0],dropDoc,{...props,cause:'time'});
-assert.equal(drop.kind,'drop_exercise');assert.equal(drop.nextDocument.program.length,0);
+assert.equal(drop.kind,'drop_exercise');assert.deepEqual(drop.nextDocument.program.map(row=>row.id),['first']);
 assert.equal(drop.nextDocument.programMeta.programDefinition.days[0].slots.length,1);
-assert.equal(document.program.length,1,'proposal never mutates the input');
+assert.equal(document.program.length,2,'proposal never mutates the input');
 const reduce=Transition.proposeAdaptation({pattern:'recurring_fatigue',day:'A',slotId:'slot',exerciseId:'lift'},document,{...props,cause:'recovery'});
 assert.equal(reduce.kind,'reduce_sets');
 const cycles=reduce.nextDocument.programMeta.programDefinition.days[0].slots[1].prescriptionsByCycle;
