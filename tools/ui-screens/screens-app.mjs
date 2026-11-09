@@ -603,6 +603,17 @@ async function enterWorkout(page, options = {}) {
 
 /** Focus on the program's first day. Boot now defaults to the day after the last one trained (#528), so a state that
  *  depicts the first lift of a session names its day instead of inheriting whichever day the fixture's history implies. */
+async function focusLearning(page){
+  const state=await page.evaluate(()=>JSON.parse(localStorage.getItem("repforge_v1")));
+  const row=state.program[0],slot=definitionSlot(state.programMeta,row);
+  const rows=state.log.filter(item=>item.performedLibraryId===slot.exerciseId||item.exerciseId===row.id);
+  const latest=rows.at(-1)?.session;
+  if(!latest)throw new Error("standing Focus fixture needs a prior session");
+  state.log=state.log.filter(item=>!rows.includes(item)||item.session===latest);
+  await seed(page,state);
+  await focusMode(page);
+  await page.waitForSelector("#workout .exercise.is-current .fx-cue__standing");
+}
 async function focusMode(page) {
   const first = await page.evaluate(() => JSON.parse(localStorage.getItem("repforge_v1") || "{}").program?.[0]?.day || null);
   await enterWorkout(page, first ? { day: first } : {});
@@ -1398,13 +1409,13 @@ async function logAdaptiveSet(page, slotId, ordinal, { load, reps, rir }) {
  * generated program the sheet is built by engineWhyModel/engineWhyRows and
  * always leads with "engine-anchor", "engine-target" and "engine-assumptions".
  */
-async function adaptiveWhyFixture(page) {
+async function adaptiveWhyFixture(page,{daysAgo=7}={}) {
   const state = await installGeneratedProgram(page, { name: "Why sheet proof" });
   const day = state.program[0]?.day;
   const row = state.program.find((candidate) => candidate.day === day && isWeightRepsSlot(definitionSlot(state.programMeta, candidate)));
   if (!row) throw new Error("adaptive Why fixture: no Weight+Reps slot on the generated program's first day");
   const past = new Date(Date.parse(CAPTURE_NOW));
-  past.setUTCDate(past.getUTCDate() - 7);
+  past.setUTCDate(past.getUTCDate() - daysAgo);
   const pastDate = past.toISOString().slice(0, 10);
   state.log = [
     metricLogRow(state.programMeta, row, { session: "why-history", date: pastDate, set: 1, load: 40, reps: 8, rir: 2 }),
@@ -1664,7 +1675,7 @@ async function whyOnBuildRange(page) {
   const row = catalogState().program[0];
   await navigateToWhy(page, { exerciseId: row.id, day: row.day });
   await expectWhyLeads(page, ["manual"]);
-  const text = await page.locator("#whyBody .whysheet__text").textContent();
+  const text = await page.locator('#whyBody [data-lead="manual"] .whysheet__text').textContent();
   const expected = await page.evaluate(() => window.RepForgeI18n.t("why.manual"));
   if (text?.trim() !== expected) throw new Error(`The Build-backed manual Why sentence was ${JSON.stringify(text)}`);
 }
@@ -1729,7 +1740,7 @@ async function whyOnGeneratedPerSide(page) {
   if (truth.status !== "configuration_required" || !truth.reasonCodes?.includes("execution_context_required") || truth.load != null)
     throw new Error(`The ambiguous generated slot lost its execution-mode requirement or acquired a load: ${JSON.stringify(truth)}`);
   await expectWhyLeads(page, ["setup"]);
-  const text = await page.locator("#whyBody .whysheet__text").textContent();
+  const text = await page.locator('#whyBody [data-lead="setup"] .whysheet__text').textContent();
   const expected = await page.evaluate(() => window.RepForgeI18n.t("why.setup.execution_mode"));
   if (text?.trim() !== expected) throw new Error(`The generated per-side Why sentence was ${JSON.stringify(text)}`);
 }
@@ -1880,7 +1891,7 @@ async function whyPerSideAssumption(page) {
     || (lang.toLowerCase().startsWith("pt") ? text.includes("peso corporal") : /bodyweight/i.test(text))) {
     throw new Error(`The rendered Why sheet omits the approved per-side anchor or multiplier, or counts bodyweight: ${JSON.stringify({ text, lang })}`);
   }
-  await expectWhyLeads(page, ["engine-anchor", "engine-target", "engine-assumptions"]);
+  await expectWhyLeads(page, ["engine-anchor", "engine-target", "engine-assumptions", "engine-standing"]);
 }
 
 let programLabPreview;
@@ -2180,7 +2191,7 @@ export const APP_SCENARIOS = {
     }
   },
 
-  "workout/focus": focusMode,
+  "workout/focus": focusLearning,
   "workout/first-set-guide": async (page) => {
     // Replayed away from Focus, the guide waits for its anchor; in Focus it waits for the first tap on the shelf.
     await page.evaluate(() => window.__repforgeUi.replayGuide("first-set"));
@@ -2611,9 +2622,17 @@ export const APP_SCENARIOS = {
     await clickWhy(page, "#workout .exercise.is-current [data-why]");
     await page.waitForSelector("#whySheet.is-open", { timeout: 20000 });
     await sleep(page, 400);
-    await expectWhyLeads(page, ["engine-anchor", "engine-target", "engine-assumptions"]);
+    await expectWhyLeads(page, ["engine-anchor", "engine-target", "engine-assumptions", "engine-standing"]);
   },
   // Plan 077 PR 5: a lift with three on-target test sets: the Why sheet's effort-estimate line says so.
+  "workout/why-standing": async (page) => {
+    await adaptiveWhyFixture(page,{daysAgo:50});
+    await clickWhy(page,"#workout .exercise.is-current [data-why]");
+    await page.waitForSelector("#whySheet.is-open");
+    await expectWhyLeads(page,["engine-standing"]);
+    await page.evaluate(()=>{document.querySelector("#whySheet").dataset.detent="large"});
+    await page.locator('[data-lead="engine-standing"]').scrollIntoViewIfNeeded();
+  },
   "workout/why-calibration": async (page) => {
     const state = await installGeneratedProgram(page, { name: "Why sheet proof" });
     const day = state.program[0]?.day;
@@ -2631,7 +2650,7 @@ export const APP_SCENARIOS = {
     await clickWhy(page, "#workout .exercise.is-current [data-why]");
     await page.waitForSelector("#whySheet.is-open", { timeout: 20000 });
     await sleep(page, 400);
-    await expectWhyLeads(page, ["engine-anchor", "engine-target", "engine-calibration"]);
+    await expectWhyLeads(page, ["engine-anchor", "engine-target", "engine-standing", "engine-calibration"]);
     // The line is the sheet's last block: the sheet raised to its large detent and read to its end, as the lifter would.
     await page.evaluate(() => { document.querySelector("#whySheet").dataset.detent = "large"; });
     await sleep(page, 400);
@@ -2644,7 +2663,7 @@ export const APP_SCENARIOS = {
     await clickWhy(page, "#workout .exercise.is-current [data-why]");
     await page.waitForSelector("#whySheet.is-open", { timeout: 20000 });
     await sleep(page, 400);
-    await expectWhyLeads(page, ["engine-anchor", "engine-target", "engine-assumptions"]);
+    await expectWhyLeads(page, ["engine-anchor", "engine-target", "engine-assumptions", "engine-standing"]);
   },
   "workout/why-manual": whyOnBuildRange,
   "workout/why-setup": whyOnGeneratedPerSide,

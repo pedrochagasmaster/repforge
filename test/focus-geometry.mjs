@@ -81,10 +81,12 @@ function measureFocusCard(safeBottom) {
   const banner = q("#draftRecovery");
   const bannerRect = banner && !banner.classList.contains("hidden") ? banner.getBoundingClientRect() : null;
   const shelfRect = shelf.getBoundingClientRect();
+  const openRect = q(".ledgerline--open", art)?.getBoundingClientRect();
   const title = q("#woDayTitle"), name = q(".focus-ex__meta", art), tab = q("#restTab");
   const nameRect = name?.getBoundingClientRect(), tabRect = tab?.getBoundingClientRect();
   return {
     height: innerHeight,
+    openRow: openRect && { top: openRect.top, bottom: openRect.bottom, shelfTop: shelfRect.top },
     // A state that opens a sheet or the glossary is drawn with that layer over the card, and what lies over the action
     // there is the layer's; every other state must put the tap on the action itself.
     action: { top: rect.top, bottom: rect.bottom, inside: rect.top >= 0 && rect.bottom <= innerHeight - safeBottom + 0.5,
@@ -183,6 +185,32 @@ async function checkFocusAtSmallestPhone(browser) {
   for (const failure of failures) console.error(`  FAIL ${failure}`);
   assert(!failures.length, `${failures.length} of ${cases.length} Focus frames on the smallest phone hide the title, the name or the rest block`, failures.slice(0, 3).join(" || "));
   console.log(`  ${cases.length} frames show the title, the name and the rest block`);
+}
+
+async function checkStandingLedger(browser) {
+  console.log("\nStanding and the current row: 320x568 EN/PT, 390px EN/PT at 200%");
+  const failures = [];
+  for (const width of [320, 390]) for (const lang of ["en", "pt"]) {
+    const text = width === 320 ? "normal" : "text200";
+    // Match the registered 320px frame. The established inset checks above remain unchanged; 390px keeps them too.
+    const opened = await openCatalogState(browser, "workout/focus", width, lang, text,
+      width === 320 ? { safe: { top: 0, bottom: 0 } } : {});
+    try {
+      const m = await opened.page.evaluate(measureFocusCard, width === 320 ? 0 : SAFE_AREA.bottom);
+      const row = m.openRow;
+      if (!row || row.bottom > Math.min(row.shelfTop, m.window.bottom) + 1 || row.top < m.window.top - 1)
+        failures.push(`${width}px ${lang} ${text}: current row ${JSON.stringify(row)}, window ${JSON.stringify(m.window)}`);
+      const standing = await opened.page.locator(".exercise.is-current .fx-cue__standing").boundingBox();
+      if (!standing || standing.y < m.window.top - 1 || standing.y + standing.height > m.window.bottom + 1)
+        failures.push(`${width}px ${lang} ${text}: standing is not whole in the context window`);
+      if (width === 320 && m.window.scrollTop !== 0)
+        failures.push(`${width}px ${lang}: initial context scrolled ${m.window.scrollTop}px`);
+      console.log(`  ${width}px ${lang} ${text}: ${JSON.stringify({ row, window: m.window, standing })}`);
+    } finally {
+      await opened.context.close();
+    }
+  }
+  assert(!failures.length, "standing leaves the whole current row above the shelf", failures.join(" | "));
 }
 
 async function main() {
@@ -302,7 +330,10 @@ async function main() {
      * 2. The shelf's action stays whole at large text (R7 V-02)
      * ====================================================================== */
     if (wants("large")) await checkFocusStatesAtLargeText(browser);
-    if (wants("smallest")) await checkFocusAtSmallestPhone(browser);
+    if (wants("smallest")) {
+      await checkFocusAtSmallestPhone(browser);
+      await checkStandingLedger(browser);
+    }
     if (!wants("gestures")) return;
 
     /* ======================================================================

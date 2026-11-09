@@ -6653,7 +6653,7 @@ function recommendation(ex){
   const calibration=liftCalibration(history,loadingContext.bySlotId[matched.slot.id],matched.slot.metricDefinitions);
   const results=engine.recommendSets(prescriptions,history,currentSession,loadingContext,{
     now:today(),weightMatch:state.settings.weightMatch===true,expandRepRange:state.settings.expandRepRange!==false,
-    ...(calibration.delta?{calibration:{version:calibration.version,delta:calibration.delta}}:{})});
+    calibration:{version:calibration.version,delta:calibration.delta,n:calibration.n,spread:calibration.spread,state:calibration.state,reason:calibration.reason}});
   // Owner, 2026-11-04: an adaptive set with no comparable history starts from the load the program authored for it,
   // offered as a suggestion; once history exists the engine's recommendation takes over. No load is invented.
   const plannedSemantic=(matched.slot.metricDefinitions||[]).find(metric=>PLANNED_LOAD_SEMANTICS.includes(metric.semantic))?.semantic||null;
@@ -6700,7 +6700,7 @@ function recommendation(ex){
     targetSets,engineResults:results,metricDefinitions:definitions,slotId:matched.slot.id,
     stalled:false,block:{dir:null,sessions:0},blockNote:"",pushReps:false,
     prescription:cloneSnapshot(first),historyAnchor:result?.historyAnchor||null,fatigue:result?.fatigue||null,
-    loadingAssumptions:result?.loadingAssumptions||null};
+    loadingAssumptions:result?.loadingAssumptions||null,standing:result?.standing||null};
   // The observations the engine was given, so a surface can read back the set it anchored on. Not enumerable, so the
   // recommendation that serialises (and that the parity proofs compare) is exactly what it was.
   Object.defineProperty(rec,"progressionInputs",{value:{history,currentSession}});
@@ -9901,6 +9901,20 @@ function focusEvidenceText(ex,n,r,cue){
   if(facts.reps!=null&&facts.rir!=null)parts.push(say(`focus.evidence.target${facts.fatigued?"_fatigue":""}${effort?"_effort":""}`,
     {reps:plain(facts.reps),rir:plain(fmt(facts.rir)),effort:esc(effortLabel(effortForRir(facts.rir)))}));
   return parts.join(" ")}
+function targetStanding(rec,n=1){
+  const result=rec.targetSets?.find(item=>item.prescription.setIndex===n)?.result;
+  const standing=result?.standing||rec.standing;
+  // A manual or unconfigured prescription can lack an anchor for reasons unrelated to the lift's history.
+  if(standing?.word==="first"&&standing.reasons.includes("no_history")&&
+    !(result?.reasonCodes||rec.reasonCodes||[]).includes("no_comparable_history"))return null;
+  return standing}
+function standingWord(standing){
+  if(!standing)return "";
+  return t(standing.word==="first"?(standing.reasons.includes("live_only")?"standing.first_load":"standing.first")
+    :standing.word==="learning"?"standing.learning":"standing.solid")}
+function standingLine(rec,n,cls){
+  const standing=targetStanding(rec,n);
+  return standing&&standing.word!=="solid"?`<p class="${cls}">${esc(standingWord(standing))}</p>`:""}
 /** The hero: the verb and the load at the screen's largest size, the reps under it, then one line of evidence that
  *  ends in the Why link. The verdict mark is the shared one, so hold draws the ink "=" and up the orange arrow exactly
  *  as the Why headline does; it rides inline before the words, and a cue with no verdict has no mark and no gap. */
@@ -9916,6 +9930,7 @@ function focusCueBlockHtml(ex,n,r,cue,{peek,name,draft}){
     (cue.kind==="ramp"?`<div class="fx-ramp-actions"><button type="button" class="btn"${peek?dead():` data-ramp-start="${esc(ex.id)}" data-ramp-n="${n}" data-ramp-load="${cue.ramp.loadKg}" data-ramp-basis="${cue.ramp.record.basis}"`}>${esc(t("focus.cue.start_at",{load:fmtLoad(cue.ramp.loadKg),unit:unitLabel()}))}</button>`+
       `<button type="button" class="text-link"${peek?dead():` data-ramp-skip="${esc(ex.id)}" data-ramp-n="${n}"`}>${esc(t("focus.cue.know_weight"))}</button>`+
       (cue.ramp.record.basis==="floor"&&!cue.ramp.set.startingLoad?`<button type="button" class="text-link"${peek?dead():" data-ramp-bodyweight"}>${esc(t("session.sheet.bodyweight"))}</button>`:"")+`</div>`:"")+
+    (cue.kind!=="edit"&&cue.kind!=="maxset"?standingLine(r,n,"fx-cue__standing"):"")+
     (evidence||why?`<p class="fx-cue__evidence">${evidence}${evidence&&why?" ":""}${why}</p>`:"")+cancel+`</div>`}
 function focusSlotHtml(ex,n,r,cue,opts){
   return `<div class="fx-slot">${focusCueBlockHtml(ex,n,r,cue,opts)}</div>`}
@@ -13781,7 +13796,7 @@ function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
     const body=t(`focus.evidence.none_${key}`,{what:t(isWordMode()?"focus.evidence.what_effort":"focus.evidence.what_rir"),min:tmpl.min,max:tmpl.max});
     return{head,body}})():null;
   const recHtml=rec?`<div class="recblock is-${rec.status}"><div class="recblock__row"><div><div class="recblock__lab">${esc(t("today.recommendation"))}</div>`+
-    `<div class="recblock__head">${esc(recWords.head)}</div>`+
+    `<div class="recblock__head">${esc(recWords.head)}</div>`+standingLine(rec,1,"recblock__standing")+
     (recWords.body?`<p class="recblock__body">${esc(recWords.body)}</p>`:"")+`</div>`+
     `<button type="button" class="link-accent" data-term="RIR">${esc(t("exercise.understand"))}</button>`+
     // "Why this weight?" explains a weight, so it shows only when there is one; "Understand RIR" stays either way.
@@ -25089,6 +25104,14 @@ function engineWhyRows(ex,rec,n=1){
     rows.push(whyRow("per_side",{text:t("why.engine.per_side",{
       load:fmtLoad(result.targets?.[loadMetric.semantic]),unit:u,multiplier:assumptions.externalLoadMultiplier})}));
   return rows}
+function addStandingBlock(model,standing){
+  if(!standing)return;
+  const e=standing.evidence,sets=Math.round(e.sets*10)/10;
+  const vars={sets:fmt(sets),setWord:tp(sets,"set"),sessions:e.sessions,sessionWord:tp(e.sessions,"session"),
+    weeks:Math.floor((e.gapDays||0)/7),checks:e.checks};
+  const lines=standing.reasons.map(reason=>({reason,text:t(`why.standing.${reason}`,vars)}));
+  if(standing.word==="solid")lines.push({text:t("why.standing.evidence",vars)});
+  model.blocks.push({leadKey:"engine-standing",lead:t("why.lead.standing"),text:standingWord(standing),lines})}
 function engineWhyModel(ex,rec,model,head){
   const n=head.inSession&&head.set?head.set.n:1,rows=engineWhyRows(ex,rec,n),take=kind=>rows.find(row=>row.kind===kind);
   const prev=last(ex).filter(x=>+x.load>0),u=unitLabel(),performed=whyPerformedText(prev,u);
@@ -25097,6 +25120,7 @@ function engineWhyModel(ex,rec,model,head){
   block("engine-target",t(n>1?"why.lead.set2":"why.lead.engine_target",{n}),take("target")?.text);
   block("engine-assumptions",t("why.lead.engine_assumptions"),
     [take("step")?.text,take("per_side")?.text,take("per_side_bodyweight")?.text,take("bodyweight")?.text].filter(Boolean).join(" "));
+  addStandingBlock(model,targetStanding(rec,n));
   // What the lift's test sets say (Plan 077, OD-22), in words and only once there is one: a tendency only when it moved
   // this suggestion.
   const cal=rec.calibration;
@@ -25116,17 +25140,17 @@ function whySheetModel(ex,surface="focus"){
     decision:head.inSession&&rec.label?t("why.decision_before",{label:rec.label}):rec.label,glyph,blocks:[],calc:[],evidence:""};
   const placed=new Set(),take=k=>{const r=pick(k);if(r)placed.add(r);return r};
   const block=(leadKey,lead,text,label)=>model.blocks.push({leadKey,lead,text,...(label?{label}:{})});
-  if(rec.status==="manual"){block("manual","",t("why.manual"));return model}
+  if(rec.status==="manual"){block("manual","",t("why.manual"));addStandingBlock(model,targetStanding(rec));return model}
   if(rec.status==="configuration_required"&&rec.reasonCodes?.includes("execution_context_required")){
     block("setup","",t("why.setup.execution_mode"));
-    return model}
+    addStandingBlock(model,targetStanding(rec));return model}
   if(rec.status==="configuration_required"&&rec.reasonCodes?.includes("per_side_convention_required")){
     const slotId=String(ex?.slotId||ex?.id||"");
     const slot=(state.programMeta?.programDefinition?.days||[]).flatMap(day=>day.slots||[]).find(item=>item?.id===slotId);
     const mode=slot?.executionMode;
     if(mode==="bilateral"||mode==="unilateral")
       block("setup","",t("why.setup.per_side",{mode:t(`why.setup.mode.${mode}`)}));
-    return model}
+    addStandingBlock(model,targetStanding(rec));return model}
   if(Array.isArray(rec.targetSets))return engineWhyModel(ex,rec,model,head);
   const draft=loadDraft(),prev=last(ex).filter(x=>+x.load>0),performed=whyPerformedText(prev,u);
   const calc=model.calc,setRows=sets=>sets.forEach((x,i)=>calc.push({k:t("why.calc.set",{n:i+1}),v:`${fmtLoad(x.load)} × ${x.reps}`,rir:effortOrRirLabel(x.rir)}));
@@ -25194,7 +25218,8 @@ function renderWhySheet(model){
   if(body){
     body.innerHTML=model.blocks.map(b=>
       `<div class="whysheet__block" data-lead="${esc(b.leadKey)}">${b.label?`<p class="whysheet__lab">${esc(b.label)}</p>`:""}`+
-      `${b.lead?`<b class="whysheet__lead">${esc(b.lead)}</b>`:""}<p class="whysheet__text">${esc(b.text)}</p></div>`).join("")+
+      `${b.lead?`<b class="whysheet__lead">${esc(b.lead)}</b>`:""}<p class="whysheet__text">${esc(b.text)}</p>`+
+      (b.lines||[]).map(line=>`<p class="whysheet__text"${line.reason?` data-standing-reason="${esc(line.reason)}"`:""}>${esc(line.text)}</p>`).join("")+`</div>`).join("")+
       (model.calc.length
         ?`<button type="button" class="whysheet__disc" data-why-calc aria-expanded="false" aria-controls="whyCalc"><span>${esc(t("why.calc"))}</span><span class="chevron is-down" aria-hidden="true"></span></button>`+
          `<div class="whycalc" id="whyCalc" aria-hidden="true">${whyCalcHtml(model.calc)}</div>`:"");
