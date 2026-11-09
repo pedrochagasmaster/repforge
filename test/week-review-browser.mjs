@@ -7,6 +7,7 @@ import {openPage, dismissChrome, seed, settle} from "../tools/ui-screens/session
 import {waitForAppBoot,openShelfField,answerRecommend} from "./browser.mjs";
 import {openActions,finishEarly} from "./fixtures/focus-workout.mjs";
 import {openInstalledEditor,applyInstalledEditor} from "./fixtures/installed-editor.mjs";
+import {metricLogRow} from "./fixtures/history-metric-rows.mjs";
 
 async function holdDraftWrite(page){
   await page.evaluate(()=>{window.proofLockHeld=false;window.proofLock=navigator.locks.request("repforge:draft-write",()=>{window.proofLockHeld=true;return new Promise(resolve=>window.proofRelease=resolve)})});
@@ -212,6 +213,49 @@ async function runCatalogWeekCardCases(browser,manifest){
 
 async function runAdaptationCases(browser,manifest){
   const failures=[];
+  for(const followups of [2,1]){
+    const state=appState("progress/review-proposal","en"),lifts=state.program.filter(row=>row.day==="Day 1").slice(0,2),target=lifts[0];
+    const dates=followups===2?["2026-08-20","2026-08-25","2026-08-28"]:["2026-08-20","2026-08-21","2026-08-25"];
+    state.log=dates.flatMap((date,index)=>lifts.map(exercise=>metricLogRow(state.programMeta,exercise,{
+      session:`fatigue-${index}`,date,created:`${date}T12:00:00.000Z`,day:"Day 1",set:1,load:60,reps:12-index*2,rir:1})));
+    state.sessionEvents={};
+    for(const day of state.programMeta.programDefinition.days)for(const slot of day.slots)for(const cycle of slot.prescriptionsByCycle)for(const set of cycle.sets){
+      set.rir=1;set.status="ready";set.provenance={source:"manual",policyVersion:"manual-adaptive@1"};
+    }
+    const instant="2026-08-24T12:00:00.000Z";
+    state.programMeta.adaptations=[{id:"fatigue-followup",v:1,blockId:state.programMeta.blockId,week:"2026-08-24",pattern:"recurring_fatigue",cause:"recovery",kind:"reduce_sets",
+      target:{slotId:target.id,exerciseId:target.libraryId,setsDelta:-1},proposedAt:instant,decision:"accepted",decidedAt:instant,
+      appliedEdit:{expectedToken:{revision:1,programId:state.programMeta.id,blockId:state.programMeta.blockId,fingerprint:"before-reduction"},intent:"adaptation_apply"}}];
+    const expected=followups===2?"pattern_continued":"pattern_stopped";
+    const {page,context}=await openPage(browser,manifest,{flow:"progress",screen:"review-proposal",viewport:"phone-390",theme:"light",locale:"en",text:"normal",motion:"normal"},state);
+    try{
+      await dismissChrome(page);await APP_SCENARIOS["progress/review-active"](page);
+      await page.waitForFunction(()=>window.__repforgeWorkoutDraft.state().programMeta.adaptations[0].evaluation);
+      assert.equal(await page.evaluate(()=>window.__repforgeWorkoutDraft.state().programMeta.adaptations[0].evaluation.outcome),expected,"fatigue comparisons retain the baseline while only post-approval sessions count");
+      await page.evaluate(()=>window.__repforgeStorage.flush());await page.reload({waitUntil:"domcontentloaded"});await waitForAppBoot(page);
+      await APP_SCENARIOS["progress/review-active"](page);
+      assert.equal(await page.evaluate(()=>window.__repforgeWorkoutDraft.state().programMeta.adaptations[0].evaluation.outcome),expected,"fatigue evaluation survives the production loader");
+      assert.match(await page.locator('[data-adaptation-evaluation]').innerText(),followups===2?/the pattern continued/:/no recurring pattern was detected/);
+    }catch(error){failures.push(error)}finally{await context.close()}
+  }
+  {
+    const state=appState("progress/review-evaluated","en");state.programMeta.mesocycleStatus="completed";
+    const {page,context}=await openPage(browser,manifest,{flow:"progress",screen:"review-evaluated",viewport:"phone-390",theme:"light",locale:"en",text:"normal",motion:"normal"},state);
+    try{
+      await dismissChrome(page);await APP_SCENARIOS["progress/review-active"](page);
+      const before=await page.evaluate(()=>structuredClone(window.__repforgeWorkoutDraft.state()));
+      await page.locator('[data-review-action="repeat"]').click();
+      await page.waitForFunction(block=>window.__repforgeWorkoutDraft.state().programMeta.blockId!==block,before.programMeta.blockId);
+      await page.evaluate(()=>window.__repforgeStorage.flush());await page.reload({waitUntil:"domcontentloaded"});await waitForAppBoot(page);
+      const after=await page.evaluate(()=>structuredClone(window.__repforgeWorkoutDraft.state()));
+      assert.deepEqual(after.programMeta.adaptations,before.programMeta.adaptations,"Repeat retains the full approval and evaluation record");
+      assert.equal(after.programMeta.id,before.programMeta.id);assert.notEqual(after.programMeta.blockId,before.programMeta.blockId);
+      assert.deepEqual(after.programMeta.programDefinition,before.programMeta.programDefinition,"Repeat retains the adapted prescription");
+      const record=before.programMeta.adaptations[0];
+      assert.equal(await page.evaluate(({record,blockId})=>RepForgeProgramTransition.adaptationEligible(window.__repforgeWorkoutDraft.state().programMeta.adaptations,
+        {pattern:record.pattern,slotId:record.target.slotId,exerciseId:record.target.exerciseId},blockId,record.week),{record,blockId:after.programMeta.blockId}),true,"retained old-block receipts do not suppress a new block's proposal");
+    }catch(error){failures.push(error)}finally{await context.close()}
+  }
   {
     const state=appState("progress/review-evaluated","en");
     const {page,context}=await openPage(browser,manifest,{flow:"progress",screen:"review-evaluated",viewport:"phone-390",theme:"light",locale:"en",text:"normal",motion:"normal"},state);
