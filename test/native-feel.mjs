@@ -1053,6 +1053,11 @@ async function wheelPicker(browser) {
   phase("A second tap on Load opens the wheel; reps left keeps its chips");
   {
     const { context, page } = await todayPage(browser);
+    await page.evaluate(async () => {
+      const proposal = window.__repforgeWorkoutDraft.state();
+      proposal.settings.rirMode = "numeric";
+      await window.__repforgeCommitProposedState(proposal);
+    });
     await enterSeededFocus(page);
     const step = await loadStep(page);
     await pokeLoad(page, 1);

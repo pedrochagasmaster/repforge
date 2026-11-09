@@ -3073,5 +3073,10 @@
   "focus.skip_reason.trim": "Session trimmed",
   "focus.skip_reason.other": "Other",
   "review.week.skipped_unspecified": "Skipped {lift}.",
-  "review.week.performance_scope": "Performance in the current block:"
+  "review.week.performance_scope": "Performance in the current block:",
+  "entry.effort_choice.title": "How do you want to log effort?",
+  "entry.effort_choice.words": "How the set felt",
+  "entry.effort_choice.words_hint": "Easy / Hard / Max",
+  "entry.effort_choice.numbers": "Reps left",
+  "entry.effort_choice.numbers_hint": "0 to 5+"
 }

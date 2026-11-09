@@ -3076,6 +3076,11 @@ const EN = {
   "focus.skip_reason.other": "Other",
   "review.week.skipped_unspecified": "Skipped {lift}.",
   "review.week.performance_scope": "Performance in the current block:",
+  "entry.effort_choice.title": "How do you want to log effort?",
+  "entry.effort_choice.words": "How the set felt",
+  "entry.effort_choice.words_hint": "Easy / Hard / Max",
+  "entry.effort_choice.numbers": "Reps left",
+  "entry.effort_choice.numbers_hint": "0 to 5+",
 };
 const PT = {
   "catalog.unavailable.title": "Biblioteca de exercícios indisponível",
@@ -6153,6 +6158,11 @@ const PT = {
   "focus.skip_reason.other": "Outro",
   "review.week.skipped_unspecified": "{lift} pulado.",
   "review.week.performance_scope": "Desempenho no bloco atual:",
+  "entry.effort_choice.title": "Como quer registrar o esforço?",
+  "entry.effort_choice.words": "Como sentiu a série",
+  "entry.effort_choice.words_hint": "Fácil / Difícil / Máx",
+  "entry.effort_choice.numbers": "Reps sobrando",
+  "entry.effort_choice.numbers_hint": "0 a 5+",
 };
 (function (root) {
   const STRINGS = { en: EN, pt: PT };

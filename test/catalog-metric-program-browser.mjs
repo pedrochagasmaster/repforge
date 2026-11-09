@@ -572,6 +572,11 @@ async function main() {
     stage = "source first boot";
     await source.goto(BASE);
     await waitForBootWithDiagnostics(source, sourceErrors);
+    await source.evaluate(async () => {
+      const proposal = window.__repforgeWorkoutDraft.state();
+      proposal.settings.rirMode = "numeric";
+      await window.__repforgeCommitProposedState(proposal);
+    });
     stage = "manual Build journey";
     await buildProgram(source);
 

@@ -2276,6 +2276,13 @@
       "label": "Workout — skip reason",
       "scenario": "Closed skip reasons, with no reason chosen before the tap.",
       "variants": "demandingText"
+    },
+    {
+      "id": "effort-choice",
+      "flow": "onboarding-start",
+      "label": "Effort choice at activation",
+      "scenario": "At durable activation on a fresh device, choose words or reps left. Words are selected.",
+      "variants": "accessibility"
     }
   ]
 }

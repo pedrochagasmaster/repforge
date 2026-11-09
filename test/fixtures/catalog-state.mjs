@@ -23,15 +23,15 @@ export async function inPool(items, size, work) {
  * catalog scenario. `height` and `safe` place it on a phone outside `CATALOG_PHONES` (an SE-class 375×667 has a 20 px
  * status bar and no home indicator). The caller closes `opened.context`.
  */
-export async function openCatalogState(browser, key, width, lang, text, { theme = "light", height = CATALOG_PHONES[width], safe = SAFE_AREA } = {}) {
+export async function openCatalogState(browser, key, width, lang, text, { theme = "light", height = CATALOG_PHONES[width], safe = SAFE_AREA, effortChoice, snapshot } = {}) {
   const manifest = loadManifest();
   manifest.viewports[`phone-${width}`] = { width, height, label: "geometry" };
   manifest.deviceScaleFactor = 1;
   const [flow, screen] = key.split("/");
   const job = { flow, screen, viewport: `phone-${width}`, theme, locale: lang, text, motion: "normal" };
   const onboarding = flow.startsWith("onboarding");
-  const state = (onboarding ? onboardingState : appState)(key, manifest.locales[lang].lang);
-  const opened = await openPage(browser, manifest, job, state, { userAgent: APP_USER_AGENT[key], now: APP_CLOCK[key] });
+  const state = snapshot || (onboarding ? onboardingState : appState)(key, manifest.locales[lang].lang);
+  const opened = await openPage(browser, manifest, job, state, { userAgent: APP_USER_AGENT[key], now: APP_CLOCK[key], effortChoice });
   const cdp = await opened.context.newCDPSession(opened.page);
   await cdp.send("Emulation.setSafeAreaInsetsOverride", { insets: { ...safe, left: 0, right: 0 } });
   if (!onboarding) await dismissChrome(opened.page);

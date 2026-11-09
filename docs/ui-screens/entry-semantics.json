@@ -166039,6 +166039,517 @@
       ]
     },
     {
+      "key": "onboarding-start/effort-choice__phone-320-light-en",
+      "flow": "onboarding-start",
+      "screen": "effort-choice",
+      "label": "Effort choice at activation",
+      "viewport": "phone-320",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "div",
+          "role": "dialog",
+          "name": "How do you want to log effort?",
+          "labelledBy": "How do you want to log effort?"
+        },
+        {
+          "tag": "h2",
+          "text": "How do you want to log effort?"
+        },
+        {
+          "tag": "button",
+          "name": "Close",
+          "label": "Close",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "How do you want to log effort?",
+          "labelledBy": "How do you want to log effort?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "How the set felt Easy / Hard / Max",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "How the set felt"
+        },
+        {
+          "tag": "span",
+          "text": "Easy / Hard / Max"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Reps left 0 to 5+",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Reps left"
+        },
+        {
+          "tag": "span",
+          "text": "0 to 5+"
+        },
+        {
+          "tag": "button",
+          "text": "Continue",
+          "name": "Continue",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-start/effort-choice__phone-390-dark-en",
+      "flow": "onboarding-start",
+      "screen": "effort-choice",
+      "label": "Effort choice at activation",
+      "viewport": "phone-390",
+      "theme": "dark",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "div",
+          "role": "dialog",
+          "name": "How do you want to log effort?",
+          "labelledBy": "How do you want to log effort?"
+        },
+        {
+          "tag": "h2",
+          "text": "How do you want to log effort?"
+        },
+        {
+          "tag": "button",
+          "name": "Close",
+          "label": "Close",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "How do you want to log effort?",
+          "labelledBy": "How do you want to log effort?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "How the set felt Easy / Hard / Max",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "How the set felt"
+        },
+        {
+          "tag": "span",
+          "text": "Easy / Hard / Max"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Reps left 0 to 5+",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Reps left"
+        },
+        {
+          "tag": "span",
+          "text": "0 to 5+"
+        },
+        {
+          "tag": "button",
+          "text": "Continue",
+          "name": "Continue",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-start/effort-choice__phone-390-light-en",
+      "flow": "onboarding-start",
+      "screen": "effort-choice",
+      "label": "Effort choice at activation",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "div",
+          "role": "dialog",
+          "name": "How do you want to log effort?",
+          "labelledBy": "How do you want to log effort?"
+        },
+        {
+          "tag": "h2",
+          "text": "How do you want to log effort?"
+        },
+        {
+          "tag": "button",
+          "name": "Close",
+          "label": "Close",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "How do you want to log effort?",
+          "labelledBy": "How do you want to log effort?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "How the set felt Easy / Hard / Max",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "How the set felt"
+        },
+        {
+          "tag": "span",
+          "text": "Easy / Hard / Max"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Reps left 0 to 5+",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Reps left"
+        },
+        {
+          "tag": "span",
+          "text": "0 to 5+"
+        },
+        {
+          "tag": "button",
+          "text": "Continue",
+          "name": "Continue",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-start/effort-choice__phone-390-light-en-reduced",
+      "flow": "onboarding-start",
+      "screen": "effort-choice",
+      "label": "Effort choice at activation",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "reduced",
+      "semantic": [
+        {
+          "tag": "div",
+          "role": "dialog",
+          "name": "How do you want to log effort?",
+          "labelledBy": "How do you want to log effort?"
+        },
+        {
+          "tag": "h2",
+          "text": "How do you want to log effort?"
+        },
+        {
+          "tag": "button",
+          "name": "Close",
+          "label": "Close",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "How do you want to log effort?",
+          "labelledBy": "How do you want to log effort?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "How the set felt Easy / Hard / Max",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "How the set felt"
+        },
+        {
+          "tag": "span",
+          "text": "Easy / Hard / Max"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Reps left 0 to 5+",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Reps left"
+        },
+        {
+          "tag": "span",
+          "text": "0 to 5+"
+        },
+        {
+          "tag": "button",
+          "text": "Continue",
+          "name": "Continue",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-start/effort-choice__phone-390-light-en-text200",
+      "flow": "onboarding-start",
+      "screen": "effort-choice",
+      "label": "Effort choice at activation",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "text200",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "div",
+          "role": "dialog",
+          "name": "How do you want to log effort?",
+          "labelledBy": "How do you want to log effort?"
+        },
+        {
+          "tag": "h2",
+          "text": "How do you want to log effort?"
+        },
+        {
+          "tag": "button",
+          "name": "Close",
+          "label": "Close",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "How do you want to log effort?",
+          "labelledBy": "How do you want to log effort?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "How the set felt Easy / Hard / Max",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "How the set felt"
+        },
+        {
+          "tag": "span",
+          "text": "Easy / Hard / Max"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Reps left 0 to 5+",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Reps left"
+        },
+        {
+          "tag": "span",
+          "text": "0 to 5+"
+        },
+        {
+          "tag": "button",
+          "text": "Continue",
+          "name": "Continue",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-start/effort-choice__phone-390-light-pt",
+      "flow": "onboarding-start",
+      "screen": "effort-choice",
+      "label": "Effort choice at activation",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "pt",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "div",
+          "role": "dialog",
+          "name": "Como quer registrar o esforço?",
+          "labelledBy": "Como quer registrar o esforço?"
+        },
+        {
+          "tag": "h2",
+          "text": "Como quer registrar o esforço?"
+        },
+        {
+          "tag": "button",
+          "name": "Fechar",
+          "label": "Fechar",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Como quer registrar o esforço?",
+          "labelledBy": "Como quer registrar o esforço?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Como sentiu a série Fácil / Difícil / Máx",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Como sentiu a série"
+        },
+        {
+          "tag": "span",
+          "text": "Fácil / Difícil / Máx"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Reps sobrando 0 a 5+",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Reps sobrando"
+        },
+        {
+          "tag": "span",
+          "text": "0 a 5+"
+        },
+        {
+          "tag": "button",
+          "text": "Continuar",
+          "name": "Continuar",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-start/effort-choice__phone-430-light-en",
+      "flow": "onboarding-start",
+      "screen": "effort-choice",
+      "label": "Effort choice at activation",
+      "viewport": "phone-430",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "div",
+          "role": "dialog",
+          "name": "How do you want to log effort?",
+          "labelledBy": "How do you want to log effort?"
+        },
+        {
+          "tag": "h2",
+          "text": "How do you want to log effort?"
+        },
+        {
+          "tag": "button",
+          "name": "Close",
+          "label": "Close",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "How do you want to log effort?",
+          "labelledBy": "How do you want to log effort?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "How the set felt Easy / Hard / Max",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "How the set felt"
+        },
+        {
+          "tag": "span",
+          "text": "Easy / Hard / Max"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Reps left 0 to 5+",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Reps left"
+        },
+        {
+          "tag": "span",
+          "text": "0 to 5+"
+        },
+        {
+          "tag": "button",
+          "text": "Continue",
+          "name": "Continue",
+          "type": "button"
+        }
+      ]
+    },
+    {
       "key": "onboarding-start/first-run__phone-320-light-en",
       "flow": "onboarding-start",
       "screen": "first-run",

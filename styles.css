@@ -9236,3 +9236,8 @@ body.is-entry-editor #entryProgramName,
 .week-card__actions .text-link{color:var(--control-quiet-ink)}
 #stats #reviewPanel .review__week{padding:var(--space-16) 0;border-bottom:.5px solid var(--boundary-decorative)}
 #stats #reviewPanel .review__week p{line-height:var(--line-reading);overflow-wrap:anywhere}
+/* @ci-domain entry */
+.sheet--effort-choice{height:auto}
+.sheet--effort-choice .sheet__body{flex-direction:column;overflow:auto}
+#effortChoiceScrim{z-index:53}
+#effortChoiceSheet{z-index:54}

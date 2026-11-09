@@ -86,6 +86,11 @@ async function reset(page) {
  */
 async function resetWithProgram(page) {
   await reset(page);
+  await page.evaluate(async () => {
+    const proposal = window.__repforgeWorkoutDraft.state();
+    proposal.settings.rirMode = "numeric";
+    await window.__repforgeCommitProposedState(proposal);
+  });
   await installSeedProgram(page, { key: KEY, waitFor: waitForApp });
 }
 
