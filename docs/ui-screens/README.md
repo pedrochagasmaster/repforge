@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 257 screens,
-1519 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 258 screens,
+1522 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -238,6 +238,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Workout actions](screens/workout/actions__phone-390-light-en.png) | 8 | Focus session actions with a separate Cancel, before any action commits. |
 | [Workout — discomfort recorded](screens/workout/discomfort-mark__phone-390-light-en.png) | 8 | Exercise actions acknowledge a discomfort mark for this session. |
 | [Workout — skip reason](screens/workout/skip-reason__phone-390-light-en.png) | 8 | Closed skip reasons, with no reason chosen before the tap. |
+| [Workout: immediate pain swap](screens/workout/pain-swap__phone-390-light-en.png) | 3 | Second marked session on the same movement and slot opens the dismissible swap picker, with different equipment classes first. |
 
 ### Session summary
 
