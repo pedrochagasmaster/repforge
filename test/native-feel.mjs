@@ -407,6 +407,97 @@ async function libraryOverEditorSheet(browser) {
 }
 
 /* Phase 4 controls: real settings commits, draft commands and editor intents. */
+async function restStepperBoundary(page) {
+  return page.evaluate(() => ({
+    input: document.querySelector('#restSec').value,
+    live: window.__repforgeWorkoutDraft.state().settings.restSec,
+    durable: JSON.parse(localStorage.getItem('repforge_v1')).settings.restSec,
+    events: window.__restStepperTrace,
+  }));
+}
+
+async function restStepperRelease(page) {
+  await page.evaluate(() => {
+    window.__restStepperTrace = [];
+    for (const type of ['input', 'change', 'click', 'pointerup', 'pointercancel']) {
+      for (const capture of [true, false]) {
+        document.addEventListener(type, event => {
+          if (!event.target.closest?.('.native-stepper')) return;
+          window.__restStepperTrace.push({ type, capture, target: event.target.id || event.target.dataset.stepDelta,
+            buttons: event.buttons, input: document.querySelector('#restSec').value,
+            durable: JSON.parse(localStorage.getItem('repforge_v1')).settings.restSec });
+        }, { capture });
+      }
+    }
+  });
+  phase("Phase 4: a stepper repeats while held and stops at its limit");
+  await page.click('#restSecRow');
+  await page.waitForFunction(() => {
+    const panel = document.querySelector('#restSecPanel');
+    return panel.classList.contains('is-open') && panel.style.height === '' && panel.style.overflow === '';
+  });
+  const shorter = page.locator('[data-step-input="restSec"][data-step-delta="-1"]');
+  const hasStepper = await shorter.count();
+  assert(hasStepper === 1, "Rest timer has a shorter button");
+  if (hasStepper) {
+    for (let iteration = 1; iteration <= 10; iteration++) {
+      await page.evaluate(() => { window.__restStepperTrace.length = 0; });
+      await page.locator('#restSec').fill('30'); await page.locator('#restSec').blur();
+      await page.waitForFunction(() => JSON.parse(localStorage.getItem('repforge_v1')).settings.restSec === 30
+        && document.querySelector('#restSec').value === '30'
+        && !document.querySelector('[data-step-input="restSec"][data-step-delta="-1"]').disabled);
+      // Keep the first held step pending until the next one has been queued.
+      await page.evaluate(async () => {
+        await window.__repforgeStorage.flush();
+        const io = window.RepForgeDurableState.storageIO;
+        const writeIdb = io.writeIdb;
+        let release;
+        const gate = new Promise(resolve => { release = resolve; });
+        io.writeIdb = async snapshot => {
+          if (snapshot.settings.restSec === 15) await gate;
+          return writeIdb(snapshot);
+        };
+        window.__releaseRestWrite = () => { io.writeIdb = writeIdb; release(); };
+      });
+      await shorter.hover();
+      await page.mouse.down();
+      await page.waitForFunction(() => document.querySelector('#restSec').value === '0');
+      console.log("Rest hold before release:", iteration, JSON.stringify(await restStepperBoundary(page)));
+      await page.mouse.up();
+      console.log("Rest hold after release:", iteration, JSON.stringify(await restStepperBoundary(page)));
+      await page.evaluate(async () => {
+        window.__releaseRestWrite();
+        await window.__repforgeStorage.flush();
+      });
+      assert(await shorter.isDisabled(), "a hold repeats down to zero, then disables Shorter", await page.locator("#restSec").inputValue());
+      await page.waitForFunction(() => JSON.parse(localStorage.getItem('repforge_v1')).settings.restSec === 0);
+      // One activation with no pointer held: a real pointer click on a loaded machine can last past the hold delay
+      // and repeat, which is the hold working, not what this checks (that nothing kept repeating after release).
+      await page.locator('[data-step-input="restSec"][data-step-delta="1"]').evaluate((button) => button.click());
+      await page.waitForFunction(() => JSON.parse(localStorage.getItem('repforge_v1')).settings.restSec === 15).catch(async error => {
+        console.error('Rest increment failed:', iteration, JSON.stringify(await restStepperBoundary(page)));
+        throw error;
+      });
+      console.log('Rest increment persisted:', iteration, JSON.stringify(await restStepperBoundary(page)));
+      assert(await page.locator('#restSec').inputValue() === '15', "a click after release makes exactly one step");
+      await page.locator('#restSec').fill('30'); await page.locator('#restSec').blur();
+      await page.waitForFunction(() => JSON.parse(localStorage.getItem('repforge_v1')).settings.restSec === 30
+        && document.querySelector('#restSec').value === '30'
+        && !document.querySelector('[data-step-input="restSec"][data-step-delta="-1"]').disabled);
+      await shorter.focus();
+      const keyboardStart = await shorter.evaluate(button => ({ disabled: button.disabled, focused: button === document.activeElement,
+        value: document.querySelector('#restSec').value, stored: JSON.parse(localStorage.getItem('repforge_v1')).settings.restSec }));
+      await page.keyboard.press('Enter');
+      await page.waitForFunction(() => JSON.parse(localStorage.getItem('repforge_v1')).settings.restSec === 15).catch(async error => {
+        console.error('Rest keyboard boundary:', { before: keyboardStart, after: await shorter.evaluate(button => ({ disabled: button.disabled,
+          focused: button === document.activeElement, value: document.querySelector('#restSec').value, stored: JSON.parse(localStorage.getItem('repforge_v1')).settings.restSec })) });
+        throw error;
+      });
+      assert(await page.locator('#restSec').inputValue() === '15', 'the keyboard can still step after a held repeat');
+    }
+  }
+}
+
 async function nativeControls(browser) {
   const { context, page, touch } = await todayPage(browser);
   phase("Phase 4: the off switch has a light track and a required ring");
@@ -510,46 +601,7 @@ async function nativeControls(browser) {
   await page.locator('[data-step-input="restSec"][data-step-delta="-1"]').evaluate((button) => button.click());
   const stepped = await page.waitForFunction(() => JSON.parse(localStorage.getItem('repforge_v1')).settings.restSec === 105 && document.querySelector('#restSecDisplay').textContent.trim() === '1:45', undefined, { timeout: 4000 }).then(() => true, () => false);
   assert(stepped, 'a step from the row commits and shows the formatted value', await page.locator('#restSecDisplay').textContent());
-  phase("Phase 4: a stepper repeats while held and stops at its limit");
-  await page.click('#restSecRow');
-  await page.waitForFunction(() => {
-    const panel = document.querySelector('#restSecPanel');
-    return panel.classList.contains('is-open') && panel.style.height === '' && panel.style.overflow === '';
-  });
-  const shorter = page.locator('[data-step-input="restSec"][data-step-delta="-1"]');
-  const hasStepper = await shorter.count();
-  assert(hasStepper === 1, "Rest timer has a shorter button");
-  if (hasStepper) {
-    await page.locator('#restSec').fill('30'); await page.locator('#restSec').blur();
-    await page.waitForFunction(() => JSON.parse(localStorage.getItem('repforge_v1')).settings.restSec === 30
-      && document.querySelector('#restSec').value === '30'
-      && !document.querySelector('[data-step-input="restSec"][data-step-delta="-1"]').disabled);
-    await shorter.hover();
-    await page.mouse.down();
-    await page.waitForFunction(() => document.querySelector('#restSec').value === '0');
-    await page.mouse.up();
-    assert(await shorter.isDisabled(), "a hold repeats down to zero, then disables Shorter", await page.locator("#restSec").inputValue());
-    await page.waitForFunction(() => JSON.parse(localStorage.getItem('repforge_v1')).settings.restSec === 0);
-    // One activation with no pointer held: a real pointer click on a loaded machine can last past the hold delay
-    // and repeat, which is the hold working, not what this checks (that nothing kept repeating after release).
-    await page.locator('[data-step-input="restSec"][data-step-delta="1"]').evaluate((button) => button.click());
-    await page.waitForFunction(() => JSON.parse(localStorage.getItem('repforge_v1')).settings.restSec === 15);
-    assert(await page.locator('#restSec').inputValue() === '15', "a click after release makes exactly one step");
-    await page.locator('#restSec').fill('30'); await page.locator('#restSec').blur();
-    await page.waitForFunction(() => JSON.parse(localStorage.getItem('repforge_v1')).settings.restSec === 30
-      && document.querySelector('#restSec').value === '30'
-      && !document.querySelector('[data-step-input="restSec"][data-step-delta="-1"]').disabled);
-    await shorter.focus();
-    const keyboardStart = await shorter.evaluate(button => ({ disabled: button.disabled, focused: button === document.activeElement,
-      value: document.querySelector('#restSec').value, stored: JSON.parse(localStorage.getItem('repforge_v1')).settings.restSec }));
-    await page.keyboard.press('Enter');
-    await page.waitForFunction(() => JSON.parse(localStorage.getItem('repforge_v1')).settings.restSec === 15).catch(async error => {
-      console.error('Rest keyboard boundary:', { before: keyboardStart, after: await shorter.evaluate(button => ({ disabled: button.disabled,
-        focused: button === document.activeElement, value: document.querySelector('#restSec').value, stored: JSON.parse(localStorage.getItem('repforge_v1')).settings.restSec })) });
-      throw error;
-    });
-    assert(await page.locator('#restSec').inputValue() === '15', 'the keyboard can still step after a held repeat');
-  }
+  await restStepperRelease(page);
   await page.click('#progressionRow');
   const loadRow = await page.evaluate(() => {
     const value = document.querySelector('#minJumpRow'), row = value?.closest('.settings-row');
@@ -2481,7 +2533,7 @@ async function concentricShelf(browser) {
   }
 }
 
-// NATIVE_FEEL_ONLY=large runs just phase 5, =shelf just its addendum, =wheel just the wheel picker and =swipe just the
+// NATIVE_FEEL_ONLY=rest runs the ten-cycle held Settings probe, =large runs just phase 5, =shelf just its addendum, =wheel just the wheel picker and =swipe just the
 // history and back-swipe phases, for a local red/green; CI runs everything.
 const ONLY = process.env.NATIVE_FEEL_ONLY || "";
 const browser = await launchChromium();
@@ -2689,6 +2741,12 @@ try {
   await editorSheetAndBar(browser);
   await perSideOverflow(browser);
  }
+  if (ONLY === "rest") {
+    const { context, page } = await todayPage(browser);
+    await page.click("#openSettings");
+    await restStepperRelease(page);
+    await context.close();
+  }
   if (ONLY === "wheel") {
     await wheelPicker(browser);
     await wheelPhysics(browser);
@@ -2702,7 +2760,7 @@ try {
     await autoSwipe(browser);
     await standaloneSwipe(browser);
   }
-  if (!["wheel", "swipe"].includes(ONLY)) await concentricShelf(browser);
+  if (!["wheel", "swipe", "rest"].includes(ONLY)) await concentricShelf(browser);
 } finally {
   await browser.close();
 }

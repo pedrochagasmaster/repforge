@@ -541,6 +541,51 @@ async function historyStackInterleavings(browser) {
       "in-app library close over clean editor does not close editor", cleanEditorState);
     await page2.close();
 
+    // Forward must belong to the pushed route, never to the editor beneath it (#696).
+    const forwardPage = await context.newPage();
+    await forwardPage.goto(BASE, { waitUntil: "domcontentloaded" });
+    await waitForApp(forwardPage);
+    await writeFixture(forwardPage, fixture());
+    await openInstalledEditor(forwardPage);
+    await forwardPage.locator('#programEditor [data-role="add-exercise"]').first().click();
+    await forwardPage.waitForSelector("#exPickSheet.is-open");
+    await forwardPage.locator("#exPickFull").click();
+    await forwardPage.locator('#library [data-lib-preview]').first().click();
+    await forwardPage.waitForFunction(() => history.state?.tauriferRoute?.view === "exercisePreview");
+    await forwardPage.goBack();
+    await forwardPage.waitForFunction(() => document.body.classList.contains("is-library")
+      && !document.body.classList.contains("is-preview") && !document.body.classList.contains("is-pushing"));
+    await forwardPage.goForward();
+    await forwardPage.waitForFunction(() => {
+      const preview = document.body.classList.contains("is-preview");
+      return !document.body.classList.contains("is-pushing")
+        && history.state?.tauriferRoute?.depth === (preview ? 2 : 1);
+    }, undefined, { timeout: 5000 }).catch(() => {});
+    const forward = await forwardPage.evaluate(() => ({
+      editor: !!document.querySelector('#programEditor [data-role="editor"]'),
+      preview: document.body.classList.contains("is-preview"),
+      library: document.body.classList.contains("is-library"),
+      route: history.state?.tauriferRoute ?? null,
+      leave: !!document.querySelector("#programEditorLeave")?.open,
+    }));
+    check(forward.editor && !forward.leave, "Forward after preview Back preserves the installed editor", forward);
+    check(forward.library && forward.route?.depth === (forward.preview ? 2 : 1),
+      "Forward restores the preview or leaves a matching Library history entry", forward);
+    await forwardPage.goBack();
+    await forwardPage.waitForFunction((wasPreview) => !document.body.classList.contains("is-pushing")
+      && !document.body.classList.contains("is-preview")
+      && document.body.classList.contains("is-library") === wasPreview, forward.preview, { timeout: 5000 }).catch(() => {});
+    const afterForwardBack = await forwardPage.evaluate(() => ({
+      editor: !!document.querySelector('#programEditor [data-role="editor"]'),
+      library: document.body.classList.contains("is-library"),
+      preview: document.body.classList.contains("is-preview"),
+      route: history.state?.tauriferRoute ?? null,
+    }));
+    check(afterForwardBack.editor && !afterForwardBack.preview && afterForwardBack.library === forward.preview
+      && (forward.preview ? afterForwardBack.route?.depth === 1 : !afterForwardBack.route),
+      "the next Back closes one visible route without an extra Back", afterForwardBack);
+    await forwardPage.close();
+
     // Proof for Item 2B: Dirty editor over in-app library close.
     const page3 = await context.newPage();
     await page3.goto(BASE, { waitUntil: "domcontentloaded" });
