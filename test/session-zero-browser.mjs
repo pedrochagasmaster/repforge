@@ -70,6 +70,25 @@ async function nextWorking(page,count){
 }
 const browser=await launchChromium();
 try{
+  const anchor=await open(browser);
+  await anchor.page.locator(`${card} [data-ramp-start]`).click();
+  await answer(anchor.page,"easy");await waitWarmups(anchor.page,1);
+  await field(anchor.page,"loadKg",40);await answer(anchor.page,"hard");await nextWorking(anchor.page,1);
+  const live=await anchor.page.evaluate(id=>{const api=window.__repforgeProgression;const rec=api.recommendation(api.programSlot(id));return {...rec,progressionInputs:rec.progressionInputs};},anchor.target.id);
+  check(live.progressionInputs.currentSession[0].setIndex===0,"live engine indexes the first working set at zero after a ramp");
+  check(live.targetSets[1].result.historyAnchor.displayLoadKg===40,"the live anchor is the 40 kg working set, never the Easy trial");
+  await finishEarly(anchor.page);await anchor.page.reload();await waitForAppBoot(anchor.page,{base:BASE});
+  await anchor.page.evaluate(id=>window.__repforgeGoToLogExercise(id),anchor.target.id);
+  const historical=await anchor.page.evaluate(id=>{const api=window.__repforgeProgression;const rec=api.recommendation(api.programSlot(id));return {...rec,progressionInputs:rec.progressionInputs};},anchor.target.id);
+  check(historical.lastLoad===40&&historical.progressionInputs.history[0].sets.length===1&&historical.progressionInputs.history[0].sets[0].setIndex===0,
+    "after reload history anchors only on the first 40 kg working set");
+  await anchor.context.close();
+  const warmOnly=await open(browser);
+  await warmOnly.page.locator(`${card} [data-ramp-start]`).click();await answer(warmOnly.page,"easy");await waitWarmups(warmOnly.page,1);
+  await finishEarly(warmOnly.page);await warmOnly.page.reload();await waitForAppBoot(warmOnly.page,{base:BASE});
+  await warmOnly.page.evaluate(id=>window.__repforgeGoToLogExercise(id),warmOnly.target.id);
+  check(await warmOnly.page.locator(`${card} [data-ramp-start]`).count()===1,"after reload a warm-up-only session still offers session zero");
+  await warmOnly.context.close();
   const run=await open(browser),{page,target}=run;
   check(await page.locator(`${card} .fx-cue.is-ramp`).count()===1,"fresh no-load program offers Find your weight");
   const expected=await page.evaluate(id=>{
