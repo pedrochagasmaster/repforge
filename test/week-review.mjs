@@ -95,3 +95,11 @@ const unansweredDecline={...record,cause:null,decision:'declined'};delete unansw
 assert.equal(Transition.validateAdaptations([unansweredDecline]),true,'declining does not invent an Other answer');
 assert.equal(Transition.validateAdaptations([{...record,cause:null}]),false,'accepting a cause-matched change requires its cause');
 assert.equal(Transition.adaptationEligible([{...record,evaluation:{week:'2026-11-09',outcome:'insufficient'}}],detected[0],'block','2026-11-16'),false,'an unevaluated effect cannot trigger another change to the same pattern');
+const fatigueProgram=[...patternProgram,{id:'a2',slotId:'a2',libraryId:'lift2',day:'A',sets:3},{id:'b1',slotId:'b1',libraryId:'lift3',day:'B',sets:3},{id:'b2',slotId:'b2',libraryId:'lift4',day:'B',sets:3}];
+const fatiguePatterns=flags=>Model.detectPatterns(patternLog,{},fatigueProgram,{blockId:'block',fatigueSessions:flags},'2026-11-02').filter(pattern=>pattern.pattern==='recurring_fatigue');
+assert.equal(fatiguePatterns({p0:['slot','a2'],p1:['slot','a2']}).length,1,'two flagged lifts on two day sessions establish recurring fatigue');
+assert.equal(fatiguePatterns({p1:['slot','a2']}).length,0,'one flagged session is insufficient');
+assert.equal(fatiguePatterns({p0:['slot','slot'],p1:['slot','slot']}).length,0,'duplicate flags are not two lifts');
+assert.equal(Model.detectPatterns(patternLog,trimmed,patternProgram,{blockId:'block'},'2026-11-02').filter(pattern=>pattern.pattern==='recurring_fatigue').length,1,'two trimmed sessions establish recurring fatigue');
+assert.equal(Model.detectPatterns(patternLog,{},patternProgram,{blockId:'block',hardStalls:[{slotId:'slot',exerciseId:'lift'}]},'2026-11-02')[0].pattern,'stall_hard','the authoritative existing stall owner supplies the read-only fourth pattern');
+assert.equal(fatiguePatterns({p0:['b1','b2'],p1:['b1','b2']}).length,0,'lifts moved to another day cannot trigger a change to the old day');
