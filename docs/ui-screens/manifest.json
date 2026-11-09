@@ -514,6 +514,13 @@
       "variants": "standard"
     },
     {
+      "id": "first-run-check",
+      "flow": "onboarding-start",
+      "label": "One-time landing — test-set comparisons",
+      "scenario": "Scrolled to the surface band: computed guess/result comparisons, safety ceilings, correction limits and excluded barbell movements.",
+      "variants": "standard"
+    },
+    {
       "id": "first-run-ways",
       "flow": "onboarding-start",
       "label": "One-time landing — three ways",
@@ -538,7 +545,7 @@
       "id": "first-run-faq-open",
       "flow": "onboarding-start",
       "label": "One-time landing — questions",
-      "scenario": "Scrolled to the questions with the RIR answer open.",
+      "scenario": "Scrolled to seven questions with the original third question, RIR, open and the two test-set questions closed below it.",
       "variants": "standard"
     },
     {

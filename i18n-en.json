@@ -3131,5 +3131,16 @@
   "review.proposal.set_change": "Week {week}, {lift}: {before} sets to {after} sets.",
   "review.proposal.applied.swap_exercise": "Replaced {lift} with {replacement}.",
   "review.proposal.applied.drop_exercise": "Removed {lift}.",
-  "review.proposal.applied.reduce_sets": "One fewer set on accessory lifts, keeping at least one."
+  "review.proposal.applied.reduce_sets": "One fewer set on accessory lifts, keeping at least one.",
+  "landing.check.title": "It checks your judgement, not just your numbers.",
+  "landing.check.more": "You guessed {guess} and did {did}: {difference} more than you expected.",
+  "landing.check.fewer": "You guessed {guess} and did {did}: {difference} fewer.",
+  "landing.check.equal": "Exactly what you guessed.",
+  "landing.check.limits": "At most {perWorkout} test set per session, one per exercise every {days} days, {perWeek} a week. Test sets change nothing until an exercise has {minChecks} of them. After that, they move the suggested weight at most {up} step up or {down} down from what it would otherwise be.",
+  "landing.check.exclusion": "Never on a barbell squat, bench press or deadlift.",
+  "landing.faq.test.q": "What is a test set?",
+  "landing.faq.test.a": "You guess how many reps you can do at the same weight on an exercise's last working set, then take it to technical failure. It replaces that set, without adding another, and compares your guess with what you did. After {minChecks} test sets on that exercise, consistent results can adjust how Taurifer reads your reps left, moving the suggested weight at most {up} step up or {down} down from what it would otherwise be.",
+  "landing.faq.failure.q": "Will it make me train to failure all the time?",
+  "landing.faq.failure.limits": "No. At most {perWorkout} test set per session, one per exercise every {days} days and {perWeek} a week.",
+  "landing.faq.failure.choice": "You choose each time. You can turn off {toggle} in {settings}."
 }

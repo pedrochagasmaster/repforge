@@ -84,20 +84,23 @@ it is not referenced or precached. Current landing rules live in
 The landing (`#firstRun`) is the one-time threshold into an empty device. Plan 064
 R2 rebuilt it as the owner-accepted final page (OG-3): one scrolling page of
 bands. The night hero carries the headline, the subtitle, the Build pill, the Track
-link and three chips; the night proof pins the app's real workout screen over seven
-steps, each read by a lens; three ways to start run as an orange, a surface and an
-ink stripe; three engine outcomes and the strength-trend chart show that the next
-target follows what the lifter did; an ink band says where the history lives;
-five questions follow, and an orange band closes before the night footer. A
-floating Build control follows the hero action once it has scrolled away.
+link and three chips; the night proof plays Focus's Smith machine bench press over
+five chapters: the target, logging, rest, a test set and the next session. A surface
+band compares test-set guesses with results and states the safety and correction
+limits. Three ways to start run as an orange, a surface and an ink stripe; five
+feature tabs show Progress with its authored strength trend, exercise replacement,
+the library, sharing and import, and offline use. An ink band says where the history
+lives; seven questions follow, and an orange band closes before the night footer.
+A floating Build control follows the hero action once it has scrolled away.
 
 The headline is the landing's one ethos line (owner decision L-3): the old
 "Plan. Lift. Progress." line and the one-line privacy sentence are gone. Every
 number on the page is produced when it renders, never typed into markup or a
-catalog value: the three outcomes come from `progression-engine.js` with the
-app's default settings, the chart's figures from the Progress model over the
-history the chart image is captured from, and each sentence that carries a
-number is a catalog template with `{curly}` placeholders. Copy makes no absolute
+catalog value: the next target comes from `progression-engine.js` with the app's
+default settings; test-set guesses, results and limits come from
+`effort-calibration.js` and the engine's correction-step constants. The feature
+tab's trend uses authored example history. Each sentence that carries a number
+is a catalog template with `{curly}` placeholders. Copy makes no absolute
 promise: warm-ups are left out of the next target, "free" is scoped to building
 and logging, and "works offline" is qualified by "once opened".
 
@@ -105,9 +108,9 @@ Orange is a field here and nowhere else in the app: the first way's stripe, the
 closing band and the install card carry near-black ink on the accent, the night
 bands hold the dark palette in both appearances, and the ink band inverts the
 page. The prototype's orange arrow on the parchment pill measured 2.05:1, so the
-night pill draws its arrow in its own ink. The proof's phone shows the dark
-captures in both appearances; the paste review and the chart swap on the chosen
-appearance (`data-theme`), never on `prefers-color-scheme`. The owner-directed
+night pill draws its arrow in its own ink. The proof and feature phones use the
+app's light tokens in both appearances; the paste review capture follows the chosen
+appearance (`data-theme`), never `prefers-color-scheme`. The owner-directed
 refinement and historical reference hashes of the earlier landing live in
 `docs/design/plan-054-landing-directions.md`. No gym photograph ships on the page.
 
