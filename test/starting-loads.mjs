@@ -132,6 +132,7 @@ test("same-row carry rounds down and refuses a destination floor above the ancho
   assert.deepEqual(Loads.ratioLoad({ anchorLoadKg: 24, from, to }), Loads.openingLoad(to));
   assert.deepEqual(Loads.ratioLoad({ anchorLoadKg: 33, from, to }), { loadKg: 30, basis: "ratio" });
   assert.deepEqual(Loads.ratioLoad({ anchorLoadKg: 33, from, to: { ...to, convention: "per_side" } }), Loads.openingLoad({ ...to, convention: "per_side" }));
+  assert.deepEqual(Loads.ratioLoad({ anchorLoadKg: 20.1 - Number.EPSILON * 16, from, to: { ...to, grid: [20,20.1] } }), { loadKg: 20, basis: "ratio" });
   const changedExperience = { ...to, experience: "advanced" };
   assert.deepEqual(Loads.ratioLoad({ anchorLoadKg: 33, from, to: changedExperience }), Loads.openingLoad(changedExperience));
 });
