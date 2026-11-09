@@ -201,6 +201,7 @@ export const FULL_SUITES = {
     s("test/ui-plan-050-editor.mjs", [], { domains: ["entry", "program"], seconds: 13 }),
     s("test/generative-entry-runtime.mjs", [], { seconds: 68 }),
     s("test/generate-program-browser.mjs", [], { domains: ["entry", "persistence"], seconds: 390 }),
+    s("test/program-review-lifetime.mjs", [], { domains: ["entry", "persistence"], seconds: 480 }),
     s("test/adaptive-workout-browser.mjs", [], { domains: ["workout", "program", "persistence"], seconds: 12 }),
     s("test/bodyweight-source-browser.mjs", [], { domains: ["workout", "program", "persistence"], seconds: 12 }),
     s("test/per-side-engine-transfer-browser.mjs", [], { domains: ["install", "workout", "persistence"], tier: "packet", seconds: 14, timeoutMs: 900000 }),
