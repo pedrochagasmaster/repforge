@@ -1199,7 +1199,8 @@ async function wheelPicker(browser) {
     await enterSeededFocus(page);
     const ringOf = () => page.evaluate(() => {
       const el = document.activeElement, style = getComputedStyle(el);
-      return { field: el.dataset?.shelfField || null, tag: el.tagName, ring: style.outlineStyle !== "none" && parseFloat(style.outlineWidth) > 0,
+      return { field: el.dataset?.shelfField || null, tag: el.tagName, id: el.id, classes: el.className,
+        modal: el.closest('[aria-modal="true"]')?.id || null, ring: style.outlineStyle !== "none" && parseFloat(style.outlineWidth) > 0,
         visible: el.matches(":focus-visible"), quiet: el.hasAttribute("data-quiet-focus") };
     });
     // Touch: a second tap on Load opens the wheel, Done closes it, and focus comes back to Load.
