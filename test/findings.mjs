@@ -48,11 +48,11 @@ proof('all program lifts anchored also releases weights without session zero',()
   const p=[...program,{id:'b',libraryId:'other',name:'Curl'}];
   assert.equal(build(session('one','2026-10-01'),undefined,p).next.need.m,1);
 });
-proof('first target is an actual recommendation from before the session',()=>{
-  assert.equal(found(build(one),'first_target'),undefined);
+proof('first target releases as soon as a saved session supports a history anchor',()=>{
+  assert.equal(found(build(one),'first_target').date,'2026-10-01');
   const f=found(build([...two,...one]),'first_target');
-  assert.equal(f.date,'2026-10-08');assert.equal(f.becauseDate,'2026-10-01');
-  const rec=readings(one,'2026-10-08')[0].recommendation;
+  assert.equal(f.date,'2026-10-01');assert.equal(f.becauseDate,'2026-10-01');
+  const rec=readings(one,'2026-10-01')[0].recommendation;
   assert.equal(f.load,rec.targets.loadKg);assert.equal(f.reps,rec.targets.reps);
 });
 proof('a test set releases once and keeps performed movement identity',()=>{
@@ -113,12 +113,12 @@ proof('no optional test sets still releases five findings',()=>{
 });
 proof('history edits and deletions rederive release dates, details and needs without persistence',()=>{
   const log=[...one,...two,...three],before=structuredClone(log);
-  assert.equal(found(build(log),'first_target').date,'2026-10-08');
-  const edited=log.filter(r=>r.session!=='two');assert.equal(found(build(edited),'first_target').date,'2026-10-15');
+  assert.equal(found(build(log),'first_target').date,'2026-10-01');
+  const edited=log.filter(r=>r.session!=='one');assert.equal(found(build(edited),'first_target').date,'2026-10-08');
   assert.equal(found(build([]),'first_target'),undefined);assert.deepEqual(log,before);
 });
 proof('future rows cannot release findings and output is newest first',()=>{
-  const result=build([...one,...two,...three],'2026-10-07');assert.equal(result.released.length,1);
+  const result=build([...one,...two,...three],'2026-10-07');assert.equal(result.released.length,2);
   const dates=build([...one,...two,...three]).released.map(f=>f.date);assert.deepEqual(dates,[...dates].sort().reverse());
 });
 proof('a swapped lift cannot anchor or calibrate the template movement',()=>{
@@ -127,10 +127,9 @@ proof('a swapped lift cannot anchor or calibrate the template movement',()=>{
   assert.equal(result.next.need.m,1);
 });
 proof('needs include named lifts and exact remaining calendar days',()=>{
-  const out=build(one,'2026-10-01');assert.equal(out.next.id,'first_target');assert.equal(out.next.need.lift,'Leg press');
-  const noTestsRead=(rows,now)=>readings(rows,now).map(f=>({...f,calibration:{n:3,state:'calibrated'}}));
-  const log=[...one,...two,...three, ...session('check','2026-10-16',{checks:true})];
-  const next=build(log,'2026-10-20',program,noTestsRead).next;
+  const out=build(one.map(row=>({...row,rir:null})),'2026-10-01');assert.equal(out.next.id,'first_target');assert.equal(out.next.need.lift,'Leg press');
+  const log=['01','08','15'].flatMap((day,i)=>session('check'+i,`2026-10-${day}`,{checks:true}));
+  const next=build(log,'2026-10-20').next;
   assert.equal(next.id,'month_one');assert.equal(next.need.d,9);
 });
 proof('the first trend includes only a record already observed on its release date',()=>{
@@ -142,7 +141,7 @@ proof('the first target belongs to the slot actually performed that session',()=
   const wrong=(rows,now)=>readings(rows,now).map(f=>({...f,slotId:'another-slot'}));
   assert.equal(found(build([...one,...two],undefined,program,wrong),'first_target'),undefined);
   const right=(rows,now)=>readings(rows,now).map(f=>({...f,slotId:'exercise-a'}));
-  assert.equal(found(build([...one,...two],undefined,program,right),'first_target').date,'2026-10-08');
+  assert.equal(found(build([...one,...two],undefined,program,right),'first_target').date,'2026-10-01');
 });
 proof('a bodyweight-only history anchor also releases the first target',()=>{
   const p=structuredClone(prescriptions[0]),rep=p.metricDefinitions[1];
@@ -160,6 +159,6 @@ proof('a bodyweight-only history anchor also releases the first target',()=>{
   const log=[...one,...two].map(row=>({...row,load:0}));
   assert.equal(read(one,'2026-10-08')[0].recommendation.status,'recommended');
   const f=found(build(log,undefined,program,read),'first_target');
-  assert.equal(f.date,'2026-10-08');assert.equal(f.load,null);assert.equal(f.loadingConvention,'bodyweight');
+  assert.equal(f.date,'2026-10-01');assert.equal(f.load,null);assert.equal(f.loadingConvention,'bodyweight');
 });
 console.log(`PASS findings: ${checks} rule, chronology, identity and need proofs`);
