@@ -160622,6 +160622,34 @@
         },
         {
           "tag": "section",
+          "labelledBy": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "h2",
+          "text": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 11 and did 14: 3 more than you expected."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 10 and did 9: 1 fewer."
+        },
+        {
+          "tag": "li",
+          "text": "Exactly what you guessed."
+        },
+        {
+          "tag": "p",
+          "text": "At most 1 test set per session, one per exercise every 14 days, 2 a week. Test sets change nothing until an exercise has 3 of them. After that, they move the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "section",
           "labelledBy": "Three ways to start your program."
         },
         {
@@ -160974,6 +161002,46 @@
         {
           "tag": "b",
           "text": "Help improve Taurifer"
+        },
+        {
+          "tag": "summary",
+          "name": "What is a test set?"
+        },
+        {
+          "tag": "span",
+          "text": "What is a test set?"
+        },
+        {
+          "tag": "p",
+          "text": "You guess how many reps you can do at the same weight on an exercise's last working set, then take it to technical failure. It replaces that set, without adding another, and compares your guess with what you did. After 3 test sets on that exercise, consistent results can adjust how Taurifer reads your reps left, moving the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "summary",
+          "name": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "span",
+          "text": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "p",
+          "text": "No. At most 1 test set per session, one per exercise every 14 days and 2 a week."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "p",
+          "text": "You choose each time. You can turn off in ."
+        },
+        {
+          "tag": "b",
+          "text": "Test-set prompts"
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
         },
         {
           "tag": "section",
@@ -161164,6 +161232,34 @@
         },
         {
           "tag": "section",
+          "labelledBy": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "h2",
+          "text": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 11 and did 14: 3 more than you expected."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 10 and did 9: 1 fewer."
+        },
+        {
+          "tag": "li",
+          "text": "Exactly what you guessed."
+        },
+        {
+          "tag": "p",
+          "text": "At most 1 test set per session, one per exercise every 14 days, 2 a week. Test sets change nothing until an exercise has 3 of them. After that, they move the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "section",
           "labelledBy": "Three ways to start your program."
         },
         {
@@ -161518,6 +161614,46 @@
           "text": "Help improve Taurifer"
         },
         {
+          "tag": "summary",
+          "name": "What is a test set?"
+        },
+        {
+          "tag": "span",
+          "text": "What is a test set?"
+        },
+        {
+          "tag": "p",
+          "text": "You guess how many reps you can do at the same weight on an exercise's last working set, then take it to technical failure. It replaces that set, without adding another, and compares your guess with what you did. After 3 test sets on that exercise, consistent results can adjust how Taurifer reads your reps left, moving the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "summary",
+          "name": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "span",
+          "text": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "p",
+          "text": "No. At most 1 test set per session, one per exercise every 14 days and 2 a week."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "p",
+          "text": "You choose each time. You can turn off in ."
+        },
+        {
+          "tag": "b",
+          "text": "Test-set prompts"
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
+        },
+        {
           "tag": "section",
           "labelledBy": "Start where you are."
         },
@@ -161703,6 +161839,34 @@
         {
           "tag": "span",
           "text": "Veja o treino se ajustar"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Ele confere sua percepção de esforço, não só seus números."
+        },
+        {
+          "tag": "h2",
+          "text": "Ele confere sua percepção de esforço, não só seus números."
+        },
+        {
+          "tag": "li",
+          "text": "Você chutou 11 e fez 14: 3 a mais do que esperava."
+        },
+        {
+          "tag": "li",
+          "text": "Você chutou 10 e fez 9: 1 a menos."
+        },
+        {
+          "tag": "li",
+          "text": "Exatamente o que você chutou."
+        },
+        {
+          "tag": "p",
+          "text": "No máximo 1 série-teste por sessão, uma por exercício a cada 14 dias e 2 por semana. As séries-teste não mudam nada até o exercício ter 3. Depois, elas mudam a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerida."
+        },
+        {
+          "tag": "p",
+          "text": "Nunca no agachamento, supino ou levantamento terra com barra livre."
         },
         {
           "tag": "section",
@@ -162058,6 +162222,46 @@
         {
           "tag": "b",
           "text": "Ajude a melhorar o Taurifer"
+        },
+        {
+          "tag": "summary",
+          "name": "O que é uma série-teste?"
+        },
+        {
+          "tag": "span",
+          "text": "O que é uma série-teste?"
+        },
+        {
+          "tag": "p",
+          "text": "Você chuta quantas reps consegue fazer com a mesma carga na última série de trabalho de um exercício e vai até a falha técnica. Ela substitui essa série, sem acrescentar outra, e compara seu chute com o que você fez. Após 3 séries-teste nesse exercício, resultados consistentes podem ajustar como o Taurifer lê suas reps sobrando, mudando a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerida."
+        },
+        {
+          "tag": "summary",
+          "name": "Vou ter que treinar até a falha o tempo todo?"
+        },
+        {
+          "tag": "span",
+          "text": "Vou ter que treinar até a falha o tempo todo?"
+        },
+        {
+          "tag": "p",
+          "text": "Não. No máximo 1 série-teste por sessão, uma por exercício a cada 14 dias e 2 por semana."
+        },
+        {
+          "tag": "p",
+          "text": "Nunca no agachamento, supino ou levantamento terra com barra livre."
+        },
+        {
+          "tag": "p",
+          "text": "Você escolhe a cada vez. Pode desligar em ."
+        },
+        {
+          "tag": "b",
+          "text": "Avisos de série-teste"
+        },
+        {
+          "tag": "b",
+          "text": "Ajustes"
         },
         {
           "tag": "section",
@@ -166715,6 +166919,34 @@
         },
         {
           "tag": "section",
+          "labelledBy": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "h2",
+          "text": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 11 and did 14: 3 more than you expected."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 10 and did 9: 1 fewer."
+        },
+        {
+          "tag": "li",
+          "text": "Exactly what you guessed."
+        },
+        {
+          "tag": "p",
+          "text": "At most 1 test set per session, one per exercise every 14 days, 2 a week. Test sets change nothing until an exercise has 3 of them. After that, they move the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "section",
           "labelledBy": "Three ways to start your program."
         },
         {
@@ -167067,6 +167299,46 @@
         {
           "tag": "b",
           "text": "Help improve Taurifer"
+        },
+        {
+          "tag": "summary",
+          "name": "What is a test set?"
+        },
+        {
+          "tag": "span",
+          "text": "What is a test set?"
+        },
+        {
+          "tag": "p",
+          "text": "You guess how many reps you can do at the same weight on an exercise's last working set, then take it to technical failure. It replaces that set, without adding another, and compares your guess with what you did. After 3 test sets on that exercise, consistent results can adjust how Taurifer reads your reps left, moving the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "summary",
+          "name": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "span",
+          "text": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "p",
+          "text": "No. At most 1 test set per session, one per exercise every 14 days and 2 a week."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "p",
+          "text": "You choose each time. You can turn off in ."
+        },
+        {
+          "tag": "b",
+          "text": "Test-set prompts"
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
         },
         {
           "tag": "section",
@@ -167251,6 +167523,34 @@
         },
         {
           "tag": "section",
+          "labelledBy": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "h2",
+          "text": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 11 and did 14: 3 more than you expected."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 10 and did 9: 1 fewer."
+        },
+        {
+          "tag": "li",
+          "text": "Exactly what you guessed."
+        },
+        {
+          "tag": "p",
+          "text": "At most 1 test set per session, one per exercise every 14 days, 2 a week. Test sets change nothing until an exercise has 3 of them. After that, they move the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "section",
           "labelledBy": "Three ways to start your program."
         },
         {
@@ -167603,6 +167903,46 @@
         {
           "tag": "b",
           "text": "Help improve Taurifer"
+        },
+        {
+          "tag": "summary",
+          "name": "What is a test set?"
+        },
+        {
+          "tag": "span",
+          "text": "What is a test set?"
+        },
+        {
+          "tag": "p",
+          "text": "You guess how many reps you can do at the same weight on an exercise's last working set, then take it to technical failure. It replaces that set, without adding another, and compares your guess with what you did. After 3 test sets on that exercise, consistent results can adjust how Taurifer reads your reps left, moving the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "summary",
+          "name": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "span",
+          "text": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "p",
+          "text": "No. At most 1 test set per session, one per exercise every 14 days and 2 a week."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "p",
+          "text": "You choose each time. You can turn off in ."
+        },
+        {
+          "tag": "b",
+          "text": "Test-set prompts"
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
         },
         {
           "tag": "section",
@@ -167787,6 +168127,34 @@
         },
         {
           "tag": "section",
+          "labelledBy": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "h2",
+          "text": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 11 and did 14: 3 more than you expected."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 10 and did 9: 1 fewer."
+        },
+        {
+          "tag": "li",
+          "text": "Exactly what you guessed."
+        },
+        {
+          "tag": "p",
+          "text": "At most 1 test set per session, one per exercise every 14 days, 2 a week. Test sets change nothing until an exercise has 3 of them. After that, they move the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "section",
           "labelledBy": "Three ways to start your program."
         },
         {
@@ -168139,6 +168507,46 @@
         {
           "tag": "b",
           "text": "Help improve Taurifer"
+        },
+        {
+          "tag": "summary",
+          "name": "What is a test set?"
+        },
+        {
+          "tag": "span",
+          "text": "What is a test set?"
+        },
+        {
+          "tag": "p",
+          "text": "You guess how many reps you can do at the same weight on an exercise's last working set, then take it to technical failure. It replaces that set, without adding another, and compares your guess with what you did. After 3 test sets on that exercise, consistent results can adjust how Taurifer reads your reps left, moving the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "summary",
+          "name": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "span",
+          "text": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "p",
+          "text": "No. At most 1 test set per session, one per exercise every 14 days and 2 a week."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "p",
+          "text": "You choose each time. You can turn off in ."
+        },
+        {
+          "tag": "b",
+          "text": "Test-set prompts"
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
         },
         {
           "tag": "section",
@@ -168323,6 +168731,34 @@
         },
         {
           "tag": "section",
+          "labelledBy": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "h2",
+          "text": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 11 and did 14: 3 more than you expected."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 10 and did 9: 1 fewer."
+        },
+        {
+          "tag": "li",
+          "text": "Exactly what you guessed."
+        },
+        {
+          "tag": "p",
+          "text": "At most 1 test set per session, one per exercise every 14 days, 2 a week. Test sets change nothing until an exercise has 3 of them. After that, they move the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "section",
           "labelledBy": "Three ways to start your program."
         },
         {
@@ -168675,6 +169111,46 @@
         {
           "tag": "b",
           "text": "Help improve Taurifer"
+        },
+        {
+          "tag": "summary",
+          "name": "What is a test set?"
+        },
+        {
+          "tag": "span",
+          "text": "What is a test set?"
+        },
+        {
+          "tag": "p",
+          "text": "You guess how many reps you can do at the same weight on an exercise's last working set, then take it to technical failure. It replaces that set, without adding another, and compares your guess with what you did. After 3 test sets on that exercise, consistent results can adjust how Taurifer reads your reps left, moving the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "summary",
+          "name": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "span",
+          "text": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "p",
+          "text": "No. At most 1 test set per session, one per exercise every 14 days and 2 a week."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "p",
+          "text": "You choose each time. You can turn off in ."
+        },
+        {
+          "tag": "b",
+          "text": "Test-set prompts"
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
         },
         {
           "tag": "section",
@@ -168859,6 +169335,34 @@
         },
         {
           "tag": "section",
+          "labelledBy": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "h2",
+          "text": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 11 and did 14: 3 more than you expected."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 10 and did 9: 1 fewer."
+        },
+        {
+          "tag": "li",
+          "text": "Exactly what you guessed."
+        },
+        {
+          "tag": "p",
+          "text": "At most 1 test set per session, one per exercise every 14 days, 2 a week. Test sets change nothing until an exercise has 3 of them. After that, they move the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "section",
           "labelledBy": "Three ways to start your program."
         },
         {
@@ -169213,6 +169717,46 @@
           "text": "Help improve Taurifer"
         },
         {
+          "tag": "summary",
+          "name": "What is a test set?"
+        },
+        {
+          "tag": "span",
+          "text": "What is a test set?"
+        },
+        {
+          "tag": "p",
+          "text": "You guess how many reps you can do at the same weight on an exercise's last working set, then take it to technical failure. It replaces that set, without adding another, and compares your guess with what you did. After 3 test sets on that exercise, consistent results can adjust how Taurifer reads your reps left, moving the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "summary",
+          "name": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "span",
+          "text": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "p",
+          "text": "No. At most 1 test set per session, one per exercise every 14 days and 2 a week."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "p",
+          "text": "You choose each time. You can turn off in ."
+        },
+        {
+          "tag": "b",
+          "text": "Test-set prompts"
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
+        },
+        {
           "tag": "section",
           "labelledBy": "Start where you are."
         },
@@ -169392,6 +169936,34 @@
         {
           "tag": "span",
           "text": "Veja o treino se ajustar"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Ele confere sua percepção de esforço, não só seus números."
+        },
+        {
+          "tag": "h2",
+          "text": "Ele confere sua percepção de esforço, não só seus números."
+        },
+        {
+          "tag": "li",
+          "text": "Você chutou 11 e fez 14: 3 a mais do que esperava."
+        },
+        {
+          "tag": "li",
+          "text": "Você chutou 10 e fez 9: 1 a menos."
+        },
+        {
+          "tag": "li",
+          "text": "Exatamente o que você chutou."
+        },
+        {
+          "tag": "p",
+          "text": "No máximo 1 série-teste por sessão, uma por exercício a cada 14 dias e 2 por semana. As séries-teste não mudam nada até o exercício ter 3. Depois, elas mudam a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerida."
+        },
+        {
+          "tag": "p",
+          "text": "Nunca no agachamento, supino ou levantamento terra com barra livre."
         },
         {
           "tag": "section",
@@ -169749,6 +170321,46 @@
           "text": "Ajude a melhorar o Taurifer"
         },
         {
+          "tag": "summary",
+          "name": "O que é uma série-teste?"
+        },
+        {
+          "tag": "span",
+          "text": "O que é uma série-teste?"
+        },
+        {
+          "tag": "p",
+          "text": "Você chuta quantas reps consegue fazer com a mesma carga na última série de trabalho de um exercício e vai até a falha técnica. Ela substitui essa série, sem acrescentar outra, e compara seu chute com o que você fez. Após 3 séries-teste nesse exercício, resultados consistentes podem ajustar como o Taurifer lê suas reps sobrando, mudando a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerida."
+        },
+        {
+          "tag": "summary",
+          "name": "Vou ter que treinar até a falha o tempo todo?"
+        },
+        {
+          "tag": "span",
+          "text": "Vou ter que treinar até a falha o tempo todo?"
+        },
+        {
+          "tag": "p",
+          "text": "Não. No máximo 1 série-teste por sessão, uma por exercício a cada 14 dias e 2 por semana."
+        },
+        {
+          "tag": "p",
+          "text": "Nunca no agachamento, supino ou levantamento terra com barra livre."
+        },
+        {
+          "tag": "p",
+          "text": "Você escolhe a cada vez. Pode desligar em ."
+        },
+        {
+          "tag": "b",
+          "text": "Avisos de série-teste"
+        },
+        {
+          "tag": "b",
+          "text": "Ajustes"
+        },
+        {
           "tag": "section",
           "labelledBy": "Comece de onde você está."
         },
@@ -169928,6 +170540,34 @@
         {
           "tag": "span",
           "text": "See it adapt"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "h2",
+          "text": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 11 and did 14: 3 more than you expected."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 10 and did 9: 1 fewer."
+        },
+        {
+          "tag": "li",
+          "text": "Exactly what you guessed."
+        },
+        {
+          "tag": "p",
+          "text": "At most 1 test set per session, one per exercise every 14 days, 2 a week. Test sets change nothing until an exercise has 3 of them. After that, they move the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
         },
         {
           "tag": "section",
@@ -170283,6 +170923,46 @@
         {
           "tag": "b",
           "text": "Help improve Taurifer"
+        },
+        {
+          "tag": "summary",
+          "name": "What is a test set?"
+        },
+        {
+          "tag": "span",
+          "text": "What is a test set?"
+        },
+        {
+          "tag": "p",
+          "text": "You guess how many reps you can do at the same weight on an exercise's last working set, then take it to technical failure. It replaces that set, without adding another, and compares your guess with what you did. After 3 test sets on that exercise, consistent results can adjust how Taurifer reads your reps left, moving the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "summary",
+          "name": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "span",
+          "text": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "p",
+          "text": "No. At most 1 test set per session, one per exercise every 14 days and 2 a week."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "p",
+          "text": "You choose each time. You can turn off in ."
+        },
+        {
+          "tag": "b",
+          "text": "Test-set prompts"
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
         },
         {
           "tag": "section",
@@ -170770,7 +171450,7 @@
         },
         {
           "tag": "p",
-          "text": "RIR is the number of reps you could still complete before failure. RIR 2 means two reps left. If you are new to RIR, estimate whether you could do one or two more."
+          "text": "Reps left is the number of clean reps you could still complete before failure, also called RIR. 2 means two reps left. If you are new to counting, estimate whether you could do one or two more."
         },
         {
           "tag": "summary",
@@ -171383,7 +172063,7 @@
         },
         {
           "tag": "p",
-          "text": "RIR is the number of reps you could still complete before failure. RIR 2 means two reps left. If you are new to RIR, estimate whether you could do one or two more."
+          "text": "Reps left is the number of clean reps you could still complete before failure, also called RIR. 2 means two reps left. If you are new to counting, estimate whether you could do one or two more."
         },
         {
           "tag": "summary",
@@ -171996,7 +172676,7 @@
         },
         {
           "tag": "p",
-          "text": "RIR é o número de reps que você ainda conseguiria fazer antes da falha. RIR 2 significa duas reps sobrando. Se você é novo no RIR, estime se conseguiria fazer mais uma ou duas reps."
+          "text": "Reps sobrando é o número de reps que você ainda conseguiria fazer com boa técnica antes da falha, também chamado de RIR. 2 significa duas reps sobrando. Se você está começando a contar, estime se conseguiria fazer mais uma ou duas reps."
         },
         {
           "tag": "summary",
@@ -172306,6 +172986,34 @@
         },
         {
           "tag": "section",
+          "labelledBy": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "h2",
+          "text": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 11 and did 14: 3 more than you expected."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 10 and did 9: 1 fewer."
+        },
+        {
+          "tag": "li",
+          "text": "Exactly what you guessed."
+        },
+        {
+          "tag": "p",
+          "text": "At most 1 test set per session, one per exercise every 14 days, 2 a week. Test sets change nothing until an exercise has 3 of them. After that, they move the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "section",
           "labelledBy": "Three ways to start your program."
         },
         {
@@ -172658,6 +173366,46 @@
         {
           "tag": "b",
           "text": "Help improve Taurifer"
+        },
+        {
+          "tag": "summary",
+          "name": "What is a test set?"
+        },
+        {
+          "tag": "span",
+          "text": "What is a test set?"
+        },
+        {
+          "tag": "p",
+          "text": "You guess how many reps you can do at the same weight on an exercise's last working set, then take it to technical failure. It replaces that set, without adding another, and compares your guess with what you did. After 3 test sets on that exercise, consistent results can adjust how Taurifer reads your reps left, moving the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "summary",
+          "name": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "span",
+          "text": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "p",
+          "text": "No. At most 1 test set per session, one per exercise every 14 days and 2 a week."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "p",
+          "text": "You choose each time. You can turn off in ."
+        },
+        {
+          "tag": "b",
+          "text": "Test-set prompts"
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
         },
         {
           "tag": "section",
@@ -172842,6 +173590,34 @@
         },
         {
           "tag": "section",
+          "labelledBy": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "h2",
+          "text": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 11 and did 14: 3 more than you expected."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 10 and did 9: 1 fewer."
+        },
+        {
+          "tag": "li",
+          "text": "Exactly what you guessed."
+        },
+        {
+          "tag": "p",
+          "text": "At most 1 test set per session, one per exercise every 14 days, 2 a week. Test sets change nothing until an exercise has 3 of them. After that, they move the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "section",
           "labelledBy": "Three ways to start your program."
         },
         {
@@ -173196,6 +173972,46 @@
           "text": "Help improve Taurifer"
         },
         {
+          "tag": "summary",
+          "name": "What is a test set?"
+        },
+        {
+          "tag": "span",
+          "text": "What is a test set?"
+        },
+        {
+          "tag": "p",
+          "text": "You guess how many reps you can do at the same weight on an exercise's last working set, then take it to technical failure. It replaces that set, without adding another, and compares your guess with what you did. After 3 test sets on that exercise, consistent results can adjust how Taurifer reads your reps left, moving the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "summary",
+          "name": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "span",
+          "text": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "p",
+          "text": "No. At most 1 test set per session, one per exercise every 14 days and 2 a week."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "p",
+          "text": "You choose each time. You can turn off in ."
+        },
+        {
+          "tag": "b",
+          "text": "Test-set prompts"
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
+        },
+        {
           "tag": "section",
           "labelledBy": "Start where you are."
         },
@@ -173375,6 +174191,34 @@
         {
           "tag": "span",
           "text": "Veja o treino se ajustar"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Ele confere sua percepção de esforço, não só seus números."
+        },
+        {
+          "tag": "h2",
+          "text": "Ele confere sua percepção de esforço, não só seus números."
+        },
+        {
+          "tag": "li",
+          "text": "Você chutou 11 e fez 14: 3 a mais do que esperava."
+        },
+        {
+          "tag": "li",
+          "text": "Você chutou 10 e fez 9: 1 a menos."
+        },
+        {
+          "tag": "li",
+          "text": "Exatamente o que você chutou."
+        },
+        {
+          "tag": "p",
+          "text": "No máximo 1 série-teste por sessão, uma por exercício a cada 14 dias e 2 por semana. As séries-teste não mudam nada até o exercício ter 3. Depois, elas mudam a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerida."
+        },
+        {
+          "tag": "p",
+          "text": "Nunca no agachamento, supino ou levantamento terra com barra livre."
         },
         {
           "tag": "section",
@@ -173732,6 +174576,46 @@
           "text": "Ajude a melhorar o Taurifer"
         },
         {
+          "tag": "summary",
+          "name": "O que é uma série-teste?"
+        },
+        {
+          "tag": "span",
+          "text": "O que é uma série-teste?"
+        },
+        {
+          "tag": "p",
+          "text": "Você chuta quantas reps consegue fazer com a mesma carga na última série de trabalho de um exercício e vai até a falha técnica. Ela substitui essa série, sem acrescentar outra, e compara seu chute com o que você fez. Após 3 séries-teste nesse exercício, resultados consistentes podem ajustar como o Taurifer lê suas reps sobrando, mudando a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerida."
+        },
+        {
+          "tag": "summary",
+          "name": "Vou ter que treinar até a falha o tempo todo?"
+        },
+        {
+          "tag": "span",
+          "text": "Vou ter que treinar até a falha o tempo todo?"
+        },
+        {
+          "tag": "p",
+          "text": "Não. No máximo 1 série-teste por sessão, uma por exercício a cada 14 dias e 2 por semana."
+        },
+        {
+          "tag": "p",
+          "text": "Nunca no agachamento, supino ou levantamento terra com barra livre."
+        },
+        {
+          "tag": "p",
+          "text": "Você escolhe a cada vez. Pode desligar em ."
+        },
+        {
+          "tag": "b",
+          "text": "Avisos de série-teste"
+        },
+        {
+          "tag": "b",
+          "text": "Ajustes"
+        },
+        {
           "tag": "section",
           "labelledBy": "Comece de onde você está."
         },
@@ -173911,6 +174795,34 @@
         {
           "tag": "span",
           "text": "See it adapt"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "h2",
+          "text": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 11 and did 14: 3 more than you expected."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 10 and did 9: 1 fewer."
+        },
+        {
+          "tag": "li",
+          "text": "Exactly what you guessed."
+        },
+        {
+          "tag": "p",
+          "text": "At most 1 test set per session, one per exercise every 14 days, 2 a week. Test sets change nothing until an exercise has 3 of them. After that, they move the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
         },
         {
           "tag": "section",
@@ -174266,6 +175178,46 @@
         {
           "tag": "b",
           "text": "Help improve Taurifer"
+        },
+        {
+          "tag": "summary",
+          "name": "What is a test set?"
+        },
+        {
+          "tag": "span",
+          "text": "What is a test set?"
+        },
+        {
+          "tag": "p",
+          "text": "You guess how many reps you can do at the same weight on an exercise's last working set, then take it to technical failure. It replaces that set, without adding another, and compares your guess with what you did. After 3 test sets on that exercise, consistent results can adjust how Taurifer reads your reps left, moving the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "summary",
+          "name": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "span",
+          "text": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "p",
+          "text": "No. At most 1 test set per session, one per exercise every 14 days and 2 a week."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "p",
+          "text": "You choose each time. You can turn off in ."
+        },
+        {
+          "tag": "b",
+          "text": "Test-set prompts"
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
         },
         {
           "tag": "section",
@@ -174459,6 +175411,34 @@
         },
         {
           "tag": "section",
+          "labelledBy": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "h2",
+          "text": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 11 and did 14: 3 more than you expected."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 10 and did 9: 1 fewer."
+        },
+        {
+          "tag": "li",
+          "text": "Exactly what you guessed."
+        },
+        {
+          "tag": "p",
+          "text": "At most 1 test set per session, one per exercise every 14 days, 2 a week. Test sets change nothing until an exercise has 3 of them. After that, they move the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "section",
           "labelledBy": "Three ways to start your program."
         },
         {
@@ -174813,6 +175793,46 @@
           "text": "Help improve Taurifer"
         },
         {
+          "tag": "summary",
+          "name": "What is a test set?"
+        },
+        {
+          "tag": "span",
+          "text": "What is a test set?"
+        },
+        {
+          "tag": "p",
+          "text": "You guess how many reps you can do at the same weight on an exercise's last working set, then take it to technical failure. It replaces that set, without adding another, and compares your guess with what you did. After 3 test sets on that exercise, consistent results can adjust how Taurifer reads your reps left, moving the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "summary",
+          "name": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "span",
+          "text": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "p",
+          "text": "No. At most 1 test set per session, one per exercise every 14 days and 2 a week."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "p",
+          "text": "You choose each time. You can turn off in ."
+        },
+        {
+          "tag": "b",
+          "text": "Test-set prompts"
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
+        },
+        {
           "tag": "section",
           "labelledBy": "Start where you are."
         },
@@ -175001,6 +176021,34 @@
         {
           "tag": "span",
           "text": "Veja o treino se ajustar"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Ele confere sua percepção de esforço, não só seus números."
+        },
+        {
+          "tag": "h2",
+          "text": "Ele confere sua percepção de esforço, não só seus números."
+        },
+        {
+          "tag": "li",
+          "text": "Você chutou 11 e fez 14: 3 a mais do que esperava."
+        },
+        {
+          "tag": "li",
+          "text": "Você chutou 10 e fez 9: 1 a menos."
+        },
+        {
+          "tag": "li",
+          "text": "Exatamente o que você chutou."
+        },
+        {
+          "tag": "p",
+          "text": "No máximo 1 série-teste por sessão, uma por exercício a cada 14 dias e 2 por semana. As séries-teste não mudam nada até o exercício ter 3. Depois, elas mudam a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerida."
+        },
+        {
+          "tag": "p",
+          "text": "Nunca no agachamento, supino ou levantamento terra com barra livre."
         },
         {
           "tag": "section",
@@ -175356,6 +176404,46 @@
         {
           "tag": "b",
           "text": "Ajude a melhorar o Taurifer"
+        },
+        {
+          "tag": "summary",
+          "name": "O que é uma série-teste?"
+        },
+        {
+          "tag": "span",
+          "text": "O que é uma série-teste?"
+        },
+        {
+          "tag": "p",
+          "text": "Você chuta quantas reps consegue fazer com a mesma carga na última série de trabalho de um exercício e vai até a falha técnica. Ela substitui essa série, sem acrescentar outra, e compara seu chute com o que você fez. Após 3 séries-teste nesse exercício, resultados consistentes podem ajustar como o Taurifer lê suas reps sobrando, mudando a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerida."
+        },
+        {
+          "tag": "summary",
+          "name": "Vou ter que treinar até a falha o tempo todo?"
+        },
+        {
+          "tag": "span",
+          "text": "Vou ter que treinar até a falha o tempo todo?"
+        },
+        {
+          "tag": "p",
+          "text": "Não. No máximo 1 série-teste por sessão, uma por exercício a cada 14 dias e 2 por semana."
+        },
+        {
+          "tag": "p",
+          "text": "Nunca no agachamento, supino ou levantamento terra com barra livre."
+        },
+        {
+          "tag": "p",
+          "text": "Você escolhe a cada vez. Pode desligar em ."
+        },
+        {
+          "tag": "b",
+          "text": "Avisos de série-teste"
+        },
+        {
+          "tag": "b",
+          "text": "Ajustes"
         },
         {
           "tag": "section",
@@ -177388,6 +178476,34 @@
         },
         {
           "tag": "section",
+          "labelledBy": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "h2",
+          "text": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 11 and did 14: 3 more than you expected."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 10 and did 9: 1 fewer."
+        },
+        {
+          "tag": "li",
+          "text": "Exactly what you guessed."
+        },
+        {
+          "tag": "p",
+          "text": "At most 1 test set per session, one per exercise every 14 days, 2 a week. Test sets change nothing until an exercise has 3 of them. After that, they move the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "section",
           "labelledBy": "Three ways to start your program."
         },
         {
@@ -177740,6 +178856,46 @@
         {
           "tag": "b",
           "text": "Help improve Taurifer"
+        },
+        {
+          "tag": "summary",
+          "name": "What is a test set?"
+        },
+        {
+          "tag": "span",
+          "text": "What is a test set?"
+        },
+        {
+          "tag": "p",
+          "text": "You guess how many reps you can do at the same weight on an exercise's last working set, then take it to technical failure. It replaces that set, without adding another, and compares your guess with what you did. After 3 test sets on that exercise, consistent results can adjust how Taurifer reads your reps left, moving the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "summary",
+          "name": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "span",
+          "text": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "p",
+          "text": "No. At most 1 test set per session, one per exercise every 14 days and 2 a week."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "p",
+          "text": "You choose each time. You can turn off in ."
+        },
+        {
+          "tag": "b",
+          "text": "Test-set prompts"
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
         },
         {
           "tag": "section",
@@ -177933,6 +179089,34 @@
         },
         {
           "tag": "section",
+          "labelledBy": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "h2",
+          "text": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 11 and did 14: 3 more than you expected."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 10 and did 9: 1 fewer."
+        },
+        {
+          "tag": "li",
+          "text": "Exactly what you guessed."
+        },
+        {
+          "tag": "p",
+          "text": "At most 1 test set per session, one per exercise every 14 days, 2 a week. Test sets change nothing until an exercise has 3 of them. After that, they move the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "section",
           "labelledBy": "Three ways to start your program."
         },
         {
@@ -178285,6 +179469,46 @@
         {
           "tag": "b",
           "text": "Help improve Taurifer"
+        },
+        {
+          "tag": "summary",
+          "name": "What is a test set?"
+        },
+        {
+          "tag": "span",
+          "text": "What is a test set?"
+        },
+        {
+          "tag": "p",
+          "text": "You guess how many reps you can do at the same weight on an exercise's last working set, then take it to technical failure. It replaces that set, without adding another, and compares your guess with what you did. After 3 test sets on that exercise, consistent results can adjust how Taurifer reads your reps left, moving the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "summary",
+          "name": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "span",
+          "text": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "p",
+          "text": "No. At most 1 test set per session, one per exercise every 14 days and 2 a week."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "p",
+          "text": "You choose each time. You can turn off in ."
+        },
+        {
+          "tag": "b",
+          "text": "Test-set prompts"
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
         },
         {
           "tag": "section",
@@ -178478,6 +179702,34 @@
         },
         {
           "tag": "section",
+          "labelledBy": "Ele confere sua percepção de esforço, não só seus números."
+        },
+        {
+          "tag": "h2",
+          "text": "Ele confere sua percepção de esforço, não só seus números."
+        },
+        {
+          "tag": "li",
+          "text": "Você chutou 11 e fez 14: 3 a mais do que esperava."
+        },
+        {
+          "tag": "li",
+          "text": "Você chutou 10 e fez 9: 1 a menos."
+        },
+        {
+          "tag": "li",
+          "text": "Exatamente o que você chutou."
+        },
+        {
+          "tag": "p",
+          "text": "No máximo 1 série-teste por sessão, uma por exercício a cada 14 dias e 2 por semana. As séries-teste não mudam nada até o exercício ter 3. Depois, elas mudam a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerida."
+        },
+        {
+          "tag": "p",
+          "text": "Nunca no agachamento, supino ou levantamento terra com barra livre."
+        },
+        {
+          "tag": "section",
           "labelledBy": "Três jeitos de começar seu treino."
         },
         {
@@ -178830,6 +180082,46 @@
         {
           "tag": "b",
           "text": "Ajude a melhorar o Taurifer"
+        },
+        {
+          "tag": "summary",
+          "name": "O que é uma série-teste?"
+        },
+        {
+          "tag": "span",
+          "text": "O que é uma série-teste?"
+        },
+        {
+          "tag": "p",
+          "text": "Você chuta quantas reps consegue fazer com a mesma carga na última série de trabalho de um exercício e vai até a falha técnica. Ela substitui essa série, sem acrescentar outra, e compara seu chute com o que você fez. Após 3 séries-teste nesse exercício, resultados consistentes podem ajustar como o Taurifer lê suas reps sobrando, mudando a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerida."
+        },
+        {
+          "tag": "summary",
+          "name": "Vou ter que treinar até a falha o tempo todo?"
+        },
+        {
+          "tag": "span",
+          "text": "Vou ter que treinar até a falha o tempo todo?"
+        },
+        {
+          "tag": "p",
+          "text": "Não. No máximo 1 série-teste por sessão, uma por exercício a cada 14 dias e 2 por semana."
+        },
+        {
+          "tag": "p",
+          "text": "Nunca no agachamento, supino ou levantamento terra com barra livre."
+        },
+        {
+          "tag": "p",
+          "text": "Você escolhe a cada vez. Pode desligar em ."
+        },
+        {
+          "tag": "b",
+          "text": "Avisos de série-teste"
+        },
+        {
+          "tag": "b",
+          "text": "Ajustes"
         },
         {
           "tag": "section",
@@ -179023,6 +180315,34 @@
         },
         {
           "tag": "section",
+          "labelledBy": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "h2",
+          "text": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 11 and did 14: 3 more than you expected."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 10 and did 9: 1 fewer."
+        },
+        {
+          "tag": "li",
+          "text": "Exactly what you guessed."
+        },
+        {
+          "tag": "p",
+          "text": "At most 1 test set per session, one per exercise every 14 days, 2 a week. Test sets change nothing until an exercise has 3 of them. After that, they move the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "section",
           "labelledBy": "Three ways to start your program."
         },
         {
@@ -179375,6 +180695,46 @@
         {
           "tag": "b",
           "text": "Help improve Taurifer"
+        },
+        {
+          "tag": "summary",
+          "name": "What is a test set?"
+        },
+        {
+          "tag": "span",
+          "text": "What is a test set?"
+        },
+        {
+          "tag": "p",
+          "text": "You guess how many reps you can do at the same weight on an exercise's last working set, then take it to technical failure. It replaces that set, without adding another, and compares your guess with what you did. After 3 test sets on that exercise, consistent results can adjust how Taurifer reads your reps left, moving the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "summary",
+          "name": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "span",
+          "text": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "p",
+          "text": "No. At most 1 test set per session, one per exercise every 14 days and 2 a week."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "p",
+          "text": "You choose each time. You can turn off in ."
+        },
+        {
+          "tag": "b",
+          "text": "Test-set prompts"
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
         },
         {
           "tag": "section",
@@ -179559,6 +180919,34 @@
         },
         {
           "tag": "section",
+          "labelledBy": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "h2",
+          "text": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 11 and did 14: 3 more than you expected."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 10 and did 9: 1 fewer."
+        },
+        {
+          "tag": "li",
+          "text": "Exactly what you guessed."
+        },
+        {
+          "tag": "p",
+          "text": "At most 1 test set per session, one per exercise every 14 days, 2 a week. Test sets change nothing until an exercise has 3 of them. After that, they move the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "section",
           "labelledBy": "Three ways to start your program."
         },
         {
@@ -179913,6 +181301,46 @@
           "text": "Help improve Taurifer"
         },
         {
+          "tag": "summary",
+          "name": "What is a test set?"
+        },
+        {
+          "tag": "span",
+          "text": "What is a test set?"
+        },
+        {
+          "tag": "p",
+          "text": "You guess how many reps you can do at the same weight on an exercise's last working set, then take it to technical failure. It replaces that set, without adding another, and compares your guess with what you did. After 3 test sets on that exercise, consistent results can adjust how Taurifer reads your reps left, moving the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "summary",
+          "name": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "span",
+          "text": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "p",
+          "text": "No. At most 1 test set per session, one per exercise every 14 days and 2 a week."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "p",
+          "text": "You choose each time. You can turn off in ."
+        },
+        {
+          "tag": "b",
+          "text": "Test-set prompts"
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
+        },
+        {
           "tag": "section",
           "labelledBy": "Start where you are."
         },
@@ -180092,6 +181520,34 @@
         {
           "tag": "span",
           "text": "Veja o treino se ajustar"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Ele confere sua percepção de esforço, não só seus números."
+        },
+        {
+          "tag": "h2",
+          "text": "Ele confere sua percepção de esforço, não só seus números."
+        },
+        {
+          "tag": "li",
+          "text": "Você chutou 11 e fez 14: 3 a mais do que esperava."
+        },
+        {
+          "tag": "li",
+          "text": "Você chutou 10 e fez 9: 1 a menos."
+        },
+        {
+          "tag": "li",
+          "text": "Exatamente o que você chutou."
+        },
+        {
+          "tag": "p",
+          "text": "No máximo 1 série-teste por sessão, uma por exercício a cada 14 dias e 2 por semana. As séries-teste não mudam nada até o exercício ter 3. Depois, elas mudam a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerida."
+        },
+        {
+          "tag": "p",
+          "text": "Nunca no agachamento, supino ou levantamento terra com barra livre."
         },
         {
           "tag": "section",
@@ -180447,6 +181903,46 @@
         {
           "tag": "b",
           "text": "Ajude a melhorar o Taurifer"
+        },
+        {
+          "tag": "summary",
+          "name": "O que é uma série-teste?"
+        },
+        {
+          "tag": "span",
+          "text": "O que é uma série-teste?"
+        },
+        {
+          "tag": "p",
+          "text": "Você chuta quantas reps consegue fazer com a mesma carga na última série de trabalho de um exercício e vai até a falha técnica. Ela substitui essa série, sem acrescentar outra, e compara seu chute com o que você fez. Após 3 séries-teste nesse exercício, resultados consistentes podem ajustar como o Taurifer lê suas reps sobrando, mudando a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerida."
+        },
+        {
+          "tag": "summary",
+          "name": "Vou ter que treinar até a falha o tempo todo?"
+        },
+        {
+          "tag": "span",
+          "text": "Vou ter que treinar até a falha o tempo todo?"
+        },
+        {
+          "tag": "p",
+          "text": "Não. No máximo 1 série-teste por sessão, uma por exercício a cada 14 dias e 2 por semana."
+        },
+        {
+          "tag": "p",
+          "text": "Nunca no agachamento, supino ou levantamento terra com barra livre."
+        },
+        {
+          "tag": "p",
+          "text": "Você escolhe a cada vez. Pode desligar em ."
+        },
+        {
+          "tag": "b",
+          "text": "Avisos de série-teste"
+        },
+        {
+          "tag": "b",
+          "text": "Ajustes"
         },
         {
           "tag": "section",
@@ -180635,6 +182131,34 @@
         },
         {
           "tag": "section",
+          "labelledBy": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "h2",
+          "text": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 11 and did 14: 3 more than you expected."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 10 and did 9: 1 fewer."
+        },
+        {
+          "tag": "li",
+          "text": "Exactly what you guessed."
+        },
+        {
+          "tag": "p",
+          "text": "At most 1 test set per session, one per exercise every 14 days, 2 a week. Test sets change nothing until an exercise has 3 of them. After that, they move the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "section",
           "labelledBy": "Three ways to start your program."
         },
         {
@@ -180987,6 +182511,46 @@
         {
           "tag": "b",
           "text": "Help improve Taurifer"
+        },
+        {
+          "tag": "summary",
+          "name": "What is a test set?"
+        },
+        {
+          "tag": "span",
+          "text": "What is a test set?"
+        },
+        {
+          "tag": "p",
+          "text": "You guess how many reps you can do at the same weight on an exercise's last working set, then take it to technical failure. It replaces that set, without adding another, and compares your guess with what you did. After 3 test sets on that exercise, consistent results can adjust how Taurifer reads your reps left, moving the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "summary",
+          "name": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "span",
+          "text": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "p",
+          "text": "No. At most 1 test set per session, one per exercise every 14 days and 2 a week."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "p",
+          "text": "You choose each time. You can turn off in ."
+        },
+        {
+          "tag": "b",
+          "text": "Test-set prompts"
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
         },
         {
           "tag": "section",
@@ -181175,6 +182739,34 @@
         },
         {
           "tag": "section",
+          "labelledBy": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "h2",
+          "text": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 11 and did 14: 3 more than you expected."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 10 and did 9: 1 fewer."
+        },
+        {
+          "tag": "li",
+          "text": "Exactly what you guessed."
+        },
+        {
+          "tag": "p",
+          "text": "At most 1 test set per session, one per exercise every 14 days, 2 a week. Test sets change nothing until an exercise has 3 of them. After that, they move the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "section",
           "labelledBy": "Three ways to start your program."
         },
         {
@@ -181529,6 +183121,46 @@
           "text": "Help improve Taurifer"
         },
         {
+          "tag": "summary",
+          "name": "What is a test set?"
+        },
+        {
+          "tag": "span",
+          "text": "What is a test set?"
+        },
+        {
+          "tag": "p",
+          "text": "You guess how many reps you can do at the same weight on an exercise's last working set, then take it to technical failure. It replaces that set, without adding another, and compares your guess with what you did. After 3 test sets on that exercise, consistent results can adjust how Taurifer reads your reps left, moving the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "summary",
+          "name": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "span",
+          "text": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "p",
+          "text": "No. At most 1 test set per session, one per exercise every 14 days and 2 a week."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "p",
+          "text": "You choose each time. You can turn off in ."
+        },
+        {
+          "tag": "b",
+          "text": "Test-set prompts"
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
+        },
+        {
           "tag": "section",
           "labelledBy": "Start where you are."
         },
@@ -181712,6 +183344,34 @@
         {
           "tag": "span",
           "text": "Veja o treino se ajustar"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Ele confere sua percepção de esforço, não só seus números."
+        },
+        {
+          "tag": "h2",
+          "text": "Ele confere sua percepção de esforço, não só seus números."
+        },
+        {
+          "tag": "li",
+          "text": "Você chutou 11 e fez 14: 3 a mais do que esperava."
+        },
+        {
+          "tag": "li",
+          "text": "Você chutou 10 e fez 9: 1 a menos."
+        },
+        {
+          "tag": "li",
+          "text": "Exatamente o que você chutou."
+        },
+        {
+          "tag": "p",
+          "text": "No máximo 1 série-teste por sessão, uma por exercício a cada 14 dias e 2 por semana. As séries-teste não mudam nada até o exercício ter 3. Depois, elas mudam a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerida."
+        },
+        {
+          "tag": "p",
+          "text": "Nunca no agachamento, supino ou levantamento terra com barra livre."
         },
         {
           "tag": "section",
@@ -182069,6 +183729,46 @@
           "text": "Ajude a melhorar o Taurifer"
         },
         {
+          "tag": "summary",
+          "name": "O que é uma série-teste?"
+        },
+        {
+          "tag": "span",
+          "text": "O que é uma série-teste?"
+        },
+        {
+          "tag": "p",
+          "text": "Você chuta quantas reps consegue fazer com a mesma carga na última série de trabalho de um exercício e vai até a falha técnica. Ela substitui essa série, sem acrescentar outra, e compara seu chute com o que você fez. Após 3 séries-teste nesse exercício, resultados consistentes podem ajustar como o Taurifer lê suas reps sobrando, mudando a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerida."
+        },
+        {
+          "tag": "summary",
+          "name": "Vou ter que treinar até a falha o tempo todo?"
+        },
+        {
+          "tag": "span",
+          "text": "Vou ter que treinar até a falha o tempo todo?"
+        },
+        {
+          "tag": "p",
+          "text": "Não. No máximo 1 série-teste por sessão, uma por exercício a cada 14 dias e 2 por semana."
+        },
+        {
+          "tag": "p",
+          "text": "Nunca no agachamento, supino ou levantamento terra com barra livre."
+        },
+        {
+          "tag": "p",
+          "text": "Você escolhe a cada vez. Pode desligar em ."
+        },
+        {
+          "tag": "b",
+          "text": "Avisos de série-teste"
+        },
+        {
+          "tag": "b",
+          "text": "Ajustes"
+        },
+        {
           "tag": "section",
           "labelledBy": "Comece de onde você está."
         },
@@ -182248,6 +183948,34 @@
         {
           "tag": "span",
           "text": "See it adapt"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "h2",
+          "text": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 11 and did 14: 3 more than you expected."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 10 and did 9: 1 fewer."
+        },
+        {
+          "tag": "li",
+          "text": "Exactly what you guessed."
+        },
+        {
+          "tag": "p",
+          "text": "At most 1 test set per session, one per exercise every 14 days, 2 a week. Test sets change nothing until an exercise has 3 of them. After that, they move the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
         },
         {
           "tag": "section",
@@ -182603,6 +184331,46 @@
         {
           "tag": "b",
           "text": "Help improve Taurifer"
+        },
+        {
+          "tag": "summary",
+          "name": "What is a test set?"
+        },
+        {
+          "tag": "span",
+          "text": "What is a test set?"
+        },
+        {
+          "tag": "p",
+          "text": "You guess how many reps you can do at the same weight on an exercise's last working set, then take it to technical failure. It replaces that set, without adding another, and compares your guess with what you did. After 3 test sets on that exercise, consistent results can adjust how Taurifer reads your reps left, moving the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "summary",
+          "name": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "span",
+          "text": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "p",
+          "text": "No. At most 1 test set per session, one per exercise every 14 days and 2 a week."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "p",
+          "text": "You choose each time. You can turn off in ."
+        },
+        {
+          "tag": "b",
+          "text": "Test-set prompts"
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
         },
         {
           "tag": "section",
@@ -182796,6 +184564,34 @@
         },
         {
           "tag": "section",
+          "labelledBy": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "h2",
+          "text": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 11 and did 14: 3 more than you expected."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 10 and did 9: 1 fewer."
+        },
+        {
+          "tag": "li",
+          "text": "Exactly what you guessed."
+        },
+        {
+          "tag": "p",
+          "text": "At most 1 test set per session, one per exercise every 14 days, 2 a week. Test sets change nothing until an exercise has 3 of them. After that, they move the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "section",
           "labelledBy": "Three ways to start your program."
         },
         {
@@ -183150,6 +184946,46 @@
           "text": "Help improve Taurifer"
         },
         {
+          "tag": "summary",
+          "name": "What is a test set?"
+        },
+        {
+          "tag": "span",
+          "text": "What is a test set?"
+        },
+        {
+          "tag": "p",
+          "text": "You guess how many reps you can do at the same weight on an exercise's last working set, then take it to technical failure. It replaces that set, without adding another, and compares your guess with what you did. After 3 test sets on that exercise, consistent results can adjust how Taurifer reads your reps left, moving the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "summary",
+          "name": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "span",
+          "text": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "p",
+          "text": "No. At most 1 test set per session, one per exercise every 14 days and 2 a week."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "p",
+          "text": "You choose each time. You can turn off in ."
+        },
+        {
+          "tag": "b",
+          "text": "Test-set prompts"
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
+        },
+        {
           "tag": "section",
           "labelledBy": "Start where you are."
         },
@@ -183338,6 +185174,34 @@
         {
           "tag": "span",
           "text": "Veja o treino se ajustar"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Ele confere sua percepção de esforço, não só seus números."
+        },
+        {
+          "tag": "h2",
+          "text": "Ele confere sua percepção de esforço, não só seus números."
+        },
+        {
+          "tag": "li",
+          "text": "Você chutou 11 e fez 14: 3 a mais do que esperava."
+        },
+        {
+          "tag": "li",
+          "text": "Você chutou 10 e fez 9: 1 a menos."
+        },
+        {
+          "tag": "li",
+          "text": "Exatamente o que você chutou."
+        },
+        {
+          "tag": "p",
+          "text": "No máximo 1 série-teste por sessão, uma por exercício a cada 14 dias e 2 por semana. As séries-teste não mudam nada até o exercício ter 3. Depois, elas mudam a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerida."
+        },
+        {
+          "tag": "p",
+          "text": "Nunca no agachamento, supino ou levantamento terra com barra livre."
         },
         {
           "tag": "section",
@@ -183693,6 +185557,46 @@
         {
           "tag": "b",
           "text": "Ajude a melhorar o Taurifer"
+        },
+        {
+          "tag": "summary",
+          "name": "O que é uma série-teste?"
+        },
+        {
+          "tag": "span",
+          "text": "O que é uma série-teste?"
+        },
+        {
+          "tag": "p",
+          "text": "Você chuta quantas reps consegue fazer com a mesma carga na última série de trabalho de um exercício e vai até a falha técnica. Ela substitui essa série, sem acrescentar outra, e compara seu chute com o que você fez. Após 3 séries-teste nesse exercício, resultados consistentes podem ajustar como o Taurifer lê suas reps sobrando, mudando a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerida."
+        },
+        {
+          "tag": "summary",
+          "name": "Vou ter que treinar até a falha o tempo todo?"
+        },
+        {
+          "tag": "span",
+          "text": "Vou ter que treinar até a falha o tempo todo?"
+        },
+        {
+          "tag": "p",
+          "text": "Não. No máximo 1 série-teste por sessão, uma por exercício a cada 14 dias e 2 por semana."
+        },
+        {
+          "tag": "p",
+          "text": "Nunca no agachamento, supino ou levantamento terra com barra livre."
+        },
+        {
+          "tag": "p",
+          "text": "Você escolhe a cada vez. Pode desligar em ."
+        },
+        {
+          "tag": "b",
+          "text": "Avisos de série-teste"
+        },
+        {
+          "tag": "b",
+          "text": "Ajustes"
         },
         {
           "tag": "section",

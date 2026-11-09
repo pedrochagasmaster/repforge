@@ -6369,7 +6369,7 @@
     },
     {
       "id": "stats-button-aria-pressed",
-      "selector": "#stats button[aria-pressed]:not(.tabrow__tab):not(#strengthScopeSeg > button)",
+      "selector": "#stats button[aria-pressed]:not(.tabrow__tab):not(#strengthScopeSeg > button):not([data-adaptation-cause])",
       "roles": {
         "control": "selection",
         "elevation": [
@@ -12665,7 +12665,9 @@
         "progress/strength-comparison",
         "progress/strength-sparse",
         "today/calibration-mini",
-        "today/calibration-ring-bar"
+        "today/calibration-ring-bar",
+        "progress/review-proposal",
+        "progress/review-evaluated"
       ]
     },
     {
@@ -13493,7 +13495,12 @@
       "id": "weekly-adaptation-cause",
       "selector": "[data-adaptation-cause]",
       "roles": {
-        "control": "selection"
+        "control": "selection",
+        "elevation": [
+          "flat",
+          "selected"
+        ],
+        "boundary": "required"
       },
       "variant": null,
       "facets": [],
@@ -13502,6 +13509,7 @@
         "hover",
         "pressed",
         "focus-visible",
+        "selected",
         "disabled"
       ],
       "rationale": "Chooses a closed cause without changing the program.",
