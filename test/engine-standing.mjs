@@ -143,3 +143,29 @@ for (const source of ["prefilled", "unsure", "failure"]) {
   }
 }
 console.log("PASS latest comparable session: prefilled, unsure and failure rows end a break without adding evidence");
+
+// At 22:30 in Brazil, the next UTC day must not advance the local break boundary.
+const previousTimezone = process.env.TZ;
+try {
+  process.env.TZ = "America/Sao_Paulo";
+  realm.Date = class extends Date {
+    constructor(...args) { super(...(args.length ? args : ["2026-11-09T01:30:00Z"])); }
+  };
+  const input = structuredClone(cases.find(({ name }) => name === "forty-two-day-gap").input);
+  delete input[4].now;
+  realm.inputJson = JSON.stringify(input);
+  const [local] = JSON.parse(runInContext("JSON.stringify(RepForgeProgression.recommendSets(...JSON.parse(inputJson)))", realm));
+  assert.equal(local.standing.evidence.gapDays, 41, "the default engine day follows Brazil's local November 8");
+  assert.equal(local.standing.word, "solid");
+  assert.deepEqual(local.standing.reasons, []);
+  input[4].now = "2026-11-09";
+  realm.inputJson = JSON.stringify(input);
+  const [replay] = JSON.parse(runInContext("JSON.stringify(RepForgeProgression.recommendSets(...JSON.parse(inputJson)))", realm));
+  assert.equal(replay.standing.evidence.gapDays, 42, "an explicit replay day remains deterministic");
+  assert.deepEqual(replay.standing.reasons, ["break"]);
+  assert.deepEqual(withoutStanding([local]), withoutStanding([replay]), "calendar choice does not change any selection field");
+} finally {
+  if (previousTimezone === undefined) delete process.env.TZ;
+  else process.env.TZ = previousTimezone;
+}
+console.log("PASS local calendar: Brazil's late evening and explicit replay retain their own days");
