@@ -91,3 +91,6 @@ assert.equal(Transition.validateAdaptations([editorReceipt]),true,'the installed
 
 const manualCompound=structuredClone(document);manualCompound.programMeta.programDefinition.days[0].slots[1].role='manual';
 assert.equal(Transition.proposeAdaptation({pattern:'recurring_fatigue',day:'A',slotId:'slot',exerciseId:'lift'},manualCompound,{...props,cause:'recovery'}),null,'an unclassified manual compound is not treated as an accessory');
+const unansweredDecline={...record,cause:null,decision:'declined'};delete unansweredDecline.appliedEdit;
+assert.equal(Transition.validateAdaptations([unansweredDecline]),true,'declining does not invent an Other answer');
+assert.equal(Transition.validateAdaptations([{...record,cause:null}]),false,'accepting a cause-matched change requires its cause');
