@@ -23689,6 +23689,7 @@ function renderLandingProof(add){
     min:landingNum(c.repMin),max:landingNum(c.repMax),next_load:landingKg(add.load),next_reps:landingNum(add.reps)});
   // The inert phone is an illustration, like the landing's captured images. Keep its authored screen scale;
   // the accessible chapter controls and captions outside it follow the visitor's text size.
+  screen.style.fontSize="16px";
   const tokens=getComputedStyle(document.documentElement);
   for(const name of tokens)if(name.startsWith("--font-size-")){
     const value=tokens.getPropertyValue(name).trim();
