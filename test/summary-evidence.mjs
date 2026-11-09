@@ -223,6 +223,42 @@ try {
     "the first finish after day 28 presents the month finding even without a session on its release date",
     JSON.stringify(month.summary.finding));
 
+  const tabs = await browser.newContext({ viewport: { width: 390, height: 844 }, timezoneId: "UTC" });
+  const tabA = await tabs.newPage();
+  await boot(tabA);
+  const tabFinding = await build(tabA, beforeCheck, [checkRow], { open: false });
+  const monthPrevious = [row("month-first", "2026-09-15", "seed-ex-3", 60, 8, 2), checkRow];
+  const monthCurrent = [row("month-current", "2026-10-15", "seed-ex-3", 60, 8, 2)];
+  await seed(tabA, [...monthPrevious, ...monthCurrent]);
+  const tabB = await tabs.newPage();
+  await boot(tabB);
+  const tabMonth = await tabB.evaluate(({ previous, current }) => window.__repforgeSessionSummary.build({
+    rows: current, prevLog: previous, session: current[0].session, date: current[0].date, day: "Day 1", startedAt: 0,
+  }), { previous: monthPrevious, current: monthCurrent });
+  await tabA.evaluate(summary => window.__repforgeSessionSummary.open(summary), tabFinding.summary);
+  await tabB.click("#openSettings");
+  await tabB.click('#themeSegments [data-value="dark"]');
+  const darkPrefs = await tabB.evaluate(() => JSON.parse(localStorage.getItem("repforge_ui_v1")));
+  check(darkPrefs.theme === "dark" && darkPrefs.findingsSeen?.includes("first_check"),
+    "an already-open tab preserves the acknowledged finding when Appearance changes", JSON.stringify(darkPrefs));
+  await tabB.click("#settingsBack");
+  await tabB.evaluate(summary => window.__repforgeSessionSummary.open(summary), tabMonth);
+  const bothSeen = await tabB.evaluate(() => JSON.parse(localStorage.getItem("repforge_ui_v1")).findingsSeen || []);
+  check(tabMonth.finding?.id === "month_one" && bothSeen.includes("first_check") && bothSeen.includes("month_one"),
+    "different finding acknowledgements in two tabs retain both ids", JSON.stringify(bothSeen));
+  await tabA.evaluate(() => window.__repforgeSessionSummary.close());
+  await tabA.click("#openSettings");
+  await tabA.click('#themeSegments [data-value="light"]');
+  for (const tab of [tabA, tabB]) {
+    await boot(tab);
+    await tab.evaluate(summary => window.__repforgeSessionSummary.open(summary), tabFinding.summary);
+    const prefs = await tab.evaluate(() => JSON.parse(localStorage.getItem("repforge_ui_v1")));
+    check(prefs.theme === "light" && prefs.findingsSeen?.includes("first_check") &&
+      prefs.findingsSeen?.includes("month_one") && !/New today/.test(await tab.locator("#sumFinding").textContent() || ""),
+      "reload retains both acknowledgements and Appearance without announcing the first finding again", JSON.stringify(prefs));
+  }
+  await tabs.close();
+
   for (const lang of ["pt", "en"]) {
     await page.evaluate(() => {
       const prefs = JSON.parse(localStorage.getItem("repforge_ui_v1") || "{}");
