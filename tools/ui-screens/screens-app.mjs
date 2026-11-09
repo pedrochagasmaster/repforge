@@ -296,7 +296,7 @@ const D_FIXTURE_STATES = new Set([
   "workout/deload-week", // Plan 072 S4: the deload cue in Focus
   "workout/session", "workout/early-finish", "workout/rest-overrun-finish", "workout/exercise-note", "workout/warmup-actions", // R3d
   "workout/exercise-note-line", // the exercise note on the card (owner, 2026-11-05)
-  "workout/max-set-prompt", "workout/max-set-guess", "workout/max-set-active", "workout/max-set-result", // Plan 077 PR 3
+  "workout/max-set-prompt", "workout/max-set-recheck", "workout/max-set-guess", "workout/max-set-active", "workout/max-set-result", // Plan 077 PR 3
   "workout/effort-stage-a", "workout/effort-stage-b", "workout/effort-menu", "workout/stage-tip", // Plan 077 PR 2
   "workout/reorder", "workout/skipped-actions", "workout/substituted-actions", // R3d
   "workout/actions", "workout/exercise-actions", // R3x: the redrawn sheet, on the lifter the drawing shows
@@ -1305,17 +1305,18 @@ async function startInlineRest(page) {
 
 /** Plan 077 PR 3: Focus on the first lift that can take a max set, every working set but its last logged at 45 × 12 with
  *  2 left, and the rest running, so the prompt is up. */
-async function maxSetRest(page) {
+async function maxSetRest(page, { exerciseId = null } = {}) {
   await focusMode(page);
   await page.evaluate(() => { state.settings.maxSetPrompts = true; });
-  const at = await page.evaluate(() => {
+  const at = await page.evaluate((exerciseId) => {
     const draft = window.__repforgeWorkoutDraft.current();
     return focusList().findIndex((ex) => {
+      if (exerciseId && ex.id !== exerciseId) return false;
       const de = draft.exercises[ex.id];
       const working = de ? de.setOrder.map((id) => de.sets[id]).filter((set) => set.role === "working") : [];
       return working.length >= 2 && maxSetEligibility(de, working.at(-1)).eligible;
     });
-  });
+  }, exerciseId);
   if (at < 0) throw new Error("No lift in the fixture can take a max set");
   await page.evaluate((i) => window.__repforgeFocus.to(i), at);
   await page.waitForFunction((i) => focusIndex === i, at, { timeout: 20000 });
@@ -2541,6 +2542,27 @@ export const APP_SCENARIOS = {
   "workout/max-set-prompt": async (page) => {
     await maxSetRest(page);
     await sleep(page, 400);
+  },
+  "workout/max-set-recheck": async (page) => {
+    const state = await installGeneratedProgram(page, {name:"Test set re-check"});
+    const eligibleIds = await page.evaluate(rows => rows.filter(row =>
+      RepForgeEffortCalibration.eligibility({exercise:rawExercise(row.libraryId),lookup:rawCatalogObject}).eligible
+    ).map(row => row.id), state.program);
+    const row = state.program.find(row => row.day === state.program[0].day && eligibleIds.includes(row.id) &&
+      isWeightRepsSlot(definitionSlot(state.programMeta,row)));
+    if (!row) throw new Error("No eligible generated Weight+Reps lift for re-check");
+    state.log = [];
+    for (const days of [88,74,60,35,28,21,14,7]) {
+      const date = new Date(Date.parse(CAPTURE_NOW)-days*864e5).toISOString().slice(0,10);
+      for (let set = 1; set <= 3; set++) state.log.push(metricLogRow(state.programMeta,row,{
+        session:`recheck-${days}`,date,set,load:40,reps:12-set,rir:days>=60&&set===3?0:2,
+        extra:{effortSource:days>=60&&set===3?"failure":"reps_left",
+          ...(days>=60&&set===3?{calibration:{v:1,predictedReps:9,predictionEdited:false,prefillBasis:"reps"}}:{})}}));
+    }
+    await seed(page,state);
+    await maxSetRest(page,{exerciseId:row.id});
+    await page.waitForFunction(() => document.querySelector('.exercise.is-current [data-tip="max-set"]')?.textContent.includes(
+      t("maxset.invite_reason_recheck")));
   },
   "workout/max-set-guess": async (page) => {
     await maxSetRest(page);

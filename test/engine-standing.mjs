@@ -103,7 +103,7 @@ const faultInput = structuredClone(cases.find(({ name }) => name === "four-sessi
 faultInput[0].push({ ...faultInput[0][0], id: "slot-a:c1:s2", setIndex: 2 });
 const withoutStanding = (rows) => rows.map(({ standing, ...selection }) => selection);
 const selectedBatch = withoutStanding(Engine.recommendSets(...faultInput));
-const noEvidence = { version: "standing@078.1", word: "learning", reasons: ["few_sets", "few_sessions"], evidence: empty };
+const noEvidence = { unavailable: true, version: "standing@078.1", word: "learning", reasons: ["few_sets", "few_sessions"], evidence: empty };
 const broken = () => { throw new Error("standing failed"); };
 const faults = [undefined, {}, { decay: Gauge.decay },
   { ...Gauge, decay: broken }, { ...Gauge, rowQuality: broken }, { ...Gauge, pairsFrom: broken }];

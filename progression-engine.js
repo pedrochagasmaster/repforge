@@ -774,7 +774,7 @@
       }
       catch {
         // Standing is supporting evidence. Its failure cannot take an already selected target away.
-        standing = { version: STANDING_VERSION, word: result.historyAnchor ? "learning" : "first",
+        standing = { unavailable: true, version: STANDING_VERSION, word: result.historyAnchor ? "learning" : "first",
           reasons: result.historyAnchor ? ["few_sets", "few_sessions"] : ["no_history"], evidence: emptyStandingEvidence() };
       }
       return { ...result, standing };

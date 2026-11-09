@@ -6706,6 +6706,7 @@ function recommendation(ex){
   Object.defineProperty(rec,"progressionInputs",{value:{history,currentSession}});
   Object.defineProperty(rec,"plannedLoad",{value:status==="new"?firstActual?.planned?.value??null:null});
   // Not enumerable either: what the lift's checks say, and whether the shift moved any of its targets.
+  Object.defineProperty(rec,"standing",{value:result?.standing||null});
   Object.defineProperty(rec,"calibration",{value:{...calibration,moved:results.some(item=>item?.calibration?.moved===true)}});
   // Whether the lift's own performance dropped, the one fatigue signal (owner, 2026-11-06). Not enumerable, like the above.
   // Read lazily: only the fatigue surfaces ask, and most recommendations are drawn without them.
@@ -8009,8 +8010,39 @@ function maxSetEligibility(de,set){
   const equipmentName=equipmentId?rawCatalogObject(equipmentId)?.name??null:null;
   return EffortCalibration.eligibility({exercise,lookup:id=>rawCatalogObject(id),equipmentName,
     customName:exercise?"":String(de?.substitution?.replacement?.displayName||de?.displayName||"")})}
+/** Live and saved observations protect the performed movement for its whole calendar day. */
+function maxSetPainAllows(draft,movementId,date){
+  try{
+    if(Object.values(draft.exercises).some(item=>(item.discomfort||[]).some(observation=>
+      observation.exerciseId===movementId&&["pain","discomfort"].includes(observation.kind))))return false;
+    if(!Object.prototype.hasOwnProperty.call(state,"sessionEvents"))return true;
+    if(!WorkoutDraft.validateSessionEvents(state.sessionEvents)||!Array.isArray(state.log))return false;
+    const completionDay=value=>{
+      if(typeof value!=="string"&&typeof value!=="number")return null;
+      const at=new Date(value);
+      if(!Number.isFinite(at.getTime())||typeof value==="string"&&at.toISOString()!==value)return null;
+      return `${at.getFullYear()}-${String(at.getMonth()+1).padStart(2,"0")}-${String(at.getDate()).padStart(2,"0")}`};
+    const records=new Map(Object.entries(state.sessionEvents)
+      .filter(([,record])=>record.pain.some(observation=>observation.exerciseId===movementId))
+      .map(([session])=>[session,{workout:new Set(),completed:new Set()}]));
+    for(const row of state.log){
+      const record=records.get(String(row.session));if(!record)continue;
+      record.workout.add(row.date);
+      const completed=completionDay(row.created);if(completed)record.completed.add(completed)}
+    for(const [session,record] of records){
+      const timing=state.sessionTiming?.[session];
+      const verified=timing&&sessionTimingRecord(timing.startedAt,timing.completedAt);
+      if(verified&&verified.durationSeconds===timing.durationSeconds){
+        const completed=completionDay(verified.completedAt);if(completed)record.completed.add(completed)}
+      const [workout]=record.workout;
+      const workoutDay=record.workout.size===1?parseCalendarDate(workout).value:null;
+      if(workoutDay===date||record.completed.has(date))return false;
+      if(record.workout.size>1||record.completed.size>1||!workoutDay&&!record.completed.size)return false;
+    }
+    return true;
+  }catch{return false}}
 /** The max set Taurifer may offer on this exercise's set n now, or null. */
-function maxSetOffer(ex,n){
+function maxSetCandidate(ex,n){
   const draft=activeWorkoutDraft;
   if(!EffortCalibration||state.settings.maxSetPrompts===false||!draft||!n||draft.session.status!=="active")return null;
   const de=draft.exercises?.[ex.id];if(!de||de.status!=="active")return null;
@@ -8026,17 +8058,41 @@ function maxSetOffer(ex,n){
   const fit=maxSetEligibility(de,set);if(!fit.eligible)return null;
   const inWorkout=Object.values(draft.exercises).reduce((count,item)=>count+Object.values(item.sets).filter(other=>other.calibration).length,0);
   const history=(state.log||[]).filter(row=>row?.calibration&&row.effortSource==="failure").map(row=>({exerciseKey:maxSetRowKey(row),date:row.date}));
-  // At a gauge of 100 % the checks keep coming, at most once a month (OD-12).
-  const gaugeFull=(calibrationGauge()?.percent??0)>=100;
-  if(!EffortCalibration.frequencyAllows({history,today:draft.program.scheduleDate||today(),exerciseKey:maxSetDraftKey(de,set),inWorkout,gaugeFull}).ok)return null;
+  const date=draft.program.scheduleDate||today(),key=maxSetDraftKey(de,set);
+  if(!EffortCalibration.frequencyAllows({history,today:date,exerciseKey:key,inWorkout}).ok)return null;
+  const movement=de.substitution?.replacement||de;
+  const movementId=movement.libraryId||movement.movementId||movement.programmed?.movementId||movement.sourceExerciseId;
+  // Plan 082 owns both live observations and their saved session projection.
+  if(!maxSetPainAllows(draft,movementId,today()))return null;
+  const rec=recommendation(ex);
+  const now=Date.parse(`${date}T00:00:00Z`);
+  const dates=history.filter(row=>row.exerciseKey===key).map(row=>Date.parse(`${row.date}T00:00:00Z`))
+    .filter(at=>Number.isFinite(at)&&at<=now);
+  const lastCheckDays=dates.length?(now-Math.max(...dates))/86400000:null;
+  const request=EffortCalibration.shouldOffer({standing:rec.standing,calibration:rec.calibration,lastCheckDays});
+  if(!request.ok)return null;
   const guess=EffortCalibration.prefillGuess(reps,rir);if(!guess)return null;
-  const kg=parseDec(setFieldVals(ex,before.ordinal,recommendation(ex),hydrateWorkoutDraft(),last(ex)).kgVal);
-  return{set,before,guess,reps,rir,press:fit.press,load:Number.isFinite(kg)&&kg>0?`${fmt(kg)} ${unitLabel()}`:""}}
+  const kg=parseDec(setFieldVals(ex,before.ordinal,rec,hydrateWorkoutDraft(),last(ex)).kgVal);
+  return{set,before,guess,reps,rir,reason:request.reason,weightedSets:rec.standing?.evidence?.sets??0,press:fit.press,load:Number.isFinite(kg)&&kg>0?`${fmt(kg)} ${unitLabel()}`:""}}
+/** Of the currently safe opportunities, request the lift with the least evidence. Draft order breaks ties. */
+function maxSetOffer(ex,n){
+  const offer=maxSetCandidate(ex,n);if(!offer)return null;
+  const draft=activeWorkoutDraft;
+  for(const id of draft.exerciseOrder){
+    if(id===ex.id)continue;
+    const base=prog.find(id);if(!base)continue;
+    const de=draft.exercises[id],lastWorking=de?.setOrder.map(key=>de.sets[key]).filter(set=>set.role==="working").at(-1);
+    const other=lastWorking?maxSetCandidate(sessionExercise(base),lastWorking.ordinal):null;
+    if(other&&(other.weightedSets<offer.weightedSets||other.weightedSets===offer.weightedSets&&
+      draft.exerciseOrder.indexOf(id)<draft.exerciseOrder.indexOf(ex.id)))return null;
+  }
+  return offer}
 /** The prompt above the shelf while the rest runs (CSS hides it once the rest ends). */
 function maxSetTipHtml(ex,n,peek){
   if(peek)return"";
   const offer=maxSetOffer(ex,n);if(!offer)return"";
-  const title=t("maxset.invite_title"),body=t(offer.load?"maxset.invite_body":"maxset.invite_body_noload",{load:offer.load});
+  const title=t("maxset.invite_title"),body=t(offer.load?"maxset.invite_body":"maxset.invite_body_noload",
+    {load:offer.load,reason:t(`maxset.invite_reason_${offer.reason}`)});
   return `<section class="resttip" data-tip="max-set" aria-label="${esc(title)}">`+
     `<p class="resttip__text"><b>${esc(title)}</b> ${esc(body)}</p>`+
     `<div class="resttip__acts"><button type="button" class="resttip__no" data-maxset-no>${esc(t("maxset.not_now"))}</button>`+
