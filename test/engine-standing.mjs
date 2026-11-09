@@ -3,6 +3,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
+import { createContext, runInContext } from "node:vm";
 import { cases } from "./fixtures/engine-standing.mjs";
 const require = createRequire(import.meta.url);
 const Engine = require("../progression-engine.js");
@@ -92,3 +93,28 @@ for (const [ratio, agree] of [[0.849, false], [0.85, true], [1.03, true], [1.031
 assert.equal(Engine.STANDING_VERSION, "standing@078.1");
 assert.equal(Engine.CALIBRATION_VERSION, "calibration@077.1");
 console.log(`PASS engine standing: ${cases.length} frozen selection/standing cases and shared pair boundaries`);
+
+// A browser realm has no CommonJS fallback. Missing or broken standing helpers cannot discard a selected batch.
+const realm = createContext({});
+for (const file of ["exercise-metrics.js", "progression-engine.js"])
+  runInContext(readFileSync(new URL(`../${file}`, import.meta.url), "utf8"), realm);
+const faultInput = structuredClone(cases.find(({ name }) => name === "four-sessions").input);
+faultInput[0].push({ ...faultInput[0][0], id: "slot-a:c1:s2", setIndex: 2 });
+const withoutStanding = (rows) => rows.map(({ standing, ...selection }) => selection);
+const selectedBatch = withoutStanding(Engine.recommendSets(...faultInput));
+const noEvidence = { version: "standing@078.1", word: "learning", reasons: ["few_sets", "few_sessions"], evidence: empty };
+const broken = () => { throw new Error("standing failed"); };
+const faults = [undefined, {}, { decay: Gauge.decay },
+  { ...Gauge, decay: broken }, { ...Gauge, rowQuality: broken }, { ...Gauge, pairsFrom: broken }];
+for (const [index, fault] of faults.entries()) {
+  realm.RepForgeCalibrationGauge = fault;
+  // Deserialize inside the realm so real plain-object boundary validation applies.
+  realm.inputJson = JSON.stringify(faultInput);
+  const actual = JSON.parse(runInContext("JSON.stringify(RepForgeProgression.recommendSets(...JSON.parse(inputJson)))", realm));
+  assert.deepEqual(withoutStanding(actual), selectedBatch, `standing fault ${index} retains every selected result in the batch`);
+  for (const result of actual) assert.deepEqual(result.standing, noEvidence, `standing fault ${index} makes no evidence claim`);
+}
+runInContext(readFileSync(new URL("../calibration-gauge.js", import.meta.url), "utf8"), realm);
+assert.equal(runInContext("RepForgeProgression.recommendSets(...JSON.parse(inputJson))[0].standing.word", realm), "solid",
+  "helpers loaded after the engine can supply standing without reloading the engine");
+console.log("PASS standing failure boundary: 6 helper faults preserve complete two-prescription batches");

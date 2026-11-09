@@ -219,6 +219,29 @@ async function main() {
     const resumed = await draftSet(page, target.slotId, 2);
     check(resumed?.edited?.metrics?.[REPS] === "10", "a resumed session never overwrites the lifter's typed value", resumed?.edited?.metrics);
 
+    // R709-1: the actual app recommendation retains its targets if the optional standing evidence fails.
+    const standingFaults = await page.evaluate((slotId) => {
+      const ex = window.__repforgeWorkoutDraft.state().program.find((row) => (row.slotId || row.id) === slotId);
+      const read = () => window.__repforgeRecommendation(ex).engineResults;
+      const selections = (rows) => rows.map(({ standing, ...selection }) => selection);
+      const baseline = read(), gauge = window.RepForgeCalibrationGauge;
+      const faults = [undefined, {}, { ...gauge, decay: () => { throw new Error("standing failed"); } }];
+      try {
+        return { anchored: baseline.some((row) => row.status === "recommended"), cases: faults.map((fault) => {
+          window.RepForgeCalibrationGauge = fault;
+          try {
+            const actual = read();
+            return { retained: JSON.stringify(selections(actual)) === JSON.stringify(selections(baseline)),
+              noEvidence: actual.every((row) => row.standing.word === "learning" && row.standing.evidence.sets === 0
+                && row.standing.evidence.sessions === 0 && row.standing.evidence.pairs === 0) };
+          } catch (error) { return { error: String(error) }; }
+        }) };
+      } finally { window.RepForgeCalibrationGauge = gauge; }
+    }, target.slotId);
+    check(standingFaults.anchored, "the app standing failure proof starts with selected targets", standingFaults);
+    for (const [index, proof] of standingFaults.cases.entries())
+      check(proof.retained && proof.noEvidence, `app recommendation survives standing helper fault ${index}`, proof);
+
     check(errors.length === 0, "no page errors during adaptive sessions", errors);
   } catch (error) {
     failures.push(String(error?.stack || error));
