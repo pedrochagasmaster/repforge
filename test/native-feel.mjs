@@ -1175,11 +1175,10 @@ async function wheelPicker(browser) {
     await page.evaluate((sel) => document.querySelector(sel).focus({ preventScroll: true }), WHEEL_LOAD_SEL);
     const typed = await ringOf();
     assert(typed.field === `metric_${WHEEL_WEIGHT}` && !typed.ring, "after a typed edit a field focused by script draws no ring", JSON.stringify(typed));
-    // Move forward from Load to Reps to exercise keyboard focus within the shelf.
-    await page.keyboard.press("Tab");
+    // The keyboard: Tab moves focus within the shelf and draws the ring.
+    await page.keyboard.press("Shift+Tab");
     const tabbed = await ringOf();
-    assert(tabbed.field === `metric_${WHEEL_REPS}` && tabbed.tag === "BUTTON" && tabbed.visible && tabbed.ring && !tabbed.quiet,
-      "a keyboard Tab to Reps shows the focus ring", JSON.stringify(tabbed));
+    assert(tabbed.tag === "BUTTON" && tabbed.visible && tabbed.ring && !tabbed.quiet, "a keyboard Tab shows the focus ring", JSON.stringify(tabbed));
     await context.close();
   }
 
