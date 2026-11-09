@@ -121,6 +121,8 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
           const cells = [...table.querySelectorAll("tr > :last-child")];
           return {
             text: head.textContent.trim(), expected: window.RepForgeI18n.t("focus.col.left"),
+            repsLines: (() => { const range = document.createRange(); range.selectNodeContents(table.querySelector("th:nth-child(3)"));
+              return new Set([...range.getClientRects()].filter(rect => rect.width && rect.height).map(rect => Math.round(rect.top))).size; })(),
             brokenNumbers: [...table.querySelectorAll("tbody td:not(:first-child)")].flatMap(cell => {
               const range = document.createRange(); range.selectNodeContents(cell);
               const rects = [...range.getClientRects()].filter(rect => rect.width && rect.height);
@@ -137,7 +139,7 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
           };
         });
         const label = `${lang} ${width}px ${scale}% ${index === 0 ? "sparse" : "comparison"}`;
-        if (observation.text !== observation.expected || observation.lines !== 1 || observation.clipped || observation.outside || observation.brokenNumbers.length)
+        if (observation.text !== observation.expected || observation.lines !== 1 || observation.clipped || observation.outside || observation.brokenNumbers.length || observation.repsLines > 2)
           failures.push({ label, ...observation });
         cases++;
       }
