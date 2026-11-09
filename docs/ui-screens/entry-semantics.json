@@ -176665,15 +176665,6 @@
           "tag": "a",
           "text": "Privacy",
           "name": "Privacy"
-        },
-        {
-          "tag": "button",
-          "name": "Build my program",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Build my program"
         }
       ]
     },
@@ -177210,15 +177201,6 @@
           "tag": "a",
           "text": "Privacy",
           "name": "Privacy"
-        },
-        {
-          "tag": "button",
-          "name": "Build my program",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Build my program"
         }
       ]
     },
@@ -177755,15 +177737,6 @@
           "tag": "a",
           "text": "Privacidade",
           "name": "Privacidade"
-        },
-        {
-          "tag": "button",
-          "name": "Montar meu treino",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Montar meu treino"
         }
       ]
     },
@@ -177892,8 +177865,12 @@
           "text": "Test your guess"
         },
         {
-          "tag": "p",
+          "tag": "span",
           "text": "Guess how many reps you can do on your last set, then compare with what you did. Taurifer learns how you judge effort on this exercise."
+        },
+        {
+          "tag": "span",
+          "text": "Guessed 11. Did 12. 1 more than you guessed. Nothing changes yet: after 2 more test sets on this exercise, suggestions start allowing for your guesses."
         },
         {
           "tag": "button",
@@ -178300,15 +178277,6 @@
           "tag": "a",
           "text": "Privacy",
           "name": "Privacy"
-        },
-        {
-          "tag": "button",
-          "name": "Build my program",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Build my program"
         }
       ]
     },
@@ -178437,8 +178405,12 @@
           "text": "Test your guess"
         },
         {
-          "tag": "p",
+          "tag": "span",
           "text": "Guess how many reps you can do on your last set, then compare with what you did. Taurifer learns how you judge effort on this exercise."
+        },
+        {
+          "tag": "span",
+          "text": "Guessed 11. Did 12. 1 more than you guessed. Nothing changes yet: after 2 more test sets on this exercise, suggestions start allowing for your guesses."
         },
         {
           "tag": "button",
@@ -178845,15 +178817,6 @@
           "tag": "a",
           "text": "Privacy",
           "name": "Privacy"
-        },
-        {
-          "tag": "button",
-          "name": "Build my program",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Build my program"
         }
       ]
     },
@@ -178982,8 +178945,12 @@
           "text": "Teste seu palpite"
         },
         {
-          "tag": "p",
+          "tag": "span",
           "text": "Estime quantas reps consegue na última série e compare com o que fez. O Taurifer aprende como você avalia o esforço neste exercício."
+        },
+        {
+          "tag": "span",
+          "text": "Chute 11. Fez 12. 1 a mais do que você chutou. Nada muda ainda: depois de mais 2 testes neste exercício, as sugestões passam a considerar seus chutes."
         },
         {
           "tag": "button",
@@ -179390,15 +179357,6 @@
           "tag": "a",
           "text": "Privacidade",
           "name": "Privacidade"
-        },
-        {
-          "tag": "button",
-          "name": "Montar meu treino",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Montar meu treino"
         }
       ]
     },
