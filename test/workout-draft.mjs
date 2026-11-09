@@ -1176,6 +1176,9 @@ console.log("\nIssue #320: create() clamps a target RIR that falls back to the l
     return Draft.toHistoryRows(apply(value,"beginFinish"),"2026-08-15T12:00:00.000Z",{includeSessionEvents:true}).sessionEvents;
   };
   const original=project(d).pain[0];
+  const unspecified=project(apply(d,"skipExercise",{exerciseInstanceId:"slot-curl"}));
+  assert(!Object.prototype.hasOwnProperty.call(unspecified.skips[0],"reason"),"an unspecified re-hide never fabricates an Other answer");
+  assert(Draft.validateSessionEvents({saved:unspecified}),"an unspecified skip remains a valid session fact");
   assert(original.exerciseId==="sq_hs"&&original.name==="Hack squat","B2: pain swap records the original movement identity and name");
   const added=apply(d,"markDiscomfort",{exerciseInstanceId:"slot-squat",kind:"discomfort"});
   const marks=project(added).pain;
