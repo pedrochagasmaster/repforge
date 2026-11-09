@@ -6548,6 +6548,9 @@ function liftCalibration(history,context,metricDefinitions,extra=[],asOf=null){
   const Calibration=window.RepForgeEffortCalibration;
   const errors=Calibration?.checkErrors?.({sessions,today:asOf||activeWorkoutDraft?.program?.scheduleDate||today()})||[];
   return Calibration?.estimate?.(errors)||{version:null,n:0,bias:0,spread:null,state:"uncalibrated",reason:"few",delta:0}}
+// Engine indices describe working sets; the ledger keeps its physical ordinals.
+function engineWorkingSets(sets){
+  return sets.filter(set=>!set.warmup).sort((a,b)=>a.setIndex-b.setIndex).map((set,index)=>({...set,setIndex:index}))}
 function progressionHistoryFor(exerciseId,metricIds,slotProjection,metricDefinitions,log=state.log){
   const grouped=new Map();
   const requiresExecutionMode=(metricDefinitions||[]).some(metric=>
@@ -6561,15 +6564,17 @@ function progressionHistoryFor(exerciseId,metricIds,slotProjection,metricDefinit
     if(!grouped.has(sessionId))grouped.set(sessionId,{sessionId,date:row.date,created:row.created,completed:true,sets:[]});
     grouped.get(sessionId).sets.push(performed)}
   return[...grouped.values()].sort(compareLogChronology).map(session=>({
-    sessionId:session.sessionId,date:session.date,completed:true,sets:session.sets.sort((a,b)=>a.setIndex-b.setIndex)}))}
+    sessionId:session.sessionId,date:session.date,completed:true,sets:engineWorkingSets(session.sets)})).filter(session=>session.sets.length)}
 function progressionCurrentSession(prescription){
   if(!activeWorkoutDraft?.exercises)return[];
   const exercise=activeWorkoutDraft.exercises[prescription.slotId]||
     Object.values(activeWorkoutDraft.exercises).find(item=>item.libraryId===prescription.exerciseId||item.sourceExerciseId===prescription.exerciseId);
   if(!exercise||exercise.status==="skipped")return[];
   const sets=[];
+  let workingIndex=0;
   for(const setId of exercise.setOrder||[]){
-    const set=exercise.sets?.[setId];if(!set||set.completion==="pending"||set.role==="warmup")continue;
+    const set=exercise.sets?.[setId];if(!set||set.role==="warmup")continue;
+    const setIndex=workingIndex++;if(set.completion==="pending")continue;
     const values=[];let valid=true;
     for(const metric of set.programmed?.metrics||[]){
       const parsed=ExerciseMetrics?.parseMetricValue?.(metric,set.edited?.metrics?.[metric.id]);
@@ -6586,7 +6591,7 @@ function progressionCurrentSession(prescription){
     loadingContext.bodyweightKg=activeWorkoutDraft.session?.bodyweight==null||activeWorkoutDraft.session.bodyweight===""?null:Number(activeWorkoutDraft.session.bodyweight);
     if(typeof loadingContext.bodyweightContributionEnabled!=="boolean")
       loadingContext.bodyweightContributionEnabled=materialBodyweightCoefficient(loadingContext.bodyweightCoefficient,loadingContext.loadingConvention)>0&&loadingContext.bodyweightKg>0;
-    sets.push({exerciseId:prescription.exerciseId,completed:true,setIndex:set.ordinal-1,
+    sets.push({exerciseId:prescription.exerciseId,completed:true,setIndex,
       rir:Number.isFinite(rir)&&rir>=0?rir:null,equipmentId:exercise.programmed?.equipmentId??null,
       loadingConvention:exercise.programmed?.loadingConvention,metricIds:[...prescription.metricIds],metricValues:values,
       loadingContext,...(set.completion?.effortSource?{effortSource:set.completion.effortSource}:{}),
@@ -6632,9 +6637,9 @@ function recommendation(ex){
     return{status:"manual",engineStatus:"manual",reason:"canonical_program_definition_required",load:null,targetSets:[]};
   const cycleCount=Number.isInteger(definition.cycles)&&definition.cycles>0?definition.cycles:1;
   const elapsed=mesocycleLifecycle(state.programMeta).current||1,cycleNumber=Math.min(cycleCount,Math.max(1,elapsed));
-  const rampCount=Object.values(activeWorkoutDraft?.exercises?.[ex.id]?.sets||{}).filter(set=>set.origin==="ramp").length;
-  const prescriptions=compiler.prescriptionsForCycle(definition,cycleNumber).filter(item=>item.slotId===matched.slot.id)
-    .map(item=>rampCount?{...item,setIndex:item.setIndex+rampCount}:item);
+  const draftExercise=activeWorkoutDraft?.exercises?.[ex.id];
+  const workingOrdinals=draftExercise?.setOrder.map(id=>draftExercise.sets[id]).filter(set=>set.role!=="warmup").map(set=>set.ordinal)||[];
+  const prescriptions=compiler.prescriptionsForCycle(definition,cycleNumber).filter(item=>item.slotId===matched.slot.id);
   if(!prescriptions.length)return{status:"manual",engineStatus:"manual",reason:"cycle_prescription_unavailable",load:null,targetSets:[]};
   const first=prescriptions[0],slotProjection=slotLoadingProjection(matched.slot);
   const history=progressionHistoryFor(first.exerciseId,first.metricIds,slotProjection,matched.slot.metricDefinitions);
@@ -6651,7 +6656,8 @@ function recommendation(ex){
   const plannedSemantic=(matched.slot.metricDefinitions||[]).find(metric=>PLANNED_LOAD_SEMANTICS.includes(metric.semantic))?.semantic||null;
   const targetSets=prescriptions.map((prescription,index)=>{
     const result=results[index]||null;
-    const item={prescription,result,targets:result?.status==="recommended"?result.targets:prescription.targets,
+    const displayPrescription={...prescription,setIndex:workingOrdinals[index]??prescription.setIndex};
+    const item={prescription:displayPrescription,result,targets:result?.status==="recommended"?result.targets:prescription.targets,
       rir:prescription.rir,status:result?.status||"manual"};
     const codes=result?.reasonCodes||[],authoredLoad=plannedSemantic?prescription.targets?.[plannedSemantic]:null;
     const planned=result?.status!=="recommended"&&prescription.status==="ready"&&codes.includes("no_comparable_history")&&
@@ -6660,7 +6666,7 @@ function recommendation(ex){
     // Not enumerable: the recommendation that serialises (and that the parity proofs compare) is unchanged.
     Object.defineProperty(item,"planned",{value:planned});
     return item});
-  const firstActual=targetSets.find(item=>item.prescription.setIndex===1+rampCount)||targetSets[0];
+  const firstActual=targetSets[0];
   const result=firstActual?.result,definitions=matched.slot.metricDefinitions||[];
   const requiresExecutionMode=definitions.some(metric=>
     ["repsPerSide","loadPerSideKg","persistentLoadPerSideKg"].includes(metric.semantic));
@@ -7861,8 +7867,8 @@ function gaugeHits(){
         group.engine.push(performed);
         group.sets.push({setIndex:row.setIndex,load:read.load,reps:read.reps,rir:performed.rir,q:CalibrationGauge.rowQuality(row)})}
       const sessions=[...grouped.values()].sort(compareLogChronology);if(!sessions.length)continue;
-      sessionsByKey[key]=sessions.map(session=>({date:session.date,sets:session.sets,
-        engine:{sessionId:session.sessionId,completed:true,date:session.date,sets:session.engine.sort((a,b)=>a.setIndex-b.setIndex)}}));
+      sessionsByKey[key]=sessions.map(session=>({date:session.date,sets:engineWorkingSets(session.sets),
+        engine:{sessionId:session.sessionId,completed:true,date:session.date,sets:engineWorkingSets(session.engine)}}));
       plans[key]={prescriptions,repSemantic,loadSemantic,slotId:slot.id,metricDefinitions:slot.metricDefinitions,
         context:{bySlotId:{[slot.id]:slotLoadingContext(slot)}}}}
     const settings={weightMatch:state.settings.weightMatch===true,expandRepRange:state.settings.expandRepRange!==false};
