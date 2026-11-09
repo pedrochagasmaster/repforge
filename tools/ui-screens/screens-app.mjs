@@ -485,6 +485,7 @@ export function appState(key, lang) {
         appliedEdit:{expectedToken:{revision:1,programId:state.programMeta.id,blockId:state.programMeta.blockId||state.programMeta.id,fingerprint:"catalog-before-change"},intent:"adaptation_apply"},
         evaluation:{week:isoDaysAgo(0),outcome:"pattern_stopped"}}];
       state.program=state.program.filter(row=>row.id!==slot.id);
+      for(const day of new Set(state.program.map(row=>row.day)))state.program.filter(row=>row.day===day).forEach((row,index)=>{row.order=index+1});
       for(const day of state.programMeta.programDefinition.days)day.slots=day.slots.filter(item=>item.id!==slot.id).map((slot,index)=>({...slot,order:index+1}));
     }
   }
