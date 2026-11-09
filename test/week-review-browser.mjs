@@ -213,6 +213,14 @@ async function runCatalogWeekCardCases(browser,manifest){
 async function runAdaptationCases(browser,manifest){
   const failures=[];
   {
+    const state=appState("progress/review-evaluated","en");
+    const {page,context}=await openPage(browser,manifest,{flow:"progress",screen:"review-evaluated",viewport:"phone-390",theme:"light",locale:"en",text:"normal",motion:"normal"},state);
+    try{
+      await dismissChrome(page);await APP_SCENARIOS["progress/review-evaluated"](page);
+      assert.match(await page.locator('[data-adaptation-evaluation]').innerText(),/removed/i,"the evaluation identifies the accepted change as well as its outcome");
+    }catch(error){failures.push(error)}finally{await context.close()}
+  }
+  {
     const state=appState("progress/review-proposal","en");
     state.log=state.log.filter(row=>row.session!=="weekly-stall");
     const {page,context}=await openPage(browser,manifest,{flow:"progress",screen:"review-proposal",viewport:"phone-390",theme:"light",locale:"en",text:"normal",motion:"normal"},state);
