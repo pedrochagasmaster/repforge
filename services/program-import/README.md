@@ -26,18 +26,20 @@ Pages project. The Worker owns no UI and no durable workout data. See
   any provider key. Cloudflare/Anthropic service-side retention is governed
   by their own terms; do not claim a contractual zero-retention guarantee.
 
-## Worktree and local verification
+## Local verification
+
+From the repository root:
 
 ```bash
-cd /home/ubuntu/repforge-import-managed
-node services/program-import/scripts/build-prompts.mjs --check
-node --test services/program-import/test/import-worker.test.mjs
-node tools/run-tests.mjs --check
-REPFORGE_URL=http://127.0.0.1:8372/ node test/program-managed-import.mjs
+node tools/check-managed-import-prompts.mjs --check
+node --test test/program-managed-import-worker.mjs
+node tools/run-tests.mjs full-browser --suite program-managed-import
+```
 
-cd services/program-import
-/home/ubuntu/repforge/services/install-transfer/node_modules/.bin/wrangler \
-  deploy --dry-run --env production
+From this directory, with Wrangler installed (`npm install`):
+
+```bash
+npx wrangler deploy --dry-run --env production
 ```
 
 The generated `src/prompts.mjs` is an exact copy of the existing EN/PT
@@ -47,53 +49,57 @@ Never assemble a second, unreviewed prompt in Worker code.
 
 ## Provisioning
 
-Use the logged-in Wrangler already installed on the devbox. **Do not copy**
-any of the following credentials into the PWA, a repository file, PR discussion,
-telemetry, an HTTP URL or CLI arguments.
+Deploy and provision from the exact merged commit, with an authenticated
+Wrangler. **Never** put a credential in the PWA, a repository file, PR
+discussion, telemetry, a URL or a CLI argument: pipe each secret on stdin.
 
 ```bash
-cd /home/ubuntu/repforge-import-managed/services/program-import
-WRANGLER=/home/ubuntu/repforge/services/install-transfer/node_modules/.bin/wrangler
+cd services/program-import
 
-# First deploy with MANAGED_IMPORT_ENABLED=false.
-"$WRANGLER" deploy --env production
+# 1. Deploy disabled. The committed configuration keeps MANAGED_IMPORT_ENABLED=false.
+npx wrangler deploy --env production
 
-# The existing devbox ANT_KEY is never echoed.
-source <(grep -m1 '^export ANT_KEY=' /home/ubuntu/.bashrc)
-printf %s "$ANT_KEY" | "$WRANGLER" secret put ANTHROPIC_API_KEY --env production
-
-# Private devbox env file (chmod 600), created for this Turnstile widget.
-source /home/ubuntu/.config/taurifer/managed-import-turnstile.env
-printf %s "$TURNSTILE_SECRET_KEY" | "$WRANGLER" secret put TURNSTILE_SECRET_KEY --env production
-
-# Private, randomly generated visitor-hash pepper.
-openssl rand -hex 32 | "$WRANGLER" secret put IMPORT_IP_PEPPER --env production
+# 2. Bind the three secrets from the operator's private store (stdin only).
+printf %s "$ANTHROPIC_API_KEY_VALUE" | npx wrangler secret put ANTHROPIC_API_KEY --env production
+printf %s "$TURNSTILE_SECRET_VALUE" | npx wrangler secret put TURNSTILE_SECRET_KEY --env production
+openssl rand -hex 32 | npx wrangler secret put IMPORT_IP_PEPPER --env production
+npx wrangler secret list --env production   # names only
 ```
 
-Test while disabled:
+Check the disabled service:
 
 ```bash
 curl -fsS https://taurifer.com/api/program-import/config
 # {"enabled":false,"sitekey":null,"maxChars":12000}
+curl -sS -o /dev/null -w "%{http_code}\n" -X POST https://taurifer.com/api/program-import \
+  -H "Origin: https://taurifer.com" -H "Content-Type: application/json" --data '{}'
+# 503
 ```
 
 ## Enable and kill
 
-Change only production `MANAGED_IMPORT_ENABLED` from `false` to `true`
-in `wrangler.jsonc`, commit the configuration and deploy after the PWA
-update and physical-device smoke test.
+The repository configuration stays `MANAGED_IMPORT_ENABLED=false`, so any
+plain deploy is also the kill switch. Enable only after the PWA release and a
+physical-device check, by overriding the one variable at deploy time:
 
 ```bash
-"$WRANGLER" deploy --env production
+npx wrangler deploy --env production --var MANAGED_IMPORT_ENABLED:true
 curl -fsS https://taurifer.com/api/program-import/config
-# Should show enabled=true and the public Turnstile sitekey.
+# enabled=true and the public Turnstile sitekey
 ```
 
-To disable immediately, restore `MANAGED_IMPORT_ENABLED=false` and deploy.
-Fail-closed controls will also refuse requests if any one of the three
-secret bindings or Durable Object binding is missing. An existing import
-candidate remains safe to review and activate offline; disabling the Worker
-never alters workouts in local storage.
+To disable immediately, deploy without the override:
+
+```bash
+npx wrangler deploy --env production
+curl -fsS https://taurifer.com/api/program-import/config   # enabled=false
+```
+
+Removing the provider key also fails closed at once
+(`npx wrangler secret delete ANTHROPIC_API_KEY --env production`). The PWA
+then hides Import with Taurifer and keeps the manual hand-off. An existing
+import candidate stays safe to review and activate offline; disabling the
+Worker never alters workouts in local storage.
 
 ## Operational limits
 
@@ -113,4 +119,4 @@ never alters workouts in local storage.
 This Worker is routed to the apex domain, not Cloudflare Pages preview URLs.
 The currently configured Pages Git integration may not create PR previews.
 Do not make the production app depend on an unreleased Worker route.
-Cloudflare Wrangler secret setup precedes enabling managed imports.
+Secret setup precedes enabling managed imports.
