@@ -1366,7 +1366,8 @@
         "today/ready-scrolled",
         "today/in-progress",
         "today/calibration-mini",
-        "today/calibration-ring-bar"
+        "today/calibration-ring-bar",
+        "today/week-card"
       ]
     },
     {
@@ -2370,7 +2371,8 @@
         "workout/exercise-actions",
         "workout/skipped-actions",
         "workout/substituted-actions",
-        "workout/warmup-actions"
+        "workout/warmup-actions",
+        "workout/discomfort-mark"
       ]
     },
     {
@@ -2416,7 +2418,8 @@
         "workout/exercise-actions",
         "workout/skipped-actions",
         "workout/substituted-actions",
-        "workout/warmup-actions"
+        "workout/warmup-actions",
+        "workout/discomfort-mark"
       ]
     },
     {
@@ -2441,7 +2444,8 @@
         "workout/exercise-actions",
         "workout/skipped-actions",
         "workout/substituted-actions",
-        "workout/warmup-actions"
+        "workout/warmup-actions",
+        "workout/discomfort-mark"
       ]
     },
     {
@@ -2467,7 +2471,8 @@
         "workout/exercise-actions",
         "workout/skipped-actions",
         "workout/substituted-actions",
-        "workout/warmup-actions"
+        "workout/warmup-actions",
+        "workout/discomfort-mark"
       ]
     },
     {
@@ -2487,7 +2492,8 @@
         "workout/exercise-actions",
         "workout/skipped-actions",
         "workout/substituted-actions",
-        "workout/warmup-actions"
+        "workout/warmup-actions",
+        "workout/discomfort-mark"
       ]
     },
     {
@@ -2507,7 +2513,8 @@
         "workout/exercise-actions",
         "workout/skipped-actions",
         "workout/substituted-actions",
-        "workout/warmup-actions"
+        "workout/warmup-actions",
+        "workout/discomfort-mark"
       ]
     },
     {
@@ -4514,7 +4521,8 @@
         "today/ready-scrolled",
         "today/in-progress",
         "today/calibration-mini",
-        "today/calibration-ring-bar"
+        "today/calibration-ring-bar",
+        "today/week-card"
       ]
     },
     {
@@ -4568,7 +4576,8 @@
         "program/custom-exercise-archiving",
         "program/custom-exercise-saving",
         "today/context-menu",
-        "today/day-picker"
+        "today/day-picker",
+        "today/week-card"
       ],
       "neverDisabledReason": "The ring is shown only when there is a gauge to open; with none it is hidden, not disabled."
     },
@@ -6248,7 +6257,8 @@
         "today/deload-week",
         "today/ready-scrolled",
         "today/calibration-mini",
-        "today/calibration-ring-bar"
+        "today/calibration-ring-bar",
+        "today/week-card"
       ]
     },
     {
@@ -6717,7 +6727,8 @@
         "today/ready-scrolled",
         "today/in-progress",
         "today/calibration-mini",
-        "today/calibration-ring-bar"
+        "today/calibration-ring-bar",
+        "today/week-card"
       ],
       "progressScopes": {
         "active-program-week": "block"
@@ -6775,7 +6786,8 @@
         "today/ready-scrolled",
         "today/in-progress",
         "today/calibration-mini",
-        "today/calibration-ring-bar"
+        "today/calibration-ring-bar",
+        "today/week-card"
       ],
       "progressScopes": {
         "current-week-trained-days": "week"
@@ -6842,7 +6854,8 @@
         "today/ready-scrolled",
         "today/in-progress",
         "today/calibration-mini",
-        "today/calibration-ring-bar"
+        "today/calibration-ring-bar",
+        "today/week-card"
       ]
     },
     {
@@ -8695,7 +8708,8 @@
         "program/minibar-rest-done",
         "progress/overview-calibration",
         "today/calibration-mini",
-        "today/calibration-ring-bar"
+        "today/calibration-ring-bar",
+        "today/week-card"
       ]
     },
     {
@@ -8774,7 +8788,8 @@
         "program/minibar-rest-done",
         "progress/overview-calibration",
         "today/calibration-mini",
-        "today/calibration-ring-bar"
+        "today/calibration-ring-bar",
+        "today/week-card"
       ]
     },
     {
@@ -8862,7 +8877,8 @@
         "program/minibar-rest-done",
         "progress/overview-calibration",
         "today/calibration-mini",
-        "today/calibration-ring-bar"
+        "today/calibration-ring-bar",
+        "today/week-card"
       ]
     },
     {
@@ -9093,7 +9109,9 @@
         "session/summary-share-photo",
         "workout/why-calibration",
         "history/session-share",
-        "workout/rest-overrun-finish"
+        "workout/rest-overrun-finish",
+        "workout/skip-reason",
+        "workout/discomfort-mark"
       ]
     },
     {
@@ -9211,7 +9229,8 @@
         "today/in-progress",
         "program/minibar-rest-done",
         "today/calibration-mini",
-        "today/calibration-ring-bar"
+        "today/calibration-ring-bar",
+        "today/week-card"
       ]
     },
     {
@@ -11430,7 +11449,8 @@
         "workout/exercise-actions",
         "workout/warmup-actions",
         "workout/skipped-actions",
-        "workout/substituted-actions"
+        "workout/substituted-actions",
+        "workout/discomfort-mark"
       ]
     },
     {
@@ -12950,12 +12970,17 @@
         "hover",
         "pressed",
         "focus-visible",
-        "disabled"
+        "disabled",
+        "selected"
       ],
       "rationale": "Records discomfort in this session.",
       "owner": "plan-082",
       "catalogStates": [
-        "workout/discomfort-mark"
+        "workout/discomfort-mark",
+        "workout/warmup-actions",
+        "workout/skipped-actions",
+        "workout/exercise-actions",
+        "workout/substituted-actions"
       ]
     },
     {

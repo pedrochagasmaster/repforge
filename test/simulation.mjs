@@ -3571,8 +3571,19 @@ async function main() {
   );
   await page.click("#rirModeRow");
   await page.click('#nativeContextMenu [data-menu-value="numeric"]');
-  // Settle the RIR-mode write itself: the next step reads the storage revision, so a fixed wait can lose the race.
-  await page.evaluate(() => window.__repforgeStorage.flush());
+  // Replacement captures both state and draft preconditions; finish the ordinary preceding edits before capturing them.
+  const beginnerPublication = await page.evaluate(async () => {
+    const revision = () => ({ projected: window.__repforgeWorkoutDraft.current()?.revision ?? null,
+      canonical: JSON.parse(localStorage.getItem("repforge_draft_v1") || "null")?.revision ?? null });
+    const before = revision();
+    await window.__repforgeWorkoutDraft.flush();
+    await window.__repforgeStorage.flush();
+    return { before, after: revision() };
+  });
+  assert(beginnerPublication.after.projected === beginnerPublication.after.canonical,
+    "Beginner replacement starts after the preceding draft is published",
+    JSON.stringify(beginnerPublication), "Finish ordinary draft edits before confirming a replacement");
+  console.log(`  Beginner draft publication: ${JSON.stringify(beginnerPublication)}`);
 
   beginPhase("Phase: beginner program");
   const logBeforeBeginner = (await getState(page)).log.length;
@@ -3588,11 +3599,17 @@ async function main() {
     const definition = window.RepForgeProgramCompiler.generateProgram(request, catalog).value;
     const first = definition.days.find((day) => day.kind === "training").slots[0];
     first.setupNotes = "Use a stable machine setup and controlled range.";
-    await window.__repforgeFinalizeProgramSetup({
+    const checked = window.RepForgeProgramCompiler.validateProgramDefinition(definition, catalog, []);
+    if (!checked.ok) throw new Error(`Beginner definition rejected: ${JSON.stringify(checked.issues)}`);
+    const activation = await window.__repforgeFinalizeProgramSetup({
       programDefinition: definition, name: "Beginner program", answers: {}, destination: "log", origin: "settings",
       draftConfirmed: true, telemetryRoute: "recommend", entrySource: { route: "recommend", fingerprint: "simulation-beginner" },
     });
     await window.__repforgeStorage.flush();
+    if (!activation.committed || !activation.settled) {
+      const diagnostic = Object.fromEntries(["code", "reason", "committed", "settled", "invalid", "stale", "staleRevision", "draftConflict", "conflict", "closeFailed", "localOk", "idbOk"].map(key => [key, activation[key]]));
+      throw new Error(`Beginner activation was not acknowledged: ${JSON.stringify(diagnostic)}`);
+    }
     const entry = window.__repforgeExerciseLibrary.find((item) => item.id === first.exerciseId);
     return { day: definition.days.find((day) => day.kind === "training").name, names: [first.displayName, entry?.name].filter(Boolean) };
   });
@@ -5613,12 +5630,24 @@ async function main() {
     plainReview.summary?.slice(0, 120),
     "__repforgeBuildPlainSummary(__repforgeBlockSnapshot(...)) → string"
   );
-  const summaryInPanel = await page.locator(".review__readonly").textContent();
+  const summaryInPanel = await page.locator('[data-week-review="current"]').textContent();
   assert(
     summaryInPanel && summaryInPanel.length > 20,
-    "P16: active Review panel states its read-only checkpoint",
+    "P16: active Review panel states the current week's facts",
     summaryInPanel?.slice(0, 120),
-    "Stats → Review → active block exposes the read-only note"
+    "Stats → Review → active block exposes current-week facts"
+  );
+  assert(
+    await page.locator('#reviewPanel [data-review-action]').count() === 0,
+    "P16: active Review offers no structural action",
+    "A structural action was rendered in an active block",
+    "Stats → Review → active block remains read-only"
+  );
+  assert(
+    JSON.stringify((await getState(page)).programMeta) === JSON.stringify(state.programMeta),
+    "P16: reading active Review preserves the program metadata",
+    "Review changed programMeta",
+    "Stats → Review → reading weekly facts makes no program change"
   );
 
   beginPhase("Phase: strength dashboard (P12)");

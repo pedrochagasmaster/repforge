@@ -152,7 +152,7 @@ export function extractJsKeys(src) {
   const litRe = /\bt\(\s*(["'])((?:\\.|(?!\1).)*)\1\s*[,)]/g;
   let m;
   while ((m = litRe.exec(src))) literals.add(m[2].replace(/\\"/g, '"').replace(/\\'/g, "'"));
-  const ternRe = /\bt\(\s*[^)"']{0,80}?(["'])([a-zA-Z][\w.]+)\1\s*:\s*(["'])([a-zA-Z][\w.]+)\3/g;
+  const ternRe = /\bt\(\s*[^)"'`]{0,80}?(["'])([a-zA-Z][\w.]+)\1\s*:\s*(["'])([a-zA-Z][\w.]+)\3/g;
   while ((m = ternRe.exec(src))) {
     literals.add(m[2]);
     literals.add(m[4]);
@@ -176,6 +176,11 @@ const FOCUS_PREV_LINE_FAMILIES = Object.freeze([
 const FOCUS_PREV_LINE_ENDINGS = Object.freeze(["rir", "norir", "effort"]);
 
 const DYNAMIC_FAMILIES = [
+  { test: (s) => s.includes("review.week.sessions_only.${"), keys: () => ["one", "other"].map((form) => `review.week.sessions_only.${form}`) },
+  { test: (s) => s.includes("review.week.${event.kind}"), keys: () => ["pain", "discomfort"].flatMap((kind) => ["", "_swapped"].map((ending) => `review.week.${kind}${ending}`)) },
+  { test: (s) => s.includes("focus.skip_reason.${"), keys: () => ["time", "recovery", "pain", "equipment", "schedule", "trim", "other"].map((reason) => `focus.skip_reason.${reason}`) },
+  { test: (s) => s.includes("review.week.${outcome}"), keys: () => ["improved", "maintained", "declined"].map((outcome) => `review.week.${outcome}`) },
+  { test: (s) => s.includes("review.week.card_facts.${"), keys: () => ["improved", "stalled", "pain"].map((fact) => `review.week.card_facts.${fact}`) },
   // The landing's feature tabs: the conversation's menu and the Home Screen's app labels (2026-10-31).
   { test: (s) => s === '"landing.features.chat."+', keys: () => ["reply", "forward", "copy"].map((key) => `landing.features.chat.${key}`) },
   { test: (s) => s === '"landing.features.home."+', keys: () => ["calendar", "clock", "notes", "maps", "reminders", "files", "stocks", "home", "fitness", "settings"].map((key) => `landing.features.home.${key}`) },

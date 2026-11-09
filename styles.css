@@ -2838,6 +2838,7 @@ textarea.sheetfield__input{
 .exactions__act:hover:not(:disabled){background:var(--well);color:var(--control-quiet-ink)}
 }
 .exactions__act.is-pressed:not(:disabled){background:var(--row-pressed-bg);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
+.exactions__act[aria-pressed="true"]{border-bottom-color:var(--boundary-selected-quiet)}
 .exactions__act:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
 .exactions__act:disabled{background:var(--control-quiet-bg);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
 .exactions__act:disabled .icon-mask,.exactions__act:disabled .exactions__act-text small{color:var(--color-disabled-reason)}
@@ -9223,5 +9224,6 @@ body.is-entry-editor #entryProgramName,
 .week-card{padding:var(--space-16) 0;border-bottom:.5px solid var(--boundary-decorative);color:var(--color-ink)}
 .week-card p{margin:0 0 var(--space-8);line-height:var(--line-reading);overflow-wrap:anywhere}
 .week-card__actions{display:flex;flex-wrap:wrap;gap:var(--space-12);justify-content:space-between}
+.week-card__actions .text-link{color:var(--control-quiet-ink)}
 #stats #reviewPanel .review__week{padding:var(--space-16) 0;border-bottom:.5px solid var(--boundary-decorative)}
 #stats #reviewPanel .review__week p{line-height:var(--line-reading);overflow-wrap:anywhere}
