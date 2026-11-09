@@ -1661,8 +1661,8 @@ async function navigateToWhy(page, { exerciseId, day, index = 0 }) {
 async function whyOnBuildRange(page) {
   const row = catalogState().program[0];
   await navigateToWhy(page, { exerciseId: row.id, day: row.day });
-  await expectWhyLeads(page, ["manual"]);
-  const text = await page.locator("#whyBody .whysheet__text").textContent();
+  await expectWhyLeads(page, ["manual", "engine-standing"]);
+  const text = await page.locator('#whyBody [data-lead="manual"] .whysheet__text').textContent();
   const expected = await page.evaluate(() => window.RepForgeI18n.t("why.manual"));
   if (text?.trim() !== expected) throw new Error(`The Build-backed manual Why sentence was ${JSON.stringify(text)}`);
 }
@@ -1726,8 +1726,8 @@ async function whyOnGeneratedPerSide(page) {
   }, target.id);
   if (truth.status !== "configuration_required" || !truth.reasonCodes?.includes("execution_context_required") || truth.load != null)
     throw new Error(`The ambiguous generated slot lost its execution-mode requirement or acquired a load: ${JSON.stringify(truth)}`);
-  await expectWhyLeads(page, ["setup"]);
-  const text = await page.locator("#whyBody .whysheet__text").textContent();
+  await expectWhyLeads(page, ["setup", "engine-standing"]);
+  const text = await page.locator('#whyBody [data-lead="setup"] .whysheet__text').textContent();
   const expected = await page.evaluate(() => window.RepForgeI18n.t("why.setup.execution_mode"));
   if (text?.trim() !== expected) throw new Error(`The generated per-side Why sentence was ${JSON.stringify(text)}`);
 }
@@ -2925,7 +2925,7 @@ export const APP_SCENARIOS = {
   "library/exercise-detail-suggested": async (page) => {
     // The Direction D lifter's session opens on an Adaptive lift (Barbell Romanian deadlift, "Hold 82.5 kg"), so the
     // block carries its weight and both of its links (refinement A1: "Why this weight?" shows only with a weight).
-    await focusLearning(page);
+    await enterWorkout(page);
     const row = page.locator("#woDayTitle [data-exopen]").first();
     await row.scrollIntoViewIfNeeded({ timeout: 20000 });
     await row.click({ timeout: 20000 });
