@@ -13,7 +13,7 @@
 import { webcrypto } from "node:crypto";
 import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
-import { launchChromium, openShelfField, waitForAppBoot } from "./browser.mjs";
+import { chooseRepsLeft, launchChromium, openShelfField, waitForAppBoot } from "./browser.mjs";
 import { finishEarly, openEarlyFinish, selectExercise } from "./fixtures/focus-workout.mjs";
 import { installSeedProgram } from "./fixtures/seed-program.mjs";
 
@@ -75,7 +75,7 @@ async function saveFirstSet(page) {
   const rir = page.locator(`#workout .exercise.is-current .focus-shelf input[data-k="${SEED_A}_1_rir"]`);
   if (await rir.getAttribute("aria-hidden") === "true")
     await page.locator('#workout .exercise.is-current .focus-shelf [data-shelf-field="rir"]').click();
-  await rir.fill("1");
+  await chooseRepsLeft(page, "1");
   await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
   await page.locator(`#workout .exercise.is-current [data-save="${SEED_A}_1"]`).click();
   await page.waitForFunction((id) => {

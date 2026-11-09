@@ -13,7 +13,7 @@ import { editorSettled, openExerciseSheet, openInstalledEditor } from "./fixture
  * Run: node test/performed-attribution.mjs   (requires the app served over HTTP)
  */
 import { pathToFileURL } from "url";
-import { launchChromium, openShelfField } from "./browser.mjs";
+import { chooseRepsLeft, launchChromium, openShelfField } from "./browser.mjs";
 import { installSeedProgram } from "./fixtures/seed-program.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
@@ -170,8 +170,7 @@ async function main() {
       await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
     }
     const rir = page.locator(`#workout .exercise.is-current .focus-shelf input[data-k="${slot.id}_1_rir"]`);
-    await shelfField(rir, "rir");
-    await rir.fill("2");
+    await chooseRepsLeft(page, "2");
     await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
     await page.locator(`#workout .exercise.is-current [data-save="${slot.id}_1"]`).click();
     await page.waitForFunction((id) => {

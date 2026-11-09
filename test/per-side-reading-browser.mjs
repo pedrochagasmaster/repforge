@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { launchChromium, openShelfField, waitForAppBoot } from "./browser.mjs";
+import { chooseRepsLeft, launchChromium, openShelfField, waitForAppBoot } from "./browser.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const CATALOG = JSON.parse(readFileSync(new URL("../assets/exercise-catalog.json", import.meta.url), "utf8"));
@@ -125,7 +125,7 @@ async function logSet(page, programRowId, metrics, values, rirValue = 2) {
   const rir = page.locator('#workout .exercise.is-current .focus-shelf input[data-k="' + programRowId + '_1_rir"]');
   if (await rir.getAttribute("aria-hidden") === "true")
     await page.locator('#workout .exercise.is-current .focus-shelf [data-shelf-field="rir"]').click();
-  await rir.fill(String(rirValue));
+  await chooseRepsLeft(page, String(rirValue));
   await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
   await page.locator('#workout .exercise.is-current [data-save="' + programRowId + '_1"]').click();
   await page.waitForFunction((id) => {

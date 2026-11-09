@@ -377,10 +377,11 @@ const APP_ASOF = {
 /** Plan 077 PR 2: the effort stage each state is drawn in (OD-4), and for the stage tip a lifter whose last workouts
  *  were logged with words they chose (OD-6). */
 const EFFORT_STAGE_STATES = Object.freeze({
-  "workout/effort-stage-a": { rirMode: "effort", effortScale: "feel" },
-  "workout/effort-stage-b": { rirMode: "effort", effortScale: "reps" },
-  "workout/effort-menu": { rirMode: "effort", effortScale: "feel" },
-  "workout/stage-tip": { rirMode: "effort", effortScale: "feel" },
+  "workout/focus-glossary": { rirMode: "effort" },
+  "workout/effort-stage-a": { rirMode: "effort" },
+  "workout/effort-stage-b": { rirMode: "numeric" },
+  "workout/effort-menu": { rirMode: "effort" },
+  "workout/stage-tip": { rirMode: "effort" },
   // Plan 077 PR 4: the gauge and the last-rep question, on a lifter who logged RIR and took two test sets.
   "progress/overview-calibration": { rirMode: "numeric" },
   "today/calibration-mini": { rirMode: "numeric" },
@@ -1370,7 +1371,7 @@ async function logAdaptiveSet(page, slotId, ordinal, { load, reps, rir }) {
   if (await rirInput.getAttribute("aria-hidden") === "true") {
     await page.locator('#workout .exercise.is-current .focus-shelf [data-shelf-field="rir"]').click();
   }
-  await rirInput.fill(String(rir));
+  await page.locator('#workout .exercise.is-current .focus-shelf [data-effchip][data-e="' + rir + '"]').click();
   await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
   await page.locator(`#workout .exercise.is-current [data-save="${slotId}_${ordinal}"]`).click();
   await sleep(page, 500);
@@ -2151,7 +2152,7 @@ export const APP_SCENARIOS = {
   },
   "workout/focus-glossary": async (page) => {
     await focusMode(page);
-    const term = page.locator("#workout [data-term]").first();
+    const term = page.locator('#workout .exercise.is-current [data-term="Effort"]');
     await term.waitFor({ state: "visible", timeout: 20000 });
     await term.click();
     await page.waitForSelector("#glossary:not(.hidden)", { timeout: 10000 });
@@ -2490,16 +2491,16 @@ export const APP_SCENARIOS = {
     await page.locator("#workout .exercise.is-current .focus-shelf [data-shelf-field='rir']").click({ timeout: 20000 });
     await sleep(page, 400);
   },
-  // Stage B asks how many more clean reps: 0 · 1 · 2 · 3+, here with 2 chosen.
+  // Numeric reps left: 0 · 1 · 2 · 3 · 4 · 5+, here with 2 chosen.
   "workout/effort-stage-b": async (page) => {
     await focusMode(page);
     const shelf = "#workout .exercise.is-current .focus-shelf";
     await page.locator(`${shelf} [data-shelf-field='rir']`).click({ timeout: 20000 });
-    await page.locator(`${shelf} [data-effchip][data-e='r2']`).click({ timeout: 20000 });
+    await page.locator(`${shelf} [data-effchip][data-e='2']`).click({ timeout: 20000 });
     await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
     await sleep(page, 400);
   },
-  // The effort field's arrow: the three ways to log effort, the current one checked, and Not sure for this set.
+  // The effort field's arrow: the two ways to log effort, the current one checked, and Not sure for this set.
   "workout/effort-menu": async (page) => {
     await focusMode(page);
     await page.locator("#workout .exercise.is-current .focus-shelf [data-effmenu]").click({ timeout: 20000 });
@@ -3212,7 +3213,7 @@ export const APP_SCENARIOS = {
     await page.waitForSelector('#nativeContextMenu[open] [role="menuitemradio"][aria-checked="true"]');
     await sleep(page, 400);
   },
-  // Plan 077 PR 2: Effort logging as a pull-down, the three stages, the current one checked.
+  // Plan 077 PR 2: Effort logging as a pull-down, the two stages, the current one checked.
   "settings/effort-menu": async (page) => {
     await openSettings(page, "#rirModeRow");
     await page.click("#rirModeRow");

@@ -11,7 +11,7 @@ import { selectExercise, openActions, exerciseAction, sessionField, finishEarly,
  * Run: node test/workout-draft-parity.mjs
  * Requires a static server on REPFORGE_URL (default http://localhost:8000/).
  */
-import { launchChromium, openShelfField } from "./browser.mjs";
+import { chooseRepsLeft, launchChromium, openShelfField } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
@@ -122,6 +122,11 @@ async function shelfValues(page) {
 
 /** Type into the current card's shelf field the way a lifter does: tap the field, then type. */
 async function fillShelf(page, field, value) {
+  if (field === "rir") {
+    await chooseRepsLeft(page, String(value));
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    return;
+  }
   const metricId = field === "load" ? WEIGHT : field === "reps" ? REPS : null;
   const input = page.locator(metricId
     ? `#workout .exercise.is-current .focus-shelf input[data-metric-id="${metricId}"]`

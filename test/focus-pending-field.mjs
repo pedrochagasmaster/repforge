@@ -16,7 +16,7 @@
  *
  * Run: node test/focus-pending-field.mjs   (REPFORGE_URL points at a static server)
  */
-import { launchChromium, openShelfField } from "./browser.mjs";
+import { chooseRepsLeft, launchChromium, openShelfField } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 import { finishEarly, openLoggedSets } from "./fixtures/focus-workout.mjs";
 
@@ -116,6 +116,11 @@ const inputFor = (id, n = 1) => `${SHELF} .shelf__input[data-k$="_${n}_${FIELD_I
 
 /** Tap a field until its input is open, type, and wait for the draft to acknowledge it. */
 async function typeField(page, id, value) {
+  if (id === "rir") {
+    await chooseRepsLeft(page, String(value));
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    return;
+  }
   const input = page.locator(inputFor(id));
   for (let tap = 0; tap < 2 && await input.getAttribute("aria-hidden") === "true"; tap++) await openShelfField(page, field(id));
   await input.fill(value);
@@ -252,7 +257,7 @@ async function main() {
   agree("RT-03 typed 57.5 then Reps selected", await readField(page, "load"), 57.5);
 
   // ---- d: reps and numeric RIR ----------------------------------------------
-  phase("RT-03: reps and RIR pad taps");
+  phase("RT-03: a reps pad and a numeric effort chip");
   await boot(page);
   await page.locator(field("reps")).click();
   const reps0 = num((await readField(page, "reps")).input);
@@ -260,7 +265,7 @@ async function main() {
   await holdLock(page);
   await page.locator(pad(1)).click();
   await page.locator(field("rir")).click();
-  await page.locator(pad(-1)).click();
+  await page.locator(`${SHELF} [data-effchip][data-e="${rir0 - 1}"]`).click();
   await page.locator(field("load")).click();
   await releaseLock(page);
   const reps = await readField(page, "reps");
@@ -318,11 +323,12 @@ async function main() {
     await page.locator(`#workout .exercise.is-current .ledgerline[data-editn="1"]`).click();
     await page.waitForSelector(`${SHELF}.is-editing`);
     await page.locator(field("rir")).click();
+    const correctionRir0 = num((await readField(page, "rir")).input);
     if (rebuild) await holdLock(page);
-    await page.locator(pad(-1)).click();
+    await page.locator(`${SHELF} [data-effchip][data-e="${Math.max(0, correctionRir0 - 1)}"]`).click();
     if (rebuild) await page.locator(field("load")).click(); // rebuild
     if (rebuild) await page.locator(field("rir")).click();
-    await page.locator(pad(-1)).click();
+    await page.locator(`${SHELF} [data-effchip][data-e="${Math.max(0, correctionRir0 - 2)}"]`).click();
     if (rebuild) {
       await page.locator(field("reps")).click(); // rebuild
       await releaseLock(page);
@@ -337,7 +343,7 @@ async function main() {
     });
   }
   assert(JSON.stringify(corrected[true]) === JSON.stringify(corrected[false]),
-    "RT-03: correcting a logged set through two pad taps across a rebuild ends on the same draft as without one", corrected);
+    "RT-03: correcting a logged set through two count choices across a rebuild ends on the same draft as without one", corrected);
 
   // ---- h: failed and stale writes --------------------------------------------
   phase("RT-03: recovery takes over an in-flight edit, and Retry keeps it through another edit");

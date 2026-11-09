@@ -1663,10 +1663,17 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
 .shelf__menu:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
 .shelf__chev{display:block;width:16px;height:16px;background:currentColor}
 .shelf__field[data-field="rir"] .shelf__lab{padding-right:var(--space-14)}
+/* Only the numeric caption needs later lines to use the whole tile. Words keep their existing geometry. */
+.shelf__field:has(>[data-stage="c"]) .shelf__menu{padding-top:var(--space-4)}
+.shelf__field:has(>[data-stage="c"]) .shelf__lab{align-self:stretch;padding-right:0;line-height:var(--line-tight)}
+.shelf__field:has(>[data-stage="c"]) .shelf__lab::before{content:"";float:right;width:var(--space-14);height:1lh}
 /* A word in the effort field keeps the numerals' line box, so the three fields share one baseline. */
 .shelf__field.is-word .shelf__val{font-family:var(--font-language);font-weight:var(--weight-semibold);font-size:min(var(--font-size-subtitle),var(--shelf-numeral-fit));
   line-height:calc(min(var(--font-size-metric),var(--shelf-numeral-fit)) * var(--line-tight))}
 .shelf__pads--chips{gap:6px}
+.shelf__pads--numbers{flex-wrap:wrap;gap:var(--space-4)}
+.shelf__pads--numbers .shelf__chip{flex:1 1 var(--control-target);min-width:max(var(--control-target),2.5em)}
+.exercise--focus.is-text-scaled .shelf__pads--numbers .shelf__chip{flex-basis:calc((100% - 2 * var(--space-4))/3)}
 .shelf__pads .shelf__chip{padding:0 var(--space-4);border:1px solid var(--control-selection-boundary);background:var(--control-selection-bg);color:var(--control-selection-ink);cursor:pointer;
   -webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .shelf__pads .shelf__chip.is-pressed{background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
@@ -2964,13 +2971,14 @@ article.exercise--focus:has(.resttab) .fcard__context{margin-bottom:var(--rest-t
 /* Concentric with the approved shelf: the sheet's 28, the controls' 16 inside its 16 inset, the segments' 12. */
 #restSheet{border-radius:var(--shelf-radius) var(--shelf-radius) var(--radius-none) var(--radius-none)}
 
-/* Short screens trade padding, never a control: the ledger scrolls above the
+/* Short screens trade spacing, never a control: the ledger scrolls above the
    shelf, and the shelf keeps its three fields, its pads and its action. */
 @media (max-height:740px){
   .fx-head{margin-bottom:var(--space-12)}
   .focus-shelf{padding-top:var(--space-8);padding-bottom:calc(var(--space-12) + env(safe-area-inset-bottom,0px))}
 }
 @media (max-height:600px){
+  .workshelf.focus-shelf:has([data-stage="c"]){row-gap:var(--space-8);padding-top:var(--space-8);padding-bottom:calc(var(--space-12) + env(safe-area-inset-bottom,0px))}
   .shelf__fieldbtn,.shelf__input{min-height:56px}
   .shelf__pads .shelf__pad{height:48px;min-height:48px}
   .focus-shelf .btn--cta.saveset{min-height:48px}
