@@ -513,10 +513,18 @@ reps left as the target advances to 42.5 kg on a 2.5 kg grid. A per-hand
 8 kg dumbbell on a 2 kg grid advances to 10 kg. With no higher available load,
 the module returns no next load.
 
-For a new or substituted lift, the module can use the old lift's history
-anchor multiplied by the new fraction divided by the old fraction, then round
-down on the new lift's grid and respect its floor. This has basis `ratio`.
-The fractions themselves are used, before opening-load rounding, and the ratio
-needs no bodyweight. If either fraction or the old anchor is unavailable, the
-new lift's ordinary prior or floor applies. Connecting this suggestion to
-substitution belongs to the later integration packet.
+For a new or substituted lift with no working history of its own, an opening
+can carry over from a real working set of another lift only within the same
+equipment class and the same table row. The row supplying each lift's lowest
+fraction must be the same; sharing a secondary pattern does not qualify two
+lifts whose fractions come from different rows. Both fractions and the recorded loading convention must agree.
+The anchor carries unchanged, rounded down to the new lift's grid, with basis
+`ratio`. It never exceeds the anchor. If the destination's lightest load is
+above the anchor, the ordinary prior or floor applies instead.
+
+The substituted lift's original movement is checked first, then other logged
+movements from most recent to oldest. Warm-ups and ramp sets never supply an
+anchor. The ratio needs no bodyweight and enters only as the ramp's opening
+load, never as a history row or an engine target. If no eligible working anchor
+exists, the new lift uses its ordinary prior or floor. Its own first working
+set replaces that opening, as with every ramp.

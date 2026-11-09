@@ -420,7 +420,7 @@ export function appState(key, lang) {
     return emptyEntryState(lang);
   }
   if (key === "history/per-side-session" || key === "workout/focus-per-side") return emptyEntryState(lang);
-  if (["workout/focus-ramp","workout/focus-ramp-floor","workout/focus-ramp-easy","history/ramp-rows"].includes(key)) return emptyEntryState(lang);
+  if (["workout/focus-ramp","workout/focus-ramp-ratio","workout/focus-ramp-substitution","workout/focus-ramp-floor","workout/focus-ramp-easy","history/ramp-rows"].includes(key)) return emptyEntryState(lang);
   if (key === "workout/why-setup") return emptyEntryState(lang);
   if (DIRECTION_D_BEFORE_SESSION.has(key)) return localeState(directionDBeforeSession(), lang);
   if (DIRECTION_D_SUMMARY_SESSION[key]) return localeState(directionDThroughSession(DIRECTION_D_SUMMARY_SESSION[key]), lang);
@@ -1915,14 +1915,34 @@ async function captureProgramLab(page, result = false) {
     await page.locator('#scenarioHeading').evaluate(element => element.scrollIntoView({ block: 'start' }));
   }
 }
-async function rampFixture(page,{bodyweight=true}={}){
+async function rampFixture(page,{bodyweight=true,ratio=false,substitute=false}={}){
   const state=await installGeneratedProgram(page,{name:"Session zero"});
   state.profile=bodyweight?{weightKg:80}:{};state.programMeta.experience="beginner";state.settings.rirMode="effort";
   delete state.settings.effortScale;
   const target=state.program.find(row=>isWeightRepsSlot(definitionSlot(state.programMeta,row))&&row.sets>=3);
   if(!target)throw new Error("ramp fixture requires a generated Weight+Reps slot");
-  await seed(page,state);
-  await page.evaluate(id=>window.__repforgeGoToLogExercise(id),target.id);
+  if(ratio){
+    const source=await page.evaluate(()=>window.RepForgeExerciseCatalog.snapshot().exercises.find(ex=>ex.name==="Pendulum squat"));
+    const squats=await page.evaluate(()=>window.RepForgeExerciseCatalog.snapshot().exercises.filter(ex=>ex.movementPattern?.some(id=>window.RepForgeExerciseCatalog.getObject(id)?.name==="Squat")).map(ex=>ex.id));
+    const squat=state.program.find(row=>squats.includes(row.libraryId)&&isWeightRepsSlot(definitionSlot(state.programMeta,row))&&row.sets>=3);
+    if(!squat)throw new Error("ratio fixture requires a weighted squat");
+    state.log=[metricLogRow(state.programMeta,squat,{session:"opening-anchor",date:"2026-08-30",set:1,load:35,reps:8,
+      extra:{performedLibraryId:substitute?squat.libraryId:source.id,sourceLibraryId:substitute?squat.libraryId:source.id,performedName:substitute?squat.name:source.name,
+        loadingModel:substitute?definitionSlot(state.programMeta,squat).loadingModel:{bodyweightCoefficient:source.bodyweight??null}}})];
+    state.log[0].loadingContext.bodyweightCoefficient=state.log[0].loadingModel.bodyweightCoefficient;
+    await seed(page,state);
+    await page.evaluate(id=>window.__repforgeGoToLogExercise(id),squat.id);
+    if(substitute){
+      await page.locator("#woOverflowBtn").click();await page.locator('[data-workout-action="exercise"]').click();
+      await page.locator("#exActionSubstBtn").click();await page.locator("#exPickSearch").fill("Pendulum squat");
+      await page.locator(`#exPickList [data-pick="${source.id}"]`).click();
+      await page.locator('[data-pick-reason="equipment"]').click();
+      await page.waitForFunction(id=>!!window.__repforgeWorkoutDraft.current()?.exercises[id]?.substitution,squat.id);
+    }
+  }else{
+    await seed(page,state);
+    await page.evaluate(id=>window.__repforgeGoToLogExercise(id),target.id);
+  }
   await page.locator("#workout .exercise.is-current [data-ramp-start]").waitFor();
   return target;
 }
@@ -1949,6 +1969,8 @@ async function rampAnswer(page,word,count){
 
 export const APP_SCENARIOS = {
   "workout/focus-ramp": async page=>{await rampFixture(page)},
+  "workout/focus-ramp-ratio": async page=>{await rampFixture(page,{ratio:true})},
+  "workout/focus-ramp-substitution": async page=>{await rampFixture(page,{ratio:true,substitute:true})},
   "workout/focus-ramp-floor": async page=>{await rampFixture(page,{bodyweight:false})},
   "workout/focus-ramp-easy": async page=>{
     await rampFixture(page);await page.locator("#workout .exercise.is-current [data-ramp-start]").click();

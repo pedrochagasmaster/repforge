@@ -2697,6 +2697,8 @@ function substitutionProgram(id,libraryRef){
   if(!metricDefinitions)return null;
   if(custom&&!metricDefinitions.length)return"unconfigured";
   const{loadingModel,loadingConvention,loadingContext}=metricLoading(metricDefinitions,source);
+  const projection=slotLoadingProjection({exerciseId:libraryRef,metricDefinitions,loadingModel});
+  loadingContext.externalLoadMultiplier=projection.externalLoadMultiplier;
   const semantics=new Set(metricDefinitions.map(metric=>metric.semantic));
   const programmedSets=draftExercise.setOrder.map(setId=>{
     const programmed=draftExercise.sets[setId].programmed;
@@ -6572,7 +6574,7 @@ function progressionCurrentSession(prescription){
   for(const setId of exercise.setOrder||[]){
     const set=exercise.sets?.[setId];if(!set)continue;
     if(set.origin==="ramp"){rampCount++;continue}
-    if(set.role==="warmup"||set.completion==="pending")continue;
+    if(set.role==="warmup"||set.completion==="pending"||set.programmed?.sourceLibraryId!==prescription.exerciseId)continue;
     const setIndex=set.ordinal-1-rampCount;
     const values=[];let valid=true;
     for(const metric of set.programmed?.metrics||[]){
@@ -6585,14 +6587,15 @@ function progressionCurrentSession(prescription){
     const word=set.edited?.effort,effortMode=activeWorkoutDraft.program?.rirMode==="effort";
     const byWord=Object.prototype.hasOwnProperty.call(EFFORT_RIR,word??"")&&(effortMode||set.edited?.rir==null);
     const rir=byWord?EFFORT_RIR[word]:effortMode&&set.edited?.rir==null?null:rawRir==null?null:Number(rawRir);
-    const loadingContext=cloneSnapshot(exercise.programmed?.loadingContext||{});
-    loadingContext.loadingConvention=exercise.programmed?.loadingConvention||loadingContext.loadingConvention;
+    const programmed=set.programmed||exercise.programmed;
+    const loadingContext=cloneSnapshot(programmed?.loadingContext||{});
+    loadingContext.loadingConvention=programmed?.loadingConvention||loadingContext.loadingConvention;
     loadingContext.bodyweightKg=activeWorkoutDraft.session?.bodyweight==null||activeWorkoutDraft.session.bodyweight===""?null:Number(activeWorkoutDraft.session.bodyweight);
     if(typeof loadingContext.bodyweightContributionEnabled!=="boolean")
       loadingContext.bodyweightContributionEnabled=materialBodyweightCoefficient(loadingContext.bodyweightCoefficient,loadingContext.loadingConvention)>0&&loadingContext.bodyweightKg>0;
     sets.push({exerciseId:prescription.exerciseId,completed:true,setIndex,
-      rir:Number.isFinite(rir)&&rir>=0?rir:null,equipmentId:exercise.programmed?.equipmentId??null,
-      loadingConvention:exercise.programmed?.loadingConvention,metricIds:[...prescription.metricIds],metricValues:values,
+      rir:Number.isFinite(rir)&&rir>=0?rir:null,equipmentId:programmed?.equipmentId??null,
+      loadingConvention:programmed?.loadingConvention,metricIds:[...prescription.metricIds],metricValues:values,
       loadingContext,...(set.completion?.effortSource?{effortSource:set.completion.effortSource}:{}),
       ...(set.completion?.effortSource==="failure"&&set.calibration?{calibration:cloneSnapshot(set.calibration)}:{})})}
   return sets}
@@ -6631,14 +6634,28 @@ function slotLoadingContext(slot){
 function recommendation(ex){
   const compiler=typeof window!=="undefined"?window.RepForgeProgramCompiler:null;
   const engine=typeof window!=="undefined"?window.RepForgeProgression:null;
-  const definition=state.programMeta?.programDefinition,matched=canonicalPrescriptionSlot(ex,definition);
+  const definition=state.programMeta?.programDefinition;
+  let matched=canonicalPrescriptionSlot(ex,definition);
   if(!compiler?.prescriptionsForCycle||!engine?.recommendSets||!matched)
     return{status:"manual",engineStatus:"manual",reason:"canonical_program_definition_required",load:null,targetSets:[]};
   const cycleCount=Number.isInteger(definition.cycles)&&definition.cycles>0?definition.cycles:1;
   const elapsed=mesocycleLifecycle(state.programMeta).current||1,cycleNumber=Math.min(cycleCount,Math.max(1,elapsed));
   const draftExercise=activeWorkoutDraft?.exercises?.[ex.id];
   const nonRampOrdinals=draftExercise?.setOrder.map(id=>draftExercise.sets[id]).filter(set=>set.origin!=="ramp").map(set=>set.ordinal)||[];
-  const prescriptions=compiler.prescriptionsForCycle(definition,cycleNumber).filter(item=>item.slotId===matched.slot.id);
+  let prescriptions=compiler.prescriptionsForCycle(definition,cycleNumber).filter(item=>item.slotId===matched.slot.id);
+  // A fresh swap executes the replacement's metric prescription. The installed program stays unchanged.
+  const replacementId=draftExercise?.substitution?.replacement?.libraryId;
+  const replacementSets=draftExercise?.setOrder.map(id=>draftExercise.sets[id]).filter(set=>set.origin!=="ramp")||[];
+  if(replacementId&&replacementSets.length&&replacementSets.every(set=>set.programmed.sourceLibraryId===replacementId)){
+    const programmed=replacementSets[0].programmed;
+    matched={...matched,slot:{...matched.slot,exerciseId:replacementId,metricIds:programmed.metricIds,
+      metricDefinitions:programmed.metrics,metricOrigin:programmed.metricOrigin,loadingModel:programmed.loadingModel,
+      executionMode:programmed.loadingContext?.executionMode||null}};
+    prescriptions=prescriptions.map((item,index)=>{
+      const set=replacementSets[index]?.programmed||programmed;
+      return{...item,exerciseId:replacementId,metricIds:set.metricIds,metricDefinitions:set.metrics,
+        loadingModel:set.loadingModel,targets:set.targets,rir:set.targetRir,restSeconds:set.restSeconds}});
+  }
   if(!prescriptions.length)return{status:"manual",engineStatus:"manual",reason:"cycle_prescription_unavailable",load:null,targetSets:[]};
   const first=prescriptions[0],slotProjection=slotLoadingProjection(matched.slot);
   const history=progressionHistoryFor(first.exerciseId,first.metricIds,slotProjection,matched.slot.metricDefinitions);
@@ -9710,24 +9727,44 @@ function focusRefLoad(ex,n,draft,prev){
     if(Number.isFinite(v)&&v>0)return v}
   const old=prev.find(x=>x.set===n)||prev.at(-1);
   return old&&old.load!=null?+old.load:null}
+/* Only recorded working observations can seed a new movement. A swap first checks
+   its original movement; a new slot checks other recorded movements in recency order. */
+function focusOpeningLoad(options,de,loadMetric){
+  const loads=window.RepForgeStartingLoads,plain=loads.openingLoad(options);
+  const originalId=de.substitution?.original?.libraryId;
+  const rows=state.log.filter(row=>isWork(row)&&row.origin!=="ramp")
+    .sort((a,b)=>compareLogChronology(b,a)||(a.setIndex??a.set)-(b.setIndex??b.set));
+  const sources=originalId?[...rows.filter(row=>row.performedLibraryId===originalId),...rows.filter(row=>row.performedLibraryId!==originalId)]:rows;
+  for(const row of sources){
+    const sourceId=row.performedLibraryId||row.sourceLibraryId,exercise=rawExercise(sourceId),seen=readLogRow(row);
+    if(!exercise||sourceId===options.exercise?.id||!seen.strengthComparable||
+      row.loadingContext?.externalLoadMultiplier===0||!row.metricDefinitions?.some(metric=>metric.semantic===loadMetric.semantic))continue;
+    const from={exercise,lookup:rawCatalogObject,convention:row.loadingConvention,
+      equipmentName:row.equipmentId?rawCatalogObject(row.equipmentId)?.name:null,experience:options.experience};
+    const opening=loads.ratioLoad({anchorLoadKg:seen.load,from,to:options});
+    if(opening.basis==="ratio")return opening;
+  }
+  return plain;
+}
 /* The opening is a declared prior only while this lift has no working record.
    Pending values and provenance live in DraftV2, so a reload resumes the same ramp. */
 function focusRamp(ex,n,r){
   const de=activeWorkoutDraft?.exercises?.[ex.id],set=draftSetAt(ex.id,n),loads=window.RepForgeStartingLoads;
-  if(!loads||!de||!set||set.completion!=="pending"||set.role!=="working"||de.substitution||set.calibration||
+  if(!loads||!de||!set||set.completion!=="pending"||set.role!=="working"||set.calibration||
     r.status!=="new"||r.plannedLoad!=null||r.targetSets?.some(item=>item.planned)||last(ex).length||r.progressionInputs?.history?.length||
     de.setOrder.some(id=>de.sets[id].role==="working"&&(de.sets[id].completion!=="pending"||de.sets[id].performed)))return null;
-  const convention=de.programmed.loadingConvention;
-  if(!["external","per_side"].includes(convention)||de.programmed.loadingContext?.externalLoadMultiplier===0)return null;
+  const convention=set.programmed.loadingConvention;
+  if(!["external","per_side"].includes(convention)||set.programmed.loadingContext?.externalLoadMultiplier===0)return null;
   const metrics=draftSetMetrics(set),loadMetric=metrics.find(metric=>["loadKg","loadPerSideKg","persistentLoadPerSideKg"].includes(metric.semantic));
   const repsMetric=metrics.find(metric=>["reps","repsPerSide"].includes(metric.semantic));
   if(metrics.length!==2||!loadMetric||!repsMetric||!ex.min)return null;
   const grid=loadGridKg(loadStepKg(ex.libraryId)),exercise=rawExercise(ex.libraryId);
-  const equipmentName=de.programmed.equipmentId?rawCatalogObject(de.programmed.equipmentId)?.name:null;
-  const opening=loads.openingLoad({exercise,lookup:rawCatalogObject,equipmentName,convention,bodyweightKg:sessionBodyweightKg(),
-    experience:state.programMeta?.experience||"beginner",grid});
-  if(opening.loadKg==null)return null;
+  const equipmentName=set.programmed.equipmentId?rawCatalogObject(set.programmed.equipmentId)?.name:null;
   const recorded=set.startingLoad;
+  const opening=recorded?{loadKg:recorded.openingKg,basis:recorded.basis}
+    :focusOpeningLoad({exercise,lookup:rawCatalogObject,equipmentName,convention,bodyweightKg:sessionBodyweightKg(),
+      experience:state.programMeta?.experience||"beginner",grid},de,loadMetric);
+  if(opening.loadKg==null)return null;
   const load=Number(set.edited?.metrics?.[loadMetric.id]);
   return{set,de,loadMetric,repsMetric,grid,loadKg:load>0?load:opening.loadKg,
     record:recorded||{v:1,openingKg:opening.loadKg,basis:opening.basis,ramps:0,version:loads.PRIORS_VERSION}}}

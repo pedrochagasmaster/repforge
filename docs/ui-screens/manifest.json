@@ -2304,6 +2304,20 @@
       "label": "Finding a weight without bodyweight",
       "scenario": "Without bodyweight the opening uses the equipment floor and offers the existing Session bodyweight field.",
       "variants": "demandingText"
+    },
+    {
+      "id": "focus-ramp-ratio",
+      "flow": "workout",
+      "label": "Opening from a comparable movement",
+      "scenario": "A new lift opens at a logged working load from the same equipment class and table row.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "focus-ramp-substitution",
+      "flow": "workout",
+      "label": "Opening after a substitution",
+      "scenario": "A fresh substitution offers the original movement's working load within the same equipment class and table row.",
+      "variants": "demandingText"
     }
   ]
 }

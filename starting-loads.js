@@ -42,16 +42,21 @@
     const equipmentIndex = classes.length && classes.every(value => value === classes[0]) ? classes[0] : null;
     const patterns = names(exercise?.movementPattern, lookup);
     const experienceIndex = EXPERIENCE.indexOf(experience);
-    const fractions = patterns.map(pattern => {
-      const row = PRIORS[pattern] || (/accessory|acessory/i.test(pattern) ? PRIORS.Accessory : null);
-      return equipmentIndex == null || experienceIndex < 0 ? null : row?.[equipmentIndex]?.[experienceIndex];
-    }).filter(positive);
-    const fraction = fractions.length ? Math.min(...fractions) : null;
+    // Keep the row that supplies the minimum: a shared secondary pattern is not a transfer basis.
+    let fraction = null, priorRow = null;
+    for (const pattern of patterns) {
+      const key = PRIORS[pattern] ? pattern : /accessory|acessory/i.test(pattern) ? "Accessory" : null;
+      const value = equipmentIndex == null || experienceIndex < 0 ? null : PRIORS[key]?.[equipmentIndex]?.[experienceIndex];
+      if (positive(value) && (fraction == null || value < fraction || value === fraction && key < priorRow)) {
+        fraction = value;
+        priorRow = key;
+      }
+    }
     // The supplied grid starts at this equipment's lightest load. Free bars additionally require 20 kg.
     const floor = equipmentIndex === 0 ? 20 : 0;
     const loads = Array.isArray(grid) ? [...new Set(grid.filter(value => positive(value) && value >= floor))].sort((a, b) => a - b) : [];
     const excluded = convention === "bodyweight" || convention === "assistance" || convention === "configuration_required";
-    return { fraction: excluded ? null : fraction, loads: excluded ? [] : loads };
+    return { fraction: excluded ? null : fraction, priorRow, equipmentIndex, loads: excluded ? [] : loads };
   }
   function roundedLoad(raw, loads) {
     if (!loads.length) return null;
@@ -79,12 +84,14 @@
     const next = loadKg * (1 + (reps + 3) / 30) / (1 + (reps + targetRir) / 30);
     return roundedLoad(next, loads);
   }
-  /** `from` and `to` take openingLoad options. Ratios use unrounded fractions, not rounded opening loads.
-   * A usable history anchor needs no bodyweight; without both priors, use the destination's plain opening. */
+  /** Carry a working anchor only within the same equipment class and the same minimum-prior row.
+   * The fractions must agree; a destination floor above the anchor falls back to its plain opening. */
   function ratioLoad({ anchorLoadKg, from = {}, to = {} } = {}) {
     const old = parameters(from), next = parameters(to);
-    if (!positive(anchorLoadKg) || old.fraction == null || next.fraction == null || !next.loads.length) return openingLoad(to);
-    return { loadKg: roundedLoad(anchorLoadKg * next.fraction / old.fraction, next.loads), basis: "ratio" };
+    if (!positive(anchorLoadKg) || old.fraction == null || next.fraction == null ||
+        from.convention !== to.convention || old.equipmentIndex !== next.equipmentIndex || old.priorRow !== next.priorRow ||
+        old.fraction !== next.fraction || !next.loads.length || next.loads[0] > anchorLoadKg) return openingLoad(to);
+    return { loadKg: roundedLoad(anchorLoadKg, next.loads.filter(load => load <= anchorLoadKg)), basis: "ratio" };
   }
   const api = Object.freeze({ PRIORS_VERSION, PRIORS, openingLoad, nextRampLoad, ratioLoad });
   if (typeof module !== "undefined" && module.exports) module.exports = api;
