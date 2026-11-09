@@ -84,3 +84,5 @@ assert.equal(Transition.evaluateAdaptation(record,[],{week:'2026-11-09',observed
 assert.equal(Transition.evaluateAdaptation(record,detected,{week:'2026-11-09',observed:true}).outcome,'pattern_continued');
 assert.equal(Transition.evaluateAdaptation(record,[],{week:'2026-11-09',observed:false}).outcome,'insufficient');
 console.log('PASS adaptations: bounded patterns, proposal purity, three kinds, immutable past prescriptions, decision and evaluation policy, strict stored records');
+const swappedRecord={...record,kind:'swap_exercise',target:{slotId:'slot',exerciseId:'lift',replacementId:'alternate'}};
+assert.equal(Transition.evaluateAdaptation(swappedRecord,[{pattern:'recurring_skip',slotId:'slot',exerciseId:'alternate'}],{week:'2026-11-09',observed:true}).outcome,'pattern_continued','a recurring skip on the replacement is still the same affected slot pattern');
