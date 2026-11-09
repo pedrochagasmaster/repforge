@@ -6,6 +6,8 @@ import { importInto } from "./install-transfer-import.mjs";
 
 const OLD_RELEASE_SHA = "349054ab156ffe8dc8fc49565cfa427b8ef6be9d";
 const KEY = "repforge_program_setup_draft_v1";
+const RANGES_KEY = "repforge_import_ranges_v1";
+const pending = page => page.evaluate(key => JSON.parse(localStorage.getItem(key) || "null")?.ranges || {}, RANGES_KEY);
 const REPS = '["2555c6f170d88072bbf6d9ad3f16ea86"]';
 const DURATION = '["2555c6f170d88063941ef7c8956d760c"]';
 const slots = preview => preview.programDefinition.days.flatMap(day => day.slots);
@@ -53,6 +55,31 @@ async function replicas(page) {
   });
 }
 
+async function verifyInvalidDeviceRanges(browser, base, storage, original, check) {
+  const [slot] = slots(original.result.preview);
+  const valid = { schemaVersion: 1, draftId: original.draftId, ranges: { [slot.id]: { exerciseId: slot.exerciseId, min: 6, max: 8 } } };
+  const variants = [null, [], { ...valid, draftId: "another-draft" }, { ...valid, extra: true },
+    ...[null, [], { unknown: { exerciseId: slot.exerciseId, min: 6, max: 8 } },
+      ...[{ exerciseId: "custom:another-movement", min: 6, max: 8 }, { min: 0, max: 8 }, { min: 8, max: 6 },
+        { min: 6.5, max: 8 }, { min: 6, max: 1001 }, { min: 6, max: 8, extra: true }]
+        .map(range => ({ [slot.id]: { exerciseId: slot.exerciseId, ...range } }))]
+      .map(ranges => ({ ...valid, ranges }))];
+  for (const [index, record] of variants.entries()) {
+    const context = await browser.newContext({ storageState: storage, serviceWorkers: "block" });
+    try {
+      const page = await context.newPage();
+      await page.addInitScript(({ key, record }) => localStorage.setItem(key, JSON.stringify(record)), { key: RANGES_KEY, record });
+      await page.goto(base);await boot(page);
+      await page.click("#firstRunResumeSetup");
+      await page.locator("#entryEditorActivate, #entryEdit").first().waitFor();
+      if (await page.locator("#entryEdit").isVisible()) await page.click("#entryEdit");
+      await configure(page, slot.id, REPS);
+      const row = (await read(page)).result.preview.program[0];
+      check(row.min === 6 && row.max === 10, `malformed or unrelated device range ${index + 1} is ignored without losing the setup`);
+    } finally { await context.close(); }
+  }
+}
+
 async function verifyPreviousRelease(browser, base, storage, check) {
   const release = legacyRelease(OLD_RELEASE_SHA);
   for (const control of [false, true]) {
@@ -80,15 +107,21 @@ async function verifyPreviousRelease(browser, base, storage, check) {
         const raw = localStorage.getItem(key);
         return raw && window.RepForgeProgramEntry.normalizeSetupDraftEnvelope(raw).ok;
       }, KEY);
+      if (resumable) {
+        await page.locator("#entryEditorActivate, #entryEdit").first().waitFor();
+        if (await page.locator("#entryEdit").isVisible()) await page.click("#entryEdit");
+        await page.locator('#onbProgramEditor [data-role="metric-composition"]').first().waitFor();
+      }
       check(resumable && kept, `previous complete release keeps and resumes ${control ? "the unchanged control" : "the pending-range draft"}`);
     } finally { await context.close(); }
   }
 }
 
-async function verifyRecoveryExport(page, active, check) {
+async function verifyRecoveryExport(page, active, deviceRanges, check) {
   // Recreate termination after the durable commit and before setup cleanup.
-  await page.evaluate(async ({ key, raw }) => {
+  await page.evaluate(async ({ key, raw, deviceRanges }) => {
     localStorage.setItem(key, raw);
+    localStorage.setItem("repforge_import_ranges_v1", deviceRanges);
     const db = await new Promise((resolve, reject) => {
       const request = indexedDB.open("repforge");
       request.onsuccess = () => resolve(request.result);request.onerror = () => reject(request.error);
@@ -99,7 +132,7 @@ async function verifyRecoveryExport(page, active, check) {
       tx.oncomplete = resolve;tx.onerror = () => reject(tx.error);
     });
     db.close();
-  }, { key: KEY, raw: active.local._storageSetupActivation.raw });
+  }, { key: KEY, raw: active.local._storageSetupActivation.raw, deviceRanges });
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.locator("#storageExportA").waitFor();
   const download = page.waitForEvent("download");
@@ -110,7 +143,7 @@ async function verifyRecoveryExport(page, active, check) {
     "the visible Copy A recovery download excludes pending ranges inside activation receipts");
   await page.click("#storageOverwrite");await boot(page);
   const restored = await replicas(page);
-  check(restored.setup === null && restored.local.program[0].max === 8 && restored.idb.program[0].max === 8,
+  check(restored.setup === null && !Object.keys(await pending(page)).length && restored.local.program[0].max === 8 && restored.idb.program[0].max === 8,
     "boot recovers the committed activation and cleans the exact captured setup after replica damage");
 }
 
@@ -152,6 +185,9 @@ export async function verifyImportedRepRanges(browser, base) {
     const original = await read(page);
     const initial = original.result.preview;
     const [a, b, time] = slots(initial).map(slot => slot.id);
+    const initialRanges = await pending(page);
+    await page.click("#entryEditorSave");
+    await page.waitForFunction(() => document.querySelector("#entryEditorStatus")?.textContent === window.RepForgeI18n.t("entry.editor.saved"));
     const pendingStorage = await source.storageState();
     const revisionFailures = [];
     const revisionCheck = (condition, message) => {
@@ -159,46 +195,29 @@ export async function verifyImportedRepRanges(browser, base) {
       else check(condition, message);
     };
     await verifyPreviousRelease(browser, base, pendingStorage, revisionCheck);
+    await verifyInvalidDeviceRanges(browser, base, pendingStorage, original, check);
     await configure(page, a, REPS);
     let preview = (await read(page)).result.preview;
     check(preview.program[0].min === 6 && preview.program[0].max === 8,
       "Create custom and explicit Reps retain the imported 6-8", preview.program[0]);
     check(slots(preview)[0].prescriptionsByCycle.every(cycle => cycle.sets.every(set => set.targets.reps.min === 6 && set.targets.reps.max === 8)),
       "every set and cycle keeps the authored range");
-    check(initial.importedRepRanges?.[a]?.min === 6 && initial.importedRepRanges?.[b]?.min === 10,
-      "unconfigured imported ranges are keyed by slot identity");
+    check(initialRanges[a]?.min === 6 && initialRanges[b]?.min === 10 && !Object.hasOwn(initial, "importedRepRanges"),
+      "unconfigured imported ranges stay in a separate device record keyed by draft and slot identity");
     check(slots(initial).every(slot => !slot.metricIds.length && slot.prescriptionsByCycle.every(cycle => cycle.sets.every(set => !Object.keys(set.targets).length))),
       "pending ranges do not configure measurements or canonical targets");
-    check(!Object.hasOwn(preview.importedRepRanges || {}, a) && preview.importedRepRanges?.[b]?.max === 14,
+    check(!Object.hasOwn(await pending(page), a) && (await pending(page))[b]?.max === 14,
       "choosing Reps consumes only that slot's pending range");
 
-    // Validate the actual candidate at the same public boundary used at boot and transfer.
-    const validation = await page.evaluate(original => {
-      const Entry = window.RepForgeProgramEntry;
-      const valid = Entry.normalizeSetupDraft(original);
-      const key = Object.keys(original.result.preview.importedRepRanges)[0];
-      const variants = [null, [], { unknown: { min: 6, max: 8 } },
-        ...[{ min: 0, max: 8 }, { min: 8, max: 6 }, { min: 6.5, max: 8 }, { min: 6, max: 1001 },
-          { min: 6, max: 8, extra: true }].map(value => ({ [key]: value }))];
-      const invalid = variants.map(ranges => {
-        const state = structuredClone(original);state.result.preview.importedRepRanges = ranges;
-        return Entry.normalizeSetupDraft(state).ok;
-      });
-      const otherRoute = structuredClone(original);otherRoute.route = "build";otherRoute.step = "editor";otherRoute.result.route = "build";
-      delete otherRoute.result.preview.format;
-      const otherRouteControl = structuredClone(otherRoute);delete otherRouteControl.result.preview.importedRepRanges;
-      return { valid: valid.ok, preserved: JSON.stringify(valid.value?.result.preview.importedRepRanges) === JSON.stringify(original.result.preview.importedRepRanges),
-        invalid, otherRouteControl: Entry.normalizeSetupDraft(otherRouteControl).ok, otherRoute: Entry.normalizeSetupDraft(otherRoute).ok };
-    }, original);
-    check(validation.valid && validation.preserved, "setup normalization preserves valid pending ranges", validation);
-    check(validation.invalid.every(ok => ok === false) && validation.otherRouteControl && !validation.otherRoute,
-      "malformed, unbounded, unknown-slot and unrelated-route metadata is rejected", validation);
+    const valid = await page.evaluate(original => window.RepForgeProgramEntry.normalizeSetupDraft(original), original);
+    check(valid.ok && !JSON.stringify(valid.value).includes("importedRepRanges"),
+      "the public setup boundary keeps the previous release's unchanged candidate shape");
 
     await page.click("#entryEditorSave");
     await page.waitForFunction(() => document.querySelector("#entryEditorStatus")?.textContent === window.RepForgeI18n.t("entry.editor.saved"));
     await resume(page);
     preview = (await read(page)).result.preview;
-    check(preview.program[0].min === 6 && preview.program[0].max === 8 && preview.importedRepRanges?.[b]?.max === 14,
+    check(preview.program[0].min === 6 && preview.program[0].max === 8 && (await pending(page))[b]?.max === 14,
       "Save draft and reload retain configured targets and pending ranges separately");
 
     // Build a real transfer envelope from this device while setup is incomplete.
@@ -216,38 +235,39 @@ export async function verifyImportedRepRanges(browser, base) {
             logicalCloneSection: draft => window.RepForgeWorkoutDraft.logicalCloneSection(draft) },
           programEntryDraft: () => candidate, uiPreferences: () => window.__repforgeUi.loadUiPrefs(), analytics: () => ({ enabled: false }), telemetryIdentity: () => identity } });
     });
-    check(built.ok === true && built.value.programEntryDraft.result.preview.importedRepRanges?.[b]?.max === 14,
-      "a device mid-setup builds a valid transfer without dropping pending ranges", built.code);
+    check(built.ok === true && !JSON.stringify(built.value).includes("importedRepRanges") && !JSON.stringify(built.value).includes(RANGES_KEY),
+      "a device mid-setup builds a valid transfer with canonical targets and no device-only hints", built.code);
     const receiver = await destination.newPage();
     await receiver.goto(base);await boot(receiver);
     for (const script of ["install-transfer-contract.js", "install-transfer.js"]) await receiver.addScriptTag({ url: new URL(script, base).href });
     const imported = await importInto(receiver, built.value);
     check(imported?.ok === true, "the production install-transfer import accepts the mid-setup device", imported);
     await resume(receiver);
-    check((await read(receiver)).result.preview.importedRepRanges?.[b]?.max === 14,
-      "the transferred pending range survives destination reload and resume");
+    check(!Object.keys(await pending(receiver)).length && (await read(receiver)).result.preview.program[0].max === 8,
+      "the transferred setup resumes with configured targets while dropping device-only pending hints");
 
     for (const target of [page, receiver]) {
       await configure(target, b, REPS);
       await configure(target, time, DURATION);
       const ready = (await read(target)).result.preview;
-      check(ready.program[1].min === 10 && ready.program[1].max === 14,
-        "a second custom slot retains its different 10-14 range");
+      check(ready.program[1].min === (target === page ? 10 : 6) && ready.program[1].max === (target === page ? 14 : 10),
+        target === page ? "a second source slot retains its different 10-14 range" : "the receiver uses the normal default for its dropped pending hint");
       check(slots(ready)[2].prescriptionsByCycle.every(cycle => cycle.sets.every(set => !Object.hasOwn(set.targets, "reps"))) &&
-        !Object.hasOwn(ready.program[2], "min") && !!ready.importedRepRanges?.[time],
-        "a non-repetition composition receives no repetition target and does not consume the pending range");
+        !Object.hasOwn(ready.program[2], "min") && (target === page ? !!(await pending(target))[time] : !Object.keys(await pending(target)).length),
+        "a non-repetition composition receives no repetition target and leaves source hints separate");
+      const deviceRanges = await target.evaluate(key => localStorage.getItem(key), RANGES_KEY);
       await target.click("#entryEditorActivate");
       await answerEffortChoice(target);
       const active = await replicas(target);
       for (const state of [active.local, active.idb]) {
-        check(state.program[0].min === 6 && state.program[0].max === 8 && state.program[1].min === 10 && state.program[1].max === 14,
-          "activation writes both imported ranges to a durable replica");
+        check(state.program[0].min === 6 && state.program[0].max === 8 && state.program[1].min === (target === page ? 10 : 6) && state.program[1].max === (target === page ? 14 : 10),
+          "activation writes the configured ranges to a durable replica");
         const published = await target.evaluate(state => window.RepForgeDurableState.exportableState(state), state);
         check(!JSON.stringify(published).includes("importedRepRanges"),
           "pending import metadata never enters published program, custom identities, logs, history, backup or transfer data");
       }
-      check(active.setup === null, "activation removes the setup candidate and its unconsumed metadata");
-      if (target === page) await verifyRecoveryExport(target, active, revisionCheck);
+      check(active.setup === null && !Object.keys(await pending(target)).length, "activation removes the setup candidate and its device-only unconsumed hints");
+      if (target === page) await verifyRecoveryExport(target, active, deviceRanges, revisionCheck);
     }
     assert.deepEqual(revisionFailures, [], "#739 revision regressions");
     return passed;
