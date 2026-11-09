@@ -163,6 +163,29 @@ try {
     prInsufficient.outcomes.length === 0 && !prInsufficient.baselineVisible,
   "a PR may render while insufficient evidence still forbids new/outcome claims", JSON.stringify(prInsufficient));
 
+  const checkRow = { ...row("finding-current", "2026-09-17", "seed-ex-3", 60, 12, 0),
+    effortSource: "failure", calibration: { v: 1, predictedReps: 10, predictionEdited: false, prefillBasis: "reps_rir" } };
+  const finding = await build(page, [], [checkRow]);
+  const findingLine = page.locator("#sumFinding");
+  check(await findingLine.count() === 1 && /New today/.test(await findingLine.textContent() || ""),
+    "a test set released by this session appears above the tiles as New today");
+  check(await page.evaluate(() => JSON.parse(localStorage.getItem("repforge_ui_v1") || "{}").findingsSeen?.includes("first_check")),
+    "opening the real finish screen marks the displayed finding seen in device preferences");
+  check(!Object.hasOwn(finding.summary, "streak") && !await page.locator('[data-tile="streak"]').count(),
+    "neither the summary model nor its tiles retain the consecutive-week count");
+  if (await findingLine.count()) {
+    await findingLine.click();
+    check(await page.locator("#overviewProfile").isVisible() &&
+      await page.locator("#overviewProfile").evaluate(el => document.activeElement === el),
+      "the finding opens Progress Overview and focuses the profile");
+  } else check(false, "the finding opens Progress Overview and focuses the profile");
+  const repeated = await build(page, [], [checkRow]);
+  check(await page.locator("#sumFinding").count() === 1 &&
+    !/New today/.test(await page.locator("#sumFinding").textContent() || ""),
+    "after reload the same finding is no longer new and the next need takes its place");
+  check(!Object.hasOwn(JSON.parse(await page.evaluate(() => localStorage.getItem("repforge_v1"))), "findingsSeen"),
+    "seen findings stay outside durable training state");
+
   await context.close();
 } finally {
   await browser.close();
