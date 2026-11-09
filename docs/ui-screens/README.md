@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 255 screens,
-1503 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 259 screens,
+1535 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -238,6 +238,9 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Workout actions](screens/workout/actions__phone-390-light-en.png) | 8 | Focus session actions with a separate Cancel, before any action commits. |
 | [Workout — discomfort recorded](screens/workout/discomfort-mark__phone-390-light-en.png) | 8 | Exercise actions acknowledge a discomfort mark for this session. |
 | [Workout — skip reason](screens/workout/skip-reason__phone-390-light-en.png) | 8 | Closed skip reasons, with no reason chosen before the tap. |
+| [Finding an opening load](screens/workout/focus-ramp__phone-390-light-en.png) | 8 | A fresh generated program with bodyweight 80 kg offers the declared opening and the skip. |
+| [After an Easy ramp set](screens/workout/focus-ramp-easy__phone-390-light-en.png) | 8 | A completed Easy set is a warm-up; the cue offers the next grid load before the working sets. |
+| [Finding a weight without bodyweight](screens/workout/focus-ramp-floor__phone-390-light-en.png) | 8 | Without bodyweight the opening uses the equipment floor and offers the existing Session bodyweight field. |
 
 ### Session summary
 
@@ -302,6 +305,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [History — invalid edit](screens/history/edit-invalid__phone-390-light-en.png) | 8 | An invalid set value is held at the field boundary with the editor's validation state visible. |
 | [History — confirmed delete](screens/history/delete-confirm__phone-390-light-en.png) | 8 | The explicit delete confirmation surface for one selected session. |
 | [History — edit conflict](screens/history/conflict__phone-390-light-en.png) | 8 | A stale session edit refuses to overwrite a newer durable change and offers recovery actions. |
+| [Saved ramp rows](screens/history/ramp-rows__phone-390-light-en.png) | 8 | Two warm-up ramp rows precede the first working row, whose opening provenance survives saving. |
 
 ### Exercise library
 

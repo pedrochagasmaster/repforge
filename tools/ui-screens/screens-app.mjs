@@ -15,6 +15,7 @@ import { maybeStartLocalPreview } from "../local-preview.mjs";
 import { catalogState, directionDState, emptyEntryState, localeState } from "./fixtures.mjs";
 import { CAPTURE_NOW, dismissChrome, LOG_DRAFT, replayGuide, seed, sleep } from "./session.mjs";
 import { definitionSlot, installGeneratedProgram, isWeightRepsSlot, metricLogRow } from "../../test/fixtures/history-metric-rows.mjs";
+import { finishEarly } from "../../test/fixtures/focus-workout.mjs";
 import { openShelfField } from "../../test/browser.mjs";
 import { DIRECTION_D_CANONICAL_ID_BY_LEGACY_ID } from "./direction-d-canonical-fixture.generated.mjs";
 
@@ -419,6 +420,7 @@ export function appState(key, lang) {
     return emptyEntryState(lang);
   }
   if (key === "history/per-side-session" || key === "workout/focus-per-side") return emptyEntryState(lang);
+  if (["workout/focus-ramp","workout/focus-ramp-floor","workout/focus-ramp-easy","history/ramp-rows"].includes(key)) return emptyEntryState(lang);
   if (key === "workout/why-setup") return emptyEntryState(lang);
   if (DIRECTION_D_BEFORE_SESSION.has(key)) return localeState(directionDBeforeSession(), lang);
   if (DIRECTION_D_SUMMARY_SESSION[key]) return localeState(directionDThroughSession(DIRECTION_D_SUMMARY_SESSION[key]), lang);
@@ -1913,7 +1915,53 @@ async function captureProgramLab(page, result = false) {
     await page.locator('#scenarioHeading').evaluate(element => element.scrollIntoView({ block: 'start' }));
   }
 }
+async function rampFixture(page,{bodyweight=true}={}){
+  const state=await installGeneratedProgram(page,{name:"Session zero"});
+  state.profile=bodyweight?{weightKg:80}:{};state.programMeta.experience="beginner";state.settings.rirMode="effort";
+  delete state.settings.effortScale;
+  const target=state.program.find(row=>isWeightRepsSlot(definitionSlot(state.programMeta,row))&&row.sets>=3);
+  if(!target)throw new Error("ramp fixture requires a generated Weight+Reps slot");
+  await seed(page,state);
+  await page.evaluate(id=>window.__repforgeGoToLogExercise(id),target.id);
+  await page.locator("#workout .exercise.is-current [data-ramp-start]").waitFor();
+  return target;
+}
+async function rampAnswer(page,word,count){
+  const card="#workout .exercise.is-current";
+  await page.locator(`${card} [data-shelf-field="rir"]`).click();
+  await page.locator(`${card} [data-effchip][data-e="${word}"]`).click();
+  await page.evaluate(()=>window.__repforgeWorkoutDraft.flush());
+  await page.locator(`${card} .saveset`).click();
+  if(word==="easy"){
+    await page.locator(`${card} .saveset[data-save$="_${count+1}"]`).waitFor();
+    await page.waitForFunction(()=>window.__repforgeRest.state().active);
+    await page.evaluate(()=>window.stopRest());
+    await page.waitForFunction(()=>!window.__repforgeRest.state().active);
+    await page.locator(`${card} [data-ramp-start][data-ramp-n="${count+1}"]`).waitFor();
+  }
+  else {
+    await page.waitForFunction(()=>window.__repforgeRest.state().active);
+    await page.evaluate(()=>window.stopRest());
+    await page.waitForFunction(()=>!window.__repforgeRest.state().active);
+    await page.locator(`${card} .fx-cue.is-now`).waitFor();
+  }
+}
+
 export const APP_SCENARIOS = {
+  "workout/focus-ramp": async page=>{await rampFixture(page)},
+  "workout/focus-ramp-floor": async page=>{await rampFixture(page,{bodyweight:false})},
+  "workout/focus-ramp-easy": async page=>{
+    await rampFixture(page);await page.locator("#workout .exercise.is-current [data-ramp-start]").click();
+    await rampAnswer(page,"easy",1);
+  },
+  "history/ramp-rows": async page=>{
+    await rampFixture(page);await page.locator("#workout .exercise.is-current [data-ramp-start]").click();
+    await rampAnswer(page,"easy",1);await rampAnswer(page,"easy",2);await rampAnswer(page,"hard",2);
+    await finishEarly(page);await page.locator("#sumDone").click();
+    await view(page,"history");await page.locator("#sessions .session__open").first().click();
+    await page.locator(".session--read").waitFor();
+    await page.waitForFunction(()=>!document.body.classList.contains("is-pushing"));
+  },
   "programlab/editor": page => captureProgramLab(page),
   "programlab/comparison": page => captureProgramLab(page, true),
   "catalog-recovery/unavailable": reloadWithUnavailableExerciseCatalog,

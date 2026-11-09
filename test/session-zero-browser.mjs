@@ -94,9 +94,9 @@ try{
   await page.evaluate(id=>window.__repforgeGoToLogExercise(id),target.id);
   ex=await exercise(page);
   check(Object.values(ex.sets).filter(set=>set.origin==="ramp").length===3,"three ramp sets survive normal boot and reload");
-  await answer(page,"hard");await nextWorking(page,1);
+  await answer(page,"easy");await nextWorking(page,1);
   ex=await exercise(page);working=Object.values(ex.sets).find(set=>set.role==="working"&&set.completion!=="pending");
-  check(working.startingLoad.ramps===3&&working.completion.effortSource==="effort","Hard hands off with opening provenance and word effort");
+  check(working.startingLoad.ramps===3&&working.completion.effortSource==="effort","a fourth Easy hands off at the three-ramp ceiling with opening provenance");
   await page.waitForFunction(()=>document.querySelector("#workout .exercise.is-current .fx-cue.is-now"));
   check(await page.locator(`${card} [data-ramp-start]`).count()===0,"working set ends the ramp and the live engine takes over");
   const saved=await finishEarly(page);check(saved.committed,"ramp session saves through the production finish flow");
@@ -118,7 +118,8 @@ try{
   await page.reload();await waitForAppBoot(page,{base:BASE});
   check((await page.evaluate(()=>JSON.parse(localStorage.getItem("repforge_v1")).log)).find(row=>row.startingLoad)?.startingLoad.ramps===3,"backup Replace and production reload retain the opening provenance");
   await page.evaluate(id=>window.__repforgeGoToLogExercise(id),target.id);
-  check(await page.locator(`${card} .fx-cue.is-ramp`).count()===0,"the lift's own saved history skips the ramp on its next session");
+  await page.locator(`${card} .fx-cue.is-now`).waitFor();
+  check(await page.locator(`${card} .fx-cue.is-ramp`).count()===0,"the lift's own saved history replaces the prior with a target on its next session");
   await run.context.close();
 
   const interrupted=await open(browser);
@@ -138,6 +139,13 @@ try{
   const typedSet=Object.values((await exercise(typed.page)).sets).find(set=>set.completion!=="pending");
   check(typedSet.startingLoad.basis==="typed"&&typedSet.startingLoad.openingKg===35,"skip records the chosen weight as typed");
   await typed.context.close();
+
+  const hard=await open(browser);
+  await hard.page.locator(`${card} [data-ramp-start]`).click();
+  await answer(hard.page,"hard");await nextWorking(hard.page,1);
+  const hardSet=Object.values((await exercise(hard.page)).sets).find(set=>set.completion!=="pending");
+  check(hardSet.role==="working"&&hardSet.startingLoad.ramps===0&&hardSet.completion.effortSource==="effort","Hard is the first working set at the opening weight");
+  await hard.context.close();
 
   const max=await open(browser,{mode:"numeric"});
   await max.page.locator(`${card} [data-ramp-start]`).click();

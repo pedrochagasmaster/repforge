@@ -455,6 +455,8 @@
     }
     if (value.setId !== setId || !isText(value.setId, { max: MAX_ID })) issues.push(`${path}.setId`);
     if (!isSafeInteger(value.ordinal, 1)) issues.push(`${path}.ordinal`);
+    if (hasOwn(value, "origin") && value.origin !== "ramp") issues.push(`${path}.origin`);
+    if (hasOwn(value, "startingLoad") && !validStartingLoad(value.startingLoad)) issues.push(`${path}.startingLoad`);
     if (!SET_ROLES.has(value.role)) issues.push(`${path}.role`);
     validateProgrammedSet(value.programmed, `${path}.programmed`, issues);
     if (!isPlainObject(value.edited)) issues.push(`${path}.edited:object`);
@@ -482,6 +484,14 @@
     }
     if (hasOwn(value, "performed")) validateMovementSnapshot(value.performed, `${path}.performed`, issues);
     if (hasOwn(value, "calibration") && !validCalibration(value.calibration)) issues.push(`${path}.calibration`);
+  }
+
+  function validStartingLoad(value) {
+    const keys = ["v", "openingKg", "basis", "ramps", "version"];
+    return isPlainObject(value) && Object.keys(value).length === keys.length && keys.every(key => hasOwn(value, key)) &&
+      value.v === 1 && typeof value.openingKg === "number" && Number.isFinite(value.openingKg) && value.openingKg > 0 && value.openingKg <= 1000 &&
+      ["prior", "ratio", "floor", "typed"].includes(value.basis) && Number.isSafeInteger(value.ramps) && value.ramps >= 0 && value.ramps <= 3 &&
+      isText(value.version, { max: 80 });
   }
 
   function validCalibration(value) {
@@ -632,6 +642,7 @@
       !["source_catalog", "user_defined"].includes(value.programmed?.metricOrigin)) {
       issues.push(`${path}.programmed.metricOrigin:required-for-metric-composition`);
     }
+    if (value.setOrder.filter(id => value.sets[id]?.origin === "ramp").length > 3) issues.push(`${path}.ramp-limit`);
     if (value.programmed?.sets !== value.setOrder.length) issues.push(`${path}.programmed.sets:coverage`);
   }
 
@@ -1145,7 +1156,7 @@
       for (const setId of exercise.setOrder) {
         const set = exercise.sets[setId];
         if (!isPlainObject(set)) return false;
-        if (set.completion !== "pending" || hasTouchedValue(set.touched)) return false;
+        if (set.startingLoad || set.origin === "ramp" || set.completion !== "pending" || hasTouchedValue(set.touched)) return false;
       }
     }
     return true;
@@ -1328,6 +1339,50 @@
     const next = jsonClone(draft);
     let item;
     switch (command.type) {
+      case "insertSet": {
+        item = targetExercise(next, command);
+        if (isDomainError(item)) return item;
+        const exercise = item.exercise;
+        if (exercise.setOrder.some(id => exercise.sets[id].role === "working" && (exercise.sets[id].completion !== "pending" || exercise.sets[id].performed))) return error("ramp-after-working-set");
+        if (exercise.setOrder.filter(id => exercise.sets[id].origin === "ramp").length >= 3) return error("ramp-limit");
+        const before = exercise.setOrder.indexOf(command.beforeSetId);
+        if (before < 0 || !isText(command.setId, { max: MAX_ID }) || hasOwn(exercise.sets, command.setId) ||
+          command.role !== "warmup" || command.origin !== "ramp") return error("invalid-insert-set");
+        const set = { setId: command.setId, ordinal: before + 1, role: "warmup", origin: "ramp",
+          programmed: jsonClone(command.programmed ?? {}), edited: jsonClone(command.edited ?? {}),
+          touched: { load: true, reps: true, effort: true,
+            ...(command.programmed?.metrics ? { metrics: Object.fromEntries(command.programmed.metrics.map(metric => [metric.id, true])) } : {}) },
+          completion: "pending" };
+        const issues = [];
+        validateSet(set, command.setId, "insertSet", issues);
+        if (issues.length) return error("invalid-insert-set", { issues });
+        if (hasOwn(command, "startingLoad")) {
+          if (!validStartingLoad(command.startingLoad) || command.startingLoad.ramps !==
+            exercise.setOrder.filter(id => exercise.sets[id].origin === "ramp").length + 1) return error("invalid-starting-load");
+          exercise.sets[command.beforeSetId].startingLoad = jsonClone(command.startingLoad);
+        }
+        if (hasOwn(command, "nextLoadKg")) {
+          if (typeof command.nextLoadKg !== "number" || !Number.isFinite(command.nextLoadKg) || command.nextLoadKg <= 0 || command.nextLoadKg > 1000) return error("invalid-ramp-load");
+          const pending = exercise.sets[command.beforeSetId];
+          if (pending.role !== "working" || pending.completion !== "pending") return error("invalid-ramp-target");
+          pending.edited.load = String(command.nextLoadKg);
+          pending.edited.reps = editableText(pending.programmed.minReps);
+          pending.edited.rir = null;
+          pending.edited.effort = null;
+          pending.touched = { load: false, reps: false, effort: false };
+          if (pending.programmed.metrics) {
+            pending.edited.metrics = Object.fromEntries(pending.programmed.metrics.map(metric => [metric.id,
+              LOAD_SEMANTICS.has(metric.semantic) ? String(command.nextLoadKg)
+                : ["reps", "repsPerSide"].includes(metric.semantic) ? editableText(pending.programmed.minReps) : null]));
+            pending.touched.metrics = Object.fromEntries(pending.programmed.metrics.map(metric => [metric.id, false]));
+          }
+        }
+        exercise.programmed.sets += 1;
+        exercise.sets[command.setId] = set;
+        exercise.setOrder.splice(before, 0, command.setId);
+        exercise.setOrder.forEach((id, index) => { exercise.sets[id].ordinal = index + 1; });
+        break;
+      }
       case "editSetField": {
         item = targetSet(next, command);
         if (isDomainError(item)) return item;
@@ -1419,6 +1474,7 @@
             !isText(update.setId, { max: MAX_ID }) || !isPlainObject(update.fields)) {
             return error("invalid-suggestion-update");
           }
+          if (hasOwn(update, "startingLoad") && !validStartingLoad(update.startingLoad)) return error("invalid-starting-load");
           const identity = `${update.exerciseInstanceId}\u0000${update.setId}`;
           if (seen.has(identity)) return error("duplicate-suggestion-update", {
             exerciseInstanceId: update.exerciseInstanceId,
@@ -1463,6 +1519,10 @@
           if (isDomainError(found)) return found;
           const { exercise, set } = found;
           if (exercise.status === "skipped" || set.role === "warmup" || set.completion !== "pending") continue;
+          if (hasOwn(update, "startingLoad")) {
+            set.startingLoad = jsonClone(update.startingLoad);
+            changed = true;
+          }
           for (const [field, rawValue] of Object.entries(update.fields)) {
             if (field === "metrics") {
               for (const [metricId, rawMetricValue] of Object.entries(rawValue)) {
@@ -1488,6 +1548,10 @@
       case "completeSet": {
         item = targetSet(next, command);
         if (isDomainError(item)) return item;
+        if (hasOwn(command, "startingLoad")) {
+          if (!validStartingLoad(command.startingLoad)) return error("invalid-starting-load");
+          item.set.startingLoad = jsonClone(command.startingLoad);
+        }
         // Effort the lifter never touched logs what its field shows (the caller's `prefill`, else the programmed
         // target), written into the set so the live session and History read the same value (Plan 077, A5), and
         // recorded as a prefill rather than an entry.
@@ -1897,6 +1961,8 @@
         else if (performed.movementId) row.performedMovementId = performed.movementId;
         if (exercise.setupNotes.trim()) row.exNote = exercise.setupNotes.trim();
         if (set.role === "warmup") row.warmup = true;
+        if (set.role === "working" && validStartingLoad(set.startingLoad) &&
+          !rows.some(prior => prior.exerciseId === exercise.exerciseInstanceId && !prior.warmup)) row.startingLoad = jsonClone(set.startingLoad);
         const bodyweight = draft.session.bodyweight;
         if (bodyweight != null && bodyweight !== "") row.bodyweight = Number(bodyweight);
         rows.push(row);
@@ -2203,6 +2269,7 @@
     SKIP_REASONS,
     EFFORT_SOURCES,
     validCalibration,
+    validStartingLoad,
     create,
     parse,
     migrateLegacy,

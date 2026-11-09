@@ -673,12 +673,15 @@ function historyReadingView(s,rows){
     const count=metricRows?records.length+(showRir?1:0):3;
     const headers=metricRows?historyMetricHeader(records)+(showRir?`<span class="fx-col">${esc(t("glossary.term.RIR"))}</span>`:""):
       `<span class="fx-col">${esc(unitLabel())}</span><span class="fx-col">${esc(t("log.reps"))}</span><span class="fx-col">${esc(t("glossary.term.RIR"))}</span>`;
+    const firstWorking=g.rows.find(row=>!row.warmup),ramps=firstWorking?.startingLoad?.ramps||0;
     const setRows=g.rows.map(row=>{
       const cells=metricRows?(historyMetricRecords(row)||[]).map(record=>historyMetricCell(row,record)).join("")+
         (showRir?`<span class="fx-col">${row.rir==null||row.rir===""?"–":esc(fmt(row.rir))}</span>`:""):
         `<span class="fx-col">${esc(fmtLoad(row.load))}</span><span class="fx-col">${esc(row.reps==null||row.reps===""?"–":row.reps)}</span>`+
         `<span class="fx-col">${esc(row.rir==null||row.rir===""?"–":fmt(row.rir))}</span>`;
-      return`<div class="ledgerline"><span class="ledgerline__idx">${esc(row.warmup?"W"+row.set:row.set)}</span>`+
+      const rampLabel=row.warmup&&ramps>0&&row.set<firstWorking.set&&row.set>=firstWorking.set-ramps
+        ?` role="group" aria-label="${esc(t("history.row.ramp",{n:row.set}))}"`:"";
+      return`<div class="ledgerline"${rampLabel}><span class="ledgerline__idx">${esc(row.warmup?"W"+row.set:row.set)}</span>`+
         `<span class="ledgerline__vals history-metric-grid" style="--history-metric-count:${count}">${cells}</span></div>`}).join("");
     const groupHeader=`<div class="ledgerline__head histpage__cols"><span>${esc(t("log.set"))}</span>`+
       `<span class="ledgerline__vals history-metric-grid" style="--history-metric-count:${count}">${headers}</span></div>`;
