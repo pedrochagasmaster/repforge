@@ -128,6 +128,23 @@ async function readReplicas(page) {
   return { local: semantic(local), idb: semantic(idb), rawLocal: localRaw };
 }
 
+async function transitionRetryArtifacts(page) {
+  return page.evaluate(() => Object.keys(localStorage).filter((key) =>
+    key.startsWith("repforge_pending_v1:") || key.startsWith("repforge_draft_v1:closing") ||
+    key.startsWith("repforge_draft_v1:pending")
+  ));
+}
+
+function transitionReplicaSummary(replicas) {
+  const summary = (replica) => ({
+    programId: replica?.programId,
+    revision: replica?.revision,
+    transitionId: replica?.transitionIn?.transitionId ?? null,
+    historyLen: replica?.historyLen,
+  });
+  return { local: summary(replicas.local), idb: summary(replicas.idb) };
+}
+
 async function clearStorage(page) {
   await page.evaluate(async ({ key, draftKey, checkpointKey, dbName }) => {
     localStorage.removeItem(key);
@@ -327,6 +344,366 @@ async function setupPredecessorWithSentinelAndDraft(page, tag = "p6b") {
     preDraftRaw: draftSetup.raw,
     preCheckpointRaw: draftSetup.checkpointRaw,
   };
+}
+
+function proposeRetryChange(page, tag, change = { kind: "fewer_days", daysPerWeek: 3 }) {
+  return page.evaluate(async ({ tag, change }) => {
+    const result = await window.__repforgeProgramTransition.proposeChange({
+      change,
+      transitionId: `tr_retry_${tag}`,
+      successorProgramId: `prog_retry_${tag}`,
+      createdAt: "2026-11-01T12:00:00.000Z",
+    });
+    if (!result?.ok) return result;
+    return {
+      ...result,
+      args: {
+        proposal: result.proposal,
+        proposalHash: result.proposal.proposalHash,
+        transitionId: result.proposal.transitionId,
+        successorProgramId: result.proposal.successor.programId,
+        confirmedAt: "2026-11-01T12:05:00.000Z",
+        acknowledgedDraftRaw: localStorage.getItem("repforge_draft_v1"),
+      },
+    };
+  }, { tag, change });
+}
+
+// Each case gets an activated program and a proposal in a fresh context.
+async function withRetryProposal(browser, tag, run, { beforePropose } = {}) {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  try {
+    await page.goto(BASE);
+    await waitForAppBoot(page, { base: BASE });
+    const activation = await activateGeneratedPredecessor(page);
+    if (!activation.ok) throw new Error(`${tag} fixture activation failed: ${JSON.stringify(activation).slice(0, 500)}`);
+    await beforePropose?.(page);
+    const proposed = await proposeRetryChange(page, tag);
+    if (!proposed?.ok) throw new Error(`${tag} fixture proposal failed: ${proposed?.code}`);
+    await run({ context, page, args: proposed.args });
+  } finally {
+    await context.close();
+  }
+}
+
+// Flippable faults on the production storage boundary. A reload clears them.
+async function armRetryFaults(page, faults = {}) {
+  await page.evaluate((next) => {
+    if (!window.__retryFaults) {
+      const io = window.RepForgeDurableState.storageIO;
+      const { writeIdb } = io;
+      const { removeItem, setItem } = Storage.prototype;
+      const quota = () => new DOMException("probe", "QuotaExceededError");
+      io.writeIdb = async (snapshot) => window.__retryFaults.idb ? false : writeIdb(snapshot);
+      Storage.prototype.removeItem = function(key) {
+        const name = String(key), fault = window.__retryFaults;
+        if (fault.journalRemove && name.startsWith("repforge_pending_v1:")) throw quota();
+        if (fault.closeRemove && name.startsWith("repforge_draft_v1:closing:")) throw quota();
+        return removeItem.call(this, key);
+      };
+      Storage.prototype.setItem = function(key, value) {
+        if (window.__retryFaults.closeSet && String(key).startsWith("repforge_draft_v1:closing:")) throw quota();
+        return setItem.call(this, key, value);
+      };
+    }
+    window.__retryFaults = next;
+  }, faults);
+}
+
+const journalKeys = (artifacts) => artifacts.filter((key) => key.startsWith("repforge_pending_v1:"));
+
+// F4: a retry heals before it closes, so a failed heal keeps the only recovery copy.
+async function checkFailedHealKeepsJournal(browser) {
+  await withRetryProposal(browser, "order", async ({ page, args }) => {
+    const predecessorId = args.proposal.predecessor.programId;
+    await armRetryFaults(page, { idb: true, journalRemove: true });
+    const first = await confirmTransition(page, args);
+    const split = await readReplicas(page);
+    check(first?.settled === false && split.local.programId === args.successorProgramId &&
+      split.idb.programId === predecessorId && journalKeys(await transitionRetryArtifacts(page)).length === 1,
+    "the first attempt leaves split replicas and one journal", transitionReplicaSummary(split));
+
+    await armRetryFaults(page, { idb: true });
+    const failedHeal = await confirmTransition(page, args);
+    const afterFailedHeal = await transitionRetryArtifacts(page);
+    check(failedHeal?.committed === false && failedHeal?.settled === false,
+      "a retry whose heal fails stays unsettled", failedHeal);
+    check(journalKeys(afterFailedHeal).length === 1,
+      "a retry whose heal fails keeps its recovery journal", { code: failedHeal?.code, afterFailedHeal });
+
+    await page.evaluate((key) => localStorage.removeItem(key), KEY);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { base: BASE });
+    const recovered = await readReplicas(page);
+    check(recovered.local?.programId === args.successorProgramId && recovered.idb?.programId === args.successorProgramId &&
+      recovered.local?.historyLen === 1,
+    "boot recovers the successor from the journal the failed retry kept", transitionReplicaSummary(recovered));
+  });
+
+  await withRetryProposal(browser, "healfirst", async ({ page, args }) => {
+    await armRetryFaults(page, { idb: true, journalRemove: true });
+    await confirmTransition(page, args);
+    await armRetryFaults(page, { journalRemove: true });
+    const retry = await confirmTransition(page, args);
+    const healed = await readReplicas(page);
+    check(retry?.settled === false && healed.idb.programId === args.successorProgramId &&
+      healed.local.revision === healed.idb.revision,
+    "a retry heals both replicas before it reaches the journal close that fails",
+    { code: retry?.code, replicas: transitionReplicaSummary(healed) });
+  });
+}
+
+const closeMarkers = (artifacts) => artifacts.filter((key) => key.startsWith("repforge_draft_v1:closing"));
+
+const openRetryWorkout = (page) => page.evaluate(async () => {
+  const day = window.__repforgeWorkoutDraft.state().program[0].day;
+  return window.__repforgeEnterWorkout({ day });
+});
+
+const editRetryNotes = (page, value) => page.evaluate(async (notes) => {
+  await window.__repforgeWorkoutDraft.dispatch("setSessionNotes", { value: notes });
+  await window.__repforgeWorkoutDraft.flush();
+  return localStorage.getItem("repforge_draft_v1");
+}, value);
+
+// F1: a retry that finds no journal still ends the close of the attempt before it.
+async function checkStrandedCloseMarkerSettles(browser) {
+  await withRetryProposal(browser, "closemarker", async ({ page, args }) => {
+    await armRetryFaults(page, { closeRemove: true });
+    const first = await confirmTransition(page, args);
+    const stranded = await transitionRetryArtifacts(page);
+    check(first?.settled === false && journalKeys(stranded).length === 0 && closeMarkers(stranded).length === 1,
+      "a failed close marker removal leaves the marker without a journal", { first, stranded });
+
+    const whileFaulted = await confirmTransition(page, args);
+    const markerWhileFaulted = closeMarkers(await transitionRetryArtifacts(page));
+    check(whileFaulted?.settled === false && markerWhileFaulted.length === 1,
+      "a retry stays unsettled while the close marker remains", { whileFaulted, markerWhileFaulted });
+
+    await armRetryFaults(page, {});
+    const cleared = await confirmTransition(page, args);
+    const remaining = await transitionRetryArtifacts(page);
+    check(cleared?.committed === true && cleared?.settled === true && remaining.length === 0,
+      "a retry ends the close once the fault clears", { cleared, remaining });
+    check(await openRetryWorkout(page) === true, "a new workout starts after the settled retry");
+  });
+
+  await withRetryProposal(browser, "closesidecar", async ({ page, args }) => {
+    await armRetryFaults(page, { closeRemove: true });
+    await confirmTransition(page, args);
+    const before = await editRetryNotes(page, "edit-during-stranded-close");
+    await armRetryFaults(page, {});
+    const cleared = await confirmTransition(page, args);
+    const remaining = await transitionRetryArtifacts(page);
+    const canonical = await page.evaluate(() => localStorage.getItem("repforge_draft_v1"));
+    check(cleared?.settled === true && remaining.length === 0 && canonical?.includes("edit-during-stranded-close"),
+      "the settled retry promotes the draft edit it found in a sidecar", { cleared, remaining, before: before?.length });
+    const after = await editRetryNotes(page, "edit-after-settled");
+    check(after?.includes("edit-after-settled") && (await transitionRetryArtifacts(page)).length === 0,
+      "a draft edit after the settled retry reaches the canonical draft");
+  }, { beforePropose: async (page) => {
+    if (await openRetryWorkout(page) !== true) throw new Error("the sidecar fixture could not open a workout");
+    await editRetryNotes(page, "edit-before-proposal");
+  } });
+}
+
+async function openFollowerTab(context) {
+  const follower = await context.newPage();
+  await follower.goto(BASE);
+  await waitForAppBoot(follower, { base: BASE });
+  return follower;
+}
+
+// F2: a locked preflight that matches rejects before the journal is rebased, so
+// this attempt's journal is intent only and can close without matching the receipt.
+async function checkPreflightPendingJournalCloses(browser) {
+  await withRetryProposal(browser, "intent", async ({ context, page, args }) => {
+    const follower = await openFollowerTab(context);
+    await armRetryFaults(follower, { journalRemove: true });
+    const committed = await confirmTransition(page, args);
+    check(committed?.committed === true && committed?.settled === true, "the first tab commits the proposal", committed);
+    const faulted = await confirmTransition(follower, args);
+    check(faulted?.settled === false && faulted?.code === "transition_settlement_pending" && faulted?.applied === true,
+      "an unclosable intent-only journal reports pending cleanup, not a mismatch", faulted);
+  });
+
+  await withRetryProposal(browser, "intentclose", async ({ context, page, args }) => {
+    const follower = await openFollowerTab(context);
+    await armRetryFaults(follower, { journalRemove: true });
+    // The attempt's own discard fails, and the fault clears once settlement holds the lock.
+    await follower.evaluate(() => {
+      window.__repforgeDurableStateTestHooks = { durableSettlementLockHeld: () => { window.__retryFaults = {}; } };
+    });
+    await confirmTransition(page, args);
+    const settled = await confirmTransition(follower, args);
+    const remaining = await transitionRetryArtifacts(follower);
+    check(settled?.committed === true && settled?.settled === true && remaining.length === 0,
+      "settlement closes this attempt's intent-only journal", { settled, remaining });
+  });
+}
+
+async function checkRecoveredAfterReload(page, args, label) {
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForAppBoot(page, { base: BASE });
+  const reloaded = await readReplicas(page);
+  check(reloaded.local.programId === args.successorProgramId && reloaded.idb.programId === args.successorProgramId &&
+    reloaded.local.historyLen === 1 && reloaded.idb.historyLen === 1,
+  `${label}: a reload keeps the successor and one archive`, transitionReplicaSummary(reloaded));
+}
+
+// F3: settlement finds every journal of this transition in storage, whatever
+// attempt came last.
+async function checkEveryOutstandingJournalCloses(browser) {
+  await withRetryProposal(browser, "pointer", async ({ page, args }) => {
+    await armRetryFaults(page, { journalRemove: true });
+    await confirmTransition(page, args);
+    await armRetryFaults(page, {});
+    const other = await proposeRetryChange(page, "pointerother", { kind: "shorter_sessions", sessionMinutes: 60 });
+    await page.evaluate(async () => {
+      const next = window.__repforgeWorkoutDraft.state();
+      next.settings = { ...next.settings, restSec: 101 };
+      await window.__repforgeCommitProposedState(next);
+      await window.__repforgeStorage.flush();
+    });
+    const stale = await confirmTransition(page, other.args);
+    check(stale?.code === "stale_proposal", "an intervening proposal is refused as stale", stale);
+    const retry = await confirmTransition(page, args);
+    const remaining = await transitionRetryArtifacts(page);
+    check(retry?.settled === true && remaining.length === 0,
+      "a refused attempt for another proposal does not hide this transition's journal", { retry, remaining });
+    await checkRecoveredAfterReload(page, args, "after a refused attempt");
+    check(await page.evaluate(() => window.__repforgeWorkoutDraft.state().settings.restSec) === 101,
+      "the later setting survives the settled retry");
+  });
+
+  await withRetryProposal(browser, "repeat", async ({ context, page, args }) => {
+    const follower = await openFollowerTab(context);
+    await armRetryFaults(follower, { journalRemove: true });
+    await confirmTransition(page, args);
+    await confirmTransition(follower, args);
+    await confirmTransition(follower, args);
+    const stacked = journalKeys(await transitionRetryArtifacts(follower));
+    check(stacked.length === 2, "each faulted attempt leaves its own journal", stacked);
+    await armRetryFaults(follower, {});
+    const retry = await confirmTransition(follower, args);
+    const remaining = await transitionRetryArtifacts(follower);
+    check(retry?.settled === true && remaining.length === 0,
+      "a settled retry closes the journal of every earlier attempt", { retry, remaining });
+    await checkRecoveredAfterReload(follower, args, "after repeated attempts");
+  });
+
+  await withRetryProposal(browser, "normalpath", async ({ page, args }) => {
+    await armRetryFaults(page, { closeSet: true });
+    await confirmTransition(page, args);
+    await confirmTransition(page, args);
+    await armRetryFaults(page, {});
+    const committed = await confirmTransition(page, args);
+    const remaining = await transitionRetryArtifacts(page);
+    check(committed?.settled === true && remaining.length === 0,
+      "a normal commit does not report settled over journals from earlier attempts", { committed, remaining });
+    await checkRecoveredAfterReload(page, args, "after a normal commit over earlier attempts");
+  });
+
+  await withRetryProposal(browser, "unreadable", async ({ page, args }) => {
+    await armRetryFaults(page, { journalRemove: true });
+    await confirmTransition(page, args);
+    await armRetryFaults(page, {});
+    await page.evaluate(() => localStorage.setItem("repforge_pending_v1:unreadable", "{"));
+    const refused = await confirmTransition(page, args);
+    check(refused?.settled === false && refused?.code === "transition_settlement_journal_invalid",
+      "a journal that cannot be read may be this transition's, so a retry stays unsettled", refused);
+    await checkRecoveredAfterReload(page, args, "after an unreadable journal");
+    const remaining = await transitionRetryArtifacts(page);
+    check(remaining.length === 0, "boot clears the unreadable journal", remaining);
+  });
+}
+
+async function checkTransitionRetryFault(browser, kind) {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  try {
+    await page.goto(BASE);
+    await waitForAppBoot(page, { base: BASE });
+    await clearStorage(page);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { base: BASE });
+
+    const activation = await activateGeneratedPredecessor(page);
+    check(activation.ok, `${kind} transition retry fixture activates its predecessor`, activation);
+    const proposed = await proposeRetryChange(page, kind);
+    check(proposed?.ok === true, `${kind} transition retry proposal is produced`, proposed?.code);
+    if (!proposed?.ok) return;
+
+    await page.evaluate((faultKind) => {
+      const io = window.RepForgeDurableState.storageIO;
+      const writeIdb = io.writeIdb;
+      const removeItem = Storage.prototype.removeItem;
+      io.writeIdb = async (snapshot) => faultKind === "idb" ? false : writeIdb(snapshot);
+      Storage.prototype.removeItem = function(key) {
+        if (faultKind === "cleanup" && String(key).startsWith("repforge_pending_v1:")) {
+          throw new DOMException("probe cleanup quota", "QuotaExceededError");
+        }
+        return removeItem.call(this, key);
+      };
+      window.__clearTransitionRetryFault = () => {
+        io.writeIdb = writeIdb;
+        Storage.prototype.removeItem = removeItem;
+      };
+    }, kind);
+
+    const first = await confirmTransition(page, proposed.args);
+    const afterFirst = await readReplicas(page);
+    const artifactsAfterFirst = await transitionRetryArtifacts(page);
+    check(first?.committed === false && first?.settled === false,
+      `${kind} first transition attempt does not report settlement`, first);
+    check(afterFirst.local.programId === proposed.args.successorProgramId,
+      `${kind} first attempt has the successor in localStorage`, transitionReplicaSummary(afterFirst));
+    if (kind === "idb") {
+      check(afterFirst.idb.programId === proposed.args.proposal.predecessor.programId,
+        "failed IndexedDB write leaves its predecessor replica stale", transitionReplicaSummary(afterFirst));
+    } else {
+      check(afterFirst.idb.programId === proposed.args.successorProgramId && artifactsAfterFirst.length > 0,
+        "failed journal cleanup leaves the committed replicas and its journal pending",
+        { replicas: transitionReplicaSummary(afterFirst), artifactsAfterFirst });
+    }
+
+    const retryWhileFaulted = await confirmTransition(page, proposed.args);
+    const stillFaulted = await readReplicas(page);
+    const artifactsWhileFaulted = await transitionRetryArtifacts(page);
+    check(retryWhileFaulted?.committed === false && retryWhileFaulted?.settled === false,
+      `${kind} same-proposal retry stays unsettled while the fault remains`, retryWhileFaulted);
+    if (kind === "idb") {
+      check(stillFaulted.local.programId === proposed.args.successorProgramId &&
+        stillFaulted.idb.programId === proposed.args.proposal.predecessor.programId,
+        "same-proposal retry does not claim success while IndexedDB is stale", transitionReplicaSummary(stillFaulted));
+    } else {
+      check(stillFaulted.local.programId === proposed.args.successorProgramId &&
+        stillFaulted.idb.programId === proposed.args.successorProgramId && artifactsWhileFaulted.length > 0,
+        "same-proposal retry does not claim success while its journal remains",
+        { replicas: transitionReplicaSummary(stillFaulted), artifactsWhileFaulted });
+    }
+
+    await page.evaluate(() => window.__clearTransitionRetryFault());
+    const settledRetry = await confirmTransition(page, proposed.args);
+    const afterSettlement = await readReplicas(page);
+    const artifactsAfterSettlement = await transitionRetryArtifacts(page);
+    check(settledRetry?.committed === true && settledRetry?.settled === true &&
+      settledRetry?.localOk === true && settledRetry?.idbOk === true,
+    `${kind} retry settles after the fault clears`, settledRetry);
+    check(afterSettlement.local.programId === proposed.args.successorProgramId &&
+      afterSettlement.idb.programId === proposed.args.successorProgramId &&
+      afterSettlement.local.revision === afterSettlement.idb.revision &&
+      isDeepStrictEqual(afterSettlement.local.transitionIn, afterSettlement.idb.transitionIn) &&
+      isDeepStrictEqual(afterSettlement.local.programHistory, afterSettlement.idb.programHistory),
+    `${kind} retry heals and verifies matching transition replicas`, transitionReplicaSummary(afterSettlement));
+    check(afterSettlement.local.historyLen === 1 && afterSettlement.idb.historyLen === 1 &&
+      artifactsAfterSettlement.length === 0,
+    `${kind} retry leaves one archive and no pending journal or draft artifact`, artifactsAfterSettlement);
+  } finally {
+    await page.evaluate(() => window.__clearTransitionRetryFault?.()).catch(() => {});
+    await context.close();
+  }
 }
 
 async function main() {
@@ -1604,6 +1981,13 @@ async function main() {
       "duplicate B->C retry created no extra archive");
 
     await ctx14.close();
+
+    await checkTransitionRetryFault(browser, "idb");
+    await checkTransitionRetryFault(browser, "cleanup");
+    await checkFailedHealKeepsJournal(browser);
+    await checkStrandedCloseMarkerSettles(browser);
+    await checkPreflightPendingJournalCloses(browser);
+    await checkEveryOutstandingJournalCloses(browser);
 
     await context.close();
   } finally {

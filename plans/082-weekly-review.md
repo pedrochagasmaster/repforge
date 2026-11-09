@@ -56,6 +56,8 @@ facts that are not rows), written in the same commit as the session's rows, carr
 `workout-draft.js`, `durable-state.js` and the transfer contract change: PR 1 redeploys the Worker before
 merge (Plan 077 §6.1).
 
+**Amendment (owner, 2026-11-08):** the coach-layer Worker deploys once, from the final green integration head, before PR #687 merges to main, with the owner's go-ahead. A packet merge into `integration/coach-layer` reaches no phone and needs no deploy. This is a stated exception to hard rule 18's per-PR wording.
+
 ### 3.2 What the review states
 
 For the **last completed calendar week** (Monday to Sunday, `weekStart`/`weekRange`, `app.js:1442–1444`,

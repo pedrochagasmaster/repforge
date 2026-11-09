@@ -76,6 +76,8 @@ exist. `toHistoryRows` writes ramp sets as ordinary warm-up rows (`warmup:true`)
 `workout-draft.js` and the transfer contract change, so PR 2 redeploys the Worker before merge (Plan 077
 §6.1).
 
+**Amendment (owner, 2026-11-08):** the coach-layer Worker deploys once, from the final green integration head, before PR #687 merges to main, with the owner's go-ahead. A packet merge into `integration/coach-layer` reaches no phone and needs no deploy. This is a stated exception to hard rule 18's per-PR wording.
+
 ### 3.3 The declared priors. A new pure module, `starting-loads.js`.
 
 `PRIORS_VERSION = "priors@079.1"`. The module owns three things and nothing else:
@@ -132,6 +134,15 @@ anchor in the same equipment class or across classes, basis `ratio`, rounded dow
 otherwise the plain prior. It enters as the ramp's opening load, never as a row, and the ramp runs as in
 §3.1. The same rule serves a lift added to the program mid-block. Plan 080's standing stays `first` with
 reason `prior` until the lift has its own sets.
+
+**Amendment (owner, 2026-11-08): no carry-over across classes or movements.** A review of `ratioLoad` found
+uncapped results: a 40 kg per-hand dumbbell bench press gave 320 kg on a leg press, and a 100 kg barbell hip
+thrust gave 350 kg on a back squat. The ratio applies only when the old and new lift share an equipment class
+and the same movement, meaning the same table row supplies both fractions; `min` over several patterns must not
+make a pair qualify through different rows. Otherwise the opening load is the plain prior. Within one row and
+class the two fractions are equal, so the anchor load carries over unchanged, rounded down to the new lift's
+grid. PR 3 narrows `ratioLoad`, its proofs and the mechanics section accordingly, and this replaces "or across
+classes" above.
 
 ### 3.6 Skipping, and when nothing ramps
 

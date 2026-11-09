@@ -85,7 +85,7 @@ stays reachable through the Move controls.
 | --- | --- | --- | --- | --- |
 | Bottom-sheet swipe: following the thumb | Inline transform per pointer event | **Motion** | Motion value painted per change | Position has to live somewhere a spring can pick it up from. The axis lock, scroller yield, flick threshold and "a swipe closes exactly what a tap closes" rule are untouched |
 | Bottom-sheet swipe: release | Fixed 260ms CSS transition back to rest | **Motion** | `gestureSettle` spring seeded with the measured velocity | A sheet nudged 20px and one hurled halfway down used to arrive at the same speed. Measured, a sheet released at 900px/s now travels ~7px further before it is caught |
-| Bottom-sheet swipe: committed dismiss | The sheet's CSS close, from wherever the thumb left it | **Motion** | `gestureExit` spring, critically damped | A throw carries the sheet out at the speed it was thrown, rather than restarting at the stylesheet's pace |
+| Bottom-sheet swipe: committed dismiss | The sheet's CSS close, from wherever the thumb left it | **Motion** | `gestureExit` spring, critically damped | The thumb's velocity carries the sheet all the way offscreen **before** its existing Escape-equivalent close; a second grab can reverse the exit. The completed gesture skips the modal's redundant delay-hide and releases the inline transform/scrim with no visual jump. |
 | Bottom-sheet swipe: cancelled by the browser | Same path as a release | **Motion** | `gestureSettle` spring, seeded at rest | `pointercancel` means a native pan claimed the pointer, not that the lifter let go. Running the release arithmetic anyway projected a stale velocity into a commitment, so a 40px push could dismiss a sheet nobody released. The gesture is abandoned and the sheet returns to rest; the focus deck does the same |
 | Bottom-sheet open/close by tap, scrim or Escape | CSS transition on `.is-open` | **CSS retained** | — | No gesture, no velocity, nothing to interrupt. The transition is already interruptible |
 | Focus deck: following the thumb | Inline transform on the track, with edge damping | **Unchanged** | — | Direct manipulation; the damping at the ends is a product decision the library has no opinion about |
@@ -577,6 +577,20 @@ owner. No runtime or vocabulary is added.
 | A flick down from the lowest detent dismisses | `motion-layer.js` (`SHEET_FLICK`, 1.1px/ms) | Beside the existing projection to the commitment distance |
 | The stylesheet fallback (no runtime) | `app.js` (`sheetDragMove`) | Pushes from the resting detent and returns to it; it doesn't change detent |
 | Reduced motion | `styles.css`, `app.js` (`SHEET_FADE_MS`) | The 170ms cross-fade recorded above |
+
+## Gesture interruption follow-up (2026-11-08)
+
+The release path now drops velocity once a pointer has been still for 100ms
+for both sheets and Focus, matching the interactive back-swipe's existing rule:
+a paused short flick cannot silently commit. Sheet actions no longer double as
+drag rails; the note textarea's intentional touch swipe remains available.
+A rest dial whose sheet closes or whose pointer capture is lost clears its
+turning state, so its next gesture works. Gesture-committed sheet exits stay
+mounted until the velocity spring reaches the edge and are re-grabbable;
+tap/scrim/Escape closes retain the established stylesheet transition.
+Browser coverage: `test/sheet-swipe-dismiss.mjs`, `test/focus-navigation.mjs`,
+and `test/rest-timer.mjs`. Physical iOS/Android feel remains an owner gate
+in `docs/design/interaction-runtime-device-matrix.md`.
 
 ## Known residuals
 
