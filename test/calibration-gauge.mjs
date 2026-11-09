@@ -56,7 +56,7 @@ console.log("\nThe supporting components");
   const half = [{ date: daysAgo(90), q: 1, agree: true }, { date: daysAgo(0), q: 0.5, agree: true }];
   assert(Math.abs(Gauge.supporting(half, 2, NOW) - 0.5) < 1e-9, "a 90-day-old item and a coarse item each weigh a half");
   assert(Gauge.rowQuality({ effortSource: "rir" }) === 1 && Gauge.rowQuality({ effortSource: "reps_left" }) === 1 &&
-    Gauge.rowQuality({ effortSource: "effort" }) === 0.5 && Gauge.rowQuality({ effortSource: "reps_left_3plus" }) === 0.5 &&
+    Gauge.rowQuality({ effortSource: "effort" }) === 0.5 && Gauge.rowQuality({ effortSource: "reps_left_3plus" }) === 0.5 && Gauge.rowQuality({ effortSource: "reps_left_5plus" }) === 0.5 &&
     Gauge.rowQuality({}) === 0.5 && Gauge.rowQuality({ effortSource: "prefilled" }) === 0 && Gauge.rowQuality({ effortSource: "unsure" }) === 0 &&
     Gauge.rowQuality({ effortSource: "failure" }) === 0 && Gauge.rowQuality({ effortSource: "rir", warmup: true }) === 0,
   "row quality: numbers 1, words and unknown ½, prefilled, Not sure, failure and warm-ups 0");

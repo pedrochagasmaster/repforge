@@ -1286,15 +1286,15 @@
     {
       "id": "effort-stage-b",
       "flow": "workout",
-      "label": "Workout — effort stage B, reps left",
-      "scenario": "Stage B: the field reads Reps left, the column Left, and the chips 0 · 1 · 2 · 3+ with 2 chosen (Plan 077, OD-4).",
+      "label": "Workout — reps left",
+      "scenario": "Numeric stage: the field reads Reps left, the column Left, and the chips 0 · 1 · 2 · 3 · 4 · 5+ with 2 chosen (Plan 077, OD-4).",
       "variants": "demandingText"
     },
     {
       "id": "effort-menu",
       "flow": "workout",
       "label": "Workout — effort menu",
-      "scenario": "The effort field's arrow opened: How you log effort, the three stages with the current one checked, and Not sure for this set under them (Plan 077, OD-2 and OD-4).",
+      "scenario": "The effort field's arrow opened: How you log effort, the two stages with the current one checked, and Not sure for this set under them (Plan 077, OD-2 and OD-4).",
       "variants": "demandingText"
     },
     {

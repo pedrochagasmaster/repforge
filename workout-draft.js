@@ -20,7 +20,7 @@
     r0: "reps_left", r1: "reps_left", r2: "reps_left", r3p: "reps_left_3plus", unsure: "unsure" });
   /* How a set's effort value was entered (Plan 077, OD-1): recorded at completion, carried to History as the row's
      effortSource. Absent means unknown (drafts and rows from before it existed); it is never inferred afterwards. */
-  const EFFORT_SOURCES = Object.freeze(["rir", "effort", "reps_left", "reps_left_3plus", "unsure", "prefilled", "failure"]);
+  const EFFORT_SOURCES = Object.freeze(["rir", "effort", "reps_left", "reps_left_3plus", "reps_left_5plus", "unsure", "prefilled", "failure"]);
   /* A max set's guess (Plan 077, OD-17): what the lifter expected to do at the set's load, whether they changed the
      prefill, and what the prefill came from. Held on the set while it is pending and carried to its History row. */
   const CALIBRATION_KEYS = Object.freeze(["v", "predictedReps", "predictionEdited", "prefillBasis"]);
@@ -748,7 +748,7 @@
         // falling back to it when the program specifies no target can still
         // produce a value above the engine's 0-4 ceiling, so clamp it the
         // same way a pre-Plan-067 stored draft is clamped on parse.
-        const targetRir = spec.targetRir ?? source.targetRir ?? old.rir ?? null;
+        const targetRir = hasOwn(spec, "targetRir") ? spec.targetRir : source.targetRir ?? old.rir ?? null;
         const targetRirNumber = targetRir == null ? null : Number(targetRir);
         const targetRirClamp = clampLegacyTargetRir(targetRirNumber);
         const effort = spec.suggestedEffort ?? source.suggestedEffort ?? null;
@@ -1513,7 +1513,8 @@
         const issues = [...sessionSaveIssues(next), ...setSaveIssues(next, item.exercise, item.set)];
         if (issues.length) return error("set-not-saveable", { issues });
         const entered = effortFieldOf(next, item.set) === "effort"
-          ? EFFORT_TOKEN_SOURCE[item.set.edited.effort] || "effort" : "rir";
+          ? EFFORT_TOKEN_SOURCE[item.set.edited.effort] || "effort"
+          : item.set.edited.rir === "5" ? "reps_left_5plus" : "reps_left";
         item.set.completion = { completedAt: command.completedAt, effortSource: maxSet ? "failure" : enteredEffort ? entered : "prefilled" };
         item.set.performed = jsonClone(item.exercise.substitution?.replacement || snapshotFromExercise(item.exercise));
         item.set.touched = { ...item.set.touched, load: true, reps: true, effort: true,

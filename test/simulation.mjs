@@ -61,6 +61,21 @@ function assert(cond, name, detail, repro) {
   else fail(name, detail, repro);
 }
 
+async function assertEffortLegend(page) {
+  assert(
+    await page.locator("#rirEffortLede").isVisible(),
+    "the effort scale's legend stands under the RIR logging row in effort mode",
+    "the legend is hidden",
+    "Settings → RIR logging → legend under the row"
+  );
+  assert(
+    (await page.locator("#rirEffortLede").textContent()).trim() === await page.evaluate(() => window.RepForgeI18n.t("settings.effort_lede")),
+    "Settings shows the approved effort legend",
+    "Settings effort legend differs from the approved translation",
+    "Settings → RIR logging → legend line under the row"
+  );
+}
+
 function beginPhase(name) {
   if (PROFILE && lastPhase) {
     phaseTimings.push([lastPhase, Date.now() - phaseClock]);
@@ -1666,6 +1681,13 @@ async function main() {
     "settings view not active",
     "Today header profile → Settings"
   );
+  if (SMOKE) {
+    await page.click("#rirModeRow");
+    await page.click('#nativeContextMenu [data-menu-value="effort"]');
+    await page.evaluate(() => window.__repforgeStorage.flush());
+    await page.waitForFunction(() => !document.querySelector("#rirEffortLede").hidden);
+    await assertEffortLegend(page);
+  }
   const dimContrast = await page.evaluate(() => {
     const css = getComputedStyle(document.documentElement);
     const hex = (name) => css.getPropertyValue(name).trim();
@@ -3557,18 +3579,7 @@ async function main() {
   await reloadApp(page);
 
   await nav(page, "settings");
-  assert(
-    await page.locator("#rirEffortLede").isVisible(),
-    "the effort scale's legend stands under the RIR logging row in effort mode",
-    "the legend is hidden",
-    "Settings → RIR logging → legend under the row"
-  );
-  assert(
-    /RIR 3/i.test((await page.locator("#settings").textContent()) || ""),
-    "Settings shows effort scale legend with RIR 3",
-    "Settings text missing RIR 3 legend",
-    "Settings → RIR logging → legend line under the row"
-  );
+  await assertEffortLegend(page);
   await page.click("#rirModeRow");
   await page.click('#nativeContextMenu [data-menu-value="numeric"]');
   // Replacement captures both state and draft preconditions; finish the ordinary preceding edits before capturing them.

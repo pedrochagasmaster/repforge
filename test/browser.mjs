@@ -311,3 +311,10 @@ export async function openShelfField(page, locatorOrSelector) {
   await page.click("#wheelKeyboard");
   await page.waitForSelector("#wheelSheet", { state: "hidden" });
 }
+
+/** Choose the current set's numeric effort through the same chips a lifter uses. */
+export async function chooseRepsLeft(page, value) {
+  const shelf = "#workout .exercise.is-current:not(.is-peek) .focus-shelf";
+  await page.locator(`${shelf} [data-shelf-field="rir"]`).click();
+  await page.locator(`${shelf} [data-effchip][data-e="${value}"]`).click();
+}

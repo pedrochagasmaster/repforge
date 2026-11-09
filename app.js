@@ -1540,34 +1540,32 @@ async function shareOrDownload(text,name,type,title="Taurifer backup"){
   try{if(navigator.canShare){const file=new File([text],name,{type});
     if(navigator.canShare({files:[file]})){await navigator.share({files:[file],title});return}}}catch{}
   download(text,name,type)}
-/* The effort vocabulary (Plan 077, OD-2 to OD-4): stage A's words, stage B's reps left ("3+" credited as 3) and
-   "Not sure", which saves no RIR. The draft owns the same map. */
+/* Words and numeric reps left share the effort shelf. Legacy tokens remain readable. */
 const EFFORT_RIR={easy:3,hard:1,max:0,r0:0,r1:1,r2:2,r3p:3,unsure:null};
 const EFFORT_STEPS=["easy","hard","max"];
 const EFFORT_LEFT=["r0","r1","r2","r3p"];
+const REPS_LEFT=["0","1","2","3","4","5"];
 const isEffortMode=()=>state?.settings?.rirMode==="effort";
-/** The app-wide effort stage (OD-4): "a" Easy / Hard / Max, "b" reps left, "c" numeric RIR. Stages A and B are
- *  both `rirMode:"effort"`; the device-local `effortScale` tells them apart. */
-const effortStage=()=>!isEffortMode()?"c":state.settings.effortScale==="reps"?"b":"a";
-/** The choices a stage's chips offer, or null for the numeric field. */
-const stageTokens=stage=>stage==="a"?EFFORT_STEPS:stage==="b"?EFFORT_LEFT:null;
-/** The stage a token belongs to; "Not sure" belongs to none. */
-const tokenStage=e=>EFFORT_STEPS.includes(e)?"a":EFFORT_LEFT.includes(e)?"b":null;
-/** Bucket a logged RIR into the effort word closest to it. */
+const effortStage=()=>isEffortMode()?"a":"c";
+const stageTokens=stage=>stage==="a"?EFFORT_STEPS:REPS_LEFT;
+const tokenStage=e=>EFFORT_STEPS.includes(e)?"a":EFFORT_LEFT.includes(e)?"c":null;
 const effortForRir=rir=>+rir>=2.5?"easy":+rir<=0.5?"max":"hard";
-/** Bucket a logged RIR into the reps-left chip closest to it. */
-const leftForRir=rir=>+rir>=2.5?"r3p":+rir>=1.5?"r2":+rir>=0.5?"r1":"r0";
-/** A token in a stage's own vocabulary: the same token when it already is one, else its RIR bucketed; "Not sure"
- *  and unknown values give null. */
+const repsLeftChip=rir=>{
+  if(rir==null||String(rir).trim()==="")return null;
+  const value=parseDec(rir);
+  return Number.isFinite(value)&&value>=0?String(Math.min(5,Math.round(value))):null};
+const repsLeftView=(raw,authored)=>{
+  const offered=repsLeftChip(raw);
+  if(offered==null)return{text:"",chip:null,prefill:null};
+  const exact=String(raw),chip=authored?(REPS_LEFT.includes(exact)?exact:null):offered;
+  return{text:authored?(exact==="5"?"5+":fmt(parseDec(raw))):effortLabel(offered),chip,prefill:offered}};
 const tokenInStage=(e,stage)=>{
   if(tokenStage(e)===stage)return e;
   const rir=EFFORT_RIR[e];
-  return rir==null?null:stage==="b"?leftForRir(rir):effortForRir(rir)};
-/** Words in copy only in stage A; stage B's reps left read as the numbers they are. */
+  return rir==null?null:stage==="c"?repsLeftChip(rir):effortForRir(rir)};
 const isWordMode=()=>effortStage()==="a";
-/** The token the app's stage logs for a RIR (stages A and B). */
-const stageEffortForRir=rir=>effortStage()==="b"?leftForRir(rir):effortForRir(rir);
-const effortLabel=e=>EFFORT_LEFT.includes(e)?(e==="r3p"?"3+":e.slice(1)):t("effort."+e);
+const stageEffortForRir=effortForRir;
+const effortLabel=e=>REPS_LEFT.includes(e)?(e==="5"?"5+":e):EFFORT_LEFT.includes(e)?(e==="r3p"?"3+":e.slice(1)):t("effort."+e);
 /** The same word inside a sentence ("… at hard effort", "… esforço difícil"). */
 const effortWord=e=>effortLabel(e).toLocaleLowerCase(locTag());
 const effortHint=e=>t("effort.hint."+e);
@@ -1736,7 +1734,7 @@ function glossaryPopover(termKey,anchor){const g=$("#glossary");if(!g)return;
   const viewportHeight=document.documentElement.clientHeight||window.innerHeight;
   const top=Math.max(8,Math.min(r.bottom+6,viewportHeight-bounds.height-8));
   g.style.top=`${window.scrollY+top}px`;g.style.left=`${window.scrollX+left}px`}
-const DEFAULTS={jumpPct:2.5,minJump:2.5,rirHigh:2,hardRir:4,restSec:120,lastExport:"",unit:"kg",lang:null,rirMode:"numeric",effortScale:"feel",voiceInputEnabled:false,maxSetPrompts:true,slowRepTaps:true,notify:{enabled:false,timer:true,session:true,unfinished:true,missed:true}};
+const DEFAULTS={jumpPct:2.5,minJump:2.5,rirHigh:2,hardRir:4,restSec:120,lastExport:"",unit:"kg",lang:null,rirMode:"numeric",voiceInputEnabled:false,maxSetPrompts:true,slowRepTaps:true,notify:{enabled:false,timer:true,session:true,unfinished:true,missed:true}};
 const normSetting=(v,def,min=0)=>Number.isFinite(+v)&&+v>=min?+v:def;
 /** The hard-set threshold is an RIR a set must be at or under to count as hard: 1 to 10, else the default (Plan 077,
  *  OD-23e). A setup link may still carry 0–100; the device applies it within these bounds. */
@@ -1756,7 +1754,7 @@ function withUnknownKeys(raw,known){
   return Object.assign(out,known)}
 function normalizeNotify(n){
   return withUnknownKeys(n,{enabled:!!(n&&n.enabled),timer:n?.timer!==false,session:n?.session!==false,unfinished:n?.unfinished!==false,missed:n?.missed!==false})}
-const normalizeSettings=s=>{const lang=I18N?.normalizeLang(s?.lang)||I18N?.detectLang()||"en";return withUnknownKeys(s,{jumpPct:normSetting(s?.jumpPct,DEFAULTS.jumpPct,0),minJump:normSetting(s?.minJump,DEFAULTS.minJump,0.01),rirHigh:normSetting(s?.rirHigh,DEFAULTS.rirHigh,0),hardRir:normHardRir(s?.hardRir),restSec:normalizeRestSec(s?.restSec),lastExport:typeof s?.lastExport==="string"?s.lastExport:"",unit:s?.unit==="lb"?"lb":"kg",lang,rirMode:s?.rirMode==="effort"?"effort":"numeric",effortScale:s?.effortScale==="reps"?"reps":"feel",voiceInputEnabled:normBool(s?.voiceInputEnabled,DEFAULTS.voiceInputEnabled),maxSetPrompts:normBool(s?.maxSetPrompts,DEFAULTS.maxSetPrompts),slowRepTaps:normBool(s?.slowRepTaps,DEFAULTS.slowRepTaps),notify:normalizeNotify(s?.notify)})};
+const normalizeSettings=s=>{const lang=I18N?.normalizeLang(s?.lang)||I18N?.detectLang()||"en";const normalized=withUnknownKeys(s,{jumpPct:normSetting(s?.jumpPct,DEFAULTS.jumpPct,0),minJump:normSetting(s?.minJump,DEFAULTS.minJump,0.01),rirHigh:normSetting(s?.rirHigh,DEFAULTS.rirHigh,0),hardRir:normHardRir(s?.hardRir),restSec:normalizeRestSec(s?.restSec),lastExport:typeof s?.lastExport==="string"?s.lastExport:"",unit:s?.unit==="lb"?"lb":"kg",lang,rirMode:s?.rirMode==="effort"&&s?.effortScale!=="reps"?"effort":"numeric",voiceInputEnabled:normBool(s?.voiceInputEnabled,DEFAULTS.voiceInputEnabled),maxSetPrompts:normBool(s?.maxSetPrompts,DEFAULTS.maxSetPrompts),slowRepTaps:normBool(s?.slowRepTaps,DEFAULTS.slowRepTaps),notify:normalizeNotify(s?.notify)});delete normalized.effortScale;return normalized};
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 const LB=2.2046226218;
 /* Locale keyboards (pt-BR, de, fr, …) put a comma on the decimal pad. HTML
@@ -3400,13 +3398,11 @@ async function requestWorkoutDay(nextDay,{undo=false,ofDraft}={}){
    progress takes it from the next set on: the live DraftV2 switches its mode in the same commit as the setting, and
    every set it already holds keeps the vocabulary it was entered in. */
 /** The Settings radio that stands for each stage, and the stage's name. */
-const STAGE_LABEL={a:"settings.rir_effort",b:"settings.rir_reps",c:"settings.rir_numbers"};
-const STAGE_SUB={a:"focus.effort_menu.sub_a",b:"focus.effort_menu.sub_b",c:"focus.effort_menu.sub_c"};
-const STAGE_PICK={a:"effort",b:"reps",c:"numeric"};
-const stageForPick=v=>v==="reps"?"b":v==="effort"?"a":"c";
-/** The two settings a stage is stored as. Stage C keeps the scale, so a return to words finds the lifter's last one. */
-const stageSettings=(stage,settings=state.settings)=>({rirMode:stage==="c"?"numeric":"effort",
-  effortScale:stage==="b"?"reps":stage==="a"?"feel":settings.effortScale==="reps"?"reps":"feel"});
+const STAGE_LABEL={a:"settings.rir_effort",c:"settings.rir_numbers"};
+const STAGE_SUB={a:"focus.effort_menu.sub_a",c:"focus.effort_menu.sub_c"};
+const STAGE_PICK={a:"effort",c:"numeric"};
+const stageForPick=v=>v==="effort"?"a":"c";
+const stageSettings=stage=>({rirMode:stage==="a"?"effort":"numeric"});
 /** The draft side of a mode change: a live DraftV2 takes `setRirMode` in the settings commit, so the two never
  *  disagree. No draft needs nothing; a draft that refuses (one that is finishing) blocks the change. */
 function draftRirModeEffect(expectedRaw,newMode){
@@ -6715,6 +6711,7 @@ function enginePerformedRow(row,exerciseId,metricIds){
     loadingConvention:row.loadingConvention,metricIds:[...row.metricIds],metricValues:cloneSnapshot(row.metricValues),
     loadingContext:isPlainStateObject(row.loadingContext)?cloneSnapshot(row.loadingContext):null,
     ...(row.effortSource?{effortSource:row.effortSource}:{}),
+    ...(row.warmup===true?{warmup:true}:{}),
     ...(row.effortSource==="failure"&&WorkoutDraft?.validCalibration?.(row.calibration)?{calibration:cloneSnapshot(row.calibration)}:{})}}
 /** A lift's calibration checks: its max sets in the comparable history (same equipment and loading as today), with any
  *  of `extra` (sessions not yet in the log), read by the estimator. */
@@ -6824,7 +6821,7 @@ function recommendation(ex){
   // reads it shifted, within its load bound. Today's checks count from the next session on.
   const calibration=liftCalibration(history,loadingContext.bySlotId[matched.slot.id],matched.slot.metricDefinitions);
   const results=engine.recommendSets(prescriptions,history,currentSession,loadingContext,{
-    weightMatch:state.settings.weightMatch===true,expandRepRange:state.settings.expandRepRange!==false,
+    now:today(),weightMatch:state.settings.weightMatch===true,expandRepRange:state.settings.expandRepRange!==false,
     ...(calibration.delta?{calibration:{version:calibration.version,delta:calibration.delta}}:{})});
   // Owner, 2026-11-04: an adaptive set with no comparable history starts from the load the program authored for it,
   // offered as a suggestion; once history exists the engine's recommendation takes over. No load is invented.
@@ -7307,12 +7304,10 @@ function bindStageTip(tip,shelf,ex,n){
     const to=tip.dataset.to;tip.remove();
     if(await commitEffortStage(to)){
       acceptStageTip(to);toast(t("toast.effort_stage",{stage:t(STAGE_LABEL[to])}),{quiet:true})}})}
-/* The stage tip (OD-6): Taurifer suggests the next stage up, never down, once the lifter has settled into this one.
-   A→B after 6 workouts in stage A with at least 80% of their working sets given a word by the lifter (not left at the
-   offered one); B→C after 6 workouts in stage B with at most 10% "Not sure". A dismissal keeps it quiet for 4 weeks,
-   a second for good; trying it ends it too. Its state is this device's, like the stage itself. */
+/* Offer counting reps left after six workouts with at least 80% lifter-chosen words.
+   One dismissal snoozes four weeks; the second dismissal or acceptance ends the tip. */
 const STAGE_TIP_WORKOUTS=6,STAGE_TIP_SNOOZE_DAYS=28;
-const STAGE_TIP_COPY={b:{title:"focus.stage_tip.b_title",body:"focus.stage_tip.b_body"},c:{title:"focus.stage_tip.c_title",body:"focus.stage_tip.c_body"}};
+const STAGE_TIP_COPY={title:"focus.stage_tip.b_title",body:"focus.stage_tip.b_body"};
 /** Workouts in the log that qualify a stage for its tip, counted from the rows' recorded effortSource. */
 function stageTipQualifyingWorkouts(stage){
   const sessions=new Map();
@@ -7321,21 +7316,20 @@ function stageTipQualifyingWorkouts(stage){
     const s=sessions.get(row.session)||{n:0,words:0,left:0,unsure:0,numbers:0};
     s.n++;
     if(row.effortSource==="effort")s.words++;
-    else if(row.effortSource==="reps_left"||row.effortSource==="reps_left_3plus")s.left++;
+    else if(row.effortSource==="reps_left"||row.effortSource==="reps_left_3plus"||row.effortSource==="reps_left_5plus")s.left++;
     else if(row.effortSource==="unsure")s.unsure++;
     else if(row.effortSource==="rir")s.numbers++;
     sessions.set(row.session,s)}
   let count=0;
   for(const s of sessions.values()){
     if(s.numbers)continue;
-    if(stage==="a"&&!s.left&&s.words>=0.8*s.n)count++;
-    if(stage==="b"&&!s.words&&s.left>0&&s.unsure<=0.1*s.n)count++}
+    if(stage==="a"&&!s.left&&s.words>=0.8*s.n)count++}
   return count}
-const stageTipPref=to=>{const v=uiPrefs.stageTip?.[to];return{n:Number.isInteger(v?.n)?v.n:0,until:typeof v?.until==="string"?v.until:""}};
+const stageTipPref=to=>{const v=uiPrefs.stageTip?.[to]??uiPrefs.stageTip?.b;return{n:Number.isInteger(v?.n)?v.n:0,until:typeof v?.until==="string"?v.until:""}};
 /** The stage the tip suggests now, or null. */
 function stageTipTarget(){
   const stage=effortStage();if(stage==="c")return null;
-  const to=stage==="a"?"b":"c",pref=stageTipPref(to);
+  const to="c",pref=stageTipPref(to);
   if(pref.n>=2||pref.until&&Date.now()<Date.parse(pref.until))return null;
   return stageTipQualifyingWorkouts(stage)>=STAGE_TIP_WORKOUTS?to:null}
 function setStageTipPref(to,value){setUiPref("stageTip",{...(uiPrefs.stageTip||{}),[to]:value})}
@@ -7344,7 +7338,7 @@ function dismissStageTip(to){
   setStageTipPref(to,n>=2?{n:2}:{n,until:new Date(Date.now()+STAGE_TIP_SNOOZE_DAYS*864e5).toISOString()})}
 const acceptStageTip=to=>setStageTipPref(to,{n:2});
 function stageTipHtml(to){
-  const copy=STAGE_TIP_COPY[to],title=t(copy.title);
+  const copy=STAGE_TIP_COPY,title=t(copy.title);
   return `<section class="resttip" data-tip="stage-tip" data-to="${to}" aria-label="${esc(title)}">`+
     `<p class="resttip__text"><b>${esc(title)}</b> ${esc(t(copy.body))}</p>`+
     `<div class="resttip__acts"><button type="button" class="resttip__no" data-tipdismiss>${esc(t("focus.stage_tip.not_now"))}</button>`+
@@ -9829,14 +9823,19 @@ function setFieldVals(ex,n,r,draft,prev){
   const key=`${ex.id}_${n}`,isW=warmups.has(key);
   // A set the lifter entered keeps the vocabulary they entered it in; any other shows the app's stage, its offered
   // value (the set above's, then what was there, then last session's, then about 1 left) put into that stage's words.
-  const stage=setStageOf(ex.id,n),words=stage==="b"?"b":"a";
+  const stage=setStageOf(ex.id,n),words="a";
   const own=pending("effort")??(shelfTouched(ex.id,n).effort?draft[`${key}_effort`]:null);
-  const bucket=rir=>words==="b"?leftForRir(rir):effortForRir(rir);
+  const bucket=effortForRir;
   const carriedRir=carried("rir"),carriedEffort=tokenInStage(carried("effort"),words)||(carriedRir!=null&&carriedRir!==""?bucket(parseDec(carriedRir)):null);
   const effortVal=own&&(own==="unsure"||tokenStage(own)===stage)?own
     :carriedEffort||tokenInStage(draft[`${key}_effort`],words)||bucket(old&&old.rir!=null?old.rir:1);
-  const rirVal=pending("rir")??carriedRir??draft[`${key}_rir`]??(old&&old.rir!=null?fmtPlain(old.rir):1);
-  return{key,isW,kgVal,repsVal,rirVal,effortVal,stage,unsure:own==="unsure"}}
+  const legacy=own&&EFFORT_LEFT.includes(own)?EFFORT_RIR[own]:null;
+  const numericTarget=stage==="c"?draftSetAt(ex.id,n)?.programmed?.targetRir:null;
+  const rirVal=pending("rir")??(legacy!=null?String(legacy):null)??carriedRir??draft[`${key}_rir`]
+    ??(carried("effort")!=null?String(EFFORT_RIR[carried("effort")]??1):null)
+    ??(numericTarget!=null?String(numericTarget):old&&old.rir!=null?fmtPlain(old.rir):1);
+  const numericEffort=repsLeftView(rirVal,committed.has(key)||hasPendingField(`${key}_rir`)||!!shelfTouched(ex.id,n).effort);
+  return{key,isW,kgVal,repsVal,rirVal,numericEffort,effortVal,stage,unsure:own==="unsure"}}
 /** The stage a set is drawn in (Plan 077, OD-5): the vocabulary the lifter entered its effort in, else the app's.
  *  "Not sure" belongs to no stage, so a set marked so is drawn in the app's. */
 function setStageOf(exId,n){
@@ -10031,11 +10030,10 @@ function focusSlotHtml(ex,n,r,cue,opts){
   return `<div class="fx-slot">${focusCueBlockHtml(ex,n,r,cue,opts)}</div>`}
 /** How a logged set reads back in the ledger. */
 function focusRowVals(ex,n,r,draft,prev){
-  const{kgVal,repsVal,rirVal,effortVal,stage,unsure}=setFieldVals(ex,n,r,draft,prev);
+  const{kgVal,repsVal,numericEffort,effortVal,stage,unsure}=setFieldVals(ex,n,r,draft,prev);
   const load=(()=>{const v=parseDec(kgVal);return Number.isFinite(v)?fmt(v):kgVal})();
   // A set reads back in the vocabulary it was logged in — a word as that word, never as the RIR it maps to.
-  const eff=unsure?effortLabel("unsure"):stage!=="c"?effortLabel(effortVal)
-    :(()=>{const v=parseDec(rirVal);return Number.isFinite(v)?fmt(v):rirVal})();
+  const eff=unsure?effortLabel("unsure"):stage==="a"?effortLabel(effortVal):numericEffort.text||"—";
   return{load,reps:String(repsVal),eff}}
 
 /** The effort window a set that has not been logged is aimed at. These are the
@@ -10065,8 +10063,8 @@ function focusTargetEffort(ex){
 function focusPrevLine(x){
   if(!x)return"";
   // The last session's effort in the stage's own words: a word, reps left, or RIR.
-  const stage=effortStage(),ending=x.rir==null||x.rir===""?"norir":stage==="a"?"effort":stage==="b"?"left":"rir";
-  const left=x.rir==null||x.rir===""?"":effortLabel(leftForRir(x.rir));
+  const stage=effortStage(),ending=x.rir==null||x.rir===""?"norir":stage==="a"?"effort":"rir";
+  const left=x.rir==null||x.rir===""?"":effortLabel(repsLeftChip(x.rir));
   const projection=readLogRow(x),definitions=Array.isArray(x.metricDefinitions)?x.metricDefinitions:[];
   const hasSideLoad=definitions.some(metric=>PER_SIDE_LOAD_SEMANTICS.has(metric?.semantic));
   const hasSideReps=definitions.some(metric=>metric?.semantic==="repsPerSide");
@@ -10140,7 +10138,7 @@ function focusLedgerToggleHtml(ex,{peek=false}={}){
 /** The ledger's effort column is named for the app's stage; each row still reads in the vocabulary it was logged in. */
 function effortColumnHead(peek){
   const stage=effortStage();
-  return stage==="a"?(peek?esc(t("log.effort")):term("Effort")):stage==="b"?esc(t("focus.col.left")):(peek?"RIR":term("RIR"))}
+  return stage==="a"?(peek?esc(t("log.effort")):term("Effort")):esc(t("focus.col.left"))}
 function focusLedgerHtml(ex,r,draft,prev,{peek=false}){
   const head=`<div class="ledgerline__head"><span>${esc(t("log.set"))}</span><span class="ledgerline__vals">`+
     `<span class="fx-col">${esc(unitLabel())}</span><span class="fx-col">${esc(t("log.reps"))}</span>`+
@@ -10168,7 +10166,7 @@ function focusLedgerRowsHtml(ex,r,draft,prev,{peek=false}){
     // An unlogged row reads its target effort, unless it carries the set logged above it (#569): then its RIR is carried
     // with its load and reps, so every unlogged set shows the same values (owner report, 2026-11-03).
     const carry=!open&&!done?lastSetCarry(ex.id,n,r):null;
-    const rirText=!done&&!peek&&draftSetAt(ex.id,n)?.calibration?(isEffortMode()?effortLabel(state.settings.effortScale==="reps"?"r0":"max"):"0")
+    const rirText=!done&&!peek&&draftSetAt(ex.id,n)?.calibration?(isEffortMode()?effortLabel("max"):"0")
       :open||done||carry?.fields?.rir||carry?.fields?.effort?vals.eff:focusTargetEffort(ex);
     const idx=done?`<span class="fx-check" aria-hidden="true"></span>`
       :!peek&&ledgerSetIsWarmup(ex.id,n)?`<span aria-hidden="true">${esc(t("ledger.set.warmup"))}</span><span class="visually-hidden">${esc(t("ex.actions.role_warmup"))}</span>`:n;
@@ -10410,31 +10408,31 @@ function shelfFieldHtml(ex,n,id,vals,{ui,touched,peek}){
     const cls=`shelf__field shelf__field--failure${sel?" is-sel":""}`,face=shelfFaceHtml(t("log.effort"),t("log.effort"),t("maxset.failure"),"");
     return peek?`<div class="${cls}"><span class="shelf__fieldbtn">${face}</span></div>`
       :`<div class="${cls}" data-field="rir" data-set="${esc(key)}"><button type="button" class="shelf__fieldbtn" data-shelf-field="rir" data-set="${esc(key)}" aria-pressed="${sel?"true":"false"}">${face}</button></div>`}
-  const stage=vals.stage,effortField=id==="rir"&&stage!=="c";
+  const stage=vals.stage,effortField=id==="rir";
   const live=sel&&ui.editing&&!effortField&&!peek;
   const label=id==="load"?t("focus.shelf.field_load",{unit:unitLabel()}):id==="reps"?t("stats.table.reps")
-    :stage==="a"?t("log.effort"):stage==="b"?t("focus.field.left"):t("stats.table.rir");
+    :stage==="a"?t("log.effort"):t("focus.field.left");
   const short=id==="load"?t("focus.metric.load_kg"):label;
   const name=`${label}, ${t("focus.set_label",{n})}`;
   const raw=id==="load"?vals.kgVal:id==="reps"?vals.repsVal:vals.unsure?"":vals.rirVal;
-  const shown=id==="rir"&&vals.unsure?effortLabel("unsure"):effortField?effortLabel(vals.effortVal)
+  const shown=id==="rir"&&vals.unsure?effortLabel("unsure"):effortField?(stage==="a"?effortLabel(vals.effortVal):vals.numericEffort.text)
     :id==="reps"?String(vals.repsVal??""):shelfText(raw);
   const soft=!(id==="load"?touched.load:id==="reps"?touched.reps:touched.effort);
-  const word=effortField||id==="rir"&&vals.unsure;
+  const word=effortField&&stage==="a"||id==="rir"&&vals.unsure;
   const cls=`shelf__field${sel?" is-sel":""}${soft?" is-untouched":""}${live?" is-editing":""}${word?" is-word":""}`;
   const face=shelfFaceHtml(short,label,shown,id==="load"?unitLabel():"");
   const chev=`<span class="icon-mask icon-mask--chev-down shelf__chev" aria-hidden="true"></span>`;
   if(peek)return `<div class="${cls}"><span class="shelf__fieldbtn">${face}</span>${id==="rir"?`<span class="shelf__menu">${chev}</span>`:""}</div>`;
-  // Stage A's word explains itself on a second tap ("≈1 left"); stage B's chips are the count already.
+  // Words explain themselves on a second tap; numeric chips already name the count.
   const explain=effortField&&stage==="a";
-  const hooks=effortField?` data-effspin="${esc(key)}" data-e="${esc(vals.effortVal)}" data-stage="${stage}"${explain?` aria-describedby="effpop_${esc(key)}"`:""}`:"";
+  const hooks=effortField?` data-effspin="${esc(key)}" data-e="${esc(stage==="a"?vals.effortVal:vals.numericEffort.chip||"")}" data-stage="${stage}"${explain?` aria-describedby="effpop_${esc(key)}"`:""}`:"";
   // A selected Load or Reps field's name gains the picker hint: a second tap opens the wheel (ADR 0023 choice 8).
   const pickerHint=sel&&(id==="load"||id==="reps")?` aria-label="${esc(`${label} ${shown||"—"}, ${t("focus.field.picker_hint")}`)}"`:"";
   const button=`<button type="button" class="shelf__fieldbtn" data-shelf-field="${id}" data-set="${esc(key)}" aria-pressed="${sel?"true":"false"}"${hooks}${pickerHint}>${face}</button>`;
   // The input is always in the document, so the draft handlers and validation
   // have one element to read and flag; it only takes the field's place on a
   // second tap, and stays out of the tab order and the accessibility tree until then.
-  const input=effortField?"":`<input class="shelf__input" data-k="${esc(key)}_${id}" type="text" inputmode="${id==="reps"?"numeric":"decimal"}" `+
+  const input=effortField&&stage==="a"?"":`<input class="shelf__input" data-k="${esc(key)}_${id}" type="text" inputmode="${id==="reps"?"numeric":"decimal"}" `+
     `enterkeyhint="${id==="rir"?"done":"next"}" aria-label="${esc(name)}" autocomplete="off" value="${esc(String(raw??""))}"`+
     `${live?"":' tabindex="-1" aria-hidden="true"'}>`;
   const caption=live?`<span class="shelf__lab shelf__lab--edit" aria-hidden="true">${esc(short)}</span>`:"";
@@ -10453,11 +10451,11 @@ function shelfPadsHtml(ex,n,ui,vals,{peek}){
     return `<button type="button" class="stepbtn shelf__pad shelf__pad--wide"${peek?dead():` data-maxset-cancel="${esc(key)}"`}>${esc(t("maxset.cancel"))}</button>`;
   const tokens=id==="rir"?stageTokens(vals.stage):null;
   if(tokens){
-    // Stages A and B: one tap on the choice (Plan 077, OD-4). The offered value is marked but not pressed until the
+    // Both stages set their value with one tap. The offered value is marked but not pressed until the
     // lifter confirms it.
     const confirmed=!!shelfTouched(ex.id,n).effort&&!vals.unsure;
-    return tokens.map(e=>{const on=e===vals.effortVal&&!vals.unsure;
-      return `<button type="button" class="shelf__pad shelf__chip${vals.stage==="b"?" shelf__chip--num":""}${on&&!confirmed?" is-offered":""}"`+
+    return tokens.map(e=>{const on=e===(vals.stage==="a"?vals.effortVal:vals.numericEffort.chip||"")&&!vals.unsure;
+      return `<button type="button" class="shelf__pad shelf__chip${vals.stage==="c"?" shelf__chip--num":""}${on&&!confirmed?" is-offered":""}"`+
         `${peek?dead():` data-effchip="${esc(key)}" data-e="${e}" aria-pressed="${on&&confirmed?"true":"false"}"`}>${esc(effortLabel(e))}</button>`}).join("")}
   const metricId=id.startsWith("metric_")?id.slice(7):null;
   const metric=metricId?focusMetricDefinitions(ex.id,n).find(item=>item.id===metricId):null;
@@ -10477,8 +10475,8 @@ function shelfPadsHtml(ex,n,ui,vals,{peek}){
 
 /** The pad row: the pads for the selected field. Rest controls live in the rest sheet behind the tab. */
 function focusPadsHtml(ex,n,ui,vals,{peek}){
-  const chips=ui.field==="rir"&&vals.stage!=="c";
-  return `<div class="shelf__pads${chips?" shelf__pads--chips":""}"${chips&&!peek?` role="group" aria-label="${esc(t(vals.stage==="b"?"focus.field.left":"log.effort"))}"`:""}>`+
+  const chips=ui.field==="rir";
+  return `<div class="shelf__pads${chips?" shelf__pads--chips":""}${chips&&vals.stage==="c"?" shelf__pads--numbers":""}"${chips&&!peek?` role="group" aria-label="${esc(t(vals.stage==="c"?"focus.field.left":"log.effort"))}"`:""}>`+
     shelfPadsHtml(ex,n,ui,vals,{peek})+`</div>`}
 
 /** The shelf: the fields of the active set, the pads for the selected one and
@@ -10830,10 +10828,11 @@ function syncShelfField(input,padDir=0){
   // A metric field writes the ledger column its metric fills (load or reps).
   const metricId=field.dataset.metric,metric=metricId?focusMetricDefinitions(...setKeyParts(field.dataset.set)).find(item=>item.id===metricId):null;
   const id=metric?(METRIC_FIELD_SEMANTICS.reps.includes(metric.semantic)?"reps":METRIC_FIELD_SEMANTICS.load.includes(metric.semantic)?"load":null):field.dataset.field;
-  const text=id==="reps"?String(input.value||""):shelfText(input.value);
+  const text=id==="rir"?repsLeftView(input.value,true).text:id==="reps"?String(input.value||""):shelfText(input.value);
   const val=field.querySelector(".shelf__val");
   if(val){const moved=val.textContent!==(text||"—");val.textContent=text||"—";if(moved)shelfValueMove(val,padDir)}
   field.classList.remove("is-untouched");
+  if(id==="rir")field.classList.remove("is-word");
   const cell=id?input.closest(".exercise")?.querySelector(`.ledgerline--open [data-lv="${id}"]`):null;
   if(cell){cell.textContent=text||"—";cell.classList.remove("is-soft")}}
 function setKeyParts(key){const text=String(key||""),at=text.lastIndexOf("_");return[text.slice(0,at),+text.slice(at+1)]}
@@ -11099,16 +11098,16 @@ function openRowContextMenu({anchor,items,opener=anchor,title=""}){
     quietFocus(panel.querySelector("button:not(:disabled)"));
   });
 }
-/** The effort field's arrow (Plan 077, OD-2 and OD-4): the three ways to log effort, the app's checked, and "Not sure"
+/** The effort field's arrow (Plan 077, OD-2 and OD-4): the two ways to log effort, the app's checked, and "Not sure"
  *  for this set under them. A stage applies app-wide from the next set; "Not sure" is this set's value. */
 async function openEffortMenu(key,opener,pick){
   const field=opener.closest(".shelf__field");if(!field)return;
   const stage=effortStage();
   const value=await openRowContextMenu({anchor:field,opener,title:t("focus.effort_menu.title"),items:[
-    ...["a","b","c"].map(s=>({label:t(STAGE_LABEL[s]),sub:t(STAGE_SUB[s]),value:s,checked:s===stage})),
+    ...["a","c"].map(s=>({label:t(STAGE_LABEL[s]),sub:t(STAGE_SUB[s]),value:s,checked:s===stage})),
     {label:t("focus.effort_menu.unsure"),sub:t("focus.effort_menu.unsure_sub"),value:"unsure",separatorBefore:true}]});
   if(value==="unsure"){await pick(key,"unsure");return}
-  if(value!=="a"&&value!=="b"&&value!=="c"||value===stage)return;
+  if(value!=="a"&&value!=="c"||value===stage)return;
   if(await commitEffortStage(value))toast(t("toast.effort_stage",{stage:t(STAGE_LABEL[value])}),{quiet:true})}
 let skipReasonTarget=null;
 const SESSION_SKIP_REASONS=["time","recovery","pain","equipment","schedule","other"];
@@ -11437,7 +11436,7 @@ function bindWorkout(){
       const field=isEffortMode()?"effort":"rir";
       if(ex&&!activeWorkoutDraft.exercises[target.exerciseInstanceId].sets[target.setId].touched?.effort&&!hasPendingField(`${key}_${field}`)){
         const vals=setFieldVals(ex,target.ordinal,r,hydrateWorkoutDraft(),last(ex));
-        const shown=field==="effort"?vals.effortVal:String(vals.rirVal??"");
+        const shown=field==="effort"?vals.effortVal:vals.numericEffort.prefill;
         if(shown)prefill={field,value:shown}}}
     const refreshReservation=type==="completeSet"?reserveDraftRefresh():null;
     let refreshStarted=false;
@@ -11487,6 +11486,9 @@ function bindWorkout(){
    *  that changes how the field is drawn ("Not sure" on a stage C set, or back) redraws the card once it is stored. */
   const pickEffort=async(key,next,dir=0)=>{
     const target=draftTargetFromKey(key);if(!activeWorkoutDraft||!target)return;
+    if(REPS_LEFT.includes(next)){
+      const input=$(`[data-k="${key}_rir"]`);if(!input)return;
+      setEffortPick(key,next,dir);input.value=next;await input.oninput?.();return}
     const[exId,n]=setKeyParts(key),before=setStageOf(exId,n),wasUnsure=activeWorkoutDraft.exercises[exId]?.sets?.[target.setId]?.edited?.effort==="unsure";
     setEffortPick(key,next,dir);
     const pendingKey=`${key}_effort`,token=holdPendingField(pendingKey,next),recoveryField={key:pendingKey,
@@ -11505,12 +11507,17 @@ function bindWorkout(){
     const tokens=stageTokens(el.dataset.stage)||EFFORT_STEPS;
     const i=Math.max(0,tokens.indexOf(el.dataset.e));
     const next=tokens[Math.min(tokens.length-1,Math.max(0,i+dir))];
-    if(next===el.dataset.e)return;
+    if(next===el.dataset.e&&shelfTouched(...setKeyParts(key)).effort)return;
     return pickEffort(key,next,dir)};
   $w("[data-effchip]").forEach(b=>b.onclick=()=>{
     if(b.getAttribute("aria-pressed")==="true")return;
     const from=stageTokens(setStageOf(...setKeyParts(b.dataset.effchip)))||[],at=$(`[data-effspin="${b.dataset.effchip}"]`)?.dataset.e;
     pickEffort(b.dataset.effchip,b.dataset.e,Math.sign(from.indexOf(b.dataset.e)-from.indexOf(at)))});
+  $w("[data-effchip]").forEach(b=>b.onkeydown=e=>{
+    const step=e.key==="ArrowRight"||e.key==="ArrowUp"?1:e.key==="ArrowLeft"||e.key==="ArrowDown"?-1:0;
+    const jump=e.key==="Home"?-6:e.key==="End"?6:null;
+    if(!step&&jump==null)return;
+    e.preventDefault();stepEffort(b.dataset.effchip,jump??step)});
   $w("[data-effmenu]").forEach(b=>b.onclick=()=>openEffortMenu(b.dataset.effmenu,b,pickEffort));
   $w("[data-effspin]").forEach(el=>{
     // The tap belongs to the field handler (select, then explain); the arrow
@@ -11518,7 +11525,7 @@ function bindWorkout(){
     el.onkeydown=e=>{
       if(e.key==="Escape"){closeEffortPop();return}
       const step=e.key==="ArrowUp"||e.key==="ArrowRight"?1:e.key==="ArrowDown"||e.key==="ArrowLeft"?-1:0;
-      const jump=e.key==="Home"?-4:e.key==="End"?4:null;
+      const jump=e.key==="Home"?-6:e.key==="End"?6:null;
       if(!step&&jump==null)return;
       e.preventDefault();stepEffort(el.dataset.effspin,jump??step)}});
   $w("[data-shelf-field]").forEach(b=>b.onclick=()=>{
@@ -13250,7 +13257,7 @@ async function applyParsedCommand(parsed,context){
   }else fields.push({field:"load",value:canonicalDraftField("load",canonicalNumberText(loadDisp))},
     {field:"reps",value:String(parsed.reps)});
   if(isEffortMode())fields.push({field:"effort",value:tokenInStage(parsed.effort,effortStage())||stageEffortForRir(parsed.rir??1)});
-  else fields.push({field:"rir",value:parsed.rir!=null?canonicalNumberText(parsed.rir):""});
+  else fields.push({field:"rir",value:parsed.rir!=null?canonicalNumberText(Math.min(5,parsed.rir)):""});
   for(const field of fields){const result=await dispatch("editSetField",{exerciseInstanceId:target.exerciseInstanceId,
       setId:target.setId,field:field.field,value:field.value});if(result.status!=="applied")return}
   renderWorkout();return{ex,set:setN}}
@@ -16202,7 +16209,7 @@ function renderSettings(){
   const rirDisp=$("#rirModeDisplay");if(rirDisp)rirDisp.textContent=t(STAGE_LABEL[effortStage()]);
   // A word or chip stage's explanation stands under its row while that is the stage (it was the panel's lede).
   const effortLede=$("#rirEffortLede");
-  if(effortLede){effortLede.hidden=effortStage()==="c";effortLede.textContent=t(effortStage()==="b"?"settings.effort_lede_reps":"settings.effort_lede")}
+  if(effortLede){effortLede.hidden=effortStage()==="c";effortLede.textContent=t("settings.effort_lede")}
   const langDisp=$("#langDisplay");if(langDisp)langDisp.textContent=t("settings.lang."+(I18N?.normalizeLang(state.settings.lang)||"en"));
   const le=state.settings.lastExport,ago=le?t("settings.storage.last_backup",{lastBackup:le.slice(0,10)}):t("settings.storage.last_backup_never");
   paintStorageNote(ago);
@@ -16234,8 +16241,7 @@ async function commitSettings(silent){const editRevision=settingsEditRevision;co
   const oldUnit=state.settings.unit,newUnit=$("#unit").value==="lb"?"lb":"kg",oldLang=state.settings.lang,newLang=I18N?.normalizeLang($("#lang")?.value)||oldLang;
   const stagePick=stageSettings(stageForPick($('input[name="rirMode"]:checked')?.value));
   // A unit change commits on its own; the stage holds still under it.
-  const{rirMode:newRirMode,effortScale:newEffortScale}=oldUnit===newUnit?stagePick
-    :{rirMode:state.settings.rirMode,effortScale:state.settings.effortScale};
+  const{rirMode:newRirMode}=oldUnit===newUnit?stagePick:{rirMode:state.settings.rirMode};
   // No wait for draft writes here: Settings commits synchronously up to its enqueue, like every other setting. A draft
   // write still in flight changes the raw, and the effect's abort-if-changed precondition refuses the commit for a retry.
   const modeEffect=newRirMode===state.settings.rirMode?null:draftRirModeEffect(readDraftRaw(),newRirMode);
@@ -16253,7 +16259,7 @@ async function commitSettings(silent){const editRevision=settingsEditRevision;co
   const originalDraftRaw=oldUnit===newUnit?null:readDraftRaw();
   const unitEffect=draftUnitConversionEffect(originalDraftRaw,oldUnit,newUnit);
   const proposal=cloneSnapshot(state);
-  proposal.settings=normalizeSettings({jumpPct:num("#jumpPct",2.5,0),minJump:(()=>{const n=parseDec($("#minJump").value);return Number.isFinite(n)&&n>0?n:2.5})(),rirHigh:num("#rirHigh",2,0),hardRir:num("#hardRir",4,0),restSec,lastExport:state.settings.lastExport,unit:newUnit,lang:newLang,rirMode:newRirMode,effortScale:newEffortScale,voiceInputEnabled:!!$("#voiceInputEnabled")?.checked,maxSetPrompts:$("#maxSetPrompts")?$("#maxSetPrompts").checked:state.settings.maxSetPrompts!==false,slowRepTaps:$("#slowRepTaps")?$("#slowRepTaps").checked:state.settings.slowRepTaps!==false,notify:normalizeNotify({enabled:!!state.settings.notify?.enabled,timer:!!$("#notifyTimer")?.checked,session:!!$("#notifySession")?.checked,unfinished:!!$("#notifyUnfinished")?.checked,missed:!!$("#notifyMissed")?.checked})});
+  proposal.settings=normalizeSettings({jumpPct:num("#jumpPct",2.5,0),minJump:(()=>{const n=parseDec($("#minJump").value);return Number.isFinite(n)&&n>0?n:2.5})(),rirHigh:num("#rirHigh",2,0),hardRir:num("#hardRir",4,0),restSec,lastExport:state.settings.lastExport,unit:newUnit,lang:newLang,rirMode:newRirMode,voiceInputEnabled:!!$("#voiceInputEnabled")?.checked,maxSetPrompts:$("#maxSetPrompts")?$("#maxSetPrompts").checked:state.settings.maxSetPrompts!==false,slowRepTaps:$("#slowRepTaps")?$("#slowRepTaps").checked:state.settings.slowRepTaps!==false,notify:normalizeNotify({enabled:!!state.settings.notify?.enabled,timer:!!$("#notifyTimer")?.checked,session:!!$("#notifySession")?.checked,unfinished:!!$("#notifyUnfinished")?.checked,missed:!!$("#notifyMissed")?.checked})});
   const result=await commitProposedState(proposal,storageIO,{effect:unitEffect||modeEffect});
   if(!(result.localOk||result.idbOk)){if(editRevision===settingsEditRevision)renderSettings();return result}
   // Overlapping held steps can retain an earlier completion in live state.
@@ -26015,7 +26021,7 @@ function init(){
     const value=await openRowContextMenu({anchor:row,items:options.map(([v,label])=>({label,value:v,checked:v===current()}))});
     if(value!=null&&value!==current())apply(value)};
   const rirRow=$("#rirModeRow");if(rirRow)rirRow.onclick=()=>pullDown(rirRow,
-    ["a","b","c"].map(stage=>[STAGE_PICK[stage],t(STAGE_LABEL[stage])]),
+    ["a","c"].map(stage=>[STAGE_PICK[stage],t(STAGE_LABEL[stage])]),
     ()=>$('input[name="rirMode"]:checked')?.value||"numeric",
     value=>{const radio=$(`input[name="rirMode"][value="${value}"]`);if(radio){radio.checked=true;commitChangedSettings().then(renderSettings)}});
   const langRow=$("#langRow");if(langRow)langRow.onclick=()=>pullDown(langRow,
@@ -26274,9 +26280,16 @@ async function applyBootDecision(decision){
   day=defaultPlannedDay();
   applyGotoParam();
   const migrated=migrateLog();
+  const oldSettings=decision.snapshot?.settings;
+  const retiredScale=Object.prototype.hasOwnProperty.call(oldSettings||{},"effortScale");
+  // The old reps scale becomes numeric without rewriting any held set. A finishing
+  // draft refuses the reducer command; only this upgrade still migrates Settings.
+  const modeEffect=oldSettings?.rirMode==="effort"&&oldSettings.effortScale==="reps"
+    ?draftRirModeEffect(readDraftRaw(),"numeric"):null;
+  const migrationEffect=modeEffect?.status===DRAFT_EFFECT_INVALID?null:modeEffect;
   const metaDrift=decision.snapshot&&canonicalPayload({programMeta:decision.snapshot.programMeta})!==canonicalPayload({programMeta:state.programMeta});
   const revisionless=decision.snapshot&&!Object.prototype.hasOwnProperty.call(decision.snapshot,STORAGE_REV);
-  if(decision.kind==="first-run"||decision.migrate||revisionless||migrated||metaDrift||decision.recoveryChanged)await persist();
+  if(decision.kind==="first-run"||decision.migrate||revisionless||migrated||metaDrift||retiredScale||decision.recoveryChanged)await persist({effect:migrationEffect});
   if(I18N)I18N.setLang(resolveLang())}
 window.__repforgeSharedSetup={
   get status(){return sharedSetupDraft.status},

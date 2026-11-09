@@ -24,7 +24,7 @@
  *
  * Run: node test/journeys-in.mjs   (requires the app served over HTTP)
  */
-import { launchChromium, waitForAppBoot, answerRecommend } from "./browser.mjs";
+import { chooseRepsLeft, launchChromium, waitForAppBoot, answerRecommend } from "./browser.mjs";
 import { encodeSetupLink } from "./fixtures/setup-link-v4.mjs";
 import { APP_INDEX, waitForFirstRun } from "./shared-setup-flow.mjs";
 import { finishEarly } from "./fixtures/focus-workout.mjs";
@@ -284,7 +284,7 @@ phase("Journey 5: first session -> summary -> Progress");
   const rirInput = page.locator(`${shelf} input[data-k="${exId}_1_rir"]`);
   if (await rirInput.getAttribute("aria-hidden") === "true") await tapField(`${shelf} [data-shelf-field="rir"]`);
   assert(firstSetShown === 1, "the first tap on the shelf opens the first-set guide, once", String(firstSetShown));
-  await rirInput.fill("2");
+  await chooseRepsLeft(page, "2");
   await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
   await page.locator(`#workout .exercise.is-current [data-save="${exId}_1"]`).click();
   await page.waitForFunction((id) => {

@@ -19,7 +19,7 @@
  * Run: REPFORGE_URL=http://localhost:8000/ node test/focus-hero.mjs
  */
 import { readFileSync } from "node:fs";
-import { launchChromium, openShelfField, waitForAppBoot } from "./browser.mjs";
+import { chooseRepsLeft, launchChromium, openShelfField, waitForAppBoot } from "./browser.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const DATA = new URL("../plans/067/data/", import.meta.url);
@@ -105,7 +105,7 @@ async function logSet(page, slotId, ordinal, { load, reps, rir }, { stopRest = t
   const rirInput = page.locator(`#workout .exercise.is-current .focus-shelf input[data-k="${slotId}_${ordinal}_rir"]`);
   if (await rirInput.getAttribute("aria-hidden") === "true")
     await page.locator('#workout .exercise.is-current .focus-shelf [data-shelf-field="rir"]').click();
-  await rirInput.fill(String(rir));
+  await chooseRepsLeft(page, String(rir));
   await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
   await page.locator(`#workout .exercise.is-current [data-save="${slotId}_${ordinal}"]`).click();
   await page.waitForFunction(({ slotId, ordinal }) => {
@@ -142,6 +142,9 @@ function readCard() {
   const sizes = [...card.querySelectorAll(".fcard__context *")].filter((el) => el.childElementCount === 0 && el.textContent.trim() && el.getClientRects().length)
     .map((el) => parseFloat(getComputedStyle(el).fontSize));
   return {
+    layout: { context: box(context), shelf: box(shelf), header: box(document.querySelector(".wo-head")),
+      fields: [...shelf.querySelectorAll(".shelf__field")].map(el => ({ text: el.textContent.trim(), height: el.getBoundingClientRect().height,
+        label: getComputedStyle(el.querySelector(".shelf__lab")).fontSize, line: getComputedStyle(el.querySelector(".shelf__lab")).lineHeight })) },
     l1: l1?.textContent.replace(/\s+/g, " ").trim() || "",
     l1Size: l1 ? parseFloat(getComputedStyle(l1).fontSize) : 0,
     largest: Math.max(...sizes),
@@ -335,6 +338,20 @@ try {
       await run.context.close();
     }
     ok(seen.has("hold") && seen.has("up") && seen.has("down"), "the three logged sets produce hold, up and down", [...seen]);
+  }
+
+  console.log("Portuguese short-phone geometry survives restoring the running workout");
+  {
+    const run = await open(browser, { width: 320, height: 568, lang: "pt" });
+    await logSet(run.page, run.target.slotId, 1, { load: 60, reps: 8, rir: 2 }, { stopRest: false });
+    await run.page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(run.page, { base: BASE });
+    await run.page.evaluate(id => window.__repforgeGoToLogExercise(id), run.target.rowId);
+    await settle(run.page);
+    const restored = await card(run.page);
+    ok(restored.hero?.inView && restored.open?.inView && restored.heroBox.bottom <= restored.open.top && !restored.underTab.length,
+      "after reload the full Portuguese numeric caption leaves the hero and open set whole above rest", restored);
+    await run.context.close();
   }
 
   console.log("320×568 with the rest running: the hero stays above the open set, the logged row folds first");

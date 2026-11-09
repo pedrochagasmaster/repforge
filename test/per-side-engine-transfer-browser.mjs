@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { webcrypto } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { launchChromium, openShelfField, waitForAppBoot } from "./browser.mjs";
+import { chooseRepsLeft, launchChromium, openShelfField, waitForAppBoot } from "./browser.mjs";
 
 const require = createRequire(import.meta.url);
 const RAW_CATALOG = require("../assets/exercise-catalog.json");
@@ -88,6 +88,7 @@ async function selectPress(page, rowId) {
 }
 
 async function fillShelf(page, selector, value, shelfField) {
+  if (shelfField === "rir") { await chooseRepsLeft(page, String(value)); return; }
   const input = page.locator(selector);
   await input.waitFor({ state: "attached", timeout: 10000 });
   if (await input.getAttribute("aria-hidden") === "true")
@@ -114,7 +115,7 @@ async function logFirstPressSet(page, rowId) {
   const rir = page.locator(`#workout .exercise.is-current .focus-shelf input[data-k="${rowId}_1_rir"]`);
   if (await rir.getAttribute("aria-hidden") === "true")
     await page.locator('#workout .exercise.is-current .focus-shelf [data-shelf-field="rir"]').click();
-  await rir.fill("2");
+  await chooseRepsLeft(page, "2");
   await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
   await page.locator(`#workout .exercise.is-current [data-save="${rowId}_1"]`).click();
   await page.waitForFunction((id) => {
