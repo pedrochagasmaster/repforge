@@ -738,6 +738,26 @@ async function finalPage(browser) {
       const scene = await page.evaluate(sel => {const el=document.querySelector(sel);return {text:el?.textContent,opacity:el?Number(getComputedStyle(el).opacity):0}}, selector);
       assert(scene.opacity === 1 && scene.text?.includes(tr(lang, key)), `[${lang}] test-set scene at ${time}s uses Focus copy`, JSON.stringify(scene));
     }
+    await page.evaluate(() => window.__repforgeLandingSeek(22));
+    const adaptation = await page.evaluate(() => ({
+      rows: [...document.querySelectorAll('.firstrun-demo__history .firstrun-demo__last')].map(row =>
+        [...row.querySelectorAll('[data-lv]')].map(cell => cell.textContent.trim())),
+      explanation: document.querySelector('.firstrun-demo__did')?.textContent,
+      target: document.querySelector('.firstrun-demo__target')?.textContent,
+      caption: document.querySelector('[data-landing-fill="ch4"]')?.textContent,
+    }));
+    const history = adaptation.rows;
+    assert(history.length === SETS && history.every(row => row.every((value, i) => value === history[0][i])),
+      `[${lang}] the all-sets explanation describes every rendered history row`, JSON.stringify(adaptation));
+    assert(adaptation.explanation === tr(lang, "landing.outcomes.did_same", {
+      reps: history[0]?.[1], load: `${history[0]?.[0]} kg`, sets: SETS, min: 8, max: 10,
+    }), `[${lang}] the next-session explanation uses its rendered history`, adaptation.explanation);
+    assert(hasNumber(adaptation.target, ENGINE.add.load, lang) && hasNumber(adaptation.target, ENGINE.add.reps, lang),
+      `[${lang}] the next-session target agrees with the progression engine`, adaptation.target);
+    assert(adaptation.caption === tr(lang, "landing.demo.s7.text", {
+      done_reps: history[0]?.[1], load: `${history[0]?.[0]} kg`, sets: SETS, min: 8, max: 10,
+      next_load: `${ENGINE.add.load.toLocaleString(lang === "pt" ? "pt-BR" : "en-US")} kg`, next_reps: ENGINE.add.reps,
+    }), `[${lang}] the accessible adaptation caption describes its rendered history and engine target`, adaptation.caption);
     const add = LANDING_CASES.add;
     const last = f.steps.at(-1) || "";
     assert(
