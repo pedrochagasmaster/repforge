@@ -6414,6 +6414,7 @@ function enginePerformedRow(row,exerciseId,metricIds){
     loadingConvention:row.loadingConvention,metricIds:[...row.metricIds],metricValues:cloneSnapshot(row.metricValues),
     loadingContext:isPlainStateObject(row.loadingContext)?cloneSnapshot(row.loadingContext):null,
     ...(row.effortSource?{effortSource:row.effortSource}:{}),
+    ...(row.warmup===true?{warmup:true}:{}),
     ...(row.effortSource==="failure"&&WorkoutDraft?.validCalibration?.(row.calibration)?{calibration:cloneSnapshot(row.calibration)}:{})}}
 /** A lift's calibration checks: its max sets in the comparable history (same equipment and loading as today), with any
  *  of `extra` (sessions not yet in the log), read by the estimator. */
