@@ -151,7 +151,7 @@ try {
   assert(/test set/i.test(tipText) && /50 kg/.test(tipText), "the prompt names the test set and the load", tipText);
   phase("Estimator request and every safety ceiling");
   const gates = await page.evaluate((id) => {
-    const originalDraft = activeWorkoutDraft, originalLog = state.log, originalSettings = state.settings;
+    const originalDraft = activeWorkoutDraft, originalLog = state.log, originalSettings = state.settings, originalMeta = state.programMeta;
     const engine = window.RepForgeProgression;
     const draft = JSON.parse(JSON.stringify(originalDraft));
     const ex = sessionExercise(prog.find(id)), de = draft.exercises[id];
@@ -169,10 +169,11 @@ try {
       outcomes.learning = !!offer();
       const order = [...de.setOrder]; de.setOrder = [final.setId]; outcomes.minSets = !offer(); de.setOrder = order;
       outcomes.highReps = !maxSetOffer({...ex,max:21,hasRepTarget:true}, final.ordinal);
-      const eligibility = maxSetEligibility; maxSetEligibility = () => ({eligible:false});
-      try { outcomes.ineligible = !offer(); } finally { maxSetEligibility = eligibility; }
-      const deload = isProgramDeloadWeek; isProgramDeloadWeek = () => true;
-      try { outcomes.deload = !offer(); } finally { isProgramDeloadWeek = deload; }
+      const libraryId = final.programmed.sourceLibraryId;
+      final.programmed.sourceLibraryId = window.RepForgeExerciseCatalog.snapshot().exercises.find(item => item.name === "Barbell back squat").id;
+      outcomes.ineligible = !offer(); final.programmed.sourceLibraryId = libraryId;
+      state.programMeta = {...originalMeta,started:date,programDefinition:{...originalMeta.programDefinition,deloadCycles:[1]}};
+      outcomes.deload = !offer(); state.programMeta = originalMeta;
       const completion = before.completion; before.completion = "pending"; outcomes.pending = !offer(); before.completion = completion;
       maxSetDeclined.add(`${draft.draftId}:${id}`); outcomes.declined = !offer(); maxSetDeclined.delete(`${draft.draftId}:${id}`);
       outcomes.notLast = !maxSetOffer(ex, before.ordinal);
@@ -203,9 +204,24 @@ try {
         word = "solid";
         state.log = [...originalLog,{...row,date:ago(59)}]; outcomes.day59 = !offer();
         state.log = [...originalLog,{...row,date:ago(60)}]; outcomes.day60 = offer()?.reason === "recheck";
+        state.log = originalLog; word = "learning";
+        const secondId = draft.exerciseOrder.find(otherId => otherId !== id && prog.find(otherId));
+        const second = draft.exercises[secondId], secondEx = sessionExercise(prog.find(secondId));
+        const secondWorking = second.setOrder.map(key => second.sets[key]).filter(set => set.role === "working");
+        for (const set of secondWorking.slice(0,-1)) {
+          set.completion = JSON.parse(JSON.stringify(before.completion));
+          set.edited.rir = "2"; set.edited.effort = "hard";
+          for (const metric of set.programmed.metrics || []) set.edited.metrics[metric.id] = metric.semantic === "reps" ? "10" : "50";
+        }
+        recommendation = current => ({...actualRecommendation(current),calibration:{state:"uncalibrated",n:0},
+          standing:{word:"learning",evidence:{sets:current.id===id?10:1}}});
+        outcomes.lessEvidence = !offer() && !!maxSetOffer(secondEx,secondWorking.at(-1).ordinal);
+        recommendation = current => ({...actualRecommendation(current),calibration:{state:"uncalibrated",n:0},
+          standing:{word:"learning",evidence:{sets:1}}});
+        outcomes.tieOrder = !!offer() && !maxSetOffer(secondEx,secondWorking.at(-1).ordinal);
       } finally { recommendation = actualRecommendation; }
       return outcomes;
-    } finally { activeWorkoutDraft = originalDraft; state.log = originalLog; state.settings = originalSettings; window.RepForgeProgression = engine; }
+    } finally { activeWorkoutDraft = originalDraft; state.log = originalLog; state.settings = originalSettings; state.programMeta = originalMeta; window.RepForgeProgression = engine; }
   }, exId);
   for (const [gate, passed] of Object.entries(gates)) assert(passed, `request gate: ${gate}`, gates);
   await page.locator(`${TIP} [data-maxset-guess]`).click();

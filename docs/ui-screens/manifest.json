@@ -1245,7 +1245,14 @@
       "id": "max-set-prompt",
       "flow": "workout",
       "label": "Workout — test-set prompt",
-      "scenario": "During the rest before a lift's last set, the prompt above the shelf offers to make it a test set: guess the reps at the load, then go to failure. Not now and × close it.",
+      "scenario": "During the rest before a lift's last set, the prompt above the shelf offers to make it a test set: guess the reps at the load, then go to failure. Not now and × close it. The invite explains that the app is still learning this lift.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "max-set-recheck",
+      "flow": "workout",
+      "label": "Workout — test-set re-check",
+      "scenario": "A solid calibrated lift, its last check 60 days ago with regular sessions since. The invite explains that it has been a while since the last check.",
       "variants": "demandingText"
     },
     {
