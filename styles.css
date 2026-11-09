@@ -6015,6 +6015,16 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   color:var(--firstrun-ink-soft);text-wrap:pretty;opacity:0;visibility:hidden;transition:opacity .2s cubic-bezier(.2,.7,.2,1),visibility 0s .2s;
 }
 .firstrun-chapter.is-current .firstrun-chapter__text{opacity:1;visibility:visible;transition:opacity .2s cubic-bezier(.2,.7,.2,1)}
+.firstrun-chapter__result{display:block;margin-top:var(--space-12)}
+@container(max-width:25em){
+  .firstrun-chapters{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .firstrun-chapter__go{grid-row:auto}
+  .firstrun-chapter__text{grid-row:4;order:1}
+}
+@container(max-width:15em){
+  .firstrun-chapters{grid-template-columns:minmax(0,1fr)}
+  .firstrun-chapter__text{grid-row:6}
+}
 @media(max-width:340px){.firstrun-proof__device{border-radius:var(--radius-landing-stage-compact)}}
 @media(min-width:900px){
   .firstrun-proof{padding-bottom:var(--firstrun-gap-8)}
