@@ -268,16 +268,6 @@
       "content": "flat",
       "scenario": "The Direction D lifter before Day 1 starts: the prescription table reads recommendation() for every exercise, with the verdict tally above it."
     },
-    "today/calibration-mini": {
-      "owner": "plan-077",
-      "content": "flat",
-      "scenario": "The calibration ring beside Today's large title."
-    },
-    "today/calibration-ring-bar": {
-      "owner": "plan-077",
-      "content": "flat",
-      "scenario": "Today scrolled, the calibration ring in the bar beside the gear."
-    },
     "today/dock-viewer": {
       "owner": "plan-075-phase-5",
       "content": "flat",
@@ -497,11 +487,6 @@
       "owner": "plan-056",
       "content": "flat",
       "scenario": "The Progress landing tab."
-    },
-    "progress/overview-calibration": {
-      "owner": "plan-077",
-      "content": "flat",
-      "scenario": "The effort calibration gauge, its six signals with plain counts, and the recent test sets."
     },
     "progress/overview-guide": {
       "owner": "tip-modal-2026-10-17",
@@ -1307,6 +1292,16 @@
       "owner": "plan-079",
       "content": "flat",
       "scenario": "Without bodyweight the opening uses the equipment floor and offers the existing Session bodyweight field."
+    },
+    "progress/overview-profile": {
+      "owner": "plan-081",
+      "content": "flat",
+      "scenario": "Active program standing, counts and recent test sets."
+    },
+    "progress/overview-profile-first": {
+      "owner": "plan-081",
+      "content": "flat",
+      "scenario": "Early standing and counts after two recorded sessions."
     }
   },
   "components": [
@@ -1390,8 +1385,6 @@
         "today/deload-week",
         "today/ready-scrolled",
         "today/in-progress",
-        "today/calibration-mini",
-        "today/calibration-ring-bar",
         "today/week-card"
       ]
     },
@@ -4552,88 +4545,8 @@
         "today/deload-week",
         "today/ready-scrolled",
         "today/in-progress",
-        "today/calibration-mini",
-        "today/calibration-ring-bar",
         "today/week-card"
       ]
-    },
-    {
-      "id": "calring-title",
-      "selector": "#todayCalRing",
-      "roles": {
-        "control": "quiet-navigation"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "pressed",
-        "focus-visible"
-      ],
-      "rationale": "The calibration ring beside Today's large title: the gauge's number and test-set dots; opens Progress › Overview at the calibration card.",
-      "owner": "plan-077",
-      "catalogStates": [
-        "catalog-recovery/retry-failed",
-        "catalog-recovery/unavailable",
-        "install/banner",
-        "today/done",
-        "today/draft-resume",
-        "today/no-program",
-        "today/ready",
-        "today/dock-viewer",
-        "today/skipped",
-        "today/rest-bar",
-        "workout/invalid-draft",
-        "today/deload-week",
-        "today/ready-scrolled",
-        "today/in-progress",
-        "today/calibration-mini",
-        "today/calibration-ring-bar",
-        "install/transfer-destination",
-        "program/custom-exercise-recovery",
-        "install/ios-sheet",
-        "install/transfer-claimed-expired",
-        "install/transfer-claiming",
-        "install/transfer-cleanup",
-        "install/transfer-creating",
-        "install/transfer-eligible",
-        "install/transfer-importing",
-        "install/transfer-interrupted",
-        "install/transfer-ready",
-        "install/transfer-retryable",
-        "install/transfer-success",
-        "install/transfer-terminal",
-        "install/transfer-unknown",
-        "program/custom-exercise",
-        "program/custom-exercise-archiving",
-        "program/custom-exercise-saving",
-        "today/context-menu",
-        "today/day-picker",
-        "today/week-card"
-      ],
-      "neverDisabledReason": "The ring is shown only when there is a gauge to open; with none it is hidden, not disabled."
-    },
-    {
-      "id": "calring-bar",
-      "selector": "#todayCalRingBar",
-      "roles": {
-        "control": "quiet-navigation"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "pressed",
-        "focus-visible"
-      ],
-      "rationale": "The calibration ring's twin in the bar beside the gear once Today's title has scrolled under the bar; a pointer shortcut (the title ring is the one keyboard and VoiceOver reach).",
-      "owner": "plan-077",
-      "catalogStates": [
-        "today/ready-scrolled",
-        "workout/invalid-draft",
-        "today/calibration-ring-bar"
-      ],
-      "neverDisabledReason": "Shown only with the gauge; hidden otherwise."
     },
     {
       "id": "previewadd",
@@ -6291,8 +6204,6 @@
         "workout/invalid-draft",
         "today/deload-week",
         "today/ready-scrolled",
-        "today/calibration-mini",
-        "today/calibration-ring-bar",
         "today/week-card"
       ]
     },
@@ -6349,7 +6260,8 @@
         "progress/volume-drill-in",
         "progress/volume-reduction-preview",
         "progress/minibar",
-        "progress/overview-calibration"
+        "progress/overview-profile",
+        "progress/overview-profile-first"
       ]
     },
     {
@@ -6761,8 +6673,6 @@
         "today/deload-week",
         "today/ready-scrolled",
         "today/in-progress",
-        "today/calibration-mini",
-        "today/calibration-ring-bar",
         "today/week-card"
       ],
       "progressScopes": {
@@ -6820,8 +6730,6 @@
         "today/deload-week",
         "today/ready-scrolled",
         "today/in-progress",
-        "today/calibration-mini",
-        "today/calibration-ring-bar",
         "today/week-card"
       ],
       "progressScopes": {
@@ -6888,8 +6796,6 @@
         "today/deload-week",
         "today/ready-scrolled",
         "today/in-progress",
-        "today/calibration-mini",
-        "today/calibration-ring-bar",
         "today/week-card"
       ]
     },
@@ -7164,7 +7070,8 @@
         "progress/overview",
         "progress/overview-action",
         "progress/minibar",
-        "progress/overview-calibration"
+        "progress/overview-profile",
+        "progress/overview-profile-first"
       ]
     },
     {
@@ -8773,9 +8680,8 @@
         "progress/minibar",
         "history/minibar-rest",
         "program/minibar-rest-done",
-        "progress/overview-calibration",
-        "today/calibration-mini",
-        "today/calibration-ring-bar",
+        "progress/overview-profile",
+        "progress/overview-profile-first",
         "today/week-card",
         "history/ramp-rows"
       ]
@@ -8854,9 +8760,8 @@
         "progress/minibar",
         "history/minibar-rest",
         "program/minibar-rest-done",
-        "progress/overview-calibration",
-        "today/calibration-mini",
-        "today/calibration-ring-bar",
+        "progress/overview-profile",
+        "progress/overview-profile-first",
         "today/week-card",
         "history/ramp-rows"
       ]
@@ -8944,9 +8849,8 @@
         "progress/minibar",
         "history/minibar-rest",
         "program/minibar-rest-done",
-        "progress/overview-calibration",
-        "today/calibration-mini",
-        "today/calibration-ring-bar",
+        "progress/overview-profile",
+        "progress/overview-profile-first",
         "today/week-card",
         "history/ramp-rows"
       ]
@@ -9099,9 +9003,8 @@
         "workout/stage-tip",
         "workout/why-calibration",
         "workout/last-rep-slow",
-        "progress/overview-calibration",
-        "today/calibration-mini",
-        "today/calibration-ring-bar",
+        "progress/overview-profile",
+        "progress/overview-profile-first",
         "workout/rest-overrun-finish",
         "workout/why-standing",
         "workout/focus-ramp",
@@ -9309,8 +9212,6 @@
         "today/ready-scrolled",
         "today/in-progress",
         "program/minibar-rest-done",
-        "today/calibration-mini",
-        "today/calibration-ring-bar",
         "today/week-card"
       ]
     },
@@ -9400,7 +9301,8 @@
         "progress/volume-drill-in",
         "progress/volume-reduction-preview",
         "progress/minibar",
-        "progress/overview-calibration"
+        "progress/overview-profile",
+        "progress/overview-profile-first"
       ]
     },
     {
@@ -9455,7 +9357,8 @@
         "progress/volume-drill-in",
         "progress/volume-reduction-preview",
         "progress/minibar",
-        "progress/overview-calibration"
+        "progress/overview-profile",
+        "progress/overview-profile-first"
       ]
     },
     {
@@ -10463,7 +10366,8 @@
         "progress/overview",
         "progress/overview-action",
         "progress/minibar",
-        "progress/overview-calibration"
+        "progress/overview-profile",
+        "progress/overview-profile-first"
       ]
     },
     {
@@ -12088,8 +11992,6 @@
         "workout/invalid-draft",
         "workout/reorder",
         "workout/session",
-        "today/calibration-mini",
-        "today/calibration-ring-bar",
         "workout/rest-overrun-finish"
       ],
       "neverDisabledReason": "The menu or choice stays reachable whenever its owning row is present."
@@ -12529,9 +12431,7 @@
         "history/delete-confirm",
         "workout/invalid-draft",
         "progress/strength-comparison",
-        "progress/strength-sparse",
-        "today/calibration-mini",
-        "today/calibration-ring-bar"
+        "progress/strength-sparse"
       ]
     },
     {
@@ -13032,8 +12932,6 @@
       "owner": "plan-082",
       "catalogStates": [
         "today/ready",
-        "today/calibration-mini",
-        "today/calibration-ring-bar",
         "today/dock-viewer",
         "today/ready-scrolled",
         "today/rest-bar",
@@ -13066,8 +12964,6 @@
       "owner": "plan-082",
       "catalogStates": [
         "today/ready",
-        "today/calibration-mini",
-        "today/calibration-ring-bar",
         "today/dock-viewer",
         "today/ready-scrolled",
         "today/rest-bar",
@@ -13250,6 +13146,44 @@
       "owner": "plan-079",
       "catalogStates": [
         "workout/focus-ramp-floor"
+      ]
+    },
+    {
+      "id": "profile-lift-name",
+      "selector": ".profile-lift__name",
+      "roles": {
+        "typography": "section-title"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Names the lift whose standing and evidence follow.",
+      "owner": "plan-081",
+      "catalogStates": [
+        "progress/overview-profile",
+        "progress/overview-profile-first",
+        "library/exercise-detail-suggested"
+      ]
+    },
+    {
+      "id": "profile-lift-standing",
+      "selector": ".profile-lift__standing",
+      "roles": {
+        "typography": "body"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Reads the engine standing in words.",
+      "owner": "plan-081",
+      "catalogStates": [
+        "progress/overview-profile",
+        "progress/overview-profile-first",
+        "library/exercise-detail-suggested"
       ]
     }
   ],
@@ -13447,8 +13381,8 @@
         "program/progression-editor",
         "install/banner",
         "today/draft-resume",
-        "progress/overview-calibration",
-        "today/calibration-mini",
+        "progress/overview-profile",
+        "progress/overview-profile-first",
         "history/ramp-rows"
       ]
     },
@@ -13972,8 +13906,8 @@
         "program/progression-editor",
         "install/banner",
         "today/draft-resume",
-        "progress/overview-calibration",
-        "today/calibration-mini",
+        "progress/overview-profile",
+        "progress/overview-profile-first",
         "history/ramp-rows"
       ]
     },
@@ -14034,8 +13968,8 @@
         "program/progression-editor",
         "install/banner",
         "today/draft-resume",
-        "progress/overview-calibration",
-        "today/calibration-mini",
+        "progress/overview-profile",
+        "progress/overview-profile-first",
         "history/ramp-rows"
       ]
     },

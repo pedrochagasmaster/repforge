@@ -12,6 +12,7 @@
  */
 import { launchChromium } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
+import { metricLogRow } from "./fixtures/history-metric-rows.mjs";
 import { finishEarly } from "./fixtures/focus-workout.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
@@ -30,6 +31,12 @@ for (let w = 0; w < 6; w++) for (const ex of lifts) for (const set of [1, 2, 3])
   exerciseId: ex.id, sourceLibraryId: ex.libraryId, set, load: 60, reps: 9 - set, rir: 2, notes: "", created: `${day(42 - w * 7)}T10:00:00.000Z`, primary: "", secondary: "", effortSource: "rir" });
 log.push({ session: "s5", date: day(7), day: lifts[1].day, name: lifts[1].name, exerciseId: lifts[1].id, sourceLibraryId: lifts[1].libraryId, set: 4, load: 60, reps: 12, rir: 0,
   notes: "", created: `${day(7)}T10:30:00.000Z`, primary: "", secondary: "", effortSource: "failure", calibration: { v: 1, predictedReps: 10, predictionEdited: false, prefillBasis: "reps_rir" } });
+
+for (let i=0;i<log.length;i++) {
+  const row=log[i],ex=program.find(ex=>ex.id===row.exerciseId);
+  log[i]=metricLogRow(seedProgramMeta(),ex,{...row,extra:{effortSource:row.effortSource,...(row.calibration?{calibration:row.calibration}:{})}});
+}
+log[0].startingLoad = { v: 1, openingKg: 40, basis: "floor", ramps: 1, version: "priors@079.1" };
 
 async function boot(page, { history = log, settings = {} } = {}) {
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
@@ -114,6 +121,7 @@ try {
   const checks = await page.locator("#overviewProfile .calcheck").allTextContents();
   assert(checks.length === 1 && /Seated leg curl/.test(checks[0]) && /Guessed 10 → Did 12/.test(checks[0]),
     "recent test sets retain the guess and result", checks);
+  assert(profile.includes("Started at 40 kg, worked at 60 kg."), "opening and first working load come from the same session", profile);
   assert(profile.includes("2 more test sets"), "per-lift test sets say what is still needed", profile);
   assert(profile.includes("Reps left") && profile.includes("54 of 54"), "effort stage and recent chosen effort counts are shown", profile);
   await page.click('[data-view="log"]');
