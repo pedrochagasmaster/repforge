@@ -592,7 +592,15 @@ function catalogMatchers(dictionary) {
   if (compiled.has(dictionary)) return compiled.get(dictionary);
   const escape = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const patterns = [];
-  for (const value of Object.values(dictionary)) {
+  for (const [key, value] of Object.entries(dictionary)) {
+    if (/^focus\.exmeta\.(?:effort|goal|range)$/.test(key)) {
+      const number = "\\d+(?:[.,]\\d+)?";
+      const line = escape(String(value)).replace(escape("{rmin}–{rmax}"), `${number}(?:–${number})?`)
+        .replace(/\\\{\w+\\\}/g, number);
+      const methods = Object.entries(dictionary).filter(([name]) => name === "program.progression.adaptive"
+        || name.startsWith("program.progression.strategy.")).map(([, label]) => escape(String(label)));
+      patterns.push(new RegExp(`^${line} · (?:${methods.join("|")})$`, "iu"));
+    }
     for (const segment of String(value).split(/<[^>]*>/)) {
       const normal = segment.replace(/\s+/g, " ").trim();
       if (!/\p{L}/u.test(normal.replace(/\{\w+\}/g, ""))) continue;
