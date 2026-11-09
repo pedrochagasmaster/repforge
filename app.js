@@ -14374,7 +14374,7 @@ function dropPendingSuggestLoads(document,slotId){
   if(!list)return;
   const next=list.filter(id=>id!==slotId);
   if(next.length)meta.suggestLoadsPending=next;else delete meta.suggestLoadsPending}
-function syncEditorCanonicalIntent(document,baseDocument,edit,{cycleIndex=1}={}){
+function syncEditorCanonicalIntent(document,baseDocument,edit,{cycleIndex=1,importedRepRanges={}}={}){
   const meta=document.programMeta||(document.programMeta={});
   let definition=meta.programDefinition;
   const baseDefinition=baseDocument?.programMeta?.programDefinition;
@@ -14427,12 +14427,13 @@ function syncEditorCanonicalIntent(document,baseDocument,edit,{cycleIndex=1}={})
         set.provenance={source:"manual",policyVersion:"manual@1"}}
     }
     // A composition that counts repetitions needs a rep range to log against;
-    // a newly configured one starts from the row's range or Build's default.
+    // a newly configured one uses its pending imported range, row range or Build default.
     const repSemantic=edit.metricDefinitions.find(metric=>metric.semantic==="reps"||metric.semantic==="repsPerSide")?.semantic;
     const row=(document.program||[]).find(item=>String(item.slotId||item.id)===String(slotId));
     const rowMin=Number(row?.min),rowMax=Number(row?.max);
-    const defaultRange=Number.isSafeInteger(rowMin)&&rowMin>0&&Number.isSafeInteger(rowMax)&&rowMax>=rowMin
-      ?{min:rowMin,max:rowMax}:{min:6,max:10};
+    const defaultRange=Object.hasOwn(importedRepRanges,slotId)?importedRepRanges[slotId]:
+      Number.isSafeInteger(rowMin)&&rowMin>0&&Number.isSafeInteger(rowMax)&&rowMax>=rowMin
+        ?{min:rowMin,max:rowMax}:{min:6,max:10};
     for(const cycle of slot.prescriptionsByCycle||[])for(const set of cycle.sets||[]){
       set.status=edit.metricIds.length?"manual":"configuration_required";
       set.provenance={source:"manual",policyVersion:"manual@1"};
@@ -14787,7 +14788,8 @@ function createOnboardingProgramEditorAdapter(){
     read(){return{document:editorDocumentFromSnapshot(programEditorSnapshot()),token:{draftRevision:entryState?.revision||0}}},
     async commit({nextDocument,intent}){
       const baseline=editorDocumentFromSnapshot(programEditorSnapshot()),document=cloneSnapshot(nextDocument);
-      if(!syncEditorCanonicalIntent(document,baseline,intent,{cycleIndex:Number(intent?.cycleIndex)||1}))
+      if(!syncEditorCanonicalIntent(document,baseline,intent,{cycleIndex:Number(intent?.cycleIndex)||1,
+        importedRepRanges:entryState?.result?.preview?.importedRepRanges}))
         return{ok:false,invalid:true,code:"invalid_canonical_editor_intent"};
       const proposal=programEditorSnapshot();proposal.program=cloneSnapshot(nextDocument.program||[]);
       proposal.program=cloneSnapshot(document.program||[]);
@@ -15233,6 +15235,16 @@ async function commitProgramEditorProposal(proposal,io=storageIO,opts={}){
     customExercises:(proposal.customExercises||[])
       .filter(entry=>referencedCustomIds.has(entry.id)).map(cloneSnapshot)};
   if(!preview.suggestLoadsPending?.length)delete preview.suggestLoadsPending;
+  if(preview.importedRepRanges){
+    const beforeSlots=new Map((entryState.result.preview.programDefinition?.days||[])
+      .flatMap(day=>day.slots||[]).map(slot=>[slot.id,slot]));
+    const nextSlots=new Map(definition.days.flatMap(day=>day.slots).map(slot=>[slot.id,slot]));
+    preview.importedRepRanges=Object.fromEntries(Object.entries(preview.importedRepRanges).filter(([id])=>{
+      const slot=nextSlots.get(id);
+      return slot&&slot.exerciseId===beforeSlots.get(id)?.exerciseId&&
+        !slot.metricDefinitions.some(metric=>metric.semantic==="reps"||metric.semantic==="repsPerSide")}));
+    if(!Object.keys(preview.importedRepRanges).length)delete preview.importedRepRanges;
+  }
   const previousEntryState=entryState;
   const result={...cloneSnapshot(entryState.result),preview};
   const nextName=proposal.programMeta?.name||entryState.result.name;
@@ -18106,10 +18118,18 @@ function importCandidate(draft){
   const programDefinition=kept?canonicalProgramDefinition(carriedDefinition,candidateCustomExercises)
     :manualProgramDefinitionFromRows(program,labels,candidateCustomExercises);
   const projected=programDefinition?flatProgramFromDefinition(programDefinition,candidateCustomExercises,1):program;
+  const pendingSlots=new Set((programDefinition?.days||[]).flatMap(day=>day.slots||[])
+    .filter(slot=>isCustomLibraryId(slot.exerciseId)&&
+      !slot.metricDefinitions.some(metric=>metric.semantic==="reps"||metric.semantic==="repsPerSide"))
+    .map(slot=>slot.id));
+  const importedRepRanges=Object.fromEntries(program.filter(row=>pendingSlots.has(row.slotId||row.id)&&
+    Number.isSafeInteger(row.min)&&row.min>=1&&Number.isSafeInteger(row.max)&&row.max>=row.min&&row.max<=1000)
+    .map(row=>[row.slotId||row.id,{min:row.min,max:row.max}]));
   const projectedDays=programDefinition?programDefinition.days.filter(day=>day.kind==="training").map((day,index)=>({
     dayId:day.id,label:day.name,order:index+1,exercises:projected.filter(row=>row.dayId===day.id).map(cloneSnapshot)})):days;
   return{
     program:projected,
+    ...(Object.keys(importedRepRanges).length?{importedRepRanges}:{}),
     days:projectedDays,
     ...(programDefinition?{programDefinition}:{}),
     programStructure:programDefinition?{schemaVersion:1,days:projectedDays.map(({dayId,label,order})=>({dayId,label,order})),
