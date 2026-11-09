@@ -2,6 +2,8 @@
   "use strict";
 
   const SCHEMA_VERSION = 2;
+  const SWAP_REASONS = Object.freeze(["equipment", "preference", "pain", "crowded", "other"]);
+  const SKIP_REASONS = Object.freeze(["time", "recovery", "pain", "equipment", "schedule", "trim", "other"]);
   const STATUS = new Set(["active", "finishing"]);
   const SET_ROLES = new Set(["working", "warmup"]);
   const RIR_MODES = new Set(["numeric", "effort"]);
@@ -127,6 +129,37 @@
     if (exercise.libraryId) snapshot.libraryId = exercise.libraryId;
     if (programmed.movementId) snapshot.movementId = programmed.movementId;
     return snapshot;
+  }
+
+  function activeMovement(exercise) {
+    return exercise.substitution?.replacement || snapshotFromExercise(exercise);
+  }
+
+  function eventMovement(movement) {
+    return {exerciseId:movement.libraryId || movement.movementId || movement.sourceExerciseId,
+      name:movement.displayName};
+  }
+
+  function validObservation(value) {
+    return isPlainObject(value) && Object.keys(value).every(key => ["exerciseId","name","kind","swapped","replacementId"].includes(key)) &&
+      isText(value.exerciseId,{max:MAX_ID}) && isText(value.name) &&
+      ["pain","discomfort"].includes(value.kind) && typeof value.swapped === "boolean" &&
+      (!hasOwn(value,"replacementId") || isText(value.replacementId,{max:MAX_ID}));
+  }
+
+  function observe(exercise,movement,kind,replacementId=null) {
+    const identity=eventMovement(movement),observations=exercise.discomfort || [];
+    const existing=observations.find(item => item.exerciseId===identity.exerciseId);
+    if(existing){
+      if(kind==="pain")existing.kind="pain";
+      if(replacementId){existing.replacementId=replacementId;existing.swapped=true;}
+    }else observations.push({...identity,kind,swapped:!!replacementId,...(replacementId?{replacementId}:{})});
+    exercise.discomfort=observations;
+  }
+
+  function syncObservationSwaps(exercise) {
+    for(const observation of exercise.discomfort || [])
+      observation.swapped=!!observation.replacementId && observation.replacementId===exercise.substitution?.replacement.exerciseInstanceId;
   }
 
   function movementSnapshotMatches(left, right) {
@@ -530,9 +563,10 @@
     if (value.substitution != null) {
       if (!isPlainObject(value.substitution)) issues.push(`${path}.substitution:object`);
       else {
+        if(hasOwn(value.substitution,"reportedFrom"))validateMovementSnapshot(value.substitution.reportedFrom,`${path}.substitution.reportedFrom`,issues);
         validateMovementSnapshot(value.substitution.original, `${path}.substitution.original`, issues);
         validateMovementSnapshot(value.substitution.replacement, `${path}.substitution.replacement`, issues);
-        if (Object.keys(value.substitution).some(key => !["original", "replacement", "selectedAt", "originalPendingSets"].includes(key))) {
+        if (Object.keys(value.substitution).some(key => !["original", "replacement", "selectedAt", "originalPendingSets", "reportedFrom"].includes(key))) {
           issues.push(`${path}.substitution:unknown-field`);
         }
         if (isPlainObject(value.substitution.original) && isPlainObject(value.programmed) &&
@@ -546,7 +580,14 @@
       }
     }
     if (value.status !== "active" && value.status !== "skipped") issues.push(`${path}.status`);
-    if (hasOwn(value, "skipReason") && (value.skipReason !== "trim" || value.status !== "skipped")) issues.push(`${path}.skipReason`);
+    if (hasOwn(value, "skipReason") && (!SKIP_REASONS.includes(value.skipReason) || value.status !== "skipped")) issues.push(`${path}.skipReason`);
+    if (hasOwn(value, "swapReason") && !SWAP_REASONS.includes(value.swapReason)) issues.push(`${path}.swapReason`);
+    if (hasOwn(value,"discomfort") && (!Array.isArray(value.discomfort) || value.discomfort.length>2000 ||
+      !value.discomfort.every(validObservation) ||
+      value.discomfort.some(item=>item.swapped!==(!!item.replacementId && item.replacementId===value.substitution?.replacement.exerciseInstanceId)) ||
+      new Set(value.discomfort.map(item=>item.exerciseId)).size!==value.discomfort.length)) {
+      issues.push(`${path}.discomfort`);
+    }
     if (!isText(value.setupNotes, { empty: true })) issues.push(`${path}.setupNotes`);
     if (!Array.isArray(value.setOrder)) issues.push(`${path}.setOrder`);
     if (!isPlainObject(value.sets)) issues.push(`${path}.sets`);
@@ -1500,13 +1541,41 @@
         item = targetExercise(next, command);
         if (isDomainError(item)) return item;
         item.exercise.status = command.type === "skipExercise" ? "skipped" : "active";
-        // Why it is hidden: only Trim says so ("trim"), so its lifts read as trimmed after a reload. A skip by hand or a
-        // restore clears it. History rows never carry it: a skipped lift records nothing either way.
-        if (command.type === "skipExercise" && command.reason === "trim") item.exercise.skipReason = "trim";
-        else delete item.exercise.skipReason;
+        if (command.type === "skipExercise" && hasOwn(command, "reason")) {
+          if (!SKIP_REASONS.includes(command.reason)) return error("invalid-skip-reason");
+          item.exercise.skipReason = command.reason;
+          if (command.reason === "pain") observe(item.exercise,activeMovement(item.exercise),"pain");
+        } else delete item.exercise.skipReason;
         if (command.type === "skipExercise" && next.session.selectedExerciseId === item.exercise.exerciseInstanceId) {
           next.session.selectedExerciseId = next.exerciseOrder.find((id) => next.exercises[id].status === "active") ?? null;
         }
+        break;
+      }
+      case "recordSubstitutionReason": {
+        item = targetExercise(next, command);
+        if (isDomainError(item)) return item;
+        const substitution = item.exercise.substitution;
+        if (command.draftId !== draft.draftId || !substitution ||
+          substitution.selectedAt !== command.selectedAt ||
+          substitution.replacement.exerciseInstanceId !== command.replacementId) return error("stale-substitution");
+        if (!SWAP_REASONS.includes(command.reason)) return error("invalid-swap-reason");
+        item.exercise.swapReason = command.reason;
+        if (command.reason === "pain") observe(item.exercise,substitution.reportedFrom || substitution.original,"pain",substitution.replacement.exerciseInstanceId);
+        break;
+      }
+      case "markDiscomfort": {
+        item = targetExercise(next, command);
+        if (isDomainError(item)) return item;
+        if (!["pain", "discomfort"].includes(command.kind)) return error("invalid-discomfort");
+        observe(item.exercise,activeMovement(item.exercise),command.kind);
+        break;
+      }
+      case "clearDiscomfort": {
+        item=targetExercise(next,command);
+        if(isDomainError(item))return item;
+        const identity=eventMovement(activeMovement(item.exercise));
+        item.exercise.discomfort=(item.exercise.discomfort || []).filter(observation=>observation.exerciseId!==identity.exerciseId);
+        if(!item.exercise.discomfort.length)delete item.exercise.discomfort;
         break;
       }
       case "substituteExercise": {
@@ -1524,6 +1593,7 @@
         const exercise = item.exercise;
         const substitution = {
           original: exercise.substitution?.original || snapshotFromExercise(exercise),
+          reportedFrom: jsonClone(activeMovement(exercise)),
           replacement: jsonClone(command.replacement),
           selectedAt: command.selectedAt,
         };
@@ -1554,6 +1624,7 @@
           substitution.originalPendingSets = originalPendingSets;
         }
         exercise.substitution = substitution;
+        syncObservationSwaps(exercise);
         exercise.status = "active";
         break;
       }
@@ -1565,6 +1636,7 @@
           if (item.exercise.sets[setId]?.completion === "pending") item.exercise.sets[setId] = jsonClone(original);
         }
         item.exercise.substitution = null;
+        syncObservationSwaps(item.exercise);
         break;
       }
       case "repeatPreviousSetValues": {
@@ -1702,7 +1774,33 @@
       ? { effortSource: set.completion.effortSource } : {};
   }
 
-  function toHistoryRows(draft, completedAt) {
+  function validateSessionEvents(value) {
+    if (!isPlainObject(value)) return false;
+    const exact = (record, keys) => isPlainObject(record) && Object.keys(record).length === keys.length && keys.every(key => hasOwn(record,key));
+    return Object.entries(value).every(([id, record]) => isText(id,{max:MAX_ID}) &&
+      exact(record,["v","skips","pain"]) && record.v === 1 &&
+      ["skips","pain"].every(field => Array.isArray(record[field]) && record[field].length <= 2000 &&
+        record[field].every(event => exact(event,field === "skips" ? ["exerciseId","slotId","name",...(hasOwn(event,"reason")?["reason"]:[])] : ["exerciseId","slotId","name","kind","swapped"]) &&
+          isText(event.exerciseId,{max:MAX_ID}) && isText(event.slotId,{max:MAX_ID}) && isText(event.name) &&
+          (field === "skips" ? (!hasOwn(event,"reason") || SKIP_REASONS.includes(event.reason)) : ["pain","discomfort"].includes(event.kind) && typeof event.swapped === "boolean"))));
+  }
+
+  function sessionEventsOf(draft) {
+    const events = {v:1,skips:[],pain:[]};
+    for (const id of draft.exerciseOrder) {
+      const exercise = draft.exercises[id];
+      const identity = {...eventMovement(activeMovement(exercise)),slotId:exercise.sourceExerciseId};
+      if (exercise.status === "skipped") events.skips.push({...identity,...(exercise.skipReason?{reason:exercise.skipReason}:{})});
+      for(const observation of exercise.discomfort || []) {
+        const {replacementId,...fact}=observation;
+        events.pain.push({...fact,slotId:exercise.sourceExerciseId});
+      }
+    }
+    return events;
+  }
+
+  // Legacy row-only callers retain their array; the session commit requests both projections.
+  function toHistoryRows(draft, completedAt, {includeSessionEvents = false} = {}) {
     const issues = validateForSave(draft);
     if (issues.length) return error("draft-not-saveable", { issues });
     if (!isText(completedAt, { max: 100 })) return error("invalid-completed-at");
@@ -1804,7 +1902,7 @@
         rows.push(row);
       }
     }
-    return rows;
+    return includeSessionEvents ? {rows,sessionEvents:sessionEventsOf(draft)} : rows;
   }
 
   const LEGACY_META_FIELDS = new Set([
@@ -2102,6 +2200,7 @@
 
   const api = Object.freeze({
     SCHEMA_VERSION,
+    SKIP_REASONS,
     EFFORT_SOURCES,
     validCalibration,
     create,
@@ -2109,6 +2208,7 @@
     migrateLegacy,
     reduce,
     toHistoryRows,
+    validateSessionEvents,
     validateLoadingContext(value) {
       const issues = [];
       validateLoadingContext(value, "loadingContext", issues);

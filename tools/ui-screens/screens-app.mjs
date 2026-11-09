@@ -456,6 +456,17 @@ export function appState(key, lang) {
   // movements (tools/build-seed-program-fixture.mjs), so program/share-*
   // no longer needs to fabricate varied libraryIds onto a flat-row fixture.
   const state = catalogState();
+  if (["progress/review-active","today/week-card"].includes(key)) {
+    const [up,stall,skipped]=state.program.filter(exercise=>exercise.day==="Day 1");
+    const dates=[isoDaysAgo(19),isoDaysAgo(12),isoDaysAgo(5)];
+    state.log=dates.flatMap((date,index)=>[up,stall].map((exercise,i)=>metricLogRow(state.programMeta,exercise,{
+      session:`weekly-${index}`,date,day:index===2?"Day 2":"Day 1",set:1,load:i===0?50+index*2.5:40,reps:10,rir:2,created:`${date}T12:00:00.000Z`
+    })));
+    const date=isoDaysAgo(4);
+    state.log.push(metricLogRow(state.programMeta,up,{session:"weekly-second",date,day:"Day 1",set:1,load:55,reps:11,rir:2,created:`${date}T12:00:00.000Z`}));
+    state.sessionEvents={"weekly-2":{v:1,skips:[{exerciseId:skipped.libraryId,name:skipped.name,slotId:skipped.id,reason:"time"}],pain:[{exerciseId:stall.libraryId,name:stall.name,slotId:stall.id,kind:"discomfort",swapped:false}]}};
+  }
+
   if (key === "progress/overview-baseline" || key === "progress/review-insufficient") {
     const seen = new Set();
     state.log = state.log.filter((row) => {
@@ -2186,17 +2197,19 @@ export const APP_SCENARIOS = {
     await page.locator('#sessionAbandonReasons [data-abandon-reason="time"]').click();
     await pinSheetScrollToEnd(page, ".session-sheet__body");
   },
-  "workout/exercise-actions": async page => { await focusMode(page); await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click(); await resetSheetScroll(page, ".exactions-sheet__body"); },
+  "workout/exercise-actions": async page => { await focusMode(page); await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click(); await resetSheetScroll(page, "#exActionsSheet .exactions-sheet__body"); },
   "workout/skipped-actions": async page => {
     await focusMode(page);
     const id=await page.locator("#workout .exercise.is-current").getAttribute("data-ex");
     await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
     await page.locator("#exActionSkipBtn").click();
+    await page.locator('[data-skip-reason="other"]').click();
+    await page.locator("#skipReasonSheet").waitFor({state:"hidden"});
     await page.locator("#exActionsSheet").waitFor({state:"hidden"});
     await page.locator("#sessionSheetBtn").click();
     await page.locator(`[data-session-map-jump="${id}"]`).click();
     await page.locator("#exActionsSheet.is-open").waitFor();
-    await resetSheetScroll(page, ".exactions-sheet__body");
+    await resetSheetScroll(page, "#exActionsSheet .exactions-sheet__body");
   },
   "workout/substituted-actions": async page => {
     await focusMode(page);
@@ -2212,7 +2225,7 @@ export const APP_SCENARIOS = {
     await page.locator("#exActionsSheet.is-open").waitFor();
     await page.evaluate(() => Promise.all(document.getAnimations()
       .filter((a) => a.effect?.getComputedTiming().iterations !== Infinity).map((a) => a.finished.catch(() => {}))));
-    await resetSheetScroll(page, ".exactions-sheet__body");
+    await resetSheetScroll(page, "#exActionsSheet .exactions-sheet__body");
   },
   "workout/swap-alternates": async page => {
     await focusMode(page);
@@ -2231,7 +2244,7 @@ export const APP_SCENARIOS = {
     await page.locator("#exPickSheet.is-reason-step .pick__followup").waitFor();
     await sleep(page, 400);
   },
-  "workout/warmup-actions": async page => { await focusMode(page); await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click(); await page.locator("#exActionsWarmupList [data-warm-toggle-set]").first().click(); await page.evaluate(() => window.__repforgeWorkoutDraft.flush()); await resetSheetScroll(page, ".exactions-sheet__body"); },
+  "workout/warmup-actions": async page => { await focusMode(page); await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click(); await page.locator("#exActionsWarmupList [data-warm-toggle-set]").first().click(); await page.evaluate(() => window.__repforgeWorkoutDraft.flush()); await resetSheetScroll(page, "#exActionsSheet .exactions-sheet__body"); },
   // The session map reorders as the editor does: the row's menu (long-press, or its button for the keyboard) moves it.
   "workout/reorder": async page => {
     await focusMode(page);
@@ -2719,6 +2732,20 @@ export const APP_SCENARIOS = {
   "progress/review": (page) => progressSegment(page, "review"),
   "progress/review-guide": async (page) => { await progressSegment(page, "review"); await replayGuide(page, "block-transition"); },
   "progress/review-active": (page) => progressSegment(page, "review"),
+  "today/week-card": async page => {await page.locator("#todayWeekCard:not(.hidden)").waitFor();},
+  "workout/discomfort-mark": async page => {
+    await focusMode(page);await page.locator("#woOverflowBtn").click();
+    await page.locator('[data-workout-action="exercise"]').click();
+    await page.locator("#exActionDiscomfortBtn").click();
+    await page.locator("#exActionDiscomfortStatus:not(.hidden)").waitFor();
+    await page.locator("#exActionDiscomfortStatus").scrollIntoViewIfNeeded();
+  },
+  "workout/skip-reason": async page => {
+    await focusMode(page);await page.locator("#woOverflowBtn").click();
+    await page.locator('[data-workout-action="exercise"]').click();
+    await page.locator("#exActionSkipBtn").click();
+    await page.locator("#skipReasonSheet:not([hidden])").waitFor();
+  },
   "progress/review-complete": openCompletedReview,
   "progress/review-insufficient": openCompletedReview,
   "progress/schedule-diagnosis": openScheduleDiagnosis,
@@ -3172,6 +3199,8 @@ export const APP_SCENARIOS = {
   "today/skipped": async page => {
     await dismissChrome(page); await page.locator('#todayExList [data-context-row]').first().click({ button: 'right' });
     await page.locator('#nativeContextMenu [data-menu-value="skip"]').click();
+    await page.locator('[data-skip-reason="other"]').click();
+    await page.locator("#skipReasonSheet").waitFor({state:"hidden"});
     await page.waitForSelector('#todayExList .is-skipped');
   },
   "today/context-menu": async page => {

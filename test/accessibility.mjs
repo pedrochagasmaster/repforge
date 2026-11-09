@@ -2113,6 +2113,8 @@ async function runDimmedStateAccessibility(browser) {
     const skippedId=await page.locator("#workout .exercise.is-current").getAttribute("data-ex");
     await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
     await page.locator("#exActionSkipBtn").click();
+    await page.locator('[data-skip-reason="other"]').click();
+    await page.locator("#skipReasonSheet").waitFor({state:"hidden"});
     await page.locator("#exActionsSheet").waitFor({state:"hidden"});
     await page.locator("#sessionSheetBtn").click();
     // The skipped state is a dashed mark and a word under the name (#522).
