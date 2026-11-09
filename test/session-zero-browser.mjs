@@ -85,7 +85,7 @@ try{
     await request.fulfill({body:bytes,...(type?{contentType:type}:{})});
   };
   await cp.route("**/*",route);await cp.reload();await waitForAppBoot(cp,{base:BASE});
-  await cp.evaluate(id=>window.__repforgeGoToLogExercise(id),compatibility.target.id);
+  await cp.evaluate(()=>window.__repforgeEnterWorkout({}));
   const old=await cp.evaluate(()=>({recovery:window.__repforgeWorkoutDraft.recovery(),raw:localStorage.getItem("repforge_draft_v1"),
     checkpoint:localStorage.getItem("repforge_draft_v1:v2-checkpoint"),active:window.__repforgeWorkoutDraft.current()}));
   check(old.recovery?.copyValue===retained.raw&&!old.active,"the previous release explicitly recovers the entire ramp draft instead of hiding prescribed work");

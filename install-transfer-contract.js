@@ -779,7 +779,7 @@
     }
     if (!repless && programmed.minReps > programmed.maxReps || !validString(programmed.notes) ||
       !validString(programmed.primary) || !validString(programmed.secondary) ||
-      !validIdentifier(programmed.sourceFingerprint, true) || programmed.sets !== value.setOrder.length) return false;
+      !validIdentifier(programmed.sourceFingerprint, true) || programmed.sets + value.setOrder.filter(id => value.sets[id]?.origin === "ramp").length !== value.setOrder.length) return false;
     const ids = value.setOrder;
     const unique = new Set(ids);
     if (unique.size !== ids.length || ids.some(id => !validIdentifier(id, true))) return false;

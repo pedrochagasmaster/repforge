@@ -642,8 +642,11 @@
       !["source_catalog", "user_defined"].includes(value.programmed?.metricOrigin)) {
       issues.push(`${path}.programmed.metricOrigin:required-for-metric-composition`);
     }
-    if (value.setOrder.filter(id => value.sets[id]?.origin === "ramp").length > 3) issues.push(`${path}.ramp-limit`);
-    if (value.programmed?.sets !== value.setOrder.length) issues.push(`${path}.programmed.sets:coverage`);
+    const ramps = value.setOrder.filter(id => value.sets[id]?.origin === "ramp").length;
+    if (ramps > 3) issues.push(`${path}.ramp-limit`);
+    // Keep the authored count. Earlier readers require exact coverage and route
+    // this expanded aggregate to their existing recovery surface, retaining it.
+    if (value.programmed?.sets + ramps !== value.setOrder.length) issues.push(`${path}.programmed.sets:coverage`);
   }
 
   function structuralIssues(value) {
@@ -1377,7 +1380,6 @@
             pending.touched.metrics = Object.fromEntries(pending.programmed.metrics.map(metric => [metric.id, false]));
           }
         }
-        exercise.programmed.sets += 1;
         exercise.sets[command.setId] = set;
         exercise.setOrder.splice(before, 0, command.setId);
         exercise.setOrder.forEach((id, index) => { exercise.sets[id].ordinal = index + 1; });
