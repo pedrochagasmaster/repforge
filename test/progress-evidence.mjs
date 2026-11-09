@@ -105,7 +105,7 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
     await page.evaluate(() => window.__repforgeStatsNav.setEvidenceView("strength"));
     const keys = await page.evaluate(() => ["seed-ex-13", "seed-ex-8"].map(id => window.__repforgeProgressEvidence.keyForExerciseId(id)));
     for (const width of [320, 390]) for (const scale of [100, 200]) {
-      await page.setViewportSize({ width, height: 844 });
+      await page.setViewportSize({ width, height: width === 320 ? 568 : 844 });
       await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale}%`; }, scale);
       for (const [index, key] of keys.entries()) {
         const row = page.locator(`#strengthDash [data-evkey="${key}"]`);
@@ -133,7 +133,7 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
             }),
             lines: new Set(rects.map(rect => Math.round(rect.top))).size,
             clipped: rects.some(rect => rect.left < box.left - 0.5 || rect.right > box.right + 0.5
-              || rect.top < box.top - 0.5 || rect.bottom > box.bottom + 0.5),
+              || rect.top < box.top - 0.5 || rect.bottom > box.bottom + 0.5 || rect.top < 0 || rect.bottom > innerHeight),
             outside: cells.some(cell => { const r = cell.getBoundingClientRect();
               return r.left < -0.5 || r.right > innerWidth + 0.5 || cell.scrollWidth > cell.clientWidth + 1; }),
           };

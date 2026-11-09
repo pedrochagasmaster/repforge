@@ -12308,7 +12308,7 @@ function strengthDetailTable(k,projection=strengthProjection(strengthScope)){
     repsLabel=series?.perSideReps?t("focus.metric.reps_per_side"):t("stats.table.reps"),
     e1rmLabel=series?.perSideLoad?`${t("stats.table.e1rm_unit",{unit:u})} · ${t("focus.metric.load_per_side_kg")}`:t("stats.table.e1rm_unit",{unit:u});
   return reason+range+table(sess.map(s=>({[t("stats.table.date")]:shortDate(s.date),[topLabel]:fmtLoad(s.top),[repsLabel]:s.topReps,
-      [e1rmLabel]:fmt(Math.round(toDisplay(s.e1rm))),[t("stats.table.rir")]:fmt(s.rir)}))).replace("<table>",'<table class="evtable">')}
+      [e1rmLabel]:fmt(Math.round(toDisplay(s.e1rm))),[t("focus.col.left")]:fmt(s.rir)}))).replace("<table>",'<table class="evtable">')}
 function legacyStrengthTable(el){
   const rows=strengthDashboard();
   if(!rows.length){el.innerHTML=`<div class="empty">${esc(t("stats.empty.no_lifts"))}</div>`;return}
