@@ -170,7 +170,9 @@ export async function verifyImportedRepRanges(browser, base) {
       for (const state of [active.local, active.idb]) {
         check(state.program[0].min === 6 && state.program[0].max === 8 && state.program[1].min === 10 && state.program[1].max === 14,
           "activation writes both imported ranges to a durable replica");
-        check(!JSON.stringify(state).includes("importedRepRanges"), "pending import metadata never enters durable program, custom identities, logs or history");
+        const published = await target.evaluate(state => window.RepForgeDurableState.exportableState(state), state);
+        check(!JSON.stringify(published).includes("importedRepRanges"),
+          "pending import metadata never enters published program, custom identities, logs, history, backup or transfer data");
       }
       check(active.setup === null, "activation removes the setup candidate and its unconsumed metadata");
     }
