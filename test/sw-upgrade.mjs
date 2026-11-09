@@ -11,7 +11,7 @@ import { createHash } from "node:crypto";
 import { readFileSync, statSync, createReadStream } from "node:fs";
 import { dirname, extname, join, normalize, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { launchChromium, waitForAppBoot, waitForWorkerTakeover } from "./browser.mjs";
+import { launchChromium, traceWorkerLifecycle, waitForAppBoot, waitForWorkerTakeover } from "./browser.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 // Exact bytes from released starting-main e7b6d162 (the v120 worker). Keeping
@@ -97,6 +97,7 @@ try {
   assert.equal(await page.evaluate((cache) => caches.has(cache), oldCache), true, `released cache ${oldCache} is installed`);
 
   mode = "current";
+  await traceWorkerLifecycle(page);
   await page.evaluate(async () => {
     const registration = await navigator.serviceWorker.ready;
     await registration.update();
