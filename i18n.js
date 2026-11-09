@@ -3046,7 +3046,7 @@ const EN = {
   "standing.first_load": "First time at this load",
   "standing.learning": "Still learning this lift",
   "standing.solid": "Solid",
-  "why.lead.standing": "Footing",
+  "why.lead.standing": "Estimate basis",
   "why.standing.no_history": "No comparable sessions recorded yet.",
   "why.standing.live_only": "This session is the first evidence at this load.",
   "why.standing.few_sets": "Evidence from {sets} {setWord}, weighted by age and effort reports.",
