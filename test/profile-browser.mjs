@@ -1,15 +1,14 @@
 #!/usr/bin/env node
 /**
- * Plan 077 PR 4 in the browser: the calibration-evidence gauge and "Was the last rep slow?".
+ * Plan 081 profile and Plan 077 slow-rep answers and "Was the last rep slow?".
  *
- * - Progress › Overview shows the gauge with its six signals and the recent test sets; Today shows the small row,
- *   from the first logged workout and not before.
+ * - Progress and exercise profiles show standing and counts. Today has no gauge.
  * - The slow tap sits under an exercise's last logged set during its rest (owner: the last set only), never on the
  *   shelf: Next exercise stays live. An answer is stored on the set and reaches History; a second tap takes it back;
  *   the Settings switch turns the question off.
  * - isSafeLogRow accepts a boolean lastRepSlow and refuses anything else.
  *
- * Run: node test/calibration-gauge-browser.mjs   (REPFORGE_URL points at a static server)
+ * Run: node test/profile-browser.mjs   (REPFORGE_URL points at a static server)
  */
 import { launchChromium } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
@@ -48,7 +47,6 @@ async function boot(page, { history = log, settings = {} } = {}) {
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.waitForFunction(() => window.__repforgeBooted === true, undefined, { timeout: 20000 });
   await page.evaluate(() => window.closeFirstRun?.());
-  await page.waitForTimeout(400);
 }
 /** Enter the first day, fill the first exercise's sets through the draft, and log `n` of them through Log set. */
 async function logFirstExercise(page, n) {
@@ -70,7 +68,7 @@ async function logFirstExercise(page, n) {
   });
   for (let i = 0; i < n; i++) {
     await page.evaluate(() => document.querySelector("#workout .exercise.is-current .focus-shelf .saveset")?.click());
-    await page.waitForTimeout(900);
+    await page.waitForFunction(n => { const d=window.__repforgeWorkoutDraft.current(), ex=d.exercises[d.exerciseOrder[0]]; return ex.setOrder.filter(id=>ex.sets[id].completion!=="pending").length===n; }, i+1);
   }
 }
 const slowLine = (page) => page.evaluate(() => {
@@ -88,98 +86,81 @@ const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
 const errors = [];
 page.on("pageerror", (e) => errors.push(String(e)));
 try {
-  phase("No gauge before the first workout");
+  phase("The profile replaces the gauge, including on a first session");
   await boot(page, { history: [] });
-  assert(await page.evaluate(() => document.querySelector("#todayCalRing").hidden && document.querySelector("#todayCalRingBar").hidden),
-    "Today shows no calibration ring with no logged workout");
+  assert(await page.locator("#todayCalRing, #todayCalRingBar").count() === 0,
+    "Today has no calibration ring before history exists");
+  await page.click('[data-view="stats"]');
+  await page.waitForSelector("#overviewProfile .profile-lift");
+  assert(await page.locator("#overviewProfile .profile-lift").count() === program.length,
+    "the profile includes every active program slot before history exists");
+  assert((await page.locator("#overviewProfile").innerText()).includes("0 of 0"), "empty evidence is a count, not a target");
 
-  phase("The calibration ring on Today, and its tap to Progress › Overview");
   await boot(page);
-  const ring = await page.evaluate(() => {
-    const el = document.querySelector("#todayCalRing"), box = el.getBoundingClientRect(), title = document.querySelector("#todayDash .page-title").getBoundingClientRect();
-    return { hidden: el.hidden, label: el.getAttribute("aria-label"), number: el.querySelector(".calring__n")?.textContent,
-      dots: el.querySelectorAll(".calring__dot").length, done: el.querySelectorAll(".calring__dot.is-done").length,
-      fill: !!el.querySelector(".calring__fill"), size: Math.round(box.width), right: box.left > title.right,
-      row: !!document.querySelector("#todayCalibration") };
-  });
-  const todayN = Number(ring.number);
-  assert(!ring.hidden && todayN > 0 && !/%/.test(ring.number) && ring.fill && ring.size === 46 && ring.right && !ring.row,
-    "Today shows the ring beside the large title, its number without a % sign, and no calibration row", ring);
-  assert(ring.dots === 8 && ring.done === 1, "its foot has one dot per test set the gauge counts, the one done filled", ring);
-  assert(ring.label === `Effort calibration ${todayN}%, 1 of 8 test sets. Opens your calibration in Progress.`, "its label says percent and the test sets", ring.label);
-  const barBefore = await page.evaluate(() => document.querySelector("#todayCalRingBar").classList.contains("is-shown"));
+  assert(await page.locator("#todayCalRing, #todayCalRingBar").count() === 0, "Today has no ring after history either");
   await page.evaluate(() => window.scrollTo(0, 400));
-  await page.waitForFunction(() => document.querySelector("#todayCalRingBar").classList.contains("is-shown"), undefined, { timeout: 5000 }).catch(() => {});
-  const bar = await page.evaluate(() => {
-    const el = document.querySelector("#todayCalRingBar"), svg = el.querySelector("svg").getBoundingClientRect(), gear = document.querySelector("#openSettings").getBoundingClientRect();
-    return { shown: el.classList.contains("is-shown"), size: Math.round(svg.width), beside: Math.abs(svg.top + svg.height / 2 - (gear.top + gear.height / 2)) < 2 && svg.right <= gear.left + 1,
-      number: el.querySelector(".calring__n")?.textContent, hidden: el.getAttribute("aria-hidden") };
-  });
-  assert(!barBefore && bar.shown && bar.size === 30 && bar.beside && bar.number === ring.number && bar.hidden === "true",
-    "scrolled, the ring rides in the bar at 30 px beside the gear (once, for the eye)", { barBefore, bar });
-  await page.click("#todayCalRingBar");
-  await page.waitForSelector("#stats.active #overviewCalibration:not(.hidden) .calcard", { timeout: 10000 });
-  const landed = await page.evaluate(() => { const card = document.querySelector("#overviewCalibration").getBoundingClientRect();
-    return { top: Math.round(card.top), inView: card.top >= 0 && card.top < innerHeight / 2, focus: document.activeElement?.closest("#overviewCalibration") != null }; });
-  assert(landed.inView && landed.focus, "a tap opens Progress › Overview at the calibration card", landed);
-  await page.waitForSelector("#overviewCalibration:not(.hidden) .calcard", { timeout: 10000 });
-  const card = await page.evaluate(() => {
-    const el = document.querySelector("#overviewCalibration");
-    return { big: el.querySelector(".calcard__big b")?.textContent, overall: el.querySelector(".calcard__big span")?.textContent,
-      signals: [...el.querySelectorAll(".calsig")].map((s) => [...s.querySelectorAll(":scope > span")].map((x) => x.textContent)),
-      checks: [...el.querySelectorAll(".calcheck")].map((c) => c.innerText.replace(/\s+/g, " ").trim()) };
-  });
-  const today = todayN;
-  assert(card.big === `${today}%` && card.overall === "1 test set · 1 lift", "Overview's number matches Today's, with its test sets and lifts", { card, today });
-  assert(card.signals.map((s) => s[0]).join() === "Test sets,Sets that agree,Hitting the suggestion,Week to week,Slow last rep,History" &&
-    card.signals[0][1] === "1 of 8" && /^\d+ of 20 pairs · \d+% agree$/.test(card.signals[1][1]) && card.signals[2][1] === "0 of 20 sets" &&
-    /^\d+ of 24 sets per lift$/.test(card.signals[5][1]),
-  "each signal reads its evidence against its target, with the share that agrees", card.signals);
-  assert(card.checks.length === 1 && /Seated leg curl/.test(card.checks[0]) && /Guessed 10 → Did 12/.test(card.checks[0]),
-    "the recent test sets list the guess and the result", card.checks);
-  // #632 follow-up: at 200 % text in PT (and EN, and at 320) a signal's label and its reading wrap or stack, never
-  // overprint each other.
-  const overlaps = async () => page.evaluate(() => [...document.querySelectorAll("#overviewCalibration .calsig")].map((row) => {
-    const [label, value] = row.querySelectorAll(":scope > span");
-    const range = document.createRange();
-    const boxes = (el) => { range.selectNodeContents(el); return [...range.getClientRects()]; };
-    const hit = boxes(label).some((a) => boxes(value).some((b) => a.left < b.right - 0.5 && b.left < a.right - 0.5 && a.top < b.bottom - 0.5 && b.top < a.bottom - 0.5));
-    const outside = [label, value].some((el) => el.getBoundingClientRect().right > row.getBoundingClientRect().right + 0.5);
-    return hit || outside ? label.textContent : null;
-  }).filter(Boolean));
+  assert(await page.locator("#todayDash .calring").count() === 0, "the collapsed Today bar has no ring");
+  await page.click('[data-view="stats"]');
+  await page.waitForSelector("#overviewProfile .profile-lift");
+  const profile = await page.locator("#overviewProfile").innerText();
+  const names = await page.locator("#overviewProfile .profile-lift__name").allTextContents();
+  assert(JSON.stringify(names) === JSON.stringify(program.map(ex => ex.name)), "profile rows follow training-day order", names);
+  assert(await page.locator("#overviewProfile .profile-lift__standing").count() === program.length,
+    "every program lift has its standing or an explicit unavailable reason");
+  assert(!/%/.test(profile) && await page.locator("#overviewProfile [role=progressbar], #overviewProfile .calbar").count() === 0,
+    "the profile has no percentage or bar", profile);
+  assert(profile.includes("36 of 36 pairs") && profile.includes("15 of 15 week pairs") && profile.includes("0 of 0 sets"),
+    "agreement, weeks and suggestion hits show agreed and counted, without target denominators", profile);
+  const checks = await page.locator("#overviewProfile .calcheck").allTextContents();
+  assert(checks.length === 1 && /Seated leg curl/.test(checks[0]) && /Guessed 10 → Did 12/.test(checks[0]),
+    "recent test sets retain the guess and result", checks);
+  assert(profile.includes("2 more test sets"), "per-lift test sets say what is still needed", profile);
+  assert(profile.includes("Reps left") && profile.includes("54 of 54"), "effort stage and recent chosen effort counts are shown", profile);
+  await page.click('[data-view="log"]');
+  await page.locator('#todayExList [data-exopen]').first().click();
+  await page.waitForSelector("#exDetail .exercise-profile");
+  assert(await page.locator("#exDetail .exercise-profile .profile-lift").count() === 1,
+    "the exercise page shows only its lift's profile below its recommendation");
+  const overlaps = async () => page.evaluate(() => [...document.querySelectorAll("#overviewProfile .profile-signal")].flatMap(row => {
+    const [label, value] = row.children, range = document.createRange();
+    const boxes = el => { range.selectNodeContents(el); return [...range.getClientRects()]; };
+    const hit = boxes(label).some(a => boxes(value).some(b => a.left < b.right - 0.5 && b.left < a.right - 0.5 && a.top < b.bottom - 0.5 && b.top < a.bottom - 0.5));
+    return hit || row.scrollWidth > row.clientWidth + 1 ? [label.textContent] : [];
+  }));
+  await page.click("#exBack");
+  await page.click('[data-view="stats"]');
   const sizes = [];
-  for (const [lang, width] of [["pt", 390], ["en", 390], ["pt", 320]]) {
+  for (const [lang, width] of [["pt", 390], ["en", 390], ["pt", 320], ["en", 320]]) {
     await page.setViewportSize({ width, height: 844 });
-    await page.evaluate((lang) => { I18N.setLang(lang); document.documentElement.style.fontSize = "200%"; render(); }, lang);
-    await page.waitForTimeout(200);
+    await page.evaluate(lang => { I18N.setLang(lang); document.documentElement.style.fontSize = "200%"; render(); }, lang);
     sizes.push([`${lang} ${width}`, await overlaps()]);
   }
+  assert(sizes.every(([, rows]) => rows.length === 0), "counts wrap without overlap at 200% in PT/EN at 390/320", sizes);
   await page.evaluate(() => { document.documentElement.style.fontSize = ""; I18N.setLang("en"); render(); });
   await page.setViewportSize({ width: 390, height: 844 });
-  assert(sizes.every(([, rows]) => rows.length === 0), "at 200 % text no signal's label and reading overprint or overflow (PT and EN at 390, PT at 320)", sizes);
 
   phase("Was the last rep slow? Only after an exercise's last set");
   await boot(page);
   await logFirstExercise(page, 1);
   assert(await slowLine(page) === null, "no question after a set that is not the exercise's last");
   await page.evaluate(() => document.querySelector("#workout .exercise.is-current .focus-shelf .saveset")?.click());
-  await page.waitForTimeout(900);
+  await page.waitForSelector("#workout .exercise.is-current .ledgerslow");
   let line = await slowLine(page);
   assert(line?.pills === 2 && line.text === "Last rep slow? Yes No" && line.under === "2" && !line.inShelf,
     "after the last set, the question sits under that set's row, off the shelf", line);
   const next = await page.evaluate(() => { const b = document.querySelector("#workout .exercise.is-current [data-fnext]"); return !!b && !b.disabled; });
   assert(next, "Next exercise stays live under it");
   await page.locator("#workout .exercise.is-current .ledgerslow [data-v='0']").click();
-  await page.waitForTimeout(400);
+  await page.waitForSelector("#workout .exercise.is-current [data-slowclear]");
   line = await slowLine(page);
   assert(line?.pills === 0 && line.text === "Last rep slow? No" && JSON.stringify(await firstSets(page)) === JSON.stringify(["unanswered", false]),
     "an answer is stored on the last set and stays as a word", { line, sets: await firstSets(page) });
   await page.locator("#workout .exercise.is-current .ledgerslow [data-slowclear]").click();
-  await page.waitForTimeout(400);
+  await page.waitForSelector("#workout .exercise.is-current [data-slow]");
   assert(JSON.stringify(await firstSets(page)) === JSON.stringify(["unanswered", "unanswered"]) && (await slowLine(page))?.pills === 2,
     "a second tap takes the answer back and asks again");
   await page.locator("#workout .exercise.is-current .ledgerslow [data-v='1']").click();
-  await page.waitForTimeout(300);
+  await page.waitForSelector("#workout .exercise.is-current [data-slowclear]");
   await finishEarly(page);
   const saved = await page.evaluate((name) => JSON.parse(localStorage.getItem("repforge_v1")).log
     .filter((row) => !/^s\d$/.test(String(row.session)) && (row.name === name || row.performedName === name)).map((row) => row.lastRepSlow ?? null), program[0].name);
