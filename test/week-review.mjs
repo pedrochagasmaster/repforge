@@ -114,6 +114,6 @@ const followupRows=[
 ];
 assert.deepEqual(Transition.adaptationFollowupRows(record,followupRows).map(row=>row.session),['after'],'effect evaluation excludes sessions before the approval, unknown timing, later weeks and other blocks');
 
-const retainedRecords=Array.from({length:512},(_,index)=>({...record,id:`retained-${index}`,blockId:`block-${index}`}));
+const retainedRecords=Array.from({length:512},(_,index)=>({...record,id:`retained-${index}`,blockId:`block-${index}`,appliedEdit:{...record.appliedEdit,expectedToken:{...record.appliedEdit.expectedToken,blockId:`block-${index}`}}}));
 assert.equal(Transition.validateAdaptations(retainedRecords),true,'retained receipts remain bounded to the existing 512-record contract');
-assert.equal(Transition.validateAdaptations([...retainedRecords,{...record,id:'overflow',blockId:'overflow'}]),false);
+assert.equal(Transition.validateAdaptations([...retainedRecords,{...record,id:'overflow',blockId:'overflow',appliedEdit:{...record.appliedEdit,expectedToken:{...record.appliedEdit.expectedToken,blockId:'overflow'}}}]),false);
