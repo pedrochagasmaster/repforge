@@ -168,6 +168,8 @@ async function main() {
     await page.goto(BASE, { waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { base: BASE });
     const target = await seed(page);
+    // This arithmetic/history proof logs typed numeric effort, including its saved warm-up.
+    await page.evaluate(() => { state.settings.rirMode = "numeric"; });
     if (!target) throw new Error("no weighted first slot in the generated program");
     check(target.sets[1].rir === 2 && target.sets[1].targets.reps.min === 7 && target.sets[1].targets.reps.max === 9,
       "the target's second set is the source prescription (7–9 reps at 2 RIR)", target.sets);
@@ -241,6 +243,43 @@ async function main() {
     check(standingFaults.anchored, "the app standing failure proof starts with selected targets", standingFaults);
     for (const [index, proof] of standingFaults.cases.entries())
       check(proof.retained && proof.noEvidence, `app recommendation survives standing helper fault ${index}`, proof);
+
+    // R709-2: publish a real completed warm-up, then read it through the production history adapter.
+    await logSet(page, target.slotId, 2, { load: 100, reps: 8, rir: 2 });
+    await page.evaluate(async (slotId) => {
+      const api = window.__repforgeWorkoutDraft, exercise = api.current().exercises[slotId];
+      const setId = exercise.setOrder.find((id) => exercise.sets[id].ordinal === 1);
+      await api.dispatch("markWarmup", { exerciseInstanceId: slotId, setId });
+      await api.flush();
+    }, target.slotId);
+    await finishEarly(page);
+    const warmup = await page.evaluate((slotId) => {
+      const stored = JSON.parse(localStorage.getItem("repforge_v1"));
+      const published = stored.log.filter((row) => row.exerciseId === slotId && row.warmup === true);
+      const original = state.log;
+      try {
+        // Eight comparable sessions of that published row could wrongly establish solid standing on their own.
+        state.log = Array.from({ length: 8 }, (_, index) => ({ ...published[0], session: `warmup-${index}` }));
+        const ex = stored.program.find((row) => (row.slotId || row.id) === slotId);
+        const read = () => window.__repforgeRecommendation(ex);
+        const withWarmups = read();
+        state.log = state.log.map(({ warmup, ...row }) => row);
+        const withoutFlags = read();
+        const select = (rec) => rec.engineResults.map(({ standing, ...selection }) => selection);
+        return { published: published.length, history: withWarmups.progressionInputs.history,
+          standing: withWarmups.engineResults[0].standing,
+          selected: withWarmups.engineResults[0].status,
+          unchanged: JSON.stringify(select(withWarmups)) === JSON.stringify(select(withoutFlags)) };
+      } finally { state.log = original; }
+    }, target.slotId);
+    check(warmup.published === 1 && warmup.history.length === 8, "a real saved warm-up reaches eight comparable history sessions", warmup);
+    check(warmup.history.every((session) => session.sets.every((set) => set.warmup === true)),
+      "the production history adapter preserves the saved warm-up flag", warmup.history);
+    check(warmup.standing.word === "learning" && warmup.standing.evidence.sets === 0
+      && warmup.standing.evidence.sessions === 0 && warmup.standing.evidence.pairs === 0,
+      "saved warm-ups cannot supply standing evidence or make it solid", warmup.standing);
+    check(warmup.selected === "recommended" && warmup.unchanged,
+      "preserving warm-up provenance leaves the previously selected loads and reps intact", warmup);
 
     check(errors.length === 0, "no page errors during adaptive sessions", errors);
   } catch (error) {
