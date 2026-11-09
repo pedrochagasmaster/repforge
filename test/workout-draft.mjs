@@ -411,8 +411,8 @@ assert(JSON.stringify(draft.exercises["slot-curl"]) === beforeSkip,
   assert(!Object.prototype.hasOwnProperty.call(retrimmedManual.exercises["slot-curl"], "skipReason"), "skipping by hand replaces a trim reason");
   const restored = apply(trimmed, "restoreExercise", { exerciseInstanceId: "slot-curl" });
   assert(JSON.stringify(restored.exercises["slot-curl"]) === beforeSkip, "restoring a trimmed lift clears its reason and returns the subtree whole");
-  const bad = structuredClone(trimmed); bad.exercises["slot-curl"].skipReason = "other";
-  assert(!Draft.validate(bad).ok, "only trim is a skip reason");
+  const bad = structuredClone(trimmed); bad.exercises["slot-curl"].skipReason = "unknown";
+  assert(!Draft.validate(bad).ok, "unknown skip reasons are refused");
   const activeWithReason = structuredClone(trimmed); activeWithReason.exercises["slot-curl"].status = "active";
   assert(!Draft.validate(activeWithReason).ok, "an active lift carries no skip reason");
 }
@@ -1117,6 +1117,90 @@ console.log("\nIssue #320: create() clamps a target RIR that falls back to the l
     assert(set.programmed.targetRirClamped === true, "the clamp on creation is recorded as programmed.targetRirClamped");
     assert(Draft.validate(created).ok, "the freshly created draft with the clamped target still validates");
   }
+}
+
+// Session facts remain separate from set rows, including a skipped lift.
+{
+  for (const reason of ["time", "recovery", "pain", "equipment", "schedule", "trim", "other"]) {
+    const skipped = apply(fresh(), "skipExercise", { exerciseInstanceId: "slot-curl", reason });
+    assert(skipped.exercises["slot-curl"].skipReason === reason, `skip retains closed reason ${reason}`);
+  }
+  const invalid = command(fresh(), "skipExercise", { exerciseInstanceId: "slot-curl", reason: "free text" }).result;
+  assert(Draft.isDomainError(invalid), "skip rejects an unknown reason before changing the draft");
+  const marked = command(fresh(), "markDiscomfort", { exerciseInstanceId: "slot-squat", kind: "discomfort" }).result;
+  assert(!Draft.isDomainError(marked), "discomfort can be recorded on the draft");
+  if (!Draft.isDomainError(marked)) {
+    assert(marked.exercises["slot-squat"].discomfort[0].kind === "discomfort", "the discomfort kind survives as a structured mark");
+    assert(Draft.validate(JSON.parse(JSON.stringify(marked))).ok, "a serialized discomfort mark remains valid");
+    const falseSwap=JSON.parse(JSON.stringify(marked));falseSwap.exercises["slot-squat"].discomfort[0].swapped=true;
+    assert(!Draft.validate(falseSwap).ok,"a swap observation must match an actual substitution relation");
+
+  }
+}
+
+// A reason answered after the swap is bound to that exact substitution.
+{
+  const selectedAt = "2026-08-15T11:00:00.000Z";
+  const swapped = apply(fresh(), "substituteExercise", {exerciseInstanceId:"slot-squat",replacement,selectedAt});
+  const binding = {draftId:swapped.draftId,exerciseInstanceId:"slot-squat",selectedAt,replacementId:replacement.exerciseInstanceId,reason:"pain"};
+  const reasoned = command(swapped,"recordSubstitutionReason",binding).result;
+  assert(!Draft.isDomainError(reasoned),"post-swap reason accepts the exact substitution");
+  if (!Draft.isDomainError(reasoned)) {
+    assert(reasoned.exercises["slot-squat"].swapReason === "pain", "post-swap reason is durable");
+    assert(reasoned.exercises["slot-squat"].discomfort[0].kind === "pain" && reasoned.exercises["slot-squat"].discomfort[0].swapped === true,"pain swap records its discomfort fact");
+  }
+  for (const wrong of [{draftId:"different-draft"},{selectedAt:"2026-08-15T12:00:00.000Z"},{replacementId:"different-movement"},{exerciseInstanceId:"slot-curl"},{reason:"free text"}]) {
+    assert(Draft.isDomainError(command(swapped,"recordSubstitutionReason",{...binding,...wrong}).result),"stale or malformed post-swap answer is refused");
+  }
+  const restored = apply(swapped,"restoreOriginalExercise",{exerciseInstanceId:"slot-squat"});
+  assert(Draft.isDomainError(command(restored,"recordSubstitutionReason",binding).result),"answer after undoing the swap is refused");
+  const second = apply(swapped,"substituteExercise",{exerciseInstanceId:"slot-squat",replacement,selectedAt:"2026-08-15T12:00:00.000Z"});
+  assert(Draft.isDomainError(command(second,"recordSubstitutionReason",binding).result),"answer for an earlier swap to the same movement is refused");
+}
+
+{
+  let eventDraft = fresh();
+  eventDraft = apply(eventDraft,"editSetField",{exerciseInstanceId:"slot-squat",setId:"squat-set-1",field:"load",value:"50"});
+  eventDraft = apply(eventDraft,"editSetField",{exerciseInstanceId:"slot-squat",setId:"squat-set-1",field:"reps",value:"8"});
+  eventDraft = apply(eventDraft,"completeSet",{exerciseInstanceId:"slot-squat",setId:"squat-set-1",completedAt:"2026-08-15T11:00:00.000Z"});
+  eventDraft = apply(eventDraft,"skipExercise",{exerciseInstanceId:"slot-curl",reason:"time"});
+  eventDraft = apply(eventDraft,"markDiscomfort",{exerciseInstanceId:"slot-squat",kind:"discomfort"});
+  const result = Draft.toHistoryRows(apply(eventDraft,"beginFinish"),"2026-08-15T11:01:00.000Z",{includeSessionEvents:true});
+  assert(Array.isArray(result.rows),"session compilation exposes rows beside events");
+  assert(same(result.sessionEvents,{v:1,skips:[{exerciseId:"slot:slot-curl",name:"Seated leg curl",slotId:"source-curl",reason:"time"}],pain:[{exerciseId:"sq_hs",name:"Hack squat",kind:"discomfort",swapped:false,slotId:"source-squat"}]}),"session compilation includes skipped lifts and discomfort without inventing set rows");
+  assert(typeof Draft.validateSessionEvents === "function","session event validation is shared by persistence and transfer");
+  if (typeof Draft.validateSessionEvents === "function") {
+    const record = {"draft-051":result.sessionEvents};
+    assert(Draft.validateSessionEvents(record),"compiled events validate");
+    for (const mutate of [r=>r["draft-051"].v=2,r=>r["draft-051"].skips[0].reason="free text",r=>r["draft-051"].pain[0].swapped="yes",r=>r["draft-051"].pain[0].text="private"]) {
+      const bad = structuredClone(record);mutate(bad);
+      assert(!Draft.validateSessionEvents(bad),"malformed session events fail closed");
+    }
+  }
+}
+
+// Review B2/B3: observations retain movement identity and independent swap facts.
+{
+  let d=apply(fresh(),"substituteExercise",{exerciseInstanceId:"slot-squat",replacement,selectedAt:"2026-08-15T11:00:00.000Z"});
+  d=apply(d,"recordSubstitutionReason",{draftId:d.draftId,exerciseInstanceId:"slot-squat",selectedAt:d.exercises["slot-squat"].substitution.selectedAt,replacementId:replacement.exerciseInstanceId,reason:"pain"});
+  const project=draft=>{
+    let value=apply(draft,"editSetField",{exerciseInstanceId:"slot-squat",setId:"squat-set-1",field:"load",value:"50"});
+    value=apply(value,"editSetField",{exerciseInstanceId:"slot-squat",setId:"squat-set-1",field:"reps",value:"8"});
+    value=apply(value,"completeSet",{exerciseInstanceId:"slot-squat",setId:"squat-set-1",completedAt:"2026-08-15T11:30:00.000Z"});
+    return Draft.toHistoryRows(apply(value,"beginFinish"),"2026-08-15T12:00:00.000Z",{includeSessionEvents:true}).sessionEvents;
+  };
+  const original=project(d).pain[0];
+  const unspecified=project(apply(d,"skipExercise",{exerciseInstanceId:"slot-curl"}));
+  assert(!Object.prototype.hasOwnProperty.call(unspecified.skips[0],"reason"),"an unspecified re-hide never fabricates an Other answer");
+  assert(Draft.validateSessionEvents({saved:unspecified}),"an unspecified skip remains a valid session fact");
+  assert(original.exerciseId==="sq_hs"&&original.name==="Hack squat","B2: pain swap records the original movement identity and name");
+  const added=apply(d,"markDiscomfort",{exerciseInstanceId:"slot-squat",kind:"discomfort"});
+  const marks=project(added).pain;
+  assert(marks.length===2&&marks.some(mark=>mark.kind==="pain"&&mark.swapped)&&marks.some(mark=>mark.exerciseId===replacement.libraryId&&mark.name===replacement.displayName),"B3: replacement discomfort preserves original pain and swap");
+  const restored=apply(d,"restoreOriginalExercise",{exerciseInstanceId:"slot-squat"});
+  assert(project(restored).pain[0]?.swapped===false,"B3: restoring the original removes the completed swap fact, not the observation");
+  const cleared=command(restored,"clearDiscomfort",{exerciseInstanceId:"slot-squat"}).result;
+  assert(!Draft.isDomainError(cleared)&&project(cleared).pain.length===0,"explicit clear retracts the mark");
 }
 
 console.log(`\n${results.passed} passed, ${results.failed} failed`);

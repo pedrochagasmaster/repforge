@@ -417,6 +417,8 @@ async function main() {
     phase("Skip and restore: status, focus advance, show-all restore");
     await openActions(page);
     await page.locator("#exActionSkipBtn").click();
+    await page.locator('[data-skip-reason="other"]').click();
+    await page.locator("#skipReasonSheet").waitFor({state:"hidden"});
     await page.waitForFunction((id) => {
       const draft = window.__repforgeWorkoutDraft.current();
       return draft?.exercises?.[id]?.status === "skipped";

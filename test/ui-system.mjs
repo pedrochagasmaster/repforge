@@ -61,7 +61,7 @@ try {
       try {
         const opened = await openPage(browser, manifest, capture,
           onboarding ? onboardingState(key, capture.locale) : appState(key, capture.locale),
-          { userAgent: APP_USER_AGENT[key], now: APP_CLOCK[key] });
+          { catalog: true, userAgent: APP_USER_AGENT[key], now: APP_CLOCK[key] });
         context = opened.context;
         const page = opened.page;
         if (!onboarding) await dismissChrome(page);

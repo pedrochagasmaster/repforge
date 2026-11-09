@@ -86,7 +86,7 @@ export const SUITES = {
     s("test/exercise-library.mjs", [], {"domains": ["library"], "cost": "normal", "tier": "feedback"}),
     s("test/exercise-catalog.mjs", [], {"domains": ["global"], "cost": "normal", "tier": "feedback"}),
     s("test/review-pt-names.mjs", [], {"domains": ["library"], "cost": "tiny", "tier": "feedback", "nodeArgs": ["--test"]}),
-    s("test/progress-model.mjs", [], {"domains": ["progress"], "cost": "normal", "tier": "feedback"}),
+    s("test/progress-model.mjs", [], {"domains": ["progress", "today"], "cost": "normal", "tier": "feedback"}),
     s("test/progress-model-dst.mjs", [], {"domains": ["progress"], "cost": "normal", "tier": "feedback"}),
     s("test/vendor-runtimes.mjs", [], {"domains": ["global"], "cost": "normal", "tier": "feedback"}),
     s("test/motion-vocabulary.mjs", [], {"domains": ["global"], "cost": "normal", "tier": "feedback"}),
@@ -146,7 +146,7 @@ export const SUITES = {
     s("test/workout-draft-parity.mjs", [], {"domains": ["workout"], "cost": "normal", "tier": "feedback", "seconds": 53}),
     s("test/workout-finish-boundary.mjs", [], {"domains": ["workout"], "cost": "normal", "tier": "feedback", "seconds": 8}),
     s("test/management-summary.mjs", [], {"domains": ["global"], "cost": "normal", "tier": "feedback", "seconds": 3}),
-    s("test/progress-lifecycle.mjs", [], {"domains": ["progress"], "cost": "long", "tier": "candidate", "env": {"REPFORGE_LIFECYCLE_BROWSER": "1"}, "timeoutMs": 900000, "seconds": 23}),
+    s("test/progress-lifecycle.mjs", [], {"domains": ["progress", "today", "workout", "persistence"], "cost": "long", "tier": "candidate", "env": {"REPFORGE_LIFECYCLE_BROWSER": "1"}, "timeoutMs": 900000, "seconds": 23}),
     s("test/progress-recovery.mjs", [], {"domains": ["progress"], "cost": "long", "tier": "candidate", "timeoutMs": 900000, "seconds": 7}),
   ],
   "privacy": [
@@ -310,6 +310,8 @@ export const FULL_SUITES = {
 };
 
 export const SUPPORT = {
+  "test/week-review-browser.mjs": "Plan 082 weekly facts journeys executed by test/progress-lifecycle.mjs in the PR lane.",
+  "test/week-review.mjs": "Plan 082 weekly-facts assertions executed by test/progress-model.mjs in the PR lane.",
   "test/engine-standing.mjs": "Standing and frozen selection proofs executed by progression-engine-plan067.mjs in the PR lane.",
   "test/effort-ladder-migration.mjs": "Plan 078 boot migration proof; every assertion runs from the PR workout-draft-storage owner.",
   "test/starting-loads.mjs": "Opening-load and ramp arithmetic proofs executed by progression-engine-plan067.mjs in the PR lane; also runnable directly.",

@@ -17,6 +17,8 @@
  */
 import { launchChromium } from "./browser.mjs";
 import { installSeedProgram } from "./fixtures/seed-program.mjs";
+import { measureRenderedRoles } from "../tools/ui-system-rendered.mjs";
+import { settle } from "../tools/ui-screens/session.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const STATE_KEY = "repforge_v1";
@@ -116,6 +118,19 @@ async function main() {
 
     await page.waitForSelector("#exActionsSheet.is-open", { timeout: 5000 });
     assert(await page.locator("#exActionsSheet").isVisible(), "tapping the trigger opens the Exercise actions sheet");
+
+    await page.locator("#exActionDiscomfortBtn").click();
+    await page.waitForFunction(()=>document.querySelector("#exActionDiscomfortBtn")?.getAttribute("aria-pressed")==="true");
+    for(const theme of ["light","dark"]){
+      await page.evaluate(theme=>window.__repforgeUi.setTheme(theme),theme);
+      await settle(page);
+      const pixels=(await page.screenshot()).toString("base64");
+      const measured=await page.evaluate(measureRenderedRoles,{requests:[{selector:"#exActionDiscomfortBtn",kind:"boundary"}],pixels});
+      assert(measured.length===1&&measured[0].status==="pass",`recorded discomfort has a 3:1 boundary in the exercise-actions sheet (${theme})`,JSON.stringify(measured));
+    }
+    await page.locator("#exActionDiscomfortBtn").click();
+    await page.waitForFunction(()=>document.querySelector("#exActionDiscomfortBtn")?.getAttribute("aria-pressed")==="false");
+    await page.evaluate(()=>window.__repforgeUi.setTheme("light"));
 
     /* ======================================================================
      * 1b. The redraw (OG-6 round 2): sentence-case groups, the setup notes, previous values and
@@ -410,6 +425,8 @@ async function main() {
       return list[idx]?.id;
     });
     await skipBtn.click();
+    await page.locator('[data-skip-reason="other"]').click();
+    await page.locator("#skipReasonSheet").waitFor({state:"hidden"});
     await page.waitForTimeout(300);
 
     const skipStatus = await page.evaluate((id) => {
