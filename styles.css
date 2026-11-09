@@ -9225,4 +9225,3 @@ body.is-entry-editor #entryProgramName,
 .week-card__actions{display:flex;flex-wrap:wrap;gap:var(--space-12);justify-content:space-between}
 #stats #reviewPanel .review__week{padding:var(--space-16) 0;border-bottom:.5px solid var(--boundary-decorative)}
 #stats #reviewPanel .review__week p{line-height:var(--line-reading);overflow-wrap:anywhere}
-#skipReasonChoices .exactions__act+ .exactions__act{border-top:.5px solid var(--boundary-decorative)}

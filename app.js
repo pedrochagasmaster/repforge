@@ -3151,10 +3151,24 @@ let pendingSubstitutionEvent=null;
 /** Send the held swap event with the reason chosen, or with none for a skip, a dismissal or the page going away: the
  *  same event and properties as when the reason was chosen before the pick, once. */
 async function settleSubstitutionEvent(reason){
-  const pending=pendingSubstitutionEvent;pendingSubstitutionEvent=null;
-  if(!pending)return;
-  if(SUBSTITUTION_REASONS.includes(reason))await WorkoutSession.dispatch("recordSubstitutionReason",{...pending,reason});
-  captureEvent("substitution_used",SUBSTITUTION_REASONS.includes(reason)?{source:pending.source,reason}:{source:pending.source})}
+  const pending=pendingSubstitutionEvent;
+  if(!pending)return{status:"missing"};
+  const answered=SUBSTITUTION_REASONS.includes(reason);
+  if(pending.inFlight){
+    if(!answered)pending.cancelAfterAttempt=true;
+    return pending.inFlight}
+  const report=answer=>{
+    if(pendingSubstitutionEvent===pending)pendingSubstitutionEvent=null;
+    captureEvent("substitution_used",answer?{source:pending.source,reason:answer}:{source:pending.source})};
+  if(!answered){report(null);return{status:"cancelled"}}
+  const {draftId,exerciseInstanceId,selectedAt,replacementId}=pending;
+  pending.inFlight=WorkoutSession.dispatch("recordSubstitutionReason",{draftId,exerciseInstanceId,selectedAt,replacementId,reason},{draftId})
+    .then(result=>{
+      if(result.status==="applied")report(reason);
+      else if(pending.cancelAfterAttempt)report(null);
+      return result})
+    .finally(()=>{pending.inFlight=null});
+  return pending.inFlight}
 addEventListener("pagehide",()=>settleSubstitutionEvent(null));
 function enqueueDraftCommand(type,payload={},ui={}){
   const operationId=`draft-${uid()}`;
@@ -16580,8 +16594,15 @@ function showPickerReasonStep(entry){
     if(pickerState?.reasonSaving)return;
     const active=pickerState;active.reasonSaving=true;
     list.querySelectorAll("[data-pick-reason],#exPickReasonSkip").forEach(control=>control.disabled=true);
-    await settleSubstitutionEvent(button.dataset.pickReason);
-    if(pickerState===active)closeExercisePicker()});
+    const result=await settleSubstitutionEvent(button.dataset.pickReason);
+    active.reasonSaving=false;
+    if(pickerState!==active||sheet.hidden)return;
+    if(result.status==="applied")closeExercisePicker();
+    else{
+      list.querySelectorAll("[data-pick-reason],#exPickReasonSkip").forEach(control=>control.disabled=false);
+      const message=t("entry.review.save_failed");
+      list.querySelector(".pick__followup-done").textContent=message;
+      toast(message,{assertive:true})}});
   const skip=$("#exPickReasonSkip");if(skip)skip.onclick=()=>{settleSubstitutionEvent(null);closeExercisePicker()};
   list.querySelector("[data-pick-reason]")?.focus({preventScroll:true})}
 function renderPickerFilters(){

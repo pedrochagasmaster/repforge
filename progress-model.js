@@ -339,8 +339,8 @@
     const rows = rowsInRange(log,start,end);
     const sessions = new Set(rows.map(row => String(row.session ?? "")).filter(Boolean));
     const authored=meta?.trainingDays || meta?.programDefinition?.days?.filter(day=>day.kind==="training").map(day=>day.name);
-    const programExisted=!meta?.started || isoDate(meta.started)<=end;
-    const days=programExisted?[...new Set(authored || normalizeProgram(program,meta).exercises.map(exercise=>exercise.day).filter(Boolean))]:[];
+    const programExisted=sessions.size>0 || !meta?.started || isoDate(meta.started)<=end;
+    const days=(programExisted || meta?.completedWeek===false)?[...new Set(authored || normalizeProgram(program,meta).exercises.map(exercise=>exercise.day).filter(Boolean))]:[];
     const completedDays = new Set(rows.map(row => row.day));
     const skips = [], pain = [];
     for (const id of sessions) {
