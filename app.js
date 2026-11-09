@@ -3473,10 +3473,26 @@ function sessionExercise(ex){
   const name=substituted.get(ex.id),ref=substitutedRef.get(ex.id),entry=ref?libraryEntry(ref):null;
   if(!entry)return Object.assign({},ex,{name,libraryId:undefined,movementId:`adhoc:${movementToken(name)}`});
   return Object.assign({},ex,exerciseFieldsFromLibrary(entry),{name,libraryId:entry.id})}
+function earlierPainOnMovement(exercise,movementId){
+  const sessions=new Set(readLogRows().map(row=>row.session));
+  return Object.entries(state.sessionEvents||{}).some(([session,events])=>sessions.has(session)&&
+    events.pain.some(event=>event.slotId===exercise.sourceExerciseId&&event.exerciseId===movementId))}
+function painAlternateOrder(ids,movementId){
+  // Shared loading plates do not make a barbell and dumbbells the same class.
+  // Unknown equipment stays behind alternatives known to differ.
+  const classes=id=>{
+    const equipment=(rawExercise(id)?.resistanceEquipmentGroupIds||[]).flatMap(id=>{
+      const item=rawCatalogObject(id);
+      return item?.type==="equipment"?[item]:(item?.equipment||[]).map(rawCatalogObject).filter(Boolean)});
+    return new Set(equipment.filter(item=>!/^(weight|bumper) plates?$/i.test(item.name))
+      .map(item=>item.category).filter(Boolean))};
+  const current=classes(movementId);
+  const different=id=>{const next=classes(id);return current.size>0&&next.size>0&&![...next].some(value=>current.has(value))};
+  return [...ids].sort((a,b)=>Number(different(b))-Number(different(a)))}
 /* Mid-session swap. The slot's own movement stays in the list, and picking it
    is how a lifter undoes a swap — the alternative was a "back to X" row that
    means nothing until you already know what X was. */
-function openSubstitutePicker(id){
+function openSubstitutePicker(id,{painMovementId=null}={}){
   const ex=prog.find(id);if(!ex)return;
   const byName=new Map(pickableExercises().map(e=>[foldSearch(libraryName(e)),e]));
   const self=(ex.libraryId&&libraryEntry(ex.libraryId))||byName.get(foldSearch(ex.name))||null;
@@ -3484,8 +3500,9 @@ function openSubstitutePicker(id){
   // substitution rules (shared metrics, typed sets protected) apply unchanged.
   const slotId=String(ex.slotId||ex.id);
   const slot=(state.programMeta?.programDefinition?.days||[]).flatMap(day=>day.slots||[]).find(item=>item?.id===slotId);
-  openExercisePicker({title:t("picker.title_substitute"),subtitle:exerciseDisplayName(ex),
-    leading:{title:"picker.section_alternates",ids:Array.isArray(slot?.alternates)?slot.alternates:[]},
+  openExercisePicker({title:t("picker.title_substitute"),subtitle:exerciseDisplayName(painMovementId?sessionExercise(ex):ex),
+    leading:{title:"picker.section_alternates",ids:painMovementId
+      ?painAlternateOrder(slot?.alternates||[],painMovementId):slot?.alternates||[]},
     reasons:SUBSTITUTION_REASONS,
     returnFocus:workoutActive?null:()=>document.querySelector(`#todayExList [data-row-menu="${CSS.escape(id)}"]`),
     onPick:entry=>{
@@ -25945,8 +25962,22 @@ function init(){
     const id=activeExActionsId,draftId=activeWorkoutDraft?.draftId;
     if(!id||!draftId)return;
     const type=discomfort.getAttribute("aria-pressed")==="true"?"clearDiscomfort":"markDiscomfort";
-    const result=await WorkoutSession.dispatch(type,{exerciseInstanceId:id,kind:"discomfort"},{draftId});
-    if(result.status==="applied"){renderWorkout();renderExActionsSheet(id)}
+    const sheet=$("#exActionsSheet");
+    discomfort.disabled=true;
+    let result;
+    try{result=await WorkoutSession.dispatch(type,{exerciseInstanceId:id,kind:"discomfort"},{draftId})}
+    finally{discomfort.disabled=false}
+    if(result.status!=="applied"||activeWorkoutDraft?.draftId!==draftId)return;
+    renderWorkout();
+    if(activeModal?.el!==sheet||activeExActionsId!==id)return;
+    renderExActionsSheet(id);
+    if(type!=="markDiscomfort")return;
+    const exercise=activeWorkoutDraft.exercises[id],movement=exercise.substitution?.replacement||exercise;
+    const movementId=movement.libraryId||movement.movementId||movement.programmed?.movementId||movement.sourceExerciseId;
+    if(!earlierPainOnMovement(exercise,movementId))return;
+    await closeExActionsSheet();
+    if(activeWorkoutDraft?.draftId===draftId&&activeWorkoutDraft.exercises[id]?.discomfort?.some(mark=>mark.exerciseId===movementId))
+      openSubstitutePicker(id,{painMovementId:movementId});
   };
   $("#skipReasonClose").onclick=closeSkipReasonSheet;
   $("#skipReasonScrim").onclick=closeSkipReasonSheet;

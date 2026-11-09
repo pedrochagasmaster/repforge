@@ -1292,6 +1292,11 @@
       "owner": "plan-082",
       "content": "flat",
       "scenario": "An accepted removal and the following week’s observed outcome."
+    },
+    "workout/pain-swap": {
+      "owner": "plan-082",
+      "content": "flat",
+      "scenario": "The second marked session opens the ordinary swap picker, with different equipment classes first and no selection made."
     }
   },
   "components": [
@@ -2335,7 +2340,8 @@
         "workout/stage-tip",
         "workout/why-calibration",
         "workout/last-rep-slow",
-        "workout/rest-overrun-finish"
+        "workout/rest-overrun-finish",
+        "workout/pain-swap"
       ],
       "neverDisabledReason": "A note can always be written for the exercise in progress."
     },
@@ -2903,7 +2909,8 @@
       "catalogStates": [
         "program/exercise-picker",
         "workout/swap-alternates",
-        "workout/swap-reason"
+        "workout/swap-reason",
+        "workout/pain-swap"
       ]
     },
     {
@@ -2927,7 +2934,8 @@
       "catalogStates": [
         "program/exercise-picker",
         "workout/swap-alternates",
-        "workout/swap-reason"
+        "workout/swap-reason",
+        "workout/pain-swap"
       ]
     },
     {
@@ -2951,7 +2959,8 @@
       "catalogStates": [
         "program/exercise-picker",
         "workout/swap-alternates",
-        "workout/swap-reason"
+        "workout/swap-reason",
+        "workout/pain-swap"
       ]
     },
     {
@@ -2970,7 +2979,8 @@
       "catalogStates": [
         "program/exercise-picker",
         "workout/swap-alternates",
-        "workout/swap-reason"
+        "workout/swap-reason",
+        "workout/pain-swap"
       ]
     },
     {
@@ -2995,7 +3005,8 @@
       "catalogStates": [
         "program/exercise-picker",
         "workout/swap-alternates",
-        "workout/swap-reason"
+        "workout/swap-reason",
+        "workout/pain-swap"
       ]
     },
     {
@@ -3014,7 +3025,8 @@
       "catalogStates": [
         "program/exercise-picker",
         "workout/swap-alternates",
-        "workout/swap-reason"
+        "workout/swap-reason",
+        "workout/pain-swap"
       ]
     },
     {
@@ -3977,7 +3989,8 @@
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/pain-swap"
       ]
     },
     {
@@ -4859,7 +4872,8 @@
         "program/share-setup",
         "program/text-export",
         "workout/swap-alternates",
-        "program/minibar-rest-done"
+        "program/minibar-rest-done",
+        "workout/pain-swap"
       ],
       "progressScopes": {
         "active-program-week": "block"
@@ -5960,7 +5974,8 @@
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/pain-swap"
       ]
     },
     {
@@ -7046,7 +7061,8 @@
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/pain-swap"
       ]
     },
     {
@@ -7104,7 +7120,8 @@
         "workout/stage-tip",
         "workout/why-calibration",
         "workout/last-rep-slow",
-        "workout/rest-overrun-finish"
+        "workout/rest-overrun-finish",
+        "workout/pain-swap"
       ],
       "progressScopes": {
         "workout-exercise-order": "exercise-set"
@@ -7257,7 +7274,8 @@
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/pain-swap"
       ]
     },
     {
@@ -7504,7 +7522,8 @@
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/pain-swap"
       ],
       "neverDisabledReason": "The header draws the name only while the workout has an exercise to open, and opening it is always available."
     },
@@ -7576,7 +7595,8 @@
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/pain-swap"
       ]
     },
     {
@@ -7778,7 +7798,8 @@
         "program/exercise-picker",
         "workout/abandon",
         "workout/swap-alternates",
-        "workout/swap-reason"
+        "workout/swap-reason",
+        "workout/pain-swap"
       ]
     },
     {
@@ -7807,7 +7828,8 @@
       "catalogStates": [
         "program/exercise-picker",
         "workout/swap-alternates",
-        "workout/swap-reason"
+        "workout/swap-reason",
+        "workout/pain-swap"
       ]
     },
     {
@@ -8382,7 +8404,8 @@
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/pain-swap"
       ]
     },
     {
@@ -8447,7 +8470,8 @@
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/pain-swap"
       ]
     },
     {
@@ -8490,7 +8514,8 @@
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/pain-swap"
       ]
     },
     {
@@ -9052,7 +9077,8 @@
         "progress/overview-calibration",
         "today/calibration-mini",
         "today/calibration-ring-bar",
-        "workout/rest-overrun-finish"
+        "workout/rest-overrun-finish",
+        "workout/pain-swap"
       ]
     },
     {
@@ -9131,7 +9157,8 @@
         "history/session-share",
         "workout/rest-overrun-finish",
         "workout/skip-reason",
-        "workout/discomfort-mark"
+        "workout/discomfort-mark",
+        "workout/pain-swap"
       ]
     },
     {
@@ -9214,7 +9241,8 @@
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/pain-swap"
       ]
     },
     {
@@ -9290,7 +9318,8 @@
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/pain-swap"
       ]
     },
     {
@@ -9458,7 +9487,8 @@
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/pain-swap"
       ]
     },
     {
@@ -9507,7 +9537,8 @@
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/pain-swap"
       ]
     },
     {
@@ -9552,7 +9583,8 @@
         "workout/max-set-guess",
         "workout/max-set-active",
         "workout/max-set-result",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/pain-swap"
       ],
       "neverDisabledReason": "The way to change how effort is logged stays reachable whenever the shelf is."
     },
@@ -9705,7 +9737,8 @@
         "workout/max-set-result",
         "workout/effort-stage-a",
         "workout/effort-stage-b",
-        "workout/stage-tip"
+        "workout/stage-tip",
+        "workout/pain-swap"
       ]
     },
     {
@@ -9748,7 +9781,8 @@
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/pain-swap"
       ]
     },
     {
@@ -9791,7 +9825,8 @@
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/pain-swap"
       ]
     },
     {
@@ -9834,7 +9869,8 @@
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/pain-swap"
       ]
     },
     {

@@ -456,6 +456,13 @@ export function appState(key, lang) {
   // movements (tools/build-seed-program-fixture.mjs), so program/share-*
   // no longer needs to fabricate varied libraryIds onto a flat-row fixture.
   const state = catalogState();
+  if (key === "workout/pain-swap") {
+    const exercise=state.program[0],date=isoDaysAgo(3),session="pain-path-prior";
+    const slot=state.programMeta.programDefinition.days.flatMap(day=>day.slots).find(slot=>slot.id===exercise.id);
+    slot.alternates=["1a25c6f170d88079a926dde776766181","1a25c6f170d880708256e9a8bf6337bf"];
+    state.log=[metricLogRow(state.programMeta,exercise,{session,date,day:exercise.day,set:1,load:40,reps:8,rir:2,created:`${date}T12:00:00.000Z`})];
+    state.sessionEvents={[session]:{v:1,skips:[],pain:[{exerciseId:exercise.libraryId,slotId:exercise.id,name:exercise.name,kind:"pain",swapped:false}]}};
+  }
   if (["progress/review-active","progress/review-proposal","progress/review-evaluated","today/week-card"].includes(key)) {
     const [up,stall,skipped]=state.program.filter(exercise=>exercise.day==="Day 1");
     const dates=[isoDaysAgo(19),isoDaysAgo(12),isoDaysAgo(5)];
@@ -2766,6 +2773,12 @@ export const APP_SCENARIOS = {
     await page.locator('[data-adaptation-evaluation]').evaluate(element=>element.scrollIntoView({block:"center",behavior:"instant"}));
   },
   "today/week-card": async page => {await page.locator("#todayWeekCard:not(.hidden)").waitFor();},
+  "workout/pain-swap": async page => {
+    await focusMode(page);await page.locator("#woOverflowBtn").click();
+    await page.locator('[data-workout-action="exercise"]').click();
+    await page.locator("#exActionDiscomfortBtn").click();
+    await page.locator("#exPickSheet.is-open .pick__section").first().waitFor();
+  },
   "workout/discomfort-mark": async page => {
     await focusMode(page);await page.locator("#woOverflowBtn").click();
     await page.locator('[data-workout-action="exercise"]').click();

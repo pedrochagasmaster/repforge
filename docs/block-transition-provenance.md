@@ -19,6 +19,42 @@ one-time recovery reassessment outcome CAS. Preview and initial commit carry
 the same immutable proposal hash; a stale proposal is rejected and regenerated,
 never silently rebased.
 
+## Mid-block adaptations and the immediate pain path
+
+Plan 082's mid-block adaptations are separate from block transitions.
+`programMeta.adaptations` holds the versioned decisions and subsequent
+evaluations. An accepted change uses the installed program editor's token
+check and `adaptation_apply` intent. It does not create an outgoing archive,
+a successor activation, or a transition record. Decline and snooze preserve
+the program. The weekly review owns the bounded proposal and its evaluation;
+this transition schema does not acquire another kind for it.
+
+Pain does not wait for that weekly review. When the lifter marks discomfort
+on a movement that already has a pain or discomfort observation in a saved
+session, Exercise actions opens the existing session swap picker. Both the
+movement identity and the source slot identity must match the saved
+`sessionEvents[sessionId].pain` observation. Only sessions still represented
+in the log count. Retained history is read directly, with no Sunday gate,
+week window, persisted counter, or new event shape. Repeated marks in one
+session count once, and clearing the current mark removes that observation.
+A replacement movement does not inherit the original movement's marks.
+
+For this opening, slot alternates with known, disjoint catalog resistance
+equipment categories lead the list. Shared loading plates are excluded from
+that comparison, so a barbell and dumbbells remain different classes. Ties
+keep their authored order. Shared or unknown categories follow; an unknown
+category never claims a difference.
+The ordinary library remains available when there are no alternates, and an
+ordinary swap opening retains its authored alternate order.
+
+Opening or dismissing this picker preserves the acknowledged discomfort
+mark and changes neither the session movement nor the program. A tap on a
+movement uses the existing session substitution command and its protections
+for started sets. Choosing Pain after an ordinary swap records the movement
+that was swapped out; the lifter has already taken the immediate swap path.
+Reload restores marks without reopening the picker. A mark acknowledged
+after the lifter dismissed Exercise actions does not reopen it either.
+
 ## Mirrored aggregate recovery carrier
 
 Recovery records do not live on `programMeta.transitionIn`, an outgoing
