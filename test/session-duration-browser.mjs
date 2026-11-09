@@ -247,7 +247,7 @@ async function main() {
   try {
     phase("Saving a session records its start and its explicit finish with it");
     const source = await bootFresh(await context({ acceptDownloads: true }), STARTED);
-    await installSeedProgram(source, { waitFor: () => waitForAppBoot(source, { base: BASE }) });
+    await installSeedProgram(source, { waitFor: () => waitForAppBoot(source, { base: BASE }), settings: { rirMode: "numeric" } });
     await enterWorkout(source);
     await saveFirstSet(source);
     await selectExercise(source, SEED_A);
@@ -324,7 +324,7 @@ async function main() {
     check(JSON.stringify(canonical(state.sessionEvents?.[sid]))===JSON.stringify(canonical(expectedEvents)),"session events survive this reload/import boundary",state.sessionEvents);
 
     const merged = await bootFresh(await context(), FINISHED);
-    await installSeedProgram(merged, { waitFor: () => waitForAppBoot(merged, { base: BASE }) });
+    await installSeedProgram(merged, { waitFor: () => waitForAppBoot(merged, { base: BASE }), settings: { rirMode: "numeric" } });
     await importBackupThroughUi(merged, backup, "#importMerge");
     await reload(merged);
     state = await durable(merged);

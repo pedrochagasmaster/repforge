@@ -61,7 +61,10 @@ async function seed(page) {
       return index === 0 && JSON.stringify(slot.metricIds) === JSON.stringify([weight, reps]) && sets.length === 3;
     });
     if (!target) return null;
+    const baseProposal = window.__repforgeWorkoutDraft.state();
+    baseProposal.settings.rirMode = "numeric";
     return window.__repforgeFinalizeProgramSetup({
+      baseProposal,
       programDefinition: definition, name: "Why verb proof", answers: {}, destination: "log", origin: "first-run",
       draftConfirmed: true, telemetryRoute: "recommend", entrySource: { route: "recommend", fingerprint: "why-verb-locale" },
     }).then(() => window.__repforgeStorage.flush()).then(() => {

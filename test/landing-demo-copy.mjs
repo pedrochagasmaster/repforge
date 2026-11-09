@@ -32,7 +32,8 @@ const block = between("function landingDemoHtml(", "function renderLandingProof(
   between("function paintLandingDemo(", "function renderLandingWays(");
 const said = [...block.matchAll(/\bt\("([\w.]+)"/g)].map((match) => match[1]);
 const outside = app.slice(0, app.indexOf("/* ---- The proof: the workout screen, playing itself")) +
-  app.slice(app.indexOf("/** Everything on the landing that is a number"));
+  app.slice(app.indexOf("/** Everything on the landing that is a number")) +
+  readFileSync(new URL("../index.html", import.meta.url), "utf8").split('id="maxSetSheet"')[1]?.split('id="workoutActionScrim"')[0];
 
 console.log("Landing proof copy");
 check("app.js lists the phone's strings and holds its builder", () => {
@@ -55,7 +56,7 @@ check("every Focus key the phone shows is still said by the app outside the land
   assert.deepEqual(stale, []);
 });
 check("the cue, the evidence and the rest tab are among them", () => {
-  for (const key of ["focus.cue.up", "focus.cue.reps", "focus.evidence.history", "focus.evidence.target", "rest.inline.label", "rest.inline.done"]) {
+  for (const key of ["focus.cue.up", "focus.cue.reps", "focus.evidence.history", "focus.evidence.target", "rest.inline.label", "rest.inline.done", "maxset.invite_title", "maxset.guess_q", "maxset.fail_rule", "maxset.press_line", "maxset.tag", "maxset.guessed", "maxset.did", "maxset.status_wait"]) {
     assert(keys.includes(key), key);
   }
 });

@@ -1732,7 +1732,7 @@ function glossaryPopover(termKey,anchor){const g=$("#glossary");if(!g)return;
   const viewportHeight=document.documentElement.clientHeight||window.innerHeight;
   const top=Math.max(8,Math.min(r.bottom+6,viewportHeight-bounds.height-8));
   g.style.top=`${window.scrollY+top}px`;g.style.left=`${window.scrollX+left}px`}
-const DEFAULTS={jumpPct:2.5,minJump:2.5,rirHigh:2,hardRir:4,restSec:120,lastExport:"",unit:"kg",lang:null,rirMode:"numeric",voiceInputEnabled:false,maxSetPrompts:true,slowRepTaps:true,notify:{enabled:false,timer:true,session:true,unfinished:true,missed:true}};
+const DEFAULTS={jumpPct:2.5,minJump:2.5,rirHigh:2,hardRir:4,restSec:120,lastExport:"",unit:"kg",lang:null,rirMode:"effort",voiceInputEnabled:false,maxSetPrompts:true,slowRepTaps:true,notify:{enabled:false,timer:true,session:true,unfinished:true,missed:true}};
 const normSetting=(v,def,min=0)=>Number.isFinite(+v)&&+v>=min?+v:def;
 /** The hard-set threshold is an RIR a set must be at or under to count as hard: 1 to 10, else the default (Plan 077,
  *  OD-23e). A setup link may still carry 0–100; the device applies it within these bounds. */
@@ -1752,7 +1752,7 @@ function withUnknownKeys(raw,known){
   return Object.assign(out,known)}
 function normalizeNotify(n){
   return withUnknownKeys(n,{enabled:!!(n&&n.enabled),timer:n?.timer!==false,session:n?.session!==false,unfinished:n?.unfinished!==false,missed:n?.missed!==false})}
-const normalizeSettings=s=>{const lang=I18N?.normalizeLang(s?.lang)||I18N?.detectLang()||"en";const normalized=withUnknownKeys(s,{jumpPct:normSetting(s?.jumpPct,DEFAULTS.jumpPct,0),minJump:normSetting(s?.minJump,DEFAULTS.minJump,0.01),rirHigh:normSetting(s?.rirHigh,DEFAULTS.rirHigh,0),hardRir:normHardRir(s?.hardRir),restSec:normalizeRestSec(s?.restSec),lastExport:typeof s?.lastExport==="string"?s.lastExport:"",unit:s?.unit==="lb"?"lb":"kg",lang,rirMode:s?.rirMode==="effort"&&s?.effortScale!=="reps"?"effort":"numeric",voiceInputEnabled:normBool(s?.voiceInputEnabled,DEFAULTS.voiceInputEnabled),maxSetPrompts:normBool(s?.maxSetPrompts,DEFAULTS.maxSetPrompts),slowRepTaps:normBool(s?.slowRepTaps,DEFAULTS.slowRepTaps),notify:normalizeNotify(s?.notify)});delete normalized.effortScale;return normalized};
+const normalizeSettings=s=>{const lang=I18N?.normalizeLang(s?.lang)||I18N?.detectLang()||"en";const normalized=withUnknownKeys(s,{jumpPct:normSetting(s?.jumpPct,DEFAULTS.jumpPct,0),minJump:normSetting(s?.minJump,DEFAULTS.minJump,0.01),rirHigh:normSetting(s?.rirHigh,DEFAULTS.rirHigh,0),hardRir:normHardRir(s?.hardRir),restSec:normalizeRestSec(s?.restSec),lastExport:typeof s?.lastExport==="string"?s.lastExport:"",unit:s?.unit==="lb"?"lb":"kg",lang,rirMode:s?.rirMode==="numeric"||s?.rirMode==="effort"&&s?.effortScale==="reps"?"numeric":"effort",voiceInputEnabled:normBool(s?.voiceInputEnabled,DEFAULTS.voiceInputEnabled),maxSetPrompts:normBool(s?.maxSetPrompts,DEFAULTS.maxSetPrompts),slowRepTaps:normBool(s?.slowRepTaps,DEFAULTS.slowRepTaps),notify:normalizeNotify(s?.notify)});delete normalized.effortScale;return normalized};
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 const LB=2.2046226218;
 /* Locale keyboards (pt-BR, de, fr, …) put a comma on the decimal pad. HTML
@@ -3848,7 +3848,11 @@ function normalizeLoaded(s,options={}){
   if(s==null)return{settings:{...DEFAULTS},programMeta:defaultProgramMeta([]),program:[],log:[],programHistory:[],customExercises:[],[STORAGE_REV]:0};
   if(!isValidStateShape(s))throw new TypeError("Invalid Taurifer state");
   const customs=normalizeCustomExercises(s.customExercises),lookup=snapshotLookup(customs);
-  const out={settings:normalizeSettings(s.settings),programMeta:null,
+  // A legacy installed snapshot or backup can predate the explicit mode. Its
+  // old implicit numeric choice must survive the new fresh-device default.
+  const hasTraining=!!(s.program?.length||s.log?.length||s.programHistory?.length||s.programMeta?.onboarded||structureDayLabels(s.programMeta));
+  const settings=hasTraining&&!["numeric","effort"].includes(s.settings?.rirMode)?{...s.settings,rirMode:"numeric"}:s.settings;
+  const out={settings:normalizeSettings(settings),programMeta:null,
     program:[],log:cloneSnapshot(s.log),
     programHistory:normalizeProgramHistory(Object.prototype.hasOwnProperty.call(s,"programHistory")?s.programHistory:[],lookup),
     customExercises:customs};
@@ -10049,8 +10053,8 @@ function toggleFocusLedger(button){
 /** The line under the exercise name: sets and reps, the effort window, and the
  *  name of the strategy that sets the target. Read off the program's own
  *  envelope; a slot with none is the range it always was. */
-/** An effort window of one value reads as that value: "RIR 1", never "RIR 1–1". */
-const singleRir=line=>String(line).replace(/RIR (\S+)–\1(?![\d.,])/,"RIR $1");
+/** An effort window of one value reads as that value: "1 left", never "1–1 left". */
+const singleRir=line=>String(line).replace(/(· )(\d+(?:[.,]\d+)?)–\2(?= (?:left|sobrando))/g,"$1$2");
 function focusExMeta(ex){
   if(ex?.hasRepTarget===false)return programPrescriptionSummary(ex);
   // A canonical slot is adaptive or manual; its RIR comes from its own sets.
@@ -12455,7 +12459,7 @@ function strengthDetailTable(k,projection=strengthProjection(strengthScope)){
     repsLabel=series?.perSideReps?t("focus.metric.reps_per_side"):t("stats.table.reps"),
     e1rmLabel=series?.perSideLoad?`${t("stats.table.e1rm_unit",{unit:u})} · ${t("focus.metric.load_per_side_kg")}`:t("stats.table.e1rm_unit",{unit:u});
   return reason+range+table(sess.map(s=>({[t("stats.table.date")]:shortDate(s.date),[topLabel]:fmtLoad(s.top),[repsLabel]:s.topReps,
-      [e1rmLabel]:fmt(Math.round(toDisplay(s.e1rm))),[t("stats.table.rir")]:fmt(s.rir)}))).replace("<table>",'<table class="evtable">')}
+      [e1rmLabel]:fmt(Math.round(toDisplay(s.e1rm))),[t("focus.col.left")]:fmt(s.rir)}))).replace("<table>",'<table class="evtable">')}
 function legacyStrengthTable(el){
   const rows=strengthDashboard();
   if(!rows.length){el.innerHTML=`<div class="empty">${esc(t("stats.empty.no_lifts"))}</div>`;return}
@@ -13725,12 +13729,12 @@ function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
     const cmp=exRef?compareExerciseSession(exRef,s.rows):null;
     const note=s.note?`<p class="exsess__note">${esc(s.note)}</p>`:"";
     return `<div class="exsess"><div class="exsess__head"><span class="exsess__date">${esc(shortDate(s.date))}</span>`+
-      (best?`<span class="exsess__set">${fmtLoad(best.load)} × ${best.reps}</span><span class="exsess__day">RIR ${fmt(best.rir)}</span>`:"")+
+      (best?`<span class="exsess__set">${fmtLoad(best.load)} × ${best.reps}</span><span class="exsess__day">${esc(t("stats.table.rir"))} ${fmt(best.rir)}</span>`:"")+
       (cmp&&cmp.status!=="not_comparable"?`<span class="exsess__delta">${esc(cmp.label)}</span>`:"")+`</div>${note}</div>`}).join("")
     :`<div class="empty">${esc(t("exercise.empty.no_sets"))}</div>`;
 
   el.innerHTML=`<p class="exdet__muscle">${esc(muscleListLabel(tmpl?.primary||""))}</p><h2 class="exdet__name">${esc(name)}</h2>`+
-    `<p class="exdet__meta">${tmpl?`${esc(dayLabel(tmpl.day))} · ${esc(tmpl.hasRepTarget===false?programPrescriptionSummary(tmpl):`${tmpl.sets} × ${tmpl.min}–${tmpl.max} ${t("log.reps")}`)}${tmpl.hasRepTarget===false?"":` · RIR 0–${fmt(state.settings.rirHigh)}`}`:esc(t("exercise.not_in_program"))}</p>`+
+    `<p class="exdet__meta">${tmpl?`${esc(dayLabel(tmpl.day))} · ${esc(tmpl.hasRepTarget===false?programPrescriptionSummary(tmpl):`${tmpl.sets} × ${tmpl.min}–${tmpl.max} ${t("log.reps")}`)}${tmpl.hasRepTarget===false?"":` · ${esc(t("stats.table.rir"))} 0–${fmt(state.settings.rirHigh)}`}`:esc(t("exercise.not_in_program"))}</p>`+
     artHtml+
     recHtml+
     `<div class="exdet__stats-wrap"><div class="statrow statrow--4 exdet__stats">${tiles.map(tile=>`<div class="statrow__cell"><div class="statrow__val">${tile.val}</div><div class="statrow__cap">${tile.label}</div></div>`).join("")}</div></div>`+
@@ -22819,9 +22823,46 @@ function onEntryPopState(){
   if(onInstalledEditorPopState())return;
   if(!$("#onboarding")?.classList.contains("active")||!entryState)return;
   try{history.pushState(entryHistoryState(true),"",location.href)}catch{}
+  if(effortChoiceCancel){effortChoiceCancel();return}
+  if(entryActivationPending)return;
   entryBack()}
+// @ci-domain entry
+let effortChoiceAsk=null,effortChoiceCancel=null,entryActivationPending=false;
+async function chooseActivationEffort(mode){
+  if(effortChoiceAsk)return null;
+  const sheet=$("#effortChoiceSheet"),scrim=$("#effortChoiceScrim");
+  const choices=Array.from(sheet.querySelectorAll("[data-effort-choice]"));
+  let selected=mode==="numeric"?"numeric":"effort";
+  const paint=()=>choices.forEach(button=>{
+    const on=button.dataset.effortChoice===selected;
+    button.classList.toggle("is-selected",on);button.setAttribute("aria-checked",String(on));
+    button.tabIndex=on?0:-1});
+  paint();
+  effortChoiceAsk=new Promise(resolve=>{
+    let settled=false;
+    const finish=async value=>{
+      if(settled)return;settled=true;
+      await closeModal(sheet);resolve(value)};
+    effortChoiceCancel=()=>finish(null);
+    choices.forEach(button=>{
+      button.onclick=()=>{selected=button.dataset.effortChoice;paint()};
+      button.onkeydown=event=>{
+        if(!["ArrowDown","ArrowUp","ArrowLeft","ArrowRight","Home","End"].includes(event.key))return;
+        event.preventDefault();
+        selected=event.key==="Home"?"effort":event.key==="End"?"numeric":selected==="effort"?"numeric":"effort";
+        paint();choices.find(item=>item.dataset.effortChoice===selected)?.focus()}});
+    $("#effortChoiceContinue").onclick=()=>finish(selected);
+    $("#effortChoiceClose").onclick=scrim.onclick=()=>finish(null);
+    if(openModal(sheet,{scrim,onEscape:()=>finish(null),initialFocus:choices.find(button=>button.dataset.effortChoice===selected),delayHide:280})===false){
+      resolve(null);return}
+    document.body.classList.add("is-sheet-open");
+    requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim.classList.add("is-open")})});
+  try{return await effortChoiceAsk}finally{effortChoiceAsk=null;effortChoiceCancel=null}}
 // @ci-domain global
 async function activateEntryPreview({destination="log",manualBuild=false,skipReplaceConfirm=false,io=storageIO}={}){
+  if(entryActivationPending)return{cancelled:true};
+  entryActivationPending=true;
+  try{
   if(!ProgramEntry||!entryState||entryAnswerRebuildPending())return;
   const review=entryAdjust,identity=review?.identity;
   await window.RepForgeProgramReview?.whenIdle(review);
@@ -22939,6 +22980,16 @@ async function activateEntryPreview({destination="log",manualBuild=false,skipRep
     ?(entryState.result?.compilerContext||null):null;
   if(compilerContext)baseProposal.programMeta.compilerContext=cloneSnapshot(compilerContext);
   const telemetryRoute=route==="recommend"||route==="custom"||route==="browse"||route==="build"||route==="import"||route==="shared"?route:"custom";
+  const activationRevision=readRevision(state);
+  const needsEffortChoice=!state.log.length&&loadUiPrefs().effortChosen!==true;
+  let chosenEffort=null;
+  if(needsEffortChoice){
+    const candidate=entryState;
+    chosenEffort=await chooseActivationEffort(route==="shared"?baseProposal.settings.rirMode:"effort");
+    if(chosenEffort===null||entryState!==candidate||entryDraftHandle!==activationDraftHandle)return{cancelled:true};
+    if(readRevision(state)!==activationRevision){
+      await surfaceEntryDurableConflict();return{staleRevision:true}}
+    baseProposal.settings={...baseProposal.settings,rirMode:chosenEffort}}
   const result=await finalizeProgramSetup({
     exercises,
     name,
@@ -22957,6 +23008,7 @@ async function activateEntryPreview({destination="log",manualBuild=false,skipRep
     replace:route==="shared",
     expectedFirstRunEmpty:route==="shared",
     reviewChanges:entryReviewChanges()});
+  if(result?.committed===true&&chosenEffort!==null)setUiPref("effortChosen",true);
   if(result?.setupDraftConflict){
     reportActivationFailed("setup_conflict");
     entryUiNotice="save_conflict";
@@ -22972,7 +23024,8 @@ async function activateEntryPreview({destination="log",manualBuild=false,skipRep
     entryDurableConflictNeedsReload=false;
     entryState=null;
     return result}
-  return result}
+  return result
+  }finally{entryActivationPending=false}}
 function telemetryGeneratedProgram(goal){
   if(goal==="beginner_consistency")return{goal:"muscle_growth",family:"foundation"};
   if(goal==="strength_hypertrophy")return{goal:"balanced",family:"legacy"};
@@ -23495,11 +23548,12 @@ function closeFirstRunInstall(){
 /* ---- Landing page: engine-true numbers, filled copy and the proof ----
    Every number the page shows is produced here at render time and poured into an
    i18n template, never typed into markup or a catalog value. The proof's case goes
-   through the real progression engine with the app's default settings. The input
-   below is the only authored number set: what the example lifter logged. */
+   through the real progression engine with the app's default settings. The inputs
+   below are authored example sets: what the example lifter logged. */
 const LANDING_UNIT="kg";
 const LANDING_CASES={
-	add:{ex:"19f5c6f170d8808bb424e98de4472a7e",sets:3,repMin:8,repMax:10,logged:[[60,10,2],[60,10,2],[60,10,2]]}};
+	add:{ex:"1a05c6f170d88058a3a0c07e098a9605",sets:3,repMin:8,repMax:10,logged:[[60,10,2],[60,10,2],[60,10,2]]}};
+const LANDING_TEST_SETS=[[60,10,2],[60,10,2],[60,12,0]];
 /** The import-review capture: its size per language, the counts its screen shows
  *  (they differ by language: the sample's names classify differently) and the
  *  library movement its first row suggests. Written by tools/capture-landing-proof.mjs
@@ -23598,16 +23652,16 @@ function paintLandingTouch(set,node,touch,x,y,f){
   set(node.lastChild,"transform",`scale(${f(touch.scale)})`);
   set(node.firstChild,"opacity",f(touch.ringOpacity));set(node.firstChild,"transform",`scale(${f(touch.ringScale)})`)}
 /* ---- The proof: the workout screen, playing itself (owner, 2026-10-29: the landing-anim prototype's direction A) ----
-   One phone plays a set of the "add" case's bench press in four chapters: the target arrives, and the finger opens the
+   One phone plays a set of the "add" case's Smith machine bench press in five chapters: the target arrives, and the finger opens the
    Reps wheel and turns it one rep on (1, five seconds); Log set is tapped, the row checks and the rest tab rises out of
    the shelf with its light (2); the rest runs down, time compressed, to "Rest done" while set 2 waits prefilled (3); the
-   next session's target rises in a sheet over the session it came from (4). The screen is Focus's own markup, classes
+   last set becomes a test set, with a guess and a result (4); the next session's target rises in a sheet over the session it came from (5). The screen is Focus's own markup, classes
    and strings under `.theme-light` (the app's light tokens, whatever the visitor's appearance), so it changes when
    Focus does; the frame, the finger, the sheets' placement and the light's moving windows are the landing's. Every
    frame is a pure function of the timeline, so a chapter can be jumped to; a frame moves transforms and opacities
    only, and writes text only when the rest clock ticks over a second. `chapters` are the chapters' starts. */
-const LANDING_DEMO={loop:18,chapters:[0,6,10,14],stills:[5,9.2,13.6,16.6],rest:120,tap:6.95,restAt:7.3,fast:10,done:12.6,
-  sheet:14.05,wrap:16.9,reset:17.4,pull:17.6,rise:30,zoom:378,next:"1a05c6f170d8806b911acf558c5af4f6"};
+const LANDING_DEMO={loop:24,chapters:[0,6,10,14,20],stills:[5,9.2,13.6,19,22.6],rest:120,tap:6.95,restAt:7.3,fast:10,done:12.6,
+  sheet:20.05,wrap:22.9,reset:23.4,pull:23.6,rise:30,zoom:378,next:"1a05c6f170d8806b911acf558c5af4f6"};
 /** The chapter `time` (any finite number of seconds; the loop wraps it) falls in. */
 const landingChapterAt=time=>{const at=landingLoopTime(time);let i=0;while(i+1<LANDING_DEMO.chapters.length&&at>=LANDING_DEMO.chapters[i+1])i++;return i};
 /** `time` folded into one loop, so a negative, huge or non-finite clock still names a frame. */
@@ -23615,13 +23669,14 @@ const landingLoopTime=time=>{const L=LANDING_DEMO.loop;return Number.isFinite(ti
 /** Every catalog string the proof's screen shows; test/landing-demo-copy.mjs fails when one leaves a catalog or Focus
  *  stops saying it. */
 const LANDING_DEMO_KEYS=["focus.exmeta.range","program.progression.adaptive","focus.cue.up","focus.cue.reps",
-  "focus.evidence.history","focus.evidence.target","focus.evidence.why","log.set","log.reps","stats.table.rir",
+  "focus.evidence.history","focus.evidence.target","focus.evidence.why","log.set","log.reps","focus.col.left","focus.field.left",
   "focus.prev_line","focus.next_row","focus.metric.load_kg","focus.metric.reps","focus.shelf.pad_load","focus.shelf.log_set",
   "rest.inline.label","rest.inline.done","landing.outcomes.next_label","landing.outcomes.target","landing.outcomes.did_same",
+  "maxset.invite_title","maxset.invite_body","maxset.not_now","maxset.make_guess","maxset.guess_q","maxset.guess_from","maxset.fail_rule","maxset.safety","maxset.press_line","maxset.start","maxset.cue_head","maxset.cue_sub","maxset.tag","maxset.guessed","maxset.did","maxset.result_more","maxset.result_fewer","maxset.result_same","maxset.status_wait_one","maxset.status_wait",
   "dialog.done"];
 let landingDemo=null;
 /** The proof's screen, from the "add" case and the engine's answer for it (`add`). */
-function landingDemoHtml(add){
+function landingDemoHtml(add,testSet){
   const c=LANDING_CASES.add,[load0,reps0,rir0]=c.logged[0],target=add||{load:load0,reps:reps0},rir=1;
   const kg=landingNum(target.load),reps=landingNum(target.reps),unit=LANDING_UNIT;
   const button=(cls,inner,attrs="")=>`<button type="button" class="${cls}" tabindex="-1"${attrs}>${inner}</button>`;
@@ -23631,7 +23686,7 @@ function landingDemoHtml(add){
   const line=(index,values,soft,extra="",last=prev)=>`<div class="ledgerline${last?" ledgerline--two":""}${extra}"><span class="ledgerline__idx">${index}</span>${cells(values,soft)}${last}</div>`;
   const check=`<span class="fx-check" aria-hidden="true"></span>`;
   const head=`<div class="ledgerline__head"><span>${esc(t("log.set"))}</span><span class="ledgerline__vals">`+
-    `<span class="fx-col">${esc(unit)}</span><span class="fx-col">${esc(t("log.reps"))}</span><span class="fx-col">${esc(t("stats.table.rir"))}</span></span></div>`;
+    `<span class="fx-col">${esc(unit)}</span><span class="fx-col">${esc(t("log.reps"))}</span><span class="fx-col">${esc(t("focus.col.left"))}</span></span></div>`;
   // Set 1 is logged at one rep over the target: the finger turns the Reps wheel to it in chapter 1.
   const turned=landingNum(target.reps+1);
   const set=[kg,reps,landingNum(rir0)],did=[kg,turned,landingNum(rir0)],aim=[kg,reps,landingNum(rir)];
@@ -23676,6 +23731,27 @@ function landingDemoHtml(add){
   const nextRow=esc(t("focus.next_row",{name:"\u0000"})).replace("\u0000",`<b>${esc(landingExerciseName(LANDING_DEMO.next))}</b>`);
   // The session the target came from, as its ledger read: no "last" line under rows that are the last session.
   const lastSession=c.logged.map(([l,r,e])=>line(check,[landingNum(l),landingNum(r),landingNum(e)],false," firstrun-demo__last","")).join("");
+  const {before,test,guess,result,diff,status}=testSet;
+  const rule=`<p class="maxset__rule">${esc(t("maxset.fail_rule"))}</p><p class="maxset__safety">${esc(t("maxset.safety"))}</p>`+
+    `<p class="maxset__safety">${esc(t("maxset.press_line"))}</p>`;
+  const testLedger=(finished=false,armed=true)=>`<div class="fcard__ledger">${head}`+
+    LANDING_TEST_SETS.slice(0,-1).map(values=>line(check,values.map(landingNum),false,"","")).join("")+
+    line(finished?check:LANDING_TEST_SETS.length,[landingNum(test[0]),landingNum(finished?test[1]:armed?guess:before[1]),landingNum(armed?test[2]:before[2])],!finished,"",
+      armed?`<small class="ledgerline__tag">${esc(t("maxset.tag",{n:landingNum(guess)}))}</small>`:"")+`</div>`;
+  const testScenes=`<div class="firstrun-demo__test-backdrop"></div><div class="firstrun-demo__test-tip firstrun-demo__test-scene">${testLedger(false,false)}<section class="resttip">`+
+    `<p class="resttip__text"><b>${esc(t("maxset.invite_title"))}</b> ${esc(t("maxset.invite_body",{load:landingKg(test[0])}))}</p>`+
+    `<div class="resttip__acts">${button("resttip__no",esc(t("maxset.not_now")))}${button("resttip__yes",esc(t("maxset.make_guess")))}</div></section></div>`+
+    `<div class="firstrun-demo__test-guess firstrun-demo__test-scene"><div class="sheetband"><span class="sheetband__handle"></span>`+
+    `<h2 class="sheetband__title">${esc(t("maxset.guess_q",{load:landingKg(test[0])}))}</h2>`+
+    `<p class="sheetband__sub">${esc(t("maxset.guess_from",{n:landingNum(LANDING_TEST_SETS.length-1),reps:landingNum(before[1]),left:landingNum(before[2])}))}</p></div>`+
+    `<div class="sheetbody sheetbody--maxset"><div class="maxset__count">${button("stepbtn maxset__pad","−")}<output class="maxset__n">${esc(landingNum(guess))}</output>${button("stepbtn maxset__pad","+")}</div>${rule}</div>`+
+    `<div class="sheetfoot sheetfoot--pair">${button("",esc(t("maxset.not_now")))}${button("",esc(t("maxset.start")))}</div></div>`+
+    `<div class="firstrun-demo__test-cue firstrun-demo__test-scene"><div class="fx-cue is-now"><p class="fx-cue__l1">${esc(t("maxset.cue_head",{load:landingNum(test[0]),unit}))}</p>`+
+    `<p class="fx-cue__l2">${esc(t("maxset.cue_sub",{n:landingNum(guess)}))}</p></div>${rule}${testLedger()}</div>`+
+    `<div class="firstrun-demo__test-result firstrun-demo__test-scene">${testLedger(true)}`+
+    `<span class="ledgerline__result"><span class="ledgerline__pair"><span>${esc(t("maxset.guessed"))}<b>${esc(landingNum(result.guess))}</b></span>`+
+    `<span class="ledgerline__arrow">→</span><span>${esc(t("maxset.did"))}<b>${esc(landingNum(result.did))}</b></span></span>`+
+    `<span class="ledgerline__resline">${esc(diff+" "+status)}</span></span></div>`;
   return `<div class="firstrun-demo">`+filters+
     `<div class="wo-head firstrun-demo__head">`+button("icon-btn icon-btn--ghost",`<span class="icon-mask icon-mask--chev-down" aria-hidden="true"></span>`)+
       `<div class="wo-head__center"><div class="wo-head__title"><span class="wo-head__name">${esc(landingExerciseName(c.ex))}</span></div></div>`+
@@ -23700,12 +23776,12 @@ function landingDemoHtml(add){
       `<span class="resttab firstrun-demo__tab"><span class="resttab__label"></span><span class="resttab__end"><span class="resttab__time"></span>`+
       `<span class="resttab__chev icon-mask icon-mask--chev-up" aria-hidden="true"></span></span></span>`+
       `<div class="shelf__fields firstrun-demo__fields">${field(load,`${load}, ${unit}`,kg,unit)}${repsField}`+
-        `${field(t("stats.table.rir"),t("stats.table.rir"),landingNum(rir0),"")}<span class="firstrun-demo__sel"></span></div>`+
+        `${field(t("focus.field.left"),t("focus.field.left"),landingNum(rir0),"")}<span class="firstrun-demo__sel"></span></div>`+
       `<div class="shelf__pads">${pad("−")}${pad("+")}</div>`+
       button("btn btn--cta btn--noarrow saveset firstrun-demo__log",`<span class="firstrun-demo__log1">${esc(t("focus.shelf.log_set",{n:1}))}</span>`+
         `<span class="firstrun-demo__log2">${esc(t("focus.shelf.log_set",{n:2}))}</span>`)+
     `</div>`+
-    `<div class="firstrun-demo__scrim"></div>`+wheel+
+    `<div class="firstrun-demo__scrim"></div>`+wheel+testScenes+
     landingTouchHtml()+
     `<div class="firstrun-demo__sheet"><span class="firstrun-demo__grab"></span>`+
       `<p class="firstrun-demo__eyebrow">${esc(t("landing.outcomes.next_label"))}</p>`+
@@ -23818,17 +23894,30 @@ function layoutLandingDemo(d){
 function renderLandingProof(add){
   const root=$("#firstRun"),screen=root?.querySelector("#firstRunDemo");if(!screen)return;
   const c=LANDING_CASES.add,first=c.logged[0];
+  const before=LANDING_TEST_SETS.at(-2),test=LANDING_TEST_SETS.at(-1),guess=EffortCalibration.prefillGuess(before[1],before[2]).predictedReps;
+  const result=EffortCalibration.result(guess,test[1]),left=EffortCalibration.ESTIMATOR.minChecks-1;
+  const diff=result.error<0?t("maxset.result_more",{n:-result.error}):result.error>0?t("maxset.result_fewer",{n:result.error}):t("maxset.result_same");
+  const status=t(left===1?"maxset.status_wait_one":"maxset.status_wait",{n:left});
+  const summary=root.querySelector('[data-landing-fill="test-result"]');
+  if(summary)summary.textContent=`${t("maxset.guessed")} ${landingNum(result.guess)}. ${t("maxset.did")} ${landingNum(result.did)}. ${diff} ${status}`;
   const ch4=root.querySelector('[data-landing-fill="ch4"]');
   if(ch4&&add)ch4.textContent=t("landing.demo.s7.text",{done_reps:landingNum(first[1]),load:landingKg(first[0]),sets:landingNum(c.sets),
     min:landingNum(c.repMin),max:landingNum(c.repMax),next_load:landingKg(add.load),next_reps:landingNum(add.reps)});
-  screen.innerHTML=landingDemoHtml(add);
+  // The inert phone is an illustration, like the landing's captured images. Keep its authored screen scale;
+  // the accessible chapter controls and captions outside it follow the visitor's text size.
+  screen.style.fontSize="16px";
+  const tokens=getComputedStyle(document.documentElement);
+  for(const name of tokens)if(name.startsWith("--font-size-")){
+    const value=tokens.getPropertyValue(name).trim();
+    if(/^\d*\.?\d+rem$/.test(value))screen.style.setProperty(name,`${parseFloat(value)*16}px`)}
+  screen.innerHTML=landingDemoHtml(add,{before,test,guess,result,diff,status});
   const q=sel=>screen.querySelector(sel),qa=sel=>[...screen.querySelectorAll(sel)];
   landingDemo={root:q(".firstrun-demo"),ev:q(".firstrun-demo__ev"),
     done1:q(".firstrun-demo__done1"),open2:q(".firstrun-demo__open2"),ring:q(".firstrun-demo__ring"),rows:qa(".firstrun-demo__row"),
     fields:q(".firstrun-demo__fields"),log:q(".firstrun-demo__log"),log1:q(".firstrun-demo__log1"),log2:q(".firstrun-demo__log2"),
     tap:q(".landing-touch"),card:q(".firstrun-demo__card"),shelf:q(".firstrun-demo__shelf"),tab:q(".firstrun-demo__tab"),contour:q(".firstrun-demo__contour"),
     label:q(".resttab__label"),time:q(".resttab__time"),lightNodes:qa(".firstrun-demo__light"),scrim:q(".firstrun-demo__scrim"),
-    sheet:q(".firstrun-demo__sheet"),did:q(".firstrun-demo__did"),history:qa(".firstrun-demo__last"),
+    testBackdrop:q(".firstrun-demo__test-backdrop"),testScenes:qa(".firstrun-demo__test-scene"),sheet:q(".firstrun-demo__sheet"),did:q(".firstrun-demo__did"),history:qa(".firstrun-demo__last"),
     frame:screen.closest(".firstrun-proof__device"),rig:screen.closest(".firstrun-proof__rig"),glass:screen.closest(".firstrun-proof__glass"),
     wheel:q(".firstrun-demo__wheel"),band:q(".firstrun-demo__band"),wdone:q(".firstrun-demo__wdone"),items:qa(".firstrun-demo__wheel .wheel__item"),
     sel:q(".firstrun-demo__sel"),v0:q(".firstrun-demo__v0"),v1:q(".firstrun-demo__v1"),
@@ -23925,7 +24014,13 @@ function paintLandingDemo(now){
   if(d.label.textContent!==label)d.label.textContent=label;
   if(d.time.textContent!==time)d.time.textContent=time;
   d.tab.classList.toggle("is-done",done);
-  // 4 · the next session rises over the one it came from, and slides away to close the loop
+  // The last working set: the invitation, the prefilled guess, the failure cue, then the logged result.
+  set(d.testBackdrop,"opacity",f(out(seg(14,14.2))*(1-out(seg(19.7,19.9)))));
+  const beats=[[14,15.1],[15.1,16.8],[16.8,18.2],[18.2,19.9]];
+  d.testScenes.forEach((node,i)=>{
+    const [a,b]=beats[i],show=out(seg(a,a+.2))*(1-out(seg(b-.2,b)));
+    set(node,"opacity",f(show));set(node,"transform",`translateY(${f((1-show)*12)}px)`)});
+  // 5 · the next session rises over the one it came from, and slides away to close the loop
   const sheet=out(seg(D.sheet,D.sheet+.55))*(1-inOut(seg(D.wrap,D.wrap+.4)));
   set(d.scrim,"opacity",f(.55*Math.max(sheet,wheel)));set(d.sheet,"transform",`translateY(${f((1-sheet)*100)}%)`);
   set(d.did,"opacity",f(out(seg(D.sheet+.45,D.sheet+1.05))*stay));
@@ -26085,6 +26180,7 @@ async function applyBootDecision(decision){
   const migrated=migrateLog();
   const oldSettings=decision.snapshot?.settings;
   const retiredScale=Object.prototype.hasOwnProperty.call(oldSettings||{},"effortScale");
+  const effortModeDrift=decision.snapshot&&oldSettings?.rirMode!==state.settings.rirMode;
   // The old reps scale becomes numeric without rewriting any held set. A finishing
   // draft refuses the reducer command; only this upgrade still migrates Settings.
   const modeEffect=oldSettings?.rirMode==="effort"&&oldSettings.effortScale==="reps"
@@ -26092,7 +26188,7 @@ async function applyBootDecision(decision){
   const migrationEffect=modeEffect?.status===DRAFT_EFFECT_INVALID?null:modeEffect;
   const metaDrift=decision.snapshot&&canonicalPayload({programMeta:decision.snapshot.programMeta})!==canonicalPayload({programMeta:state.programMeta});
   const revisionless=decision.snapshot&&!Object.prototype.hasOwnProperty.call(decision.snapshot,STORAGE_REV);
-  if(decision.kind==="first-run"||decision.migrate||revisionless||migrated||metaDrift||retiredScale||decision.recoveryChanged)await persist({effect:migrationEffect});
+  if(decision.kind==="first-run"||decision.migrate||revisionless||migrated||metaDrift||retiredScale||effortModeDrift||decision.recoveryChanged)await persist({effect:migrationEffect});
   if(I18N)I18N.setLang(resolveLang())}
 window.__repforgeSharedSetup={
   get status(){return sharedSetupDraft.status},

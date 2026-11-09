@@ -27,7 +27,7 @@
 import { readFileSync } from "node:fs";
 import { pathToFileURL } from "url";
 import { isDeepStrictEqual } from "node:util";
-import { launchChromium, waitForAppBoot, answerRecommend, dismissGuidesInTheWay } from "./browser.mjs";
+import { answerEffortChoice, launchChromium, waitForAppBoot, answerRecommend, dismissGuidesInTheWay } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 import { decodeSetupLink, encodeSetupLink, encodeSetupPayload } from "./fixtures/setup-link-v4.mjs";
 import {
@@ -695,6 +695,7 @@ try {
 
     // Now explicitly activate
     await page.click("#entryActivate");
+    await answerEffortChoice(page);
     await page.waitForFunction(
       () =>
         !document.querySelector("#onboarding")?.classList.contains("active") &&

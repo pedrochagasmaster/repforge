@@ -98,7 +98,7 @@ async function main() {
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForApp(page);
     // A cleared device has no program; this walk needs one to attribute against.
-    await installSeedProgram(page, { key: KEY, waitFor: waitForApp });
+    await installSeedProgram(page, { key: KEY, waitFor: waitForApp, settings: { rirMode: "numeric" } });
 
     // A quad slot: the seed program's first Day 1 exercise.
     let state = await getState(page);

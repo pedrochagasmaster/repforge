@@ -12,15 +12,17 @@ import { instrumentBrowser } from "./browser-artifacts.mjs";
  * Suites that prove guide behaviour, or that need a device as the app leaves it (a fresh install-transfer destination,
  * where a dismissed guide is the lifter's own state), keep the guides live: `launchChromium({ guides: "live" })` for
  * every context, or `browser.newContext({ guides: "live" })` for one (and `guides: "read"` the other way round).
+ * These ordinary contexts also start after the effort choice. Use `effortChoice: "live"` to prove it separately.
+ * Exact fresh-device contexts keep both live.
  */
 function readGuidesByDefault(browser, liveByDefault) {
   const newContext = browser.newContext.bind(browser);
-  browser.newContext = async ({ guides, ...options } = {}) => {
+  browser.newContext = async ({ guides, effortChoice, ...options } = {}) => {
     const context = await newContext(options);
     if ((guides ?? (liveByDefault ? "live" : "read")) !== "live") {
       // Applied where the app brings its guide records up to date (at boot and on every transition), so the device's
       // storage is untouched until the app writes it, and a suite that writes its own preferences still meets read guides.
-      await context.addInitScript(() => {
+      await context.addInitScript(({ readEffortChoice }) => {
         let registry;
         Object.defineProperty(globalThis, "RepForgeGuideRegistry", {
           configurable: true,
@@ -29,7 +31,10 @@ function readGuidesByDefault(browser, liveByDefault) {
             if (typeof value?.migrateLegacyTourDone !== "function") { registry = value; return; }
             const migrate = value.migrateLegacyTourDone;
             registry = Object.freeze({ ...value, migrateLegacyTourDone(prefs, options) {
-              const next = migrate(prefs, options);
+              const next = { ...migrate(prefs, options) };
+              // Ordinary journeys start after this device-only onboarding choice.
+              // Exact fresh-device and transfer contexts keep guides live.
+              if (readEffortChoice && next.effortChosen === undefined) next.effortChosen = true;
               const state = { ...next.guideState };
               let changed = false;
               for (const { id, version } of value.GUIDE_DEFINITIONS) {
@@ -42,7 +47,7 @@ function readGuidesByDefault(browser, liveByDefault) {
             } });
           },
         });
-      });
+      }, { readEffortChoice: effortChoice !== "live" });
     }
     return context;
   };
@@ -317,4 +322,18 @@ export async function chooseRepsLeft(page, value) {
   const shelf = "#workout .exercise.is-current:not(.is-peek) .focus-shelf";
   await page.locator(`${shelf} [data-shelf-field="rir"]`).click();
   await page.locator(`${shelf} [data-effchip][data-e="${value}"]`).click();
+}
+
+/** Complete the first-activation question in journeys that keep onboarding choices live. */
+export async function answerEffortChoice(page, mode) {
+  await page.waitForFunction(() => document.querySelector("#effortChoiceSheet")?.classList.contains("is-open") ||
+    (!document.querySelector("#onboarding")?.classList.contains("active")
+      && window.__repforgeWorkoutDraft?.state()?.program?.length > 0));
+  if (await page.locator("#effortChoiceSheet").isVisible()) {
+    if (mode) await page.locator(`#effortChoiceSheet [data-effort-choice="${mode}"]`).click();
+    await page.locator("#effortChoiceContinue").click();
+  }
+  await page.waitForFunction(() => !document.querySelector("#onboarding")?.classList.contains("active")
+    && window.__repforgeWorkoutDraft?.state()?.programMeta?.onboarded === true);
+  await page.evaluate(() => window.__repforgeStorage.flush());
 }

@@ -118,6 +118,7 @@ export async function openPage(browser, manifest, capture, state, options = {}) 
   const viewport = manifest.viewports[capture.viewport];
   const locale = manifest.locales[capture.locale];
   const context = await browser.newContext({
+    effortChoice: options.effortChoice,
     viewport: { width: viewport.width, height: viewport.height },
     deviceScaleFactor: manifest.deviceScaleFactor,
     locale: locale.browserLocale,

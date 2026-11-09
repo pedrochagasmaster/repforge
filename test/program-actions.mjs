@@ -54,7 +54,7 @@ async function persist(page, state) {
 }
 
 async function install(page, log) {
-  await installSeedProgram(page, { key: KEY, waitFor: waitForApp });
+  await installSeedProgram(page, { key: KEY, waitFor: waitForApp, settings: { rirMode: "numeric" } });
   const state = await page.evaluate((key) => JSON.parse(localStorage.getItem(key) || "{}"), KEY);
   await persist(page, {
     ...state,
