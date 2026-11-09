@@ -54,6 +54,10 @@ async function waitWarmups(page,count){
     const draft=window.__repforgeWorkoutDraft.current(),ex=draft.exercises[draft.session.selectedExerciseId];
     return Object.values(ex.sets).filter(set=>set.origin==="ramp"&&set.completion!=="pending").length===count;
   },count);
+  await page.waitForFunction(()=>window.__repforgeRest.state().active);
+  check(await page.evaluate(()=>window.__repforgeRest.state().active),"a logged ramp keeps the ordinary rest clock");
+  await page.evaluate(()=>window.stopRest());
+  await page.waitForFunction(()=>!window.__repforgeRest.state().active);
   await page.locator(`${card} [data-ramp-start][data-ramp-n="${count+1}"]`).waitFor();
 }
 async function nextWorking(page,count){
