@@ -144,4 +144,22 @@ proof('the first target belongs to the slot actually performed that session',()=
   const right=(rows,now)=>readings(rows,now).map(f=>({...f,slotId:'exercise-a'}));
   assert.equal(found(build([...one,...two],undefined,program,right),'first_target').date,'2026-10-08');
 });
+proof('a bodyweight-only history anchor also releases the first target',()=>{
+  const p=structuredClone(prescriptions[0]),rep=p.metricDefinitions[1];
+  p.metricIds=[rep.id];p.metricDefinitions=[rep];p.loadingModel={bodyweightCoefficient:1};
+  const ctx={equipmentId:'rack-a',loadingConvention:'bodyweight',bodyweightCoefficient:1,externalLoadMultiplier:0,bodyweightKg:80,bodyweightContributionEnabled:true};
+  const read=(log,now)=>{
+    const groups=new Map();
+    for(const row of log){
+      if(!groups.has(row.session))groups.set(row.session,{sessionId:row.session,date:row.date,completed:true,sets:[]});
+      groups.get(row.session).sets.push({...row,metricIds:[rep.id],metricValues:[{metricId:rep.id,value:row.reps,unit:'reps'}],loadingConvention:'bodyweight',loadingContext:ctx});
+    }
+    const recommendation=Engine.recommendSets([p],[...groups.values()],[],{bySlotId:{[p.slotId]:ctx}},{now})[0];
+    return [{key,name:'Pull-up',recommendation,standing:recommendation.standing}];
+  };
+  const log=[...one,...two].map(row=>({...row,load:0}));
+  assert.equal(read(one,'2026-10-08')[0].recommendation.status,'recommended');
+  const f=found(build(log,undefined,program,read),'first_target');
+  assert.equal(f.date,'2026-10-08');assert.equal(f.load,null);assert.equal(f.loadingConvention,'bodyweight');
+});
 console.log(`PASS findings: ${checks} rule, chronology, identity and need proofs`);
