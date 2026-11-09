@@ -3212,7 +3212,7 @@ export const APP_SCENARIOS = {
     await page.waitForSelector('#nativeContextMenu[open] [role="menuitemradio"][aria-checked="true"]');
     await sleep(page, 400);
   },
-  // Plan 077 PR 2: Effort logging as a pull-down, the three stages, the current one checked.
+  // Plan 077 PR 2: Effort logging as a pull-down, the two stages, the current one checked.
   "settings/effort-menu": async (page) => {
     await openSettings(page, "#rirModeRow");
     await page.click("#rirModeRow");

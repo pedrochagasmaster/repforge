@@ -406,7 +406,7 @@
     "workout/effort-menu": {
       "owner": "plan-077",
       "content": "flat",
-      "scenario": "The effort field's arrow opened: the three stages, the current one checked, and Not sure for this set."
+      "scenario": "The effort field's arrow opened: the two stages, the current one checked, and Not sure for this set."
     },
     "workout/stage-tip": {
       "owner": "plan-077",
@@ -836,7 +836,7 @@
     "settings/effort-menu": {
       "owner": "plan-077",
       "content": "flat",
-      "scenario": "Effort logging opened as a native pull-down: the three stages, the current one checked."
+      "scenario": "Effort logging opened as a native pull-down: the two stages, the current one checked."
     },
     "settings/guides": {
       "owner": "plan-057",
