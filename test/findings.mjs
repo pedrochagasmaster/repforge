@@ -122,7 +122,7 @@ proof('future rows cannot release findings and output is newest first',()=>{
   const dates=build([...one,...two,...three]).released.map(f=>f.date);assert.deepEqual(dates,[...dates].sort().reverse());
 });
 proof('a swapped lift cannot anchor or calibrate the template movement',()=>{
-  const swapped=[...one,...two,...three].map(r=>({...r,sourceLibraryId:key,performedLibraryId:'replacement'}));
+  const swapped=[...one,...two,...three].map(({startingLoad,...r})=>({...r,sourceLibraryId:key,performedLibraryId:'replacement'}));
   const result=build(swapped);assert.equal(found(result,'first_target'),undefined);assert.equal(found(result,'first_solid'),undefined);
   assert.equal(result.next.need.m,1);
 });

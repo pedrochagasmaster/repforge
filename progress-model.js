@@ -596,7 +596,116 @@
     return entries.sort((a, b) => compareChronology(a, b) || a.exerciseId.localeCompare(b.exerciseId));
   }
 
+  const FINDINGS_VERSION = "findings@081.1";
+  const FINDING_IDS = Object.freeze(["weights_found", "first_target", "first_check", "effort_read",
+    "first_solid", "first_trend", "month_one"]);
+
+  // `standings(rows, asOf)` replays the authoritative engine on exactly this
+  // prefix. Each reading has key/name, recommendation, standing, calibration,
+  // gauge observations and an observed `improved` fact. Keeping the adapter at
+  // the caller preserves the model's pure boundary and the engine's sole
+  // ownership of comparability, standing and effort thresholds.
+  function buildFindings(log, program, meta, now, standings = () => []) {
+    const gauge = root?.RepForgeCalibrationGauge ||
+      (typeof require === "function" ? require("./calibration-gauge.js") : null);
+    const today = isoDate(now);
+    const keyOf = (row) => String(row.performedLibraryId || row.performedMovementId ||
+      row.sourceLibraryId || row.performedName || row.name || "");
+    const nameOf = (row) => String(row.performedName || row.name || keyOf(row));
+    const working = (row) => row && row.warmup !== true && row.origin !== "ramp" && row.work !== false && Number(row.reps) > 0;
+    const rows = (log || []).filter((row) => working(row) &&
+      Number.isFinite(calendarDayDistance(row.date, today)) && isoDate(row.date) <= today).slice().sort(compareChronology);
+    const lifts = [...new Map((program || []).map((ex) => [String(ex.libraryId || ex.name || ""), ex])).entries()]
+      .filter(([key]) => key).map(([key, ex]) => ({ key, name: ex.name || key }));
+    const released = new Map();
+    const release = (id, date, data = {}) => {
+      if (!released.has(id)) released.set(id, { id, date: isoDate(date), ...data });
+    };
+    const sessions = new Map();
+    for (const row of rows) {
+      const id = String(row.session || row.date);
+      if (!sessions.has(id)) sessions.set(id, []);
+      sessions.get(id).push(row);
+    }
+    const prefix = [];
+    const read = (history, date) => standings(history.slice(), date) || [];
+    const hasAnchor = (fact) => fact.recommendation?.historyAnchor?.source === "history";
+    const weights = (history, facts) => new Set([
+      ...history.filter((row) => row.startingLoad).map(keyOf),
+      ...facts.filter(hasAnchor).map((fact) => fact.key),
+    ]);
+    const capacity = (load, reps, rir) => load * (1 + (reps + rir) / 30);
+    for (const session of sessions.values()) {
+      const date = isoDate(session[0].date);
+      const before = read(prefix, date);
+      // A target belongs to the session it was available for, not a target
+      // reconstructed using that session's own future performance.
+      const target = before.find((fact) => hasAnchor(fact) && fact.recommendation?.reasonCodes?.includes("history_anchor") &&
+        fact.recommendation.status === "recommended" && session.some((row) => keyOf(row) === fact.key));
+      if (target) {
+        const rec = target.recommendation;
+        const anchor = prefix.find((row) => String(row.session) === String(rec.historyAnchor.sessionId) && keyOf(row) === target.key);
+        const reps = rec.targets?.reps ?? rec.targets?.repsPerSide;
+        const load = rec.targets?.[rec.displayLoadSemantic];
+        if (anchor && Number.isFinite(load) && Number.isFinite(reps)) release("first_target", date,
+          { key: target.key, lift: target.name, load, reps, becauseDate: isoDate(anchor.date) });
+      }
+      prefix.push(...session);
+      const after = read(prefix, date);
+      const openings = new Set(prefix.filter((row) => row.startingLoad).map(keyOf));
+      const anchors = weights(prefix, after);
+      if (openings.size || (lifts.length && lifts.every((lift) => anchors.has(lift.key)))) {
+        release("weights_found", date, { n: anchors.size });
+      }
+      const check = session.find((row) => row.effortSource === "failure" && row.calibration &&
+        Number.isInteger(row.calibration.predictedReps) && Number(row.reps) > 0);
+      if (check) release("first_check", date, { key: keyOf(check), lift: nameOf(check), g: check.calibration.predictedReps, d: Number(check.reps) });
+      for (const fact of after) {
+        if (["under", "over", "calibrated"].includes(fact.calibration?.state)) release("effort_read", date,
+          { key: fact.key, lift: fact.name, state: fact.calibration.state });
+        if (fact.standing?.word === "solid") release("first_solid", date,
+          { key: fact.key, lift: fact.name, sets: fact.standing.evidence.sets, sessions: fact.standing.evidence.sessions });
+        const pair = gauge?.weeksFrom(fact.observations || [], capacity)[0];
+        if (pair) release("first_trend", pair.date,
+          { key: fact.key, lift: fact.name, cap1: pair.before, cap2: pair.after });
+      }
+    }
+    const monthDate = rows.length ? addDays(rows[0].date, 28) : null;
+    if (monthDate && monthDate <= today) {
+      const monthRows = rows.filter((row) => isoDate(row.date) <= monthDate);
+      const facts = read(monthRows, monthDate);
+      release("month_one", monthDate, { sessions: new Set(monthRows.map((row) => row.session || row.date)).size,
+        improved: new Set(facts.filter((fact) => fact.improved).map((fact) => fact.key)).size,
+        solid: new Set(facts.filter((fact) => fact.standing?.word === "solid").map((fact) => fact.key)).size });
+    }
+    const current = read(rows, today);
+    const lift = current[0] || { key: lifts[0]?.key || "", name: lifts[0]?.name || "" };
+    const pending = FINDING_IDS.find((id) => !released.has(id));
+    let need = null;
+    if (pending) {
+      need = { lift: lift.name, key: lift.key };
+      if (pending === "weights_found") need.m = lifts.filter((ex) => !weights(rows, current).has(ex.key)).length;
+      if (pending === "effort_read") {
+        const closest = current.slice().sort((a, b) => (b.calibration?.n || 0) - (a.calibration?.n || 0))[0] || lift;
+        need = { key: closest.key, lift: closest.name, k: Math.max(0, 3 - (closest.calibration?.n || 0)),
+          reason: (closest.calibration?.n || 0) >= 3 ? "agreement" : "checks" };
+      }
+      if (pending === "first_solid") {
+        const closest = current.slice().sort((a, b) => (b.standing?.evidence?.sets || 0) - (a.standing?.evidence?.sets || 0))[0] || lift;
+        need = { key: closest.key, lift: closest.name, m: Math.max(0, Math.ceil(6 - (closest.standing?.evidence?.sets || 0))),
+          reason: closest.standing?.reasons?.includes("disagreement") || closest.standing?.reasons?.includes("inconsistent_checks")
+            ? "agreement" : (closest.standing?.evidence?.sessions || 0) < 2 ? "sessions" : "sets" };
+      }
+      if (pending === "month_one") need.d = monthDate ? calendarDayDistance(today, monthDate) : 28;
+    }
+    return { version: FINDINGS_VERSION,
+      released: [...released.values()].sort((a, b) => b.date.localeCompare(a.date) || FINDING_IDS.indexOf(a.id) - FINDING_IDS.indexOf(b.id)),
+      next: pending ? { id: pending, need } : null };
+  }
+
   const api = {
+    FINDINGS_VERSION,
+    buildFindings,
     MODEL_VERSION,
     OUTCOMES,
     RECOMMENDATIONS,
