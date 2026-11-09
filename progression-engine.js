@@ -1,7 +1,8 @@
 (function (root) {
   "use strict";
 
-  const ENGINE_VERSION = "077.2";
+  const ENGINE_VERSION = "078.1";
+  const STANDING_VERSION = "standing@078.1";
   // Reps in reserve are reliable near failure and guesses far from it, so a performed set earns capacity for at most
   // this many (owner, 2026-11-05; Plan 077 OD-23b). Targets keep their own 0–6 bound.
   const RIR_CREDIT_CAP = 5;
@@ -342,6 +343,9 @@
     const capacityKg = transformed.effectiveLoadKg * (1 + (transformed.reps + Math.min(rir, RIR_CREDIT_CAP)) / 30);
     return {
       failure,
+      effortSource: value.effortSource,
+      warmup: value.warmup,
+      date: value.date,
       ...transformed,
       capacityKg,
       sessionId: typeof value.sessionId === "string" ? value.sessionId : null,
@@ -361,7 +365,7 @@
       if (!isPlainObject(value) || value.exerciseId !== prescription.exerciseId) continue;
       const parsed = parsePerformedSet(value, shape, prescription, config, delta);
       if (parsed?.ok === false) reasons.add(parsed.reason);
-      else if (parsed) sets.push({ ...parsed, sessionId });
+      else if (parsed) sets.push({ ...parsed, sessionId, date: parsed.date ?? session.date });
     }
     return { sessionId, sets: sets.sort((left, right) => left.setIndex - right.setIndex), reasons: [...reasons] };
   }
@@ -681,16 +685,77 @@
     return result(dropped ? "dropped" : "steady", firsts.length);
   }
 
+  /** Standing reads the same comparable rows as selection, without changing the anchor or the solve.
+   *  `settings.now` is an ISO date for historical replay; one UTC day is shared by a batch by default. */
+  function standingFor(result, prescription, history, loadingContext, settings, now) {
+    // The gauge loads later in the page shell; resolve its pure helpers when a recommendation is requested.
+    const quality = root?.RepForgeCalibrationGauge ||
+      (typeof require === "function" ? require("./calibration-gauge.js") : null);
+    const calibration = isPlainObject(settings?.calibration)
+      && settings.calibration.version === CALIBRATION_VERSION ? settings.calibration : null;
+    const evidence = { sets: 0, sessions: 0, pairs: 0, agreement: null, gapDays: null,
+      checks: Number.isInteger(calibration?.n) && calibration.n >= 0 ? calibration.n : 0,
+      spread: finite(calibration?.spread) && calibration.spread >= 0 ? calibration.spread : null,
+      state: ["uncalibrated", "calibrated", "over", "under"].includes(calibration?.state)
+        ? calibration.state : "uncalibrated" };
+    const standing = (word, reasons) => ({ version: STANDING_VERSION, word, reasons, evidence });
+    if (!result.historyAnchor || result.status === "configuration_required") return standing("first", ["no_history"]);
+    const shape = prescriptionShape(prescription);
+    const config = currentConfiguration(prescription, shape, loadingContext);
+    const observations = [];
+    let hasHistoryAnchor = false;
+    for (const session of history) {
+      if (!isPlainObject(session) || session.completed !== true || !Array.isArray(session.sets)) continue;
+      for (const value of session.sets) {
+        if (!isPlainObject(value) || value.exerciseId !== prescription.exerciseId
+          || !Number.isInteger(value.setIndex) || value.setIndex < 0) continue;
+        const set = parsePerformedSet(value, shape, prescription, config);
+        const comparable = set && set.ok !== false;
+        if (comparable && set.setIndex === 0) hasHistoryAnchor = true;
+        const date = value.date ?? session.date;
+        observations.push({ key: prescription.exerciseId, session: session.sessionId, set: value.setIndex, date,
+          load: comparable ? set.effectiveLoadKg : null, reps: comparable ? set.reps : null, rir: value.rir,
+          q: comparable && quality.decay(date, now) > 0 ? quality.rowQuality(set) : 0 });
+      }
+    }
+    const dated = observations.filter((obs) => obs.q > 0);
+    if (!hasHistoryAnchor && result.historyAnchor.source === "current_session") return standing("first", ["live_only"]);
+    evidence.sets = dated.reduce((sum, obs) => sum + obs.q * quality.decay(obs.date, now), 0);
+    evidence.sessions = new Set(dated.map((obs) => obs.session)).size;
+    // Keep uncountable rows in the sequence so a missing effort cannot join two otherwise separated sets.
+    const pairs = quality.pairsFrom(observations, (load, reps, rir) => load * (1 + (reps + rir) / 30))
+      .filter((pair) => quality.decay(pair.date, now) > 0);
+    evidence.pairs = pairs.length;
+    let pairWeight = 0, agreedWeight = 0;
+    for (const pair of pairs) {
+      const weight = pair.q * quality.decay(pair.date, now);
+      pairWeight += weight;
+      if (pair.agree) agreedWeight += weight;
+    }
+    evidence.agreement = pairWeight > 0 ? agreedWeight / pairWeight : null;
+    const day = (date) => Math.floor(Date.parse(date) / 86400000);
+    if (dated.length) evidence.gapDays = Math.max(0, day(now) - Math.max(...dated.map((obs) => day(obs.date))));
+    const reasons = [];
+    if (evidence.sets < 6) reasons.push("few_sets");
+    if (evidence.sessions < 2) reasons.push("few_sessions");
+    if (evidence.pairs >= 4 && evidence.agreement < 0.6) reasons.push("disagreement");
+    if (evidence.state === "uncalibrated" && calibration?.reason === "inconsistent") reasons.push("inconsistent_checks");
+    if (evidence.gapDays >= 42) reasons.push("break");
+    return standing(reasons.length ? "learning" : "solid", reasons);
+  }
+
   function recommendSets(prescriptions, history = [], currentSession = [], loadingContext = {}, settings = {}) {
     if (!Array.isArray(prescriptions)) return [];
     const boundedHistory = Array.isArray(history) ? history.slice(-1000) : [];
     const boundedSession = Array.isArray(currentSession) ? currentSession.slice(-100) : [];
-    return prescriptions.map((prescription) => recommendOne(
-      prescription, boundedHistory, boundedSession, loadingContext, settings,
-    ));
+    const now = settings?.now ?? new Date().toISOString().slice(0, 10);
+    return prescriptions.map((prescription) => {
+      const result = recommendOne(prescription, boundedHistory, boundedSession, loadingContext, settings);
+      return { ...result, standing: standingFor(result, prescription, boundedHistory, loadingContext, settings, now) };
+    });
   }
 
-  const api = Object.freeze({ ENGINE_VERSION, RIR_CREDIT_CAP, CALIBRATION_VERSION, CALIBRATION_DELTA, CALIBRATION_STEPS, FORMULA_VERSION, SUPPORTED_SEMANTICS, BODYWEIGHT_MATERIAL_THRESHOLD,
+  const api = Object.freeze({ ENGINE_VERSION, STANDING_VERSION, RIR_CREDIT_CAP, CALIBRATION_VERSION, CALIBRATION_DELTA, CALIBRATION_STEPS, FORMULA_VERSION, SUPPORTED_SEMANTICS, BODYWEIGHT_MATERIAL_THRESHOLD,
     effectiveBodyweightCoefficient, performanceTrend, recommendSets });
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.RepForgeProgression = api;
