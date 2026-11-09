@@ -451,7 +451,12 @@
     "session/summary": {
       "owner": "plan-064/r3h",
       "content": "flat",
-      "scenario": "The Direction D lifter's Day 1 finish screen: the card row (record poster, then the stats card) and the three tiles."
+      "scenario": "The Direction D lifter's Day 1 finish screen: the card row (record poster, then the stats card) the next finding's need, and the three tiles."
+    },
+    "session/summary-finding": {
+      "owner": "plan-081",
+      "content": "flat",
+      "scenario": "The finish screen with the first test-set finding and the profile link above its factual tiles."
     },
     "session/summary-lifts": {
       "owner": "plan-064/r3h",
@@ -5964,6 +5969,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "session/summary",
+        "session/summary-finding",
         "session/summary-lifts",
         "session/summary-declined",
         "session/summary-maintained",
@@ -5988,6 +5994,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "session/summary",
+        "session/summary-finding",
         "session/summary-lifts",
         "session/summary-declined",
         "session/summary-maintained",
@@ -6315,6 +6322,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "session/summary",
+        "session/summary-finding",
         "session/summary-lifts",
         "session/summary-declined",
         "session/summary-maintained",
@@ -6340,6 +6348,7 @@
       "owner": "finish-share",
       "catalogStates": [
         "session/summary",
+        "session/summary-finding",
         "session/summary-lifts",
         "session/summary-declined",
         "session/summary-maintained",
@@ -6505,6 +6514,18 @@
       "neverDisabledReason": "Every choice the sheet offers can be drawn; a card the session cannot back is hidden, not disabled."
     },
     {
+      "id": "sumfinding",
+      "selector": "#sumFinding",
+      "roles": { "control": "quiet-navigation" },
+      "variant": "profile-link",
+      "facets": [],
+      "states": ["default", "hover", "pressed", "focus-visible", "disabled"],
+      "rationale": "Opens the profile from a finding or its next need after the session.",
+      "owner": "plan-081",
+      "catalogStates": ["session/summary", "session/summary-finding", "session/summary-first", "session/summary-maintained", "session/summary-declined"],
+      "neverDisabledReason": "The profile is available whenever the finish screen has a finding or a next need."
+    },
+    {
       "id": "sumsee",
       "selector": "#sumSee",
       "roles": {
@@ -6523,6 +6544,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "session/summary",
+        "session/summary-finding",
         "session/summary-lifts",
         "session/summary-declined",
         "session/summary-maintained",
@@ -8354,6 +8376,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "session/summary",
+        "session/summary-finding",
         "session/summary-lifts",
         "session/summary-declined",
         "session/summary-maintained",
@@ -8960,6 +8983,7 @@
         "workout/why-per-side",
         "workout/why-in-session",
         "session/summary",
+        "session/summary-finding",
         "session/summary-lifts",
         "session/summary-maintained",
         "session/summary-declined",
@@ -13489,6 +13513,7 @@
       "owner": "plan-057/058",
       "catalogStates": [
         "session/summary",
+        "session/summary-finding",
         "session/summary-maintained",
         "session/summary-declined",
         "session/summary-first"

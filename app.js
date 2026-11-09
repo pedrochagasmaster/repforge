@@ -12131,12 +12131,22 @@ function summaryLiftHtml(lift,s){
       `<span class="sum-grp__next"${lift.exerciseId?` data-parity-target="${esc(lift.exerciseId)}"`:""}>`+
       `${verdictMarkHtml(lift.next.glyph)}<span>${esc(lift.next.line)}</span></span></p>`:"")+`</div>`}
 
+function summaryUnseenFinding(s){
+  const seen=loadUiPrefs().findingsSeen;
+  return s.finding&&!(Array.isArray(seen)&&seen.includes(s.finding.id))?s.finding:null}
+function summaryFindingHtml(s){
+  const finding=summaryUnseenFinding(s),line=finding?.text||s.findingNeed;
+  if(!line)return "";
+  return `<button type="button" class="sum-finding" id="sumFinding"${finding?` data-finding="${esc(finding.id)}"`:""}>`+
+    (finding?`<span class="sum-finding__label">${esc(t("summary.new_today"))}</span>`:"")+`${esc(line)}</button>`}
+
 function sessionSummaryHtml(s){
   const out=[];
   out.push(`<p class="sum-eyebrow">${esc(t("summary.eyebrow"))}</p>`);
   out.push(`<h2 class="sum-hero" id="sumTitle" tabindex="-1">${esc(dayLabel(s.day))}</h2>`);
   out.push(`<p class="sum-sub">${esc(summarySubLine(s))}</p>`);
   out.push(summaryCardsHtml(s));
+  out.push(summaryFindingHtml(s));
   // The session figures. The counts ramp (motion amendment M2); a signed margin does not.
   out.push(`<div class="sum-stats sum-tiles">${summaryTileValues(s).map(tile=>`<div class="sum-tile" data-tile="${tile.id}">`+
     `<p class="sum-tile__lab">${esc(tile.label)}</p><p class="sum-tile__val${tile.accent?" is-accent":""}">`+
@@ -12209,6 +12219,10 @@ function renderSessionSummary(s){
   const body=$("#sessionSummaryBody");if(!body)return;
   stopSummaryRamp();
   body.innerHTML=sessionSummaryHtml(s);
+  const finding=$("#sumFinding");if(finding)finding.onclick=()=>{
+    closeSessionSummary({nav:"stats"});setStatsSeg("overview");
+    const profile=$("#overviewProfile");
+    if(profile){profile.setAttribute("tabindex","-1");profile.scrollIntoView({block:"start"});profile.focus({preventScroll:true})}};
   const done=$("#sumDone");if(done)done.onclick=()=>closeSessionSummary();
   const share=$("#sumShare");if(share)share.onclick=()=>openShareSheet(share);
   const see=$("#sumSee");if(see)see.onclick=()=>{
@@ -12231,6 +12245,10 @@ function openSessionSummary(s){
   renderSessionSummary(s);
   const ok=openModal(el,{initialFocus:()=>$("#sumTitle"),onEscape:()=>closeSessionSummary()});
   if(!ok){sessionSummaryCurrent=null;return false}
+  const finding=summaryUnseenFinding(s);
+  if(finding){
+    const prefs=loadUiPrefs(),seen=Array.isArray(prefs.findingsSeen)?prefs.findingsSeen:[];
+    replaceUiPrefs({...prefs,findingsSeen:[...new Set([...seen,finding.id])]})}
   // The blocks are all present and opaque on the first frame; only the totals count up. The ramp starts
   // before the first paint, so the finished figures are never seen and then reset to zero.
   rampSessionStats(el.querySelector(".sum-stats"));

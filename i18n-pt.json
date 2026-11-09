@@ -1669,6 +1669,7 @@
   "log.effort": "Esforço",
   "dialog.save": "Salvar",
   "toast.set_updated": "Série atualizada.",
+  "summary.new_today": "Novidade de hoje",
   "summary.eyebrow": "Sessão salva",
   "summary.pr.over_load": "+{n} {unit} acima do seu melhor",
   "summary.pr.over_reps": "+{n} {reps} nessa carga",

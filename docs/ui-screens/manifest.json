@@ -1364,7 +1364,14 @@
       "id": "summary",
       "flow": "session",
       "label": "Session summary",
-      "scenario": "The Direction D lifter's Day 1 finish screen (owner decisions, 2026-11-05): the card row opening on the squat record poster, then the stats card; the three tiles (strength gained, records, kg moved).",
+      "scenario": "The Direction D lifter's Day 1 finish screen (owner decisions, 2026-11-05): the card row opening on the squat record poster, then the stats card; the next finding's need above the three tiles (strength gained, records, kg moved).",
+      "variants": "demandingText"
+    },
+    {
+      "id": "summary-finding",
+      "flow": "session",
+      "label": "Session summary with a finding",
+      "scenario": "A first test set releases a finding on the finish screen, above three factual tiles. The line opens the profile.",
       "variants": "demandingText"
     },
     {

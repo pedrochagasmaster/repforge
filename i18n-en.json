@@ -1669,6 +1669,7 @@
   "log.effort": "Effort",
   "dialog.save": "Save",
   "toast.set_updated": "Set updated.",
+  "summary.new_today": "New today",
   "summary.eyebrow": "Session saved",
   "summary.pr.over_load": "+{n} {unit} over your best",
   "summary.pr.over_reps": "+{n} {reps} at that load",

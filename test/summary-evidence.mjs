@@ -40,12 +40,12 @@ async function boot(page) {
   await page.waitForFunction(() => window.__repforgeBooted === true, undefined, { timeout: 20000 });
 }
 
-async function seed(page, log) {
-  await page.evaluate(async ({ key, program, meta, nextLog }) => {
+async function seed(page, log, lang = "en") {
+  await page.evaluate(async ({ key, program, meta, nextLog, lang }) => {
     const raw = JSON.parse(localStorage.getItem(key) || "{}");
     const next = {
       ...raw, program, programMeta: meta, log: nextLog, programHistory: [],
-      settings: { ...raw.settings, lang: "en", unit: "kg", rirMode: "numeric", hardRir: 4 },
+      settings: { ...raw.settings, lang, unit: "kg", rirMode: "numeric", hardRir: 4 },
     };
     localStorage.setItem(key, JSON.stringify(next));
     const db = await new Promise((resolve, reject) => {
@@ -61,15 +61,15 @@ async function seed(page, log) {
       tx.onerror = () => reject(tx.error);
     });
     db.close();
-  }, { key: KEY, program: PROGRAM, meta: META, nextLog: log });
+  }, { key: KEY, program: PROGRAM, meta: META, nextLog: log, lang });
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.waitForFunction(() => window.__repforgeBooted === true, undefined, { timeout: 20000 });
 }
 
-async function build(page, previous, current) {
+async function build(page, previous, current, { open = true, lang = "en" } = {}) {
   await page.evaluate(() => window.__repforgeSessionSummary.close());
-  await seed(page, [...previous, ...current]);
-  return page.evaluate(({ previousRows, currentRows }) => {
+  await seed(page, [...previous, ...current], lang);
+  return page.evaluate(({ previousRows, currentRows, open }) => {
     const summary = window.__repforgeSessionSummary.build({
       rows: currentRows, prevLog: previousRows, session: currentRows[0]?.session || "summary-current",
       date: currentRows[0]?.date || "2026-09-17", day: "Day 1", startedAt: 0,
@@ -77,7 +77,7 @@ async function build(page, previous, current) {
     const ids = new Set(currentRows.map((item) => "library:" + item.performedLibraryId));
     const records = window.__repforgeProgressEvidence.records("current-block")
       .filter((record) => ids.has(record.exerciseId));
-    window.__repforgeSessionSummary.open(summary);
+    if (open) window.__repforgeSessionSummary.open(summary);
     return {
       summary,
       records,
@@ -86,7 +86,7 @@ async function build(page, previous, current) {
         exerciseId: element.dataset.exerciseId, outcome: element.dataset.outcome,
       })),
     };
-  }, { previousRows: previous, currentRows: current });
+  }, { previousRows: previous, currentRows: current, open });
 }
 
 const browser = await launchChromium();
@@ -162,6 +162,57 @@ try {
     prInsufficient.records[0]?.evidenceState === "insufficient" &&
     prInsufficient.outcomes.length === 0 && !prInsufficient.baselineVisible,
   "a PR may render while insufficient evidence still forbids new/outcome claims", JSON.stringify(prInsufficient));
+
+  const checkRow = { ...row("finding-current", "2026-09-17", "seed-ex-3", 60, 12, 0),
+    effortSource: "failure", calibration: { v: 1, predictedReps: 10, predictionEdited: false, prefillBasis: "reps_rir" } };
+  const finding = await build(page, [], [checkRow], { open: false });
+  const unopened = await page.evaluate(summary => {
+    const element = document.querySelector("#sessionSummary"), parent = element.parentElement;
+    element.remove();
+    const opened = window.__repforgeSessionSummary.open(summary);
+    parent.append(element);
+    return { opened, seen: JSON.parse(localStorage.getItem("repforge_ui_v1") || "{}").findingsSeen };
+  }, finding.summary);
+  check(unopened.opened === false && !unopened.seen?.includes("first_check"),
+    "deriving a finding or failing to open the finish screen does not mark it seen");
+  await page.evaluate(summary => window.__repforgeSessionSummary.open(summary), finding.summary);
+  const findingLine = page.locator("#sumFinding");
+  check(await findingLine.count() === 1 && /New today/.test(await findingLine.textContent() || ""),
+    "a test set released by this session appears above the tiles as New today");
+  check(await page.evaluate(() => JSON.parse(localStorage.getItem("repforge_ui_v1") || "{}").findingsSeen?.includes("first_check")),
+    "opening the real finish screen marks the displayed finding seen in device preferences");
+  check(!Object.hasOwn(finding.summary, "streak") && !await page.locator('[data-tile="streak"]').count(),
+    "neither the summary model nor its tiles retain the consecutive-week count");
+  if (await findingLine.count()) {
+    await findingLine.click();
+    check(await page.locator("#overviewProfile").isVisible() &&
+      await page.locator("#overviewProfile").evaluate(el => document.activeElement === el),
+      "the finding opens Progress Overview and focuses the profile");
+  } else check(false, "the finding opens Progress Overview and focuses the profile");
+  const repeated = await build(page, [], [checkRow]);
+  check(await page.locator("#sumFinding").count() === 1 &&
+    !/New today/.test(await page.locator("#sumFinding").textContent() || ""),
+    "after reload the same finding is no longer new and the next need takes its place");
+  check(!Object.hasOwn(JSON.parse(await page.evaluate(() => localStorage.getItem("repforge_v1"))), "findingsSeen"),
+    "seen findings stay outside durable training state");
+
+  for (const lang of ["pt", "en"]) {
+    await page.evaluate(() => {
+      const prefs = JSON.parse(localStorage.getItem("repforge_ui_v1") || "{}");
+      delete prefs.findingsSeen;
+      localStorage.setItem("repforge_ui_v1", JSON.stringify(prefs));
+    });
+    await page.setViewportSize({ width: 320, height: 844 });
+    await build(page, [], [checkRow], { lang });
+    await page.evaluate(() => document.documentElement.style.fontSize = "200%");
+    const layout = await page.evaluate(() => {
+      const line = document.querySelector("#sumFinding"), box = line?.getBoundingClientRect();
+      return { label: line?.querySelector(".sum-finding__label")?.textContent,
+        fits: box && box.width <= innerWidth && line.scrollWidth <= line.clientWidth && box.height >= 44 };
+    });
+    check(layout.fits && layout.label === (lang === "pt" ? "Novidade de hoje" : "New today"),
+      `${lang}: the finding fits a 320px phone at 200% text with its localized label`, layout);
+  }
 
   await context.close();
 } finally {
