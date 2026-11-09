@@ -685,6 +685,9 @@
     return result(dropped ? "dropped" : "steady", firsts.length);
   }
 
+  const emptyStandingEvidence = () => ({ sets: 0, sessions: 0, pairs: 0, agreement: null, gapDays: null,
+    checks: 0, spread: null, state: "uncalibrated" });
+
   /** Standing reads the same comparable rows as selection, without changing the anchor or the solve.
    *  `settings.now` is an ISO date for historical replay; one UTC day is shared by a batch by default. */
   function standingFor(result, prescription, history, loadingContext, settings, now) {
@@ -693,7 +696,7 @@
       (typeof require === "function" ? require("./calibration-gauge.js") : null);
     const calibration = isPlainObject(settings?.calibration)
       && settings.calibration.version === CALIBRATION_VERSION ? settings.calibration : null;
-    const evidence = { sets: 0, sessions: 0, pairs: 0, agreement: null, gapDays: null,
+    const evidence = { ...emptyStandingEvidence(),
       checks: Number.isInteger(calibration?.n) && calibration.n >= 0 ? calibration.n : 0,
       spread: finite(calibration?.spread) && calibration.spread >= 0 ? calibration.spread : null,
       state: ["uncalibrated", "calibrated", "over", "under"].includes(calibration?.state)
@@ -751,7 +754,14 @@
     const now = settings?.now ?? new Date().toISOString().slice(0, 10);
     return prescriptions.map((prescription) => {
       const result = recommendOne(prescription, boundedHistory, boundedSession, loadingContext, settings);
-      return { ...result, standing: standingFor(result, prescription, boundedHistory, loadingContext, settings, now) };
+      let standing;
+      try { standing = standingFor(result, prescription, boundedHistory, loadingContext, settings, now); }
+      catch {
+        // Standing is supporting evidence. Its failure cannot take an already selected target away.
+        standing = { version: STANDING_VERSION, word: result.historyAnchor ? "learning" : "first",
+          reasons: result.historyAnchor ? ["few_sets", "few_sessions"] : ["no_history"], evidence: emptyStandingEvidence() };
+      }
+      return { ...result, standing };
     });
   }
 
