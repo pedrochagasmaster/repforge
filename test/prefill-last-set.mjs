@@ -342,7 +342,10 @@ try {
         r.ledger.load.value === "32,5", "in Portuguese set 2 shows 32,5 / 8 / 2, grey, and the ledger agrees", r);
     } finally { await opened.context.close(); }
 
-    opened = await start(browser, seedProgramMeta({}).programDefinition, { effort: true });
+    const wordsDefinition = seedProgramMeta({}).programDefinition;
+    for (const day of wordsDefinition.days) for (const slot of day.slots)
+      for (const cycle of slot.prescriptionsByCycle) for (const set of cycle.sets) set.rir = 1;
+    opened = await start(browser, wordsDefinition, { effort: true });
     try {
       const { page } = opened;
       await enter(page, { load: "30", reps: "8", effort: "easy" });
