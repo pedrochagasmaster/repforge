@@ -1150,6 +1150,10 @@
       return ERROR_CODES.INVALID_ENVELOPE;
     }
     if (!isPlainObject(value.settings) || !isPlainObject(value.programMeta)) return ERROR_CODES.INVALID_ENVELOPE;
+    const transition = root?.RepForgeProgramTransition || (typeof require === "function" ? require("./program-transition.js") : null);
+    for (const meta of [value.programMeta,...(Array.isArray(value.programHistory) ? value.programHistory.map(entry=>entry?.meta).filter(Boolean) : [])]) {
+      if (hasOwn(meta,"adaptations") && !transition?.validateAdaptations?.(meta.adaptations)) return ERROR_CODES.INVALID_ENVELOPE;
+    }
     if (hasOwn(value,"sessionEvents")) {
       const draft = runtimeWorkoutDraft();
       if (!draft?.validateSessionEvents?.(value.sessionEvents)) return ERROR_CODES.INVALID_ENVELOPE;

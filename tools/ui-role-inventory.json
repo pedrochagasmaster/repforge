@@ -1322,6 +1322,16 @@
       "owner": "plan-083/pr1",
       "content": "flat",
       "scenario": "Scrolled to Test your guess: the last working set's computed guess, logged result and remaining checks."
+    },
+    "progress/review-proposal": {
+      "owner": "plan-082",
+      "content": "flat",
+      "scenario": "Recurring skips, an equipment cause and an alternate, with four explicit actions."
+    },
+    "progress/review-evaluated": {
+      "owner": "plan-082",
+      "content": "flat",
+      "scenario": "An accepted removal and the following week’s observed outcome."
     }
   },
   "components": [
@@ -6379,7 +6389,9 @@
         "progress/volume-drill-in",
         "progress/volume-reduction-preview",
         "progress/minibar",
-        "progress/overview-calibration"
+        "progress/overview-calibration",
+        "progress/review-proposal",
+        "progress/review-evaluated"
       ]
     },
     {
@@ -7247,7 +7259,9 @@
         "progress/review",
         "progress/review-active",
         "progress/review-complete",
-        "progress/review-insufficient"
+        "progress/review-insufficient",
+        "progress/review-proposal",
+        "progress/review-evaluated"
       ],
       "progressScopes": {
         "block-review-evidence": "block"
@@ -8819,7 +8833,9 @@
         "today/calibration-mini",
         "today/calibration-ring-bar",
         "today/week-card",
-        "history/ramp-rows"
+        "history/ramp-rows",
+        "progress/review-proposal",
+        "progress/review-evaluated"
       ]
     },
     {
@@ -8900,7 +8916,9 @@
         "today/calibration-mini",
         "today/calibration-ring-bar",
         "today/week-card",
-        "history/ramp-rows"
+        "history/ramp-rows",
+        "progress/review-proposal",
+        "progress/review-evaluated"
       ]
     },
     {
@@ -8990,7 +9008,9 @@
         "today/calibration-mini",
         "today/calibration-ring-bar",
         "today/week-card",
-        "history/ramp-rows"
+        "history/ramp-rows",
+        "progress/review-proposal",
+        "progress/review-evaluated"
       ]
     },
     {
@@ -9447,7 +9467,9 @@
         "progress/volume-drill-in",
         "progress/volume-reduction-preview",
         "progress/minibar",
-        "progress/overview-calibration"
+        "progress/overview-calibration",
+        "progress/review-proposal",
+        "progress/review-evaluated"
       ]
     },
     {
@@ -9502,7 +9524,9 @@
         "progress/volume-drill-in",
         "progress/volume-reduction-preview",
         "progress/minibar",
-        "progress/overview-calibration"
+        "progress/overview-calibration",
+        "progress/review-proposal",
+        "progress/review-evaluated"
       ]
     },
     {
@@ -13385,6 +13409,134 @@
       "owner": "plan-078/pr2",
       "catalogStates": [
         "onboarding-start/effort-choice"
+      ]
+    },
+    {
+      "id": "weekly-adaptation-cause",
+      "selector": "[data-adaptation-cause]",
+      "roles": {
+        "control": "selection"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Chooses a closed cause without changing the program.",
+      "owner": "plan-082",
+      "catalogStates": [
+        "progress/review-proposal"
+      ]
+    },
+    {
+      "id": "weekly-adaptation-accept",
+      "selector": "[data-adaptation-action=\"accept\"]",
+      "roles": {
+        "control": "primary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Explicitly approves the bounded change through the installed editor.",
+      "owner": "plan-082",
+      "catalogStates": [
+        "progress/review-proposal"
+      ]
+    },
+    {
+      "id": "weekly-adaptation-change",
+      "selector": "[data-adaptation-action=\"change\"]",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Opens the affected slot in the installed editor.",
+      "owner": "plan-082",
+      "catalogStates": [
+        "progress/review-proposal"
+      ]
+    },
+    {
+      "id": "weekly-adaptation-later",
+      "selector": "[data-adaptation-action=\"later\"]",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Snoozes this pattern for two weeks.",
+      "owner": "plan-082",
+      "catalogStates": [
+        "progress/review-proposal"
+      ]
+    },
+    {
+      "id": "weekly-adaptation-decline",
+      "selector": "[data-adaptation-action=\"decline\"]",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Declines this pattern for the current block.",
+      "owner": "plan-082",
+      "catalogStates": [
+        "progress/review-proposal"
+      ]
+    },
+    {
+      "id": "weekly-adaptation-why-reader",
+      "selector": "[data-adaptation-why]",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Opens the existing Why reader for a stalled lift with hard sets.",
+      "owner": "plan-082",
+      "neverDisabledReason": "The observed pattern always permits reading its explanation.",
+      "catalogStates": [
+        "progress/review-proposal",
+        "progress/review-evaluated"
       ]
     }
   ],

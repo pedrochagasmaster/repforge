@@ -458,7 +458,7 @@ export function appState(key, lang) {
   // movements (tools/build-seed-program-fixture.mjs), so program/share-*
   // no longer needs to fabricate varied libraryIds onto a flat-row fixture.
   const state = catalogState();
-  if (["progress/review-active","today/week-card"].includes(key)) {
+  if (["progress/review-active","progress/review-proposal","progress/review-evaluated","today/week-card"].includes(key)) {
     const [up,stall,skipped]=state.program.filter(exercise=>exercise.day==="Day 1");
     const dates=[isoDaysAgo(19),isoDaysAgo(12),isoDaysAgo(5)];
     state.log=dates.flatMap((date,index)=>[up,stall].map((exercise,i)=>metricLogRow(state.programMeta,exercise,{
@@ -467,6 +467,30 @@ export function appState(key, lang) {
     const date=isoDaysAgo(4);
     state.log.push(metricLogRow(state.programMeta,up,{session:"weekly-second",date,day:"Day 1",set:1,load:55,reps:11,rir:2,created:`${date}T12:00:00.000Z`}));
     state.sessionEvents={"weekly-2":{v:1,skips:[{exerciseId:skipped.libraryId,name:skipped.name,slotId:skipped.id,reason:"time"}],pain:[{exerciseId:stall.libraryId,name:stall.name,slotId:stall.id,kind:"discomfort",swapped:false}]}};
+  }
+
+  if (["progress/review-proposal","progress/review-evaluated"].includes(key)) {
+    state.programMeta.blockId="catalog-weekly-adaptation-block";
+    state.log=state.log.map(row=>({...row,blockId:state.programMeta.blockId}));
+    const stalled=state.program.filter(exercise=>exercise.day==="Day 1")[1];
+    for(const row of state.log)if(row.exerciseId===stalled.id)row.rir=1;
+    const stallDate=isoDaysAgo(10);
+    state.log.push(metricLogRow(state.programMeta,stalled,{session:"weekly-stall",date:stallDate,day:"Day 1",set:1,load:40,reps:10,rir:1,created:`${stallDate}T12:00:00.000Z`}));
+    const skipped=state.program.filter(exercise=>exercise.day==="Day 1")[2];
+    const slot=state.programMeta.programDefinition.days.flatMap(day=>day.slots).find(slot=>slot.id===skipped.id);
+    slot.alternates=[state.program[0].libraryId];
+    state.sessionEvents["weekly-1"]={v:1,skips:[{exerciseId:skipped.libraryId,slotId:slot.id,name:skipped.name,reason:"equipment"}],pain:[]};
+    if(key==="progress/review-evaluated"){
+      const monday=isoDaysAgo(7),instant=`${monday}T12:00:00.000Z`;
+      state.programMeta.adaptations=[{id:"adaptation-catalog",v:1,blockId:state.programMeta.blockId||state.programMeta.id,
+        week:monday,pattern:"recurring_skip",cause:"equipment",kind:"drop_exercise",target:{slotId:slot.id,exerciseId:slot.exerciseId},
+        proposedAt:instant,decision:"accepted",decidedAt:instant,
+        appliedEdit:{expectedToken:{revision:1,programId:state.programMeta.id,blockId:state.programMeta.blockId||state.programMeta.id,fingerprint:"catalog-before-change"},intent:"adaptation_apply"},
+        evaluation:{week:isoDaysAgo(0),outcome:"pattern_stopped"}}];
+      state.program=state.program.filter(row=>row.id!==slot.id);
+      for(const day of new Set(state.program.map(row=>row.day)))state.program.filter(row=>row.day===day).forEach((row,index)=>{row.order=index+1});
+      for(const day of state.programMeta.programDefinition.days)day.slots=day.slots.filter(item=>item.id!==slot.id).map((slot,index)=>({...slot,order:index+1}));
+    }
   }
 
   if (key === "progress/overview-baseline" || key === "progress/review-insufficient") {
@@ -478,7 +502,7 @@ export function appState(key, lang) {
       return true;
     });
   }
-  if ((key.startsWith("progress/review-") && key !== "progress/review-active") || key.startsWith("progress/schedule-") ||
+  if ((key.startsWith("progress/review-") && !["progress/review-active","progress/review-proposal","progress/review-evaluated"].includes(key)) || key.startsWith("progress/schedule-") ||
       key.startsWith("progress/sibling-") || key.startsWith("progress/guided-") ||
       key.startsWith("progress/volume-reduction") || key.startsWith("progress/recovery-")) {
     state.programMeta.mesocycleStatus = "completed";
@@ -2822,6 +2846,15 @@ export const APP_SCENARIOS = {
   "progress/review": (page) => progressSegment(page, "review"),
   "progress/review-guide": async (page) => { await progressSegment(page, "review"); await replayGuide(page, "block-transition"); },
   "progress/review-active": (page) => progressSegment(page, "review"),
+  "progress/review-proposal": async page => {
+    await progressSegment(page,"review");
+    await page.locator('[data-adaptation-cause="equipment"]').click();
+    await page.locator('.week-proposal__actions').evaluate(element=>element.scrollIntoView({block:"center",behavior:"instant"}));
+  },
+  "progress/review-evaluated": async page => {
+    await progressSegment(page,"review");
+    await page.locator('[data-adaptation-evaluation]').evaluate(element=>element.scrollIntoView({block:"center",behavior:"instant"}));
+  },
   "today/week-card": async page => {await page.locator("#todayWeekCard:not(.hidden)").waitFor();},
   "workout/discomfort-mark": async page => {
     await focusMode(page);await page.locator("#woOverflowBtn").click();

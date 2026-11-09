@@ -421,6 +421,8 @@ function isSafeProgressionMeta(value,customDefinitions=[]){
   if(value==null)return true;
   if(!isPlainStateObject(value))return false;
   if(!isValidMuscleDomainTree(value))return false;
+  if(Object.prototype.hasOwnProperty.call(value,"adaptations")&&
+    !window.RepForgeProgramTransition?.validateAdaptations(value.adaptations))return false;
   if(Object.prototype.hasOwnProperty.call(value,"blockId")&&
     !isValidBlockId(value.blockId,value.id))return false;
   if(Object.prototype.hasOwnProperty.call(value,"transitionIn")&&value.transitionIn!=null&&
@@ -3681,6 +3683,10 @@ function normalizeProgramMeta(m,log=[],program=[],options={}){const now=new Date
     created:typeof m.created==="string"?m.created:base.created,updated:typeof m.updated==="string"?m.updated:now,
     goal,experience,daysPerWeek,splitType,equipment,priorityMuscles,sessionLength,mesocycleLengthWeeks,mesocycleStatus,completedAt,onboarded,
     progressionRelations,progressionModifiers,progressionIncompatibilities:incompatibilities,blockPromptDismissedId,programStructure,entrySource};
+  if(Object.prototype.hasOwnProperty.call(m,"adaptations")){
+    if(!window.RepForgeProgramTransition?.validateAdaptations(m.adaptations))throw new TypeError("adaptations: invalid versioned records");
+    metaObj.adaptations=cloneSnapshot(m.adaptations);
+  }
   if(plannedVolumeHistory!=null)metaObj.plannedVolumeHistory=plannedVolumeHistory;
   if(programDefinition)metaObj.programDefinition=programDefinition;
   if(Object.prototype.hasOwnProperty.call(m,"blockId"))metaObj.blockId=m.blockId;
@@ -4328,6 +4334,178 @@ function renderWeekCard(){
   $("#weekCardDismiss").onclick=()=>{if(setUiPref("weekCardSeen",id))renderWeekCard()};
 }
 
+let weeklyAdaptationView=null,weeklyAdaptationBusy=false,weeklyEvaluationPending=false;
+function weeklyPatterns(week=weekStart(today()),source=state,observationTargets=null,observations=source.log){
+  const start=shiftDate(week,-14),end=shiftDate(week,-1),blockId=snapshotBlockId(source);
+  if(!blockId)return[];
+  const historical=source.log.filter(row=>String(row.date)<=end&&row.blockId===blockId);
+  const history=readLogRows(historical),log=observations.filter(row=>row.blockId===blockId&&String(row.date)>=start&&String(row.date)<=end);
+  const fatigueSessions={},hardStalls=[];
+  const definition=source.programMeta?.programDefinition;
+  for(const ex of source.program){
+    const rows=history.filter(matchLift(ex)),sessions=sessionsForLog(ex,rows);
+    if(sessions.at(-1)?.date>=start&&isStalled(sessions)&&rows.filter(isWork).length&&
+      rows.filter(row=>isWork(row)&&sessions.slice(-3).some(session=>session.session===row.session)).every(row=>row.rir!=null&&row.rir!==""&&Number.isFinite(Number(row.rir))&&Number(row.rir)<=1))
+      hardStalls.push({slotId:ex.slotId||ex.id,exerciseId:ex.libraryId||ex.movementId||ex.id});
+    const matched=canonicalPrescriptionSlot(ex,definition);if(!matched)continue;
+    for(const session of sessions.filter(session=>session.date>=start)){
+      const upto=source.log.filter(row=>row.blockId===blockId&&(row.session===session.session||compareLogChronology(row,session)<0));
+      const cycle=Math.min(definition.cycles,Math.max(1,Math.floor(RepForgeProgressModel.calendarDayDistance(source.programMeta.started,session.date)/7)+1));
+      const first=RepForgeProgramCompiler.prescriptionsForCycle(definition,cycle).find(item=>item.slotId===matched.slot.id);
+      if(!first)continue;
+      const history=progressionHistoryFor(first.exerciseId,first.metricIds,slotLoadingProjection(matched.slot),matched.slot.metricDefinitions,upto);
+      const trend=window.RepForgeProgression?.performanceTrend?.(first,history,{bySlotId:{[matched.slot.id]:slotLoadingContext(matched.slot)}});
+      if(fatigueSignal({performanceTrend:trend}))(fatigueSessions[session.session]||=[]).push(matched.slot.id);
+    }
+  }
+  return RepForgeProgressModel.detectPatterns(log,source.sessionEvents,source.program,
+    {...source.programMeta,blockId,fatigueSessions,hardStalls,observationTargets},week);
+}
+function weeklyProposal(pattern,cause,document=installedEditorDocument()){
+  return RepForgeProgramTransition.proposeAdaptation(pattern,document,{
+    cause,week:weekStart(today()),cycleIndex:mesocycleLifecycle(state.programMeta).current||1,
+    isDifferentMovement:(before,after)=>before!==after,
+    isAccessory:slot=>{
+      const raw=rawExercise(slot.exerciseId);
+      return!!raw&&["singleJoint","core"].includes(window.RepForgeGenerationCandidates?.describeExercise(raw)?.exerciseType);
+    },
+    replaceExercise:(next,slot,replacementId)=>{
+      const entry=libraryEntry(replacementId);if(!entry)return null;
+      const model=makeProgram(next.program,snapshotLookup(next.customExercises),next.programMeta);
+      const row=model.replaceExercise(slot.id,entry);if(!row)return null;
+      next.program=model.toJSON();
+      if(!syncEditorCanonicalIntent(next,document,{kind:"exercise_replace",targetId:row.id,slotId:slot.id,exercise:row},
+        {cycleIndex:mesocycleLifecycle(state.programMeta).current||1}))return null;
+      return next;
+    }});
+}
+function weeklyAdaptationContext(record){
+  let latest=null,name=null,observedDay=null;
+  for(const row of state.log){
+    if(row.blockId!==record.blockId)continue;
+    const events=state.sessionEvents?.[row.session];
+    const observations=[...(events?.skips||[]),...(events?.pain||[])];
+    const event=observations.find(event=>event.slotId===record.target.slotId&&event.exerciseId===record.target.exerciseId);
+    const tracked=event||observations.find(event=>event.slotId===record.target.slotId&&event.exerciseId===record.target.replacementId);
+    if(!tracked)continue;
+    observedDay=observedDay||row.day;
+    if(event&&row.date<record.week&&(!latest||compareLogChronology(row,latest)>0)){latest=row;name=event.name}
+  }
+  const day=state.programMeta.programDefinition?.days.find(day=>day.slots.some(slot=>slot.id===record.target.slotId))?.name||latest?.day||observedDay;
+  return{day,lift:name||libraryName(libraryEntry(record.target.exerciseId))||t("program.default.exercise")};
+}
+function weeklyAdaptationHtml(){
+  const week=weekStart(today()),blockId=snapshotBlockId(state),records=state.programMeta.adaptations||[];
+  const patterns=weeklyPatterns(week);
+  const lines=patterns.filter(pattern=>pattern.pattern==="stall_hard").map(pattern=>
+    `<p>${esc(t("review.pattern.stall_hard",{lift:weekFactName(pattern.slotId)}))} <button type="button" class="text-link" data-adaptation-why="${esc(pattern.slotId)}">${esc(t("review.proposal.why_reader"))}</button></p>`).join("");
+  const evaluations=records.filter(record=>record.blockId===blockId&&record.evaluation?.week<=week).slice(-1).map(record=>{
+    const {lift}=weeklyAdaptationContext(record);
+    const replacement=libraryName(libraryEntry(record.target.replacementId))||t("program.default.exercise");
+    const change=t(`review.proposal.applied.${record.kind}`,{lift,replacement});
+    return `<p data-adaptation-evaluation>${esc(t(`review.proposal.evaluation.${record.evaluation.outcome}`,{week:longDate(record.week),change}))}</p>`;
+  }).join("");
+  const pattern=patterns.find(pattern=>pattern.pattern!=="stall_hard"&&
+    RepForgeProgramTransition.adaptationEligible(records,pattern,blockId,week)&&weeklyProposal(pattern,null));
+  if(!pattern){weeklyAdaptationView=null;return lines+evaluations}
+  const key=`${blockId}:${week}:${pattern.pattern}:${pattern.slotId}:${pattern.exerciseId}`;
+  if(weeklyAdaptationView?.key!==key)weeklyAdaptationView={key,pattern,cause:pattern.pattern==="recurring_pain"?"pain":null,
+    proposedAt:new Date().toISOString(),token:installedEditorToken()};
+  const view=weeklyAdaptationView,proposal=weeklyProposal(pattern,view.cause),needsCause=pattern.pattern!=="recurring_pain";
+  view.proposal=proposal;
+  if(!proposal||!proposal.nextDocument)return lines+evaluations;
+  const lift=weekFactName(pattern.slotId),replacement=proposal.target.replacementId?libraryName(libraryEntry(proposal.target.replacementId)):"";
+  const change=t(`review.proposal.${proposal.kind}`,{lift,replacement,day:dayLabel(pattern.day)});
+  const setChanges=proposal.kind==="reduce_sets"?proposal.nextDocument.programMeta.programDefinition.days.flatMap(day=>day.slots).map(slot=>{
+    const before=state.programMeta.programDefinition.days.flatMap(day=>day.slots).find(item=>item.id===slot.id);
+    const changed=slot.prescriptionsByCycle.find(cycle=>cycle.sets.length!==before?.prescriptionsByCycle.find(item=>item.cycleIndex===cycle.cycleIndex)?.sets.length);
+    if(!changed)return"";
+    const count=before.prescriptionsByCycle.find(item=>item.cycleIndex===changed.cycleIndex).sets.length;
+    return `<p>${esc(t("review.proposal.set_change",{lift:weekFactName(slot.id),week:changed.cycleIndex,before:count,after:changed.sets.length}))}</p>`;
+  }).join(""):"";
+  const why=needsCause?`<p id="weeklyAdaptationWhy">${esc(t("review.proposal.ask_why"))}</p><div class="week-proposal__causes" role="group" aria-labelledby="weeklyAdaptationWhy">`+
+    RepForgeProgramTransition.ADAPTATION_CAUSES[pattern.pattern].map(cause=>`<button type="button" class="week-proposal__cause" data-adaptation-cause="${cause}" aria-pressed="${view.cause===cause}"${weeklyAdaptationBusy?" disabled":""}>${esc(t(`review.why.${cause}`))}</button>`).join("")+`</div>`:"";
+  return lines+evaluations+`<section class="review__week week-proposal" data-adaptation-card aria-labelledby="weeklyAdaptationTitle">`+
+    `<h4 class="section-label" id="weeklyAdaptationTitle">${esc(t("review.proposal.title"))}</h4>`+
+    `<p>${esc(t(`review.pattern.${pattern.pattern}`,{lift,day:dayLabel(pattern.day)}))}</p>`+why+
+    `<p data-adaptation-change>${esc(change)}</p>`+setChanges+
+    (view.error?`<p role="alert">${esc(t("review.proposal.save_failed"))}</p>`:"")+
+    `<div class="week-proposal__actions">`+["accept","change","later","decline"].map(action=>`<button type="button"${action==="accept"?' id="weeklyAdaptationAccept"':""} class="${action==="accept"?"btn btn--cta btn--noarrow":"text-link"}" data-adaptation-action="${action}"${weeklyAdaptationBusy||action==="accept"&&needsCause&&!view.cause?" disabled":""}>${esc(t(`review.proposal.${action}`))}</button>`).join("")+`</div></section>`;
+}
+function bindWeeklyAdaptation(){
+  $$('[data-adaptation-cause]').forEach(button=>button.onclick=()=>{
+    if(weeklyAdaptationBusy||!weeklyAdaptationView)return;
+    weeklyAdaptationView.cause=button.dataset.adaptationCause;renderReview();
+    $(`[data-adaptation-cause="${button.dataset.adaptationCause}"]`)?.focus({preventScroll:true});
+  });
+  $$('[data-adaptation-why]').forEach(button=>button.onclick=()=>openWhySheetFor(prog.find(button.dataset.adaptationWhy),button,{surface:"exercise",measure:false}));
+  $$('[data-adaptation-action]').forEach(button=>button.onclick=()=>decideWeeklyAdaptation(button.dataset.adaptationAction));
+}
+async function decideWeeklyAdaptation(action){
+  const view=weeklyAdaptationView;if(!view||weeklyAdaptationBusy)return;
+  if(action==="change"){
+    navTo("program");programEditMode=true;renderProgram();
+    afterModalSettles(()=>{
+      $('#programEditor [data-role="day-tab"][data-day="'+CSS.escape(view.pattern.day)+'"]')?.click();
+      $('#programEditor [data-role="exercise-row"][data-id="'+CSS.escape(view.pattern.slotId)+'"]')?.click();
+    });
+    return;
+  }
+  const decision={accept:"accepted",decline:"declined",later:"snoozed"}[action];
+  if(!decision||decision==="accepted"&&!view.proposal.cause)return;
+  const record={id:`adaptation:${uid()}`,v:1,blockId:snapshotBlockId(state),week:weekStart(today()),
+    pattern:view.pattern.pattern,cause:view.proposal.cause,kind:view.proposal.kind,target:cloneSnapshot(view.proposal.target),
+    proposedAt:view.proposedAt,decision,decidedAt:new Date().toISOString(),
+    ...(decision==="accepted"?{appliedEdit:{expectedToken:cloneSnapshot(view.token),intent:"adaptation_apply"}}:{})};
+  weeklyAdaptationBusy=true;view.error=false;renderReview();
+  let result;
+  try{
+    if(decision==="accepted"){
+      const document=cloneSnapshot(view.proposal.nextDocument);
+      document.programMeta.adaptations=[...(document.programMeta.adaptations||[]),record];
+      result=await createInstalledProgramEditorAdapter().commit({expectedToken:view.token,nextDocument:document,
+        intent:{kind:"adaptation_apply",record}});
+    }else{
+      const proposal=cloneSnapshot(state);proposal.programMeta.adaptations=[...(proposal.programMeta.adaptations||[]),record];
+      result=await commitProposedState(proposal,storageIO,{preflight:({head})=>
+        editorTokenEqual(view.token,installedEditorToken(head))?{proposal}:{reject:true,result:{ok:false,conflict:true}}});
+    }
+  }catch{result={ok:false}}
+  weeklyAdaptationBusy=false;
+  if(result?.ok||result?.committed&&result?.settled){
+    weeklyAdaptationView=null;render();renderReview();focusRoute($("#weekReview-current"));
+  }else{
+    if(result?.conflict){
+      const refreshed=await refreshPersistenceHead();
+      if(!refreshed.conflict&&refreshed.head)applyAcceptedSnapshot(cloneSnapshot(state),refreshed.head);
+    }
+    view.error=true;renderReview();focusRoute($(`[data-adaptation-action="${action}"]`));
+  }
+}
+async function evaluateWeeklyAdaptations(){
+  if(weeklyEvaluationPending)return;
+  const week=weekStart(today()),blockId=snapshotBlockId(state),token=installedEditorToken();
+  const pending=(state.programMeta.adaptations||[]).filter(record=>record.blockId===blockId&&record.decision==="accepted"&&!record.evaluation&&record.week<week);
+  if(!pending.length)return;
+  const proposal=cloneSnapshot(state);
+  for(const record of pending){
+    const followingEnd=shiftDate(record.week,7);
+    const following=RepForgeProgramTransition.adaptationFollowupRows(record,state.log);
+    const slot=state.programMeta.programDefinition?.days.flatMap(day=>day.slots).find(slot=>slot.id===record.target.slotId);
+    const {day}=weeklyAdaptationContext(record);
+    const observed=following.some(row=>day&&row.day===day||slot&&(row.slotId||row.exerciseId)===slot.id);
+    const targets=record.kind==="reduce_sets"?null:[...new Set([record.target.exerciseId,record.target.replacementId].filter(Boolean))]
+      .map(exerciseId=>({slotId:record.target.slotId,exerciseId,day}));
+    const evaluation=RepForgeProgramTransition.evaluateAdaptation(record,weeklyPatterns(followingEnd,state,targets,following),{week:followingEnd,observed});
+    proposal.programMeta.adaptations.find(item=>item.id===record.id).evaluation=evaluation;
+  }
+  weeklyEvaluationPending=true;
+  try{const result=await commitProposedState(proposal,storageIO,{preflight:({head})=>
+    editorTokenEqual(token,installedEditorToken(head))?{proposal}:{reject:true,result:{ok:false,conflict:true}}});
+    if(result.committed&&result.settled){weeklyAdaptationView=null;renderReview()}
+  }catch{}finally{weeklyEvaluationPending=false}
+}
+
 function renderReview(){const el=$("#reviewPanel");if(!el)return;
   if(!state.programMeta?.started){el.innerHTML=`<p class="lede">${esc(t("review.no_start"))}</p>`;return}
   const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;
@@ -4352,14 +4530,16 @@ function renderReview(){const el=$("#reviewPanel");if(!el)return;
   const evidenceNote=checkpoint.lifecycle==="block-complete"&&!checkpoint.hasSufficientEvidence
     ?`<p class="review__summary">${esc(t("review.insufficient.note"))}</p>`:"";
   if(reviewFlow){renderReviewFlow(el);return}
-  el.innerHTML=weeklyFacts+`<div class="blockprogress" data-progress-dimension="block" data-progress-scope="block-review-evidence"><h4 class="blockprogress__title">${esc(t("review.progress_title"))}</h4>`+
+  const adaptation=checkpoint.lifecycle==="active-block"?weeklyAdaptationHtml():"";
+  el.innerHTML=weeklyFacts+adaptation+`<div class="blockprogress" data-progress-dimension="block" data-progress-scope="block-review-evidence"><h4 class="blockprogress__title">${esc(t("review.progress_title"))}</h4>`+
     `<p><b>${esc(weekLine)}</b></p>`+
     `<p><b>${esc(t("review.sessions"))}</b> ${esc(t("review.sessions_completed",{done:volume.completedSessions,planned:volume.period.plannedSessions||volume.plannedSessions}))}</p>`+
     `<p><b>${esc(t("review.volume"))}</b> ${esc(t("review.volume_planned",{pct}))}</p>`+
     `<p class="lede">${esc(t("stats.volume.period_text",{start:longDate(volume.period.start||meta.started||""),end:longDate(volume.period.end||today())}))}</p></div>`+
     `<p class="section-label">${esc(t("review.outcomes.label"))}</p><div class="review__outcomes">${outcomeLine}</div>`+
     evidenceNote+actions;
-  bindReviewActions()}
+  bindReviewActions();bindWeeklyAdaptation();
+  if(checkpoint.lifecycle==="active-block")void evaluateWeeklyAdaptations()}
 const REVIEW_OUTCOME_ORDER=["improved","maintained","declined"];
 const REVIEW_UNCOMPARED_KEYS=["review.outcomes.uncompared.one","review.outcomes.uncompared.other"];
 /** The block's observed outcomes, one group per verdict: its word once, as a heading with the count, and the
@@ -4762,7 +4942,7 @@ function commitNextBlock(strategy,io=storageIO,expectedOldId=null){
       // carry compiler/progression provenance into the fresh block while the
       // activation fields above still describe the new block boundary.
       for(const key of ["progressionRelations","progressionModifiers","progressionIncompatibilities",
-        "programStructure","compilerContext","entrySource","programDefinition","loadingConfiguration"]){
+        "programStructure","compilerContext","entrySource","programDefinition","loadingConfiguration","adaptations"]){
         if(Object.prototype.hasOwnProperty.call(cap.oldMeta||{},key))
           nextMeta[key]=cloneSnapshot(cap.oldMeta[key]);
       }
@@ -6455,6 +6635,7 @@ function setStatsSeg(seg){
   paintStatsTabs();
   for(const [k,id] of Object.entries(STATS_SEG)){const el=$("#"+id);if(el)el.classList.toggle("active",k===seg)}
   for(const [k,id] of Object.entries(EVIDENCE_SEG)){const el=$("#"+id);if(el)el.classList.remove("active")}
+  if(opensReview||seg==="review"&&weeklyAdaptationView?.error)weeklyAdaptationView=null;
   if(seg==="review")renderReview();
   if(opensReview)captureBlockReviewViewed();
   queueMicrotask(()=>maybeShowContextualGuides([seg==="review"?"block-transition":"progress"]))}
@@ -14802,7 +14983,9 @@ function createInstalledProgramEditorAdapter(){
       return{document:installedEditorDocument(),token:installedEditorToken()};
     },
     async commit({expectedToken,nextDocument,intent}){
-      if(intent?.kind!=="apply"&&intent?.kind!=="apply_discard_workout"){
+      const adaptation=intent?.kind==="adaptation_apply";
+      if(adaptation&&installedEditorSession)return{ok:false,conflict:true,editorConflict:true};
+      if(!adaptation&&intent?.kind!=="apply"&&intent?.kind!=="apply_discard_workout"){
         const baseline=installedEditorSession?.document||installedEditorDocument();
         const staged=cloneSnapshot(nextDocument);
         if(!syncEditorCanonicalIntent(staged,baseline,intent,{cycleIndex:Number(intent?.cycleIndex)||mesocycleLifecycle(state.programMeta).current||1}))
@@ -14819,6 +15002,18 @@ function createInstalledProgramEditorAdapter(){
       let document=cloneSnapshot(nextDocument),edits=session.edits||intent?.edits||[];
       if(expectedToken?.blockId!==headToken.blockId)
         return{ok:false,conflict:true,editorConflict:true,staleBlock:true};
+      if(adaptation){
+        if(!editorTokenEqual(expectedToken,headToken))return{ok:false,conflict:true,editorConflict:true};
+        const record=intent.record;
+        if(!RepForgeProgramTransition.validateAdaptations(document.programMeta?.adaptations)||
+          record?.decision!=="accepted"||!editorTokenEqual(record.appliedEdit?.expectedToken,expectedToken))
+          return{ok:false,invalid:true};
+        const pattern=weeklyPatterns().find(pattern=>pattern.pattern===record.pattern&&pattern.slotId===record.target.slotId&&pattern.exerciseId===record.target.exerciseId);
+        const expected=pattern&&weeklyProposal(pattern,record.cause,editorDocumentFromSnapshot(head));
+        if(!expected?.nextDocument||!changeValueEqualForEditor(expected.nextDocument.program,document.program)||
+          !changeValueEqualForEditor(expected.nextDocument.programMeta.programDefinition,document.programMeta.programDefinition)||
+          !RepForgeProgramTransition.adaptationEligible(head.programMeta.adaptations,pattern,headToken.blockId,record.week))return{ok:false,invalid:true};
+      }
       if(!editorTokenEqual(expectedToken,headToken)){
         const rebased=editorRebaseDocument({edits},head);
         if(rebased.conflict)return{ok:false,conflict:true,editorConflict:true,code:rebased.code};
@@ -14846,6 +15041,8 @@ function createInstalledProgramEditorAdapter(){
           const lockedToken=installedEditorToken(lockedHead);
           if(headToken.blockId!==lockedToken.blockId)
             return{reject:true,result:{ok:false,conflict:true,editorConflict:true,staleBlock:true}};
+          if(adaptation&&!editorTokenEqual(headToken,lockedToken))
+            return{reject:true,result:{ok:false,conflict:true,editorConflict:true}};
           if(!editorTokenEqual(headToken,lockedToken)){
             const rebased=editorRebaseDocument({edits},lockedHead);
             if(rebased.conflict)
@@ -14872,7 +15069,7 @@ function createInstalledProgramEditorAdapter(){
       if(result.committed===true&&result.settled===true){
         const discarded=effect?.status==="valid"&&effect.effect?.kind==="clear-draft";
         if(discarded)reportWorkoutDiscarded(activeWorkoutDraft||draftBefore,"program_edit");
-        captureEvent("active_program_edited",{outcome:discarded?"discarded_workout":"saved"});
+        if(!adaptation)captureEvent("active_program_edited",{outcome:discarded?"discarded_workout":"saved"});
         if(discarded)resetDraftSessionState();
         if(installedEditorSession===startedSession)installedEditorSession=null;return{...result,ok:true,document,token:installedEditorToken(state)}}
       return{...result,ok:false,conflict:!!(result.conflict||result.staleRevision)};
@@ -25287,12 +25484,12 @@ function renderWhySheet(model){
       const chev=disc.querySelector(".chevron");if(chev)chev.classList.toggle("is-down",!open)}}
   const evidence=$("#whyEvidence");if(evidence){evidence.textContent=model.evidence;evidence.classList.toggle("hidden",!model.evidence)}}
 
-function openWhySheetFor(ex,opener){
+function openWhySheetFor(ex,opener,{surface=opener?.closest?.("#exDetail")?"exercise":"focus",measure=true}={}){
   const sheet=$("#whySheet"),scrim=$("#whyScrim");
   if(!sheet||!ex)return;
   // Focus is the only workout-logging surface; the exercise page is the other opener.
-  captureEvent("recommendation_explained",{surface:opener?.closest?.("#exDetail")?"exercise":"focus"});
-  renderWhySheet(whySheetModel(ex,opener?.closest?.("#exDetail")?"exercise":"focus"));
+  if(measure)captureEvent("recommendation_explained",{surface});
+  renderWhySheet(whySheetModel(ex,surface));
   document.body.classList.add("is-sheet-open");
   openModal(sheet,{initialFocus:$("#whyClose"),returnFocus:opener,onEscape:closeWhySheet,scrim,
     delayHide:reducedMotion()?0:280});
