@@ -1221,6 +1221,8 @@ for(const basis of ["prior","ratio","floor"]){
   assert(!Draft.isDomainError(inserted),"ramp insertion is a supported draft command",JSON.stringify(inserted));
   if(!Draft.isDomainError(inserted)){
     d=inserted;
+    assert(d.exercises["slot-squat"].programmed.sets===fresh().exercises["slot-squat"].programmed.sets,
+      "ramp insertion keeps the authored set count so older readers reject expanded coverage safely");
     assert(Draft.isDomainError(command(d,"insertSet",{...payload,setId:"duplicate-easy"}).result),"two callers cannot consume the same Easy answer twice");
     assert(same(d.exercises["slot-squat"].setOrder,["ramp-1","squat-set-1","squat-set-2"]),"ramp precedes the first working set");
     assert(d.exercises["slot-squat"].setOrder.every((id,i)=>d.exercises["slot-squat"].sets[id].ordinal===i+1),"insertion renumbers every ordinal");

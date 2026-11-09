@@ -1,5 +1,6 @@
 /** Session-zero journeys, composed into the existing finish-boundary PR command. */
 import assert from "node:assert/strict";
+import { legacyRelease } from "./fixtures/legacy-release.mjs";
 import {readFileSync} from "node:fs";
 import { launchChromium, waitForAppBoot, openShelfField, chooseRepsLeft } from "./browser.mjs";
 import { installGeneratedProgram, definitionSlot, isWeightRepsSlot } from "./fixtures/history-metric-rows.mjs";
@@ -10,7 +11,7 @@ let checks=0;
 const check=(value,label)=>{assert.ok(value,label);checks++;console.log(`  ✓ ${label}`)};
 const card="#workout .exercise.is-current";
 async function open(browser,{mode="effort",planned=false,bodyweight=80}={}){
-  const context=await browser.newContext({viewport:{width:390,height:844}}),page=await context.newPage();
+  const context=await browser.newContext({viewport:{width:390,height:844},serviceWorkers:"block"}),page=await context.newPage();
   await page.goto(BASE);await waitForAppBoot(page,{base:BASE});
   const state=await installGeneratedProgram(page,{name:"Opening-load proof"});
   const squats=await page.evaluate(()=>window.RepForgeExerciseCatalog.snapshot().exercises
@@ -70,6 +71,37 @@ async function nextWorking(page,count){
 }
 const browser=await launchChromium();
 try{
+  const compatibility=await open(browser),cp=compatibility.page;
+  await cp.locator(`${card} [data-ramp-start]`).click();await answer(cp,"easy");await waitWarmups(cp,1);
+  const retained=await cp.evaluate(()=>({raw:localStorage.getItem("repforge_draft_v1"),checkpoint:localStorage.getItem("repforge_draft_v1:v2-checkpoint")}));
+  // Serve the complete previous release, including its matching shell. A newer
+  // script or service worker must not rescue its compatibility decision.
+  const previous=legacyRelease("542a457ee2439d28522cc164b8323a7a0f7f7574");
+  const route=async request=>{
+    const url=new URL(request.request().url());if(url.origin!==new URL(BASE).origin)return request.continue();
+    const path=url.pathname==="/"?"index.html":decodeURIComponent(url.pathname).slice(1),bytes=previous.file(path);
+    if(!bytes)return request.continue();
+    const type=path.endsWith(".html")?"text/html":path.endsWith(".js")?"text/javascript":path.endsWith(".json")?"application/json":path.endsWith(".css")?"text/css":undefined;
+    await request.fulfill({body:bytes,...(type?{contentType:type}:{})});
+  };
+  await cp.route("**/*",route);await cp.reload();await waitForAppBoot(cp,{base:BASE});
+  await cp.evaluate(id=>window.__repforgeGoToLogExercise(id),compatibility.target.id);
+  const old=await cp.evaluate(()=>({recovery:window.__repforgeWorkoutDraft.recovery(),raw:localStorage.getItem("repforge_draft_v1"),
+    checkpoint:localStorage.getItem("repforge_draft_v1:v2-checkpoint"),active:window.__repforgeWorkoutDraft.current()}));
+  check(old.recovery?.copyValue===retained.raw&&!old.active,"the previous release explicitly recovers the entire ramp draft instead of hiding prescribed work");
+  check(old.raw===retained.raw&&old.checkpoint===retained.checkpoint&&await cp.locator("#draftRecovery").isVisible(),"previous-release recovery retains exact canonical and acknowledged bytes with a visible recovery surface");
+  await cp.unroute("**/*",route);await cp.reload();await waitForAppBoot(cp,{base:BASE});
+  await cp.evaluate(id=>window.__repforgeGoToLogExercise(id),compatibility.target.id);
+  check((await exercise(cp)).setOrder.length===compatibility.target.sets+1,"the new release resumes all working sets after the old release's recovery");
+  for(let count=1;count<=compatibility.target.sets;count++){
+    await field(cp,"loadKg",40);await answer(cp,"hard");
+    await cp.waitForFunction(({id,count})=>Object.values(window.__repforgeWorkoutDraft.current().exercises[id].sets).filter(set=>set.role==="working"&&set.completion!=="pending").length===count,{id:compatibility.target.id,count});
+    await cp.evaluate(()=>window.stopRest());
+  }
+  await cp.evaluate(async id=>{const api=window.__repforgeWorkoutDraft;for(const exerciseInstanceId of api.current().exerciseOrder)if(exerciseInstanceId!==id)await api.dispatch("skipExercise",{exerciseInstanceId});await api.flush();},compatibility.target.id);
+  const completed=await cp.evaluate(()=>window.__repforgeSaveWorkout());
+  check(completed.committed===true,"all three working sets remain reachable and normal completion saves after returning to the new release");
+  await compatibility.context.close();
   const weight=await open(browser,{bodyweight:null}),wp=weight.page;
   const start=wp.locator(`${card} [data-ramp-start]`);
   check((await start.innerText())==="Start at 2.5 kg","missing bodyweight advertises the floor");
