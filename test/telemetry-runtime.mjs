@@ -219,7 +219,10 @@ async function trustProgram(browser) {
       slot.prescriptionsByCycle[0].sets.length >= 3;
     const day = definition.days.find((item) => item.kind === "training" &&
       item.slots.length >= 2 && weighted(item.slots[0]) && weighted(item.slots[1]));
+    const baseProposal = window.__repforgeWorkoutDraft.state();
+    baseProposal.settings.rirMode = "numeric";
     await window.__repforgeFinalizeProgramSetup({
+      baseProposal,
       programDefinition: definition, name: "Telemetry trust", answers: {}, destination: "log", origin: "first-run",
       draftConfirmed: true, telemetryRoute: "recommend", entrySource: { route: "recommend", fingerprint: "telemetry" },
     });

@@ -130,7 +130,10 @@ async function seed(page, { ambiguousPerSideReview = false, knownModeNullConfigR
       const checked = window.RepForgeProgramCompiler.validateProgramDefinition(definition, exerciseCatalog, []);
       if (!checked.ok) throw new Error(`known-laterality guard fixture is not a valid canonical definition: ${JSON.stringify(checked.issues)}`);
     }
+    const baseProposal = window.__repforgeWorkoutDraft.state();
+    baseProposal.settings.rirMode = "numeric";
     return window.__repforgeFinalizeProgramSetup({
+      baseProposal,
       programDefinition: definition, name: "Why sheet proof", answers: {}, destination: "log", origin: "first-run",
       draftConfirmed: true, telemetryRoute: "recommend", entrySource: { route: "recommend", fingerprint: "why-sheet-067" },
     }).then(() => window.__repforgeStorage.flush()).then(() => {
@@ -543,6 +546,7 @@ try {
   await buildPage.goto(BASE, { waitUntil: "domcontentloaded" });
   await waitForAppBoot(buildPage, { base: BASE });
   const buildState = await installSeedProgram(buildPage, {
+    settings: { rirMode: "numeric" },
     waitFor: (current) => waitForAppBoot(current, { base: BASE }),
   });
   const buildRow = buildState.program[0];
@@ -615,6 +619,7 @@ try {
     await manualPtPage.goto(BASE, { waitUntil: "domcontentloaded" });
     await waitForAppBoot(manualPtPage, { base: BASE });
     const manualPtState = await installSeedProgram(manualPtPage, {
+      settings: { rirMode: "numeric" },
       waitFor: (current) => waitForAppBoot(current, { base: BASE }),
     });
     const manualPtRow = manualPtState.program[0];

@@ -57,7 +57,10 @@ async function installProgram(page) {
     if (!mapped.ok) throw new Error("Could not prepare the catalog request: " + JSON.stringify(mapped.conflicts));
     const generated = window.RepForgeProgramCompiler.generateProgram(mapped.value, catalog);
     if (!generated.ok) throw new Error("Could not generate the production program: " + JSON.stringify(generated.conflicts));
+    const baseProposal = window.__repforgeWorkoutDraft.state();
+    baseProposal.settings.rirMode = "numeric";
     await window.__repforgeFinalizeProgramSetup({
+      baseProposal,
       programDefinition: generated.value,
       name: "Per-side completion summary proof",
       answers: {},

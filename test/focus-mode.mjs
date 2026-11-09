@@ -102,6 +102,7 @@ async function boot(page, { lang = "en", rirMode = "numeric", size } = {}) {
     s.settings = { ...(s.settings || {}), lang: ${JSON.stringify(lang)}, rirMode: ${JSON.stringify(rirMode)} };
     s.program = ${JSON.stringify(seedProgram())};
     s.programMeta = ${JSON.stringify(seedProgramMeta())};
+    s.settings.rirMode = "numeric";
     s.log = [];`);
   await page.reload({ waitUntil: "domcontentloaded" });
   await settle(page);
@@ -377,7 +378,7 @@ async function main() {
       unitInValue: [...card.querySelectorAll(".ledgerline .ledgerline__vals > .fx-col")].some((el) => /kg|lb/i.test(el.textContent)),
     };
   });
-  assert(pastLayout.prev.every((line) => /^last 100 × (10|9) · RIR 2$/.test(line)),
+  assert(pastLayout.prev.every((line) => /^last 100 × (10|9) · 2 left$/.test(line)),
     "the previous session reads as a line of its own under the matching set", JSON.stringify(pastLayout));
   assert(pastLayout.inset >= 12,
     "the set number sits in from the card edge", JSON.stringify(pastLayout));
@@ -1586,7 +1587,9 @@ async function main() {
       const request = window.RepForgeProgramEntryAdapter.programRequestFromAnswers({ desiredResult: "muscle_growth",
         structuredExperience: "6_to_24m", daysPerWeek: 4, sessionMinutes: 60, environment: { kind: "commercial_gym" } }, catalog).value;
       const definition = window.RepForgeProgramCompiler.generateProgram(request, catalog).value;
-      await window.__repforgeFinalizeProgramSetup({ programDefinition: definition, name: "Adaptive focus", answers: {},
+      const baseProposal = window.__repforgeWorkoutDraft.state();
+      baseProposal.settings.rirMode = "numeric";
+      await window.__repforgeFinalizeProgramSetup({ baseProposal, programDefinition: definition, name: "Adaptive focus", answers: {},
         destination: "log", origin: "first-run", draftConfirmed: true, telemetryRoute: "recommend",
         entrySource: { route: "recommend", fingerprint: "focus-mode-adaptive" } });
       await window.__repforgeStorage.flush();
