@@ -5263,6 +5263,11 @@ body.is-focus-wo .toast:not(.toast--top){bottom:calc(var(--toast-clear,0px) + va
 .ovprofile{margin-bottom:var(--space-8)}
 .ovprofile .ovsec:first-child{margin-top:var(--space-12)}
 .profile-stage,.profile-effort,.profile-history-label{margin:var(--space-8) 0;font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
+.profile-findings{list-style:none;margin:0;padding:0}
+.profile-finding{padding:var(--space-12) 0;border-bottom:1px solid var(--boundary-decorative);overflow-wrap:anywhere}
+.profile-finding time{font-size:var(--font-size-caption);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+.profile-finding p,.profile-finding-empty,.profile-finding-need{margin:var(--space-8) 0;font-size:var(--font-size-body-small);line-height:var(--line-reading);overflow-wrap:anywhere}
+.profile-finding-empty,.profile-finding-need{color:var(--color-ink-secondary)}
 .profile-lifts,.profile-signals{list-style:none;margin:0;padding:0}
 .profile-lift{padding:var(--space-12) 0;border-bottom:1px solid var(--boundary-decorative);overflow-wrap:anywhere}
 .profile-lift__name{margin:0 0 var(--space-4);font-size:var(--font-size-body);font-weight:var(--weight-semibold)}

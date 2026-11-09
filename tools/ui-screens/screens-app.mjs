@@ -409,10 +409,16 @@ function effortStageState(key, lang) {
   const drawn = localeState(key.startsWith("today/") ? directionDBeforeSession() : directionDState(), lang);
   drawn.settings = { ...drawn.settings, ...EFFORT_STAGE_STATES[key] };
   if (key === "workout/stage-tip") drawn.log = drawn.log.map((row) => row.warmup ? row : { ...row, effortSource: "effort" });
-  if (key === "progress/overview-profile" || key === "workout/last-rep-slow") drawn.log = withTestSets(drawn.log);
-  if (key === "progress/overview-profile-first") {
+  if (key === "workout/last-rep-slow") drawn.log = withTestSets(drawn.log);
+  if (key === "progress/overview-profile" || key === "progress/overview-profile-first") {
+    // Two exposures in one ISO week: a real history-backed target, before a
+    // week pair or a month exists. The full profile also has an opening record.
     const sessions = [...new Set(drawn.log.map(row => row.session))].slice(0, 2);
-    drawn.log = drawn.log.filter(row => sessions.includes(row.session));
+    drawn.log = drawn.log.filter(row => sessions.includes(row.session)).map(row => {
+      const date=sessions.indexOf(row.session)===0?"2026-08-10":"2026-08-13";
+      return {...row,date,created:`${date}T12:00:00.000Z`};
+    });
+    if(key === "progress/overview-profile")drawn.log[0].startingLoad={v:1,openingKg:80,basis:"typed",ramps:0,version:"priors@079.1"};
   }
   return drawn;
 }
@@ -2720,7 +2726,8 @@ export const APP_SCENARIOS = {
   // The profile is the subject here; the generic Overview state stays at its page title.
   "progress/overview-profile": async (page) => {
     await view(page, "stats");
-    await page.waitForSelector("#overviewProfile:not(.hidden) .profile-lift", { timeout: 20000 });
+    await page.waitForSelector("#overviewProfile [data-finding=weights_found]");
+    await page.waitForFunction(()=>document.querySelectorAll("#overviewProfile [data-finding]").length===2);
     await page.evaluate(() => {
       const profile=document.querySelector("#overviewProfile"),bar=document.querySelector("#statsTopbar");
       window.scrollBy(0,profile.getBoundingClientRect().top-bar.getBoundingClientRect().bottom-16);
@@ -2728,10 +2735,14 @@ export const APP_SCENARIOS = {
   },
   "progress/overview-profile-first": async page => {
     await view(page, "stats");
-    await page.waitForSelector("#overviewProfile .profile-lift");
-    await page.evaluate(() => {
+    await page.waitForSelector("#overviewProfile [data-finding=first_target]");
+    await page.waitForFunction(()=>document.querySelectorAll("#overviewProfile [data-finding]").length===1);
+    await page.evaluate(async () => {
+      await document.fonts.ready;
+      await Promise.all(document.getAnimations().filter(animation=>animation.effect?.getTiming().iterations!==Infinity)
+        .map(animation=>animation.finished.catch(()=>{})));
       const profile=document.querySelector("#overviewProfile"),bar=document.querySelector("#statsTopbar");
-      window.scrollBy(0,profile.getBoundingClientRect().top-bar.getBoundingClientRect().bottom-16);
+      window.scrollTo({top:window.scrollY+profile.getBoundingClientRect().top-bar.offsetHeight-16,behavior:"instant"});
     });
   },
   "progress/overview-guide": async (page) => { await view(page, "stats"); await replayGuide(page, "progress"); },

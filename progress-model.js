@@ -610,7 +610,7 @@
     const keyOf = (row) => String(row.performedLibraryId || row.performedMovementId ||
       row.sourceLibraryId || row.performedName || row.name || "");
     const nameOf = (row) => String(row.performedName || row.name || keyOf(row));
-    const working = (row) => row && row.warmup !== true && row.origin !== "ramp" && row.work !== false && Number(row.reps) > 0;
+    const working = (row) => row && row.warmup !== true && row.origin !== "ramp" && row.work !== false;
     const rows = (log || []).filter((row) => working(row) &&
       Number.isFinite(calendarDayDistance(row.date, today)) && isoDate(row.date) <= today).slice().sort(compareChronology);
     const lifts = [...new Map((program || []).map((ex) => [String(ex.libraryId || ex.name || ""), ex])).entries()]
@@ -634,21 +634,20 @@
     ]);
     for (const session of sessions.values()) {
       const date = isoDate(session[0].date);
-      const before = read(prefix, date);
-      // A target belongs to the session it was available for, not a target
-      // reconstructed using that session's own future performance.
-      const target = before.find((fact) => hasAnchor(fact) && fact.recommendation?.reasonCodes?.includes("history_anchor") &&
-        fact.recommendation.status === "recommended" && session.some((row) => keyOf(row) === fact.key && (!fact.slotId || String(row.exerciseId) === fact.slotId)));
+      prefix.push(...session);
+      const after = read(prefix, date);
+      // This saved session can support the next target immediately. Replay
+      // only this prefix so no later session can supply its reason or values.
+      const target = after.find((fact) => hasAnchor(fact) && fact.recommendation?.reasonCodes?.includes("history_anchor") &&
+        fact.recommendation.status === "recommended");
       if (target) {
         const rec = target.recommendation;
         const anchor = prefix.find((row) => String(row.session) === String(rec.historyAnchor.sessionId) && keyOf(row) === target.key);
         const reps = rec.targets?.reps ?? rec.targets?.repsPerSide;
         const load = rec.targets?.[rec.displayLoadSemantic];
-        if (anchor && Number.isFinite(load) && Number.isFinite(reps)) release("first_target", date,
-          { key: target.key, lift: target.name, load, reps, becauseDate: isoDate(anchor.date) });
+        if (anchor && (Number.isFinite(load) || rec.loadingAssumptions?.loadingConvention === "bodyweight") && Number.isFinite(reps)) release("first_target", date,
+          { key: target.key, lift: target.name, load: load ?? null, loadingConvention: rec.loadingAssumptions?.loadingConvention, reps, becauseDate: isoDate(anchor.date) });
       }
-      prefix.push(...session);
-      const after = read(prefix, date);
       const openings = new Set(prefix.filter((row) => row.startingLoad).map(keyOf));
       const anchors = weights(prefix, after);
       if (openings.size || (lifts.length && lifts.every((lift) => anchors.has(lift.key)))) {

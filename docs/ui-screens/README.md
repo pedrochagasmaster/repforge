@@ -258,8 +258,8 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | Screen | Frames | What it shows |
 | --- | --- | --- |
 | [Progress — overview](screens/progress/overview__phone-390-light-en.png) | 8 | The Progress landing tab. |
-| [Progress — profile](screens/progress/overview-profile__phone-390-light-en.png) | 8 | Active program lifts with their standing, test sets and opening loads; evidence as counts, and recent test sets. Findings belong to Plan 081 PR2. |
-| [Progress — profile after two sessions](screens/progress/overview-profile-first__phone-390-light-en.png) | 8 | Two recorded sessions: early standing and counts, with no findings until Plan 081 PR2. |
+| [Progress — profile](screens/progress/overview-profile__phone-390-light-en.png) | 8 | Two dated findings, newest first, and what the next needs, followed by active-program standing and counts. |
+| [Progress — profile after two sessions](screens/progress/overview-profile-first__phone-390-light-en.png) | 8 | Two early sessions support one dated finding; the next need says which lifts still start from a guess. |
 | [Mini bar on Progress](screens/progress/minibar__phone-390-light-en.png) | 8 | While a session is open, the frosted bar above the dock: a ring of the sets done, the session's name, the exercise and the time so far, and Resume. |
 | [Progress — overview guide](screens/progress/overview-guide__phone-390-light-en.png) | 8 | The progress guide on arrival: the guide dialog centred over the dimmed Overview. |
 | [Progress — baseline-building overview](screens/progress/overview-baseline__phone-390-light-en.png) | 8 | Sparse evidence remains neutral and contributes no Needs action items. |

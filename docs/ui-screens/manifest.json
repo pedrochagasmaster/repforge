@@ -1420,14 +1420,14 @@
       "id": "overview-profile",
       "flow": "progress",
       "label": "Progress — profile",
-      "scenario": "Active program lifts with their standing, test sets and opening loads; evidence as counts, and recent test sets. Findings belong to Plan 081 PR2.",
+      "scenario": "Two dated findings, newest first, and what the next needs, followed by active-program standing and counts.",
       "variants": "demandingText"
     },
     {
       "id": "overview-profile-first",
       "flow": "progress",
       "label": "Progress — profile after two sessions",
-      "scenario": "Two recorded sessions: early standing and counts, with no findings until Plan 081 PR2.",
+      "scenario": "Two early sessions support one dated finding; the next need says which lifts still start from a guess.",
       "variants": "demandingText"
     },
     {
