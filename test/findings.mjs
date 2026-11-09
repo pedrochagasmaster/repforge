@@ -15,18 +15,18 @@ const session = (id,date,{checks=false,loads=[100,95,90,85],extra={}}={}) => loa
   ...structuredClone(cases.find(c=>c.name==='four-sessions').input[1][0].sets[i%3]),
   metricValues:[{metricId:prescriptions[0].metricIds[0],value:load,unit:'kg'}, {metricId:prescriptions[0].metricIds[1],value:8,unit:'reps'}],
   session:id,date,created:`${date}T10:00:00Z`,setIndex:i,set:i+1,load,reps:8,
-  performedLibraryId:key,name:'Leg press',...(checks&&i===loads.length-1?{effortSource:'failure',rir:0,calibration:{predictedReps:8}}:{}),...extra
+  performedLibraryId:key,exerciseId:'slot-a',name:'Leg press',...(checks&&i===loads.length-1?{effortSource:'failure',rir:0,calibration:{predictedReps:8}}:{}),...extra
 }));
 // Authoritative readings, not a second set of thresholds in a fake model.
 function readings(log,now) {
   const rows=log.filter(r=>keyOf(r)===key && !r.warmup && r.origin!=='ramp');
   const groups=new Map();
-  for(const row of rows){if(!groups.has(row.session))groups.set(row.session,{sessionId:row.session,date:row.date,completed:true,sets:[]});groups.get(row.session).sets.push(row);}
+  for(const row of rows){if(!groups.has(row.session))groups.set(row.session,{sessionId:row.session,date:row.date,completed:true,sets:[]});groups.get(row.session).sets.push({...row,exerciseId:key});}
   const history=[...groups.values()];
   const calibration=Calibration.estimate(Calibration.checkErrors({today:now,sessions:history.map(s=>({date:s.date,checks:s.sets.filter(r=>r.calibration).map(r=>({predictedReps:r.calibration.predictedReps,reps:r.reps}))}))}));
   const recommendation=Engine.recommendSets(prescriptions,history,[],context,{now,calibration})[0];
   const observations=rows.map(r=>({key,session:r.session,date:r.date,set:r.setIndex,load:r.load,reps:r.reps,rir:r.rir,q:Gauge.rowQuality(r)}));
-  return [{key,name:'Leg press',recommendation,standing:recommendation.standing,calibration,weeks:Gauge.weeksFrom(observations,(load,reps,rir)=>load*(1+(reps+rir)/30)),improved:false}];
+  return [{key,slotId:'slot-a',name:'Leg press',recommendation,standing:recommendation.standing,calibration,weeks:Gauge.weeksFrom(observations,(load,reps,rir)=>load*(1+(reps+rir)/30)),improved:false}];
 }
 const build=(log,now='2026-11-09',p=program,read=readings)=>Model.buildFindings(log,p,{},now,read);
 const found=(result,id)=>result.released.find(f=>f.id===id);
@@ -137,11 +137,11 @@ proof('the first trend includes only a record already observed on its release da
   const result=build([...one,...two],undefined,program,read);
   assert.equal(found(result,'first_trend').record.load,105);
 });
-proof('the first target belongs to the slot actually performed that session',()=>{
-  const wrong=(rows,now)=>readings(rows,now).map(f=>({...f,slotId:'another-slot'}));
-  assert.equal(found(build([...one,...two],undefined,program,wrong),'first_target'),undefined);
-  const right=(rows,now)=>readings(rows,now).map(f=>({...f,slotId:'exercise-a'}));
-  assert.equal(found(build([...one,...two],undefined,program,right),'first_target').date,'2026-10-01');
+proof('a performed movement can anchor its target after being trained in another slot',()=>{
+  const swapped=one.map(row=>({...row,exerciseId:'another-slot',sourceLibraryId:'template-movement',performedLibraryId:key}));
+  const result=build(swapped);
+  assert.equal(found(result,'first_target').key,key);
+  assert.equal(found(result,'first_target').date,'2026-10-01');
 });
 proof('a bodyweight-only history anchor also releases the first target',()=>{
   const p=structuredClone(prescriptions[0]),rep=p.metricDefinitions[1];
@@ -151,7 +151,7 @@ proof('a bodyweight-only history anchor also releases the first target',()=>{
     const groups=new Map();
     for(const row of log){
       if(!groups.has(row.session))groups.set(row.session,{sessionId:row.session,date:row.date,completed:true,sets:[]});
-      groups.get(row.session).sets.push({...row,metricIds:[rep.id],metricValues:[{metricId:rep.id,value:row.reps,unit:'reps'}],loadingConvention:'bodyweight',loadingContext:ctx});
+      groups.get(row.session).sets.push({...row,exerciseId:key,metricIds:[rep.id],metricValues:[{metricId:rep.id,value:row.reps,unit:'reps'}],loadingConvention:'bodyweight',loadingContext:ctx});
     }
     const recommendation=Engine.recommendSets([p],[...groups.values()],[],{bySlotId:{[p.slotId]:ctx}},{now})[0];
     return [{key,name:'Pull-up',recommendation,standing:recommendation.standing}];
@@ -160,5 +160,11 @@ proof('a bodyweight-only history anchor also releases the first target',()=>{
   assert.equal(read(one,'2026-10-08')[0].recommendation.status,'recommended');
   const f=found(build(log,undefined,program,read),'first_target');
   assert.equal(f.date,'2026-10-01');assert.equal(f.load,null);assert.equal(f.loadingConvention,'bodyweight');
+});
+proof('the month starts with a timed working session too',()=>{
+  const metric=require('../exercise-metrics.js').DEFINITIONS.find(m=>m.semantic==='durationSeconds');
+  const log=[{session:'hold',date:'2026-10-01',metricType:'source_metrics@1',metricIds:[metric.id],metricDefinitions:[metric],metricValues:[{metricId:metric.id,value:30,unit:metric.unit}]}];
+  const f=found(build(log,'2026-10-29',program,()=>[]),'month_one');
+  assert.equal(f.date,'2026-10-29');assert.equal(f.sessions,1);assert.equal(f.improved,0);assert.equal(f.solid,0);
 });
 console.log(`PASS findings: ${checks} rule, chronology, identity and need proofs`);
