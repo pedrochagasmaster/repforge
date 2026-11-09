@@ -9527,9 +9527,10 @@ function setFieldVals(ex,n,r,draft,prev){
   const effortVal=own&&(own==="unsure"||tokenStage(own)===stage)?own
     :carriedEffort||tokenInStage(draft[`${key}_effort`],words)||bucket(old&&old.rir!=null?old.rir:1);
   const legacy=own&&EFFORT_LEFT.includes(own)?EFFORT_RIR[own]:null;
+  const numericTarget=stage==="c"?draftSetAt(ex.id,n)?.programmed?.targetRir:null;
   const rirVal=pending("rir")??(legacy!=null?String(legacy):null)??carriedRir??draft[`${key}_rir`]
     ??(carried("effort")!=null?String(EFFORT_RIR[carried("effort")]??1):null)
-    ??(old&&old.rir!=null?fmtPlain(old.rir):draftSetAt(ex.id,n)?.programmed?.targetRir!=null?String(draftSetAt(ex.id,n).programmed.targetRir):1);
+    ??(numericTarget!=null?String(numericTarget):old&&old.rir!=null?fmtPlain(old.rir):1);
   const numericEffort=repsLeftView(rirVal,committed.has(key)||hasPendingField(`${key}_rir`)||!!shelfTouched(ex.id,n).effort);
   return{key,isW,kgVal,repsVal,rirVal,numericEffort,effortVal,stage,unsure:own==="unsure"}}
 /** The stage a set is drawn in (Plan 077, OD-5): the vocabulary the lifter entered its effort in, else the app's.
