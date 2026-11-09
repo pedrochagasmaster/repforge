@@ -13,7 +13,7 @@
  */
 import { chooseRepsLeft, launchChromium, openShelfField } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
-import { finishEarly } from "./fixtures/focus-workout.mjs";
+import { finishEarly, openActions } from "./fixtures/focus-workout.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
@@ -149,6 +149,27 @@ try {
   const tipText = await page.locator(TIP).innerText();
   assert(/still learning this lift/i.test(tipText), "the invite explains why the check is requested", tipText);
   assert(/test set/i.test(tipText) && /50 kg/.test(tipText), "the prompt names the test set and the load", tipText);
+  phase("A real discomfort mark suppresses the offer until cleared");
+  await openActions(page, exId);
+  await page.locator("#exActionDiscomfortBtn").click();
+  await page.waitForFunction(() => document.querySelector("#exActionDiscomfortBtn")?.getAttribute("aria-pressed") === "true");
+  const marked = await draftNow(page);
+  assert(marked.exercises[exId].discomfort?.some(item => item.kind === "discomfort"),
+    "the real control records discomfort on the active lift");
+  await page.locator("#exActionsClose").click();
+  await page.locator("#exActionsSheet").waitFor({state:"hidden"});
+  assert(await page.locator(`${TIP}[data-tip="max-set"]`).count() === 0,
+    "the real mark removes today's test-set offer on that lift");
+  await openActions(page, exId);
+  await page.locator("#exActionDiscomfortBtn").click();
+  await page.waitForFunction(() => document.querySelector("#exActionDiscomfortBtn")?.getAttribute("aria-pressed") === "false");
+  const cleared = await draftNow(page);
+  assert(!cleared.exercises[exId].discomfort?.length, "the real control clears the mark");
+  await page.locator("#exActionsClose").click();
+  await page.locator("#exActionsSheet").waitFor({state:"hidden"});
+  await page.locator(`${TIP}[data-tip="max-set"]`).waitFor({state:"visible"});
+  assert(await page.locator(`${TIP}[data-tip="max-set"]`).isVisible(),
+    "clearing the mark restores the otherwise eligible test-set offer");
   phase("Estimator request and every safety ceiling");
   const gates = await page.evaluate((id) => {
     const originalDraft = activeWorkoutDraft, originalLog = state.log, originalSettings = state.settings, originalMeta = state.programMeta;
