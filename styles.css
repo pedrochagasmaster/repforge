@@ -2969,14 +2969,14 @@ article.exercise--focus:has(.resttab) .fcard__context{margin-bottom:var(--rest-t
 /* Concentric with the approved shelf: the sheet's 28, the controls' 16 inside its 16 inset, the segments' 12. */
 #restSheet{border-radius:var(--shelf-radius) var(--shelf-radius) var(--radius-none) var(--radius-none)}
 
-/* Short screens trade padding, never a control: the ledger scrolls above the
+/* Short screens trade spacing, never a control: the ledger scrolls above the
    shelf, and the shelf keeps its three fields, its pads and its action. */
 @media (max-height:740px){
   .fx-head{margin-bottom:var(--space-12)}
   .focus-shelf{padding-top:var(--space-8);padding-bottom:calc(var(--space-12) + env(safe-area-inset-bottom,0px))}
 }
 @media (max-height:600px){
-  .workshelf.focus-shelf{padding-top:var(--space-8);padding-bottom:calc(var(--space-12) + env(safe-area-inset-bottom,0px))}
+  .workshelf.focus-shelf{row-gap:var(--space-8);padding-top:var(--space-8);padding-bottom:calc(var(--space-12) + env(safe-area-inset-bottom,0px))}
   .shelf__fieldbtn,.shelf__input{min-height:56px}
   .shelf__pads .shelf__pad{height:48px;min-height:48px}
   .focus-shelf .btn--cta.saveset{min-height:48px}
