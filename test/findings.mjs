@@ -146,7 +146,7 @@ proof('needs include named lifts and exact remaining calendar days',()=>{
   assert.equal(next.id,'month_one');assert.equal(next.need.d,9);
 });
 proof('manual prescriptions never promise an adaptive target after another session',()=>{
-  const read=(rows,now)=>readings(rows,now).map(f=>({...f,recommendation:{status:'manual'},standing:null}));
+  const read=(rows,now)=>readings(rows,now).map(f=>({...f,recommendation:{status:'manual'},targetEligible:false,standing:null}));
   const out=build(one,'2026-10-01',program,read);
   assert.equal(out.next.id,'first_target');assert.equal(out.next.need,null);
 });

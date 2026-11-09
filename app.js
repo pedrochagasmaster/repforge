@@ -7968,7 +7968,7 @@ function findingReadings(){
     const observations=compatible.filter(row=>row.strengthComparable!==false&&(row.equipmentId??null)===(context.equipmentId??null)&&row.loadingConvention===context.loadingConvention)
       .map(row=>({key:`${key}|${row.strengthConvention||"load"}`,session:String(row.session),date:row.date,set:row.setIndex??Number(row.set)-1,
         load:row.load,reps:row.reps,rir:row.rir,q:CalibrationGauge.rowQuality(row)}));
-    return[{key,name:plan.name,recommendation,standing:recommendation?.standing,nextSetQuality:CalibrationGauge.rowQuality({effortSource:effortStage()==="a"?"effort":"rir"}),calibration,weeks:CalibrationGauge.weeksFrom(observations,capE1rm),
+    return[{key,name:plan.name,recommendation,targetEligible:first.status==="ready",standing:recommendation?.standing,nextSetQuality:CalibrationGauge.rowQuality({effortSource:effortStage()==="a"?"effort":"rir"}),calibration,weeks:CalibrationGauge.weeksFrom(observations,capE1rm),
       records:detectPRs(compatible).filter(record=>record.deltaLoad>0||record.deltaReps>0||record.deltaE1rm>0),improved}]})}}
 let findingsCache={key:"",value:null};
 function profileFindings(){
@@ -7999,7 +7999,7 @@ function profileFindingsHtml(){
     (findings.released.length?`<ul class="profile-findings">${findings.released.map(finding=>
       `<li class="profile-finding" data-finding="${finding.id}"><time datetime="${finding.date}">${esc(shortDate(finding.date))}</time>`+
       `<p>${esc(findingText(finding))}</p></li>`).join("")}</ul>`:`<p class="profile-finding-empty">${esc(t("finding.empty"))}</p>`)+
-    (findings.next?`<p class="profile-finding-need" data-finding-next="${findings.next.id}">${esc(t("finding.next",{need:findingNeedText(findings.next)}))}</p>`:"")}
+    (findings.next?.need?`<p class="profile-finding-need" data-finding-next="${findings.next.id}">${esc(t("finding.next",{need:findingNeedText(findings.next)}))}</p>`:"")}
 
 /** Progress › Overview reads counts from the six signals. No component or combined percentage is presented. */
 function renderOverviewProfile(){

@@ -693,6 +693,7 @@
           reason: closest.standing?.reasons?.includes("disagreement") || closest.standing?.reasons?.includes("inconsistent_checks")
             ? "agreement" : (closest.standing?.evidence?.sessions || 0) < 2 ? "sessions" : "sets" };
       }
+      if (pending === "first_target" && current.length && current.every((fact) => fact.targetEligible === false || fact.recommendation?.reasonCodes?.includes("manual_prescription"))) need = null;
       if (pending === "month_one") need.d = monthDate ? calendarDayDistance(today, monthDate) : 28;
     }
     return { version: FINDINGS_VERSION,
