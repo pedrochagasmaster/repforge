@@ -187,6 +187,18 @@ try {
     assert(items.length===6&&!items.includes("effort_read"),"adaptive history releases six truthful findings",items);
     assert((await findingPage.locator("#overviewProfile [data-finding-next=effort_read]").innerText()).includes("2 more test sets"),
       "one check leaves two checks on the named lift");
+    const weighted=generated.program.find(lift=>isWeightRepsSlot(definitionSlot(generated.programMeta,lift))&&definitionSlot(generated.programMeta,lift).loadingModel?.bodyweightCoefficient>=0.3);
+    const bodyHistory=[0,1].flatMap(w=>[1,2,3,4].map(set=>{
+      const row=metricLogRow(generated.programMeta,weighted,{session:`measurement-${w}`,date:day(14-w*7),set,load:60,reps:11-set,rir:2,extra:{effortSource:'rir',bodyweight:w?120:80}});
+      row.loadingContext.bodyweightKg=row.bodyweight;row.loadingContext.bodyweightContributionEnabled=true;return row;
+    }));
+    const targets=[];
+    for(const rows of [bodyHistory.slice(0,4),bodyHistory])targets.push(await findingPage.evaluate(async next=>{
+      const commit=await window.__repforgeCommitProposedState(next);if(!commit.committed)throw new Error('measurement proposal refused');
+      return profileFindings().released.find(f=>f.id==='first_target');
+    },{...generated,log:rows}));
+    assert(targets[0]&&JSON.stringify(targets[0])===JSON.stringify(targets[1]),
+      'a later bodyweight cannot rewrite the first target, date or reason',targets);
     for(const kind of ['reps','load']) {
       const baseline=[0,1].flatMap(w=>[1,2,3,4].map(set=>metricLogRow(generated.programMeta,ex,{
         session:`baseline-${w}`,date:day(14-w*7),set,load:kind==='load'?50+set*2.5:60,reps:kind==='reps'?6+set:8,rir:2,extra:{effortSource:'rir'}
