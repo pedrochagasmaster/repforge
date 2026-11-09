@@ -22665,9 +22665,11 @@ function onEntryPopState(){
   if(onInstalledEditorPopState())return;
   if(!$("#onboarding")?.classList.contains("active")||!entryState)return;
   try{history.pushState(entryHistoryState(true),"",location.href)}catch{}
+  if(effortChoiceCancel){effortChoiceCancel();return}
+  if(entryActivationPending)return;
   entryBack()}
 // @ci-domain entry
-let effortChoiceAsk=null;
+let effortChoiceAsk=null,effortChoiceCancel=null,entryActivationPending=false;
 async function chooseActivationEffort(mode){
   if(effortChoiceAsk)return null;
   const sheet=$("#effortChoiceSheet"),scrim=$("#effortChoiceScrim");
@@ -22683,6 +22685,7 @@ async function chooseActivationEffort(mode){
     const finish=async value=>{
       if(settled)return;settled=true;
       await closeModal(sheet);resolve(value)};
+    effortChoiceCancel=()=>finish(null);
     choices.forEach(button=>{
       button.onclick=()=>{selected=button.dataset.effortChoice;paint()};
       button.onkeydown=event=>{
@@ -22696,9 +22699,12 @@ async function chooseActivationEffort(mode){
       resolve(null);return}
     document.body.classList.add("is-sheet-open");
     requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim.classList.add("is-open")})});
-  try{return await effortChoiceAsk}finally{effortChoiceAsk=null}}
+  try{return await effortChoiceAsk}finally{effortChoiceAsk=null;effortChoiceCancel=null}}
 // @ci-domain global
 async function activateEntryPreview({destination="log",manualBuild=false,skipReplaceConfirm=false,io=storageIO}={}){
+  if(entryActivationPending)return{cancelled:true};
+  entryActivationPending=true;
+  try{
   if(!ProgramEntry||!entryState||entryAnswerRebuildPending())return;
   const review=entryAdjust,identity=review?.identity;
   await window.RepForgeProgramReview?.whenIdle(review);
@@ -22860,7 +22866,8 @@ async function activateEntryPreview({destination="log",manualBuild=false,skipRep
     entryDurableConflictNeedsReload=false;
     entryState=null;
     return result}
-  return result}
+  return result
+  }finally{entryActivationPending=false}}
 function telemetryGeneratedProgram(goal){
   if(goal==="beginner_consistency")return{goal:"muscle_growth",family:"foundation"};
   if(goal==="strength_hypertrophy")return{goal:"balanced",family:"legacy"};

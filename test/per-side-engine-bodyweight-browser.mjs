@@ -69,7 +69,10 @@ async function setupProgram(page, exerciseId, executionMode) {
     }
     const validation = window.RepForgeProgramCompiler.validateProgramDefinition(generated.value, snapshot, []);
     if (!validation.ok) throw new Error("Mutated catalog-backed bodyweight slot is invalid: " + JSON.stringify(validation.issues));
+    const baseProposal = window.__repforgeWorkoutDraft.state();
+    baseProposal.settings.rirMode = "numeric";
     await window.__repforgeFinalizeProgramSetup({
+      baseProposal,
       programDefinition: generated.value, name: "Per-side bodyweight proof", answers: {}, destination: "log",
       origin: "first-run", draftConfirmed: true, telemetryRoute: "recommend",
       entrySource: { route: "recommend", fingerprint: "p069-s3-bodyweight-history" },

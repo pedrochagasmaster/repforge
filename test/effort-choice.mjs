@@ -169,8 +169,8 @@ export async function verifyEffortChoice(browser) {
       await page.click("#entryEditorActivate");
       await page.waitForSelector("#effortChoiceSheet.is-open");
       await page.evaluate(() => history.back());
-      await page.waitForFunction(() => document.querySelector("#effortChoiceSheet").hidden || document.querySelector("#entryDialog").open);
-      const cancelled = await page.evaluate(() => document.querySelector("#effortChoiceSheet").hidden && !document.querySelector("#entryDialog").open);
+      await page.waitForFunction(() => document.querySelector("#effortChoiceSheet").hidden || document.querySelector("#entryDialog")?.open);
+      const cancelled = await page.evaluate(() => document.querySelector("#effortChoiceSheet").hidden && !document.querySelector("#entryDialog")?.open);
       check(cancelled, "browser Back cancels the question without opening a competing Leave dialog");
       if (!cancelled) {
         await page.keyboard.press("Escape");
@@ -187,12 +187,16 @@ export async function verifyEffortChoice(browser) {
       await page.keyboard.press("Tab");
       check(focused === "effort" && await page.evaluate(() => document.activeElement.id === "effortChoiceContinue"),
         "retry focuses the selected answer and Tab reaches Continue");
+      await page.keyboard.press("Tab");
+      check(await page.evaluate(() => document.activeElement.id === "effortChoiceClose"),
+        "Tab reaches Close as well as Continue in the sole modal");
+      await page.keyboard.press("Shift+Tab");
       await page.keyboard.press("Shift+Tab");
       check(await page.evaluate(() => document.activeElement.dataset.effortChoice === "effort"),
         "Shift+Tab returns to the selected answer in the sole modal");
       await page.keyboard.press("Escape");
       await page.waitForSelector("#effortChoiceSheet", { state: "hidden" });
-      check(await page.evaluate(() => document.activeElement.id === "entryEditorActivate" && !document.querySelector("#entryDialog").open),
+      check(await page.evaluate(() => document.activeElement.id === "entryEditorActivate" && !document.querySelector("#entryDialog")?.open),
         "Escape dismisses the visible question and returns focus to activation");
     } finally { await context.close(); }
   }
