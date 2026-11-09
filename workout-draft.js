@@ -1328,6 +1328,17 @@
     }));
   }
 
+  function clearOpening(set) {
+    if (!set.startingLoad) return;
+    delete set.startingLoad;
+    set.edited.load = null;
+    set.touched.load = false;
+    for (const metric of set.programmed.metrics || []) if (LOAD_SEMANTICS.has(metric.semantic)) {
+      set.edited.metrics[metric.id] = null;
+      set.touched.metrics[metric.id] = false;
+    }
+  }
+
   function reduce(draft, command) {
     const checked = validate(draft);
     if (!checked.ok) return error("invalid-draft", { issues: checked.issues });
@@ -1361,7 +1372,9 @@
         if (issues.length) return error("invalid-insert-set", { issues });
         if (hasOwn(command, "startingLoad")) {
           if (!validStartingLoad(command.startingLoad) || command.startingLoad.ramps !==
-            exercise.setOrder.filter(id => exercise.sets[id].origin === "ramp").length + 1) return error("invalid-starting-load");
+            exercise.setOrder.filter(id => exercise.sets[id].origin === "ramp" &&
+              (exercise.sets[id].programmed.sourceLibraryId ?? exercise.libraryId) ===
+              (set.programmed.sourceLibraryId ?? exercise.libraryId)).length + 1) return error("invalid-starting-load");
           exercise.sets[command.beforeSetId].startingLoad = jsonClone(command.startingLoad);
         }
         if (hasOwn(command, "nextLoadKg")) {
@@ -1681,6 +1694,7 @@
             const set = exercise.sets[setId];
             const spec = program.value.programmedSets[set.ordinal - 1];
             const metrics = editedMetricsFromPrevious(program.value, spec);
+            clearOpening(set);
             set.programmed = programmedSetFromReplacement(program.value, spec);
             set.edited = { load: editableText(spec.suggestedLoad), reps: editableText(spec.suggestedReps),
               rir: null, effort: null, metrics };
@@ -1689,6 +1703,7 @@
           }
           substitution.originalPendingSets = originalPendingSets;
         }
+        for (const setId of exercise.setOrder) if (exercise.sets[setId].completion === "pending") clearOpening(exercise.sets[setId]);
         exercise.substitution = substitution;
         syncObservationSwaps(exercise);
         exercise.status = "active";
@@ -1699,8 +1714,12 @@
         if (isDomainError(item)) return item;
         const originals = item.exercise.substitution?.originalPendingSets;
         for (const [setId, original] of Object.entries(originals || {})) {
-          if (item.exercise.sets[setId]?.completion === "pending") item.exercise.sets[setId] = jsonClone(original);
+          const current = item.exercise.sets[setId];
+          if (current?.completion === "pending") {
+            item.exercise.sets[setId] = { ...jsonClone(original), ordinal: current.ordinal };
+          }
         }
+        for (const setId of item.exercise.setOrder) if (item.exercise.sets[setId].completion === "pending") clearOpening(item.exercise.sets[setId]);
         item.exercise.substitution = null;
         syncObservationSwaps(item.exercise);
         break;

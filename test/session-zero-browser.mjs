@@ -6,6 +6,7 @@ import { launchChromium, waitForAppBoot, openShelfField, chooseRepsLeft } from "
 import { cases as engineFixtures } from "./fixtures/engine-standing.mjs";
 import { installGeneratedProgram, definitionSlot, isWeightRepsSlot, metricLogRow } from "./fixtures/history-metric-rows.mjs";
 import { finishEarly } from "./fixtures/focus-workout.mjs";
+import {openInstalledEditor,openExerciseSheet,closeEditorSheet} from "./fixtures/installed-editor.mjs";
 
 const BASE=process.env.REPFORGE_URL||"http://localhost:8000/";
 let checks=0;
@@ -168,10 +169,37 @@ async function openingChanges(browser){
   check(JSON.stringify(Object.values((await exercise(page)).sets).find(set=>set.setId===warmup.setId))===JSON.stringify(warmup),"the old movement's completed warm-up remains unchanged");
   const oldId=warmup.programmed.sourceLibraryId;
   await page.locator(`${card} [data-ramp-start]`).click();await answer(page,"hard");await nextWorking(page,1);
+  const sessionId=await page.evaluate(()=>window.__repforgeWorkoutDraft.current().draftId);
   await finishEarly(page);
-  const rows=await page.evaluate(()=>JSON.parse(localStorage.getItem("repforge_v1")).log.filter(row=>row.origin==="ramp"));
+  const rows=await page.evaluate(id=>JSON.parse(localStorage.getItem("repforge_v1")).log.filter(row=>row.session===id&&row.origin==="ramp"),sessionId);
   check(rows.length===2&&rows[0].performedLibraryId===oldId&&rows[1].performedLibraryId!==oldId,"saved warm-ups retain each movement actually performed");
   await session.context.close();
+  const moved=await open(browser,{historySource:"Pendulum squat"}),mp=moved.page;
+  await mp.locator(`${card} [data-ramp-start]`).click();
+  const oldDraftId=await mp.evaluate(()=>window.__repforgeWorkoutDraft.current().draftId);
+  const nextDay=await mp.evaluate(()=>JSON.parse(localStorage.getItem("repforge_v1")).program.find(row=>row.name==="Smith machine bench press"));
+  await mp.evaluate(id=>{window.__openingDayChange=window.__repforgeGoToLogExercise(id)},nextDay.id);
+  await mp.locator("#draftDiscardDrop").click();await mp.evaluate(()=>window.__openingDayChange);
+  check(await mp.evaluate(id=>window.__repforgeWorkoutDraft.current().draftId!==id,oldDraftId),"day change replaces the accepted-opening draft");
+  check(await mp.locator(`${card} [data-ramp-start]`).innerText()==="Start at 20 kg"&&Object.values((await exercise(mp)).sets).every(set=>!set.startingLoad),"a different day's movement uses its own opening");
+  await moved.context.close();
+  const edited=await open(browser,{historySource:"Pendulum squat"}),ep=edited.page;
+  await ep.locator(`${card} [data-ramp-start]`).click();
+  const editedDraftId=await ep.evaluate(()=>window.__repforgeWorkoutDraft.current().draftId);
+  await ep.locator("#leaveWorkout").click();await openInstalledEditor(ep);await openExerciseSheet(ep,edited.target.id);
+  await ep.locator('#reviewSheet [data-role="swap-open"]').click();await ep.locator('#reviewSheet [data-role="swap-search"]').click();
+  await ep.locator("#exPickSearch").fill("Barbell bench press");
+  const bench=await ep.evaluate(()=>window.RepForgeExerciseCatalog.snapshot().exercises.find(ex=>ex.name==="Barbell bench press").id);
+  await ep.locator(`#exPickList [data-pick="${bench}"]`).click();await closeEditorSheet(ep);
+  await ep.locator("#programEditDone").click();
+  await ep.waitForFunction(()=>document.querySelector("#programEditorWrap").classList.contains("is-hidden")||!document.querySelector("#programEditorLeave").hidden);
+  check(await ep.locator("#programEditorLeave").isVisible(),"editing a movement with an accepted opening requires the existing discard confirmation");
+  await ep.locator("#programEditorApply").click();
+  await ep.waitForFunction(()=>document.querySelector("#programEditorWrap").classList.contains("is-hidden"));
+  await ep.evaluate(id=>window.__repforgeGoToLogExercise(id),edited.target.id);
+  check(await ep.evaluate(id=>window.__repforgeWorkoutDraft.current().draftId!==id,editedDraftId),"replacing a movement in the Program editor discards the old accepted-opening draft");
+  check(await ep.locator(`${card} [data-ramp-start]`).innerText()==="Start at 22.5 kg"&&Object.values((await exercise(ep)).sets).every(set=>!set.startingLoad),"the edited program opens the replacement from its own prior");
+  await edited.context.close();
 }
 async function ratioJourneys(browser){
   // A mid-block new movement uses a real working observation, never the newer 400 kg ramp.

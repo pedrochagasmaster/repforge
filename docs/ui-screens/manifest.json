@@ -2318,6 +2318,13 @@
       "label": "Opening after a substitution",
       "scenario": "A fresh substitution offers the original movement's working load within the same equipment class and table row.",
       "variants": "demandingText"
+    },
+    {
+      "id": "focus-ramp-changed-movement",
+      "flow": "workout",
+      "label": "New opening after a ramp and movement change",
+      "scenario": "After a machine squat ramp, a free-bar press opens from its own prior. The completed squat warm-up stays recorded.",
+      "variants": "demandingText"
     }
   ]
 }

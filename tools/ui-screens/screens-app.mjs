@@ -420,7 +420,7 @@ export function appState(key, lang) {
     return emptyEntryState(lang);
   }
   if (key === "history/per-side-session" || key === "workout/focus-per-side") return emptyEntryState(lang);
-  if (["workout/focus-ramp","workout/focus-ramp-ratio","workout/focus-ramp-substitution","workout/focus-ramp-floor","workout/focus-ramp-easy","history/ramp-rows"].includes(key)) return emptyEntryState(lang);
+  if (["workout/focus-ramp","workout/focus-ramp-ratio","workout/focus-ramp-substitution","workout/focus-ramp-changed-movement","workout/focus-ramp-floor","workout/focus-ramp-easy","history/ramp-rows"].includes(key)) return emptyEntryState(lang);
   if (key === "workout/why-setup") return emptyEntryState(lang);
   if (DIRECTION_D_BEFORE_SESSION.has(key)) return localeState(directionDBeforeSession(), lang);
   if (DIRECTION_D_SUMMARY_SESSION[key]) return localeState(directionDThroughSession(DIRECTION_D_SUMMARY_SESSION[key]), lang);
@@ -1971,6 +1971,15 @@ export const APP_SCENARIOS = {
   "workout/focus-ramp": async page=>{await rampFixture(page)},
   "workout/focus-ramp-ratio": async page=>{await rampFixture(page,{ratio:true})},
   "workout/focus-ramp-substitution": async page=>{await rampFixture(page,{ratio:true,substitute:true})},
+  "workout/focus-ramp-changed-movement": async page=>{
+    await rampFixture(page,{ratio:true});
+    await page.locator("#workout .exercise.is-current [data-ramp-start]").click();await rampAnswer(page,"easy",1);
+    const id=await page.evaluate(()=>window.RepForgeExerciseCatalog.snapshot().exercises.find(ex=>ex.name==="Barbell bench press").id);
+    await page.locator("#woOverflowBtn").click();await page.locator('[data-workout-action="exercise"]').click();
+    await page.locator("#exActionSubstBtn").click();await page.locator("#exPickSearch").fill("Barbell bench press");
+    await page.locator(`#exPickList [data-pick="${id}"]`).click();await page.locator('[data-pick-reason="equipment"]').click();
+    await page.locator('#workout .exercise.is-current [data-ramp-start][data-ramp-load="22.5"][data-ramp-basis="prior"]').waitFor();
+  },
   "workout/focus-ramp-floor": async page=>{await rampFixture(page,{bodyweight:false})},
   "workout/focus-ramp-easy": async page=>{
     await rampFixture(page);await page.locator("#workout .exercise.is-current [data-ramp-start]").click();

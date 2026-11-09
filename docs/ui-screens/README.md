@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 261 screens,
-1551 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 262 screens,
+1559 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -243,6 +243,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Finding a weight without bodyweight](screens/workout/focus-ramp-floor__phone-390-light-en.png) | 8 | Without bodyweight the opening uses the equipment floor and offers the existing Session bodyweight field. |
 | [Opening from a comparable movement](screens/workout/focus-ramp-ratio__phone-390-light-en.png) | 8 | A new lift opens at a logged working load from the same equipment class and table row. |
 | [Opening after a substitution](screens/workout/focus-ramp-substitution__phone-390-light-en.png) | 8 | A fresh substitution offers the original movement's working load within the same equipment class and table row. |
+| [New opening after a ramp and movement change](screens/workout/focus-ramp-changed-movement__phone-390-light-en.png) | 8 | After a machine squat ramp, a free-bar press opens from its own prior. The completed squat warm-up stays recorded. |
 
 ### Session summary
 

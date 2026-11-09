@@ -1303,6 +1303,11 @@
       "content": "flat",
       "scenario": "A new lift opens at a logged working load from the same equipment class and table row."
     },
+    "workout/focus-ramp-changed-movement": {
+      "owner": "plan-079",
+      "content": "flat",
+      "scenario": "A changed movement recomputes its own opening after a completed ramp warm-up."
+    },
     "workout/focus-ramp-substitution": {
       "owner": "plan-079",
       "content": "flat",
@@ -2359,6 +2364,7 @@
         "workout/focus-ramp",
         "workout/focus-ramp-ratio",
         "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor"
       ],
@@ -4006,6 +4012,7 @@
         "workout/focus-ramp",
         "workout/focus-ramp-ratio",
         "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor"
       ]
@@ -5994,6 +6001,7 @@
         "workout/focus-ramp",
         "workout/focus-ramp-ratio",
         "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor"
       ]
@@ -7083,6 +7091,7 @@
         "workout/focus-ramp",
         "workout/focus-ramp-ratio",
         "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor"
       ]
@@ -7146,6 +7155,7 @@
         "workout/focus-ramp",
         "workout/focus-ramp-ratio",
         "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor"
       ],
@@ -7303,6 +7313,7 @@
         "workout/focus-ramp",
         "workout/focus-ramp-ratio",
         "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "history/ramp-rows",
         "workout/focus-ramp-floor"
@@ -7557,6 +7568,7 @@
         "workout/focus-ramp",
         "workout/focus-ramp-ratio",
         "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor"
       ],
@@ -7634,6 +7646,7 @@
         "workout/focus-ramp",
         "workout/focus-ramp-ratio",
         "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor"
       ]
@@ -8446,6 +8459,7 @@
         "workout/focus-ramp",
         "workout/focus-ramp-ratio",
         "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor"
       ]
@@ -8516,6 +8530,7 @@
         "workout/focus-ramp",
         "workout/focus-ramp-ratio",
         "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor"
       ]
@@ -8564,6 +8579,7 @@
         "workout/focus-ramp",
         "workout/focus-ramp-ratio",
         "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor"
       ]
@@ -9128,6 +9144,7 @@
         "workout/focus-ramp",
         "workout/focus-ramp-ratio",
         "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "history/ramp-rows",
         "workout/focus-ramp-floor"
@@ -9296,6 +9313,7 @@
         "workout/focus-ramp",
         "workout/focus-ramp-ratio",
         "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "history/ramp-rows",
         "workout/focus-ramp-floor"
@@ -9378,6 +9396,7 @@
         "workout/focus-ramp",
         "workout/focus-ramp-ratio",
         "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor"
       ]
@@ -9547,6 +9566,7 @@
         "workout/focus-ramp",
         "workout/focus-ramp-ratio",
         "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor"
       ]
@@ -9601,6 +9621,7 @@
         "workout/focus-ramp",
         "workout/focus-ramp-ratio",
         "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor"
       ]
@@ -9651,6 +9672,7 @@
         "workout/focus-ramp",
         "workout/focus-ramp-ratio",
         "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor"
       ],
@@ -9809,6 +9831,7 @@
         "workout/focus-ramp",
         "workout/focus-ramp-ratio",
         "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor"
       ]
@@ -9857,6 +9880,7 @@
         "workout/focus-ramp",
         "workout/focus-ramp-ratio",
         "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor"
       ]
@@ -9905,6 +9929,7 @@
         "workout/focus-ramp",
         "workout/focus-ramp-ratio",
         "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor"
       ]
@@ -9953,6 +9978,7 @@
         "workout/focus-ramp",
         "workout/focus-ramp-ratio",
         "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor"
       ]
@@ -13226,6 +13252,7 @@
         "workout/focus-ramp",
         "workout/focus-ramp-ratio",
         "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor"
       ]
@@ -13251,6 +13278,7 @@
         "workout/focus-ramp",
         "workout/focus-ramp-ratio",
         "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor"
       ]
@@ -13401,6 +13429,7 @@
         "workout/focus-ramp",
         "workout/focus-ramp-ratio",
         "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor"
       ]
@@ -13605,6 +13634,7 @@
         "workout/focus-ramp",
         "workout/focus-ramp-ratio",
         "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor"
       ]
@@ -13629,6 +13659,7 @@
         "workout/focus-ramp",
         "workout/focus-ramp-ratio",
         "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor"
       ]
@@ -13808,6 +13839,7 @@
         "workout/focus-ramp",
         "workout/focus-ramp-ratio",
         "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor"
       ],
@@ -13845,6 +13877,7 @@
         "workout/focus-ramp",
         "workout/focus-ramp-ratio",
         "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor"
       ],
@@ -13873,6 +13906,7 @@
         "workout/focus-ramp",
         "workout/focus-ramp-ratio",
         "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor"
       ],
@@ -14095,6 +14129,7 @@
         "workout/focus-ramp",
         "workout/focus-ramp-ratio",
         "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor"
       ]

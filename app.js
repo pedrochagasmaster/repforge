@@ -2703,6 +2703,9 @@ function substitutionProgram(id,libraryRef){
   const programmedSets=draftExercise.setOrder.map(setId=>{
     const programmed=draftExercise.sets[setId].programmed;
     const targets=Object.fromEntries(Object.entries(programmed.targets||{}).filter(([semantic])=>semantics.has(semantic)));
+    const repMetric=metricDefinitions.find(metric=>["reps","repsPerSide"].includes(metric.semantic));
+    const oldRepTarget=programmed.targets?.reps??programmed.targets?.repsPerSide;
+    if(repMetric&&oldRepTarget!=null)targets[repMetric.semantic]=cloneSnapshot(oldRepTarget);
     const repTarget=targets.reps??targets.repsPerSide,reps=Number.isSafeInteger(repTarget?.min??repTarget);
     return{metricDefinitions,targets,restSeconds:programmed.restSeconds??null,targetRir:programmed.targetRir??null,
       minReps:reps?repTarget?.min??repTarget:null,maxReps:reps?repTarget?.max??repTarget:null,
@@ -9750,7 +9753,7 @@ function focusOpeningLoad(options,de,loadMetric){
    Pending values and provenance live in DraftV2, so a reload resumes the same ramp. */
 function focusRamp(ex,n,r){
   const de=activeWorkoutDraft?.exercises?.[ex.id],set=draftSetAt(ex.id,n),loads=window.RepForgeStartingLoads;
-  if(!loads||!de||!set||set.completion!=="pending"||set.role!=="working"||set.calibration||
+  if(!loads||!de||!set||set.completion!=="pending"||set.role!=="working"||set.programmed.sourceLibraryId!==ex.libraryId||set.calibration||
     r.status!=="new"||r.plannedLoad!=null||r.targetSets?.some(item=>item.planned)||last(ex).length||r.progressionInputs?.history?.length||
     de.setOrder.some(id=>de.sets[id].role==="working"&&(de.sets[id].completion!=="pending"||de.sets[id].performed)))return null;
   const convention=set.programmed.loadingConvention;
@@ -9767,7 +9770,8 @@ function focusRamp(ex,n,r){
   if(opening.loadKg==null)return null;
   const load=Number(set.edited?.metrics?.[loadMetric.id]);
   return{set,de,loadMetric,repsMetric,grid,loadKg:load>0?load:opening.loadKg,
-    record:recorded||{v:1,openingKg:opening.loadKg,basis:opening.basis,ramps:0,version:loads.PRIORS_VERSION}}}
+    record:recorded||{v:1,openingKg:opening.loadKg,basis:opening.basis,
+      ramps:de.setOrder.filter(id=>de.sets[id].origin==="ramp"&&de.sets[id].programmed.sourceLibraryId===ex.libraryId).length,version:loads.PRIORS_VERSION}}}
 async function startFocusRamp(exId,n,typed=false,offered=null){
   await WorkoutSession.flush();
   const base=prog.find(exId),ex=base?sessionExercise(base):null,r=ex?recommendation(ex):null;
@@ -9786,7 +9790,7 @@ async function startFocusRamp(exId,n,typed=false,offered=null){
 /* Copy the performed Easy set into an inserted warm-up. The working set keeps its
    identity and all programmed working sets remain available. */
 async function saveRampEasy(ex,n,r){
-  const ramp=focusRamp(ex,n,r);if(!ramp||ramp.record.basis==="typed"||ramp.record.ramps>=3||!ramp.set.startingLoad)return false;
+  const ramp=focusRamp(ex,n,r);if(!ramp||ramp.record.basis==="typed"||ramp.de.setOrder.filter(id=>ramp.de.sets[id].origin==="ramp").length>=3||!ramp.set.startingLoad)return false;
   const rir=draftSetRir(ramp.set),reps=draftSetReps(ramp.set),load=Number(ramp.set.edited.metrics?.[ramp.loadMetric.id]);
   if(!(rir>=3&&reps>0&&load>0))return false;
   const next=window.RepForgeStartingLoads.nextRampLoad({loadKg:load,reps,targetRir:ramp.set.programmed.targetRir??2,grid:ramp.grid});
@@ -14201,7 +14205,7 @@ function editorDraftExerciseIds(draft){
     const exercise=draft.exercises?.[id];
     return exercise&&(exercise.status==="skipped"||exercise.substitution||exercise.setOrder.some(setId=>{
       const set=exercise.sets[setId];
-      return set&&(set.completion!=="pending"||set.role==="warmup"||draftSetTouched(set))}) )}));
+      return set&&(set.startingLoad||set.completion!=="pending"||set.role==="warmup"||draftSetTouched(set))}) )}));
   const ids=new Set(),addKey=key=>{
     const id=setKeyExerciseId(key);if(id&&id!==String(key))ids.add(id)};
   for(const key of ["__done","__touched","__warm"]){if(Array.isArray(draft?.[key]))draft[key].forEach(addKey)}
