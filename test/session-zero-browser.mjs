@@ -137,6 +137,42 @@ async function nonRampParity(browser){
     assert.deepEqual(differences,[],"ordinary history anchors, targets and eligibility must equal the base release");
   }finally{await context.close()}
 }
+async function swapOpening(page,name){
+  const id=await page.evaluate(name=>window.RepForgeExerciseCatalog.snapshot().exercises.find(ex=>ex.name===name).id,name);
+  await page.locator("#woOverflowBtn").click();await page.locator('[data-workout-action="exercise"]').click();
+  await page.locator("#exActionSubstBtn").click();await page.locator("#exPickSearch").fill(name);
+  await page.locator(`#exPickList [data-pick="${id}"]`).click();await page.locator('[data-pick-reason="equipment"]').click();
+  await page.evaluate(()=>window.__repforgeWorkoutDraft.flush());
+}
+async function openingChanges(browser){
+  const session=await open(browser,{historySource:"Pendulum squat"}),page=session.page;
+  const pending=async()=>Object.values((await exercise(page)).sets).find(set=>set.role==="working"&&set.completion==="pending");
+  async function offer(load,basis,label){
+    check(await page.locator(`${card} [data-ramp-start]`).innerText()===`Start at ${load} kg`,`${label}: destination opening is ${load} kg`);
+    check((await page.locator(`${card} .fx-cue__evidence`).innerText()).includes(basis==="ratio"?"exercise you've logged":"bodyweight"),`${label}: destination evidence matches its basis`);
+    check(!(await pending()).startingLoad,`${label}: the previous accepted opening is invalidated`);
+  }
+  await page.locator(`${card} [data-ramp-start]`).click();await answer(page,"easy");await waitWarmups(page,1);
+  const warmup=Object.values((await exercise(page)).sets).find(set=>set.origin==="ramp");
+  await swapOpening(page,"Barbell bench press");await offer(22.5,"prior","machine squat to free-bar press");
+  await page.reload();await waitForAppBoot(page,{base:BASE});await offer(22.5,"prior","reload after changing movement");
+  await page.locator(`${card} [data-ramp-start]`).click();
+  await swapOpening(page,"Low incline dumbbell press");await offer(7.5,"prior","total load to per-hand load");
+  await page.locator(`${card} [data-ramp-start]`).click();await answer(page,"easy");await waitWarmups(page,2);
+  check((await pending()).startingLoad.ramps===1,"the new movement counts its own ramp trial");
+  await swapOpening(page,"Barbell bench press");await offer(22.5,"prior","per-hand load back to total load");
+  await page.locator("#woOverflowBtn").click();await page.locator('[data-workout-action="exercise"]').click();
+  await page.locator("#exActionRestoreOrigBtn").click();await page.evaluate(()=>window.__repforgeWorkoutDraft.flush());
+  await offer(35,"ratio","restore recomputes the original movement opening");
+  await page.reload();await waitForAppBoot(page,{base:BASE});await offer(35,"ratio","restored movement after reload");
+  check(JSON.stringify(Object.values((await exercise(page)).sets).find(set=>set.setId===warmup.setId))===JSON.stringify(warmup),"the old movement's completed warm-up remains unchanged");
+  const oldId=warmup.programmed.sourceLibraryId;
+  await page.locator(`${card} [data-ramp-start]`).click();await answer(page,"hard");await nextWorking(page,1);
+  await finishEarly(page);
+  const rows=await page.evaluate(()=>JSON.parse(localStorage.getItem("repforge_v1")).log.filter(row=>row.origin==="ramp"));
+  check(rows.length===2&&rows[0].performedLibraryId===oldId&&rows[1].performedLibraryId!==oldId,"saved warm-ups retain each movement actually performed");
+  await session.context.close();
+}
 async function ratioJourneys(browser){
   // A mid-block new movement uses a real working observation, never the newer 400 kg ramp.
   const added=await open(browser,{historySource:"Pendulum squat"});
@@ -189,8 +225,9 @@ const browser=await launchChromium();
 try{
   if(!process.env.REPFORGE_ZERO_SKIP_PARITY)await nonRampParity(browser);
   if(!process.env.REPFORGE_ZERO_PARITY_ONLY){
-  await ratioJourneys(browser);
-  if(!process.env.REPFORGE_ZERO_RATIOS_ONLY){
+  await openingChanges(browser);
+  if(!process.env.REPFORGE_ZERO_OPENING_CHANGES_ONLY)await ratioJourneys(browser);
+  if(!process.env.REPFORGE_ZERO_RATIOS_ONLY&&!process.env.REPFORGE_ZERO_OPENING_CHANGES_ONLY){
   const compatibility=await open(browser),cp=compatibility.page;
   await cp.locator(`${card} [data-ramp-start]`).click();await answer(cp,"easy");await waitWarmups(cp,1);
   const retained=await cp.evaluate(()=>({raw:localStorage.getItem("repforge_draft_v1"),checkpoint:localStorage.getItem("repforge_draft_v1:v2-checkpoint")}));
