@@ -53,17 +53,17 @@ assert.equal(Loads.nextRampLoad({ loadKg: 40, reps: 8, targetRir: 2, grid: [20,4
 assert.equal(Loads.nextRampLoad({ loadKg: NaN, reps: 8, targetRir: 2, grid }), null);
 const from = args("Barbell back squat");
 const to = args("Dumbbell bench press", { convention: "per_side", grid: [2,4,6,8,10,12,14,16,18,20] });
-assert.deepEqual(Loads.ratioLoad({ anchorLoadKg: 60, from, to }), { loadKg: 16, basis: "ratio" });
+assert.deepEqual(Loads.ratioLoad({ anchorLoadKg: 60, from, to }), { loadKg: 8, basis: "prior" });
 assert.deepEqual(Loads.ratioLoad({ anchorLoadKg: null, from, to }), { loadKg: 8, basis: "prior" });
 assert.deepEqual(Loads.ratioLoad({ anchorLoadKg: 60, from: { ...from, exercise: null }, to }), { loadKg: 8, basis: "prior" });
-assert.deepEqual(Loads.ratioLoad({ anchorLoadKg: 60, from: { ...from, bodyweightKg: null }, to: { ...to, bodyweightKg: null } }), { loadKg: 16, basis: "ratio" });
+assert.deepEqual(Loads.ratioLoad({ anchorLoadKg: 60, from: { ...from, bodyweightKg: null }, to: { ...to, bodyweightKg: null } }), { loadKg: 2, basis: "floor" });
 console.log("starting loads: published table and boundary cases passed");
 
 test("catalog machine categories supply the declared prior without a machine word in the name", () => {
   assert.deepEqual(Loads.openingLoad(args("Pendulum squat", { grid: Array.from({ length: 14 }, (_, i) => (i + 1) * 5) })), { loadKg: 60, basis: "prior" });
 });
-test("a ratio needs only the destination grid", () => {
-  assert.deepEqual(Loads.ratioLoad({ anchorLoadKg: 60, from: { ...from, grid: undefined }, to }), { loadKg: 16, basis: "ratio" });
+test("a same-row ratio needs only the destination grid", () => {
+  assert.deepEqual(Loads.ratioLoad({ anchorLoadKg: 61, from: { ...from, grid: undefined }, to: args("Barbell front squat") }), { loadKg: 60, basis: "ratio" });
 });
 test("an exact decimal boundary does not lose a grid step", () => {
   assert.deepEqual(Loads.openingLoad(args("Barbell bench press", { bodyweightKg: 90, experience: "advanced", grid: Array.from({ length: 100 }, (_, i) => i + 1) })), { loadKg: 63, basis: "prior" });
@@ -108,4 +108,46 @@ test("combination-trainer priors agree with each catalog movement's dedicated eq
       assert.deepEqual(Loads.openingLoad(options), expected, `${entry.name}: ${experience} catalog options`);
     }
   }
+});
+
+// Safety boundaries: class, selected table row, grid floor, and every catalog pair.
+test("ratios refuse cross-class and cross-movement amplification", () => {
+  for (const [source, destination, anchorLoadKg] of [
+    ["Dumbbell bench press", "45° leg press", 40],
+    ["Barbell hip thrust", "Barbell back squat", 100],
+    ["Barbell bench press", "Smith machine bench press", 60],
+  ]) {
+    const from = args(source), to = args(destination);
+    assert.deepEqual(Loads.ratioLoad({ anchorLoadKg, from, to }), Loads.openingLoad(to), `${source} -> ${destination}`);
+  }
+});
+test("sharing a pattern cannot qualify different minimum-prior rows", () => {
+  const squat = exercise("Barbell back squat"), hinge = exercise("Barbell Romanian deadlift");
+  const mixed = { ...squat, movementPattern: [...squat.movementPattern, ...hinge.movementPattern] };
+  const to = args(hinge.name);
+  assert.deepEqual(Loads.ratioLoad({ anchorLoadKg: 100, from: args(squat.name, { exercise: mixed }), to }), Loads.openingLoad(to));
+});
+test("same-row carry rounds down and refuses a destination floor above the anchor", () => {
+  const to = args("Barbell front squat", { grid: [25, 30, 35] });
+  assert.deepEqual(Loads.ratioLoad({ anchorLoadKg: 24, from, to }), Loads.openingLoad(to));
+  assert.deepEqual(Loads.ratioLoad({ anchorLoadKg: 33, from, to }), { loadKg: 30, basis: "ratio" });
+  const changedExperience = { ...to, experience: "advanced" };
+  assert.deepEqual(Loads.ratioLoad({ anchorLoadKg: 33, from, to: changedExperience }), Loads.openingLoad(changedExperience));
+});
+test("every allowed catalog pair stays at or below its working anchor", () => {
+  let pairs = 0, allowed = 0;
+  for (const experience of ["beginner", "intermediate", "advanced"]) {
+    const options = catalog.exercises.map(exercise => ({ exercise, lookup, convention: "external", experience, bodyweightKg: 80, grid: [2, 5, 20, 27.5, 40, 60, 100] }));
+    for (const from of options) for (const to of options) {
+      const result = Loads.ratioLoad({ anchorLoadKg: 39, from, to });
+      pairs++;
+      if (result.basis === "ratio") {
+        allowed++;
+        assert.ok(result.loadKg <= 39, `${from.exercise.name} -> ${to.exercise.name}: ${result.loadKg}`);
+        assert.equal(result.loadKg, 27.5, "equal fractions carry the anchor rounded down");
+      } else assert.deepEqual(result, Loads.openingLoad(to));
+    }
+  }
+  assert.ok(allowed > 0);
+  console.log(`Catalog ratio safety: ${catalog.exercises.length} movements, ${pairs} pairs, ${allowed} allowed`);
 });

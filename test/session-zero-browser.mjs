@@ -11,7 +11,7 @@ const BASE=process.env.REPFORGE_URL||"http://localhost:8000/";
 let checks=0;
 const check=(value,label)=>{assert.ok(value,label);checks++;console.log(`  ✓ ${label}`)};
 const card="#workout .exercise.is-current";
-async function open(browser,{mode="effort",planned=false,bodyweight=80}={}){
+async function open(browser,{mode="effort",planned=false,bodyweight=80,historySource=null}={}){
   const context=await browser.newContext({viewport:{width:390,height:844},serviceWorkers:"block"}),page=await context.newPage();
   await page.goto(BASE);await waitForAppBoot(page,{base:BASE});
   const state=await installGeneratedProgram(page,{name:"Opening-load proof"});
@@ -30,6 +30,18 @@ async function open(browser,{mode="effort",planned=false,bodyweight=80}={}){
     await window.__repforgeCommitProposedState(state);
     await window.__repforgeStorage.flush();
   },{id:target.id,mode,planned,bodyweight});
+  if(historySource){
+    const source=await page.evaluate(name=>window.RepForgeExerciseCatalog.snapshot().exercises.find(ex=>ex.name===name),historySource);
+    assert.ok(source,historySource);
+    const current=await page.evaluate(()=>JSON.parse(localStorage.getItem("repforge_v1")));
+    current.log=[
+      metricLogRow(current.programMeta,target,{session:"anchor",date:"2026-11-01",set:1,load:35,reps:8,
+        extra:{performedLibraryId:source.id,sourceLibraryId:source.id,performedName:source.name}}),
+      metricLogRow(current.programMeta,target,{session:"trial",date:"2026-11-02",set:1,load:400,reps:8,
+        extra:{performedLibraryId:source.id,sourceLibraryId:source.id,performedName:source.name,warmup:true,origin:"ramp"}}),
+    ];
+    await page.evaluate(async state=>{await window.__repforgeCommitProposedState(state);await window.__repforgeStorage.flush()},current);
+  }
   await page.reload();await waitForAppBoot(page,{base:BASE});
   await page.evaluate(id=>window.__repforgeGoToLogExercise(id),target.id);
   await page.locator(`${card}[data-ex="${target.id}"]`).waitFor();
@@ -128,6 +140,31 @@ const browser=await launchChromium();
 try{
   if(!process.env.REPFORGE_ZERO_SKIP_PARITY)await nonRampParity(browser);
   if(!process.env.REPFORGE_ZERO_PARITY_ONLY){
+  // A mid-block new movement uses a real working observation, never the newer 400 kg ramp.
+  const added=await open(browser,{historySource:"Pendulum squat"});
+  check(await added.page.locator(`${card} [data-ramp-start]`).innerText()==="Start at 35 kg","mid-block new lift carries the same-row/class working anchor");
+  check((await added.page.locator(`${card} .fx-cue__evidence`).innerText()).includes("exercise you've logged"),"ratio opening uses the approved explanation");
+  await added.page.locator(`${card} [data-ramp-start]`).click();
+  check(Object.values((await exercise(added.page)).sets)[0].startingLoad.basis==="ratio","ratio is opening provenance only");
+  check((await added.page.evaluate(()=>JSON.parse(localStorage.getItem("repforge_v1")).log)).length===2,"offering and accepting a ratio invents no history row");
+  await added.context.close();
+  const swapped=await open(browser,{historySource:"45° leg press"});
+  const replacement=await swapped.page.evaluate(()=>window.RepForgeExerciseCatalog.snapshot().exercises.find(ex=>ex.name==="Pendulum squat").id);
+  await swapped.page.locator("#woOverflowBtn").click();await swapped.page.locator('[data-workout-action="exercise"]').click();
+  await swapped.page.locator("#exActionSubstBtn").click();
+  await swapped.page.locator("#exPickSearch").fill("Pendulum squat");
+  await swapped.page.locator(`#exPickList [data-pick="${replacement}"]`).click();
+  await swapped.page.locator('[data-pick-reason="equipment"]').click();
+  await swapped.page.waitForFunction(id=>window.__repforgeWorkoutDraft.current().exercises[id].substitution?.replacement?.libraryId,swapped.target.id);
+  check(await swapped.page.locator(`${card} [data-ramp-start]`).innerText()==="Start at 35 kg","a same-row/class substitution opens at the old working load");
+  await swapped.page.locator(`${card} [data-ramp-start]`).click();
+  await answer(swapped.page,"easy");await waitWarmups(swapped.page,1);
+  await field(swapped.page,"loadKg",30);await answer(swapped.page,"hard");await nextWorking(swapped.page,1);
+  const subrec=await swapped.page.evaluate(id=>window.__repforgeProgression.recommendation(window.__repforgeProgression.programSlot(id)),swapped.target.id);
+  check(subrec.targetSets[1].result.historyAnchor.displayLoadKg===30,"replacement's first working set takes over from its ratio and Easy warm-up");
+  await swapped.page.reload();await waitForAppBoot(swapped.page,{base:BASE});
+  check(Object.values((await exercise(swapped.page)).sets).some(set=>set.startingLoad?.basis==="ratio"),"substitution opening survives reload in the existing draft shape");
+  await swapped.context.close();
   const compatibility=await open(browser),cp=compatibility.page;
   await cp.locator(`${card} [data-ramp-start]`).click();await answer(cp,"easy");await waitWarmups(cp,1);
   const retained=await cp.evaluate(()=>({raw:localStorage.getItem("repforge_draft_v1"),checkpoint:localStorage.getItem("repforge_draft_v1:v2-checkpoint")}));
