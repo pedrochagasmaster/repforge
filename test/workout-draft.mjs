@@ -1203,6 +1203,13 @@ console.log("\nIssue #320: create() clamps a target RIR that falls back to the l
   assert(!Draft.isDomainError(cleared)&&project(cleared).pain.length===0,"explicit clear retracts the mark");
 }
 
+// Every rendered opening basis needs a localized evidence sentence, including restored ratio records.
+for(const basis of ["prior","ratio","floor"]){
+  const key=`focus.evidence.${basis}`;
+  assert(typeof require("../i18n-en.json")[key]==="string"&&typeof require("../i18n-pt.json")[key]==="string",
+    `${basis} opening evidence exists in both catalogs`);
+}
+
 // Plan 079: insert a warm-up without consuming any programmed working set.
 {
   let d=fresh();
