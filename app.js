@@ -23548,11 +23548,12 @@ function closeFirstRunInstall(){
 /* ---- Landing page: engine-true numbers, filled copy and the proof ----
    Every number the page shows is produced here at render time and poured into an
    i18n template, never typed into markup or a catalog value. The proof's case goes
-   through the real progression engine with the app's default settings. The input
-   below is the only authored number set: what the example lifter logged. */
+   through the real progression engine with the app's default settings. The inputs
+   below are authored example sets: what the example lifter logged. */
 const LANDING_UNIT="kg";
 const LANDING_CASES={
-	add:{ex:"19f5c6f170d8808bb424e98de4472a7e",sets:3,repMin:8,repMax:10,logged:[[60,10,2],[60,10,2],[60,10,2]]}};
+	add:{ex:"1a05c6f170d88058a3a0c07e098a9605",sets:3,repMin:8,repMax:10,logged:[[60,10,2],[60,10,2],[60,10,2]]}};
+const LANDING_TEST_SETS=[[60,10,2],[60,10,2],[60,12,0]];
 /** The import-review capture: its size per language, the counts its screen shows
  *  (they differ by language: the sample's names classify differently) and the
  *  library movement its first row suggests. Written by tools/capture-landing-proof.mjs
@@ -23651,16 +23652,16 @@ function paintLandingTouch(set,node,touch,x,y,f){
   set(node.lastChild,"transform",`scale(${f(touch.scale)})`);
   set(node.firstChild,"opacity",f(touch.ringOpacity));set(node.firstChild,"transform",`scale(${f(touch.ringScale)})`)}
 /* ---- The proof: the workout screen, playing itself (owner, 2026-10-29: the landing-anim prototype's direction A) ----
-   One phone plays a set of the "add" case's bench press in four chapters: the target arrives, and the finger opens the
+   One phone plays a set of the "add" case's Smith machine bench press in five chapters: the target arrives, and the finger opens the
    Reps wheel and turns it one rep on (1, five seconds); Log set is tapped, the row checks and the rest tab rises out of
    the shelf with its light (2); the rest runs down, time compressed, to "Rest done" while set 2 waits prefilled (3); the
-   next session's target rises in a sheet over the session it came from (4). The screen is Focus's own markup, classes
+   last set becomes a test set, with a guess and a result (4); the next session's target rises in a sheet over the session it came from (5). The screen is Focus's own markup, classes
    and strings under `.theme-light` (the app's light tokens, whatever the visitor's appearance), so it changes when
    Focus does; the frame, the finger, the sheets' placement and the light's moving windows are the landing's. Every
    frame is a pure function of the timeline, so a chapter can be jumped to; a frame moves transforms and opacities
    only, and writes text only when the rest clock ticks over a second. `chapters` are the chapters' starts. */
-const LANDING_DEMO={loop:18,chapters:[0,6,10,14],stills:[5,9.2,13.6,16.6],rest:120,tap:6.95,restAt:7.3,fast:10,done:12.6,
-  sheet:14.05,wrap:16.9,reset:17.4,pull:17.6,rise:30,zoom:378,next:"1a05c6f170d8806b911acf558c5af4f6"};
+const LANDING_DEMO={loop:24,chapters:[0,6,10,14,20],stills:[5,9.2,13.6,19,22.6],rest:120,tap:6.95,restAt:7.3,fast:10,done:12.6,
+  sheet:20.05,wrap:22.9,reset:23.4,pull:23.6,rise:30,zoom:378,next:"1a05c6f170d8806b911acf558c5af4f6"};
 /** The chapter `time` (any finite number of seconds; the loop wraps it) falls in. */
 const landingChapterAt=time=>{const at=landingLoopTime(time);let i=0;while(i+1<LANDING_DEMO.chapters.length&&at>=LANDING_DEMO.chapters[i+1])i++;return i};
 /** `time` folded into one loop, so a negative, huge or non-finite clock still names a frame. */
@@ -23671,10 +23672,11 @@ const LANDING_DEMO_KEYS=["focus.exmeta.range","program.progression.adaptive","fo
   "focus.evidence.history","focus.evidence.target","focus.evidence.why","log.set","log.reps","focus.col.left","focus.field.left",
   "focus.prev_line","focus.next_row","focus.metric.load_kg","focus.metric.reps","focus.shelf.pad_load","focus.shelf.log_set",
   "rest.inline.label","rest.inline.done","landing.outcomes.next_label","landing.outcomes.target","landing.outcomes.did_same",
+  "maxset.invite_title","maxset.invite_body","maxset.not_now","maxset.make_guess","maxset.guess_q","maxset.guess_from","maxset.fail_rule","maxset.safety","maxset.press_line","maxset.start","maxset.cue_head","maxset.cue_sub","maxset.tag","maxset.guessed","maxset.did","maxset.result_more","maxset.result_fewer","maxset.result_same","maxset.status_wait_one","maxset.status_wait",
   "dialog.done"];
 let landingDemo=null;
 /** The proof's screen, from the "add" case and the engine's answer for it (`add`). */
-function landingDemoHtml(add){
+function landingDemoHtml(add,testSet){
   const c=LANDING_CASES.add,[load0,reps0,rir0]=c.logged[0],target=add||{load:load0,reps:reps0},rir=1;
   const kg=landingNum(target.load),reps=landingNum(target.reps),unit=LANDING_UNIT;
   const button=(cls,inner,attrs="")=>`<button type="button" class="${cls}" tabindex="-1"${attrs}>${inner}</button>`;
@@ -23729,6 +23731,27 @@ function landingDemoHtml(add){
   const nextRow=esc(t("focus.next_row",{name:"\u0000"})).replace("\u0000",`<b>${esc(landingExerciseName(LANDING_DEMO.next))}</b>`);
   // The session the target came from, as its ledger read: no "last" line under rows that are the last session.
   const lastSession=c.logged.map(([l,r,e])=>line(check,[landingNum(l),landingNum(r),landingNum(e)],false," firstrun-demo__last","")).join("");
+  const {before,test,guess,result,diff,status}=testSet;
+  const rule=`<p class="maxset__rule">${esc(t("maxset.fail_rule"))}</p><p class="maxset__safety">${esc(t("maxset.safety"))}</p>`+
+    `<p class="maxset__safety">${esc(t("maxset.press_line"))}</p>`;
+  const testLedger=(finished=false,armed=true)=>`<div class="fcard__ledger">${head}`+
+    LANDING_TEST_SETS.slice(0,-1).map(values=>line(check,values.map(landingNum),false,"","")).join("")+
+    line(finished?check:LANDING_TEST_SETS.length,[landingNum(test[0]),landingNum(finished?test[1]:armed?guess:before[1]),landingNum(armed?test[2]:before[2])],!finished,"",
+      armed?`<small class="ledgerline__tag">${esc(t("maxset.tag",{n:landingNum(guess)}))}</small>`:"")+`</div>`;
+  const testScenes=`<div class="firstrun-demo__test-backdrop"></div><div class="firstrun-demo__test-tip firstrun-demo__test-scene">${testLedger(false,false)}<section class="resttip">`+
+    `<p class="resttip__text"><b>${esc(t("maxset.invite_title"))}</b> ${esc(t("maxset.invite_body",{load:landingKg(test[0])}))}</p>`+
+    `<div class="resttip__acts">${button("resttip__no",esc(t("maxset.not_now")))}${button("resttip__yes",esc(t("maxset.make_guess")))}</div></section></div>`+
+    `<div class="firstrun-demo__test-guess firstrun-demo__test-scene"><div class="sheetband"><span class="sheetband__handle"></span>`+
+    `<h2 class="sheetband__title">${esc(t("maxset.guess_q",{load:landingKg(test[0])}))}</h2>`+
+    `<p class="sheetband__sub">${esc(t("maxset.guess_from",{n:landingNum(LANDING_TEST_SETS.length-1),reps:landingNum(before[1]),left:landingNum(before[2])}))}</p></div>`+
+    `<div class="sheetbody sheetbody--maxset"><div class="maxset__count">${button("stepbtn maxset__pad","−")}<output class="maxset__n">${esc(landingNum(guess))}</output>${button("stepbtn maxset__pad","+")}</div>${rule}</div>`+
+    `<div class="sheetfoot sheetfoot--pair">${button("",esc(t("maxset.not_now")))}${button("",esc(t("maxset.start")))}</div></div>`+
+    `<div class="firstrun-demo__test-cue firstrun-demo__test-scene"><div class="fx-cue is-now"><p class="fx-cue__l1">${esc(t("maxset.cue_head",{load:landingNum(test[0]),unit}))}</p>`+
+    `<p class="fx-cue__l2">${esc(t("maxset.cue_sub",{n:landingNum(guess)}))}</p></div>${rule}${testLedger()}</div>`+
+    `<div class="firstrun-demo__test-result firstrun-demo__test-scene">${testLedger(true)}`+
+    `<span class="ledgerline__result"><span class="ledgerline__pair"><span>${esc(t("maxset.guessed"))}<b>${esc(landingNum(result.guess))}</b></span>`+
+    `<span class="ledgerline__arrow">→</span><span>${esc(t("maxset.did"))}<b>${esc(landingNum(result.did))}</b></span></span>`+
+    `<span class="ledgerline__resline">${esc(diff+" "+status)}</span></span></div>`;
   return `<div class="firstrun-demo">`+filters+
     `<div class="wo-head firstrun-demo__head">`+button("icon-btn icon-btn--ghost",`<span class="icon-mask icon-mask--chev-down" aria-hidden="true"></span>`)+
       `<div class="wo-head__center"><div class="wo-head__title"><span class="wo-head__name">${esc(landingExerciseName(c.ex))}</span></div></div>`+
@@ -23758,7 +23781,7 @@ function landingDemoHtml(add){
       button("btn btn--cta btn--noarrow saveset firstrun-demo__log",`<span class="firstrun-demo__log1">${esc(t("focus.shelf.log_set",{n:1}))}</span>`+
         `<span class="firstrun-demo__log2">${esc(t("focus.shelf.log_set",{n:2}))}</span>`)+
     `</div>`+
-    `<div class="firstrun-demo__scrim"></div>`+wheel+
+    `<div class="firstrun-demo__scrim"></div>`+wheel+testScenes+
     landingTouchHtml()+
     `<div class="firstrun-demo__sheet"><span class="firstrun-demo__grab"></span>`+
       `<p class="firstrun-demo__eyebrow">${esc(t("landing.outcomes.next_label"))}</p>`+
@@ -23871,17 +23894,30 @@ function layoutLandingDemo(d){
 function renderLandingProof(add){
   const root=$("#firstRun"),screen=root?.querySelector("#firstRunDemo");if(!screen)return;
   const c=LANDING_CASES.add,first=c.logged[0];
+  const before=LANDING_TEST_SETS.at(-2),test=LANDING_TEST_SETS.at(-1),guess=EffortCalibration.prefillGuess(before[1],before[2]).predictedReps;
+  const result=EffortCalibration.result(guess,test[1]),left=EffortCalibration.ESTIMATOR.minChecks-1;
+  const diff=result.error<0?t("maxset.result_more",{n:-result.error}):result.error>0?t("maxset.result_fewer",{n:result.error}):t("maxset.result_same");
+  const status=t(left===1?"maxset.status_wait_one":"maxset.status_wait",{n:left});
+  const summary=root.querySelector('[data-landing-fill="test-result"]');
+  if(summary)summary.textContent=`${t("maxset.guessed")} ${landingNum(result.guess)}. ${t("maxset.did")} ${landingNum(result.did)}. ${diff} ${status}`;
   const ch4=root.querySelector('[data-landing-fill="ch4"]');
   if(ch4&&add)ch4.textContent=t("landing.demo.s7.text",{done_reps:landingNum(first[1]),load:landingKg(first[0]),sets:landingNum(c.sets),
     min:landingNum(c.repMin),max:landingNum(c.repMax),next_load:landingKg(add.load),next_reps:landingNum(add.reps)});
-  screen.innerHTML=landingDemoHtml(add);
+  // The inert phone is an illustration, like the landing's captured images. Keep its authored screen scale;
+  // the accessible chapter controls and captions outside it follow the visitor's text size.
+  screen.style.fontSize="16px";
+  const tokens=getComputedStyle(document.documentElement);
+  for(const name of tokens)if(name.startsWith("--font-size-")){
+    const value=tokens.getPropertyValue(name).trim();
+    if(/^\d*\.?\d+rem$/.test(value))screen.style.setProperty(name,`${parseFloat(value)*16}px`)}
+  screen.innerHTML=landingDemoHtml(add,{before,test,guess,result,diff,status});
   const q=sel=>screen.querySelector(sel),qa=sel=>[...screen.querySelectorAll(sel)];
   landingDemo={root:q(".firstrun-demo"),ev:q(".firstrun-demo__ev"),
     done1:q(".firstrun-demo__done1"),open2:q(".firstrun-demo__open2"),ring:q(".firstrun-demo__ring"),rows:qa(".firstrun-demo__row"),
     fields:q(".firstrun-demo__fields"),log:q(".firstrun-demo__log"),log1:q(".firstrun-demo__log1"),log2:q(".firstrun-demo__log2"),
     tap:q(".landing-touch"),card:q(".firstrun-demo__card"),shelf:q(".firstrun-demo__shelf"),tab:q(".firstrun-demo__tab"),contour:q(".firstrun-demo__contour"),
     label:q(".resttab__label"),time:q(".resttab__time"),lightNodes:qa(".firstrun-demo__light"),scrim:q(".firstrun-demo__scrim"),
-    sheet:q(".firstrun-demo__sheet"),did:q(".firstrun-demo__did"),history:qa(".firstrun-demo__last"),
+    testBackdrop:q(".firstrun-demo__test-backdrop"),testScenes:qa(".firstrun-demo__test-scene"),sheet:q(".firstrun-demo__sheet"),did:q(".firstrun-demo__did"),history:qa(".firstrun-demo__last"),
     frame:screen.closest(".firstrun-proof__device"),rig:screen.closest(".firstrun-proof__rig"),glass:screen.closest(".firstrun-proof__glass"),
     wheel:q(".firstrun-demo__wheel"),band:q(".firstrun-demo__band"),wdone:q(".firstrun-demo__wdone"),items:qa(".firstrun-demo__wheel .wheel__item"),
     sel:q(".firstrun-demo__sel"),v0:q(".firstrun-demo__v0"),v1:q(".firstrun-demo__v1"),
@@ -23978,7 +24014,13 @@ function paintLandingDemo(now){
   if(d.label.textContent!==label)d.label.textContent=label;
   if(d.time.textContent!==time)d.time.textContent=time;
   d.tab.classList.toggle("is-done",done);
-  // 4 · the next session rises over the one it came from, and slides away to close the loop
+  // The last working set: the invitation, the prefilled guess, the failure cue, then the logged result.
+  set(d.testBackdrop,"opacity",f(out(seg(14,14.2))*(1-out(seg(19.7,19.9)))));
+  const beats=[[14,15.1],[15.1,16.8],[16.8,18.2],[18.2,19.9]];
+  d.testScenes.forEach((node,i)=>{
+    const [a,b]=beats[i],show=out(seg(a,a+.2))*(1-out(seg(b-.2,b)));
+    set(node,"opacity",f(show));set(node,"transform",`translateY(${f((1-show)*12)}px)`)});
+  // 5 · the next session rises over the one it came from, and slides away to close the loop
   const sheet=out(seg(D.sheet,D.sheet+.55))*(1-inOut(seg(D.wrap,D.wrap+.4)));
   set(d.scrim,"opacity",f(.55*Math.max(sheet,wheel)));set(d.sheet,"transform",`translateY(${f((1-sheet)*100)}%)`);
   set(d.did,"opacity",f(out(seg(D.sheet+.45,D.sheet+1.05))*stay));

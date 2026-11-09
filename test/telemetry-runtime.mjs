@@ -392,11 +392,11 @@ try {
     if (telemetryEnabled === undefined) {
       assert(JSON.stringify(await eventsNamed(page, "landing_action")) === "[]", "autoplay crossing a chapter reports nothing",
         JSON.stringify(await eventsNamed(page, "landing_action")));
-      await page.click('[data-chapter="2"]');
-      assert(JSON.stringify(await eventsNamed(page, "landing_action")) === JSON.stringify([{ action: "proof_chapter", chapter: 3 }]),
-        "tapping the third chapter reports proof_chapter with chapter 3, once", JSON.stringify(await eventsNamed(page, "landing_action")));
+      await page.click('[data-chapter="4"]');
+      assert(JSON.stringify(await eventsNamed(page, "landing_action")) === JSON.stringify([{ action: "proof_chapter", chapter: 5 }]),
+        "tapping the fifth chapter reports proof_chapter with chapter 5, once", JSON.stringify(await eventsNamed(page, "landing_action")));
     } else {
-      await page.click('[data-chapter="2"]');
+      await page.click('[data-chapter="4"]');
       assert((await captured(page)).length === before && before === 0, "opted out, a chapter tap reaches no adapter event",
         JSON.stringify(await captured(page)));
     }

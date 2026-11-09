@@ -916,7 +916,7 @@ const FOCUS_SELECTOR = {
 const PROOF_HOLD = 9.2;
 /** The feature tabs hold too: the Progress scene with the record landed and the week's hard sets risen. */
 const FEATURE_HOLD = [0, 4.8];
-const FOCUS_PROOF = new Set(["onboarding-start/first-run-proof"]);
+const FOCUS_PROOF = new Set(["onboarding-start/first-run-proof", "onboarding-start/first-run-proof-test"]);
 
 /**
  * The landing. A seeded empty device boots straight into it (it is the same page
@@ -937,6 +937,7 @@ async function openLandingQuestion(page) {
 export const ONBOARDING_SCENARIOS = {
   "onboarding-start/first-run": openLanding,
   "onboarding-start/first-run-proof": openLanding,
+  "onboarding-start/first-run-proof-test": openLanding,
   "onboarding-start/first-run-ways": openLanding,
   "onboarding-start/first-run-features": openLanding,
   "onboarding-start/first-run-data": openLanding,
@@ -1360,7 +1361,7 @@ export async function focusOnboardingSubject(page, key) {
     await sleep(page, 400);
   }
   if (await page.evaluate(() => typeof window.__repforgeLandingSeek === "function" && !document.querySelector("#firstRun")?.classList.contains("hidden"))) {
-    await page.evaluate((time) => window.__repforgeLandingSeek(time), PROOF_HOLD);
+    await page.evaluate((time) => window.__repforgeLandingSeek(time), key === "onboarding-start/first-run-proof-test" ? 19 : PROOF_HOLD);
     await page.evaluate(([scene, at]) => window.__repforgeLandingFeatureSeek?.(scene, at), FEATURE_HOLD);
     await sleep(page, 450);
   }

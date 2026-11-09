@@ -2359,7 +2359,7 @@
   "landing.hero.chip.offline": "Works offline once opened",
   "landing.hero.chip.free": "Free to build and log",
   "landing.demo.title": "See it in practice.",
-  "landing.anim.sub": "This is the app's workout screen in a bench press session: the target, one tap to log the set, the rest, and what changes next time.",
+  "landing.anim.sub": "This is the app's workout screen in a Smith machine bench press session: the target, one tap to log the set, the rest, and what changes next time.",
   "landing.anim.ch1.title": "Know the weight",
   "landing.anim.ch1.text": "Open the exercise and today's weight and reps are already there, with the reason in one line.",
   "landing.anim.ch2.title": "Log in one tap",
@@ -3078,5 +3078,7 @@
   "entry.effort_choice.words": "How the set felt",
   "entry.effort_choice.words_hint": "Easy / Hard / Max",
   "entry.effort_choice.numbers": "Reps left",
-  "entry.effort_choice.numbers_hint": "0 to 5+"
+  "entry.effort_choice.numbers_hint": "0 to 5+",
+  "landing.anim.ch5.title": "Test your guess",
+  "landing.anim.ch5.text": "Guess how many reps you can do on your last set, then compare with what you did. Taurifer learns how you judge effort on this exercise."
 }
