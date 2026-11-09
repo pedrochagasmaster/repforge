@@ -77,6 +77,7 @@ async function nonRampParity(browser){
   try{
     await page.goto(BASE);await waitForAppBoot(page,{base:BASE});
     const state=await installGeneratedProgram(page),targets=state.program.filter(row=>isWeightRepsSlot(definitionSlot(state.programMeta,row)));
+    const foreignEquipment=JSON.parse(readFileSync(new URL("../plans/067/data/gym.json",import.meta.url),"utf8")).equipment[0].equipmentId;
     const fixtures=engineFixtures.map(({name,input})=>({name:`fixture:${name}`,sessions:input[1]}));
     const generated=[];
     for(const shape of ["ordinary","manual-warmup","missing-first"])for(const load of [20,40,80])generated.push({name:`${shape}:${load}`,sessions:Array.from({length:3},(_,session)=>({sessionId:`s${session}`,date:`2026-11-0${5+session}`,sets:[0,1,2].filter(index=>shape!=="missing-first"||index!==0).map(setIndex=>({setIndex,load:setIndex===0?load:load*.8,reps:7,rir:1,...(shape==="manual-warmup"&&setIndex===0?{warmup:true}:{})}))}))});
@@ -95,7 +96,7 @@ async function nonRampParity(browser){
           const source=set.effortSource;
           next.log.push(metricLogRow(next.programMeta,target,{session:session.sessionId,date:session.date||"2026-11-05",set:set.setIndex+1,
             load:set.load??value("loadKg")??40,reps:set.reps??value("reps")??7,rir:set.rir??null,
-            extra:{...(set.warmup?{warmup:true}:{}),...(source?{effortSource:source}:{}),...(set.equipmentId&&set.equipmentId!=="rack-a"?{equipmentId:set.equipmentId}:{})}}));
+            extra:{...(set.warmup?{warmup:true}:{}),...(source?{effortSource:source}:{}),...(set.equipmentId&&set.equipmentId!=="rack-a"?{equipmentId:foreignEquipment}:{})}}));
         }
         await page.evaluate(async ({state,name})=>{
           const result=await window.__repforgeCommitProposedState(state);
