@@ -396,24 +396,22 @@ async function runImmediatePainCases(browser,manifest){
     const state=appState("workout/discomfort-mark","en"),original=state.program[0];
     const slot=state.programMeta.programDefinition.days.flatMap(day=>day.slots).find(slot=>slot.id===original.id);
     const sameEquipment=kind==="barbell-equipment"?"2115c6f170d880dfb3e2ff8447c9a0b5":machine;
-    if(kind==="barbell-equipment"){
-      original.libraryId="1a25c6f170d8803d8231d083fdd65458";original.name="Barbell back squat";slot.exerciseId=original.libraryId;
-    }
+    const replacementId=kind==="barbell-equipment"?"1a25c6f170d8803d8231d083fdd65458":machine;
     slot.alternates=kind==="no-alternates"?[]:[sameEquipment,dumbbell];
     const date="2026-08-28",session="pain-path-prior";
     state.log=[metricLogRow(state.programMeta,original,{session,date,day:original.day,set:1,load:40,reps:8,rir:2,created:`${date}T12:00:00.000Z`})];
     state.sessionEvents={[session]:{v:1,skips:[],pain:kind==="first-mark"||kind==="cleared"?[]:[{
       slotId:kind==="other-slot"?state.program[1].id:original.id,
-      exerciseId:["other-movement","replacement-known"].includes(kind)?machine:original.libraryId,name:original.name,kind:"pain",swapped:false,
+      exerciseId:kind==="barbell-equipment"?replacementId:["other-movement","replacement-known"].includes(kind)?machine:original.libraryId,name:original.name,kind:"pain",swapped:false,
     }]}};
     const {page,context}=await openPage(browser,manifest,{flow:"workout",screen:"discomfort-mark",viewport:"phone-390",theme:"light",locale:"en",text:"normal",motion:"normal"},state);
     try{
       await dismissChrome(page);await APP_SCENARIOS["workout/focus"](page);
       const id=await page.locator("#workout .exercise.is-current").getAttribute("data-ex");
       assert.equal(id,original.id);
-      if(kind.startsWith("replacement-")){
+      if(kind.startsWith("replacement-")||kind==="barbell-equipment"){
         await openActions(page,id);await page.locator("#exActionSubstBtn").click();
-        await page.locator(`#exPickList [data-pick="${machine}"]`).click();await page.locator("#exPickReasonSkip").click();
+        await page.locator(`#exPickList [data-pick="${replacementId}"]`).click();await page.locator("#exPickReasonSkip").click();
         await page.locator("#exPickSheet").waitFor({state:"hidden"});
       }
       const before=await page.evaluate(()=>structuredClone(window.__repforgeWorkoutDraft.state()));
@@ -445,7 +443,7 @@ async function runImmediatePainCases(browser,manifest){
           await page.locator("#exActionSubstBtn").click();
           await page.locator("#exPickSheet [data-pick]").first().waitFor({state:"visible"});
           assert.deepEqual((await page.locator("#exPickList [data-pick]").evaluateAll(rows=>rows.slice(0,2).map(row=>row.dataset.pick))),[machine,dumbbell],"ordinary swaps retain authored alternate order");
-          await page.locator(`#exPickList [data-pick="${machine}"]`).click();await page.locator("#exPickReasonSkip").click();
+          await page.locator(`#exPickList [data-pick="${replacementId}"]`).click();await page.locator("#exPickReasonSkip").click();
           assert.equal(await page.evaluate(id=>window.__repforgeWorkoutDraft.current().exercises[id].substitution.replacement.libraryId,id),machine,"only a pick changes the session movement");
           assert.deepEqual(await page.evaluate(()=>window.__repforgeWorkoutDraft.state().programMeta.programDefinition),before.programMeta.programDefinition,"a session swap never edits the program");
         }
