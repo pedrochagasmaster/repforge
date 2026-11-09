@@ -18133,6 +18133,9 @@ function updateManagedImportUI(){
   if(!panel)return;
   const ready=managedImportState==="ready";
   panel.hidden=!ready;
+  // One honest note: the tab-only note no longer holds once text can be sent.
+  const tabOnly=$("#entryFreeformPrivacy");
+  if(tabOnly)tabOnly.hidden=ready;
   const lede=$("#entryManagedLede");
   if(lede&&entryFreeformStage===1)
     lede.textContent=t(ready?"entry.freeform.managed_lede":"entry.freeform.lede");
@@ -21648,9 +21651,9 @@ function renderFreeformSourceStep(){
       `<textarea id="entryFreeformIn" rows="7" maxlength="${FREEFORM_MAX_CHARS}" spellcheck="false" autocapitalize="off" placeholder="${esc(t("entry.freeform.input_placeholder"))}">${esc(entryFreeformInput)}</textarea></label>`+
       `<p class="entry__hint" id="entryFreeformCount">${esc(freeformCountLabel())}</p>`+
       `<p class="entry__hint" id="entryFreeformNeeds"${program?" hidden":""}>${esc(t("entry.freeform.needs_input"))}</p>`+
-      `<p class="entry__explain" role="note">${esc(t("entry.freeform.privacy"))}</p>`+
+      `<p class="entry__explain" id="entryFreeformPrivacy" role="note"${managedImportState==="ready"?" hidden":""}>${esc(t("entry.freeform.privacy"))}</p>`+
       `<div class="entry__managed" id="entryManagedPanel" hidden>`+
-        `<p class="entry__hint entry__managed-disclosure">${esc(t("entry.freeform.managed_privacy"))}</p>`+
+        `<p class="entry__explain entry__managed-disclosure" role="note">${esc(t("entry.freeform.managed_privacy"))}</p>`+
         `<div class="entry__managed-widget" id="entryManagedWidget" aria-label="${esc(t("entry.freeform.managed_verify"))}"></div>`+
         `<button type="button" class="btn btn--cta" id="entryManagedConvert" disabled>${esc(t("entry.freeform.managed_submit"))}</button>`+
         `<p class="entry__notice entry__notice--warn" id="entryManagedStatus" role="status" hidden></p>`+

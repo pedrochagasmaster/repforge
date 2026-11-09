@@ -669,13 +669,20 @@ async function importTo(page, step) {
    stage 2 assistant choice, stage 3 reply paste, gap resolution (clean and invalid),
    and unreadable reply recovery. */
 /* Managed import (ADR 0025) with its Worker answered locally: the config says
-   enabled, Turnstile is a stub that issues a token without drawing its iframe
-   (the third-party widget is not part of the catalog), and an Import tap meets
-   the daily limit. No request leaves the preview. */
+   enabled, Turnstile is a stub drawn at the live widget's size that issues a
+   token, and an Import tap meets the daily limit. No request leaves the preview. */
 async function managedImportTo(page, step) {
   const stubTurnstile = () => {
     window.turnstile = {
       render: (element, options) => {
+        // A stand-in at the real widget's flexible size (65 px tall, full width) in its
+        // solved state, so the frame shows the space and weight the live widget takes.
+        const dark = options.theme === "dark", pt = document.documentElement.lang === "pt-BR";
+        const box = document.createElement("div");
+        box.setAttribute("data-catalog-turnstile", "");
+        box.style.cssText = `box-sizing:border-box;height:65px;width:100%;display:flex;align-items:center;justify-content:space-between;padding:0 14px 0 16px;border:1px solid ${dark ? "#666" : "#e0e0e0"};background:${dark ? "#232323" : "#fafafa"};color:${dark ? "#d9d9d9" : "#232323"};font:14px/1.2 system-ui,-apple-system,sans-serif`;
+        box.innerHTML = `<span style="display:flex;align-items:center;gap:10px"><span style="width:26px;height:26px;border-radius:50%;background:#038127;color:#fff;display:grid;place-items:center;font-size:15px">✓</span>${pt ? "Sucesso!" : "Success!"}</span><span style="text-align:right;font-size:10px;line-height:1.4"><b style="font-size:11px;letter-spacing:.04em">CLOUDFLARE</b><br>${pt ? "Privacidade · Termos" : "Privacy · Terms"}</span>`;
+        element.appendChild(box);
         window.__catalogTurnstile = options;
         queueMicrotask(() => options.callback("catalog-token"));
         return "catalog-widget";

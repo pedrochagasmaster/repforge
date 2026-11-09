@@ -128,15 +128,17 @@ try{
     assert.equal(await page.evaluate(()=>window.__ts.options.action),"program_import");
     assert.equal(await page.locator("#entryFreeformContinue").textContent(),EN.external);
     // The class swap may start a background transition; read the settled style.
-    await waitForAsyncCondition(page,()=>document.querySelector("#entryFreeformContinue")?.getAnimations().length===0);
-    const fills=await page.evaluate(()=>({
-      fallback:getComputedStyle(document.querySelector("#entryFreeformContinue")).backgroundColor,
-      primary:getComputedStyle(document.querySelector("#entryManagedConvert")).backgroundColor,
-      cls:document.querySelector("#entryFreeformContinue").className
-    }));
-    assert.match(fills.cls,/\bbtn--ghost\b/);
-    assert.notEqual(fills.fallback,fills.primary,"the hand-off is a quiet secondary action, not a second primary: "+JSON.stringify(fills));
-    assert.match(await page.locator("#entryManagedLede").textContent(),/Taurifer reads it here/);
+    await waitForAsyncCondition(page,()=>["#entryFreeformContinue","#entryFreeformFile"]
+      .every(id=>document.querySelector(id)?.getAnimations().length===0));
+    const look=await page.evaluate(()=>Object.fromEntries(["#entryFreeformContinue","#entryFreeformFile"].map(id=>{
+      const style=getComputedStyle(document.querySelector(id));
+      return [id,{bg:style.backgroundColor,ink:style.color,border:style.borderTopColor,radius:style.borderTopLeftRadius}];
+    })));
+    assert.deepEqual(look["#entryFreeformContinue"],look["#entryFreeformFile"],
+      "the hand-off has the same quiet treatment as the file switch");
+    assert.equal(await page.locator("#entryFreeformPrivacy").isHidden(),true,"the tab-only note gives way to the managed note");
+    assert.equal(await page.locator(".entry__managed-disclosure").count(),1);
+    assert.match(await page.locator("#entryManagedLede").textContent(),/Taurifer converts it/);
     await page.locator("#entryManagedConvert").click();
     await page.waitForSelector("#importReview.active");
     assert.deepEqual(sent.items,[{source,locale:"en",token:"synthetic-token-1"}]);
@@ -212,6 +214,7 @@ try{
       await waitForAsyncCondition(page,()=>!document.querySelector("#entryFreeformContinue")?.disabled);
       assert.equal(await page.locator("#entryManagedPanel").isHidden(),true);
       assert.equal(await page.locator("#entryFreeformContinue").textContent(),EN.continue);
+      assert.equal(await page.locator("#entryFreeformPrivacy").isVisible(),true,"the tab-only note stays when nothing is sent");
       assert.match(await page.locator("#entryFreeformContinue").getAttribute("class"),/btn--cta/);
       assert.equal(await page.evaluate(()=>window.__ts.renders),0,"no challenge loads when the service is off");
       await page.locator("#entryFreeformContinue").click();

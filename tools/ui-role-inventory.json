@@ -216,7 +216,7 @@
     "onboarding-import/freeform-managed": {
       "owner": "adr-0025",
       "content": "flat",
-      "scenario": "Managed import available: a pasted program, the disclosure that the text goes to Anthropic, the verification area, Import with Taurifer, and the ChatGPT or Claude hand-off demoted to a secondary action."
+      "scenario": "Managed import available: a pasted program, one note that the text goes to Anthropic, the verification widget, Import with Taurifer, and the ChatGPT or Claude hand-off as a quiet alternative."
     },
     "onboarding-import/freeform-managed-limit": {
       "owner": "adr-0025",
@@ -1772,12 +1772,10 @@
       "id": "entrymanagedfallback",
       "selector": "#entryFreeformContinue.btn--ghost",
       "roles": {
-        "control": "secondary"
+        "control": "quiet-navigation"
       },
       "variant": null,
-      "facets": [
-        "disabled"
-      ],
+      "facets": [],
       "states": [
         "default",
         "hover",
@@ -1785,7 +1783,7 @@
         "focus-visible",
         "disabled"
       ],
-      "rationale": "With managed import available, the ChatGPT or Claude hand-off steps back to a secondary alternative under Import with Taurifer; it keeps its id, its behaviour and the manual path.",
+      "rationale": "With managed import available, the ChatGPT or Claude hand-off steps back to the same quiet treatment as the file switch below it; it keeps its id, its behaviour and the manual path.",
       "owner": "adr-0025",
       "catalogStates": [
         "onboarding-import/freeform-managed",

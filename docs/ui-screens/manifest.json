@@ -1007,8 +1007,8 @@
       "id": "freeform-managed",
       "flow": "onboarding-import",
       "label": "Import — import with Taurifer",
-      "scenario": "Managed import available: a pasted program, the disclosure that the text goes to Anthropic, the verification area, Import with Taurifer, and the ChatGPT or Claude hand-off demoted to a secondary action.",
-      "variants": "accessibility"
+      "scenario": "Managed import available: a pasted program, one note that the text goes to Anthropic, the verification widget, Import with Taurifer, and the ChatGPT or Claude hand-off as a quiet alternative.",
+      "variants": "demandingText"
     },
     {
       "id": "freeform-managed-limit",
