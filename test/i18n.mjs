@@ -146,7 +146,7 @@ function htmlI18nKeys(html) {
   return keys;
 }
 
-function extractJsKeys(src) {
+export function extractJsKeys(src) {
   const literals = new Set();
   const dyn = [];
   const litRe = /\bt\(\s*(["'])((?:\\.|(?!\1).)*)\1\s*[,)]/g;
@@ -326,6 +326,13 @@ async function runBrowserParity(en, pt) {
 
 async function main() {
   console.log("\ni18n parity");
+  const template=extractJsKeys('t(`review.week.sessions_only.${facts.completedSessions===1?"one":"other"}`,{done:1})');
+  assert(template.dyn.length===1&&!template.literals.has("one")&&!template.literals.has("other"),
+    "A conditional inside a template key does not invent standalone translation keys",JSON.stringify({...template,literals:[...template.literals]}));
+  const conditional=extractJsKeys('t(last?"review.week.last":"review.week.current")');
+  assert(conditional.literals.has("review.week.last")&&conditional.literals.has("review.week.current"),
+    "A literal conditional still enumerates both translation keys");
+
   const enSrc = readFileSync(join(ROOT, "i18n-en.json"), "utf8");
   const ptSrc = readFileSync(join(ROOT, "i18n-pt.json"), "utf8");
   const enDups = findDuplicateKeys(enSrc, "i18n-en.json");
