@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 253 screens,
-1482 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 254 screens,
+1485 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -59,10 +59,11 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [One-time landing](screens/onboarding-start/first-run__phone-390-light-en.png) | 7 | First empty visit. The hero: headline, subtitle, the Build pill, the Track link, three chips and Privacy, with the device-local seen state. The bands below it have their own scrolled states. |
 | [One-time landing — proof](screens/onboarding-start/first-run-proof__phone-390-light-en.png) | 3 | Scrolled to the five-chapter proof: Focus's Smith machine bench press, held with the first set logged and the rest tab risen. |
 | [One-time landing — test set](screens/onboarding-start/first-run-proof-test__phone-390-light-en.png) | 3 | Scrolled to Test your guess: the last working set's computed guess, logged result and remaining checks. |
+| [One-time landing — test-set comparisons](screens/onboarding-start/first-run-check__phone-390-light-en.png) | 3 | Scrolled to the surface band: computed guess/result comparisons, safety ceilings, correction limits and excluded barbell movements. |
 | [One-time landing — three ways](screens/onboarding-start/first-run-ways__phone-390-light-en.png) | 3 | Scrolled to the three ways to start your training: the orange, surface and ink stripes, with the paste hand-off closed. |
 | [One-time landing — feature tabs](screens/onboarding-start/first-run-features__phone-390-light-en.png) | 3 | Scrolled to the five feature tabs, held mid-scene on Progress: the strength trend with its record and the week's hard sets by muscle. |
 | [One-time landing — your data](screens/onboarding-start/first-run-data__phone-390-light-en.png) | 3 | Scrolled to the ink band: the history stays on the phone, in three rows. |
-| [One-time landing — questions](screens/onboarding-start/first-run-faq-open__phone-390-light-en.png) | 3 | Scrolled to the questions with the RIR answer open. |
+| [One-time landing — questions](screens/onboarding-start/first-run-faq-open__phone-390-light-en.png) | 3 | Scrolled to seven questions with the original third question, RIR, open and the two test-set questions closed below it. |
 | [One-time landing — close](screens/onboarding-start/first-run-close__phone-390-light-en.png) | 3 | Scrolled to the closing orange band with the Build pill and the Track link; the persistent Build control has stepped aside. |
 | [Entry hub](screens/onboarding-start/hub__phone-390-light-en.png) | 7 | B's hub: Recommend, Build and Import as choice cards, the setup-link note, Continue held until a choice. |
 | [Entry hub — guide](screens/onboarding-start/hub-guide__phone-390-light-en.png) | 7 | The entry guide over the hub: the guide dialog, centred over the dimmed hub. |
