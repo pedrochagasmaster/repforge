@@ -7997,6 +7997,24 @@ function maxSetEligibility(de,set){
   const equipmentName=equipmentId?rawCatalogObject(equipmentId)?.name??null:null;
   return EffortCalibration.eligibility({exercise,lookup:id=>rawCatalogObject(id),equipmentName,
     customName:exercise?"":String(de?.substitution?.replacement?.displayName||de?.displayName||"")})}
+/** Live and saved observations protect the performed movement for its whole calendar day. */
+function maxSetPainAllows(draft,movementId,date){
+  try{
+    if(Object.values(draft.exercises).some(item=>(item.discomfort||[]).some(observation=>
+      observation.exerciseId===movementId&&["pain","discomfort"].includes(observation.kind))))return false;
+    if(!Object.prototype.hasOwnProperty.call(state,"sessionEvents"))return true;
+    if(!WorkoutDraft.validateSessionEvents(state.sessionEvents)||!Array.isArray(state.log))return false;
+    const dates=new Map(Object.entries(state.sessionEvents)
+      .filter(([,record])=>record.pain.some(observation=>observation.exerciseId===movementId))
+      .map(([session])=>[session,new Set()]));
+    for(const row of state.log)dates.get(String(row.session))?.add(row.date);
+    for(const days of dates.values()){
+      if(days.size!==1)return false;
+      const [reported]=days;
+      if(parseCalendarDate(reported).value!==reported||reported===date)return false;
+    }
+    return true;
+  }catch{return false}}
 /** The max set Taurifer may offer on this exercise's set n now, or null. */
 function maxSetCandidate(ex,n){
   const draft=activeWorkoutDraft;
@@ -8018,9 +8036,8 @@ function maxSetCandidate(ex,n){
   if(!EffortCalibration.frequencyAllows({history,today:date,exerciseKey:key,inWorkout}).ok)return null;
   const movement=de.substitution?.replacement||de;
   const movementId=movement.libraryId||movement.movementId||movement.programmed?.movementId||movement.sourceExerciseId;
-  // Plan 082 owns observations, including pain before a swap or a restored skip. Never create a second record.
-  if(Object.values(draft.exercises).some(item=>(item.discomfort||[]).some(observation=>
-    observation.exerciseId===movementId&&["pain","discomfort"].includes(observation.kind))))return null;
+  // Plan 082 owns both live observations and their saved session projection.
+  if(!maxSetPainAllows(draft,movementId,date))return null;
   const rec=recommendation(ex);
   const now=Date.parse(`${date}T00:00:00Z`);
   const dates=history.filter(row=>row.exerciseKey===key).map(row=>Date.parse(`${row.date}T00:00:00Z`))

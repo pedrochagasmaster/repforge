@@ -191,7 +191,8 @@ The engine anchors a lift on the median first-set capacity of its last three
 comparable sessions. It uses the observed drop between sets to estimate the
 later sets, then searches the available loads for the program's rep target.
 A test-set correction can adjust how reported reps left are read, within the
-existing load bound. Standing does not change the selected load or reps.
+existing load bound. Standing does not change the selected load or reps. If its evidence cannot be
+calculated, the target remains and no test set is requested.
 
 Standing describes the evidence behind that estimate:
 
@@ -217,7 +218,10 @@ Every safety ceiling still applies: prompts must be on, at least two working
 sets must be prescribed, and only the last working set can become a test set.
 It replaces that set. It is never offered immediately after a Max or zero
 reps-left set, during a lighter week, after pain or discomfort on that movement
-in this session, or on an excluded free-barbell squat, bench press or deadlift.
+today, including earlier saved sessions, or on an excluded free-barbell squat,
+bench press or deadlift. Saved observations are dated by their session rows and
+matched by movement identity. A mark cleared before finishing is absent from
+the saved observations. Unreadable evidence prevents a test-set request.
 There must be a valid guess from the previous set, and rep targets above 20
 are excluded. Limits remain one test set per session, one per movement every
 14 days, and two per ISO calendar week. Dismissal declines the opportunity for
