@@ -689,7 +689,7 @@
     checks: 0, spread: null, state: "uncalibrated" });
 
   /** Standing reads the same comparable rows as selection, without changing the anchor or the solve.
-   *  `settings.now` is an ISO date for historical replay; one UTC day is shared by a batch by default. */
+   *  `settings.now` is an ISO date for historical replay; one local calendar day is shared by a batch by default. */
   function standingFor(result, prescription, history, loadingContext, settings, now) {
     // The gauge loads later in the page shell; resolve its pure helpers when a recommendation is requested.
     const quality = root?.RepForgeCalibrationGauge ||
@@ -754,7 +754,8 @@
     if (!Array.isArray(prescriptions)) return [];
     const boundedHistory = Array.isArray(history) ? history.slice(-1000) : [];
     const boundedSession = Array.isArray(currentSession) ? currentSession.slice(-100) : [];
-    const now = settings?.now ?? new Date().toISOString().slice(0, 10);
+    const date = new Date();
+    const now = settings?.now ?? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
     return prescriptions.map((prescription) => {
       const result = recommendOne(prescription, boundedHistory, boundedSession, loadingContext, settings);
       let standing;
