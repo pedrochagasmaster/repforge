@@ -23457,7 +23457,7 @@ const landingLoopTime=time=>{const L=LANDING_DEMO.loop;return Number.isFinite(ti
 /** Every catalog string the proof's screen shows; test/landing-demo-copy.mjs fails when one leaves a catalog or Focus
  *  stops saying it. */
 const LANDING_DEMO_KEYS=["focus.exmeta.range","program.progression.adaptive","focus.cue.up","focus.cue.reps",
-  "focus.evidence.history","focus.evidence.target","focus.evidence.why","log.set","log.reps","stats.table.rir",
+  "focus.evidence.history","focus.evidence.target","focus.evidence.why","log.set","log.reps","focus.col.left","focus.field.left",
   "focus.prev_line","focus.next_row","focus.metric.load_kg","focus.metric.reps","focus.shelf.pad_load","focus.shelf.log_set",
   "rest.inline.label","rest.inline.done","landing.outcomes.next_label","landing.outcomes.target","landing.outcomes.did_same",
   "dialog.done"];
@@ -23473,7 +23473,7 @@ function landingDemoHtml(add){
   const line=(index,values,soft,extra="",last=prev)=>`<div class="ledgerline${last?" ledgerline--two":""}${extra}"><span class="ledgerline__idx">${index}</span>${cells(values,soft)}${last}</div>`;
   const check=`<span class="fx-check" aria-hidden="true"></span>`;
   const head=`<div class="ledgerline__head"><span>${esc(t("log.set"))}</span><span class="ledgerline__vals">`+
-    `<span class="fx-col">${esc(unit)}</span><span class="fx-col">${esc(t("log.reps"))}</span><span class="fx-col">${esc(t("stats.table.rir"))}</span></span></div>`;
+    `<span class="fx-col">${esc(unit)}</span><span class="fx-col">${esc(t("log.reps"))}</span><span class="fx-col">${esc(t("focus.col.left"))}</span></span></div>`;
   // Set 1 is logged at one rep over the target: the finger turns the Reps wheel to it in chapter 1.
   const turned=landingNum(target.reps+1);
   const set=[kg,reps,landingNum(rir0)],did=[kg,turned,landingNum(rir0)],aim=[kg,reps,landingNum(rir)];
@@ -23542,7 +23542,7 @@ function landingDemoHtml(add){
       `<span class="resttab firstrun-demo__tab"><span class="resttab__label"></span><span class="resttab__end"><span class="resttab__time"></span>`+
       `<span class="resttab__chev icon-mask icon-mask--chev-up" aria-hidden="true"></span></span></span>`+
       `<div class="shelf__fields firstrun-demo__fields">${field(load,`${load}, ${unit}`,kg,unit)}${repsField}`+
-        `${field(t("stats.table.rir"),t("stats.table.rir"),landingNum(rir0),"")}<span class="firstrun-demo__sel"></span></div>`+
+        `${field(t("focus.field.left"),t("focus.field.left"),landingNum(rir0),"")}<span class="firstrun-demo__sel"></span></div>`+
       `<div class="shelf__pads">${pad("−")}${pad("+")}</div>`+
       button("btn btn--cta btn--noarrow saveset firstrun-demo__log",`<span class="firstrun-demo__log1">${esc(t("focus.shelf.log_set",{n:1}))}</span>`+
         `<span class="firstrun-demo__log2">${esc(t("focus.shelf.log_set",{n:2}))}</span>`)+
