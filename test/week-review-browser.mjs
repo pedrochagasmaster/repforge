@@ -249,7 +249,7 @@ async function runAdaptationCases(browser,manifest){
       await sibling.locator('#reviewSheet [data-role="rename-input"]').fill("Concurrent edit");
       await sibling.locator('#reviewSheet [data-role="rename-save"]').click();
       await sibling.locator('#reviewSheet').waitFor({state:"hidden"});await applyInstalledEditor(sibling);
-      await page.waitForFunction(()=>window.__repforgeWorkoutDraft.state().programMeta.name==="Concurrent edit");
+      assert.equal(await sibling.evaluate(()=>window.__repforgeWorkoutDraft.state().programMeta.name),"Concurrent edit","the sibling editor committed its rename before the stale proposal is tapped");
       await page.locator('[data-adaptation-action="accept"]').click();
       await page.locator('[data-adaptation-card] [role="alert"]').waitFor({state:"visible"});
       assert.deepEqual(await page.evaluate(()=>window.__repforgeWorkoutDraft.state().programMeta.adaptations||[]),[],"a concurrent editor commit refuses the adaptation and its receipt together");
