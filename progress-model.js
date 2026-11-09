@@ -625,7 +625,7 @@
       if (!sessions.has(id)) sessions.set(id, []);
       sessions.get(id).push(row);
     }
-    const prefix = [];
+    const prefix = [], seenKeys = new Set(), checkCounts = new Map();
     const read = (history, date, request) => standings(history.slice(), date, request) || [];
     const hasAnchor = (fact) => fact.recommendation?.historyAnchor?.source === "history";
     const weights = (history, facts) => new Set([
@@ -635,15 +635,22 @@
     for (const session of sessions.values()) {
       const date = isoDate(session[0].date);
       prefix.push(...session);
+      for (const row of session) {
+        seenKeys.add(keyOf(row));
+        if (row.effortSource === "failure" && row.calibration) checkCounts.set(keyOf(row), (checkCounts.get(keyOf(row)) || 0) + 1);
+      }
       // Released facts never need their historical engine work repeated. Checks
       // cannot produce a reading until three exist; the current and month reads
       // below still refresh every lift at their exact as-of date.
-      const recommendation = ["weights_found", "first_target", "first_solid"].some((id) => !released.has(id));
+      const checkingWeights = !released.has("weights_found") && (prefix.some((row) => row.startingLoad) ||
+        lifts.length > 0 && lifts.every((lift) => seenKeys.has(lift.key)));
+      const recommendation = checkingWeights || ["first_target", "first_solid"].some((id) => !released.has(id));
       const weeks = !released.has("first_trend") && weekStartOf(prefix[0].date) !== weekStartOf(date);
-      const calibration = !released.has("effort_read") && prefix.filter((row) => row.effortSource === "failure" && row.calibration).length >= 3;
+      const calibrationKeys = !released.has("effort_read") ? [...checkCounts].filter(([, n]) => n >= 3).map(([key]) => key) : [];
+      const calibration = calibrationKeys.length > 0;
       const after = recommendation || weeks || calibration ? read(prefix, date, {
         recommendation, weeks, calibration,
-        keys: released.has("weights_found") && !calibration ? [...new Set(session.map(keyOf))] : null,
+        keys: checkingWeights ? null : [...new Set([...session.map(keyOf), ...calibrationKeys])],
       }) : [];
       // This saved session can support the next target immediately. Replay
       // only this prefix so no later session can supply its reason or values.

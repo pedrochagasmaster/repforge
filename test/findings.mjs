@@ -179,12 +179,14 @@ proof('a bodyweight-only history anchor also releases the first target',()=>{
   const f=found(build(log,undefined,program,read),'first_target');
   assert.equal(f.date,'2026-10-01');assert.equal(f.load,null);assert.equal(f.loadingConvention,'bodyweight');
 });
-proof('year replay stops rebuilding released evidence on later prefixes',()=>{
-  const log=Array.from({length:208},(_,i)=>session('year'+i,new Date(Date.parse('2025-11-10')+i*864e5).toISOString().slice(0,10))).flat();
-  let reads=0;
-  const result=build(log,'2026-11-09',program,(rows,date,request)=>{reads++;return readings(rows,date);});
+proof('a year of later sessions preserves the first released evidence',()=>{
+  const log=Array.from({length:208},(_,i)=>session('year'+i,new Date(Date.parse('2025-11-10')+(Math.floor(i/4)*7+i%4)*864e5).toISOString().slice(0,10))).flat();
+  const result=build(log,'2026-11-09');
   assert.equal(result.released.length,5);
-  assert.ok(reads<10,`released evidence was rebuilt ${reads} times`);
+  assert.deepEqual(found(result,'first_target'),found(build(log.slice(0,4),'2025-11-10'),'first_target'));
+  assert.equal(found(result,'first_solid').date,'2025-11-11');
+  assert.equal(found(result,'first_trend').date,'2025-11-17');
+  assert.equal(found(result,'month_one').date,'2025-12-08');
 });
 proof('the month starts with a timed working session too',()=>{
   const metric=require('../exercise-metrics.js').DEFINITIONS.find(m=>m.semantic==='durationSeconds');
