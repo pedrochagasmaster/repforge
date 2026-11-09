@@ -178,7 +178,7 @@ async function editAcrossRemount(browser) {
   // Back then forward rebuilds the recommendation while the removal is still committing.
   await page.locator("#onbBack").click();
   await page.waitForFunction(() => window.__repforgeEntryState()?.step !== "result", undefined, { timeout: 10000 });
-  await page.locator("#onbNext").click();
+  await continueReviewRebuild(page);
   await page.waitForFunction(() => window.__repforgeEntryState()?.step === "result", undefined, { timeout: 15000 });
   await page.locator("#entryReview [data-review-slot]").first().waitFor({ timeout: 10000 });
   await releaseSetupWrites(page);
@@ -245,7 +245,7 @@ async function restoreDoesNotCrossCandidate(browser) {
   await page.locator("#reviewConfirmGo").click();
   await page.locator("#onbBack").click();
   await page.waitForFunction(() => window.__repforgeEntryState()?.step !== "result", undefined, { timeout: 10000 });
-  await page.locator("#onbNext").click();
+  await continueReviewRebuild(page);
   await page.waitForFunction(() => window.__repforgeEntryState()?.step === "result", undefined, { timeout: 15000 });
   await page.locator("#entryReview [data-review-slot]").first().waitFor({ timeout: 10000 });
   await openSlot(page, newRemoval.id);
@@ -318,7 +318,7 @@ async function renameDoesNotCrossCandidate(browser) {
   await page.waitForSelector("#reviewSheet", { state: "hidden", timeout: 5000 });
   await page.locator("#onbBack").click();
   await page.waitForFunction(() => window.__repforgeEntryState()?.step !== "result", undefined, { timeout: 10000 });
-  await page.locator("#onbNext").click();
+  await continueReviewRebuild(page);
   await page.waitForFunction(() => window.__repforgeEntryState()?.step === "result", undefined, { timeout: 15000 });
   await page.locator("#entryReview [data-review-slot]").first().waitFor({ timeout: 10000 });
   const rebuiltName = await entry(page).then((value) => value.result.name);
@@ -511,7 +511,7 @@ async function revisionF13(browser) {
   await page.locator("#reviewSheet").waitFor({ state: "hidden" });
   await offer.click();
   await page.click("#onbBack");
-  await page.click("#onbNext");
+  await continueReviewRebuild(page);
   await page.waitForFunction(() => window.__repforgeEntryState()?.step === "result");
   await page.locator(`#entryReview [data-review-confirm-offer-action="${slotId}"]`).waitFor();
   const rebuilt = await reviewed(page);
@@ -531,7 +531,7 @@ async function revisionF11(browser) {
   await page.evaluate(() => { window.__heldReviewWorker.hold = true; });
   await page.click("#onbBack");
   const n = await page.evaluate(() => window.__heldReviewWorker.requests.length);
-  await page.click("#onbNext");
+  await continueReviewRebuild(page);
   await page.waitForFunction(n => window.__heldReviewWorker.requests.length > n, n);
   await releaseSetupWrites(page);
   await settleQueuedReviewWrites(page);
@@ -635,7 +635,7 @@ const seedCustom = async (page, url) => {
   await page.waitForFunction(() => window.__repforgeEntryState()?.step === 'exercise_preferences');
   for (let i = 0; i < 4 && (await entry(page)).step !== 'result'; i++) {
     const before = (await entry(page)).step;
-    await page.click('#onbNext');
+    await continueReviewRebuild(page);
     await page.waitForFunction((b) => window.__repforgeEntryState()?.step !== b, before);
   }
   await page.locator('#entryReview [data-review-slot]').first().waitFor();
@@ -666,7 +666,7 @@ async function returnToCustomReview(page) {
   await page.click("#onbBack");
   await page.click("#onbBack");
   await page.waitForFunction(() => window.__repforgeEntryState()?.step !== "result");
-  await page.click("#onbNext");
+  await continueReviewRebuild(page);
   await page.locator("#entryReview [data-review-slot]").first().waitFor();
 }
 const releaseAnswerRebuild = page => page.evaluate(() => {
@@ -822,7 +822,186 @@ async function revisionF22(browser) {
   return run.errors;
 }
 
-const lifetimeCases = { F22: revisionF22, F20: revisionF20, F19: revisionF19, F21: revisionF21, F1: restoreDoesNotCrossCandidate, F2: restoreQuestionDoesNotCrossCandidate,
+async function continueReviewRebuild(page) {
+  const previous = (await entry(page)).step;
+  await page.click("#onbNext");
+  await page.waitForFunction(step => window.__repforgeEntryState().step !== step ||
+    !!document.querySelector("#reviewConfirmGo")?.getClientRects().length, previous);
+  if (await page.locator("#reviewConfirmGo").isVisible()) await page.click("#reviewConfirmGo");
+}
+
+async function backNextAsksBeforeDiscard(browser) {
+  const run = await fresh(browser, { fakeWorker: true }), { page } = run;
+  await answerGenerate(page);
+  await page.locator("#entryReview [data-review-slot]").first().waitFor();
+  const baseline = await reviewed(page), a = trainingDays(baseline)[0].slots[0];
+  await openSlot(page, a.id);
+  await page.locator('#reviewSheet [data-review-sets="1"]').click();
+  await page.waitForFunction(() => !document.querySelector("#entryReview[aria-busy]"));
+  await closeSheet(page);
+  const edited = await reviewed(page), log = await reviewLog(page);
+  await page.click("#onbBack");
+  const previous = (await entry(page)).step;
+  await page.click("#onbNext");
+  const asked = await page.locator("#reviewConfirmGo").waitFor({ timeout: 3000 }).then(() => true, () => false);
+  check(asked && (await entry(page)).step === previous,
+    "#679: Back then Next asks before discarding landed edits");
+  if (asked) {
+    await page.keyboard.press("Escape");
+    check(JSON.stringify(await reviewed(page)) === JSON.stringify(edited) &&
+      JSON.stringify(await reviewLog(page)) === JSON.stringify(log), "#679: Keep preserves the saved edit and its log");
+    await page.click("#onbNext");
+    await page.click("#reviewConfirmGo");
+    await page.waitForFunction(() => window.__repforgeEntryState().step === "result");
+    await page.locator("#entryReview [data-review-slot]").first().waitFor();
+    check(JSON.stringify(await reviewed(page)) === JSON.stringify(baseline) && !await reviewLog(page),
+      "#679: confirming rebuild replaces the edits and clears their log");
+  }
+  await run.context.close();
+  return run.errors;
+}
+
+const failNextReviewWrite = page => page.evaluate(() => {
+  const original = Storage.prototype.setItem;
+  Storage.prototype.setItem = function(key, value) {
+    if (key === "repforge_program_setup_draft_v1") {
+      Storage.prototype.setItem = original;
+      throw new DOMException("injected quota failure", "QuotaExceededError");
+    }
+    return original.call(this, key, value);
+  };
+});
+async function failedReviewWriteRepaints(browser) {
+  const run = await fresh(browser, { fakeWorker: true }), { page } = run;
+  await answerGenerate(page);
+  await page.locator("#entryReview [data-review-slot]").first().waitFor();
+  const baseline = await reviewed(page), b = trainingDays(baseline)[0].slots[1];
+  await openSlot(page, b.id);
+  await failNextReviewWrite(page);
+  await page.locator("#reviewSheet [data-review-remove]").click();
+  await page.waitForFunction(() => window.__reviewActions.some(action => action.action === "save_failed"));
+  await settleQueuedReviewWrites(page);
+  const durable = await page.evaluate(() => JSON.parse(localStorage.getItem("repforge_program_setup_draft_v1")).state.result.preview.programDefinition);
+  check(JSON.stringify(await reviewed(page)) === JSON.stringify(baseline) && JSON.stringify(durable) === JSON.stringify(baseline),
+    "#677: failed removal keeps the saved recommendation");
+  await checkReviewScreen(page, baseline, "#677");
+  check(await page.locator(`#entryReview [data-review-slot="${b.id}"]`).count() === 1,
+    "#677: the failed removal's row is restored on screen");
+  await run.context.close();
+  return run.errors;
+}
+async function failedReviewWriteAfterRemount(browser) {
+  const run = await queuedReviewSetup(browser), { page, baseline, a } = run;
+  await remountQueuedReview(page);
+  await failNextReviewWrite(page);
+  await releaseSetupWrites(page);
+  await page.waitForFunction(() => window.__reviewActions.some(action => action.action === "save_failed"));
+  await settleQueuedReviewWrites(page);
+  const expected = Review.replay(baseline, [{ kind: "sets", slotId: a.id, count: setCount(baseline, a.id) + 1 }], REVIEW_CTX);
+  const durable = await page.evaluate(() => JSON.parse(localStorage.getItem("repforge_program_setup_draft_v1")).state.result.preview.programDefinition);
+  check(JSON.stringify(await reviewed(page)) === JSON.stringify(expected.definition) &&
+    JSON.stringify(durable) === JSON.stringify(expected.definition),
+    "#677: Cancel and stay cannot save an edit whose own write failed");
+  await checkReviewScreen(page, baseline, "#677 remount");
+  await run.context.close();
+  return run.errors;
+}
+async function activateQueuedUndo(browser) {
+  const run = await queuedReviewSetup(browser), { page, baseline, a, b } = run;
+  await page.locator("#entryReview [data-review-undo]").click();
+  await page.click("#entryActivate");
+  await releaseSetupWrites(page);
+  await page.waitForFunction(() => window.__repforgeWorkoutDraft.state().programMeta.onboarded === true);
+  await settleQueuedReviewWrites(page);
+  const active = (await state(page)).programMeta.programDefinition;
+  const expected = Review.replay(baseline, [{ kind: "sets", slotId: a.id, count: setCount(baseline, a.id) + 1 }], REVIEW_CTX);
+  check(JSON.stringify(active) === JSON.stringify(expected.definition) && slotsOf(active).some(slot => slot.id === b.id),
+    "#678: Activate includes the queued Undo and retains the earlier edit");
+  check(await page.evaluate(() => localStorage.getItem("repforge_program_setup_draft_v1") === null) && !await reviewLog(page),
+    "#678: Activate leaves no setup draft or edit log after queued work settles");
+  await run.context.close();
+  return run.errors;
+}
+async function failedEditQueuedUndo(browser) {
+  const run = await queuedReviewSetup(browser), { page, baseline, a } = run;
+  await page.locator("#entryReview [data-review-undo]").click();
+  await failNextReviewWrite(page);
+  await releaseSetupWrites(page);
+  await page.waitForFunction(() => window.__reviewActions.some(action => action.action === "save_failed"));
+  await settleQueuedReviewWrites(page);
+  const expected = Review.replay(baseline, [{ kind: "sets", slotId: a.id, count: setCount(baseline, a.id) + 1 }], REVIEW_CTX);
+  check(JSON.stringify(await reviewed(page)) === JSON.stringify(expected.definition),
+    "F15: Undo queued for a failed edit preserves the earlier landed edit");
+  check(!(await reviewActions(page)).some(action => action.action === "undo"),
+    "F15: a failed edit's queued Undo does not report undoing an earlier edit");
+  await checkReviewScreen(page, baseline, "F15");
+  await page.locator("#entryReview [data-review-undo]").click();
+  await page.waitForFunction(() => !document.querySelector("#entryReview[aria-busy]"));
+  check(JSON.stringify(await reviewed(page)) === JSON.stringify(baseline),
+    "F15: a fresh Undo after failure still reverses the earlier landed edit");
+  await run.context.close();
+  return run.errors;
+}
+async function queuedStepperTaps(browser) {
+  const run = await queuedReviewSetup(browser), { page, baseline, c } = run;
+  await openSlot(page, c.id);
+  await page.locator('#reviewSheet [data-review-sets="1"]').click({ clickCount: 2 });
+  await closeSheet(page);
+  await releaseSetupWrites(page);
+  await settleQueuedReviewWrites(page);
+  const count = setCount(baseline, c.id);
+  check(setCount(await reviewed(page), c.id) === count + 2,
+    "F16: two queued stepper taps add two sets");
+  const edits = (await reviewLog(page)).edits;
+  check(edits.at(-2)?.count === count + 1 && edits.at(-1)?.count === count + 2,
+    "F16: each tap records a separate change in the replay log", edits);
+  await page.locator("#entryReview [data-review-undo]").click();
+  await page.waitForFunction(() => !document.querySelector("#entryReview[aria-busy]"));
+  check(setCount(await reviewed(page), c.id) === count + 1, "F16: one Undo reverses only the last stepper tap");
+  await run.context.close();
+  return run.errors;
+}
+async function remountedQueueBusy(browser) {
+  const run = await queuedReviewSetup(browser), { page } = run;
+  await remountQueuedReview(page);
+  check(await page.locator("#entryReview").getAttribute("aria-busy") === "true",
+    "F17: the remounted review exposes the candidate's pending work");
+  await releaseSetupWrites(page);
+  await settleQueuedReviewWrites(page);
+  check(await page.locator("#entryReview").getAttribute("aria-busy") === null,
+    "F17: the remounted review stops reporting busy when its queue drains");
+  await run.context.close();
+  return run.errors;
+}
+
+async function undoAfterFailedRename(browser) {
+  const run = await queuedReviewSetup(browser), { page, baseline, a } = run;
+  await page.locator("#entryReview [data-review-title]").click();
+  await page.fill("#reviewRenameInput", "Unsaved rename");
+  await page.locator("#reviewSheet [data-review-rename-save]").click();
+  await page.locator("#reviewSheet").waitFor({ state: "hidden" });
+  await page.locator("#entryReview [data-review-undo]").click();
+  await page.evaluate(() => {
+    const original = Storage.prototype.setItem;
+    Storage.prototype.setItem = function(key, value) {
+      if (key === "repforge_program_setup_draft_v1" && JSON.parse(value).state.result.name === "Unsaved rename") {
+        Storage.prototype.setItem = original;
+        throw new DOMException("injected rename failure", "QuotaExceededError");
+      }
+      return original.call(this, key, value);
+    };
+  });
+  await releaseSetupWrites(page);
+  await settleQueuedReviewWrites(page);
+  const expected = Review.replay(baseline, [{ kind: "sets", slotId: a.id, count: setCount(baseline, a.id) + 1 }], REVIEW_CTX);
+  check(JSON.stringify(await reviewed(page)) === JSON.stringify(expected.definition),
+    "F15 control: a failed rename does not suppress Undo of the preceding logged edit");
+  await checkReviewScreen(page, baseline, "F15 rename control");
+  await run.context.close();
+  return run.errors;
+}
+
+const lifetimeCases = { F15control: undoAfterFailedRename, X677: async browser => [...await failedReviewWriteRepaints(browser), ...await failedReviewWriteAfterRemount(browser)], X678: activateQueuedUndo, F15: failedEditQueuedUndo, F16: queuedStepperTaps, F17: remountedQueueBusy, X679: backNextAsksBeforeDiscard, F22: revisionF22, F20: revisionF20, F19: revisionF19, F21: revisionF21, F1: restoreDoesNotCrossCandidate, F2: restoreQuestionDoesNotCrossCandidate,
   F3: renameDoesNotCrossCandidate, F4: sameCandidateEditsAcrossRemount, F5: undoAfterLeaving,
   F6: sameCandidateCommitRepaintsRemount, F7: revisionF7, F8: revisionF8, F9: revisionF9,
   F10: revisionF10, F11: revisionF11, F12: revisionF12, F13: revisionF13, F14: revisionF14,

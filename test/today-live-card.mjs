@@ -165,6 +165,23 @@ async function holdWrites(page) {
 }
 const releaseWrites = (page) => page.evaluate(() => window.__unlockWrites());
 
+/** Observe the lock request itself, so the next control lands during the blocked write. */
+async function observeNextWrite(page) {
+  await page.evaluate(() => {
+    const original = navigator.locks.request.bind(navigator.locks);
+    window.__writeQueued = false;
+    navigator.locks.request = (...args) => {
+      const work = original(...args);
+      if (args[0] === "repforge:state-write") {
+        window.__writeQueued = true;
+        navigator.locks.request = original;
+      }
+      return work;
+    };
+  });
+}
+
+
 /** Hold the suggestion refresh that Resume awaits; `window.__releaseResume()` lets it through. */
 async function holdSuggestions(page) {
   await page.evaluate(() => {
@@ -195,9 +212,11 @@ const entriesSettled = (page) => page.waitForFunction(() => window.__entries.len
 /** Where the screen is after entries settle: Focus open, the recovery panel, and the stored draft's day. */
 const readEntryOutcome = (page) => page.evaluate(() => ({
   focus: !document.querySelector("#workoutShell")?.classList.contains("hidden") && document.body.classList.contains("is-workout"),
+  focusBody: document.body.classList.contains("is-focus-wo"),
+  workoutBody: document.body.classList.contains("is-workout"),
   recovery: !document.querySelector("#draftRecovery")?.classList.contains("hidden"),
   draftDay: window.__repforgeWorkoutDraft.current()?.program?.dayLabel ?? null,
-  results: window.__entries.map((e) => e.result),
+  results: window.__entries?.map((e) => e.result) ?? [],
 }));
 
 const browser = await launchChromium();
@@ -269,6 +288,181 @@ try {
     await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
     const tapped = await page.evaluate(() => window.__repforgeWorkoutDraft.current().session.selectedExerciseId);
     assert(tapped === current, "a tap anywhere on the card opens the current exercise", JSON.stringify({ tapped, current }));
+    assert(errors.length === 0, "no page errors", errors.join(" | "));
+    await context.close();
+  }
+
+  phase("L8: a picked day stays on Today after an exercise page detour");
+  {
+    const { context, page, errors } = await freshPage(browser);
+    await trackEntries(page);
+    await page.click("#chooseAnotherDay");
+    await page.waitForSelector("#dayPickSheet.is-open");
+    await page.click('[data-daypick="Day 2"]');
+    await page.waitForSelector(".daychange-toast");
+    await page.waitForFunction(() => !document.querySelector("#dayPickSheet").classList.contains("is-open"));
+    await page.locator(".today-rx__row").first().click();
+    await page.waitForSelector("#exercise.active");
+    await page.click("#exBack");
+    await page.waitForSelector("#log.active");
+    const r = await readEntryOutcome(page);
+    assert(!r.focus && r.draftDay === "Day 2",
+      "L8: returning from a Today row keeps Today open on the picked day", JSON.stringify(r));
+    assert(errors.length === 0, "no page errors", errors.join(" | "));
+    await context.close();
+  }
+
+  phase("L11/J18: recovery Retry joins the workout entry and its start queue");
+  for (const leave of [true, false]) {
+    const { context, page, errors } = await freshPage(browser);
+    await trackEntries(page);
+    await page.evaluate(() => {
+      const original = window.createWorkoutDraft;
+      window.createWorkoutDraft = async () => {
+        window.createWorkoutDraft = original;
+        return { status: "storage-error" };
+      };
+    });
+    await page.click("#startWorkout");
+    await entriesSettled(page);
+    await page.waitForSelector("#draftRecoveryRetry:visible");
+    await page.evaluate(() => {
+      const original = window.retryDraftRecovery;
+      window.__retryDone = false;
+      window.retryDraftRecovery = (...args) => {
+        const work = original(...args);
+        work.finally(() => { window.__retryDone = true; });
+        return work;
+      };
+      renderDraftRecovery();
+    });
+    if (leave) {
+      await page.evaluate(() => {
+        const original = window.createWorkoutDraft;
+        let release;
+        const gate = new Promise(resolve => { release = resolve; });
+        window.__releaseRetry = release;
+        window.createWorkoutDraft = (...args) => {
+          window.__retryCreateHeld = true;
+          return gate.then(() => original(...args));
+        };
+      });
+      await page.click("#draftRecoveryRetry");
+      await page.waitForFunction(() => window.__retryCreateHeld === true);
+      await page.click('nav button[data-view="stats"]');
+      await page.waitForSelector("#stats.active");
+      await page.evaluate(() => window.__releaseRetry());
+    } else {
+      await holdWrites(page);
+      await observeNextWrite(page);
+      await page.click("#draftRecoveryRetry");
+      await page.waitForFunction(() => window.__writeQueued === true);
+      await page.click("#startWorkout");
+      await releaseWrites(page);
+    }
+    await page.waitForFunction(() => window.__retryDone === true);
+    await entriesSettled(page);
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    const r = await readEntryOutcome(page);
+    const stats = await page.locator("#stats").evaluate(el => el.classList.contains("active"));
+    assert(!r.recovery && (leave ? stats && !r.focus && !r.focusBody && !r.workoutBody : r.focus),
+      leave ? "L11: a Retry released after a dock departure keeps Focus closed"
+        : "J18: Retry and Start share the create, with no false recovery panel", JSON.stringify({ ...r, stats }));
+    assert(errors.length === 0, "no page errors", errors.join(" | "));
+    await context.close();
+  }
+
+  phase("L5: a Today row's Swap waits for the Start already creating its draft");
+  {
+    const { context, page, errors } = await freshPage(browser);
+    await trackEntries(page);
+    await page.evaluate(() => {
+      const original = window.createWorkoutDraft;
+      let release;
+      const gate = new Promise(resolve => { release = resolve; });
+      window.__releaseCreate = release;
+      window.createWorkoutDraft = (...args) => {
+        window.__createHeld = true;
+        return gate.then(() => original(...args));
+      };
+      const rowContext = window.todayRowContext;
+      window.todayRowContext = (...args) => {
+        const work = rowContext(...args);
+        work.finally(() => { window.__rowDone = true; });
+        return work;
+      };
+    });
+    await page.click("#startWorkout");
+    await page.waitForFunction(() => window.__createHeld === true);
+    await page.locator("#todayExList [data-row-menu]").first().focus();
+    await page.keyboard.press("Enter");
+    await page.locator('#nativeContextMenu [data-menu-value="swap"]').click();
+    await page.waitForSelector("#nativeContextMenu", { state: "detached" });
+    await page.evaluate(() => window.__releaseCreate());
+    await page.waitForFunction(() => window.__rowDone === true);
+    await entriesSettled(page);
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    const r = await readEntryOutcome(page);
+    assert(r.focus && !r.recovery && r.draftDay === "Day 1",
+      "L5: Swap and Start use the same ready draft without a recovery panel", JSON.stringify(r));
+    assert(errors.length === 0, "no page errors", errors.join(" | "));
+    await context.close();
+  }
+
+  phase("T18b/T20: Undo tapped while End waits cannot recover an ended session");
+  for (const kind of ["trim", "day"]) {
+    const { context, page, errors } = await freshPage(browser, { reducedMotion: "reduce" });
+    // This journey owns the End/Undo ordering; the toast timer has its own retained proof.
+    await page.evaluate(() => {
+      const schedule = window.setTimeout;
+      window.setTimeout = (fn, ms, ...args) => schedule(fn, ms === 4200 || ms === 6000 ? 3600000 : ms, ...args);
+    });
+    if (kind === "day") {
+      await page.click("#chooseAnotherDay");
+      await page.waitForSelector("#dayPickSheet.is-open");
+      await page.click('[data-daypick="Day 2"]');
+      await page.waitForSelector(".daychange-toast");
+      await page.waitForFunction(() => !document.querySelector("#dayPickSheet").classList.contains("is-open"));
+    }
+    await page.locator("#startWorkout:visible,#todayLiveResume:visible").first().click();
+    await page.waitForSelector("#workout .exercise.is-current");
+    if (kind === "trim") {
+      await page.evaluate(() => {
+        window.fatigueFlagged = () => exercises().filter(e => ["seed-ex-2", "seed-ex-4", "seed-ex-5"].includes(e.id));
+        renderFatigue();
+      });
+      await page.click("#fatigue .fatigue__trim");
+      await page.waitForSelector(".trim-toast");
+    }
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    await page.evaluate(kind => {
+      const name = kind === "trim" ? "undoFatigueTrim" : "undoDayChange";
+      const original = window[name];
+      window[name] = (...args) => {
+        const work = original(...args);
+        work.finally(() => { window.__undoDone = true; });
+        return work;
+      };
+    }, kind);
+    await page.click("#sessionSheetBtn");
+    await page.click("#sessionAbandon");
+    await page.waitForSelector("#sessionAbandonPrompt:not(.hidden)");
+    await holdWrites(page);
+    await observeNextWrite(page);
+    await page.click("#sessionAbandonConfirm");
+    await page.waitForFunction(() => window.__writeQueued === true);
+    await page.locator(`.${kind === "trim" ? "trim" : "daychange"}-toast .review-toast__undo`).click();
+    await releaseWrites(page);
+    await page.evaluate(() => window.__repforgeLastAbandon);
+    await page.waitForFunction(() => window.__undoDone === true);
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    const after = await page.evaluate(() => ({
+      draft: window.__repforgeWorkoutDraft.current(),
+      stored: localStorage.getItem("repforge_draft_v1"),
+      recovery: !document.querySelector("#draftRecovery").classList.contains("hidden"),
+    }));
+    assert(after.draft === null && after.stored === null && !after.recovery,
+      `${kind === "trim" ? "T18b" : "T20"}: End settles before Undo, with no draft or false recovery left`, JSON.stringify(after));
     assert(errors.length === 0, "no page errors", errors.join(" | "));
     await context.close();
   }

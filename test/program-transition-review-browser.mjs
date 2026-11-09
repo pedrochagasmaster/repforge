@@ -661,6 +661,22 @@ async function main() {
     "the stale proposal leaves the active program unchanged");
     check(/changed|newer|again/i.test(await page.locator("#reviewPanel .review__error").innerText()),
       "the lifter is told the plan changed and can retry");
+    await page.locator("[data-flow-restart]").click();
+    await page.locator("[data-volume-confirm]").click();
+    await page.locator("[data-preview-confirm]").waitFor({ state: "visible", timeout: 15000 });
+    const staleRetryProposal = await page.evaluate(() => window.__repforgeProgressReview.flow()?.proposal);
+    check(staleRetryProposal?.predecessor?.durableRevision === otherRevision.local._storageRevision,
+      "D5: Try again rebuilds the proposal from the other tab's durable revision", {
+        proposed: staleRetryProposal?.predecessor?.durableRevision, durable: otherRevision.local._storageRevision,
+      });
+    await page.locator("[data-preview-confirm]").click();
+    await page.waitForFunction(() => ["done", "error"].includes(window.__repforgeProgressReview.flow()?.stage));
+    const staleRetryFlow = await page.evaluate(() => window.__repforgeProgressReview.flow());
+    if (staleRetryFlow?.stage !== "done") throw new Error(`D5: Try again repeats the stale error: ${JSON.stringify(staleRetryFlow)}`);
+    await flush(page);
+    const retriedState = await state(page);
+    checkCommitted(otherRevision.local, retriedState, await replicas(page), "D5: retry without reload");
+    check(retriedState.settings.unit === "lb", "D5: retry preserves the other tab's setting");
 
     // Recovery week after an installed-editor set edit (#344) -------------
     // A fresh block: a regenerated successor's editor is out of this proof.
