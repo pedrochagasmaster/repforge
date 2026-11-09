@@ -47,6 +47,14 @@
     Number.isSafeInteger(value.predictedReps) && value.predictedReps >= 1 && value.predictedReps <= 30 &&
     typeof value.predictionEdited === "boolean" && ["reps_rir", "reps"].includes(value.prefillBasis);
   const validCalibration = (holder) => !hasOwn(holder, "calibration") || validCalibrationShape(holder.calibration);
+  const validStartingLoadShape = (value) => {
+    const keys = ["v", "openingKg", "basis", "ramps", "version"];
+    return isPlainObject(value) && Object.keys(value).length === keys.length && keys.every(key => hasOwn(value, key)) &&
+      value.v === 1 && typeof value.openingKg === "number" && Number.isFinite(value.openingKg) && value.openingKg > 0 && value.openingKg <= 1000 &&
+      ["prior", "ratio", "floor", "typed"].includes(value.basis) && Number.isSafeInteger(value.ramps) && value.ramps >= 0 && value.ramps <= 3 &&
+      typeof value.version === "string" && value.version.length > 0 && value.version.length <= 80;
+  };
+  const validStartingLoad = holder => !hasOwn(holder, "startingLoad") || validStartingLoadShape(holder.startingLoad);
   /* "Was the last rep slow?" (Plan 077, OD-25): a boolean on a completed draft set and on its row, or absent. */
   const validLastRepSlow = (holder) => !hasOwn(holder, "lastRepSlow") || typeof holder.lastRepSlow === "boolean";
 
@@ -751,7 +759,7 @@
     if (value.completion !== "pending" &&
       (!isPlainObject(value.completion) || !validString(value.completion.completedAt, true) ||
         !validEffortSource(value.completion) || !validLastRepSlow(value.completion))) return false;
-    if (!validCalibration(value)) return false;
+    if (!validCalibration(value) || !validStartingLoad(value) || (hasOwn(value, "origin") && value.origin !== "ramp")) return false;
     return true;
   }
 
@@ -771,7 +779,7 @@
     }
     if (!repless && programmed.minReps > programmed.maxReps || !validString(programmed.notes) ||
       !validString(programmed.primary) || !validString(programmed.secondary) ||
-      !validIdentifier(programmed.sourceFingerprint, true) || programmed.sets !== value.setOrder.length) return false;
+      !validIdentifier(programmed.sourceFingerprint, true) || programmed.sets + value.setOrder.filter(id => value.sets[id]?.origin === "ramp").length !== value.setOrder.length) return false;
     const ids = value.setOrder;
     const unique = new Set(ids);
     if (unique.size !== ids.length || ids.some(id => !validIdentifier(id, true))) return false;
@@ -1022,7 +1030,7 @@
   }
 
   function validateCanonicalLogRow(row, catalog) {
-    if (!validEffortSource(row) || !validCalibration(row) || !validLastRepSlow(row)) return ERROR_CODES.INVALID_ENVELOPE;
+    if (!validEffortSource(row) || !validCalibration(row) || !validLastRepSlow(row) || !validStartingLoad(row)) return ERROR_CODES.INVALID_ENVELOPE;
     const metricFields = ["metricType", "metricIds", "metricDefinitions", "metricValues", "equipmentId", "loadingConvention", "loadingContext", "restSeconds"];
     const hasMetricFields = metricFields.some((field) => hasOwn(row, field));
     const isWorkSet = hasOwn(row, "exerciseId") || hasOwn(row, "set") || hasOwn(row, "setIndex");

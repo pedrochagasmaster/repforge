@@ -9249,3 +9249,7 @@ body.is-entry-editor #entryProgramName,
 .week-card__actions .text-link{color:var(--control-quiet-ink)}
 #stats #reviewPanel .review__week{padding:var(--space-16) 0;border-bottom:.5px solid var(--boundary-decorative)}
 #stats #reviewPanel .review__week p{line-height:var(--line-reading);overflow-wrap:anywhere}
+
+/* Session zero uses the same cue and shelf, with explicit start and skip actions. */
+.fx-ramp-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-block: 12px; }
+.fx-ramp-actions .text-link { min-height: 44px; }

@@ -1117,3 +1117,5 @@ try {
 
 if (guardFailures.length) throw new Error(`guards failed: ${guardFailures.join("; ")}`);
 console.log("PASS: workout finish boundary");
+
+await import("./session-zero-browser.mjs");
