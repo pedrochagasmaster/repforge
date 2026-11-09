@@ -217,7 +217,9 @@ async function runAdaptationCases(browser,manifest){
     const {page,context}=await openPage(browser,manifest,{flow:"progress",screen:"review-evaluated",viewport:"phone-390",theme:"light",locale:"en",text:"normal",motion:"normal"},state);
     try{
       await dismissChrome(page);await APP_SCENARIOS["progress/review-evaluated"](page);
-      assert.match(await page.locator('[data-adaptation-evaluation]').innerText(),/removed/i,"the evaluation identifies the accepted change as well as its outcome");
+      const evaluation=await page.locator('[data-adaptation-evaluation]').innerText();
+      assert.match(evaluation,/removed/i,"the evaluation identifies the accepted change as well as its outcome");
+      assert.ok(evaluation.includes(state.sessionEvents["weekly-1"].skips[0].name),"the evaluation keeps the captured name of the removed lift");
     }catch(error){failures.push(error)}finally{await context.close()}
   }
   {
@@ -257,6 +259,17 @@ async function runAdaptationCases(browser,manifest){
       await page.locator('[data-adaptation-action="accept"]').click();
       await page.waitForFunction(()=>window.__repforgeWorkoutDraft.state().programMeta.adaptations?.length===1);
       assert.equal(await page.evaluate(()=>window.__repforgeWorkoutDraft.state().programMeta.name),"Concurrent edit","reopening Review proposes against the new editor token");
+    }catch(error){failures.push(error)}finally{await context.close()}
+  }
+  {
+    const state=appState("progress/review-evaluated","en"),record=state.programMeta.adaptations[0];
+    delete record.evaluation;
+    state.sessionEvents["weekly-second"]={v:1,skips:[structuredClone(state.sessionEvents["weekly-2"].skips[0])],pain:[]};
+    const {page,context}=await openPage(browser,manifest,{flow:"progress",screen:"review-evaluated",viewport:"phone-390",theme:"light",locale:"en",text:"normal",motion:"normal"},state);
+    try{
+      await dismissChrome(page);await APP_SCENARIOS["progress/review-evaluated"](page);
+      await page.waitForFunction(()=>window.__repforgeWorkoutDraft.state().programMeta.adaptations[0].evaluation);
+      assert.equal(await page.evaluate(()=>window.__repforgeWorkoutDraft.state().programMeta.adaptations[0].evaluation.outcome),"pattern_continued","evaluation retains the recorded observations when the affected slot is no longer in the current program");
     }catch(error){failures.push(error)}finally{await context.close()}
   }
   for(const action of ["accept","decline","later","change"]){
