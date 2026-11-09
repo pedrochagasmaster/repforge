@@ -210,6 +210,21 @@ async function runCatalogWeekCardCases(browser,manifest){
 }
 
 async function runAdaptationCases(browser,manifest){
+  {
+    const state=appState("progress/review-proposal","en");
+    const {page,context}=await openPage(browser,manifest,{flow:"progress",screen:"review-proposal",viewport:"phone-390",theme:"light",locale:"en",text:"normal",motion:"normal"},state);
+    try{
+      await dismissChrome(page);await APP_SCENARIOS["progress/review-proposal"](page);
+      assert.equal(await page.locator('[data-adaptation-why]').count(),1,"the established hard-set stall is acknowledged without a program change");
+      await page.evaluate(()=>{
+        window.weeklyObservedEvents=[];
+        const telemetry=window.RepForgeTelemetry;
+        window.RepForgeTelemetry={...telemetry,capture(name,properties){window.weeklyObservedEvents.push(name);return telemetry.capture(name,properties)}};
+      });
+      await page.locator('[data-adaptation-why]').click();await page.locator("#whySheet").waitFor({state:"visible"});
+      assert.deepEqual(await page.evaluate(()=>window.weeklyObservedEvents),[],"the alpha review's Why reader does not claim a Focus telemetry interaction");
+    }finally{await context.close()}
+  }
   for(const action of ["accept","decline","later","change"]){
     const state=appState("progress/review-active","en");
     state.programMeta.blockId="weekly-adaptation-block";
@@ -227,6 +242,8 @@ async function runAdaptationCases(browser,manifest){
       const before=await page.evaluate(()=>structuredClone(window.__repforgeWorkoutDraft.state()));
       await page.locator('[data-adaptation-cause="equipment"]').click();
       assert.equal((await page.evaluate(()=>window.__repforgeWorkoutDraft.state().programMeta.adaptations||[])).length,0,"view and why choice never write a program change");
+      assert.deepEqual(await page.evaluate(()=>window.__repforgeWorkoutDraft.state().program),before.program,"choosing a cause never edits the active program");
+      assert.deepEqual(await page.evaluate(()=>window.__repforgeWorkoutDraft.state().programMeta.programDefinition),before.programMeta.programDefinition);
       await page.locator(`[data-adaptation-action="${action}"]`).click();
       if(action==="change"){
         await page.locator('#programEditor').waitFor({state:"visible"});
