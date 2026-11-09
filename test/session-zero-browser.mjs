@@ -145,6 +145,25 @@ async function swapOpening(page,name){
   await page.locator(`#exPickList [data-pick="${id}"]`).click();await page.locator('[data-pick-reason="equipment"]').click();
   await page.evaluate(()=>window.__repforgeWorkoutDraft.flush());
 }
+async function openingNoops(browser){
+  const session=await open(browser),page=session.page;
+  await page.locator(`${card} [data-ramp-start]`).click();await field(page,"loadKg",72.5);
+  const before=await exercise(page);
+  await page.locator("#woOverflowBtn").click();await page.locator('[data-workout-action="exercise"]').click();
+  await page.locator("#exActionSubstBtn").click();await page.locator("#exPickSearch").fill("Hack squat");
+  await page.locator("#exPickList .pickrow__name").filter({hasText:/^Hack squat$/}).click();
+  await page.locator("#exPickSheet").waitFor({state:"hidden"});await page.evaluate(()=>window.__repforgeWorkoutDraft.flush());
+  check(JSON.stringify((await exercise(page)).sets)===JSON.stringify(before.sets),"B2: picking Hack squat itself preserves 72.5 kg and every touched flag");
+  await page.reload();await waitForAppBoot(page,{base:BASE});
+  check(JSON.stringify((await exercise(page)).sets)===JSON.stringify(before.sets),"B2: the same-movement typed load survives production reload");
+  await swapOpening(page,"Barbell bench press");
+  check((await exercise(page)).substitution===null&&JSON.stringify((await exercise(page)).sets)===JSON.stringify(before.sets),
+    "B2: a different-lift pick refuses typed pending work and never carries its load");
+  await page.reload();await waitForAppBoot(page,{base:BASE});
+  check((await exercise(page)).substitution===null&&JSON.stringify((await exercise(page)).sets)===JSON.stringify(before.sets),
+    "B2: the rejected movement change preserves the old lift and input after reload");
+  await session.context.close();
+}
 async function openingChanges(browser){
   const session=await open(browser,{historySource:"Pendulum squat"}),page=session.page;
   const pending=async()=>Object.values((await exercise(page)).sets).find(set=>set.role==="working"&&set.completion==="pending");
@@ -253,6 +272,7 @@ const browser=await launchChromium();
 try{
   if(!process.env.REPFORGE_ZERO_SKIP_PARITY)await nonRampParity(browser);
   if(!process.env.REPFORGE_ZERO_PARITY_ONLY){
+  await openingNoops(browser);
   await openingChanges(browser);
   if(!process.env.REPFORGE_ZERO_OPENING_CHANGES_ONLY)await ratioJourneys(browser);
   if(!process.env.REPFORGE_ZERO_RATIOS_ONLY&&!process.env.REPFORGE_ZERO_OPENING_CHANGES_ONLY){

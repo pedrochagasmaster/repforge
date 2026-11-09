@@ -1289,5 +1289,40 @@ for(const ramps of [0,1,2,3])for(const workingLogged of [false,true]){
   assert(Draft.parse(JSON.stringify(Draft.serialize(outcome))).kind==="valid",`${label}: the restored aggregate survives reload`);
 }
 
+// #733 B2: a movement identity no-op must preserve explicit pending input.
+{
+  const source=rawExerciseCatalog.exercises.find(ex=>ex.name==="Hack squat");
+  const slot="opening-noop",setId=`${slot}-set-1`;
+  const original={exerciseInstanceId:slot,sourceExerciseId:source.id,libraryId:source.id,displayName:source.name,primary:"Quads",secondary:""};
+  const loadId=ExerciseMetrics.definitionsForIds(source.exerciseMetrics).value.find(metric=>metric.semantic==="loadKg").id;
+  const freshOpening=()=>Draft.create(metricProgramContext(source.id,slot),{...sessionSelection(),selectedExerciseId:slot},{});
+  const typedOpening=d=>apply(apply(d,"refreshUntouchedSuggestions",{sourceRevision:0,updates:[{exerciseInstanceId:slot,setId,
+    fields:{metrics:{[loadId]:"62.5"}},startingLoad:{v:1,openingKg:62.5,basis:"prior",ramps:0,version:"priors@079.1"}}]}),
+    "editMetricValue",{exerciseInstanceId:slot,setId,metricId:loadId,value:"72.5"});
+  const typed=typedOpening(freshOpening()),before=typed.exercises[slot].sets;
+  const restored=apply(typed,"restoreOriginalExercise",{exerciseInstanceId:slot});
+  assert(same(restored.exercises[slot].sets,before),"B2: unsubstituted restore preserves every typed value, touched flag and opening");
+  assert(same(Draft.parse(JSON.stringify(Draft.serialize(restored))).draft.exercises[slot].sets,before),"B2: no-op restore preserves typed input through reload");
+  const samePick=apply(typed,"substituteExercise",{exerciseInstanceId:slot,replacement:{...original,exerciseInstanceId:"same-library-different-slot"},
+    replacementProgram:metricReplacementProgram(source.id),selectedAt:"2026-08-15T11:00:00.000Z"});
+  assert(same(samePick.exercises[slot].sets,typed.exercises[slot].sets),"B2: same catalog movement is a no-op despite a different instance id");
+  const rejected=command(typed,"substituteExercise",{exerciseInstanceId:slot,replacement:replacementSnapshot,replacementProgram,
+    selectedAt:"2026-08-15T11:00:00.000Z"}).result;
+  assert(Draft.isDomainError(rejected)&&rejected.code==="substitution-touched-pending-set"&&same(typed.exercises[slot].sets,before),
+    "B2: an actual reprogramming refuses the typed old load and leaves its source intact");
+  const changed=apply(typed,"substituteExercise",{exerciseInstanceId:slot,replacement:replacementSnapshot,selectedAt:"2026-08-15T11:00:00.000Z"});
+  const changedSet=changed.exercises[slot].sets[setId];
+  assert(!changedSet.startingLoad&&changedSet.edited.metrics[loadId]===null&&changedSet.touched.metrics[loadId]===false,
+    "B2: a legacy movement change cannot carry a typed accepted opening to another lift");
+  const back=apply(changed,"substituteExercise",{exerciseInstanceId:slot,replacement:original,selectedAt:"2026-08-15T11:01:00.000Z"});
+  const typedBack=typedOpening(back),sameRestore=apply(typedBack,"restoreOriginalExercise",{exerciseInstanceId:slot});
+  assert(sameRestore.exercises[slot].substitution===null&&same(sameRestore.exercises[slot].sets,typedBack.exercises[slot].sets),
+    "B2: restoring an already-original movement preserves all pending values and touched flags");
+  const typedReplacement=typedOpening(changed);
+  const replacementNoop=apply(typedReplacement,"substituteExercise",{exerciseInstanceId:slot,replacement:replacementSnapshot,replacementProgram,
+    selectedAt:"2026-08-15T11:02:00.000Z"});
+  assert(same(replacementNoop.exercises[slot].sets,typedReplacement.exercises[slot].sets),"B2: picking the current replacement preserves typed input too");
+}
+
 console.log(`\n${results.passed} passed, ${results.failed} failed`);
 if (results.failed) process.exitCode = 1;
