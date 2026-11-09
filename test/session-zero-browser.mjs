@@ -138,11 +138,13 @@ async function nonRampParity(browser){
     assert.deepEqual(differences,[],"ordinary history anchors, targets and eligibility must equal the base release");
   }finally{await context.close()}
 }
-async function swapOpening(page,name){
+async function swapOpening(page,name,{rejected=false}={}){
   const id=await page.evaluate(name=>window.RepForgeExerciseCatalog.snapshot().exercises.find(ex=>ex.name===name).id,name);
   await page.locator("#woOverflowBtn").click();await page.locator('[data-workout-action="exercise"]').click();
   await page.locator("#exActionSubstBtn").click();await page.locator("#exPickSearch").fill(name);
-  await page.locator(`#exPickList [data-pick="${id}"]`).click();await page.locator('[data-pick-reason="equipment"]').click();
+  await page.locator(`#exPickList [data-pick="${id}"]`).click();
+  if(rejected)await page.waitForFunction(()=>document.querySelector("#toast")?.textContent.includes("Clear the values you've entered"));
+  else await page.locator('[data-pick-reason="equipment"]').click();
   await page.evaluate(()=>window.__repforgeWorkoutDraft.flush());
 }
 async function openingNoops(browser){
@@ -156,7 +158,7 @@ async function openingNoops(browser){
   check(JSON.stringify((await exercise(page)).sets)===JSON.stringify(before.sets),"B2: picking Hack squat itself preserves 72.5 kg and every touched flag");
   await page.reload();await waitForAppBoot(page,{base:BASE});
   check(JSON.stringify((await exercise(page)).sets)===JSON.stringify(before.sets),"B2: the same-movement typed load survives production reload");
-  await swapOpening(page,"Barbell bench press");
+  await swapOpening(page,"Barbell bench press",{rejected:true});
   check((await exercise(page)).substitution===null&&JSON.stringify((await exercise(page)).sets)===JSON.stringify(before.sets),
     "B2: a different-lift pick refuses typed pending work and never carries its load");
   await page.reload();await waitForAppBoot(page,{base:BASE});

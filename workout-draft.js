@@ -1676,7 +1676,11 @@
           replacement: jsonClone(command.replacement),
           selectedAt: command.selectedAt,
         };
-        if (command.replacementProgram != null) {
+        const movementChanged = eventMovement(activeMovement(exercise)).exerciseId !== eventMovement(command.replacement).exerciseId;
+        if (!movementChanged && exercise.substitution?.originalPendingSets) {
+          substitution.originalPendingSets = jsonClone(exercise.substitution.originalPendingSets);
+        }
+        if (movementChanged && command.replacementProgram != null) {
           const program = validateReplacementProgram(command.replacementProgram, command.replacement, exercise.setOrder.length);
           if (!program.ok) return error("invalid-substitution-program", { issues: program.issues });
           // Completed sets keep the composition they were performed under; only
@@ -1703,7 +1707,7 @@
           }
           substitution.originalPendingSets = originalPendingSets;
         }
-        for (const setId of exercise.setOrder) if (exercise.sets[setId].completion === "pending") clearOpening(exercise.sets[setId]);
+        if (movementChanged) for (const setId of exercise.setOrder) if (exercise.sets[setId].completion === "pending") clearOpening(exercise.sets[setId]);
         exercise.substitution = substitution;
         syncObservationSwaps(exercise);
         exercise.status = "active";
@@ -1712,12 +1716,15 @@
       case "restoreOriginalExercise": {
         item = targetExercise(next, command);
         if (isDomainError(item)) return item;
-        const originals = item.exercise.substitution?.originalPendingSets;
+        const substitution = item.exercise.substitution;
+        if (!substitution) break;
+        const movementChanged = eventMovement(activeMovement(item.exercise)).exerciseId !== eventMovement(substitution.original).exerciseId;
+        const originals = movementChanged ? substitution.originalPendingSets : null;
         for (const [setId, original] of Object.entries(originals || {})) {
           const set = item.exercise.sets[setId];
           if (set?.completion === "pending") item.exercise.sets[setId] = { ...jsonClone(original), ordinal: set.ordinal };
         }
-        for (const setId of item.exercise.setOrder) if (item.exercise.sets[setId].completion === "pending") clearOpening(item.exercise.sets[setId]);
+        if (movementChanged) for (const setId of item.exercise.setOrder) if (item.exercise.sets[setId].completion === "pending") clearOpening(item.exercise.sets[setId]);
         item.exercise.substitution = null;
         syncObservationSwaps(item.exercise);
         break;

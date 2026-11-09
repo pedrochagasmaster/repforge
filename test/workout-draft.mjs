@@ -1296,7 +1296,7 @@ for(const ramps of [0,1,2,3])for(const workingLogged of [false,true]){
   const original={exerciseInstanceId:slot,sourceExerciseId:source.id,libraryId:source.id,displayName:source.name,primary:"Quads",secondary:""};
   const loadId=ExerciseMetrics.definitionsForIds(source.exerciseMetrics).value.find(metric=>metric.semantic==="loadKg").id;
   const freshOpening=()=>Draft.create(metricProgramContext(source.id,slot),{...sessionSelection(),selectedExerciseId:slot},{});
-  const typedOpening=d=>apply(apply(d,"refreshUntouchedSuggestions",{sourceRevision:0,updates:[{exerciseInstanceId:slot,setId,
+  const typedOpening=d=>apply(apply(d,"refreshUntouchedSuggestions",{sourceRevision:d.revision,updates:[{exerciseInstanceId:slot,setId,
     fields:{metrics:{[loadId]:"62.5"}},startingLoad:{v:1,openingKg:62.5,basis:"prior",ramps:0,version:"priors@079.1"}}]}),
     "editMetricValue",{exerciseInstanceId:slot,setId,metricId:loadId,value:"72.5"});
   const typed=typedOpening(freshOpening()),before=typed.exercises[slot].sets;
@@ -1322,6 +1322,16 @@ for(const ramps of [0,1,2,3])for(const workingLogged of [false,true]){
   const replacementNoop=apply(typedReplacement,"substituteExercise",{exerciseInstanceId:slot,replacement:replacementSnapshot,replacementProgram,
     selectedAt:"2026-08-15T11:02:00.000Z"});
   assert(same(replacementNoop.exercises[slot].sets,typedReplacement.exercises[slot].sets),"B2: picking the current replacement preserves typed input too");
+  assert(same(apply(restored,"restoreOriginalExercise",{exerciseInstanceId:slot}).exercises[slot].sets,before),
+    "B2: repeating a no-op restore leaves all input unchanged");
+  let programmedSwap=apply(freshOpening(),"substituteExercise",{exerciseInstanceId:slot,replacement:replacementSnapshot,replacementProgram,
+    selectedAt:"2026-08-15T11:03:00.000Z"});
+  const captured=programmedSwap.exercises[slot].substitution.originalPendingSets;
+  programmedSwap=apply(programmedSwap,"substituteExercise",{exerciseInstanceId:slot,replacement:replacementSnapshot,replacementProgram,
+    selectedAt:"2026-08-15T11:04:00.000Z"});
+  assert(same(programmedSwap.exercises[slot].substitution.originalPendingSets,captured)&&
+    same(apply(programmedSwap,"restoreOriginalExercise",{exerciseInstanceId:slot}).exercises[slot].sets,freshOpening().exercises[slot].sets),
+    "B2: picking a replacement again retains the original prescriptions for a later real restore");
 }
 
 console.log(`\n${results.passed} passed, ${results.failed} failed`);

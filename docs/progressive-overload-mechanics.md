@@ -528,8 +528,10 @@ load, never as a history row or an engine target. If no eligible working anchor
 exists, the new lift uses its ordinary prior or floor. Its own first working
 set replaces that opening, as with every ramp.
 
-An accepted opening belongs to the movement being performed. Changing or restoring
-the movement discards that opening and its pending load before offering a new
-starting point. Completed ramp warm-ups retain the movements actually performed.
+An accepted opening belongs to the movement being performed. Changing the performed
+movement discards that opening and its pending load before offering a new
+starting point. Selecting the current movement or restoring an already-original
+movement preserves pending values, touched flags and opening provenance.
+Completed ramp warm-ups retain the movements actually performed.
 The opening record counts that movement's own ramp warm-ups; the three-ramp ceiling
 still applies to the entire exercise slot, including trials before a swap.
