@@ -1283,6 +1283,26 @@
       "content": "flat",
       "scenario": "Closed reason sheet before skipping an exercise."
     },
+    "workout/focus-ramp": {
+      "owner": "plan-079",
+      "content": "flat",
+      "scenario": "A fresh generated program with bodyweight 80 kg offers the declared opening and the skip."
+    },
+    "workout/focus-ramp-easy": {
+      "owner": "plan-079",
+      "content": "flat",
+      "scenario": "A completed Easy set is a warm-up; the cue offers the next grid load before the working sets."
+    },
+    "history/ramp-rows": {
+      "owner": "plan-079",
+      "content": "flat",
+      "scenario": "Two warm-up ramp rows precede the first working row, whose opening provenance survives saving."
+    },
+    "workout/focus-ramp-floor": {
+      "owner": "plan-079",
+      "content": "flat",
+      "scenario": "Without bodyweight the opening uses the equipment floor and offers the existing Session bodyweight field."
+    },
     "onboarding-start/effort-choice": {
       "owner": "plan-078/pr2",
       "content": "flat",
@@ -2335,7 +2355,10 @@
         "workout/stage-tip",
         "workout/why-calibration",
         "workout/last-rep-slow",
-        "workout/rest-overrun-finish"
+        "workout/rest-overrun-finish",
+        "workout/focus-ramp",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor"
       ],
       "neverDisabledReason": "A note can always be written for the exercise in progress."
     },
@@ -3988,7 +4011,10 @@
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/focus-ramp",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor"
       ]
     },
     {
@@ -5971,7 +5997,10 @@
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/focus-ramp",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor"
       ]
     },
     {
@@ -7055,7 +7084,10 @@
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/focus-ramp",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor"
       ]
     },
     {
@@ -7113,7 +7145,10 @@
         "workout/stage-tip",
         "workout/why-calibration",
         "workout/last-rep-slow",
-        "workout/rest-overrun-finish"
+        "workout/rest-overrun-finish",
+        "workout/focus-ramp",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor"
       ],
       "progressScopes": {
         "workout-exercise-order": "exercise-set"
@@ -7166,7 +7201,8 @@
         "history/edit-dirty",
         "history/edit-invalid",
         "history/session",
-        "history/per-side-session"
+        "history/per-side-session",
+        "history/ramp-rows"
       ]
     },
     {
@@ -7264,7 +7300,11 @@
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/focus-ramp",
+        "workout/focus-ramp-easy",
+        "history/ramp-rows",
+        "workout/focus-ramp-floor"
       ]
     },
     {
@@ -7346,7 +7386,8 @@
         "onboarding-recommend/chip-editor-open",
         "onboarding-recommend/result-corrected",
         "onboarding-recommend/result-existing",
-        "program/editor-issues"
+        "program/editor-issues",
+        "history/ramp-rows"
       ]
     },
     {
@@ -7511,7 +7552,10 @@
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/focus-ramp",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor"
       ],
       "neverDisabledReason": "The header draws the name only while the workout has an exercise to open, and opening it is always available."
     },
@@ -7583,7 +7627,10 @@
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/focus-ramp",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor"
       ]
     },
     {
@@ -8301,7 +8348,8 @@
         "history/edit-dirty",
         "history/edit-invalid",
         "history/session",
-        "history/per-side-session"
+        "history/per-side-session",
+        "history/ramp-rows"
       ]
     },
     {
@@ -8391,7 +8439,10 @@
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/focus-ramp",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor"
       ]
     },
     {
@@ -8456,7 +8507,10 @@
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/focus-ramp",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor"
       ]
     },
     {
@@ -8499,7 +8553,10 @@
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/focus-ramp",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor"
       ]
     },
     {
@@ -8732,7 +8789,8 @@
         "progress/overview-calibration",
         "today/calibration-mini",
         "today/calibration-ring-bar",
-        "today/week-card"
+        "today/week-card",
+        "history/ramp-rows"
       ]
     },
     {
@@ -8812,7 +8870,8 @@
         "progress/overview-calibration",
         "today/calibration-mini",
         "today/calibration-ring-bar",
-        "today/week-card"
+        "today/week-card",
+        "history/ramp-rows"
       ]
     },
     {
@@ -8901,7 +8960,8 @@
         "progress/overview-calibration",
         "today/calibration-mini",
         "today/calibration-ring-bar",
-        "today/week-card"
+        "today/week-card",
+        "history/ramp-rows"
       ]
     },
     {
@@ -9056,7 +9116,11 @@
         "progress/overview-calibration",
         "today/calibration-mini",
         "today/calibration-ring-bar",
-        "workout/rest-overrun-finish"
+        "workout/rest-overrun-finish",
+        "workout/focus-ramp",
+        "workout/focus-ramp-easy",
+        "history/ramp-rows",
+        "workout/focus-ramp-floor"
       ]
     },
     {
@@ -9219,7 +9283,11 @@
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/focus-ramp",
+        "workout/focus-ramp-easy",
+        "history/ramp-rows",
+        "workout/focus-ramp-floor"
       ]
     },
     {
@@ -9295,7 +9363,10 @@
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/focus-ramp",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor"
       ]
     },
     {
@@ -9459,7 +9530,10 @@
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/focus-ramp",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor"
       ]
     },
     {
@@ -9508,7 +9582,10 @@
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/focus-ramp",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor"
       ]
     },
     {
@@ -9553,7 +9630,10 @@
         "workout/max-set-guess",
         "workout/max-set-active",
         "workout/max-set-result",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/focus-ramp",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor"
       ],
       "neverDisabledReason": "The way to change how effort is logged stays reachable whenever the shelf is."
     },
@@ -9706,7 +9786,10 @@
         "workout/max-set-result",
         "workout/effort-stage-a",
         "workout/effort-stage-b",
-        "workout/stage-tip"
+        "workout/stage-tip",
+        "workout/focus-ramp",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor"
       ]
     },
     {
@@ -9749,7 +9832,10 @@
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/focus-ramp",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor"
       ]
     },
     {
@@ -9792,7 +9878,10 @@
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/focus-ramp",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor"
       ]
     },
     {
@@ -9835,7 +9924,10 @@
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/focus-ramp",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor"
       ]
     },
     {
@@ -13087,6 +13179,73 @@
       ]
     },
     {
+      "id": "ramp-start",
+      "selector": "[data-ramp-start]",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Accepts the declared opening load for the pending set.",
+      "owner": "plan-079",
+      "catalogStates": [
+        "workout/focus-ramp",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor"
+      ]
+    },
+    {
+      "id": "ramp-skip",
+      "selector": "[data-ramp-skip]",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Opens the load wheel and records a typed starting load.",
+      "owner": "plan-079",
+      "catalogStates": [
+        "workout/focus-ramp",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor"
+      ]
+    },
+    {
+      "id": "ramp-bodyweight",
+      "selector": "[data-ramp-bodyweight]",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Opens the existing Session bodyweight field when the opening uses the equipment floor.",
+      "owner": "plan-079",
+      "catalogStates": [
+        "workout/focus-ramp-floor"
+      ]
+    },
+    {
       "id": "effort-choice-sheet",
       "selector": "#effortChoiceSheet",
       "roles": {
@@ -13289,7 +13448,10 @@
         "workout/stage-tip",
         "workout/why-calibration",
         "workout/last-rep-slow",
-        "workout/rest-overrun-finish"
+        "workout/rest-overrun-finish",
+        "workout/focus-ramp",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor"
       ]
     },
     {
@@ -13360,7 +13522,8 @@
         "install/banner",
         "today/draft-resume",
         "progress/overview-calibration",
-        "today/calibration-mini"
+        "today/calibration-mini",
+        "history/ramp-rows"
       ]
     },
     {
@@ -13489,7 +13652,10 @@
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/focus-ramp",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor"
       ]
     },
     {
@@ -13508,7 +13674,10 @@
         "workout/exercise-note-line",
         "workout/effort-stage-a",
         "workout/effort-stage-b",
-        "workout/stage-tip"
+        "workout/stage-tip",
+        "workout/focus-ramp",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor"
       ]
     }
   ],
@@ -13683,7 +13852,10 @@
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/focus-ramp",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor"
       ],
       "cssLiterals": [
         {
@@ -13715,7 +13887,10 @@
         "workout/logged-sets-folded",
         "workout/effort-stage-a",
         "workout/effort-stage-b",
-        "workout/stage-tip"
+        "workout/stage-tip",
+        "workout/focus-ramp",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor"
       ],
       "sourceOnly": true,
       "sourceOnlyReason": "Focus and library glossary popovers have rendered states; the workout overflow menu remains on-demand."
@@ -13738,7 +13913,10 @@
         "workout/logged-sets-folded",
         "workout/effort-stage-a",
         "workout/effort-stage-b",
-        "workout/stage-tip"
+        "workout/stage-tip",
+        "workout/focus-ramp",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor"
       ],
       "sourceOnly": true,
       "sourceOnlyReason": "The effort explanation opens after tapping the current-set value; canonical Focus frames keep it closed."
@@ -13871,7 +14049,8 @@
         "install/banner",
         "today/draft-resume",
         "progress/overview-calibration",
-        "today/calibration-mini"
+        "today/calibration-mini",
+        "history/ramp-rows"
       ]
     },
     {
@@ -13932,7 +14111,8 @@
         "install/banner",
         "today/draft-resume",
         "progress/overview-calibration",
-        "today/calibration-mini"
+        "today/calibration-mini",
+        "history/ramp-rows"
       ]
     },
     {
@@ -13953,7 +14133,10 @@
         "workout/logged-sets-folded",
         "workout/effort-stage-a",
         "workout/effort-stage-b",
-        "workout/stage-tip"
+        "workout/stage-tip",
+        "workout/focus-ramp",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor"
       ]
     },
     {

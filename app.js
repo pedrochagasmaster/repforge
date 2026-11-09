@@ -462,6 +462,7 @@ function isSafeLogRow(entry){
   if(Object.prototype.hasOwnProperty.call(entry,"effortSource")&&!(WorkoutDraft?.EFFORT_SOURCES||[]).includes(entry.effortSource))return false;
   // "Was the last rep slow?" (Plan 077, OD-25): a boolean, or absent.
   if(Object.prototype.hasOwnProperty.call(entry,"lastRepSlow")&&typeof entry.lastRepSlow!=="boolean")return false;
+  if(Object.prototype.hasOwnProperty.call(entry,"startingLoad")&&!WorkoutDraft?.validStartingLoad?.(entry.startingLoad))return false;
   // A max set's guess (Plan 077, OD-17): the draft's shape, or absent.
   if(Object.prototype.hasOwnProperty.call(entry,"calibration")&&!WorkoutDraft?.validCalibration?.(entry.calibration))return false;
   for(const key of ["performedName","performedLibraryId","performedMovementId","performedPrimary","performedSecondary"])
@@ -3466,6 +3467,7 @@ async function applyCustomSub(id,raw,libraryRef=null,ui={}){
   if(result.status==="domain-error"&&result.error?.code==="substitution-touched-pending-set")toast(t("toast.substitute_started_sets"));
   if(result.status!=="applied")return false;
   if(workoutActive)renderWorkout();else renderToday();return true}
+function sessionSetCount(ex){return activeWorkoutDraft?.exercises?.[ex.id]?.setOrder.length??ex.sets}
 function sessionExercise(ex){
   if(!ex||!substituted.has(ex.id))return ex;
   const name=substituted.get(ex.id),ref=substitutedRef.get(ex.id),entry=ref?libraryEntry(ref):null;
@@ -6522,7 +6524,7 @@ function canonicalPrescriptionSlot(ex,definition=state.programMeta?.programDefin
   return null}
 function enginePerformedRow(row,exerciseId,metricIds){
   const performedId=String(row?.performedLibraryId||row?.performedMovementId||"");
-  if(performedId!==exerciseId||row?.metricType!=="source_metrics@1"||
+  if(row?.origin==="ramp"||performedId!==exerciseId||row?.metricType!=="source_metrics@1"||
     !Array.isArray(row.metricIds)||JSON.stringify(row.metricIds)!==JSON.stringify(metricIds)||
     !Array.isArray(row.metricValues)||!Number.isInteger(row.setIndex)||row.setIndex<0)return null;
   const values=ExerciseMetrics?.validateMetricValues?.(metricIds,row.metricValues);
@@ -6570,8 +6572,12 @@ function progressionCurrentSession(prescription){
     Object.values(activeWorkoutDraft.exercises).find(item=>item.libraryId===prescription.exerciseId||item.sourceExerciseId===prescription.exerciseId);
   if(!exercise||exercise.status==="skipped")return[];
   const sets=[];
+  let rampCount=0;
   for(const setId of exercise.setOrder||[]){
-    const set=exercise.sets?.[setId];if(!set||set.completion==="pending"||set.role==="warmup")continue;
+    const set=exercise.sets?.[setId];if(!set)continue;
+    if(set.origin==="ramp"){rampCount++;continue}
+    if(set.role==="warmup"||set.completion==="pending")continue;
+    const setIndex=set.ordinal-1-rampCount;
     const values=[];let valid=true;
     for(const metric of set.programmed?.metrics||[]){
       const parsed=ExerciseMetrics?.parseMetricValue?.(metric,set.edited?.metrics?.[metric.id]);
@@ -6588,7 +6594,7 @@ function progressionCurrentSession(prescription){
     loadingContext.bodyweightKg=activeWorkoutDraft.session?.bodyweight==null||activeWorkoutDraft.session.bodyweight===""?null:Number(activeWorkoutDraft.session.bodyweight);
     if(typeof loadingContext.bodyweightContributionEnabled!=="boolean")
       loadingContext.bodyweightContributionEnabled=materialBodyweightCoefficient(loadingContext.bodyweightCoefficient,loadingContext.loadingConvention)>0&&loadingContext.bodyweightKg>0;
-    sets.push({exerciseId:prescription.exerciseId,completed:true,setIndex:set.ordinal-1,
+    sets.push({exerciseId:prescription.exerciseId,completed:true,setIndex,
       rir:Number.isFinite(rir)&&rir>=0?rir:null,equipmentId:exercise.programmed?.equipmentId??null,
       loadingConvention:exercise.programmed?.loadingConvention,metricIds:[...prescription.metricIds],metricValues:values,
       loadingContext,...(set.completion?.effortSource?{effortSource:set.completion.effortSource}:{}),
@@ -6634,6 +6640,8 @@ function recommendation(ex){
     return{status:"manual",engineStatus:"manual",reason:"canonical_program_definition_required",load:null,targetSets:[]};
   const cycleCount=Number.isInteger(definition.cycles)&&definition.cycles>0?definition.cycles:1;
   const elapsed=mesocycleLifecycle(state.programMeta).current||1,cycleNumber=Math.min(cycleCount,Math.max(1,elapsed));
+  const draftExercise=activeWorkoutDraft?.exercises?.[ex.id];
+  const nonRampOrdinals=draftExercise?.setOrder.map(id=>draftExercise.sets[id]).filter(set=>set.origin!=="ramp").map(set=>set.ordinal)||[];
   const prescriptions=compiler.prescriptionsForCycle(definition,cycleNumber).filter(item=>item.slotId===matched.slot.id);
   if(!prescriptions.length)return{status:"manual",engineStatus:"manual",reason:"cycle_prescription_unavailable",load:null,targetSets:[]};
   const first=prescriptions[0],slotProjection=slotLoadingProjection(matched.slot);
@@ -6651,7 +6659,8 @@ function recommendation(ex){
   const plannedSemantic=(matched.slot.metricDefinitions||[]).find(metric=>PLANNED_LOAD_SEMANTICS.includes(metric.semantic))?.semantic||null;
   const targetSets=prescriptions.map((prescription,index)=>{
     const result=results[index]||null;
-    const item={prescription,result,targets:result?.status==="recommended"?result.targets:prescription.targets,
+    const displayPrescription={...prescription,setIndex:nonRampOrdinals[index]??prescription.setIndex};
+    const item={prescription:displayPrescription,result,targets:result?.status==="recommended"?result.targets:prescription.targets,
       rir:prescription.rir,status:result?.status||"manual"};
     const codes=result?.reasonCodes||[],authoredLoad=plannedSemantic?prescription.targets?.[plannedSemantic]:null;
     const planned=result?.status!=="recommended"&&prescription.status==="ready"&&codes.includes("no_comparable_history")&&
@@ -6660,7 +6669,7 @@ function recommendation(ex){
     // Not enumerable: the recommendation that serialises (and that the parity proofs compare) is unchanged.
     Object.defineProperty(item,"planned",{value:planned});
     return item});
-  const firstActual=targetSets.find(item=>item.prescription.setIndex===1)||targetSets[0];
+  const firstActual=targetSets[0];
   const result=firstActual?.result,definitions=matched.slot.metricDefinitions||[];
   const requiresExecutionMode=definitions.some(metric=>
     ["repsPerSide","loadPerSideKg","persistentLoadPerSideKg"].includes(metric.semantic));
@@ -6876,7 +6885,7 @@ function inSessionNote(ex,draft){
   const done=new Set(draft.__done||[]),warm=new Set(draft.__warm||[]),changed=new Set(draft.__touched||[]);
   const rec=recommendation(ex),u=unitLabel();
   if(rec.status==="manual")return"";
-  for(let n=1;n<=ex.sets;n++){const key=`${ex.id}_${n}`;
+  for(let n=1;n<=sessionSetCount(ex);n++){const key=`${ex.id}_${n}`;
     if(done.has(key)||warm.has(key)||changed.has(key))continue;
     const sg=setSuggestion(ex,n,rec,draft,null);
     if(sg.src==="session-up")return t("log.insession.up",{set:n,load:fmtLoad(sg.load),unit:u});
@@ -6931,12 +6940,12 @@ function explainRecommendation(ex){
   if(note)rows.push(whyRow("session",{label:t("why.session"),text:note}));
   return rows}
 function applyAcknowledgedSuggestions(ex,draft){
-  for(let n=1;n<=ex.sets;n++){const key=`${ex.id}_${n}`;
+  for(let n=1;n<=sessionSetCount(ex);n++){const key=`${ex.id}_${n}`;
     const stored=activeWorkoutDraft?.exercises?.[ex.id],setId=stored?.setOrder?.find(id=>stored.sets[id]?.ordinal===n),set=setId?stored.sets[setId]:null;
     if(committed.has(key)||warmups.has(key)||!set||set.completion!=="pending")continue;
     if(!set.touched.load&&Object.prototype.hasOwnProperty.call(draft,`${key}_load`)){const li=$(`[data-k="${key}_load"]`);if(li)li.value=draft[`${key}_load`]??""}
     if(!set.touched.reps&&Object.prototype.hasOwnProperty.call(draft,`${key}_reps`)){const ri=$(`[data-k="${key}_reps"]`);if(ri)ri.value=draft[`${key}_reps`]??""}}}
-const hasCommittedSets=ex=>{for(let n=1;n<=ex.sets;n++)if(committed.has(`${ex.id}_${n}`))return true;return false};
+const hasCommittedSets=ex=>{for(let n=1;n<=sessionSetCount(ex);n++)if(committed.has(`${ex.id}_${n}`))return true;return false};
 /* Recommended metric values fill only pending sets the lifter has not touched. */
 function metricSuggestionUpdates(stored,rec){
   const updates=[];
@@ -6962,7 +6971,7 @@ function suggestionUpdatesFor(ex,draft){
   if(stored.setOrder.some(setId=>Array.isArray(stored.sets[setId]?.programmed?.metrics)))
     return metricSuggestionUpdates(stored,recommendation(ex));
   const rec=recommendation(ex),prev=last(ex),updates=[];
-  for(let n=1;n<=ex.sets;n++){
+  for(let n=1;n<=sessionSetCount(ex);n++){
     const key=`${ex.id}_${n}`,setId=stored.setOrder.find(id=>stored.sets[id]?.ordinal===n),set=setId?stored.sets[setId]:null;
     if(!set||set.role==="warmup"||set.completion!=="pending")continue;
     const sg=setSuggestion(ex,n,rec,draft,prev.find(x=>x.set===n)),fields={};
@@ -9686,14 +9695,14 @@ function setStageOf(exId,n){
 const dead=()=>` tabindex="-1"`;
 /** Set numbers already committed on this exercise, in order. */
 function focusDoneSets(ex){const out=[];
-  for(let n=1;n<=ex.sets;n++)if(committed.has(`${ex.id}_${n}`))out.push(n);
+  for(let n=1;n<=sessionSetCount(ex);n++)if(committed.has(`${ex.id}_${n}`))out.push(n);
   if(focusEdit?.exId===ex.id&&!out.includes(focusEdit.n))out.push(focusEdit.n);
   out.sort((a,b)=>a-b);
   return out}
 /** The set the shelf is working on: the one being edited, else the first unlogged. */
 function focusActiveSet(ex){
-  if(focusEdit&&focusEdit.exId===ex.id&&focusEdit.n>=1&&focusEdit.n<=ex.sets)return focusEdit.n;
-  for(let n=1;n<=ex.sets;n++)if(!committed.has(`${ex.id}_${n}`))return n;
+  if(focusEdit&&focusEdit.exId===ex.id&&focusEdit.n>=1&&focusEdit.n<=sessionSetCount(ex))return focusEdit.n;
+  for(let n=1;n<=sessionSetCount(ex);n++)if(!committed.has(`${ex.id}_${n}`))return n;
   return 0}
 const focusExDone=ex=>focusActiveSet(ex)===0;
 /** The load the next set is judged against: this session's last logged set,
@@ -9705,12 +9714,64 @@ function focusRefLoad(ex,n,draft,prev){
     if(Number.isFinite(v)&&v>0)return v}
   const old=prev.find(x=>x.set===n)||prev.at(-1);
   return old&&old.load!=null?+old.load:null}
-/** The two lines above the ledger: what to do with this set, and why. Line one
- *  is the verb and the load, line two the reps to aim for. The load is the
- *  engine's: `setSuggestion` for this set, never a figure derived here. */
+/* The opening is a declared prior only while this lift has no working record.
+   Pending values and provenance live in DraftV2, so a reload resumes the same ramp. */
+function focusRamp(ex,n,r){
+  const de=activeWorkoutDraft?.exercises?.[ex.id],set=draftSetAt(ex.id,n),loads=window.RepForgeStartingLoads;
+  if(!loads||!de||!set||set.completion!=="pending"||set.role!=="working"||de.substitution||set.calibration||
+    r.status!=="new"||r.plannedLoad!=null||r.targetSets?.some(item=>item.planned)||last(ex).length||r.progressionInputs?.history?.length||
+    de.setOrder.some(id=>de.sets[id].role==="working"&&(de.sets[id].completion!=="pending"||de.sets[id].performed)))return null;
+  const convention=de.programmed.loadingConvention;
+  if(!["external","per_side"].includes(convention)||de.programmed.loadingContext?.externalLoadMultiplier===0)return null;
+  const metrics=draftSetMetrics(set),loadMetric=metrics.find(metric=>["loadKg","loadPerSideKg","persistentLoadPerSideKg"].includes(metric.semantic));
+  const repsMetric=metrics.find(metric=>["reps","repsPerSide"].includes(metric.semantic));
+  if(metrics.length!==2||!loadMetric||!repsMetric||!ex.min)return null;
+  const grid=loadGridKg(loadStepKg(ex.libraryId)),exercise=rawExercise(ex.libraryId);
+  const equipmentName=de.programmed.equipmentId?rawCatalogObject(de.programmed.equipmentId)?.name:null;
+  const opening=loads.openingLoad({exercise,lookup:rawCatalogObject,equipmentName,convention,bodyweightKg:sessionBodyweightKg(),
+    experience:state.programMeta?.experience||"beginner",grid});
+  if(opening.loadKg==null)return null;
+  const recorded=set.startingLoad;
+  const load=Number(set.edited?.metrics?.[loadMetric.id]);
+  return{set,de,loadMetric,repsMetric,grid,loadKg:load>0?load:opening.loadKg,
+    record:recorded||{v:1,openingKg:opening.loadKg,basis:opening.basis,ramps:0,version:loads.PRIORS_VERSION}}}
+async function startFocusRamp(exId,n,typed=false,offered=null){
+  await WorkoutSession.flush();
+  const base=prog.find(exId),ex=base?sessionExercise(base):null,r=ex?recommendation(ex):null;
+  const ramp=ex?focusRamp(ex,n,r):null;if(!ramp)return;
+  // A queued bodyweight edit can settle after the button was pressed. Show
+  // the revised offer before accepting it; an accepted or typed load stays put.
+  if(offered&&(ramp.loadKg!==offered.loadKg||ramp.record.basis!==offered.basis)){
+    renderWorkout();return}
+  const record={...ramp.record,...(typed?{basis:"typed",openingKg:ramp.loadKg}:{})};
+  const fields={metrics:{[ramp.loadMetric.id]:String(ramp.loadKg),[ramp.repsMetric.id]:String(ex.min)}};
+  const result=await WorkoutSession.dispatch("refreshUntouchedSuggestions",{sourceRevision:activeWorkoutDraft.revision,
+    updates:[{exerciseInstanceId:exId,setId:ramp.set.setId,fields,startingLoad:record}]});
+  if(result.status!=="applied")return;
+  renderWorkout();
+  if(typed)openWheelSheet(`${exId}_${n}`,`metric_${ramp.loadMetric.id}`,"load")}
+/* Copy the performed Easy set into an inserted warm-up. The working set keeps its
+   identity and all programmed working sets remain available. */
+async function saveRampEasy(ex,n,r){
+  const ramp=focusRamp(ex,n,r);if(!ramp||ramp.record.basis==="typed"||ramp.record.ramps>=3||!ramp.set.startingLoad)return false;
+  const rir=draftSetRir(ramp.set),reps=draftSetReps(ramp.set),load=Number(ramp.set.edited.metrics?.[ramp.loadMetric.id]);
+  if(!(rir>=3&&reps>0&&load>0))return false;
+  const next=window.RepForgeStartingLoads.nextRampLoad({loadKg:load,reps,targetRir:ramp.set.programmed.targetRir??2,grid:ramp.grid});
+  if(next==null)return false;
+  const setId=`ramp-${uid()}`,record={...ramp.record,ramps:ramp.record.ramps+1};
+  const inserted=await WorkoutSession.dispatch("insertSet",{exerciseInstanceId:ex.id,beforeSetId:ramp.set.setId,setId,
+    role:"warmup",origin:"ramp",programmed:ramp.set.programmed,edited:ramp.set.edited,startingLoad:record,nextLoadKg:next});
+  if(inserted.status!=="applied")return true;
+  const completed=await WorkoutSession.dispatch("completeSet",{exerciseInstanceId:ex.id,setId});
+  if(completed.status!=="applied")return true;
+  lastCommitAt=Date.now();if(!sessionStartedAt)sessionStartedAt=lastCommitAt;
+  applyRest(RepForgeRestTimer.setLength(restClock,0));startRest(exerciseRestSec(prog.find(ex.id)),ex.id);armUnfinishedWatch();
+  focusLogged={exId:ex.id,n};
+  renderWorkout();focusWorkoutHandoff("next",{exId:ex.id,n});return true}
+/** Working cues read the engine's setSuggestion; a first opening uses the declared prior. */
 function focusCue(ex,n,r,draft,prev,editing){
   const unit=unitLabel();
-  if(editing){const text=t("focus.cue.editing_set",{n,total:ex.sets});
+  if(editing){const text=t("focus.cue.editing_set",{n,total:sessionSetCount(ex)});
     return{kind:"edit",move:"",headHtml:esc(text),sub:""}}
   // A test set is taken to failure at its own load: the cue says that and the guess, not the engine's move (Plan 077).
   const maxSet=draftSetAt(ex.id,n);
@@ -9719,6 +9780,9 @@ function focusCue(ex,n,r,draft,prev,editing){
     const sentence=t(loadText?"maxset.cue_head":"maxset.cue_head_noload",{load:"\u0000",unit});
     return{kind:"maxset",move:"",loadText,headHtml:esc(sentence).replace("\u0000",`<b class="fx-cue__load">${esc(loadText)}</b>`),
       sub:t("maxset.cue_sub",{n:maxSet.calibration.predictedReps})}}
+  const ramp=focusRamp(ex,n,r);
+  if(ramp&&ramp.record.basis!=="typed")return{kind:"ramp",move:"",ramp,headHtml:esc(t("focus.cue.find_weight")),
+    sub:t("focus.cue.reps",{reps:ex.min})};
   const sg=setSuggestion(ex,n,r,draft,prev.find(x=>x.set===n));
   if(r.status==="manual")return{kind:"manual",move:"",headHtml:esc(t("focus.cue.your_targets")),
     sub:t("focus.cue.range_reps",{reps:`${ex.min}–${ex.max}`})};
@@ -9817,6 +9881,7 @@ const evidenceFig=v=>`<span class="fx-cue__fig">${esc(v)}</span>`;
  *  Why sheet (`engineSetFacts`), or, with no suggestion, the honest reason. Mono carries the figures. */
 function focusEvidenceText(ex,n,r,cue){
   if(cue.kind==="edit")return"";
+  if(cue.kind==="ramp")return esc(t(`focus.evidence.${cue.ramp.record.basis}`));
   // One quiet sentence: only the performed set's figures ride in Mono (owner review of #550).
   const effort=isWordMode(),mono=evidenceFig,plain=v=>esc(v),say=evidenceSay;
   if(cue.kind==="planned")return esc(t("focus.evidence.planned"));
@@ -9848,6 +9913,9 @@ function focusCueBlockHtml(ex,n,r,cue,{peek,name,draft}){
     ?`<button type="button" class="text-link fx-cue__cancel"${peek?dead():" data-fcancel"}>${esc(t("focus.cancel_edit"))}</button>`:"";
   return `<div class="fx-cue is-${cue.kind}"><p class="fx-cue__l1">${mark}${cue.headHtml}</p>`+
     (cue.sub?`<p class="fx-cue__l2">${esc(cue.sub)}</p>`:"")+
+    (cue.kind==="ramp"?`<div class="fx-ramp-actions"><button type="button" class="btn"${peek?dead():` data-ramp-start="${esc(ex.id)}" data-ramp-n="${n}" data-ramp-load="${cue.ramp.loadKg}" data-ramp-basis="${cue.ramp.record.basis}"`}>${esc(t("focus.cue.start_at",{load:fmtLoad(cue.ramp.loadKg),unit:unitLabel()}))}</button>`+
+      `<button type="button" class="text-link"${peek?dead():` data-ramp-skip="${esc(ex.id)}" data-ramp-n="${n}"`}>${esc(t("focus.cue.know_weight"))}</button>`+
+      (cue.ramp.record.basis==="floor"&&!cue.ramp.set.startingLoad?`<button type="button" class="text-link"${peek?dead():" data-ramp-bodyweight"}>${esc(t("session.sheet.bodyweight"))}</button>`:"")+`</div>`:"")+
     (evidence||why?`<p class="fx-cue__evidence">${evidence}${evidence&&why?" ":""}${why}</p>`:"")+cancel+`</div>`}
 function focusSlotHtml(ex,n,r,cue,opts){
   return `<div class="fx-slot">${focusCueBlockHtml(ex,n,r,cue,opts)}</div>`}
@@ -9936,7 +10004,7 @@ function focusLedgerExpanded(ex,peek){
 /** The sets the lifter has logged on this exercise, the one being corrected included. */
 function focusLoggedCount(ex){
   const editN=focusEdit&&focusEdit.exId===ex.id?focusEdit.n:0;
-  let count=0;for(let n=1;n<=ex.sets;n++)if(committed.has(`${ex.id}_${n}`)||n===editN)count++;
+  let count=0;for(let n=1;n<=sessionSetCount(ex);n++)if(committed.has(`${ex.id}_${n}`)||n===editN)count++;
   return count}
 /** The oldest logged rows the table folds: none while it is open, else what the last measurement left out. */
 function focusLedgerFoldCount(ex,peek){
@@ -9974,9 +10042,9 @@ function focusLedgerRowsHtml(ex,r,draft,prev,{peek=false}){
   const freshN=focusIsFresh(ex,peek)?focusLogged.n:0;
   const expanded=focusLedgerExpanded(ex,peek);
   let after=0,folded=focusLedgerFoldCount(ex,peek);
-  for(let n=active+1;n<=ex.sets&&!after;n++)if(!committed.has(`${ex.id}_${n}`))after=n;
+  for(let n=active+1;n<=sessionSetCount(ex)&&!after;n++)if(!committed.has(`${ex.id}_${n}`))after=n;
   const rows=[];
-  for(let n=1;n<=ex.sets;n++){
+  for(let n=1;n<=sessionSetCount(ex);n++){
     const key=`${ex.id}_${n}`;
     const done=committed.has(key)&&n!==editN;
     if(!expanded&&!done&&n!==active&&n!==after)continue;
@@ -10550,7 +10618,7 @@ function refreshShelf({focus=null}={}){
   const base=prog.find(card.dataset.ex);if(!base)return false;
   const ex=sessionExercise(base),draft=hydrateWorkoutDraft(),fl=focusList();
   const at=Math.max(0,fl.findIndex(e=>e.id===ex.id));
-  const allDone=fl.every(e=>{for(let n=1;n<=e.sets;n++)if(!committed.has(`${e.id}_${n}`))return false;return true});
+  const allDone=fl.every(e=>{for(let n=1;n<=sessionSetCount(e);n++)if(!committed.has(`${e.id}_${n}`))return false;return true});
   const old=card.querySelector(".focus-shelf");if(!old)return false;
   // T1: where the selection outline is drawn now — or, if one is still in
   // flight, where it is on screen — so the next travel starts from there.
@@ -10724,7 +10792,7 @@ function focusCardHtml(ex,r,draft,prev,opts){
  *  screen in its own slot. Dragging — or tapping through — moves all three
  *  together, the way a paged view does. */
 function focusDeckHtml(ex,r,draft,prev,{fl,at}){
-  const allDone=fl.every(e=>{for(let n=1;n<=e.sets;n++)if(!committed.has(`${e.id}_${n}`))return false;return true});
+  const allDone=fl.every(e=>{for(let n=1;n<=sessionSetCount(e);n++)if(!committed.has(`${e.id}_${n}`))return false;return true});
   const slot=(inner,side)=>`<div class="deck__slot${side?` deck__slot--${side}`:""}"${side?' aria-hidden="true"':""}>${inner}</div>`;
   const nameAt=i=>fl[i]?exerciseDisplayName(sessionExercise(fl[i])):"";
   // A neighbour is rendered exactly as it will be once it lands: same ledger,
@@ -11206,6 +11274,9 @@ function applyDraftIssue(issues){
  *  live one takes a handler. */
 const $w=sel=>$$(`#workout ${sel}`).filter(el=>!el.closest(".is-peek"));
 function bindWorkout(){
+  $$("#workout [data-ramp-bodyweight]").forEach(button=>button.onclick=()=>{openSessionSheet();$("#sessionBodyweight")?.focus()});
+  $$("#workout [data-ramp-start]").forEach(button=>button.onclick=()=>startFocusRamp(button.dataset.rampStart,+button.dataset.rampN,false,{loadKg:+button.dataset.rampLoad,basis:button.dataset.rampBasis}));
+  $$("#workout [data-ramp-skip]").forEach(button=>button.onclick=()=>startFocusRamp(button.dataset.rampSkip,+button.dataset.rampN,true));
   $w("input").forEach(i=>{i.oninput=async()=>{const row=i.closest(".shelf__field"),target=draftTargetFromKey(i.dataset.k);
     const padDir=padTap.get(i)||0;padTap.delete(i);
     if(!activeWorkoutDraft||!target?.field)return;
@@ -11236,7 +11307,10 @@ function bindWorkout(){
   $w("[data-why]").forEach(b=>b.onclick=e=>{e.stopPropagation();openWhySheet(b.dataset.why,b)});
   $w(".saveset").forEach(b=>b.onclick=async()=>{const key=b.dataset.save,target=draftTargetFromKey(key);
     if(!activeWorkoutDraft||!target)return;
+    await WorkoutSession.flush();
     const set=activeWorkoutDraft.exercises[target.exerciseInstanceId].sets[target.setId];
+    const base=prog.find(target.exerciseInstanceId),shown=base?sessionExercise(base):null;
+    if(shown&&set.completion==="pending"&&!focusEdit&&await saveRampEasy(shown,target.ordinal,recommendation(shown)))return;
     const editing=!!(focusEdit&&`${focusEdit.exId}_${focusEdit.n}`===key);
     const type=set.completion==="pending"?"completeSet":"uncommitSet";
     // A set showing values carried from the set above (lastSetCarry) logs those values, not what lies under them.
@@ -11264,7 +11338,11 @@ function bindWorkout(){
     const refreshReservation=type==="completeSet"?reserveDraftRefresh():null;
     let refreshStarted=false;
     try{
-      const result=await WorkoutSession.dispatch(type,{exerciseInstanceId:target.exerciseInstanceId,setId:target.setId,...(prefill?{prefill}:{})});
+      const opening=type==="completeSet"&&shown?focusRamp(shown,target.ordinal,recommendation(shown)):null;
+      const startingLoad=opening&&(!set.startingLoad||set.startingLoad.basis==="typed")
+        ?{...opening.record,basis:"typed",openingKg:Number(metricFieldValue(set,"load"))}:null;
+      const result=await WorkoutSession.dispatch(type,{exerciseInstanceId:target.exerciseInstanceId,setId:target.setId,
+        ...(prefill?{prefill}:{}),...(startingLoad?{startingLoad}:{})});
       if(result.status==="domain-error"){applyDraftIssue(result.error?.issues);return}
       if(result.status!=="applied")return;
       const nowDone=activeWorkoutDraft.exercises[target.exerciseInstanceId].sets[target.setId].completion!=="pending";
@@ -11621,7 +11699,7 @@ function buildSessionSummary({rows,prevLog,session,date,day:sessDay,startedAt}){
     meso:{current:meso.current,total:meso.total,isComplete:meso.isComplete},
     next:next?{day:next,exercises:exercises(next).length}:null}}
 
-function updateSaveMeta(){const exs=exercises(),planned=sum(exs.map(e=>e.sets));
+function updateSaveMeta(){const exs=exercises(),planned=sum(exs.map(sessionSetCount));
   const done=[...committed].length;
   const entered=activeWorkoutDraft?activeWorkoutDraft.exerciseOrder.reduce((count,exId)=>{
     const exercise=activeWorkoutDraft.exercises[exId];return count+exercise.setOrder.filter(setId=>{
@@ -13055,10 +13133,10 @@ async function applyParsedCommand(parsed,context){
   const current=context?.current??(()=>true);
   const dispatch=(type,payload)=>current()?WorkoutSession.dispatch(type,payload):{status:"stale"};
   if(!ex)return;
-  const pick=n=>{if(n<1||n>ex.sets)return null;const k=`${ex.id}_${n}`;return committed.has(k)?null:n};
+  const pick=n=>{if(n<1||n>sessionSetCount(ex))return null;const k=`${ex.id}_${n}`;return committed.has(k)?null:n};
   let setN=null;
-  if(parsed.set!=null){for(let n=parsed.set;n<=ex.sets;n++){setN=pick(n);if(setN)break}}
-  else{for(let n=1;n<=ex.sets;n++){setN=pick(n);if(setN)break}}
+  if(parsed.set!=null){for(let n=parsed.set;n<=sessionSetCount(ex);n++){setN=pick(n);if(setN)break}}
+  else{for(let n=1;n<=sessionSetCount(ex);n++){setN=pick(n);if(setN)break}}
   if(!setN){toast(t("toast.all_sets_saved"));return}
   const key=`${ex.id}_${setN}`;
   let loadDisp=parsed.load;
@@ -24965,7 +25043,7 @@ function recCueLoad(rec){
 /** The set the Focus cue speaks for: the first one not logged. The draft reopens a set while it is corrected, so that set
  *  is the one the headline and the "Set n target" in the same sheet both name. */
 function whyCueSet(ex){
-  for(let n=1;n<=ex.sets;n++)if(!committed.has(`${ex.id}_${n}`))return n;
+  for(let n=1;n<=sessionSetCount(ex);n++)if(!committed.has(`${ex.id}_${n}`))return n;
   return 0}
 /* The Why sheet for an adaptive recommendation says only what the engine
    reported: the set it is anchored on and the strength that set shows, the
@@ -25061,8 +25139,8 @@ function whySheetModel(ex,surface="focus"){
   // The first unlogged working set, as the in-session note names it.
   const done=new Set(draft.__done||[]),warm=new Set(draft.__warm||[]);
   let nextSet=null;
-  for(let n=1;n<=ex.sets&&nextSet==null;n++){const key=`${ex.id}_${n}`;if(!done.has(key)&&!warm.has(key))nextSet=n}
-  const session=completedCurrentSets(ex,ex.sets+1,draft);
+  for(let n=1;n<=sessionSetCount(ex)&&nextSet==null;n++){const key=`${ex.id}_${n}`;if(!done.has(key)&&!warm.has(key))nextSet=n}
+  const session=completedCurrentSets(ex,sessionSetCount(ex)+1,draft);
   if(isRange&&rec.status!=="new"&&session.length&&nextSet!=null){
     // In-session: the capacity the set showed comes before the prediction for the next one, never the reverse.
     const seen=session.at(-1),sg=setSuggestion(ex,nextSet,rec,draft,last(ex).find(x=>+x.set===nextSet)),note=take("session"),observed=Math.round(repsAtLoad(seen.cap,seen.load));
@@ -25752,7 +25830,10 @@ function init(){
 
   const sessBw=$("#sessionBodyweight");if(sessBw)sessBw.addEventListener("input",async()=>{
     contextTouched.bodyweight=true;syncSessionBodyweightUnit();
-    if(activeWorkoutDraft)await WorkoutSession.dispatch("setBodyweight",{value:canonicalDraftBodyweight(sessBw.value)},{pendingValue:sessBw.value});
+    if(activeWorkoutDraft){
+      const result=await WorkoutSession.dispatch("setBodyweight",{value:canonicalDraftBodyweight(sessBw.value)},{pendingValue:sessBw.value});
+      if(result.status==="applied"&&$("#workout [data-ramp-start]"))renderWorkout();
+    }
   });
 
   // The sheet's head takes its hairline once content is under it (UI kit §4).

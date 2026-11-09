@@ -1203,5 +1203,91 @@ console.log("\nIssue #320: create() clamps a target RIR that falls back to the l
   assert(!Draft.isDomainError(cleared)&&project(cleared).pain.length===0,"explicit clear retracts the mark");
 }
 
+// Every rendered opening basis needs a localized evidence sentence, including restored ratio records.
+for(const basis of ["prior","ratio","floor"]){
+  const key=`focus.evidence.${basis}`;
+  assert(typeof require("../i18n-en.json")[key]==="string"&&typeof require("../i18n-pt.json")[key]==="string",
+    `${basis} opening evidence exists in both catalogs`);
+}
+
+// Plan 079: insert a warm-up without consuming any programmed working set.
+{
+  let d=fresh();
+  const first=d.exercises["slot-squat"].sets["squat-set-1"];
+  const opening={v:1,openingKg:20,basis:"prior",ramps:1,version:"priors@079.1"};
+  const payload={exerciseInstanceId:"slot-squat",beforeSetId:"squat-set-1",setId:"ramp-1",role:"warmup",origin:"ramp",
+    programmed:first.programmed,edited:{...first.edited,load:"20",reps:"6",rir:"3"},startingLoad:opening};
+  const inserted=command(d,"insertSet",payload).result;
+  assert(!Draft.isDomainError(inserted),"ramp insertion is a supported draft command",JSON.stringify(inserted));
+  if(!Draft.isDomainError(inserted)){
+    d=inserted;
+    assert(d.exercises["slot-squat"].programmed.sets===fresh().exercises["slot-squat"].programmed.sets,
+      "ramp insertion keeps the authored set count so older readers reject expanded coverage safely");
+    assert(Draft.isDomainError(command(d,"insertSet",{...payload,setId:"duplicate-easy"}).result),"two callers cannot consume the same Easy answer twice");
+    assert(same(d.exercises["slot-squat"].setOrder,["ramp-1","squat-set-1","squat-set-2"]),"ramp precedes the first working set");
+    assert(d.exercises["slot-squat"].setOrder.every((id,i)=>d.exercises["slot-squat"].sets[id].ordinal===i+1),"insertion renumbers every ordinal");
+    const reset=command(fresh(),"insertSet",{...payload,nextLoadKg:22.5}).result;
+    assert(!Draft.isDomainError(reset)&&reset.exercises["slot-squat"].sets["squat-set-1"].edited.load==="22.5"&&
+      Object.values(reset.exercises["slot-squat"].sets["squat-set-1"].touched).every(value=>value===false),
+      "the next ramp load is an untouched prefill, never a performed working set");
+    const mid=apply(fresh(),"completeSet",{exerciseInstanceId:"slot-squat",setId:"squat-set-1",completedAt:"2026-08-15T11:00:00.000Z"});
+    assert(Draft.isDomainError(command(mid,"insertSet",payload).result),"a working set blocks insertion even before the ramp limit");
+    const undone=apply(mid,"uncommitSet",{exerciseInstanceId:"slot-squat",setId:"squat-set-1"});
+    assert(Draft.isDomainError(command(undone,"insertSet",payload).result),"undoing a working set cannot start a mid-exercise ramp");
+    assert(!Draft.isPristine(reset),"an accepted opening remains recoverable before any working set is completed");
+    assert(Draft.validate(d).ok&&Draft.parse(JSON.stringify(d)).draft.exercises["slot-squat"].sets["ramp-1"].origin==="ramp","ramp and opening provenance survive production parse");
+    d=apply(d,"completeSet",{exerciseInstanceId:"slot-squat",setId:"ramp-1",completedAt:"2026-08-15T11:00:00.000Z"});
+    for(let i=2;i<=3;i++)d=apply(d,"insertSet",{...payload,setId:`ramp-${i}`,startingLoad:{...opening,ramps:i}});
+    assert(Draft.isDomainError(command(d,"insertSet",{...payload,setId:"ramp-4"}).result),"a fourth ramp is refused");
+    d=apply(d,"editSetField",{exerciseInstanceId:"slot-squat",setId:"squat-set-1",field:"load",value:"30"});
+    d=apply(d,"editSetField",{exerciseInstanceId:"slot-squat",setId:"squat-set-1",field:"reps",value:"6"});
+    d=apply(d,"completeSet",{exerciseInstanceId:"slot-squat",setId:"squat-set-1",completedAt:"2026-08-15T11:01:00.000Z"});
+    assert(Draft.isDomainError(command(d,"insertSet",{...payload,setId:"late-ramp"}).result),"completed working set prevents mid-exercise insertion");
+    const rows=Draft.toHistoryRows(apply(d,"beginFinish"),"2026-08-15T11:02:00.000Z");
+    assert(rows[0]?.warmup===true&&!rows[0]?.startingLoad,"ramp saves as an ordinary warm-up without first-working provenance");
+    assert(rows[0]?.origin==="ramp","a saved ramp has an explicit marker that cannot be confused with a manual warm-up");
+    assert(rows.find(row=>!row.warmup)?.startingLoad?.ramps===3,"only first working row carries the opening and ramp count");
+    assert(rows.find(row=>!row.warmup)?.setIndex===0,"only inserted ramps are removed from the saved engine index");
+    const bad=structuredClone(d);bad.exercises["slot-squat"].sets["squat-set-1"].startingLoad.extra=true;
+    assert(!Draft.validate(bad).ok,"opening provenance rejects unknown fields");
+  }
+}
+
+// #730: substitution snapshots predate inserted trial ordinals. Restoring the
+// original keeps performed work and restores every still-pending prescription.
+for(const ramps of [0,1,2,3])for(const workingLogged of [false,true]){
+  let d=makeMetricDraft();
+  const original=d.exercises[metricSlotId];
+  d=apply(d,"substituteExercise",{exerciseInstanceId:metricSlotId,replacement:replacementSnapshot,
+    replacementProgram,selectedAt:"2026-08-15T10:00:00.000Z"});
+  for(let n=1;n<=ramps;n++){
+    const first=d.exercises[metricSlotId].sets[`${metricSlotId}-set-1`];
+    const edited={...first.edited,rir:"3",metrics:Object.fromEntries(first.programmed.metrics.map(metric=>[metric.id,
+      metric.semantic==="reps"?"8":"20"]))};
+    d=apply(d,"insertSet",{exerciseInstanceId:metricSlotId,beforeSetId:first.setId,setId:`restore-ramp-${n}`,
+      role:"warmup",origin:"ramp",programmed:first.programmed,edited});
+    d=apply(d,"completeSet",{exerciseInstanceId:metricSlotId,setId:`restore-ramp-${n}`,completedAt:"2026-08-15T10:01:00.000Z"});
+  }
+  if(workingLogged){
+    for(const metricId of replacementMetricIds)d=apply(d,"editMetricValue",{exerciseInstanceId:metricSlotId,
+      setId:`${metricSlotId}-set-1`,metricId,value:metricId===replacementMetricIds[0]?"20":"8"});
+    d=apply(d,"completeSet",{exerciseInstanceId:metricSlotId,setId:`${metricSlotId}-set-1`,completedAt:"2026-08-15T10:02:00.000Z"});
+  }
+  // Exercise the exact stored shape before issuing the command, as a reload does.
+  d=Draft.parse(JSON.stringify(Draft.serialize(d))).draft;
+  const before=d.exercises[metricSlotId],outcome=command(d,"restoreOriginalExercise",{exerciseInstanceId:metricSlotId}).result;
+  const label=`restore with ${ramps} ramps, working logged=${workingLogged}`;
+  assert(!Draft.isDomainError(outcome),`${label}: command applies`,JSON.stringify(outcome));
+  if(Draft.isDomainError(outcome))continue;
+  const restored=outcome.exercises[metricSlotId];
+  assert(restored.substitution===null&&same(restored.setOrder,before.setOrder)&&restored.programmed.sets===original.programmed.sets,
+    `${label}: original returns with all authored and ramp identities retained`);
+  assert(restored.setOrder.every((id,index)=>restored.sets[id].ordinal===index+1),`${label}: every set has its live ordered ordinal`);
+  assert(restored.setOrder.every(id=>before.sets[id].completion!=="pending"?same(restored.sets[id],before.sets[id]):
+    same(restored.sets[id].programmed,original.sets[id].programmed)&&same(restored.sets[id].edited,original.sets[id].edited)),
+    `${label}: performed replacement work is unchanged and pending original prescriptions return`);
+  assert(Draft.parse(JSON.stringify(Draft.serialize(outcome))).kind==="valid",`${label}: the restored aggregate survives reload`);
+}
+
 console.log(`\n${results.passed} passed, ${results.failed} failed`);
 if (results.failed) process.exitCode = 1;

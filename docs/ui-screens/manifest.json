@@ -2285,6 +2285,34 @@
       "variants": "demandingText"
     },
     {
+      "id": "focus-ramp",
+      "flow": "workout",
+      "label": "Finding an opening load",
+      "scenario": "A fresh generated program with bodyweight 80 kg offers the declared opening and the skip.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "focus-ramp-easy",
+      "flow": "workout",
+      "label": "After an Easy ramp set",
+      "scenario": "A completed Easy set is a warm-up; the cue offers the next grid load before the working sets.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "ramp-rows",
+      "flow": "history",
+      "label": "Saved ramp rows",
+      "scenario": "Two warm-up ramp rows precede the first working row, whose opening provenance survives saving.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "focus-ramp-floor",
+      "flow": "workout",
+      "label": "Finding a weight without bodyweight",
+      "scenario": "Without bodyweight the opening uses the equipment floor and offers the existing Session bodyweight field.",
+      "variants": "demandingText"
+    },
+    {
       "id": "effort-choice",
       "flow": "onboarding-start",
       "label": "Effort choice at activation",

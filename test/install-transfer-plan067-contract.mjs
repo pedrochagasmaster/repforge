@@ -814,3 +814,37 @@ for (const bad of ["yes", 1, null]) {
 }
 
 console.log("PASS Plan 067 install-transfer clone contract");
+
+// Plan 079: opening provenance is strict at both durable-row and draft boundaries.
+const opening079 = {v:1,openingKg:20,basis:"prior",ramps:2,version:"priors@079.1"};
+for (const location of ["row", "draft"]) {
+  for (const value of [opening079, {...opening079,extra:true}, {...opening079,openingKg:-20}, {...opening079,ramps:4}, {...opening079,basis:"unknown"}]) {
+    const envelope=structuredClone(valid);
+    const target=location==="row"?envelope.durableState.log[0]
+      :envelope.workoutDraft.exercises[activeSlot.id].sets[envelope.workoutDraft.exercises[activeSlot.id].setOrder[0]];
+    target.startingLoad=value;
+    envelope.integrity.canonicalPayloadHash=canonicalHash(envelope);
+    assert.equal((await Contract.validateEnvelopeIntegrity(envelope,webcrypto)).ok,value===opening079,`${location}: strict starting-load provenance ${JSON.stringify(value)}`);
+  }
+}
+{
+  const envelope=structuredClone(valid),logical=envelope.workoutDraft;
+  const draft={...logical,revision:0,writer:{installationId:"ramp-source",tabId:"ramp-tab",operationId:"ramp-create"},
+    program:{...logical.program,durableRevision:0}};
+  const ex=draft.exercises[activeSlot.id],first=ex.sets[ex.setOrder[0]];
+  const inserted=WorkoutDraft.reduce(draft,{type:"insertSet",operationId:"ramp-insert",expectedRevision:0,
+    writer:{installationId:"ramp-source",tabId:"ramp-tab"},updatedAt:"2026-10-06T09:00:00.000Z",
+    exerciseInstanceId:activeSlot.id,beforeSetId:first.setId,setId:"ramp-before-first",role:"warmup",origin:"ramp",
+    programmed:first.programmed,edited:first.edited,startingLoad:{...opening079,ramps:1},nextLoadKg:22.5});
+  assert.equal(WorkoutDraft.isDomainError(inserted),false,JSON.stringify(inserted));
+  envelope.workoutDraft=WorkoutDraft.logicalCloneSection(inserted);
+  envelope.integrity.canonicalPayloadHash=canonicalHash(envelope);
+  const accepted=await Contract.validateEnvelopeIntegrity(envelope,webcrypto);
+  assert.equal(accepted.ok,true,`an actual inserted ramp and its untouched working prefill cross transfer: ${JSON.stringify(accepted)}`);
+}
+for(const origin of ["ramp","manual",null]){
+  const envelope=structuredClone(valid);envelope.durableState.log[0].origin=origin;
+  envelope.integrity.canonicalPayloadHash=canonicalHash(envelope);
+  assert.equal((await Contract.validateEnvelopeIntegrity(envelope,webcrypto)).ok,true,`extensible saved-row provenance is retained: ${JSON.stringify(origin)}`);
+}
+console.log("PASS session-zero transfer: 10 strict provenance cases, 3 extensible row-marker cases and an inserted production draft");
