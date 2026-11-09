@@ -18206,7 +18206,9 @@ async function mountManagedImportWidget(){
       callback:token=>{
         if(managedImportWidgetHost!==host)return;
         managedImportToken=token;
-        managedImportError=null;
+        // A fresh token answers a failed challenge, not a failed import: the
+        // reset after a failed request must not hide that request's error.
+        if(managedImportError==="challenge_failed")managedImportError=null;
         updateManagedImportUI();
       },
       "expired-callback":()=>{
@@ -18254,6 +18256,13 @@ async function submitManagedImport(){
     if(typeof result?.reply!=="string"||!result.reply.trim())
       throw Error("provider_unavailable");
     if(!managedImportCurrent(epoch,source))return;
+    // An unreadable reply stays on the source with the manual path, instead of
+    // opening the paste-reply stage on text the lifter never saw.
+    const parsed=parseFreeformProgramReply(result.reply);
+    if(!parsed||parsed.status==="unreadable"||(parsed.status!=="gaps"&&!parsed.exercises?.length)){
+      captureEvent("program_import_parsed",{source:"freeform",outcome:"unreadable",gap_count:0});
+      throw Error("provider_unavailable");
+    }
     entryFreeformReply=result.reply;
     entryFreeformStatus=null;
     entryFreeformFailReason=null;
@@ -22393,7 +22402,7 @@ function wireEntryDom(){
   const freeformContinue=$("#entryFreeformContinue");
   if(freeformContinue)freeformContinue.onclick=()=>{
     if(!freeformProgram())return;
-    clearManagedImportWidget();
+    abortManagedImport();
     entryFreeformStage=2;
     saveFreeformSession();
     renderOnboarding();

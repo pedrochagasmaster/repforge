@@ -104,3 +104,36 @@ test("disabled, missing bindings and upstream errors fail closed",async()=>{
   assert.equal(result.status,502);
   assert.deepEqual(await read(result),{ok:false,code:"provider_unavailable"});
 });
+test("pasted text is inserted literally, never read as a replacement pattern",async()=>{
+  const tricky="Treino A\nSupino reto 3x8-12 $' $& $` $$ {program}";
+  const {env,handle,calls}=setup();
+  assert.equal((await handle(req(payload({source:tricky})),env)).status,200);
+  const [before,after]=IMPORT_PROMPTS.pt.split("{program}");
+  assert.equal(JSON.parse(calls[1].request.body).messages[0].content,before+tricky+after);
+});
+test("the global per-minute cap holds across distinct visitors",async()=>{
+  const realNow=Date.now,frozen=Date.parse("2026-11-09T12:00:30.000Z");
+  Date.now=()=>frozen; // one budget minute for the whole test
+  try{
+  const {env,handle,calls}=setup();
+  const from=i=>req(payload(),{"CF-Connecting-IP":"198.51.100."+(i+1)});
+  for(let i=0;i<BUDGET.globalPerMinute;i++)assert.equal((await handle(from(i),env)).status,200);
+  const extra=await handle(from(BUDGET.globalPerMinute),env);
+  assert.equal(extra.status,429);
+  assert.ok(Number(extra.headers.get("Retry-After"))>=1);
+  assert.equal(calls.filter(x=>x.url.includes("api.anthropic.com")).length,BUDGET.globalPerMinute);
+  }finally{Date.now=realNow}
+});
+test("no response carries a secret, the source or provider error detail",async()=>{
+  const cases=[
+    setup(),
+    setup({challenge:{success:false}}),
+    setup({provider:{type:"error",error:{type:"authentication_error",message:"bad key anthropic-secret-test"}}})
+  ];
+  for(const {env,handle} of cases){
+    const body=await (await handle(req(),env)).text();
+    for(const secret of [env.ANTHROPIC_API_KEY,env.TURNSTILE_SECRET_KEY,env.IMPORT_IP_PEPPER,"198.51.100.24"])
+      assert(!body.includes(secret),"response leaked a secret or the visitor IP");
+    if(!body.includes('"ok":true'))assert(!body.includes("Supino"),"an error response echoed the source");
+  }
+});

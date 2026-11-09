@@ -120,7 +120,8 @@ function extractAnswer(body){
   return text;
 }
 async function runInference(fetchImpl,env,source,locale){
-  const prompt=IMPORT_PROMPTS[locale].replace("{program}",source);
+  // A function replacer keeps "$&", "$'" and the like in pasted text literal.
+  const prompt=IMPORT_PROMPTS[locale].replace("{program}",()=>source);
   const controller=new AbortController();
   const timer=setTimeout(()=>controller.abort(),ANTHROPIC_TIMEOUT_MS);
   try{
