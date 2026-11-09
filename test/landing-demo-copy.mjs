@@ -55,7 +55,7 @@ check("every Focus key the phone shows is still said by the app outside the land
   assert.deepEqual(stale, []);
 });
 check("the cue, the evidence and the rest tab are among them", () => {
-  for (const key of ["focus.cue.up", "focus.cue.reps", "focus.evidence.history", "focus.evidence.target", "rest.inline.label", "rest.inline.done"]) {
+  for (const key of ["focus.cue.up", "focus.cue.reps", "focus.evidence.history", "focus.evidence.target", "rest.inline.label", "rest.inline.done", "maxset.invite_title", "maxset.guess_q", "maxset.fail_rule", "maxset.press_line", "maxset.tag", "maxset.guessed", "maxset.did", "maxset.status_wait"]) {
     assert(keys.includes(key), key);
   }
 });
