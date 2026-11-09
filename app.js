@@ -1541,7 +1541,15 @@ const effortStage=()=>isEffortMode()?"a":"c";
 const stageTokens=stage=>stage==="a"?EFFORT_STEPS:REPS_LEFT;
 const tokenStage=e=>EFFORT_STEPS.includes(e)?"a":EFFORT_LEFT.includes(e)?"c":null;
 const effortForRir=rir=>+rir>=2.5?"easy":+rir<=0.5?"max":"hard";
-const repsLeftChip=rir=>String(Math.min(5,Math.max(0,Math.round(+rir||0))));
+const repsLeftChip=rir=>{
+  if(rir==null||String(rir).trim()==="")return null;
+  const value=parseDec(rir);
+  return Number.isFinite(value)&&value>=0?String(Math.min(5,Math.round(value))):null};
+const repsLeftView=(raw,authored)=>{
+  const offered=repsLeftChip(raw);
+  if(offered==null)return{text:"",chip:null,prefill:null};
+  const exact=String(raw),chip=authored?(REPS_LEFT.includes(exact)?exact:null):offered;
+  return{text:authored?(exact==="5"?"5+":fmt(parseDec(raw))):effortLabel(offered),chip,prefill:offered}};
 const tokenInStage=(e,stage)=>{
   if(tokenStage(e)===stage)return e;
   const rir=EFFORT_RIR[e];
@@ -9493,7 +9501,8 @@ function setFieldVals(ex,n,r,draft,prev){
   const rirVal=pending("rir")??(legacy!=null?String(legacy):null)??carriedRir??draft[`${key}_rir`]
     ??(carried("effort")!=null?String(EFFORT_RIR[carried("effort")]??1):null)
     ??(draftSetAt(ex.id,n)?.programmed?.targetRir!=null?String(draftSetAt(ex.id,n).programmed.targetRir):old&&old.rir!=null?fmtPlain(old.rir):1);
-  return{key,isW,kgVal,repsVal,rirVal,effortVal,stage,unsure:own==="unsure"}}
+  const numericEffort=repsLeftView(rirVal,hasPendingField(`${key}_rir`)||!!shelfTouched(ex.id,n).effort);
+  return{key,isW,kgVal,repsVal,rirVal,numericEffort,effortVal,stage,unsure:own==="unsure"}}
 /** The stage a set is drawn in (Plan 077, OD-5): the vocabulary the lifter entered its effort in, else the app's.
  *  "Not sure" belongs to no stage, so a set marked so is drawn in the app's. */
 function setStageOf(exId,n){
@@ -9688,10 +9697,10 @@ function focusSlotHtml(ex,n,r,cue,opts){
   return `<div class="fx-slot">${focusCueBlockHtml(ex,n,r,cue,opts)}</div>`}
 /** How a logged set reads back in the ledger. */
 function focusRowVals(ex,n,r,draft,prev){
-  const{kgVal,repsVal,rirVal,effortVal,stage,unsure}=setFieldVals(ex,n,r,draft,prev);
+  const{kgVal,repsVal,numericEffort,effortVal,stage,unsure}=setFieldVals(ex,n,r,draft,prev);
   const load=(()=>{const v=parseDec(kgVal);return Number.isFinite(v)?fmt(v):kgVal})();
   // A set reads back in the vocabulary it was logged in — a word as that word, never as the RIR it maps to.
-  const eff=unsure?effortLabel("unsure"):stage==="a"?effortLabel(effortVal):effortLabel(repsLeftChip(rirVal));
+  const eff=unsure?effortLabel("unsure"):stage==="a"?effortLabel(effortVal):numericEffort.text||"—";
   return{load,reps:String(repsVal),eff}}
 
 /** The effort window a set that has not been logged is aimed at. These are the
@@ -10073,7 +10082,7 @@ function shelfFieldHtml(ex,n,id,vals,{ui,touched,peek}){
   const short=id==="load"?t("focus.metric.load_kg"):label;
   const name=`${label}, ${t("focus.set_label",{n})}`;
   const raw=id==="load"?vals.kgVal:id==="reps"?vals.repsVal:vals.unsure?"":vals.rirVal;
-  const shown=id==="rir"&&vals.unsure?effortLabel("unsure"):effortField?effortLabel(stage==="a"?vals.effortVal:repsLeftChip(vals.rirVal))
+  const shown=id==="rir"&&vals.unsure?effortLabel("unsure"):effortField?(stage==="a"?effortLabel(vals.effortVal):vals.numericEffort.text)
     :id==="reps"?String(vals.repsVal??""):shelfText(raw);
   const soft=!(id==="load"?touched.load:id==="reps"?touched.reps:touched.effort);
   const word=effortField&&stage==="a"||id==="rir"&&vals.unsure;
@@ -10083,7 +10092,7 @@ function shelfFieldHtml(ex,n,id,vals,{ui,touched,peek}){
   if(peek)return `<div class="${cls}"><span class="shelf__fieldbtn">${face}</span>${id==="rir"?`<span class="shelf__menu">${chev}</span>`:""}</div>`;
   // Words explain themselves on a second tap; numeric chips already name the count.
   const explain=effortField&&stage==="a";
-  const hooks=effortField?` data-effspin="${esc(key)}" data-e="${esc(stage==="a"?vals.effortVal:repsLeftChip(vals.rirVal))}" data-stage="${stage}"${explain?` aria-describedby="effpop_${esc(key)}"`:""}`:"";
+  const hooks=effortField?` data-effspin="${esc(key)}" data-e="${esc(stage==="a"?vals.effortVal:vals.numericEffort.chip||"")}" data-stage="${stage}"${explain?` aria-describedby="effpop_${esc(key)}"`:""}`:"";
   // A selected Load or Reps field's name gains the picker hint: a second tap opens the wheel (ADR 0023 choice 8).
   const pickerHint=sel&&(id==="load"||id==="reps")?` aria-label="${esc(`${label} ${shown||"—"}, ${t("focus.field.picker_hint")}`)}"`:"";
   const button=`<button type="button" class="shelf__fieldbtn" data-shelf-field="${id}" data-set="${esc(key)}" aria-pressed="${sel?"true":"false"}"${hooks}${pickerHint}>${face}</button>`;
@@ -10112,7 +10121,7 @@ function shelfPadsHtml(ex,n,ui,vals,{peek}){
     // Both stages set their value with one tap. The offered value is marked but not pressed until the
     // lifter confirms it.
     const confirmed=!!shelfTouched(ex.id,n).effort&&!vals.unsure;
-    return tokens.map(e=>{const on=e===(vals.stage==="a"?vals.effortVal:repsLeftChip(vals.rirVal))&&!vals.unsure;
+    return tokens.map(e=>{const on=e===(vals.stage==="a"?vals.effortVal:vals.numericEffort.chip||"")&&!vals.unsure;
       return `<button type="button" class="shelf__pad shelf__chip${vals.stage==="c"?" shelf__chip--num":""}${on&&!confirmed?" is-offered":""}"`+
         `${peek?dead():` data-effchip="${esc(key)}" data-e="${e}" aria-pressed="${on&&confirmed?"true":"false"}"`}>${esc(effortLabel(e))}</button>`}).join("")}
   const metricId=id.startsWith("metric_")?id.slice(7):null;
@@ -10486,7 +10495,7 @@ function syncShelfField(input,padDir=0){
   // A metric field writes the ledger column its metric fills (load or reps).
   const metricId=field.dataset.metric,metric=metricId?focusMetricDefinitions(...setKeyParts(field.dataset.set)).find(item=>item.id===metricId):null;
   const id=metric?(METRIC_FIELD_SEMANTICS.reps.includes(metric.semantic)?"reps":METRIC_FIELD_SEMANTICS.load.includes(metric.semantic)?"load":null):field.dataset.field;
-  const text=id==="rir"?effortLabel(repsLeftChip(input.value)):id==="reps"?String(input.value||""):shelfText(input.value);
+  const text=id==="rir"?repsLeftView(input.value,true).text:id==="reps"?String(input.value||""):shelfText(input.value);
   const val=field.querySelector(".shelf__val");
   if(val){const moved=val.textContent!==(text||"—");val.textContent=text||"—";if(moved)shelfValueMove(val,padDir)}
   field.classList.remove("is-untouched");
@@ -11072,7 +11081,7 @@ function bindWorkout(){
       const field=isEffortMode()?"effort":"rir";
       if(ex&&!activeWorkoutDraft.exercises[target.exerciseInstanceId].sets[target.setId].touched?.effort&&!hasPendingField(`${key}_${field}`)){
         const vals=setFieldVals(ex,target.ordinal,r,hydrateWorkoutDraft(),last(ex));
-        const shown=field==="effort"?vals.effortVal:repsLeftChip(vals.rirVal);
+        const shown=field==="effort"?vals.effortVal:vals.numericEffort.prefill;
         if(shown)prefill={field,value:shown}}}
     const refreshReservation=type==="completeSet"?reserveDraftRefresh():null;
     let refreshStarted=false;

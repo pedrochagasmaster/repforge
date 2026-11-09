@@ -2973,8 +2973,6 @@
   "maxset.cue_head_noload": "To failure",
   "maxset.cue_sub": "You guessed {n} reps",
   "effort.unsure": "Not sure",
-  "settings.rir_reps": "Reps left",
-  "settings.effort_lede_reps": "Count the clean reps you could still have done: 0, 1, 2, 3, 4 or 5+.",
   "focus.field.left": "Reps left",
   "focus.col.left": "Left",
   "focus.prev_line_left": "last {load} × {reps} · {left} left",

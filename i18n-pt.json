@@ -2973,8 +2973,6 @@
   "maxset.cue_head_noload": "Até a falha",
   "maxset.cue_sub": "Seu chute: {n} reps",
   "effort.unsure": "Não sei",
-  "settings.rir_reps": "Reps sobrando",
-  "settings.effort_lede_reps": "Conte as reps limpas que ainda daria para fazer: 0, 1, 2, 3, 4 ou 5+.",
   "focus.field.left": "Reps sobrando",
   "focus.col.left": "Sobra",
   "focus.prev_line_left": "antes {load} × {reps} · {left} sobrando",
