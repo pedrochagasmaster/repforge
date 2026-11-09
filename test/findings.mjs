@@ -179,6 +179,13 @@ proof('a bodyweight-only history anchor also releases the first target',()=>{
   const f=found(build(log,undefined,program,read),'first_target');
   assert.equal(f.date,'2026-10-01');assert.equal(f.load,null);assert.equal(f.loadingConvention,'bodyweight');
 });
+proof('year replay stops rebuilding released evidence on later prefixes',()=>{
+  const log=Array.from({length:208},(_,i)=>session('year'+i,new Date(Date.parse('2025-11-10')+i*864e5).toISOString().slice(0,10))).flat();
+  let reads=0;
+  const result=build(log,'2026-11-09',program,(rows,date,request)=>{reads++;return readings(rows,date);});
+  assert.equal(result.released.length,5);
+  assert.ok(reads<10,`released evidence was rebuilt ${reads} times`);
+});
 proof('the month starts with a timed working session too',()=>{
   const metric=require('../exercise-metrics.js').DEFINITIONS.find(m=>m.semantic==='durationSeconds');
   const log=[{session:'hold',date:'2026-10-01',metricType:'source_metrics@1',metricIds:[metric.id],metricDefinitions:[metric],metricValues:[{metricId:metric.id,value:30,unit:metric.unit}]}];
