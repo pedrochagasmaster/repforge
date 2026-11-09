@@ -24,6 +24,7 @@
   "focus.cue.start_at": "Começar com {load} {unit}",
   "focus.cue.know_weight": "Já sei minha carga",
   "focus.evidence.prior": "Um ponto de partida pelo seu peso corporal; sua primeira série o substitui",
+  "focus.evidence.ratio": "Um ponto de partida de um exercício que você registrou; sua primeira série o substitui",
   "focus.evidence.floor": "Comece com a menor carga. Adicione seu peso corporal em Sessão para ter um ponto de partida.",
   "history.row.ramp": "Série de aproximação {n}",
   "focus.cue.pick_load": "Escolha uma carga para {min}–{max} reps",

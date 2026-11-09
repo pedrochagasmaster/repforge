@@ -24,6 +24,7 @@
   "focus.cue.start_at": "Start at {load} {unit}",
   "focus.cue.know_weight": "I know my weight",
   "focus.evidence.prior": "A starting point from your bodyweight; your first set replaces it",
+  "focus.evidence.ratio": "A starting point from an exercise you've logged; your first set replaces it",
   "focus.evidence.floor": "Start with the lightest weight. Add your bodyweight in Session for a starting point.",
   "history.row.ramp": "Ramp set {n}",
   "focus.cue.pick_load": "Pick a load for {min}–{max} reps",
