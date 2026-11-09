@@ -4329,11 +4329,11 @@ function renderWeekCard(){
 }
 
 let weeklyAdaptationView=null,weeklyAdaptationBusy=false,weeklyEvaluationPending=false;
-function weeklyPatterns(week=weekStart(today()),source=state,observationTargets=null){
+function weeklyPatterns(week=weekStart(today()),source=state,observationTargets=null,observations=source.log){
   const start=shiftDate(week,-14),end=shiftDate(week,-1),blockId=snapshotBlockId(source);
   if(!blockId)return[];
   const historical=source.log.filter(row=>String(row.date)<=end&&row.blockId===blockId);
-  const history=readLogRows(historical),log=historical.filter(row=>String(row.date)>=start);
+  const history=readLogRows(historical),log=observations.filter(row=>row.blockId===blockId&&String(row.date)>=start&&String(row.date)<=end);
   const fatigueSessions={},hardStalls=[];
   const definition=source.programMeta?.programDefinition;
   for(const ex of source.program){
@@ -4484,13 +4484,13 @@ async function evaluateWeeklyAdaptations(){
   const proposal=cloneSnapshot(state);
   for(const record of pending){
     const followingEnd=shiftDate(record.week,7);
-    const following={...state,log:RepForgeProgramTransition.adaptationFollowupRows(record,state.log)};
+    const following=RepForgeProgramTransition.adaptationFollowupRows(record,state.log);
     const slot=state.programMeta.programDefinition?.days.flatMap(day=>day.slots).find(slot=>slot.id===record.target.slotId);
     const {day}=weeklyAdaptationContext(record);
-    const observed=following.log.some(row=>day&&row.day===day||slot&&(row.slotId||row.exerciseId)===slot.id);
+    const observed=following.some(row=>day&&row.day===day||slot&&(row.slotId||row.exerciseId)===slot.id);
     const targets=record.kind==="reduce_sets"?null:[...new Set([record.target.exerciseId,record.target.replacementId].filter(Boolean))]
       .map(exerciseId=>({slotId:record.target.slotId,exerciseId,day}));
-    const evaluation=RepForgeProgramTransition.evaluateAdaptation(record,weeklyPatterns(followingEnd,following,targets),{week:followingEnd,observed});
+    const evaluation=RepForgeProgramTransition.evaluateAdaptation(record,weeklyPatterns(followingEnd,state,targets,following),{week:followingEnd,observed});
     proposal.programMeta.adaptations.find(item=>item.id===record.id).evaluation=evaluation;
   }
   weeklyEvaluationPending=true;
@@ -4936,7 +4936,7 @@ function commitNextBlock(strategy,io=storageIO,expectedOldId=null){
       // carry compiler/progression provenance into the fresh block while the
       // activation fields above still describe the new block boundary.
       for(const key of ["progressionRelations","progressionModifiers","progressionIncompatibilities",
-        "programStructure","compilerContext","entrySource","programDefinition","loadingConfiguration"]){
+        "programStructure","compilerContext","entrySource","programDefinition","loadingConfiguration","adaptations"]){
         if(Object.prototype.hasOwnProperty.call(cap.oldMeta||{},key))
           nextMeta[key]=cloneSnapshot(cap.oldMeta[key]);
       }
