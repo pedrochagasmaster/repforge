@@ -190,6 +190,24 @@ try {
       await page.locator("#overviewProfile").evaluate(el => document.activeElement === el),
       "the finding opens Progress Overview and focuses the profile");
   } else check(false, "the finding opens Progress Overview and focuses the profile");
+  await page.goBack();
+  const returned = await page.waitForFunction(() =>
+    window.__repforgeSessionSummary?.current()?.session === "finding-current" &&
+    !document.querySelector("#sessionSummary")?.classList.contains("hidden"),
+  undefined, { timeout: 3000 }).then(() => true, () => false);
+  check(returned && !/New today/.test(await page.locator("#sumFinding").textContent() || ""),
+    "browser Back from the profile restores the same finish screen without a second new finding");
+  if (returned) {
+    await page.click("#sumFinding");
+    const back = page.locator("#summaryProfileBack");
+    if (await back.count()) await back.click();
+    check(await back.count() === 0 && await page.locator("#sessionSummary").isVisible() &&
+      await page.evaluate(() => window.__repforgeSessionSummary.current()?.session === "finding-current"),
+      "the next-need detour also returns through its visible Back control");
+  } else {
+    check(false, "the next-need detour also returns through its visible Back control");
+    await boot(page);
+  }
   const repeated = await build(page, beforeCheck, [checkRow]);
   check(await page.locator("#sumFinding").count() === 1 &&
     !/New today/.test(await page.locator("#sumFinding").textContent() || ""),
