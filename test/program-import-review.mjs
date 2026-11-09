@@ -845,6 +845,9 @@ async function main() {
       const refused = blocked.disabled ? await page.evaluate(() => window.__repforgeActivateEntryPreview()) : null;
       assert(refused?.ok === false && await page.evaluate((key) => localStorage.getItem(key), KEY) === before,
         `#691 ${lang}: the activation handler refuses the empty day without writing active state`, JSON.stringify(refused));
+      if (!await secondDay.locator('[data-role="add-exercise"]').isVisible()) {
+        await secondDay.locator('[data-role="toggle-day"]').click();
+      }
       await secondDay.locator('[data-role="add-exercise"]').click();
       await page.waitForSelector("#exPickSheet.is-open");
       await page.fill("#exPickSearch", "Barbell bench press");

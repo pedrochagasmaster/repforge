@@ -641,6 +641,9 @@ async function importTo(page, step) {
       progression: { schemaVersion: 1, strategy: { id: "manual", version: 1, params: { authored: true } }, modifiers: [] },
     }],
   };
+  if (step === "editor-empty-day") program.exercises.push({
+    ...program.exercises[0], id: "bench2", day: portuguese ? "Dia 2" : "Day 2",
+  });
   await page.setInputFiles("#importProgram", {
     name: "catalog-program.json",
     mimeType: "application/json",
@@ -1305,6 +1308,18 @@ export const ONBOARDING_SCENARIOS = {
   "onboarding-import/freeform-gaps-invalid": (page) => freeformTo(page, "gaps-invalid"),
   "onboarding-import/freeform-unreadable": (page) => freeformTo(page, "unreadable"),
   "onboarding-import/preview": (page) => importTo(page, "preview"),
+  "onboarding-import/editor-empty-day": async (page) => {
+    await importTo(page, "editor-empty-day");
+    await page.click("#entryEdit");
+    const day = page.locator('#onbProgramEditor [data-role="day"]').nth(1);
+    if (!await day.locator('[data-role="remove-exercise"]').isVisible()) {
+      await day.locator('[data-role="toggle-day"]').click();
+    }
+    await day.locator('[data-role="remove-exercise"]').click();
+    await page.waitForFunction(() => !!document.querySelector('#onbProgramEditor [data-role="day-empty"]') &&
+      document.querySelector("#entryEditorActivate")?.disabled === true);
+    await page.waitForFunction(() => document.querySelector("#toast")?.classList.contains("hidden") !== false);
+  },
 
   "onboarding-start/effort-choice": async (page) => {
     await buildTo(page, "editor-ready");

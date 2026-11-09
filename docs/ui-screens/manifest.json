@@ -1025,6 +1025,13 @@
       "variants": "demandingText"
     },
     {
+      "id": "editor-empty-day",
+      "flow": "onboarding-import",
+      "label": "Import — empty training day",
+      "scenario": "An imported training day with its final exercise removed. Existing empty-day guidance blocks activation.",
+      "variants": "demandingText"
+    },
+    {
       "id": "gate",
       "flow": "onboarding-shared",
       "label": "Shared setup — adaptive landing",

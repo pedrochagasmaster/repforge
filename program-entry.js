@@ -1998,7 +1998,7 @@
     }
     const trainingDays = definition.days.filter((day) => day.kind === "training");
     if (state.route === "build" && !trainingDays.length) issues.push("program_days_required");
-    if (state.route !== "build" && !RESULT_ROUTES.has(state.route)) return issues;
+    if (state.route !== "build" && state.route !== "import" && !RESULT_ROUTES.has(state.route)) return issues;
     for (const day of trainingDays) {
       if (!Array.isArray(day.slots) || !day.slots.length) issues.push(`day_empty:${day.id || day.name}`);
     }
