@@ -1375,6 +1375,13 @@
       "variants": "demandingText"
     },
     {
+      "id": "summary-profile",
+      "flow": "session",
+      "label": "Profile from session summary",
+      "scenario": "The finish-screen finding opens the profile with Back returning to the same finished session.",
+      "variants": "demandingText"
+    },
+    {
       "id": "summary-maintained",
       "flow": "session",
       "label": "Session summary — maintained",

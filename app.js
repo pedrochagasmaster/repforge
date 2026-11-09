@@ -11743,7 +11743,7 @@ function sessionFinding(rows,prevLog,date){
   const before=new Set(derive(previous,previousDate).released.map(finding=>finding.id));
   const after=derive([...(prevLog||[]),...rows]);
   const finding=after.released.find(finding=>!before.has(finding.id));
-  const need=after.next?t("finding.next",{need:findingNeedText(after.next)}):"";
+  const need=after.next?.need?t("finding.next",{need:findingNeedText(after.next)}):"";
   return{finding:finding?{id:finding.id,text:[findingText(finding),need].filter(Boolean).join(" ")}:null,findingNeed:need}}
 
 /** Everything the finished session earns the right to say about itself. */

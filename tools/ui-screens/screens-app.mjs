@@ -340,6 +340,7 @@ function directionDBeforeSession() {
 export const DIRECTION_D_SUMMARY_SESSION = Object.freeze({
   "session/summary": "dd-2026-08-31-day1",
   "session/summary-finding": "dd-2026-08-31-day1",
+  "session/summary-profile": "dd-2026-08-31-day1",
   "session/summary-maintained": "dd-2026-08-26-day2",
   "session/summary-declined": "dd-2026-08-28-day3",
   "session/summary-first": "dd-2026-08-12-day2-mixed",
@@ -433,7 +434,7 @@ export function appState(key, lang) {
   if (["workout/focus-ramp","workout/focus-ramp-floor","workout/focus-ramp-easy","history/ramp-rows"].includes(key)) return emptyEntryState(lang);
   if (key === "workout/why-setup") return emptyEntryState(lang);
   if (DIRECTION_D_BEFORE_SESSION.has(key)) return localeState(directionDBeforeSession(), lang);
-  if (key === "session/summary-finding") {
+  if (["session/summary-finding", "session/summary-profile"].includes(key)) {
     const state = directionDThroughSession(DIRECTION_D_SUMMARY_SESSION[key]);
     state.log = withTestSets(state.log);
     return localeState(state, lang);
@@ -2675,6 +2676,12 @@ export const APP_SCENARIOS = {
       const sheet = document.querySelector("#sessionSummary"), finding = document.querySelector("#sumFinding");
       sheet.scrollTop = Math.max(0, finding.getBoundingClientRect().top - sheet.getBoundingClientRect().top + sheet.scrollTop - 24);
     });
+  },
+  "session/summary-profile": async (page) => {
+    await openFixtureSummary(page, DIRECTION_D_SUMMARY_SESSION["session/summary-profile"]);
+    await page.click("#sumFinding");
+    await page.waitForSelector("#summaryProfileBack");
+    await page.waitForFunction(() => document.activeElement === document.querySelector("#overviewProfile"));
   },
   "session/summary": async (page) => {
     await openFixtureSummary(page, DIRECTION_D_SUMMARY_SESSION["session/summary"]);

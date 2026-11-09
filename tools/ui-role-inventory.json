@@ -458,6 +458,11 @@
       "content": "flat",
       "scenario": "The finish screen with the first test-set finding and the profile link above its factual tiles."
     },
+    "session/summary-profile": {
+      "owner": "plan-081",
+      "content": "flat",
+      "scenario": "The profile opened from the finish screen, with Back restoring that session."
+    },
     "session/summary-lifts": {
       "owner": "plan-064/r3h",
       "content": "flat",
@@ -6268,7 +6273,8 @@
         "progress/volume-reduction-preview",
         "progress/minibar",
         "progress/overview-profile",
-        "progress/overview-profile-first"
+        "progress/overview-profile-first",
+        "session/summary-profile"
       ]
     },
     {
@@ -6512,6 +6518,18 @@
         "history/session-share"
       ],
       "neverDisabledReason": "Every choice the sheet offers can be drawn; a card the session cannot back is hidden, not disabled."
+    },
+    {
+      "id": "summary-profile-back",
+      "selector": "#summaryProfileBack",
+      "roles": { "control": "quiet-navigation" },
+      "variant": "back",
+      "facets": [],
+      "states": ["default", "hover", "pressed", "focus-visible", "disabled"],
+      "rationale": "Returns from the profile to the finished session that opened it.",
+      "owner": "plan-081",
+      "catalogStates": ["session/summary-profile"],
+      "neverDisabledReason": "The return session stays available for this profile visit."
     },
     {
       "id": "sumfinding",
@@ -7093,7 +7111,8 @@
         "progress/overview-action",
         "progress/minibar",
         "progress/overview-profile",
-        "progress/overview-profile-first"
+        "progress/overview-profile-first",
+        "session/summary-profile"
       ]
     },
     {
@@ -8705,6 +8724,7 @@
         "program/minibar-rest-done",
         "progress/overview-profile",
         "progress/overview-profile-first",
+        "session/summary-profile",
         "today/week-card",
         "history/ramp-rows"
       ]
@@ -8785,6 +8805,7 @@
         "program/minibar-rest-done",
         "progress/overview-profile",
         "progress/overview-profile-first",
+        "session/summary-profile",
         "today/week-card",
         "history/ramp-rows"
       ]
@@ -8874,6 +8895,7 @@
         "program/minibar-rest-done",
         "progress/overview-profile",
         "progress/overview-profile-first",
+        "session/summary-profile",
         "today/week-card",
         "history/ramp-rows"
       ]
@@ -9029,6 +9051,7 @@
         "workout/last-rep-slow",
         "progress/overview-profile",
         "progress/overview-profile-first",
+        "session/summary-profile",
         "workout/rest-overrun-finish",
         "workout/why-standing",
         "workout/focus-ramp",
@@ -9326,7 +9349,8 @@
         "progress/volume-reduction-preview",
         "progress/minibar",
         "progress/overview-profile",
-        "progress/overview-profile-first"
+        "progress/overview-profile-first",
+        "session/summary-profile"
       ]
     },
     {
@@ -9382,7 +9406,8 @@
         "progress/volume-reduction-preview",
         "progress/minibar",
         "progress/overview-profile",
-        "progress/overview-profile-first"
+        "progress/overview-profile-first",
+        "session/summary-profile"
       ]
     },
     {
@@ -10391,7 +10416,8 @@
         "progress/overview-action",
         "progress/minibar",
         "progress/overview-profile",
-        "progress/overview-profile-first"
+        "progress/overview-profile-first",
+        "session/summary-profile"
       ]
     },
     {
@@ -13188,6 +13214,7 @@
       "catalogStates": [
         "progress/overview-profile",
         "progress/overview-profile-first",
+        "session/summary-profile",
         "library/exercise-detail-suggested"
       ]
     },
@@ -13207,6 +13234,7 @@
       "catalogStates": [
         "progress/overview-profile",
         "progress/overview-profile-first",
+        "session/summary-profile",
         "library/exercise-detail-suggested"
       ]
     },
@@ -13225,7 +13253,8 @@
       "owner": "plan-081",
       "catalogStates": [
         "progress/overview-profile",
-        "progress/overview-profile-first"
+        "progress/overview-profile-first",
+        "session/summary-profile"
       ]
     },
     {
@@ -13243,7 +13272,8 @@
       "owner": "plan-081",
       "catalogStates": [
         "progress/overview-profile",
-        "progress/overview-profile-first"
+        "progress/overview-profile-first",
+        "session/summary-profile"
       ]
     },
     {
@@ -13261,7 +13291,8 @@
       "owner": "plan-081",
       "catalogStates": [
         "progress/overview-profile",
-        "progress/overview-profile-first"
+        "progress/overview-profile-first",
+        "session/summary-profile"
       ]
     }
   ],
@@ -13461,6 +13492,7 @@
         "today/draft-resume",
         "progress/overview-profile",
         "progress/overview-profile-first",
+        "session/summary-profile",
         "history/ramp-rows"
       ]
     },
@@ -13987,6 +14019,7 @@
         "today/draft-resume",
         "progress/overview-profile",
         "progress/overview-profile-first",
+        "session/summary-profile",
         "history/ramp-rows"
       ]
     },
@@ -14049,6 +14082,7 @@
         "today/draft-resume",
         "progress/overview-profile",
         "progress/overview-profile-first",
+        "session/summary-profile",
         "history/ramp-rows"
       ]
     },
