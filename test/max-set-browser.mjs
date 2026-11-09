@@ -167,6 +167,11 @@ try {
     try {
       activeWorkoutDraft = draft;
       outcomes.learning = !!offer();
+      const status = draft.session.status; draft.session.status = "completed"; outcomes.activeSession = !offer(); draft.session.status = status;
+      final.completion = JSON.parse(JSON.stringify(before.completion)); outcomes.pendingLast = !offer(); final.completion = "pending";
+      const edited = JSON.parse(JSON.stringify(before.edited));
+      for (const metric of before.programmed.metrics || []) if (metric.semantic === "reps") before.edited.metrics[metric.id] = "0";
+      before.edited.reps = "0"; outcomes.validGuess = !offer(); before.edited = edited;
       const order = [...de.setOrder]; de.setOrder = [final.setId]; outcomes.minSets = !offer(); de.setOrder = order;
       outcomes.highReps = !maxSetOffer({...ex,max:21,hasRepTarget:true}, final.ordinal);
       const libraryId = final.programmed.sourceLibraryId;
