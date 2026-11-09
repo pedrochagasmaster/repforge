@@ -196,6 +196,7 @@ async function main() {
 
     await page.locator('#sessions [data-sess="history-edit-a"] .session__open').click();
     await page.waitForSelector('.session--read[data-reading="history-edit-a"]', { timeout: 5000 });
+    await page.waitForFunction(() => !document.body.classList.contains("is-pushing"), undefined, { timeout: 5000 });
     // R7 J-06: Edit may be pressed with the page scrolled (a long read page); the editor opens at its top.
     await page.setViewportSize({ width: 390, height: 420 });
     await page.locator('[data-history-edit="history-edit-a"]').scrollIntoViewIfNeeded();
