@@ -159,7 +159,7 @@ async function setLoadStep(page, slotId, value) {
 async function main() {
   console.log("P067 slice 3: adaptive prescriptions through production draft commands");
   const browser = await launchChromium();
-  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, timezoneId: "America/Sao_Paulo" });
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", (error) => errors.push(String(error?.stack || error)));
@@ -168,6 +168,8 @@ async function main() {
     await page.goto(BASE, { waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { base: BASE });
     const target = await seed(page);
+    // This arithmetic/history proof logs typed numeric effort, including its saved warm-up.
+    await page.evaluate(() => { state.settings.rirMode = "numeric"; });
     if (!target) throw new Error("no weighted first slot in the generated program");
     check(target.sets[1].rir === 2 && target.sets[1].targets.reps.min === 7 && target.sets[1].targets.reps.max === 9,
       "the target's second set is the source prescription (7–9 reps at 2 RIR)", target.sets);
@@ -218,6 +220,91 @@ async function main() {
     if (!await page.evaluate((day) => window.__repforgeEnterWorkout({ day }), target.day)) throw new Error("could not resume day");
     const resumed = await draftSet(page, target.slotId, 2);
     check(resumed?.edited?.metrics?.[REPS] === "10", "a resumed session never overwrites the lifter's typed value", resumed?.edited?.metrics);
+
+    // R709-1: the actual app recommendation retains its targets if the optional standing evidence fails.
+    const standingFaults = await page.evaluate((slotId) => {
+      const ex = window.__repforgeWorkoutDraft.state().program.find((row) => (row.slotId || row.id) === slotId);
+      const read = () => window.__repforgeRecommendation(ex).engineResults;
+      const selections = (rows) => rows.map(({ standing, ...selection }) => selection);
+      const baseline = read(), gauge = window.RepForgeCalibrationGauge;
+      const faults = [undefined, {}, { ...gauge, decay: () => { throw new Error("standing failed"); } }];
+      try {
+        return { anchored: baseline.some((row) => row.status === "recommended"), cases: faults.map((fault) => {
+          window.RepForgeCalibrationGauge = fault;
+          try {
+            const actual = read();
+            return { retained: JSON.stringify(selections(actual)) === JSON.stringify(selections(baseline)),
+              noEvidence: actual.every((row) => row.standing.word === "learning" && row.standing.evidence.sets === 0
+                && row.standing.evidence.sessions === 0 && row.standing.evidence.pairs === 0) };
+          } catch (error) { return { error: String(error) }; }
+        }) };
+      } finally { window.RepForgeCalibrationGauge = gauge; }
+    }, target.slotId);
+    check(standingFaults.anchored, "the app standing failure proof starts with selected targets", standingFaults);
+    for (const [index, proof] of standingFaults.cases.entries())
+      check(proof.retained && proof.noEvidence, `app recommendation survives standing helper fault ${index}`, proof);
+
+    // R709-2: publish a real completed warm-up, then read it through the production history adapter.
+    await logSet(page, target.slotId, 2, { load: 100, reps: 8, rir: 2 });
+    await page.evaluate(async (slotId) => {
+      const api = window.__repforgeWorkoutDraft, exercise = api.current().exercises[slotId];
+      const setId = exercise.setOrder.find((id) => exercise.sets[id].ordinal === 1);
+      await api.dispatch("markWarmup", { exerciseInstanceId: slotId, setId });
+      await api.flush();
+    }, target.slotId);
+    await finishEarly(page);
+    const warmup = await page.evaluate((slotId) => {
+      const stored = JSON.parse(localStorage.getItem("repforge_v1"));
+      const published = stored.log.filter((row) => row.exerciseId === slotId && row.warmup === true);
+      const original = state.log;
+      try {
+        // Eight comparable sessions of that published row could wrongly establish solid standing on their own.
+        state.log = Array.from({ length: 8 }, (_, index) => ({ ...published[0], session: `warmup-${index}` }));
+        const ex = stored.program.find((row) => (row.slotId || row.id) === slotId);
+        const read = () => window.__repforgeRecommendation(ex);
+        const withWarmups = read();
+        state.log = state.log.map(({ warmup, ...row }) => row);
+        const withoutFlags = read();
+        const select = (rec) => rec.engineResults.map(({ standing, ...selection }) => selection);
+        return { published: published.length, history: withWarmups.progressionInputs.history,
+          standing: withWarmups.engineResults[0].standing,
+          selected: withWarmups.engineResults[0].status,
+          unchanged: JSON.stringify(select(withWarmups)) === JSON.stringify(select(withoutFlags)) };
+      } finally { state.log = original; }
+    }, target.slotId);
+    check(warmup.published === 1 && warmup.history.length === 8, "a real saved warm-up reaches eight comparable history sessions", warmup);
+    check(warmup.history.every((session) => session.sets.every((set) => set.warmup === true)),
+      "the production history adapter preserves the saved warm-up flag", warmup.history);
+    check(warmup.standing.word === "learning" && warmup.standing.evidence.sets === 0
+      && warmup.standing.evidence.sessions === 0 && warmup.standing.evidence.pairs === 0,
+      "saved warm-ups cannot supply standing evidence or make it solid", warmup.standing);
+    check(warmup.selected === "recommended" && warmup.unchanged,
+      "preserving warm-up provenance leaves the previously selected loads and reps intact", warmup);
+
+    // R709-4: the actual recommendation uses the app's local calendar at the Brazil/UTC day boundary.
+    await page.clock.setFixedTime(new Date("2026-11-09T01:30:00Z"));
+    const calendar = await page.evaluate((slotId) => {
+      const original = state.log, engine = window.RepForgeProgression;
+      const source = original.find((row) => row.exerciseId === slotId && !row.warmup && row.setIndex === 0);
+      const given = [];
+      try {
+        state.log = Array.from({ length: 4 }, (_, session) => Array.from({ length: 3 }, (_, index) => ({
+          ...source, session: `calendar-${session}`, date: "2026-09-28", set: index + 1, setIndex: index,
+        }))).flat();
+        window.RepForgeProgression = { ...engine, recommendSets: (...args) => {
+          given.push(args[4]); return engine.recommendSets(...args);
+        } };
+        const ex = state.program.find((row) => (row.slotId || row.id) === slotId);
+        const rec = window.__repforgeRecommendation(ex);
+        return { source: !!source, day: today(), given: given.at(-1)?.now,
+          standing: rec.engineResults[0].standing, selected: rec.engineResults[0].status };
+      } finally { state.log = original; window.RepForgeProgression = engine; }
+    }, target.slotId);
+    check(calendar.source && calendar.day === "2026-11-08" && calendar.given === calendar.day,
+      "the production recommendation passes the app's Brazil-local day to the engine", calendar);
+    check(calendar.selected === "recommended" && calendar.standing.word === "solid"
+      && calendar.standing.evidence.gapDays === 41 && calendar.standing.reasons.length === 0,
+      "Brazil's late evening does not cross the 42-day standing threshold early", calendar);
 
     check(errors.length === 0, "no page errors during adaptive sessions", errors);
   } catch (error) {
