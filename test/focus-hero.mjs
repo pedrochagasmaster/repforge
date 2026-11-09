@@ -142,6 +142,9 @@ function readCard() {
   const sizes = [...card.querySelectorAll(".fcard__context *")].filter((el) => el.childElementCount === 0 && el.textContent.trim() && el.getClientRects().length)
     .map((el) => parseFloat(getComputedStyle(el).fontSize));
   return {
+    layout: { context: box(context), shelf: box(shelf), header: box(document.querySelector(".wo-head")),
+      fields: [...shelf.querySelectorAll(".shelf__field")].map(el => ({ text: el.textContent.trim(), height: el.getBoundingClientRect().height,
+        label: getComputedStyle(el.querySelector(".shelf__lab")).fontSize, line: getComputedStyle(el.querySelector(".shelf__lab")).lineHeight })) },
     l1: l1?.textContent.replace(/\s+/g, " ").trim() || "",
     l1Size: l1 ? parseFloat(getComputedStyle(l1).fontSize) : 0,
     largest: Math.max(...sizes),
@@ -335,6 +338,20 @@ try {
       await run.context.close();
     }
     ok(seen.has("hold") && seen.has("up") && seen.has("down"), "the three logged sets produce hold, up and down", [...seen]);
+  }
+
+  console.log("Portuguese short-phone geometry survives restoring the running workout");
+  {
+    const run = await open(browser, { width: 320, height: 568, lang: "pt" });
+    await logSet(run.page, run.target.slotId, 1, { load: 60, reps: 8, rir: 2 }, { stopRest: false });
+    await run.page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(run.page, { base: BASE });
+    await run.page.evaluate(id => window.__repforgeGoToLogExercise(id), run.target.rowId);
+    await settle(run.page);
+    const restored = await card(run.page);
+    ok(restored.hero?.inView && restored.open?.inView && restored.heroBox.bottom <= restored.open.top && !restored.underTab.length,
+      "after reload the full Portuguese numeric caption leaves the hero and open set whole above rest", restored);
+    await run.context.close();
   }
 
   console.log("320×568 with the rest running: the hero stays above the open set, the logged row folds first");
