@@ -626,7 +626,7 @@
       sessions.get(id).push(row);
     }
     const prefix = [];
-    const read = (history, date) => standings(history.slice(), date) || [];
+    const read = (history, date, request) => standings(history.slice(), date, request) || [];
     const hasAnchor = (fact) => fact.recommendation?.historyAnchor?.source === "history";
     const weights = (history, facts) => new Set([
       ...history.filter((row) => row.startingLoad).map(keyOf),
@@ -635,7 +635,16 @@
     for (const session of sessions.values()) {
       const date = isoDate(session[0].date);
       prefix.push(...session);
-      const after = read(prefix, date);
+      // Released facts never need their historical engine work repeated. Checks
+      // cannot produce a reading until three exist; the current and month reads
+      // below still refresh every lift at their exact as-of date.
+      const recommendation = ["weights_found", "first_target", "first_solid"].some((id) => !released.has(id));
+      const weeks = !released.has("first_trend") && weekStartOf(prefix[0].date) !== weekStartOf(date);
+      const calibration = !released.has("effort_read") && prefix.filter((row) => row.effortSource === "failure" && row.calibration).length >= 3;
+      const after = recommendation || weeks || calibration ? read(prefix, date, {
+        recommendation, weeks, calibration,
+        keys: released.has("weights_found") && !calibration ? [...new Set(session.map(keyOf))] : null,
+      }) : [];
       // This saved session can support the next target immediately. Replay
       // only this prefix so no later session can supply its reason or values.
       const target = after.find((fact) => hasAnchor(fact) && fact.recommendation?.reasonCodes?.includes("history_anchor") &&
@@ -670,12 +679,12 @@
     const monthDate = rows.length ? addDays(rows[0].date, 28) : null;
     if (monthDate && monthDate <= today) {
       const monthRows = rows.filter((row) => isoDate(row.date) <= monthDate);
-      const facts = read(monthRows, monthDate);
+      const facts = read(monthRows, monthDate, { recommendation: true, calibration: true, weeks: false });
       release("month_one", monthDate, { sessions: new Set(monthRows.map((row) => row.session || row.date)).size,
         improved: new Set(facts.filter((fact) => fact.improved).map((fact) => fact.key)).size,
         solid: new Set(facts.filter((fact) => fact.standing?.word === "solid").map((fact) => fact.key)).size });
     }
-    const current = read(rows, today);
+    const current = read(rows, today, { recommendation: true, calibration: true, weeks: false });
     const lift = current[0] || { key: lifts[0]?.key || "", name: lifts[0]?.name || "" };
     const pending = FINDING_IDS.find((id) => !released.has(id));
     let need = null;

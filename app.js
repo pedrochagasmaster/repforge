@@ -7946,16 +7946,16 @@ function findingReadings(){
     if(!matched)continue;
     const slot=matched.slot,context=slotLoadingContext(slot);
     plans.push({key,name:exerciseDisplayName(ex),slot,context,projection:slotLoadingProjection(slot)})}
-  return(log,asOf)=>{
+  return(log,asOf,request={recommendation:true,weeks:true,calibration:true})=>{
     const elapsed=state.programMeta?.started?Math.floor(RepForgeProgressModel.calendarDayDistance(state.programMeta.started,asOf)/7)+1:1;
     const cycle=Math.max(1,Math.min(definition.cycles||1,elapsed));
     if(!cycles.has(cycle))cycles.set(cycle,compiler.prescriptionsForCycle(definition,cycle));
-    return plans.flatMap(plan=>{
+    return plans.filter(plan=>!request.keys||request.keys.includes(plan.key)).flatMap(plan=>{
     const{slot,context,key}=plan,first=cycles.get(cycle).find(item=>item.slotId===slot.id);if(!first)return[];
     const history=progressionHistoryFor(first.exerciseId,first.metricIds,plan.projection,slot.metricDefinitions,log);
     const calibration=liftCalibration(history,context,slot.metricDefinitions,[],asOf);
-    const recommendation=engine.recommendSets([first],history,[],{bySlotId:{[slot.id]:context}},
-      {now:asOf,weightMatch:state.settings.weightMatch===true,expandRepRange:state.settings.expandRepRange!==false,calibration})[0];
+    const recommendation=request.recommendation?engine.recommendSets([first],history,[],{bySlotId:{[slot.id]:context}},
+      {now:asOf,weightMatch:state.settings.weightMatch===true,expandRepRange:state.settings.expandRepRange!==false,calibration})[0]:null;
     const compatible=log.filter(row=>String(row.performedLibraryId||row.performedMovementId||row.sourceLibraryId||row.performedName||row.name||"")===key&&
       !row.warmup&&row.origin!=="ramp");
     const bySession=new Map();
@@ -7969,11 +7969,11 @@ function findingReadings(){
       .map(row=>({key:`${key}|${row.strengthConvention||"load"}`,session:String(row.session),date:row.date,set:row.setIndex??Number(row.set)-1,
         load:row.load,reps:row.reps,rir:row.rir,q:CalibrationGauge.rowQuality(row)}));
     const records=[],past=[];
-    for(const session of sessions){
+    for(const session of request.weeks?sessions:[]){
       const record=sessionPRs(session,past)[0];
       if(record){records.push({...record,date:session[0].date});break}
       past.push(...session)}
-    return[{key,name:plan.name,recommendation,targetEligible:first.status==="ready",standing:recommendation?.standing,nextSetQuality:CalibrationGauge.rowQuality({effortSource:effortStage()==="a"?"effort":"rir"}),calibration,weeks:CalibrationGauge.weeksFrom(observations,capE1rm),
+    return[{key,name:plan.name,recommendation,targetEligible:first.status==="ready",standing:recommendation?.standing,nextSetQuality:CalibrationGauge.rowQuality({effortSource:effortStage()==="a"?"effort":"rir"}),calibration,weeks:request.weeks?CalibrationGauge.weeksFrom(observations,capE1rm):[],
       records,improved}]})}}
 let findingsCache={key:"",value:null};
 function profileFindings(){
