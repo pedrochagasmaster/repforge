@@ -210,6 +210,7 @@ async function runCatalogWeekCardCases(browser,manifest){
 }
 
 async function runAdaptationCases(browser,manifest){
+  const failures=[];
   {
     const state=appState("progress/review-proposal","en");
     const {page,context}=await openPage(browser,manifest,{flow:"progress",screen:"review-proposal",viewport:"phone-390",theme:"light",locale:"en",text:"normal",motion:"normal"},state);
@@ -223,7 +224,7 @@ async function runAdaptationCases(browser,manifest){
       });
       await page.locator('[data-adaptation-why]').click();await page.locator("#whySheet").waitFor({state:"visible"});
       assert.deepEqual(await page.evaluate(()=>window.weeklyObservedEvents),[],"the alpha review's Why reader does not claim a Focus telemetry interaction");
-    }finally{await context.close()}
+    }catch(error){failures.push(error)}finally{await context.close()}
   }
   for(const action of ["accept","decline","later","change"]){
     const state=appState("progress/review-active","en");
@@ -247,12 +248,14 @@ async function runAdaptationCases(browser,manifest){
       await page.locator(`[data-adaptation-action="${action}"]`).click();
       if(action==="change"){
         await page.locator('#programEditor').waitFor({state:"visible"});
+        await page.locator(`#reviewSheet [data-pe-sheet="exercise"][data-id="${skipped.id}"]`).waitFor({state:"visible"});
         assert.equal((await page.evaluate(()=>window.__repforgeWorkoutDraft.state().programMeta.adaptations||[])).length,0,"Change only opens the ordinary editor");
       }else{
         await page.waitForFunction(()=>window.__repforgeWorkoutDraft.state().programMeta.adaptations?.length===1);
         await page.evaluate(()=>window.__repforgeStorage.flush());
         const saved=await page.evaluate(()=>structuredClone(window.__repforgeWorkoutDraft.state()));
         const record=saved.programMeta.adaptations[0];
+        assert.equal(await page.evaluate(()=>document.activeElement!==document.body&&document.activeElement?.isConnected&&!document.activeElement.closest('[hidden],.hidden')),true,"a completed decision returns focus to the live Review");
         assert.equal(record.decision,{accept:"accepted",decline:"declined",later:"snoozed"}[action]);
         assert.deepEqual(saved.log,before.log,"decisions never alter historical loads");
         if(action==="accept"){
@@ -284,8 +287,9 @@ async function runAdaptationCases(browser,manifest){
           assert.match(await page.locator('[data-adaptation-evaluation]').innerText(),/not enough sessions/);
         }
       }
-    }finally{await context.close()}
+    }catch(error){failures.push(error)}finally{await context.close()}
   }
+  if(failures.length)throw new AggregateError(failures,"weekly adaptation proofs failed");
   console.log("PASS weekly adaptation browser: four actions, explicit approval, editor token, historical loads, durable receipt and reload suppression");
 }
 
