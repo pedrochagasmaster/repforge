@@ -1322,7 +1322,7 @@
       "id": "why-this-weight",
       "flow": "workout",
       "label": "Workout — why this weight",
-      "scenario": "The recommendation inspector for a range lift: sentences first, each under a bold lead, the working behind See the working, the evidence footer. Footing explains the target’s standing before the effort estimate.",
+      "scenario": "The recommendation inspector for a range lift: sentences first, each under a bold lead, the working behind See the working, the evidence footer. Estimate basis explains the target’s standing before the effort estimate.",
       "variants": "demandingText"
     },
     {
