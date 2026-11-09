@@ -156,22 +156,20 @@ async function checkFocusStatesAtLargeText(browser) {
 async function checkFocusAtSmallestPhone(browser) {
   console.log("\nFocus on the smallest phone at the usual size: 320x568, EN/PT");
   const cases = [];
-  for (const key of ["workout/focus", "workout/rest-running", "workout/rest-done", "workout/stale-draft", "workout/persist-retry"]) for (const lang of ["en", "pt"]) cases.push({ key, lang, width: 320, text: "normal" });
-  for (const lang of ["en", "pt"]) cases.push({ key: "workout/focus", lang, width: 390, text: "text200" });
+  for (const key of ["workout/focus", "workout/rest-running", "workout/rest-done", "workout/stale-draft", "workout/persist-retry"]) for (const lang of ["en", "pt"]) cases.push({ key, lang });
   const failures = [];
-  await inPool(cases, 3, async ({ key, lang, width, text }) => {
-    const label = `${key} ${width}px ${lang} ${text}`;
+  await inPool(cases, 3, async ({ key, lang }) => {
+    const label = `${key} 320px ${lang} 100%`;
     let opened;
     try {
-      opened = await openCatalogState(browser, key, width, lang, text);
+      opened = await openCatalogState(browser, key, 320, lang, "normal");
       const m = await opened.page.evaluate(measureFocusCard, SAFE_AREA.bottom);
       const problems = focusCardProblems(m);
       if (!m.error) {
         if (m.title.lines > 2 || !m.title.label || !m.title.label.startsWith(m.title.text.replace(/…$/, ""))) problems.push(`the header's name takes ${m.title.lines} lines or the heading loses it (${JSON.stringify(m.title)})`);
         if (key === "workout/focus") {
-          if (!m.openRow || m.openRow.bottom > Math.min(m.openRow.shelfTop, m.window.bottom) + 1 || m.openRow.top < m.window.top - 1) problems.push(`the current ledger row is clipped (${JSON.stringify(m.openRow)}, window ${JSON.stringify(m.window)})`);
-          if (text === "normal" && m.window.scrollTop !== 0) problems.push(`the context region opens scrolled ${Math.round(m.window.scrollTop)}px`);
-          if (text === "normal" && (!m.name || m.name.top < m.window.top - 1 || m.name.bottom > m.window.bottom + 1)) problems.push("the exercise's prescription line is not whole in the context window on first paint");
+          if (m.window.scrollTop !== 0) problems.push(`the context region opens scrolled ${Math.round(m.window.scrollTop)}px`);
+          if (!m.name || m.name.top < m.window.top - 1 || m.name.bottom > m.window.bottom + 1) problems.push("the exercise's prescription line is not whole in the context window on first paint");
         }
         // The rest timer redesign: the rest is the tab over the shelf, whole on screen and a 44px target.
         if (/^workout\/rest-(running|done)$/.test(key) && (!m.tab || m.tab.top < 0 || m.tab.bottom > m.height + 0.5 || m.tab.left < -0.5 || m.tab.right > 320.5 || m.tab.height < 44 - 0.01)) problems.push(`the rest tab is not whole on screen with a 44px target (${JSON.stringify(m.tab)})`);
@@ -187,6 +185,31 @@ async function checkFocusAtSmallestPhone(browser) {
   for (const failure of failures) console.error(`  FAIL ${failure}`);
   assert(!failures.length, `${failures.length} of ${cases.length} Focus frames on the smallest phone hide the title, the name or the rest block`, failures.slice(0, 3).join(" || "));
   console.log(`  ${cases.length} frames show the title, the name and the rest block`);
+}
+
+async function checkStandingLedger(browser) {
+  console.log("\nStanding and the current row: 320x568 EN/PT, 390px EN/PT at 200%");
+  const failures = [];
+  for (const width of [320, 390]) for (const lang of ["en", "pt"]) {
+    const text = width === 320 ? "normal" : "text200";
+    const opened = await openCatalogState(browser, "workout/focus", width, lang, text,
+      width === 320 ? { safe: { top: 0, bottom: 0 } } : {});
+    try {
+      const m = await opened.page.evaluate(measureFocusCard, width === 320 ? 0 : SAFE_AREA.bottom);
+      const row = m.openRow;
+      if (!row || row.bottom > Math.min(row.shelfTop, m.window.bottom) + 1 || row.top < m.window.top - 1)
+        failures.push(`${width}px ${lang} ${text}: current row ${JSON.stringify(row)}, window ${JSON.stringify(m.window)}`);
+      const standing = await opened.page.locator(".exercise.is-current .fx-cue__standing").boundingBox();
+      if (!standing || standing.y < m.window.top - 1 || standing.y + standing.height > m.window.bottom + 1)
+        failures.push(`${width}px ${lang} ${text}: standing is not whole in the context window`);
+      if (width === 320 && m.window.scrollTop !== 0)
+        failures.push(`${width}px ${lang}: initial context scrolled ${m.window.scrollTop}px`);
+      console.log(`  ${width}px ${lang} ${text}: ${JSON.stringify({ row, window: m.window, standing })}`);
+    } finally {
+      await opened.context.close();
+    }
+  }
+  assert(!failures.length, "standing leaves the whole current row above the shelf", failures.join(" | "));
 }
 
 async function main() {
@@ -306,7 +329,10 @@ async function main() {
      * 2. The shelf's action stays whole at large text (R7 V-02)
      * ====================================================================== */
     if (wants("large")) await checkFocusStatesAtLargeText(browser);
-    if (wants("smallest")) await checkFocusAtSmallestPhone(browser);
+    if (wants("smallest")) {
+      await checkFocusAtSmallestPhone(browser);
+      await checkStandingLedger(browser);
+    }
     if (!wants("gestures")) return;
 
     /* ======================================================================

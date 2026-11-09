@@ -637,7 +637,9 @@ try {
       const cue = await focusCue(manual.page);
       assert(await manual.page.locator("#workout .exercise.is-current .fx-cue__standing").count() === 0,
         `P080-R1: ${lang} manual Focus never claims this is the first time`);
-      assert(cue.line2 === `${saved.row.min}–${saved.row.max} reps`,
+      const range = await manual.page.evaluate(({ min, max }) =>
+        window.RepForgeI18n.t("focus.cue.range_reps", { reps: `${min}–${max}` }), saved.row);
+      assert(cue.line2 === range,
         `P080-R1: ${lang} manual Focus keeps its programmed rep range`, cue);
       await manual.page.locator("#woDayTitle [data-exopen]").click();
       await manual.page.waitForSelector("#exDetail");
