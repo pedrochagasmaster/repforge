@@ -86,6 +86,7 @@
 
   /** A reason to request a check, separately from the safety and frequency ceilings. */
   function shouldOffer({ standing, calibration, lastCheckDays } = {}) {
+    if (!standing || standing.unavailable === true) return { ok: false, reason: null };
     if (standing?.word === "learning" || calibration?.state === "uncalibrated" &&
       (calibration.n < ESTIMATOR.minChecks || calibration.reason === "inconsistent"))
       return { ok: true, reason: "learning" };
