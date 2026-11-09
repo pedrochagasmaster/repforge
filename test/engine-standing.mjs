@@ -118,3 +118,27 @@ runInContext(readFileSync(new URL("../calibration-gauge.js", import.meta.url), "
 assert.equal(runInContext("RepForgeProgression.recommendSets(...JSON.parse(inputJson))[0].standing.word", realm), "solid",
   "helpers loaded after the engine can supply standing without reloading the engine");
 console.log("PASS standing failure boundary: 6 helper faults preserve complete two-prescription batches");
+
+for (const source of ["prefilled", "unsure", "failure"]) {
+  const input = structuredClone(cases.find(({ name }) => name === "fifty-day-break").input);
+  const before = Engine.recommendSets(...input)[0];
+  const recent = structuredClone(input[1][0]);
+  recent.sessionId = `recent-${source}`;
+  recent.date = input[4].now;
+  recent.sets = recent.sets.map((set) => ({ ...set, effortSource: source }));
+  input[1].push(recent);
+  const after = Engine.recommendSets(...input)[0];
+  assert.equal(after.standing.evidence.gapDays, 0, `${source}: the latest comparable session ends the break`);
+  assert.equal(after.standing.word, "solid", `${source}: a comparable zero-quality session does not leave a false break`);
+  assert.deepEqual(after.standing.reasons, []);
+  for (const key of ["sets", "sessions", "pairs", "agreement"])
+    assert.equal(after.standing.evidence[key], before.standing.evidence[key], `${source}: no additional standing ${key}`);
+  assert.deepEqual(after.targets, before.targets, `${source}: target selection is unchanged`);
+  for (const date of [undefined, "not-a-date"]) {
+    recent.date = date;
+    const undated = Engine.recommendSets(...input)[0];
+    assert.equal(undated.standing.evidence.gapDays, 50, "an undated comparable session supplies no date arithmetic");
+    assert.deepEqual(undated.standing.reasons, ["break"]);
+  }
+}
+console.log("PASS latest comparable session: prefilled, unsure and failure rows end a break without adding evidence");
