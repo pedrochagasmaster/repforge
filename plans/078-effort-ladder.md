@@ -157,6 +157,7 @@ later.
    between installs of one origin that update together.
 6. **`workout-draft.js` and the contract change in PR 1, so the Worker is redeployed from the exact merge head
    before merge** (`services/install-transfer/RUNBOOK.md`), as Plan 077 §6.1 requires.
+   **Amendment (owner, 2026-11-08):** the coach-layer Worker deploys once, from the final green integration head, before PR #687 merges to main, with the owner's go-ahead. A packet merge into `integration/coach-layer` reaches no phone and needs no deploy. This is a stated exception to hard rule 18's per-PR wording.
 
 ## 5. Changes by owner module
 

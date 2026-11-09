@@ -1400,7 +1400,7 @@ function closeModal(el){
       hideModalElement(rec);
       resolve(true);
     };
-    if(rec.delayHide>0){
+    if(rec.delayHide>0&&!rec.el.hasAttribute("data-gesture-dismissed")){
       rec.el.classList.remove("is-open");
       rec.scrim?.classList.remove("is-open");
       fallback=setTimeout(()=>finish(true),rec.delayHide);
@@ -4375,6 +4375,9 @@ function legacyReviewPanel(el){
 // confirmed by hash) or the exact-program guided fallback, which stages a
 // setup draft and never archives. Cancel leaves the program untouched.
 let reviewFlow=null;
+/* Leaving Review and coming back rebuilds these buttons while a commit waits
+   for the storage lock, so the in-flight fact outlives any one button. */
+let reviewCommitInFlight=false;
 /* The days question opens on the program's current days per week (owner, 2026-10-25); the minutes question opens empty. */
 const scheduleDiagnosisTarget=kind=>kind==="fewer_days"?String(days().length||""):"";
 function startScheduleRepair(){reviewFlow={stage:"diagnosis",action:"schedule-repair",kind:"fewer_days",target:scheduleDiagnosisTarget("fewer_days")};renderReview()}
@@ -4419,11 +4422,15 @@ function renderReviewFlow(el){
     bindFlowCancel(el);return}
   if(flow.stage==="error"){
     const stale=flow.stale===true||String(flow.code||"").includes("stale")||String(flow.code||"").includes("mismatch");
-    el.innerHTML=`<p class="review__error" role="alert">${esc(t(stale?"review.error.stale":"review.error.failed"))}</p>`+
+    const copy=flow.applied===true?"toast.program_save_failed":stale?"review.error.stale":"review.error.failed";
+    el.innerHTML=`<p class="review__error" role="alert">${esc(t(copy))}</p>`+
       `<div class="btnrow"><button type="button" class="btn btn--steel" data-flow-restart>${esc(t("review.error.retry"))}</button>`+
       `<button type="button" class="btn btn--steel" data-flow-cancel>${esc(t("review.diagnosis.cancel"))}</button></div>`;
-    const restart=$("[data-flow-restart]",el);if(restart)restart.onclick=flow.action==="reduce-volume"
-      ?startVolumeReduction:flow.action==="recovery-week"?startRecoveryWeek:startScheduleRepair;
+    const restart=$("[data-flow-restart]",el);if(restart)restart.onclick=flow.applied===true
+      // The program already changed: a new flow would reduce it a second time.
+      ?()=>submitReviewProposal(flow,restart)
+      :flow.action==="reduce-volume"?startVolumeReduction:flow.action==="recovery-week"?startRecoveryWeek:startScheduleRepair;
+    if(restart&&flow.applied===true)restart.disabled=reviewCommitInFlight;
     bindFlowCancel(el);return}
   if(flow.stage==="done"){
     el.innerHTML=`<p class="review__staged" role="status">${esc(t(flow.doneKey||"review.done.committed"))}</p>`+
@@ -4562,22 +4569,28 @@ function renderSiblingPreview(el,flow){
     `<div class="btnrow review__preview-actions"><button type="button" class="btn btn--cta" data-preview-confirm>${esc(t(recovery?"review.recovery.confirm":"review.preview.confirm"))}</button>`+
     `<button type="button" class="btn btn--steel" data-flow-cancel>${esc(t("review.preview.cancel"))}</button></div>`;
   const confirm=$("[data-preview-confirm]",el);
-  if(confirm)confirm.onclick=async()=>{
-    confirm.disabled=true;
-    const persisted=await repforgeProgramTransitionAdapter.confirmTransition({
-      proposal:p,proposalHash:p.proposalHash,transitionId:p.transitionId,
-      successorProgramId:p.successor?.programId,confirmedAt:new Date().toISOString(),
-      acknowledgedDraftRaw:readDraftRaw()});
-    if(persisted?.committed){
-      const action={"schedule-repair":"schedule_repair","reduce-volume":"reduce_volume","recovery-week":"recovery_week","guided-edit":"guided_edit"}[flow.action];
-      if(action)captureEvent("block_transition_chosen",{action});
-      const doneKey=recovery?"review.recovery.committed":change.kind==="reduce_volume"?"review.volume.committed":"review.done.committed";
-      reviewFlow={stage:"done",doneKey};
-      day=days()[0]||"Day 1";toast(t(doneKey));render();
-    }else{
-      reviewFlow={stage:"error",action:flow.action,code:persisted?.code,stale:persisted?.duplicate===true||!!persisted?.stale||!!persisted?.staleRevision};
-      render()}}
+  if(confirm){confirm.disabled=reviewCommitInFlight;confirm.onclick=()=>submitReviewProposal(flow,confirm)}
   bindFlowCancel(el)}
+async function submitReviewProposal(flow,button){
+  if(reviewCommitInFlight)return;
+  reviewCommitInFlight=true;button.disabled=true;
+  const p=flow.proposal||{},change=p.change||{};
+  let persisted;
+  try{persisted=await repforgeProgramTransitionAdapter.confirmTransition({
+    proposal:p,proposalHash:p.proposalHash,transitionId:p.transitionId,
+    successorProgramId:p.successor?.programId,confirmedAt:new Date().toISOString(),
+    acknowledgedDraftRaw:readDraftRaw()})}
+  finally{reviewCommitInFlight=false}
+  if(persisted?.committed===true&&persisted?.settled===true){
+    const action={"schedule-repair":"schedule_repair","reduce-volume":"reduce_volume","recovery-week":"recovery_week","guided-edit":"guided_edit"}[flow.action];
+    if(action)captureEvent("block_transition_chosen",{action});
+    const doneKey=change.kind==="recovery_week"?"review.recovery.committed":change.kind==="reduce_volume"?"review.volume.committed":"review.done.committed";
+    reviewFlow={stage:"done",doneKey};
+    day=days()[0]||"Day 1";toast(t(doneKey));render();
+  }else{
+    reviewFlow={...flow,stage:"error",code:persisted?.code,applied:(persisted?.applied??flow.applied)===true,
+      stale:persisted?.duplicate===true||!!persisted?.stale||!!persisted?.staleRevision};
+    render()}}
 let pendingBlockTransition=null;
 let onboardingOrigin=null;
 let blockCommitInFlight=null;
@@ -7525,6 +7538,7 @@ function closeRestSheet(){
   const sheet=$("#restSheet");
   if(!sheet)return Promise.resolve(false);
   if(sheet.hidden&&!(activeModal&&activeModal.el===sheet))return Promise.resolve(false);
+  releaseRestDialDrag();
   restSheetReturn=null;
   return closeModal(sheet)}
 /** Picking a length restarts the rest at it; idle, it only sets what the next
@@ -7556,6 +7570,14 @@ function setRestLeftMs(ms,length){
    the next rest. It is a slider for the keyboard and assistive technology: the arrows step 15 seconds. */
 const snapDialSec=sec=>Math.min(REST_DIAL_MAX,Math.max(REST_DIAL_MIN,Math.round(sec/REST_DIAL_STEP)*REST_DIAL_STEP));
 let restDialDrag=null;
+function releaseRestDialDrag(pointerId=null){
+  const drag=restDialDrag;
+  if(!drag||(pointerId!=null&&pointerId!==drag.id))return;
+  restDialDrag=null;
+  const dial=$("#restDial");
+  dial?.classList.remove("is-turning");
+  try{if(dial?.hasPointerCapture?.(drag.id))dial.releasePointerCapture(drag.id)}catch{}
+}
 /** Set the time left from the dial. `scale` is the full turn the drag began on. */
 function setRestFromDial(sec,scale=restPlanSec()){
   if(!restState().active){applyRest(RepForgeRestTimer.setLength(restClock,sec));syncRest();paintRestSheet();return}
@@ -7600,12 +7622,10 @@ function bindRestDial(){
     // A light detent where the hardware has one; the time and the arc step with it.
     if(!first)navigator.vibrate?.(4);
     setRestFromDial(value,drag.scale)});
-  const end=event=>{
-    const drag=restDialDrag;if(!drag||event.pointerId!==drag.id)return;
-    restDialDrag=null;dial.classList.remove("is-turning");
-    try{dial.releasePointerCapture(event.pointerId)}catch{}};
+  const end=event=>releaseRestDialDrag(event.pointerId);
   dial.addEventListener("pointerup",end);
   dial.addEventListener("pointercancel",end);
+  dial.addEventListener("lostpointercapture",end);
   dial.addEventListener("keydown",event=>{
     const steps={ArrowRight:1,ArrowUp:1,ArrowLeft:-1,ArrowDown:-1,PageUp:4,PageDown:-4}[event.key];
     let value=null;
@@ -12687,6 +12707,25 @@ function transitionPredecessor(snapshot){
   return{programId:meta.id,durableRevision:readRevision(snapshot),
     programDefinition:cloneSnapshot(meta.programDefinition),
     customExerciseDefinitions:compilerCustomDefinitions(snapshot.customExercises)}}
+/* A rebased journal carries the whole receipt. A preflight-pending journal was
+   rejected before its rebase, so only its archive names the transition. */
+function transitionJournalOwned(journal,proposal){
+  const archiveId=proposal?.predecessor?.programId;
+  if(classifyCommittedTransition(journal?.proposal,proposal,archiveId)==="match")return true;
+  return journal?.preflightPending===true&&(journal.proposal?.programHistory||[]).some(entry=>
+    entry?.id===archiveId&&entry.transitionOut?.transitionId===proposal.transitionId&&
+    entry.transitionOut?.proposalHash===proposal.proposalHash&&
+    entry.transitionOut?.successorProgramId===proposal.successor?.programId)}
+async function settleProgramTransitionReceipt(proposal){
+  const archiveId=proposal?.predecessor?.programId;
+  const result=await DurableState.settleProgramTransitionAlreadyCommitted({
+    ownsJournal:journal=>transitionJournalOwned(journal,proposal),
+    verify:head=>classifyCommittedTransition(head,proposal,archiveId)==="match"
+      ?{ok:true}:{ok:false,code:"transition_settlement_receipt_mismatch"}});
+  const outcome={...result};delete outcome.head;
+  return{ok:outcome.committed===true&&outcome.settled===true,...outcome,
+    // A headless refusal gives no evidence that the prior receipt was rolled back.
+    applied:result.head?classifyCommittedTransition(result.head,proposal,archiveId)==="match":undefined}}
 /* Sets a volume reduction removes from the current cycle, by slot. A draft
    that already holds progress in one of those sets blocks the confirmation. */
 function reducedSetCounts(proposal,snapshot){
@@ -12760,9 +12799,7 @@ const repforgeProgramTransitionAdapter = {
     const archiveId = predecessorProgramId;
 
     const preIdem = classifyCommittedTransition(state, proposal, archiveId);
-    if (preIdem === "match") {
-      return { ok: true, committed: true, alreadyCommitted: true, revision: readRevision(state), localOk: true, idbOk: true, kind: "committed" };
-    }
+    if (preIdem === "match") return settleProgramTransitionReceipt(proposal);
     if (preIdem === "conflict") return invalid("conflicting_transition_record");
     if (acknowledgedDraftRaw !== readDraftRaw()) {
       return { ok: false, committed: false, draftConflict: true, conflict: true, code: "draft_mismatch", localOk: false, idbOk: false, revision: readRevision(state) };
@@ -12849,8 +12886,15 @@ const repforgeProgramTransitionAdapter = {
     };
 
     const res = await commitProgramReplacement(baseProposal, storageIO, { capture, effect, preflight });
-    if (res.localOk || res.idbOk) return { ok: true, committed: true, ...res };
-    return { ok: false, committed: false, ...res };
+    if(res?.alreadyCommitted===true)return settleProgramTransitionReceipt(proposal);
+    // This attempt committed, but an earlier one may have left its journal.
+    if(res?.committed===true&&res?.settled===true&&
+      DurableState.readPendingJournal().entries.some(record=>transitionJournalOwned(record.journal,proposal))){
+      const swept=await settleProgramTransitionReceipt(proposal);
+      if(swept.settled!==true)return swept}
+    const applied = classifyCommittedTransition(state, proposal, archiveId) === "match";
+    if (res.localOk || res.idbOk) return { ok: true, committed: true, ...res, applied };
+    return { ok: false, committed: false, ...res, applied };
   },
 
   // Guided editing stages the live program as a Build draft so the lifter can
@@ -19038,6 +19082,7 @@ function closeOnboarding(){
   cancelEntryGeneration();
   entryPickerInput=null;entryDialog=null;entryReplaceResolve?.(false);entryReplaceResolve=null;closeEntryDialog();
   onboardingProgramEditor?.dispose?.();onboardingProgramEditor=null;setupEditorOpen=false;
+  entryAdjustMount?.dispose();entryAdjustMount=null;
   $("#onboarding")?.classList.remove("program-editor-onboarding");
   $("#onboarding").classList.remove("active");$("#onboarding").classList.add("hidden");document.body.classList.remove("is-onboarding","is-entry-editor","is-settings");
   disarmEntryHistory();
@@ -19232,6 +19277,7 @@ function entrySetState(next,{persist=true}={}){
   if(next?.step!==entryState?.step||next?.route!==entryState?.route){
     entryPickerDraft={};entryPriorityLimitShown=false;
   }
+  if(!next?.result)invalidateEntryAdjustWork();
   entryState=next;
   if(next?.step!=="background")entryGoalFromHub=false;
   entryValidationNotice=false;
@@ -20343,6 +20389,7 @@ function entryBuildingPending(settled){
   wait.hidden=!pending;
   wait.classList.toggle("is-pending",pending)}
 async function startEntryResult(target,{checklist=null}={}){
+  invalidateEntryAdjustWork();
   supersedeEntryGeneration();
   const job={status:ENTRY_GENERATION_STATUS.GENERATING_RESULT,from:entryState,target,controller:new AbortController(),checklist};
   entryGeneration=job;entryCompileError=null;
@@ -20903,6 +20950,7 @@ async function applyEntryAnswerEdit(patch,{lead,beforeLabel,afterLabel}={}){
     if(!ProgramCompiler.availableSplits(mapped.request).includes(mapped.request.split))return{ok:false,failure:{code:"generation_conflict",
       conflicts:[{code:"unsupported_generation_domain"}]}}}
   if(current.status===ENTRY_GENERATION_STATUS.REBUILDING_ANSWER)current.controller?.abort();
+  invalidateEntryAdjustWork();
   const job={status:ENTRY_GENERATION_STATUS.REBUILDING_ANSWER,committed,next,controller:new AbortController()};
   entryGeneration=job;syncEntryBusy();
   let outcome;
@@ -21115,6 +21163,8 @@ function entryAdjustCtx(){
 function readEntryAdjustLog(){try{return JSON.parse(sessionStorage.getItem(ENTRY_ADJUST_KEY)||"null")}catch{return null}}
 function writeEntryAdjustLog(value){
   try{if(value?.edits?.length)sessionStorage.setItem(ENTRY_ADJUST_KEY,JSON.stringify(value));else sessionStorage.removeItem(ENTRY_ADJUST_KEY)}catch{}}
+// A rebuild wins from its start, even if generation later fails or is cancelled.
+function invalidateEntryAdjustWork(){if(entryAdjust)entryAdjust.identity={}}
 function clearEntryAdjust(){
   entryAdjustMount?.dispose();entryAdjustMount=null;entryAdjust=null;
   try{sessionStorage.removeItem(ENTRY_ADJUST_KEY)}catch{}}
@@ -21137,7 +21187,7 @@ function adoptEntryAdjust(baseline){
   if(!shared&&saved?.draftId===entryState.draftId&&saved?.fingerprint===baseline.fingerprint&&Array.isArray(saved.edits)){
     const replayed=Review.replay(baseline.preview.programDefinition,saved.edits,entryAdjustCtx());
     if(replayed.ok&&sameDefinition(replayed.definition,stored))edits=saved.edits}
-  entryAdjust={draftId:entryState.draftId,answers:result.answersFingerprint,baseline,edits,view:{tab:null,reorder:null}};
+  entryAdjust={identity:{},draftId:entryState.draftId,answers:result.answersFingerprint,baseline,edits,view:{tab:null,reorder:null}};
   if(!shared)writeEntryAdjustLog({draftId:entryState.draftId,fingerprint:baseline.fingerprint,edits});
   return entryAdjust}
 /* After a reload the recommendation is not at hand: generate it, then mount
@@ -21207,11 +21257,15 @@ async function commitEntryAdjust({definition,edits,name}){
   else{
     const saved=await persistEntryRulesState(next);
     if(!saved?.ok)return{ok:false}}
-  review.answers=entryState.result.answersFingerprint;
-  review.edits=edits.slice();
-  if(!shared)writeEntryAdjustLog({draftId:review.draftId,fingerprint:base.fingerprint,edits:review.edits});
-  syncEntryAdjustFooter();
-  return{ok:true}}
+  // The write has landed, but its candidate may have been replaced or discarded while the write waited: then its
+  // edit log belongs to nobody and must not be written over the replacement's.
+  const current=entryAdjust===review&&!!entryState?.result;
+  if(current){
+    review.answers=entryState.result.answersFingerprint;
+    review.edits=edits.slice();
+    if(!shared)writeEntryAdjustLog({draftId:review.draftId,fingerprint:base.fingerprint,edits:review.edits});
+    syncEntryAdjustFooter()}
+  return{ok:true,current}}
 /* The pinned footer follows the review without re-rendering the screen. */
 function syncEntryAdjustFooter(){
   const pinned=$("#entryCandidateReview .entry__pinned");
@@ -21284,6 +21338,10 @@ function mountEntryAdjust(){
   if(!host||!Review||!review)return;
   entryAdjustMount=Review.mountProgramReview(host,{
     view:review.view,
+    queueKey:()=>review,
+    candidate:()=>entryState?.result&&!entryAnswerRebuildPending()&&
+      (entryGeneration.status!==ENTRY_GENERATION_STATUS.GENERATING_RESULT||entryGeneration.from!==entryState)?entryAdjust?.identity:null,
+    present:options=>{if(entryAdjust===review)entryAdjustMount?.present(options)},
     read:()=>({baseline:entryAdjust.baseline.preview.programDefinition,definition:entryState.result.preview.programDefinition,
       edits:entryAdjust.edits,name:entryResultName()||t("untitled_program"),
       answers:entryState.answers,offers:entryCurrentVerifiedOffers(entryState),

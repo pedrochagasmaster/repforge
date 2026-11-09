@@ -459,3 +459,64 @@ one step: that's a real shortfall.
   happens.
 - **Deterministic and local.** Same history, same suggestion, computed on
   your device, every time.
+
+
+## Finding your weight
+
+The starting-load module declares a conservative opening point for a lift with
+no comparable history or authored load. Version **`priors@079.1`** is **pending
+professional review** by the CREF-registered physical education professional
+before the alpha. These are the first-draft values from Plan 079; they are not
+measured results or a claim that a particular machine has the same resistance
+as another. The guided session flow will connect this module in the next packet.
+
+Each cell below gives a fraction of bodyweight for **beginner / intermediate /
+advanced**, in that order. Dumbbell values are **per hand**, not the sum of two
+hands. Machines vary by brand; their opening points are the least trusted.
+
+| Movement pattern | Free barbell | Smith / fixed bar | Dumbbell (per hand) | Machine / cable |
+| --- | --- | --- | --- | --- |
+| Squat | 0.35 / 0.55 / 0.75 | 0.30 / 0.50 / 0.70 | 0.10 / 0.15 / 0.20 | 0.80 / 1.20 / 1.60 (leg press) |
+| Hip hinge | 0.45 / 0.70 / 0.95 | 0.40 / 0.60 / 0.80 | 0.12 / 0.18 / 0.25 | 0.30 / 0.45 / 0.60 |
+| Horizontal push | 0.30 / 0.50 / 0.70 | 0.25 / 0.45 / 0.65 | 0.10 / 0.17 / 0.25 | 0.25 / 0.40 / 0.55 |
+| Vertical push | 0.20 / 0.30 / 0.45 | 0.18 / 0.28 / 0.40 | 0.06 / 0.10 / 0.15 | 0.15 / 0.25 / 0.35 |
+| Horizontal pull | 0.30 / 0.45 / 0.60 | — | 0.10 / 0.17 / 0.25 | 0.25 / 0.40 / 0.55 |
+| Vertical pull | — | — | — | 0.35 / 0.50 / 0.70 (pulldown) |
+| Accessory (biceps, triceps, delts, calves, hamstring, quad, …) | 0.10 / 0.15 / 0.20 | 0.10 / 0.15 / 0.20 | 0.04 / 0.06 / 0.08 | 0.10 / 0.15 / 0.25 |
+
+The opening load is bodyweight multiplied by the fraction, rounded **down** to
+an available load on the lift's grid. It never falls below the equipment's
+minimum: at least 20 kg for a free bar, or the lightest supplied grid entry for
+other equipment (the lightest stack or dumbbell). If that minimum is between
+grid entries, the first available entry above it is the floor. For an 80 kg
+beginner's squat, 28 kg rounds down to 27.5 kg on a 2.5 kg grid.
+
+No bodyweight means the equipment floor, with basis `floor`. An unavailable
+cell, unknown equipment or movement pattern also uses the floor; no extra
+fractions are invented. Multiple recognized patterns use the lower fraction.
+A known performed equipment name takes precedence over the catalog's options;
+ambiguous options use the floor. Bodyweight-only and assistance conventions
+return no opening load. No available load at or above the minimum also returns
+no load, so the caller cannot suggest an impossible weight. The caller supplies
+the actual available grid; the catalog does not describe every gym's minimum.
+Onboarding competency answers are not used in this version.
+
+The lifter's own sets replace the prior from the first working set. The prior
+never changes a conclusion drawn from their record and never becomes a
+synthetic history row.
+
+For an Easy ramp set, the next candidate preserves the existing capacity
+arithmetic: current load multiplied by `(1 + (reps + 3)/30)`, divided by
+`(1 + (reps + target reps left)/30)`. It rounds down to the available grid,
+but advances at least one available step. Thus 40 kg for eight reps with two
+reps left as the target advances to 42.5 kg on a 2.5 kg grid. A per-hand
+8 kg dumbbell on a 2 kg grid advances to 10 kg. With no higher available load,
+the module returns no next load.
+
+For a new or substituted lift, the module can use the old lift's history
+anchor multiplied by the new fraction divided by the old fraction, then round
+down on the new lift's grid and respect its floor. This has basis `ratio`.
+The fractions themselves are used, before opening-load rounding, and the ratio
+needs no bodyweight. If either fraction or the old anchor is unavailable, the
+new lift's ordinary prior or floor applies. Connecting this suggestion to
+substitution belongs to the later integration packet.

@@ -201,6 +201,7 @@ export const FULL_SUITES = {
     s("test/ui-plan-050-editor.mjs", [], { domains: ["entry", "program"], seconds: 13 }),
     s("test/generative-entry-runtime.mjs", [], { seconds: 68 }),
     s("test/generate-program-browser.mjs", [], { domains: ["entry", "persistence"], seconds: 390 }),
+    s("test/program-review-lifetime.mjs", [], { domains: ["entry", "persistence"], seconds: 480 }),
     s("test/adaptive-workout-browser.mjs", [], { domains: ["workout", "program", "persistence"], seconds: 12 }),
     s("test/bodyweight-source-browser.mjs", [], { domains: ["workout", "program", "persistence"], seconds: 12 }),
     s("test/per-side-engine-transfer-browser.mjs", [], { domains: ["install", "workout", "persistence"], tier: "packet", seconds: 14, timeoutMs: 900000 }),
@@ -310,6 +311,7 @@ export const FULL_SUITES = {
 export const SUPPORT = {
   "test/week-review-browser.mjs": "Plan 082 weekly facts journeys executed by test/progress-lifecycle.mjs in the PR lane.",
   "test/week-review.mjs": "Plan 082 weekly-facts assertions executed by test/progress-model.mjs in the PR lane.",
+  "test/starting-loads.mjs": "Opening-load and ramp arithmetic proofs executed by progression-engine-plan067.mjs in the PR lane; also runnable directly.",
   "test/entry-privacy.mjs": "Shared privacy characterization/oracles imported by the four scoped contracts.",
   "test/suites.mjs": "CI/local inventory, imported by tools/run-tests.mjs.",
   "test/browser.mjs": "Shared Playwright launcher and boot helpers.",
