@@ -23,7 +23,7 @@ async function open(browser,{mode="effort",planned=false}={}){
     state.settings.rirMode=mode;delete state.settings.effortScale;
     if(planned){
       const slot=state.programMeta.programDefinition.days.flatMap(day=>day.slots||[]).find(slot=>slot.id===id);
-      for(const cycle of slot.prescriptionsByCycle)for(const set of cycle.sets)set.targets.loadKg=40;
+      for(const cycle of slot.prescriptionsByCycle)for(const [index,set] of cycle.sets.entries())if(planned!=="later"||index>0)set.targets.loadKg=40;
     }
     await window.__repforgeCommitProposedState(state);
     await window.__repforgeStorage.flush();
@@ -160,8 +160,10 @@ try{
   check(nextLoad<40,`a one-rep Max below the prescribed minimum lowers the next target (${nextLoad})`);
   await max.context.close();
 
-  const planned=await open(browser,{planned:true});
-  check(await planned.page.locator(`${card} .fx-cue.is-ramp`).count()===0,"authored loads skip the ramp");
-  await planned.context.close();
+  for(const loads of [true,"later"]){
+    const planned=await open(browser,{planned:loads});
+    check(await planned.page.locator(`${card} .fx-cue.is-ramp`).count()===0,`authored loads skip the ramp, including a load on a later set (${loads})`);
+    await planned.context.close();
+  }
   console.log(`Session zero: ${checks} passed, 0 failed`);
 }finally{await browser.close()}
