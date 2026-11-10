@@ -165,6 +165,9 @@ export const ORANGE_ALLOWLIST = [
   { category: "rest-timer", selector: ".restlink--end" },
   // R3j: the dock's active item. Direction D leaves the dock as shipped (spec section 7), so the
   // active tab keeps painting its icon, its label and its selection edge in the accent.
+  // The sixth use (owner, 2026-11-10, DESIGN.md): a switch that is on, Settings included.
+  { category: "switch-on", selector: ".toggle[aria-pressed=\"true\"]", pseudo: "::before" },
+  { category: "switch-on", selector: ".toggle[aria-checked=\"true\"]", pseudo: "::before" },
   { category: "active-dock-icon", selector: "nav button.active .nav__icon" },
   { category: "active-dock-icon", selector: "nav button.active > [data-i18n]" },
   { category: "active-dock-icon", selector: "nav button.active" },

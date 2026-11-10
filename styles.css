@@ -907,6 +907,8 @@ input:is([type=date],[type=time])::-webkit-date-and-time-value{min-height:1.5em;
   background:var(--accent-deep);box-shadow:none;
 }
 .toggle[aria-checked="true"]::after,.toggle[aria-pressed="true"]::after,.toggle.is-on::after{transform:translateX(20px)}
+/* On the accent track the knob is the light one in both themes. */
+:root[data-theme="dark"] :is(.toggle[aria-checked="true"],.toggle[aria-pressed="true"],.toggle.is-on)::after{background:var(--ink)}
 /* Held down, the knob stretches towards the side it is about to travel to. */
 .toggle.is-pressed::after{width:31px}
 .toggle[aria-checked="true"].is-pressed::after,.toggle[aria-pressed="true"].is-pressed::after,.toggle.is-on.is-pressed::after{
@@ -1477,6 +1479,9 @@ article.exercise--focus .fcard__context{min-height:var(--focus-context-floor)}
 .ledgerline__vals > .fx-col:nth-child(2){min-width:3.25rem}
 .ledgerline__vals > .fx-col:nth-child(3){min-width:4.5rem}
 .ledgerline__vals > .fx-col.is-soft{color:var(--color-ink)}
+/* Focus and Today set their figures in Plex Sans with tabular digits, the face of the sentences around them (owner,
+   2026-11-10); Mono stays in History and the other ledgers. */
+.fcard__ledger .ledgerline__vals,.fcard__ledger .ledgerline__idx{font-family:var(--font-language);font-variant-numeric:tabular-nums}
 button.ledgerline{cursor:pointer;text-align:left;border-top:0;border-inline:0}
 @media (hover: hover) and (pointer: fine){
 button.ledgerline:hover:not(:disabled){background:var(--well)}
@@ -1489,8 +1494,11 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
 }
 /* The open row's ring is a real 2px edge, so the rendered-role audit can measure it; the
    padding gives the 2px back, which leaves the row the size of its neighbours. */
+/* The open row is a tint with a 3px ink bar on its leading edge (owner, 2026-11-10), so the focused shelf field keeps
+   the only ring on screen. */
 .fcard__ledger .ledgerline--open{
-  align-content:center;padding-block:4px;padding-inline:10px;border:2px solid var(--boundary-selected-quiet);box-shadow:none;
+  align-content:center;padding-block:6px;padding-inline:12px;border:0;border-radius:var(--radius-none);
+  background:rgba(var(--ink-rgb),.05);box-shadow:inset 3px 0 0 var(--boundary-selected-quiet);
 }
 .fx-next{
   display:flex;align-items:center;justify-content:space-between;gap:var(--space-12);width:100%;min-height:48px;margin:var(--space-8) 0 0;
@@ -1590,17 +1598,19 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
   color:var(--color-ink-secondary);overflow-wrap:anywhere;
 }
 .shelf__val{
-  font-family:var(--font-training-data);font-size:min(var(--font-size-metric),var(--shelf-numeral-fit));font-weight:var(--weight-medium);line-height:var(--line-tight);
+  font-family:var(--font-language);font-size:min(var(--font-size-metric),var(--shelf-numeral-fit));font-weight:var(--weight-medium);line-height:var(--line-tight);
   color:var(--control-selection-ink);font-variant-numeric:tabular-nums;overflow-wrap:anywhere;
 }
-.shelf__field.is-untouched .shelf__val{color:var(--color-ink-secondary)}
+/* A prefilled value the lifter has not touched is ink at the regular weight; touching it sets it in medium (owner,
+   2026-11-10: grey read as a placeholder). */
+.shelf__field.is-untouched .shelf__val{color:var(--color-ink);font-weight:var(--weight-regular)}
 /* The input is always present so the draft handlers have one element to read and
    flag. Until the second tap it is invisible and inert; then it takes the field's place. */
 .shelf__input{
   position:absolute;inset:0;width:100%;height:100%;min-height:56px;margin:0;padding:var(--space-4) var(--space-12) 0;
   opacity:0;pointer-events:none;border:1px solid var(--control-field-boundary);border-radius:var(--shelf-inner-radius);
   background:var(--control-field-bg);color:var(--control-field-ink);box-shadow:var(--elevation-selected-quiet-shadow);
-  font-family:var(--font-training-data);font-size:min(var(--font-size-metric),var(--shelf-numeral-fit));font-weight:var(--weight-medium);line-height:var(--line-tight);
+  font-family:var(--font-language);font-size:min(var(--font-size-metric),var(--shelf-numeral-fit));font-weight:var(--weight-medium);line-height:var(--line-tight);
   font-variant-numeric:tabular-nums;text-align:left;
 }
 .shelf__field.is-editing .shelf__input{opacity:1;pointer-events:auto;padding-top:calc(var(--space-4) + var(--font-size-body-small) * var(--line-standard) + 2px);padding-bottom:0}
@@ -3677,8 +3687,8 @@ body.is-library nav,body.is-preview nav,body.is-import nav{display:none}
    into the page instead of showing through as ghosted text. Below the sticky action (z-index 5), above the page. */
 body::after{
   content:"";position:fixed;left:0;right:0;bottom:0;z-index:4;pointer-events:none;
-  height:calc(var(--nav) + env(safe-area-inset-bottom) + var(--space-12) + var(--space-32));
-  background:linear-gradient(to bottom,rgba(var(--bg-rgb),0),var(--bg) var(--space-32));
+  height:calc(var(--nav) + env(safe-area-inset-bottom) + var(--space-12) + 2 * var(--space-32));
+  background:linear-gradient(to bottom,rgba(var(--bg-rgb),0),var(--bg) var(--space-26));
 }
 body.is-settings::after,body.is-exercise::after,body.is-onboarding::after,body.is-library::after,body.is-preview::after,
 body.is-import::after,body.is-focus-wo::after,body:has(#history.view.active.is-session-edit)::after,
@@ -5492,8 +5502,6 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
   line-height:var(--line-standard);color:var(--color-ink);
 }
 .exchart__mono{font-family:var(--font-language);font-weight:var(--weight-semibold);font-variant-numeric:tabular-nums}
-/* A Mono space is a full digit wide, so "3 × 12" opens up in the target column; the pairs close to a text space. */
-.rxrow__target{word-spacing:-.25em}
 .exchart__soft{color:var(--color-ink-secondary)}
 .exchart__cols,.exrow{
   display:grid;grid-template-columns:4.5rem minmax(0,1fr) 4rem 3.25rem;gap:var(--space-8);align-items:center;
@@ -8755,13 +8763,15 @@ body.is-entry-editor #entryProgramName,
 .rxrow__sub{display:block;font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
 .rxrow__load{
   text-align:right;white-space:nowrap;
-  font-family:var(--font-training-data);font-size:var(--font-size-metric);font-weight:var(--weight-regular);line-height:var(--line-tight);color:var(--color-ink);
+  font-family:var(--font-language);font-size:var(--font-size-metric);font-weight:var(--weight-regular);line-height:var(--line-tight);color:var(--color-ink);
+  font-variant-numeric:tabular-nums;
 }
 /* The load leads in ink at the regular weight; the target is the quieter second column (the prototype's ledger;
    owner decision 2026-10-24, superseding #485 deviation 1's heavier figures). */
 .rxrow__target{
   text-align:right;white-space:nowrap;
-  font-family:var(--font-training-data);font-size:var(--font-size-body-small);font-weight:var(--weight-regular);line-height:var(--line-standard);color:var(--color-ink-secondary);
+  font-family:var(--font-language);font-size:var(--font-size-body-small);font-weight:var(--weight-regular);line-height:var(--line-standard);color:var(--color-ink-secondary);
+  font-variant-numeric:tabular-nums;
 }
 .rxrow__op,.rxrow__unit{color:var(--color-ink-secondary)}
 
@@ -8974,7 +8984,8 @@ body.is-entry-editor #entryProgramName,
 /* Settings: Back, the guide cue, the warning line and the switches' on state. */
 #settings #settingsBack{color:var(--control-quiet-ink)}
 #settings .settings-warn{color:var(--color-ink)}
-#settings .toggle[aria-checked="true"]::before,#settings .toggle[aria-pressed="true"]::before,#settings .toggle.is-on::before{background:var(--boundary-selected-quiet)}
+/* Settings' switches take the shared accent on-track (owner, 2026-11-10: a sixth orange use, see DESIGN.md): an ink
+   track read as off in dark. */
 
 /* Sheets headed by the shared band: the commit action that sat in the old three-slot head (Done, Save, Copy) is now
    the first action in the foot, and the foot wraps when enlarged text asks for another row. The band's 16px gutter

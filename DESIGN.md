@@ -321,7 +321,7 @@ both.
 
 ### The orange budget
 
-Plan 064 section 8.8 allows the accent in exactly five places, and
+Plan 064 section 8.8 allows the accent in exactly five places (a sixth added below by the owner), and
 `ORANGE_ALLOWLIST` in `tools/check-direction-d.mjs` binds each to a selector. The
 rules-only gate (`tools/check-rules-only.mjs`) reads the same list and adds
 nothing to it.
@@ -337,6 +337,9 @@ nothing to it.
    which stays `--accent` on the CTA ground in both themes.
 5. **The active dock item.** The shipped active item's icon, label and selection
    edge (owner build decision on #295, 2026-10-01), travelling with the lens.
+6. **A switch that is on.** The on-track of `.toggle`, `--accent-deep` in both
+   themes, including Settings (owner, 2026-11-10: the ink track read as off in
+   dark).
 
 Two further paints are real and are not budget uses. The focused control's
 indicator is painted from `--color-focus`, the contract's focus-visible role, and
@@ -442,6 +445,16 @@ way that suits a product that does not want to perform. The two families are one
 voice in two registers. The contract's rule is to choose by value, not ancestry:
 Mono for loads, reps, RIR, time, counts and visible technical IDs; Sans for
 everything that is language.
+
+**Amendment (owner, 2026-11-10).** On Today, Focus and the exercise chart,
+figures that sit beside or inside language take Plex Sans with tabular digits:
+Today's load and target columns, the Focus ledger and shelf values, numbers in
+the Focus evidence line, and the chart's readout, ledger and axis. A Mono
+figure next to Sans text read as a second, wider number style. Mono stays in
+History and the other ledgers. On Focus a prefilled value the lifter has not
+touched is ink at the regular weight rather than grey, and the open ledger row
+is a 5% ink tint with a 3px leading bar rather than a 2px ring, so the selected
+shelf field keeps the only ring on screen.
 
 ### Hierarchy
 
