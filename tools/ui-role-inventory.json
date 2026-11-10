@@ -1372,6 +1372,11 @@
       "owner": "plan-081",
       "content": "flat",
       "scenario": "The profile opened from the finish screen, with Back restoring that session."
+    },
+    "onboarding-import/editor-empty-day": {
+      "owner": "issue-691",
+      "content": "flat",
+      "scenario": "An imported training day with its final exercise removed. Existing empty-day guidance blocks activation."
     }
   },
   "components": [
@@ -1764,7 +1769,8 @@
         "onboarding-build/editor-empty",
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
-        "onboarding-build/editor-alternates"
+        "onboarding-build/editor-alternates",
+        "onboarding-import/editor-empty-day"
       ]
     },
     {
@@ -1789,7 +1795,8 @@
         "onboarding-build/editor-empty",
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
-        "onboarding-build/editor-alternates"
+        "onboarding-build/editor-alternates",
+        "onboarding-import/editor-empty-day"
       ]
     },
     {
@@ -4501,7 +4508,8 @@
         "onboarding-recommend/muscle-priorities-skip",
         "onboarding-recommend/deload-start",
         "onboarding-import/freeform-managed",
-        "onboarding-import/freeform-managed-limit"
+        "onboarding-import/freeform-managed-limit",
+        "onboarding-import/editor-empty-day"
       ]
     },
     {
@@ -4625,7 +4633,8 @@
         "onboarding-recommend/muscle-priorities-skip",
         "onboarding-recommend/deload-start",
         "onboarding-import/freeform-managed",
-        "onboarding-import/freeform-managed-limit"
+        "onboarding-import/freeform-managed-limit",
+        "onboarding-import/editor-empty-day"
       ],
       "progressScopes": {
         "entry-route-step": "task"
@@ -5433,7 +5442,8 @@
         "onboarding-build/editor-ready",
         "program/editor-alternates",
         "program/editor-suggest-loads",
-        "program/editor-issue-field"
+        "program/editor-issue-field",
+        "onboarding-import/editor-empty-day"
       ]
     },
     {
@@ -8009,7 +8019,8 @@
         "program/editor-issue-field",
         "program/editor-day-name-refused",
         "program/progression-editor",
-        "onboarding-build/editor-alternates"
+        "onboarding-build/editor-alternates",
+        "onboarding-import/editor-empty-day"
       ]
     },
     {
@@ -8039,7 +8050,8 @@
         "program/editor-issue-field",
         "program/editor-day-name-refused",
         "program/progression-editor",
-        "onboarding-build/editor-alternates"
+        "onboarding-build/editor-alternates",
+        "onboarding-import/editor-empty-day"
       ]
     },
     {
@@ -8069,7 +8081,8 @@
         "program/editor-issue-field",
         "program/editor-day-name-refused",
         "program/progression-editor",
-        "onboarding-build/editor-alternates"
+        "onboarding-build/editor-alternates",
+        "onboarding-import/editor-empty-day"
       ]
     },
     {
@@ -8100,7 +8113,8 @@
         "program/editor-issue-field",
         "program/editor-day-name-refused",
         "program/progression-editor",
-        "onboarding-build/editor-alternates"
+        "onboarding-build/editor-alternates",
+        "onboarding-import/editor-empty-day"
       ]
     },
     {
@@ -8129,7 +8143,8 @@
         "program/editor-issue-field",
         "program/editor-day-name-refused",
         "program/progression-editor",
-        "onboarding-build/editor-alternates"
+        "onboarding-build/editor-alternates",
+        "onboarding-import/editor-empty-day"
       ]
     },
     {
@@ -8160,7 +8175,8 @@
         "program/editor-issue-field",
         "program/editor-day-name-refused",
         "program/progression-editor",
-        "onboarding-build/editor-alternates"
+        "onboarding-build/editor-alternates",
+        "onboarding-import/editor-empty-day"
       ]
     },
     {
@@ -8188,7 +8204,8 @@
         "program/editor-issue-field",
         "program/editor-day-name-refused",
         "program/progression-editor",
-        "onboarding-build/editor-alternates"
+        "onboarding-build/editor-alternates",
+        "onboarding-import/editor-empty-day"
       ]
     },
     {
@@ -8217,7 +8234,8 @@
         "program/editor-issue-field",
         "program/editor-day-name-refused",
         "program/progression-editor",
-        "onboarding-build/editor-alternates"
+        "onboarding-build/editor-alternates",
+        "onboarding-import/editor-empty-day"
       ]
     },
     {
@@ -8737,7 +8755,8 @@
         "program/editor-issue-field",
         "program/editor-day-name-refused",
         "program/progression-editor",
-        "onboarding-build/editor-alternates"
+        "onboarding-build/editor-alternates",
+        "onboarding-import/editor-empty-day"
       ]
     },
     {
@@ -8788,7 +8807,8 @@
         "program/editor-day-name-refused",
         "program/progression-editor",
         "progress/schedule-diagnosis",
-        "onboarding-build/editor-alternates"
+        "onboarding-build/editor-alternates",
+        "onboarding-import/editor-empty-day"
       ]
     },
     {
@@ -9124,7 +9144,8 @@
         "programlab/comparison",
         "history/list-scrolled",
         "history/minibar-rest",
-        "program/volume-audit"
+        "program/volume-audit",
+        "onboarding-import/editor-empty-day"
       ]
     },
     {
@@ -10901,7 +10922,8 @@
         "program/editor-issue-field",
         "program/editor-day-name-refused",
         "program/progression-editor",
-        "onboarding-build/editor-alternates"
+        "onboarding-build/editor-alternates",
+        "onboarding-import/editor-empty-day"
       ]
     },
     {
@@ -11695,7 +11717,8 @@
         "program/editor-suggest-loads",
         "program/editor-issue-field",
         "program/editor-day-name-refused",
-        "onboarding-build/editor-alternates"
+        "onboarding-build/editor-alternates",
+        "onboarding-import/editor-empty-day"
       ]
     },
     {
@@ -12252,7 +12275,8 @@
         "workout/invalid-draft",
         "workout/reorder",
         "workout/session",
-        "workout/rest-overrun-finish"
+        "workout/rest-overrun-finish",
+        "onboarding-import/editor-empty-day"
       ],
       "neverDisabledReason": "The menu or choice stays reachable whenever its owning row is present."
     },
@@ -12289,7 +12313,8 @@
         "settings/privacy",
         "settings/rest-controls",
         "settings/language-menu",
-        "settings/effort-menu"
+        "settings/effort-menu",
+        "onboarding-import/editor-empty-day"
       ]
     },
     {
@@ -13995,7 +14020,8 @@
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
         "program/editor-day-name-refused",
-        "program/progression-editor"
+        "program/progression-editor",
+        "onboarding-import/editor-empty-day"
       ]
     },
     {
@@ -14542,7 +14568,8 @@
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
         "program/editor-day-name-refused",
-        "program/progression-editor"
+        "program/progression-editor",
+        "onboarding-import/editor-empty-day"
       ],
       "sourceOnly": true,
       "sourceOnlyReason": "Canonical editor frames show the reorder owner with no row actively dragged."
