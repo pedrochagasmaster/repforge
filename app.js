@@ -11478,12 +11478,15 @@ function sizeFocusCard(card){
       :wholeLineScroll(context,context.scrollTop,1,context.scrollTop+Math.max(0,row.top-box.top))}
   // The hero's first line stays in view whenever the open set can stay whole below it (#523), at large text too: the
   // window scrolls only as far as the open set needs. Where both cannot fit, the open set comes first (#541) and the
-  // hero is the first thing scrolling up reaches.
-  const lead=context.querySelector(".fx-cue__l1");if(!lead)return;
+  // standing stays with the row when the whole hero cannot fit, and the hero is the first thing scrolling up reaches.
   const at=context.getBoundingClientRect(),origin=at.top-context.scrollTop;
   const foot=(tab?Math.min(at.bottom,tab.getBoundingClientRect().top):at.bottom)-at.top;
-  const leadTop=lead.getBoundingClientRect().top-origin,rowBottom=open.getBoundingClientRect().bottom-origin;
-  if(context.scrollTop>leadTop&&rowBottom-leadTop<=foot)context.scrollTop=Math.max(0,Math.ceil(rowBottom-foot))}
+  const rowBottom=open.getBoundingClientRect().bottom-origin;
+  for(const lead of context.querySelectorAll(".fx-cue__l1,.fx-cue__standing")){
+    const leadTop=lead.getBoundingClientRect().top-origin;
+    if(rowBottom-leadTop>foot)continue;
+    if(context.scrollTop>leadTop)context.scrollTop=Math.max(0,Math.ceil(rowBottom-foot));
+    break}}
 /** A scroll position for the context region that leaves no line cut at its top edge, under the segment bar: from
  *  `target`, `dir` 1 moves on past a cut line and -1 moves back to show it whole, never beyond `limit`. */
 function wholeLineScroll(context,target,dir,limit=Infinity){
