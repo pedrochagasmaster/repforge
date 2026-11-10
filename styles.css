@@ -254,11 +254,9 @@
      the contract's 2px inset recipe; it adds no width. */
   --boundary-selected-quiet:var(--ink);
   --elevation-selected-quiet-shadow:inset 0 0 0 2px var(--boundary-selected-quiet);
-  /* Owner hill-climb recipes (2026-11-10). The current item (Focus's open set row, the chart's selected session) is a
-     3px accent bar; the selected shelf field a 1.5px quiet ring; the backup card a hairline; Start a tucked shadow
+  /* Owner hill-climb recipes (2026-11-10): the selected shelf field a 1.5px quiet ring; the backup card a hairline; Start a tucked shadow
      whose negative spread keeps it inside the column, which clips sideways. They resolve per theme through the tokens
      they name. */
-  --boundary-current-item-shadow:inset 3px 0 0 var(--accent);
   --boundary-field-selected-shadow:inset 0 0 0 1.5px var(--boundary-selected-quiet);
   --boundary-card-hairline-shadow:inset 0 0 0 1px var(--boundary-decorative);
   --elevation-cta-tucked-shadow:0 6px 10px -8px rgba(var(--shadow-rgb),.4);
@@ -1280,7 +1278,7 @@ body:has(.exercise--focus.is-text-scaled) .wo-head__title{font-size:min(var(--fo
   background:var(--control-quiet-bg);cursor:pointer;
 }
 #woProgress .segbar__bar{
-  position:absolute;left:var(--space-4);right:var(--space-4);top:50%;height:5px;margin-top:-2px;border-radius:var(--radius-compact);background:var(--rule-strong);
+  position:absolute;left:var(--space-4);right:var(--space-4);top:50%;height:5px;margin-top:-2px;border-radius:var(--radius-compact);background:var(--boundary-required);
 }
 #woProgress .segbar__seg.is-done .segbar__bar{background:var(--color-ink)}
 #woProgress .segbar__seg.is-current .segbar__bar{background:var(--color-action)}
@@ -1527,8 +1525,8 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
 /* The open row is a tint with a 3px ink bar on its leading edge (owner, 2026-11-10), so the focused shelf field keeps
    the only ring on screen. */
 .fcard__ledger .ledgerline--open{
-  align-content:center;padding-block:6px;padding-inline:12px;border:0;border-bottom:1px solid var(--boundary-decorative);border-radius:var(--radius-none);
-  background:rgba(var(--accent-rgb),.05);box-shadow:var(--boundary-current-item-shadow);
+  align-content:center;padding-block:6px;padding-inline:9px 12px;border:0;border-left:3px solid var(--accent);border-bottom:1px solid var(--boundary-decorative);border-radius:var(--radius-none);
+  background:rgba(var(--accent-rgb),.05);box-shadow:none;
 }
 .fx-next{
   display:flex;align-items:center;justify-content:space-between;gap:var(--space-12);width:100%;min-height:48px;margin:var(--space-8) 0 0;
@@ -4383,7 +4381,7 @@ body.is-focus-wo .toast:not(.toast--top){bottom:calc(var(--toast-clear,0px) + va
 .today-prog__name{font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink)}
 .today-prog__week,.today-prog__deload{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);margin-top:4px}
 .today-prog .segbar{margin-top:10px}
-#todayProgram .segbar__seg{background:var(--rule-strong);border-radius:var(--radius-compact)}
+#todayProgram .segbar__seg{background:var(--boundary-required);border-radius:var(--radius-compact)}
 /* Where the lifter is now is the strongest mark: the current week in the accent (as the current exercise is in Focus),
    the weeks behind in soft ink, the weeks ahead a hairline. */
 #todayProgram .segbar__seg.is-done{background:var(--color-ink-secondary)}
@@ -5595,7 +5593,7 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
 }
 .exrow.is-pressed{background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
 .exrow:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
-.exrow.is-sel{background:rgba(var(--accent-rgb),.05);box-shadow:var(--boundary-current-item-shadow)}
+.exrow.is-sel{padding-left:calc(var(--space-12) - 3px);border-left:3px solid var(--accent);background:rgba(var(--accent-rgb),.05)}
 .exrow.is-old span:first-child{color:var(--color-ink-secondary)}
 
 /* @ci-domain history */
