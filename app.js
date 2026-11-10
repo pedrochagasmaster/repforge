@@ -17234,7 +17234,9 @@ function nameAffinity(a,b){
    notes, and diluting the score by those notes discarded an exact reading. */
 function nameContainment(input,libraryName){
   const wb=matchTokens(libraryName);
-  if(!wb.length)return false;
+  // A name that is only equipment once its stopwords go ("Pés na barra" is "barra") names no movement, so finding it
+  // in "Stiff com barra" or "Rosca direta barra W" says nothing (owner sample, 2026-11-10).
+  if(!wb.some(w=>!MATCH_EQUIPMENT.has(w)))return false;
   const wa=new Set(matchTokens(input));
   return wb.every(w=>wa.has(w))}
 
@@ -17283,8 +17285,10 @@ function classifyImportRow(row,candidates){
    row offers the list rather than a verdict.
 
    Order: a contained library name first, then weighted overlap, then the entry
-   whose equipment the lifter actually named, then the library's own rank, and
-   last the array position, so a tie never rests on position alone. */
+   whose equipment the lifter actually named, then the more common variant (the
+   catalog's search boost: a plain "Rosca martelo" is the dumbbell one, not the
+   cable rope one), and last the array position, so a tie never rests on
+   position alone. */
 function rankImportCandidates(name,candidates,limit=IMPORT_CANDIDATE_LIMIT){
   const scored=[];
   for(let i=0;i<candidates.length;i++){
@@ -17294,12 +17298,12 @@ function rankImportCandidates(name,candidates,limit=IMPORT_CANDIDATE_LIMIT){
     const contained=names.some(n=>nameContainment(name,n));
     if(!contained&&score<IMPORT_PROBABLE_MIN)continue;
     scored.push({entry:e,score,contained,equipment:matchEquipmentAgrees(name,e),
-      rank:Number.isFinite(e.rank)?e.rank:50,order:i})}
+      boost:Number.isFinite(e.searchBoostValue)?e.searchBoostValue:0,order:i})}
   scored.sort((a,b)=>
     (b.contained?1:0)-(a.contained?1:0)||
     b.score-a.score||
     (b.equipment?1:0)-(a.equipment?1:0)||
-    a.rank-b.rank||
+    b.boost-a.boost||
     a.order-b.order);
   return scored.slice(0,limit)}
 
