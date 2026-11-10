@@ -60696,6 +60696,1146 @@
       ]
     },
     {
+      "key": "onboarding-import/freeform-managed__phone-320-light-en",
+      "flow": "onboarding-import",
+      "screen": "freeform-managed",
+      "label": "Import — import with Taurifer",
+      "viewport": "phone-320",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Paste a program from anywhere",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Paste a workout from your coach, notes, or spreadsheet. Taurifer converts it, then shows every exercise for you to review before activation."
+        },
+        {
+          "tag": "span",
+          "text": "Your program"
+        },
+        {
+          "tag": "textarea",
+          "name": "Your program",
+          "value": "Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
+        },
+        {
+          "tag": "p",
+          "text": "73 of 12,000 characters"
+        },
+        {
+          "tag": "p",
+          "role": "note",
+          "text": "When you tap Import with Taurifer, this text is sent to Anthropic to convert it. It isn't kept in your history, exports or analytics, and your workout history is never sent. You review every exercise before saving.",
+          "name": "When you tap Import with Taurifer, this text is sent to Anthropic to convert it. It isn't kept in your history, exports or analytics, and your workout history is never sent. You review every exercise before saving."
+        },
+        {
+          "tag": "div",
+          "label": "Verify the import request"
+        },
+        {
+          "tag": "span",
+          "text": "Success!"
+        },
+        {
+          "tag": "span",
+          "text": "✓"
+        },
+        {
+          "tag": "span",
+          "text": "Privacy · Terms"
+        },
+        {
+          "tag": "b",
+          "text": "CLOUDFLARE"
+        },
+        {
+          "tag": "button",
+          "text": "Import with Taurifer",
+          "name": "Import with Taurifer",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use ChatGPT or Claude instead",
+          "name": "Use ChatGPT or Claude instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Import a Taurifer file instead",
+          "name": "Import a Taurifer file instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "I'd rather write it from scratch",
+          "name": "I'd rather write it from scratch",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-managed__phone-390-dark-en",
+      "flow": "onboarding-import",
+      "screen": "freeform-managed",
+      "label": "Import — import with Taurifer",
+      "viewport": "phone-390",
+      "theme": "dark",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Paste a program from anywhere",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Paste a workout from your coach, notes, or spreadsheet. Taurifer converts it, then shows every exercise for you to review before activation."
+        },
+        {
+          "tag": "span",
+          "text": "Your program"
+        },
+        {
+          "tag": "textarea",
+          "name": "Your program",
+          "value": "Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
+        },
+        {
+          "tag": "p",
+          "text": "73 of 12,000 characters"
+        },
+        {
+          "tag": "p",
+          "role": "note",
+          "text": "When you tap Import with Taurifer, this text is sent to Anthropic to convert it. It isn't kept in your history, exports or analytics, and your workout history is never sent. You review every exercise before saving.",
+          "name": "When you tap Import with Taurifer, this text is sent to Anthropic to convert it. It isn't kept in your history, exports or analytics, and your workout history is never sent. You review every exercise before saving."
+        },
+        {
+          "tag": "div",
+          "label": "Verify the import request"
+        },
+        {
+          "tag": "span",
+          "text": "Success!"
+        },
+        {
+          "tag": "span",
+          "text": "✓"
+        },
+        {
+          "tag": "span",
+          "text": "Privacy · Terms"
+        },
+        {
+          "tag": "b",
+          "text": "CLOUDFLARE"
+        },
+        {
+          "tag": "button",
+          "text": "Import with Taurifer",
+          "name": "Import with Taurifer",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use ChatGPT or Claude instead",
+          "name": "Use ChatGPT or Claude instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Import a Taurifer file instead",
+          "name": "Import a Taurifer file instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "I'd rather write it from scratch",
+          "name": "I'd rather write it from scratch",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-managed__phone-390-light-en",
+      "flow": "onboarding-import",
+      "screen": "freeform-managed",
+      "label": "Import — import with Taurifer",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Paste a program from anywhere",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Paste a workout from your coach, notes, or spreadsheet. Taurifer converts it, then shows every exercise for you to review before activation."
+        },
+        {
+          "tag": "span",
+          "text": "Your program"
+        },
+        {
+          "tag": "textarea",
+          "name": "Your program",
+          "value": "Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
+        },
+        {
+          "tag": "p",
+          "text": "73 of 12,000 characters"
+        },
+        {
+          "tag": "p",
+          "role": "note",
+          "text": "When you tap Import with Taurifer, this text is sent to Anthropic to convert it. It isn't kept in your history, exports or analytics, and your workout history is never sent. You review every exercise before saving.",
+          "name": "When you tap Import with Taurifer, this text is sent to Anthropic to convert it. It isn't kept in your history, exports or analytics, and your workout history is never sent. You review every exercise before saving."
+        },
+        {
+          "tag": "div",
+          "label": "Verify the import request"
+        },
+        {
+          "tag": "span",
+          "text": "Success!"
+        },
+        {
+          "tag": "span",
+          "text": "✓"
+        },
+        {
+          "tag": "span",
+          "text": "Privacy · Terms"
+        },
+        {
+          "tag": "b",
+          "text": "CLOUDFLARE"
+        },
+        {
+          "tag": "button",
+          "text": "Import with Taurifer",
+          "name": "Import with Taurifer",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use ChatGPT or Claude instead",
+          "name": "Use ChatGPT or Claude instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Import a Taurifer file instead",
+          "name": "Import a Taurifer file instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "I'd rather write it from scratch",
+          "name": "I'd rather write it from scratch",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-managed__phone-390-light-en-reduced",
+      "flow": "onboarding-import",
+      "screen": "freeform-managed",
+      "label": "Import — import with Taurifer",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "reduced",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Paste a program from anywhere",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Paste a workout from your coach, notes, or spreadsheet. Taurifer converts it, then shows every exercise for you to review before activation."
+        },
+        {
+          "tag": "span",
+          "text": "Your program"
+        },
+        {
+          "tag": "textarea",
+          "name": "Your program",
+          "value": "Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
+        },
+        {
+          "tag": "p",
+          "text": "73 of 12,000 characters"
+        },
+        {
+          "tag": "p",
+          "role": "note",
+          "text": "When you tap Import with Taurifer, this text is sent to Anthropic to convert it. It isn't kept in your history, exports or analytics, and your workout history is never sent. You review every exercise before saving.",
+          "name": "When you tap Import with Taurifer, this text is sent to Anthropic to convert it. It isn't kept in your history, exports or analytics, and your workout history is never sent. You review every exercise before saving."
+        },
+        {
+          "tag": "div",
+          "label": "Verify the import request"
+        },
+        {
+          "tag": "span",
+          "text": "Success!"
+        },
+        {
+          "tag": "span",
+          "text": "✓"
+        },
+        {
+          "tag": "span",
+          "text": "Privacy · Terms"
+        },
+        {
+          "tag": "b",
+          "text": "CLOUDFLARE"
+        },
+        {
+          "tag": "button",
+          "text": "Import with Taurifer",
+          "name": "Import with Taurifer",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use ChatGPT or Claude instead",
+          "name": "Use ChatGPT or Claude instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Import a Taurifer file instead",
+          "name": "Import a Taurifer file instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "I'd rather write it from scratch",
+          "name": "I'd rather write it from scratch",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-managed__phone-390-light-en-text200",
+      "flow": "onboarding-import",
+      "screen": "freeform-managed",
+      "label": "Import — import with Taurifer",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "text200",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Paste a program from anywhere",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Paste a workout from your coach, notes, or spreadsheet. Taurifer converts it, then shows every exercise for you to review before activation."
+        },
+        {
+          "tag": "span",
+          "text": "Your program"
+        },
+        {
+          "tag": "textarea",
+          "name": "Your program",
+          "value": "Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
+        },
+        {
+          "tag": "p",
+          "text": "73 of 12,000 characters"
+        },
+        {
+          "tag": "p",
+          "role": "note",
+          "text": "When you tap Import with Taurifer, this text is sent to Anthropic to convert it. It isn't kept in your history, exports or analytics, and your workout history is never sent. You review every exercise before saving.",
+          "name": "When you tap Import with Taurifer, this text is sent to Anthropic to convert it. It isn't kept in your history, exports or analytics, and your workout history is never sent. You review every exercise before saving."
+        },
+        {
+          "tag": "div",
+          "label": "Verify the import request"
+        },
+        {
+          "tag": "span",
+          "text": "Success!"
+        },
+        {
+          "tag": "span",
+          "text": "✓"
+        },
+        {
+          "tag": "span",
+          "text": "Privacy · Terms"
+        },
+        {
+          "tag": "b",
+          "text": "CLOUDFLARE"
+        },
+        {
+          "tag": "button",
+          "text": "Import with Taurifer",
+          "name": "Import with Taurifer",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use ChatGPT or Claude instead",
+          "name": "Use ChatGPT or Claude instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Import a Taurifer file instead",
+          "name": "Import a Taurifer file instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "I'd rather write it from scratch",
+          "name": "I'd rather write it from scratch",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-managed__phone-390-light-pt",
+      "flow": "onboarding-import",
+      "screen": "freeform-managed",
+      "label": "Import — import with Taurifer",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "pt",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Criar um treino"
+        },
+        {
+          "tag": "button",
+          "text": "Voltar",
+          "name": "Voltar",
+          "label": "Voltar",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancelar",
+          "name": "Cancelar",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Colar um treino de qualquer lugar",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Cole a ficha enviada pelo seu treinador, por mensagem ou planilha. O Taurifer converte o treino e mostra cada exercício para você revisar antes de ativar."
+        },
+        {
+          "tag": "span",
+          "text": "Seu treino"
+        },
+        {
+          "tag": "textarea",
+          "name": "Seu treino",
+          "value": "Empurrar A Supino reto 4x6-8 Desenvolvimento militar 3x8-10 Puxar A Remada curvada 4x6-10"
+        },
+        {
+          "tag": "p",
+          "text": "90 de 12.000 caracteres"
+        },
+        {
+          "tag": "p",
+          "role": "note",
+          "text": "Ao tocar em Importar com Taurifer, este texto é enviado à Anthropic para ser convertido. Ele não fica no seu histórico, nas exportações nem nas análises, e seu histórico de treinos nunca é enviado. Você revisa cada exercício antes de salvar.",
+          "name": "Ao tocar em Importar com Taurifer, este texto é enviado à Anthropic para ser convertido. Ele não fica no seu histórico, nas exportações nem nas análises, e seu histórico de treinos nunca é enviado. Você revisa cada exercício antes de salvar."
+        },
+        {
+          "tag": "div",
+          "label": "Verificação para importar treino"
+        },
+        {
+          "tag": "span",
+          "text": "Sucesso!"
+        },
+        {
+          "tag": "span",
+          "text": "✓"
+        },
+        {
+          "tag": "span",
+          "text": "Privacidade · Termos"
+        },
+        {
+          "tag": "b",
+          "text": "CLOUDFLARE"
+        },
+        {
+          "tag": "button",
+          "text": "Importar com Taurifer",
+          "name": "Importar com Taurifer",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Usar ChatGPT ou Claude",
+          "name": "Usar ChatGPT ou Claude",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Importar um arquivo Taurifer",
+          "name": "Importar um arquivo Taurifer",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Prefiro escrever do zero",
+          "name": "Prefiro escrever do zero",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-managed__phone-390-light-pt-text200",
+      "flow": "onboarding-import",
+      "screen": "freeform-managed",
+      "label": "Import — import with Taurifer",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "pt",
+      "text": "text200",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Criar um treino"
+        },
+        {
+          "tag": "button",
+          "text": "Voltar",
+          "name": "Voltar",
+          "label": "Voltar",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancelar",
+          "name": "Cancelar",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Colar um treino de qualquer lugar",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Cole a ficha enviada pelo seu treinador, por mensagem ou planilha. O Taurifer converte o treino e mostra cada exercício para você revisar antes de ativar."
+        },
+        {
+          "tag": "span",
+          "text": "Seu treino"
+        },
+        {
+          "tag": "textarea",
+          "name": "Seu treino",
+          "value": "Empurrar A Supino reto 4x6-8 Desenvolvimento militar 3x8-10 Puxar A Remada curvada 4x6-10"
+        },
+        {
+          "tag": "p",
+          "text": "90 de 12.000 caracteres"
+        },
+        {
+          "tag": "p",
+          "role": "note",
+          "text": "Ao tocar em Importar com Taurifer, este texto é enviado à Anthropic para ser convertido. Ele não fica no seu histórico, nas exportações nem nas análises, e seu histórico de treinos nunca é enviado. Você revisa cada exercício antes de salvar.",
+          "name": "Ao tocar em Importar com Taurifer, este texto é enviado à Anthropic para ser convertido. Ele não fica no seu histórico, nas exportações nem nas análises, e seu histórico de treinos nunca é enviado. Você revisa cada exercício antes de salvar."
+        },
+        {
+          "tag": "div",
+          "label": "Verificação para importar treino"
+        },
+        {
+          "tag": "span",
+          "text": "Sucesso!"
+        },
+        {
+          "tag": "span",
+          "text": "✓"
+        },
+        {
+          "tag": "span",
+          "text": "Privacidade · Termos"
+        },
+        {
+          "tag": "b",
+          "text": "CLOUDFLARE"
+        },
+        {
+          "tag": "button",
+          "text": "Importar com Taurifer",
+          "name": "Importar com Taurifer",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Usar ChatGPT ou Claude",
+          "name": "Usar ChatGPT ou Claude",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Importar um arquivo Taurifer",
+          "name": "Importar um arquivo Taurifer",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Prefiro escrever do zero",
+          "name": "Prefiro escrever do zero",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-managed__phone-430-light-en",
+      "flow": "onboarding-import",
+      "screen": "freeform-managed",
+      "label": "Import — import with Taurifer",
+      "viewport": "phone-430",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Paste a program from anywhere",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Paste a workout from your coach, notes, or spreadsheet. Taurifer converts it, then shows every exercise for you to review before activation."
+        },
+        {
+          "tag": "span",
+          "text": "Your program"
+        },
+        {
+          "tag": "textarea",
+          "name": "Your program",
+          "value": "Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
+        },
+        {
+          "tag": "p",
+          "text": "73 of 12,000 characters"
+        },
+        {
+          "tag": "p",
+          "role": "note",
+          "text": "When you tap Import with Taurifer, this text is sent to Anthropic to convert it. It isn't kept in your history, exports or analytics, and your workout history is never sent. You review every exercise before saving.",
+          "name": "When you tap Import with Taurifer, this text is sent to Anthropic to convert it. It isn't kept in your history, exports or analytics, and your workout history is never sent. You review every exercise before saving."
+        },
+        {
+          "tag": "div",
+          "label": "Verify the import request"
+        },
+        {
+          "tag": "span",
+          "text": "Success!"
+        },
+        {
+          "tag": "span",
+          "text": "✓"
+        },
+        {
+          "tag": "span",
+          "text": "Privacy · Terms"
+        },
+        {
+          "tag": "b",
+          "text": "CLOUDFLARE"
+        },
+        {
+          "tag": "button",
+          "text": "Import with Taurifer",
+          "name": "Import with Taurifer",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use ChatGPT or Claude instead",
+          "name": "Use ChatGPT or Claude instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Import a Taurifer file instead",
+          "name": "Import a Taurifer file instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "I'd rather write it from scratch",
+          "name": "I'd rather write it from scratch",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-managed-limit__phone-390-dark-en",
+      "flow": "onboarding-import",
+      "screen": "freeform-managed-limit",
+      "label": "Import — import limit reached",
+      "viewport": "phone-390",
+      "theme": "dark",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Paste a program from anywhere",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Paste a workout from your coach, notes, or spreadsheet. Taurifer converts it, then shows every exercise for you to review before activation."
+        },
+        {
+          "tag": "span",
+          "text": "Your program"
+        },
+        {
+          "tag": "textarea",
+          "name": "Your program",
+          "value": "Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
+        },
+        {
+          "tag": "p",
+          "text": "73 of 12,000 characters"
+        },
+        {
+          "tag": "p",
+          "role": "note",
+          "text": "When you tap Import with Taurifer, this text is sent to Anthropic to convert it. It isn't kept in your history, exports or analytics, and your workout history is never sent. You review every exercise before saving.",
+          "name": "When you tap Import with Taurifer, this text is sent to Anthropic to convert it. It isn't kept in your history, exports or analytics, and your workout history is never sent. You review every exercise before saving."
+        },
+        {
+          "tag": "div",
+          "label": "Verify the import request"
+        },
+        {
+          "tag": "span",
+          "text": "Success!"
+        },
+        {
+          "tag": "span",
+          "text": "✓"
+        },
+        {
+          "tag": "span",
+          "text": "Privacy · Terms"
+        },
+        {
+          "tag": "b",
+          "text": "CLOUDFLARE"
+        },
+        {
+          "tag": "button",
+          "text": "Import with Taurifer",
+          "name": "Import with Taurifer",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "role": "alert",
+          "text": "The import limit was reached. Try again later, or use your own assistant.",
+          "name": "The import limit was reached. Try again later, or use your own assistant."
+        },
+        {
+          "tag": "button",
+          "text": "Use ChatGPT or Claude instead",
+          "name": "Use ChatGPT or Claude instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Import a Taurifer file instead",
+          "name": "Import a Taurifer file instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "I'd rather write it from scratch",
+          "name": "I'd rather write it from scratch",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-managed-limit__phone-390-light-en",
+      "flow": "onboarding-import",
+      "screen": "freeform-managed-limit",
+      "label": "Import — import limit reached",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Paste a program from anywhere",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Paste a workout from your coach, notes, or spreadsheet. Taurifer converts it, then shows every exercise for you to review before activation."
+        },
+        {
+          "tag": "span",
+          "text": "Your program"
+        },
+        {
+          "tag": "textarea",
+          "name": "Your program",
+          "value": "Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
+        },
+        {
+          "tag": "p",
+          "text": "73 of 12,000 characters"
+        },
+        {
+          "tag": "p",
+          "role": "note",
+          "text": "When you tap Import with Taurifer, this text is sent to Anthropic to convert it. It isn't kept in your history, exports or analytics, and your workout history is never sent. You review every exercise before saving.",
+          "name": "When you tap Import with Taurifer, this text is sent to Anthropic to convert it. It isn't kept in your history, exports or analytics, and your workout history is never sent. You review every exercise before saving."
+        },
+        {
+          "tag": "div",
+          "label": "Verify the import request"
+        },
+        {
+          "tag": "span",
+          "text": "Success!"
+        },
+        {
+          "tag": "span",
+          "text": "✓"
+        },
+        {
+          "tag": "span",
+          "text": "Privacy · Terms"
+        },
+        {
+          "tag": "b",
+          "text": "CLOUDFLARE"
+        },
+        {
+          "tag": "button",
+          "text": "Import with Taurifer",
+          "name": "Import with Taurifer",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "role": "alert",
+          "text": "The import limit was reached. Try again later, or use your own assistant.",
+          "name": "The import limit was reached. Try again later, or use your own assistant."
+        },
+        {
+          "tag": "button",
+          "text": "Use ChatGPT or Claude instead",
+          "name": "Use ChatGPT or Claude instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Import a Taurifer file instead",
+          "name": "Import a Taurifer file instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "I'd rather write it from scratch",
+          "name": "I'd rather write it from scratch",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-managed-limit__phone-390-light-pt",
+      "flow": "onboarding-import",
+      "screen": "freeform-managed-limit",
+      "label": "Import — import limit reached",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "pt",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Criar um treino"
+        },
+        {
+          "tag": "button",
+          "text": "Voltar",
+          "name": "Voltar",
+          "label": "Voltar",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancelar",
+          "name": "Cancelar",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Colar um treino de qualquer lugar",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Cole a ficha enviada pelo seu treinador, por mensagem ou planilha. O Taurifer converte o treino e mostra cada exercício para você revisar antes de ativar."
+        },
+        {
+          "tag": "span",
+          "text": "Seu treino"
+        },
+        {
+          "tag": "textarea",
+          "name": "Seu treino",
+          "value": "Empurrar A Supino reto 4x6-8 Desenvolvimento militar 3x8-10 Puxar A Remada curvada 4x6-10"
+        },
+        {
+          "tag": "p",
+          "text": "90 de 12.000 caracteres"
+        },
+        {
+          "tag": "p",
+          "role": "note",
+          "text": "Ao tocar em Importar com Taurifer, este texto é enviado à Anthropic para ser convertido. Ele não fica no seu histórico, nas exportações nem nas análises, e seu histórico de treinos nunca é enviado. Você revisa cada exercício antes de salvar.",
+          "name": "Ao tocar em Importar com Taurifer, este texto é enviado à Anthropic para ser convertido. Ele não fica no seu histórico, nas exportações nem nas análises, e seu histórico de treinos nunca é enviado. Você revisa cada exercício antes de salvar."
+        },
+        {
+          "tag": "div",
+          "label": "Verificação para importar treino"
+        },
+        {
+          "tag": "span",
+          "text": "Sucesso!"
+        },
+        {
+          "tag": "span",
+          "text": "✓"
+        },
+        {
+          "tag": "span",
+          "text": "Privacidade · Termos"
+        },
+        {
+          "tag": "b",
+          "text": "CLOUDFLARE"
+        },
+        {
+          "tag": "button",
+          "text": "Importar com Taurifer",
+          "name": "Importar com Taurifer",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "role": "alert",
+          "text": "O limite de importações foi atingido. Tente mais tarde ou use seu assistente.",
+          "name": "O limite de importações foi atingido. Tente mais tarde ou use seu assistente."
+        },
+        {
+          "tag": "button",
+          "text": "Usar ChatGPT ou Claude",
+          "name": "Usar ChatGPT ou Claude",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Importar um arquivo Taurifer",
+          "name": "Importar um arquivo Taurifer",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Prefiro escrever do zero",
+          "name": "Prefiro escrever do zero",
+          "type": "button"
+        }
+      ]
+    },
+    {
       "key": "onboarding-import/freeform-stage2__phone-320-light-en",
       "flow": "onboarding-import",
       "screen": "freeform-stage2",
@@ -160622,6 +161762,34 @@
         },
         {
           "tag": "section",
+          "labelledBy": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "h2",
+          "text": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 11 and did 14: 3 more than you expected."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 10 and did 9: 1 fewer."
+        },
+        {
+          "tag": "li",
+          "text": "Exactly what you guessed."
+        },
+        {
+          "tag": "p",
+          "text": "At most 1 test set per session, one per exercise every 14 days, 2 a week. Test sets change nothing until an exercise has 3 of them. After that, they move the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "section",
           "labelledBy": "Three ways to start your program."
         },
         {
@@ -160974,6 +162142,46 @@
         {
           "tag": "b",
           "text": "Help improve Taurifer"
+        },
+        {
+          "tag": "summary",
+          "name": "What is a test set?"
+        },
+        {
+          "tag": "span",
+          "text": "What is a test set?"
+        },
+        {
+          "tag": "p",
+          "text": "You guess how many reps you can do at the same weight on an exercise's last working set, then take it to technical failure. It replaces that set, without adding another, and compares your guess with what you did. After 3 test sets on that exercise, consistent results can adjust how Taurifer reads your reps left, moving the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "summary",
+          "name": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "span",
+          "text": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "p",
+          "text": "No. At most 1 test set per session, one per exercise every 14 days and 2 a week."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "p",
+          "text": "You choose each time. You can turn off in ."
+        },
+        {
+          "tag": "b",
+          "text": "Test-set prompts"
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
         },
         {
           "tag": "section",
@@ -161164,6 +162372,34 @@
         },
         {
           "tag": "section",
+          "labelledBy": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "h2",
+          "text": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 11 and did 14: 3 more than you expected."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 10 and did 9: 1 fewer."
+        },
+        {
+          "tag": "li",
+          "text": "Exactly what you guessed."
+        },
+        {
+          "tag": "p",
+          "text": "At most 1 test set per session, one per exercise every 14 days, 2 a week. Test sets change nothing until an exercise has 3 of them. After that, they move the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "section",
           "labelledBy": "Three ways to start your program."
         },
         {
@@ -161518,6 +162754,46 @@
           "text": "Help improve Taurifer"
         },
         {
+          "tag": "summary",
+          "name": "What is a test set?"
+        },
+        {
+          "tag": "span",
+          "text": "What is a test set?"
+        },
+        {
+          "tag": "p",
+          "text": "You guess how many reps you can do at the same weight on an exercise's last working set, then take it to technical failure. It replaces that set, without adding another, and compares your guess with what you did. After 3 test sets on that exercise, consistent results can adjust how Taurifer reads your reps left, moving the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "summary",
+          "name": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "span",
+          "text": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "p",
+          "text": "No. At most 1 test set per session, one per exercise every 14 days and 2 a week."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "p",
+          "text": "You choose each time. You can turn off in ."
+        },
+        {
+          "tag": "b",
+          "text": "Test-set prompts"
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
+        },
+        {
           "tag": "section",
           "labelledBy": "Start where you are."
         },
@@ -161703,6 +162979,34 @@
         {
           "tag": "span",
           "text": "Veja o treino se ajustar"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Ele confere sua percepção de esforço, não só seus números."
+        },
+        {
+          "tag": "h2",
+          "text": "Ele confere sua percepção de esforço, não só seus números."
+        },
+        {
+          "tag": "li",
+          "text": "Você chutou 11 e fez 14: 3 a mais do que esperava."
+        },
+        {
+          "tag": "li",
+          "text": "Você chutou 10 e fez 9: 1 a menos."
+        },
+        {
+          "tag": "li",
+          "text": "Exatamente o que você chutou."
+        },
+        {
+          "tag": "p",
+          "text": "No máximo 1 série-teste por sessão, uma por exercício a cada 14 dias e 2 por semana. As séries-teste não mudam nada até o exercício ter 3. Depois, elas mudam a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerida."
+        },
+        {
+          "tag": "p",
+          "text": "Nunca no agachamento, supino ou levantamento terra com barra livre."
         },
         {
           "tag": "section",
@@ -162058,6 +163362,46 @@
         {
           "tag": "b",
           "text": "Ajude a melhorar o Taurifer"
+        },
+        {
+          "tag": "summary",
+          "name": "O que é uma série-teste?"
+        },
+        {
+          "tag": "span",
+          "text": "O que é uma série-teste?"
+        },
+        {
+          "tag": "p",
+          "text": "Você chuta quantas reps consegue fazer com a mesma carga na última série de trabalho de um exercício e vai até a falha técnica. Ela substitui essa série, sem acrescentar outra, e compara seu chute com o que você fez. Após 3 séries-teste nesse exercício, resultados consistentes podem ajustar como o Taurifer lê suas reps sobrando, mudando a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerida."
+        },
+        {
+          "tag": "summary",
+          "name": "Vou ter que treinar até a falha o tempo todo?"
+        },
+        {
+          "tag": "span",
+          "text": "Vou ter que treinar até a falha o tempo todo?"
+        },
+        {
+          "tag": "p",
+          "text": "Não. No máximo 1 série-teste por sessão, uma por exercício a cada 14 dias e 2 por semana."
+        },
+        {
+          "tag": "p",
+          "text": "Nunca no agachamento, supino ou levantamento terra com barra livre."
+        },
+        {
+          "tag": "p",
+          "text": "Você escolhe a cada vez. Pode desligar em ."
+        },
+        {
+          "tag": "b",
+          "text": "Avisos de série-teste"
+        },
+        {
+          "tag": "b",
+          "text": "Ajustes"
         },
         {
           "tag": "section",
@@ -166715,6 +168059,34 @@
         },
         {
           "tag": "section",
+          "labelledBy": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "h2",
+          "text": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 11 and did 14: 3 more than you expected."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 10 and did 9: 1 fewer."
+        },
+        {
+          "tag": "li",
+          "text": "Exactly what you guessed."
+        },
+        {
+          "tag": "p",
+          "text": "At most 1 test set per session, one per exercise every 14 days, 2 a week. Test sets change nothing until an exercise has 3 of them. After that, they move the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "section",
           "labelledBy": "Three ways to start your program."
         },
         {
@@ -167067,6 +168439,46 @@
         {
           "tag": "b",
           "text": "Help improve Taurifer"
+        },
+        {
+          "tag": "summary",
+          "name": "What is a test set?"
+        },
+        {
+          "tag": "span",
+          "text": "What is a test set?"
+        },
+        {
+          "tag": "p",
+          "text": "You guess how many reps you can do at the same weight on an exercise's last working set, then take it to technical failure. It replaces that set, without adding another, and compares your guess with what you did. After 3 test sets on that exercise, consistent results can adjust how Taurifer reads your reps left, moving the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "summary",
+          "name": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "span",
+          "text": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "p",
+          "text": "No. At most 1 test set per session, one per exercise every 14 days and 2 a week."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "p",
+          "text": "You choose each time. You can turn off in ."
+        },
+        {
+          "tag": "b",
+          "text": "Test-set prompts"
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
         },
         {
           "tag": "section",
@@ -167251,6 +168663,34 @@
         },
         {
           "tag": "section",
+          "labelledBy": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "h2",
+          "text": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 11 and did 14: 3 more than you expected."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 10 and did 9: 1 fewer."
+        },
+        {
+          "tag": "li",
+          "text": "Exactly what you guessed."
+        },
+        {
+          "tag": "p",
+          "text": "At most 1 test set per session, one per exercise every 14 days, 2 a week. Test sets change nothing until an exercise has 3 of them. After that, they move the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "section",
           "labelledBy": "Three ways to start your program."
         },
         {
@@ -167603,6 +169043,46 @@
         {
           "tag": "b",
           "text": "Help improve Taurifer"
+        },
+        {
+          "tag": "summary",
+          "name": "What is a test set?"
+        },
+        {
+          "tag": "span",
+          "text": "What is a test set?"
+        },
+        {
+          "tag": "p",
+          "text": "You guess how many reps you can do at the same weight on an exercise's last working set, then take it to technical failure. It replaces that set, without adding another, and compares your guess with what you did. After 3 test sets on that exercise, consistent results can adjust how Taurifer reads your reps left, moving the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "summary",
+          "name": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "span",
+          "text": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "p",
+          "text": "No. At most 1 test set per session, one per exercise every 14 days and 2 a week."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "p",
+          "text": "You choose each time. You can turn off in ."
+        },
+        {
+          "tag": "b",
+          "text": "Test-set prompts"
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
         },
         {
           "tag": "section",
@@ -167787,6 +169267,34 @@
         },
         {
           "tag": "section",
+          "labelledBy": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "h2",
+          "text": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 11 and did 14: 3 more than you expected."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 10 and did 9: 1 fewer."
+        },
+        {
+          "tag": "li",
+          "text": "Exactly what you guessed."
+        },
+        {
+          "tag": "p",
+          "text": "At most 1 test set per session, one per exercise every 14 days, 2 a week. Test sets change nothing until an exercise has 3 of them. After that, they move the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "section",
           "labelledBy": "Three ways to start your program."
         },
         {
@@ -168139,6 +169647,46 @@
         {
           "tag": "b",
           "text": "Help improve Taurifer"
+        },
+        {
+          "tag": "summary",
+          "name": "What is a test set?"
+        },
+        {
+          "tag": "span",
+          "text": "What is a test set?"
+        },
+        {
+          "tag": "p",
+          "text": "You guess how many reps you can do at the same weight on an exercise's last working set, then take it to technical failure. It replaces that set, without adding another, and compares your guess with what you did. After 3 test sets on that exercise, consistent results can adjust how Taurifer reads your reps left, moving the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "summary",
+          "name": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "span",
+          "text": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "p",
+          "text": "No. At most 1 test set per session, one per exercise every 14 days and 2 a week."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "p",
+          "text": "You choose each time. You can turn off in ."
+        },
+        {
+          "tag": "b",
+          "text": "Test-set prompts"
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
         },
         {
           "tag": "section",
@@ -168323,6 +169871,34 @@
         },
         {
           "tag": "section",
+          "labelledBy": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "h2",
+          "text": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 11 and did 14: 3 more than you expected."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 10 and did 9: 1 fewer."
+        },
+        {
+          "tag": "li",
+          "text": "Exactly what you guessed."
+        },
+        {
+          "tag": "p",
+          "text": "At most 1 test set per session, one per exercise every 14 days, 2 a week. Test sets change nothing until an exercise has 3 of them. After that, they move the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "section",
           "labelledBy": "Three ways to start your program."
         },
         {
@@ -168675,6 +170251,46 @@
         {
           "tag": "b",
           "text": "Help improve Taurifer"
+        },
+        {
+          "tag": "summary",
+          "name": "What is a test set?"
+        },
+        {
+          "tag": "span",
+          "text": "What is a test set?"
+        },
+        {
+          "tag": "p",
+          "text": "You guess how many reps you can do at the same weight on an exercise's last working set, then take it to technical failure. It replaces that set, without adding another, and compares your guess with what you did. After 3 test sets on that exercise, consistent results can adjust how Taurifer reads your reps left, moving the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "summary",
+          "name": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "span",
+          "text": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "p",
+          "text": "No. At most 1 test set per session, one per exercise every 14 days and 2 a week."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "p",
+          "text": "You choose each time. You can turn off in ."
+        },
+        {
+          "tag": "b",
+          "text": "Test-set prompts"
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
         },
         {
           "tag": "section",
@@ -168859,6 +170475,34 @@
         },
         {
           "tag": "section",
+          "labelledBy": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "h2",
+          "text": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 11 and did 14: 3 more than you expected."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 10 and did 9: 1 fewer."
+        },
+        {
+          "tag": "li",
+          "text": "Exactly what you guessed."
+        },
+        {
+          "tag": "p",
+          "text": "At most 1 test set per session, one per exercise every 14 days, 2 a week. Test sets change nothing until an exercise has 3 of them. After that, they move the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "section",
           "labelledBy": "Three ways to start your program."
         },
         {
@@ -169213,6 +170857,46 @@
           "text": "Help improve Taurifer"
         },
         {
+          "tag": "summary",
+          "name": "What is a test set?"
+        },
+        {
+          "tag": "span",
+          "text": "What is a test set?"
+        },
+        {
+          "tag": "p",
+          "text": "You guess how many reps you can do at the same weight on an exercise's last working set, then take it to technical failure. It replaces that set, without adding another, and compares your guess with what you did. After 3 test sets on that exercise, consistent results can adjust how Taurifer reads your reps left, moving the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "summary",
+          "name": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "span",
+          "text": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "p",
+          "text": "No. At most 1 test set per session, one per exercise every 14 days and 2 a week."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "p",
+          "text": "You choose each time. You can turn off in ."
+        },
+        {
+          "tag": "b",
+          "text": "Test-set prompts"
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
+        },
+        {
           "tag": "section",
           "labelledBy": "Start where you are."
         },
@@ -169392,6 +171076,34 @@
         {
           "tag": "span",
           "text": "Veja o treino se ajustar"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Ele confere sua percepção de esforço, não só seus números."
+        },
+        {
+          "tag": "h2",
+          "text": "Ele confere sua percepção de esforço, não só seus números."
+        },
+        {
+          "tag": "li",
+          "text": "Você chutou 11 e fez 14: 3 a mais do que esperava."
+        },
+        {
+          "tag": "li",
+          "text": "Você chutou 10 e fez 9: 1 a menos."
+        },
+        {
+          "tag": "li",
+          "text": "Exatamente o que você chutou."
+        },
+        {
+          "tag": "p",
+          "text": "No máximo 1 série-teste por sessão, uma por exercício a cada 14 dias e 2 por semana. As séries-teste não mudam nada até o exercício ter 3. Depois, elas mudam a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerida."
+        },
+        {
+          "tag": "p",
+          "text": "Nunca no agachamento, supino ou levantamento terra com barra livre."
         },
         {
           "tag": "section",
@@ -169749,6 +171461,46 @@
           "text": "Ajude a melhorar o Taurifer"
         },
         {
+          "tag": "summary",
+          "name": "O que é uma série-teste?"
+        },
+        {
+          "tag": "span",
+          "text": "O que é uma série-teste?"
+        },
+        {
+          "tag": "p",
+          "text": "Você chuta quantas reps consegue fazer com a mesma carga na última série de trabalho de um exercício e vai até a falha técnica. Ela substitui essa série, sem acrescentar outra, e compara seu chute com o que você fez. Após 3 séries-teste nesse exercício, resultados consistentes podem ajustar como o Taurifer lê suas reps sobrando, mudando a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerida."
+        },
+        {
+          "tag": "summary",
+          "name": "Vou ter que treinar até a falha o tempo todo?"
+        },
+        {
+          "tag": "span",
+          "text": "Vou ter que treinar até a falha o tempo todo?"
+        },
+        {
+          "tag": "p",
+          "text": "Não. No máximo 1 série-teste por sessão, uma por exercício a cada 14 dias e 2 por semana."
+        },
+        {
+          "tag": "p",
+          "text": "Nunca no agachamento, supino ou levantamento terra com barra livre."
+        },
+        {
+          "tag": "p",
+          "text": "Você escolhe a cada vez. Pode desligar em ."
+        },
+        {
+          "tag": "b",
+          "text": "Avisos de série-teste"
+        },
+        {
+          "tag": "b",
+          "text": "Ajustes"
+        },
+        {
           "tag": "section",
           "labelledBy": "Comece de onde você está."
         },
@@ -169928,6 +171680,34 @@
         {
           "tag": "span",
           "text": "See it adapt"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "h2",
+          "text": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 11 and did 14: 3 more than you expected."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 10 and did 9: 1 fewer."
+        },
+        {
+          "tag": "li",
+          "text": "Exactly what you guessed."
+        },
+        {
+          "tag": "p",
+          "text": "At most 1 test set per session, one per exercise every 14 days, 2 a week. Test sets change nothing until an exercise has 3 of them. After that, they move the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
         },
         {
           "tag": "section",
@@ -170283,6 +172063,46 @@
         {
           "tag": "b",
           "text": "Help improve Taurifer"
+        },
+        {
+          "tag": "summary",
+          "name": "What is a test set?"
+        },
+        {
+          "tag": "span",
+          "text": "What is a test set?"
+        },
+        {
+          "tag": "p",
+          "text": "You guess how many reps you can do at the same weight on an exercise's last working set, then take it to technical failure. It replaces that set, without adding another, and compares your guess with what you did. After 3 test sets on that exercise, consistent results can adjust how Taurifer reads your reps left, moving the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "summary",
+          "name": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "span",
+          "text": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "p",
+          "text": "No. At most 1 test set per session, one per exercise every 14 days and 2 a week."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "p",
+          "text": "You choose each time. You can turn off in ."
+        },
+        {
+          "tag": "b",
+          "text": "Test-set prompts"
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
         },
         {
           "tag": "section",
@@ -170770,7 +172590,7 @@
         },
         {
           "tag": "p",
-          "text": "RIR is the number of reps you could still complete before failure. RIR 2 means two reps left. If you are new to RIR, estimate whether you could do one or two more."
+          "text": "Reps left is the number of clean reps you could still complete before failure, also called RIR. 2 means two reps left. If you are new to counting, estimate whether you could do one or two more."
         },
         {
           "tag": "summary",
@@ -171383,7 +173203,7 @@
         },
         {
           "tag": "p",
-          "text": "RIR is the number of reps you could still complete before failure. RIR 2 means two reps left. If you are new to RIR, estimate whether you could do one or two more."
+          "text": "Reps left is the number of clean reps you could still complete before failure, also called RIR. 2 means two reps left. If you are new to counting, estimate whether you could do one or two more."
         },
         {
           "tag": "summary",
@@ -171996,7 +173816,7 @@
         },
         {
           "tag": "p",
-          "text": "RIR é o número de reps que você ainda conseguiria fazer antes da falha. RIR 2 significa duas reps sobrando. Se você é novo no RIR, estime se conseguiria fazer mais uma ou duas reps."
+          "text": "Reps sobrando é o número de reps que você ainda conseguiria fazer com boa técnica antes da falha, também chamado de RIR. 2 significa duas reps sobrando. Se você está começando a contar, estime se conseguiria fazer mais uma ou duas reps."
         },
         {
           "tag": "summary",
@@ -172306,6 +174126,34 @@
         },
         {
           "tag": "section",
+          "labelledBy": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "h2",
+          "text": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 11 and did 14: 3 more than you expected."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 10 and did 9: 1 fewer."
+        },
+        {
+          "tag": "li",
+          "text": "Exactly what you guessed."
+        },
+        {
+          "tag": "p",
+          "text": "At most 1 test set per session, one per exercise every 14 days, 2 a week. Test sets change nothing until an exercise has 3 of them. After that, they move the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "section",
           "labelledBy": "Three ways to start your program."
         },
         {
@@ -172658,6 +174506,46 @@
         {
           "tag": "b",
           "text": "Help improve Taurifer"
+        },
+        {
+          "tag": "summary",
+          "name": "What is a test set?"
+        },
+        {
+          "tag": "span",
+          "text": "What is a test set?"
+        },
+        {
+          "tag": "p",
+          "text": "You guess how many reps you can do at the same weight on an exercise's last working set, then take it to technical failure. It replaces that set, without adding another, and compares your guess with what you did. After 3 test sets on that exercise, consistent results can adjust how Taurifer reads your reps left, moving the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "summary",
+          "name": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "span",
+          "text": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "p",
+          "text": "No. At most 1 test set per session, one per exercise every 14 days and 2 a week."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "p",
+          "text": "You choose each time. You can turn off in ."
+        },
+        {
+          "tag": "b",
+          "text": "Test-set prompts"
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
         },
         {
           "tag": "section",
@@ -172842,6 +174730,34 @@
         },
         {
           "tag": "section",
+          "labelledBy": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "h2",
+          "text": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 11 and did 14: 3 more than you expected."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 10 and did 9: 1 fewer."
+        },
+        {
+          "tag": "li",
+          "text": "Exactly what you guessed."
+        },
+        {
+          "tag": "p",
+          "text": "At most 1 test set per session, one per exercise every 14 days, 2 a week. Test sets change nothing until an exercise has 3 of them. After that, they move the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "section",
           "labelledBy": "Three ways to start your program."
         },
         {
@@ -173196,6 +175112,46 @@
           "text": "Help improve Taurifer"
         },
         {
+          "tag": "summary",
+          "name": "What is a test set?"
+        },
+        {
+          "tag": "span",
+          "text": "What is a test set?"
+        },
+        {
+          "tag": "p",
+          "text": "You guess how many reps you can do at the same weight on an exercise's last working set, then take it to technical failure. It replaces that set, without adding another, and compares your guess with what you did. After 3 test sets on that exercise, consistent results can adjust how Taurifer reads your reps left, moving the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "summary",
+          "name": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "span",
+          "text": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "p",
+          "text": "No. At most 1 test set per session, one per exercise every 14 days and 2 a week."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "p",
+          "text": "You choose each time. You can turn off in ."
+        },
+        {
+          "tag": "b",
+          "text": "Test-set prompts"
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
+        },
+        {
           "tag": "section",
           "labelledBy": "Start where you are."
         },
@@ -173375,6 +175331,34 @@
         {
           "tag": "span",
           "text": "Veja o treino se ajustar"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Ele confere sua percepção de esforço, não só seus números."
+        },
+        {
+          "tag": "h2",
+          "text": "Ele confere sua percepção de esforço, não só seus números."
+        },
+        {
+          "tag": "li",
+          "text": "Você chutou 11 e fez 14: 3 a mais do que esperava."
+        },
+        {
+          "tag": "li",
+          "text": "Você chutou 10 e fez 9: 1 a menos."
+        },
+        {
+          "tag": "li",
+          "text": "Exatamente o que você chutou."
+        },
+        {
+          "tag": "p",
+          "text": "No máximo 1 série-teste por sessão, uma por exercício a cada 14 dias e 2 por semana. As séries-teste não mudam nada até o exercício ter 3. Depois, elas mudam a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerida."
+        },
+        {
+          "tag": "p",
+          "text": "Nunca no agachamento, supino ou levantamento terra com barra livre."
         },
         {
           "tag": "section",
@@ -173732,6 +175716,46 @@
           "text": "Ajude a melhorar o Taurifer"
         },
         {
+          "tag": "summary",
+          "name": "O que é uma série-teste?"
+        },
+        {
+          "tag": "span",
+          "text": "O que é uma série-teste?"
+        },
+        {
+          "tag": "p",
+          "text": "Você chuta quantas reps consegue fazer com a mesma carga na última série de trabalho de um exercício e vai até a falha técnica. Ela substitui essa série, sem acrescentar outra, e compara seu chute com o que você fez. Após 3 séries-teste nesse exercício, resultados consistentes podem ajustar como o Taurifer lê suas reps sobrando, mudando a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerida."
+        },
+        {
+          "tag": "summary",
+          "name": "Vou ter que treinar até a falha o tempo todo?"
+        },
+        {
+          "tag": "span",
+          "text": "Vou ter que treinar até a falha o tempo todo?"
+        },
+        {
+          "tag": "p",
+          "text": "Não. No máximo 1 série-teste por sessão, uma por exercício a cada 14 dias e 2 por semana."
+        },
+        {
+          "tag": "p",
+          "text": "Nunca no agachamento, supino ou levantamento terra com barra livre."
+        },
+        {
+          "tag": "p",
+          "text": "Você escolhe a cada vez. Pode desligar em ."
+        },
+        {
+          "tag": "b",
+          "text": "Avisos de série-teste"
+        },
+        {
+          "tag": "b",
+          "text": "Ajustes"
+        },
+        {
           "tag": "section",
           "labelledBy": "Comece de onde você está."
         },
@@ -173911,6 +175935,34 @@
         {
           "tag": "span",
           "text": "See it adapt"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "h2",
+          "text": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 11 and did 14: 3 more than you expected."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 10 and did 9: 1 fewer."
+        },
+        {
+          "tag": "li",
+          "text": "Exactly what you guessed."
+        },
+        {
+          "tag": "p",
+          "text": "At most 1 test set per session, one per exercise every 14 days, 2 a week. Test sets change nothing until an exercise has 3 of them. After that, they move the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
         },
         {
           "tag": "section",
@@ -174266,6 +176318,46 @@
         {
           "tag": "b",
           "text": "Help improve Taurifer"
+        },
+        {
+          "tag": "summary",
+          "name": "What is a test set?"
+        },
+        {
+          "tag": "span",
+          "text": "What is a test set?"
+        },
+        {
+          "tag": "p",
+          "text": "You guess how many reps you can do at the same weight on an exercise's last working set, then take it to technical failure. It replaces that set, without adding another, and compares your guess with what you did. After 3 test sets on that exercise, consistent results can adjust how Taurifer reads your reps left, moving the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "summary",
+          "name": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "span",
+          "text": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "p",
+          "text": "No. At most 1 test set per session, one per exercise every 14 days and 2 a week."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "p",
+          "text": "You choose each time. You can turn off in ."
+        },
+        {
+          "tag": "b",
+          "text": "Test-set prompts"
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
         },
         {
           "tag": "section",
@@ -174459,6 +176551,34 @@
         },
         {
           "tag": "section",
+          "labelledBy": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "h2",
+          "text": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 11 and did 14: 3 more than you expected."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 10 and did 9: 1 fewer."
+        },
+        {
+          "tag": "li",
+          "text": "Exactly what you guessed."
+        },
+        {
+          "tag": "p",
+          "text": "At most 1 test set per session, one per exercise every 14 days, 2 a week. Test sets change nothing until an exercise has 3 of them. After that, they move the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "section",
           "labelledBy": "Three ways to start your program."
         },
         {
@@ -174813,6 +176933,46 @@
           "text": "Help improve Taurifer"
         },
         {
+          "tag": "summary",
+          "name": "What is a test set?"
+        },
+        {
+          "tag": "span",
+          "text": "What is a test set?"
+        },
+        {
+          "tag": "p",
+          "text": "You guess how many reps you can do at the same weight on an exercise's last working set, then take it to technical failure. It replaces that set, without adding another, and compares your guess with what you did. After 3 test sets on that exercise, consistent results can adjust how Taurifer reads your reps left, moving the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "summary",
+          "name": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "span",
+          "text": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "p",
+          "text": "No. At most 1 test set per session, one per exercise every 14 days and 2 a week."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "p",
+          "text": "You choose each time. You can turn off in ."
+        },
+        {
+          "tag": "b",
+          "text": "Test-set prompts"
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
+        },
+        {
           "tag": "section",
           "labelledBy": "Start where you are."
         },
@@ -175001,6 +177161,34 @@
         {
           "tag": "span",
           "text": "Veja o treino se ajustar"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Ele confere sua percepção de esforço, não só seus números."
+        },
+        {
+          "tag": "h2",
+          "text": "Ele confere sua percepção de esforço, não só seus números."
+        },
+        {
+          "tag": "li",
+          "text": "Você chutou 11 e fez 14: 3 a mais do que esperava."
+        },
+        {
+          "tag": "li",
+          "text": "Você chutou 10 e fez 9: 1 a menos."
+        },
+        {
+          "tag": "li",
+          "text": "Exatamente o que você chutou."
+        },
+        {
+          "tag": "p",
+          "text": "No máximo 1 série-teste por sessão, uma por exercício a cada 14 dias e 2 por semana. As séries-teste não mudam nada até o exercício ter 3. Depois, elas mudam a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerida."
+        },
+        {
+          "tag": "p",
+          "text": "Nunca no agachamento, supino ou levantamento terra com barra livre."
         },
         {
           "tag": "section",
@@ -175356,6 +177544,46 @@
         {
           "tag": "b",
           "text": "Ajude a melhorar o Taurifer"
+        },
+        {
+          "tag": "summary",
+          "name": "O que é uma série-teste?"
+        },
+        {
+          "tag": "span",
+          "text": "O que é uma série-teste?"
+        },
+        {
+          "tag": "p",
+          "text": "Você chuta quantas reps consegue fazer com a mesma carga na última série de trabalho de um exercício e vai até a falha técnica. Ela substitui essa série, sem acrescentar outra, e compara seu chute com o que você fez. Após 3 séries-teste nesse exercício, resultados consistentes podem ajustar como o Taurifer lê suas reps sobrando, mudando a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerida."
+        },
+        {
+          "tag": "summary",
+          "name": "Vou ter que treinar até a falha o tempo todo?"
+        },
+        {
+          "tag": "span",
+          "text": "Vou ter que treinar até a falha o tempo todo?"
+        },
+        {
+          "tag": "p",
+          "text": "Não. No máximo 1 série-teste por sessão, uma por exercício a cada 14 dias e 2 por semana."
+        },
+        {
+          "tag": "p",
+          "text": "Nunca no agachamento, supino ou levantamento terra com barra livre."
+        },
+        {
+          "tag": "p",
+          "text": "Você escolhe a cada vez. Pode desligar em ."
+        },
+        {
+          "tag": "b",
+          "text": "Avisos de série-teste"
+        },
+        {
+          "tag": "b",
+          "text": "Ajustes"
         },
         {
           "tag": "section",
@@ -177388,6 +179616,34 @@
         },
         {
           "tag": "section",
+          "labelledBy": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "h2",
+          "text": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 11 and did 14: 3 more than you expected."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 10 and did 9: 1 fewer."
+        },
+        {
+          "tag": "li",
+          "text": "Exactly what you guessed."
+        },
+        {
+          "tag": "p",
+          "text": "At most 1 test set per session, one per exercise every 14 days, 2 a week. Test sets change nothing until an exercise has 3 of them. After that, they move the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "section",
           "labelledBy": "Three ways to start your program."
         },
         {
@@ -177740,6 +179996,46 @@
         {
           "tag": "b",
           "text": "Help improve Taurifer"
+        },
+        {
+          "tag": "summary",
+          "name": "What is a test set?"
+        },
+        {
+          "tag": "span",
+          "text": "What is a test set?"
+        },
+        {
+          "tag": "p",
+          "text": "You guess how many reps you can do at the same weight on an exercise's last working set, then take it to technical failure. It replaces that set, without adding another, and compares your guess with what you did. After 3 test sets on that exercise, consistent results can adjust how Taurifer reads your reps left, moving the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "summary",
+          "name": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "span",
+          "text": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "p",
+          "text": "No. At most 1 test set per session, one per exercise every 14 days and 2 a week."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "p",
+          "text": "You choose each time. You can turn off in ."
+        },
+        {
+          "tag": "b",
+          "text": "Test-set prompts"
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
         },
         {
           "tag": "section",
@@ -177933,6 +180229,34 @@
         },
         {
           "tag": "section",
+          "labelledBy": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "h2",
+          "text": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 11 and did 14: 3 more than you expected."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 10 and did 9: 1 fewer."
+        },
+        {
+          "tag": "li",
+          "text": "Exactly what you guessed."
+        },
+        {
+          "tag": "p",
+          "text": "At most 1 test set per session, one per exercise every 14 days, 2 a week. Test sets change nothing until an exercise has 3 of them. After that, they move the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "section",
           "labelledBy": "Three ways to start your program."
         },
         {
@@ -178285,6 +180609,46 @@
         {
           "tag": "b",
           "text": "Help improve Taurifer"
+        },
+        {
+          "tag": "summary",
+          "name": "What is a test set?"
+        },
+        {
+          "tag": "span",
+          "text": "What is a test set?"
+        },
+        {
+          "tag": "p",
+          "text": "You guess how many reps you can do at the same weight on an exercise's last working set, then take it to technical failure. It replaces that set, without adding another, and compares your guess with what you did. After 3 test sets on that exercise, consistent results can adjust how Taurifer reads your reps left, moving the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "summary",
+          "name": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "span",
+          "text": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "p",
+          "text": "No. At most 1 test set per session, one per exercise every 14 days and 2 a week."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "p",
+          "text": "You choose each time. You can turn off in ."
+        },
+        {
+          "tag": "b",
+          "text": "Test-set prompts"
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
         },
         {
           "tag": "section",
@@ -178478,6 +180842,34 @@
         },
         {
           "tag": "section",
+          "labelledBy": "Ele confere sua percepção de esforço, não só seus números."
+        },
+        {
+          "tag": "h2",
+          "text": "Ele confere sua percepção de esforço, não só seus números."
+        },
+        {
+          "tag": "li",
+          "text": "Você chutou 11 e fez 14: 3 a mais do que esperava."
+        },
+        {
+          "tag": "li",
+          "text": "Você chutou 10 e fez 9: 1 a menos."
+        },
+        {
+          "tag": "li",
+          "text": "Exatamente o que você chutou."
+        },
+        {
+          "tag": "p",
+          "text": "No máximo 1 série-teste por sessão, uma por exercício a cada 14 dias e 2 por semana. As séries-teste não mudam nada até o exercício ter 3. Depois, elas mudam a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerida."
+        },
+        {
+          "tag": "p",
+          "text": "Nunca no agachamento, supino ou levantamento terra com barra livre."
+        },
+        {
+          "tag": "section",
           "labelledBy": "Três jeitos de começar seu treino."
         },
         {
@@ -178830,6 +181222,46 @@
         {
           "tag": "b",
           "text": "Ajude a melhorar o Taurifer"
+        },
+        {
+          "tag": "summary",
+          "name": "O que é uma série-teste?"
+        },
+        {
+          "tag": "span",
+          "text": "O que é uma série-teste?"
+        },
+        {
+          "tag": "p",
+          "text": "Você chuta quantas reps consegue fazer com a mesma carga na última série de trabalho de um exercício e vai até a falha técnica. Ela substitui essa série, sem acrescentar outra, e compara seu chute com o que você fez. Após 3 séries-teste nesse exercício, resultados consistentes podem ajustar como o Taurifer lê suas reps sobrando, mudando a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerida."
+        },
+        {
+          "tag": "summary",
+          "name": "Vou ter que treinar até a falha o tempo todo?"
+        },
+        {
+          "tag": "span",
+          "text": "Vou ter que treinar até a falha o tempo todo?"
+        },
+        {
+          "tag": "p",
+          "text": "Não. No máximo 1 série-teste por sessão, uma por exercício a cada 14 dias e 2 por semana."
+        },
+        {
+          "tag": "p",
+          "text": "Nunca no agachamento, supino ou levantamento terra com barra livre."
+        },
+        {
+          "tag": "p",
+          "text": "Você escolhe a cada vez. Pode desligar em ."
+        },
+        {
+          "tag": "b",
+          "text": "Avisos de série-teste"
+        },
+        {
+          "tag": "b",
+          "text": "Ajustes"
         },
         {
           "tag": "section",
@@ -179023,6 +181455,34 @@
         },
         {
           "tag": "section",
+          "labelledBy": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "h2",
+          "text": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 11 and did 14: 3 more than you expected."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 10 and did 9: 1 fewer."
+        },
+        {
+          "tag": "li",
+          "text": "Exactly what you guessed."
+        },
+        {
+          "tag": "p",
+          "text": "At most 1 test set per session, one per exercise every 14 days, 2 a week. Test sets change nothing until an exercise has 3 of them. After that, they move the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "section",
           "labelledBy": "Three ways to start your program."
         },
         {
@@ -179375,6 +181835,46 @@
         {
           "tag": "b",
           "text": "Help improve Taurifer"
+        },
+        {
+          "tag": "summary",
+          "name": "What is a test set?"
+        },
+        {
+          "tag": "span",
+          "text": "What is a test set?"
+        },
+        {
+          "tag": "p",
+          "text": "You guess how many reps you can do at the same weight on an exercise's last working set, then take it to technical failure. It replaces that set, without adding another, and compares your guess with what you did. After 3 test sets on that exercise, consistent results can adjust how Taurifer reads your reps left, moving the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "summary",
+          "name": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "span",
+          "text": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "p",
+          "text": "No. At most 1 test set per session, one per exercise every 14 days and 2 a week."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "p",
+          "text": "You choose each time. You can turn off in ."
+        },
+        {
+          "tag": "b",
+          "text": "Test-set prompts"
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
         },
         {
           "tag": "section",
@@ -179559,6 +182059,34 @@
         },
         {
           "tag": "section",
+          "labelledBy": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "h2",
+          "text": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 11 and did 14: 3 more than you expected."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 10 and did 9: 1 fewer."
+        },
+        {
+          "tag": "li",
+          "text": "Exactly what you guessed."
+        },
+        {
+          "tag": "p",
+          "text": "At most 1 test set per session, one per exercise every 14 days, 2 a week. Test sets change nothing until an exercise has 3 of them. After that, they move the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "section",
           "labelledBy": "Three ways to start your program."
         },
         {
@@ -179913,6 +182441,46 @@
           "text": "Help improve Taurifer"
         },
         {
+          "tag": "summary",
+          "name": "What is a test set?"
+        },
+        {
+          "tag": "span",
+          "text": "What is a test set?"
+        },
+        {
+          "tag": "p",
+          "text": "You guess how many reps you can do at the same weight on an exercise's last working set, then take it to technical failure. It replaces that set, without adding another, and compares your guess with what you did. After 3 test sets on that exercise, consistent results can adjust how Taurifer reads your reps left, moving the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "summary",
+          "name": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "span",
+          "text": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "p",
+          "text": "No. At most 1 test set per session, one per exercise every 14 days and 2 a week."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "p",
+          "text": "You choose each time. You can turn off in ."
+        },
+        {
+          "tag": "b",
+          "text": "Test-set prompts"
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
+        },
+        {
           "tag": "section",
           "labelledBy": "Start where you are."
         },
@@ -180092,6 +182660,34 @@
         {
           "tag": "span",
           "text": "Veja o treino se ajustar"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Ele confere sua percepção de esforço, não só seus números."
+        },
+        {
+          "tag": "h2",
+          "text": "Ele confere sua percepção de esforço, não só seus números."
+        },
+        {
+          "tag": "li",
+          "text": "Você chutou 11 e fez 14: 3 a mais do que esperava."
+        },
+        {
+          "tag": "li",
+          "text": "Você chutou 10 e fez 9: 1 a menos."
+        },
+        {
+          "tag": "li",
+          "text": "Exatamente o que você chutou."
+        },
+        {
+          "tag": "p",
+          "text": "No máximo 1 série-teste por sessão, uma por exercício a cada 14 dias e 2 por semana. As séries-teste não mudam nada até o exercício ter 3. Depois, elas mudam a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerida."
+        },
+        {
+          "tag": "p",
+          "text": "Nunca no agachamento, supino ou levantamento terra com barra livre."
         },
         {
           "tag": "section",
@@ -180447,6 +183043,46 @@
         {
           "tag": "b",
           "text": "Ajude a melhorar o Taurifer"
+        },
+        {
+          "tag": "summary",
+          "name": "O que é uma série-teste?"
+        },
+        {
+          "tag": "span",
+          "text": "O que é uma série-teste?"
+        },
+        {
+          "tag": "p",
+          "text": "Você chuta quantas reps consegue fazer com a mesma carga na última série de trabalho de um exercício e vai até a falha técnica. Ela substitui essa série, sem acrescentar outra, e compara seu chute com o que você fez. Após 3 séries-teste nesse exercício, resultados consistentes podem ajustar como o Taurifer lê suas reps sobrando, mudando a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerida."
+        },
+        {
+          "tag": "summary",
+          "name": "Vou ter que treinar até a falha o tempo todo?"
+        },
+        {
+          "tag": "span",
+          "text": "Vou ter que treinar até a falha o tempo todo?"
+        },
+        {
+          "tag": "p",
+          "text": "Não. No máximo 1 série-teste por sessão, uma por exercício a cada 14 dias e 2 por semana."
+        },
+        {
+          "tag": "p",
+          "text": "Nunca no agachamento, supino ou levantamento terra com barra livre."
+        },
+        {
+          "tag": "p",
+          "text": "Você escolhe a cada vez. Pode desligar em ."
+        },
+        {
+          "tag": "b",
+          "text": "Avisos de série-teste"
+        },
+        {
+          "tag": "b",
+          "text": "Ajustes"
         },
         {
           "tag": "section",
@@ -180635,6 +183271,34 @@
         },
         {
           "tag": "section",
+          "labelledBy": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "h2",
+          "text": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 11 and did 14: 3 more than you expected."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 10 and did 9: 1 fewer."
+        },
+        {
+          "tag": "li",
+          "text": "Exactly what you guessed."
+        },
+        {
+          "tag": "p",
+          "text": "At most 1 test set per session, one per exercise every 14 days, 2 a week. Test sets change nothing until an exercise has 3 of them. After that, they move the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "section",
           "labelledBy": "Three ways to start your program."
         },
         {
@@ -180987,6 +183651,46 @@
         {
           "tag": "b",
           "text": "Help improve Taurifer"
+        },
+        {
+          "tag": "summary",
+          "name": "What is a test set?"
+        },
+        {
+          "tag": "span",
+          "text": "What is a test set?"
+        },
+        {
+          "tag": "p",
+          "text": "You guess how many reps you can do at the same weight on an exercise's last working set, then take it to technical failure. It replaces that set, without adding another, and compares your guess with what you did. After 3 test sets on that exercise, consistent results can adjust how Taurifer reads your reps left, moving the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "summary",
+          "name": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "span",
+          "text": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "p",
+          "text": "No. At most 1 test set per session, one per exercise every 14 days and 2 a week."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "p",
+          "text": "You choose each time. You can turn off in ."
+        },
+        {
+          "tag": "b",
+          "text": "Test-set prompts"
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
         },
         {
           "tag": "section",
@@ -181175,6 +183879,34 @@
         },
         {
           "tag": "section",
+          "labelledBy": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "h2",
+          "text": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 11 and did 14: 3 more than you expected."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 10 and did 9: 1 fewer."
+        },
+        {
+          "tag": "li",
+          "text": "Exactly what you guessed."
+        },
+        {
+          "tag": "p",
+          "text": "At most 1 test set per session, one per exercise every 14 days, 2 a week. Test sets change nothing until an exercise has 3 of them. After that, they move the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "section",
           "labelledBy": "Three ways to start your program."
         },
         {
@@ -181529,6 +184261,46 @@
           "text": "Help improve Taurifer"
         },
         {
+          "tag": "summary",
+          "name": "What is a test set?"
+        },
+        {
+          "tag": "span",
+          "text": "What is a test set?"
+        },
+        {
+          "tag": "p",
+          "text": "You guess how many reps you can do at the same weight on an exercise's last working set, then take it to technical failure. It replaces that set, without adding another, and compares your guess with what you did. After 3 test sets on that exercise, consistent results can adjust how Taurifer reads your reps left, moving the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "summary",
+          "name": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "span",
+          "text": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "p",
+          "text": "No. At most 1 test set per session, one per exercise every 14 days and 2 a week."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "p",
+          "text": "You choose each time. You can turn off in ."
+        },
+        {
+          "tag": "b",
+          "text": "Test-set prompts"
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
+        },
+        {
           "tag": "section",
           "labelledBy": "Start where you are."
         },
@@ -181712,6 +184484,34 @@
         {
           "tag": "span",
           "text": "Veja o treino se ajustar"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Ele confere sua percepção de esforço, não só seus números."
+        },
+        {
+          "tag": "h2",
+          "text": "Ele confere sua percepção de esforço, não só seus números."
+        },
+        {
+          "tag": "li",
+          "text": "Você chutou 11 e fez 14: 3 a mais do que esperava."
+        },
+        {
+          "tag": "li",
+          "text": "Você chutou 10 e fez 9: 1 a menos."
+        },
+        {
+          "tag": "li",
+          "text": "Exatamente o que você chutou."
+        },
+        {
+          "tag": "p",
+          "text": "No máximo 1 série-teste por sessão, uma por exercício a cada 14 dias e 2 por semana. As séries-teste não mudam nada até o exercício ter 3. Depois, elas mudam a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerida."
+        },
+        {
+          "tag": "p",
+          "text": "Nunca no agachamento, supino ou levantamento terra com barra livre."
         },
         {
           "tag": "section",
@@ -182069,6 +184869,46 @@
           "text": "Ajude a melhorar o Taurifer"
         },
         {
+          "tag": "summary",
+          "name": "O que é uma série-teste?"
+        },
+        {
+          "tag": "span",
+          "text": "O que é uma série-teste?"
+        },
+        {
+          "tag": "p",
+          "text": "Você chuta quantas reps consegue fazer com a mesma carga na última série de trabalho de um exercício e vai até a falha técnica. Ela substitui essa série, sem acrescentar outra, e compara seu chute com o que você fez. Após 3 séries-teste nesse exercício, resultados consistentes podem ajustar como o Taurifer lê suas reps sobrando, mudando a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerida."
+        },
+        {
+          "tag": "summary",
+          "name": "Vou ter que treinar até a falha o tempo todo?"
+        },
+        {
+          "tag": "span",
+          "text": "Vou ter que treinar até a falha o tempo todo?"
+        },
+        {
+          "tag": "p",
+          "text": "Não. No máximo 1 série-teste por sessão, uma por exercício a cada 14 dias e 2 por semana."
+        },
+        {
+          "tag": "p",
+          "text": "Nunca no agachamento, supino ou levantamento terra com barra livre."
+        },
+        {
+          "tag": "p",
+          "text": "Você escolhe a cada vez. Pode desligar em ."
+        },
+        {
+          "tag": "b",
+          "text": "Avisos de série-teste"
+        },
+        {
+          "tag": "b",
+          "text": "Ajustes"
+        },
+        {
           "tag": "section",
           "labelledBy": "Comece de onde você está."
         },
@@ -182248,6 +185088,34 @@
         {
           "tag": "span",
           "text": "See it adapt"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "h2",
+          "text": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 11 and did 14: 3 more than you expected."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 10 and did 9: 1 fewer."
+        },
+        {
+          "tag": "li",
+          "text": "Exactly what you guessed."
+        },
+        {
+          "tag": "p",
+          "text": "At most 1 test set per session, one per exercise every 14 days, 2 a week. Test sets change nothing until an exercise has 3 of them. After that, they move the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
         },
         {
           "tag": "section",
@@ -182603,6 +185471,46 @@
         {
           "tag": "b",
           "text": "Help improve Taurifer"
+        },
+        {
+          "tag": "summary",
+          "name": "What is a test set?"
+        },
+        {
+          "tag": "span",
+          "text": "What is a test set?"
+        },
+        {
+          "tag": "p",
+          "text": "You guess how many reps you can do at the same weight on an exercise's last working set, then take it to technical failure. It replaces that set, without adding another, and compares your guess with what you did. After 3 test sets on that exercise, consistent results can adjust how Taurifer reads your reps left, moving the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "summary",
+          "name": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "span",
+          "text": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "p",
+          "text": "No. At most 1 test set per session, one per exercise every 14 days and 2 a week."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "p",
+          "text": "You choose each time. You can turn off in ."
+        },
+        {
+          "tag": "b",
+          "text": "Test-set prompts"
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
         },
         {
           "tag": "section",
@@ -182796,6 +185704,34 @@
         },
         {
           "tag": "section",
+          "labelledBy": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "h2",
+          "text": "It checks your judgement, not just your numbers."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 11 and did 14: 3 more than you expected."
+        },
+        {
+          "tag": "li",
+          "text": "You guessed 10 and did 9: 1 fewer."
+        },
+        {
+          "tag": "li",
+          "text": "Exactly what you guessed."
+        },
+        {
+          "tag": "p",
+          "text": "At most 1 test set per session, one per exercise every 14 days, 2 a week. Test sets change nothing until an exercise has 3 of them. After that, they move the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "section",
           "labelledBy": "Three ways to start your program."
         },
         {
@@ -183150,6 +186086,46 @@
           "text": "Help improve Taurifer"
         },
         {
+          "tag": "summary",
+          "name": "What is a test set?"
+        },
+        {
+          "tag": "span",
+          "text": "What is a test set?"
+        },
+        {
+          "tag": "p",
+          "text": "You guess how many reps you can do at the same weight on an exercise's last working set, then take it to technical failure. It replaces that set, without adding another, and compares your guess with what you did. After 3 test sets on that exercise, consistent results can adjust how Taurifer reads your reps left, moving the suggested weight at most 1 step up or 2 down from what it would otherwise be."
+        },
+        {
+          "tag": "summary",
+          "name": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "span",
+          "text": "Will it make me train to failure all the time?"
+        },
+        {
+          "tag": "p",
+          "text": "No. At most 1 test set per session, one per exercise every 14 days and 2 a week."
+        },
+        {
+          "tag": "p",
+          "text": "Never on a barbell squat, bench press or deadlift."
+        },
+        {
+          "tag": "p",
+          "text": "You choose each time. You can turn off in ."
+        },
+        {
+          "tag": "b",
+          "text": "Test-set prompts"
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
+        },
+        {
           "tag": "section",
           "labelledBy": "Start where you are."
         },
@@ -183338,6 +186314,34 @@
         {
           "tag": "span",
           "text": "Veja o treino se ajustar"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Ele confere sua percepção de esforço, não só seus números."
+        },
+        {
+          "tag": "h2",
+          "text": "Ele confere sua percepção de esforço, não só seus números."
+        },
+        {
+          "tag": "li",
+          "text": "Você chutou 11 e fez 14: 3 a mais do que esperava."
+        },
+        {
+          "tag": "li",
+          "text": "Você chutou 10 e fez 9: 1 a menos."
+        },
+        {
+          "tag": "li",
+          "text": "Exatamente o que você chutou."
+        },
+        {
+          "tag": "p",
+          "text": "No máximo 1 série-teste por sessão, uma por exercício a cada 14 dias e 2 por semana. As séries-teste não mudam nada até o exercício ter 3. Depois, elas mudam a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerida."
+        },
+        {
+          "tag": "p",
+          "text": "Nunca no agachamento, supino ou levantamento terra com barra livre."
         },
         {
           "tag": "section",
@@ -183693,6 +186697,46 @@
         {
           "tag": "b",
           "text": "Ajude a melhorar o Taurifer"
+        },
+        {
+          "tag": "summary",
+          "name": "O que é uma série-teste?"
+        },
+        {
+          "tag": "span",
+          "text": "O que é uma série-teste?"
+        },
+        {
+          "tag": "p",
+          "text": "Você chuta quantas reps consegue fazer com a mesma carga na última série de trabalho de um exercício e vai até a falha técnica. Ela substitui essa série, sem acrescentar outra, e compara seu chute com o que você fez. Após 3 séries-teste nesse exercício, resultados consistentes podem ajustar como o Taurifer lê suas reps sobrando, mudando a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerida."
+        },
+        {
+          "tag": "summary",
+          "name": "Vou ter que treinar até a falha o tempo todo?"
+        },
+        {
+          "tag": "span",
+          "text": "Vou ter que treinar até a falha o tempo todo?"
+        },
+        {
+          "tag": "p",
+          "text": "Não. No máximo 1 série-teste por sessão, uma por exercício a cada 14 dias e 2 por semana."
+        },
+        {
+          "tag": "p",
+          "text": "Nunca no agachamento, supino ou levantamento terra com barra livre."
+        },
+        {
+          "tag": "p",
+          "text": "Você escolhe a cada vez. Pode desligar em ."
+        },
+        {
+          "tag": "b",
+          "text": "Avisos de série-teste"
+        },
+        {
+          "tag": "b",
+          "text": "Ajustes"
         },
         {
           "tag": "section",

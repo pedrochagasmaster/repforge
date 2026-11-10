@@ -391,7 +391,8 @@ const importModeSwitchStates = ["default", "hover", "pressed", "focus-visible", 
 const importModeSwitchCatalog = {
   "#entryFreeformSwitch": ["onboarding-import/source"],
   "#entryFreeformFile": ["onboarding-import/freeform-empty", "onboarding-import/freeform-filled",
-    "onboarding-import/freeform-stage2", "onboarding-import/freeform-stage3", "onboarding-import/freeform-unreadable"],
+    "onboarding-import/freeform-stage2", "onboarding-import/freeform-stage3", "onboarding-import/freeform-unreadable",
+    "onboarding-import/freeform-managed", "onboarding-import/freeform-managed-limit"],
 };
 function importModeSwitchContractErrors(candidate) {
   const errors = [];

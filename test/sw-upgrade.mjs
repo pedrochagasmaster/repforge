@@ -11,7 +11,7 @@ import { createHash } from "node:crypto";
 import { readFileSync, statSync, createReadStream } from "node:fs";
 import { dirname, extname, join, normalize, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { launchChromium, waitForAppBoot, waitForWorkerTakeover } from "./browser.mjs";
+import { launchChromium, traceWorkerLifecycle, waitForAppBoot, waitForWorkerTakeover } from "./browser.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 // Exact bytes from released starting-main e7b6d162 (the v120 worker). Keeping
@@ -97,6 +97,7 @@ try {
   assert.equal(await page.evaluate((cache) => caches.has(cache), oldCache), true, `released cache ${oldCache} is installed`);
 
   mode = "current";
+  await traceWorkerLifecycle(page);
   await page.evaluate(async () => {
     const registration = await navigator.serviceWorker.ready;
     await registration.update();
@@ -112,6 +113,32 @@ try {
   const shown = await page.waitForFunction(() => document.querySelector("#settingsRelease")?.textContent || null, undefined, { timeout: 10000 })
     .then((handle) => handle.jsonValue(), () => "");
   assert.equal(shown, ` (${release})`, "Settings shows the running build's release: Version 1.0 (" + release + ")");
+
+  // A controlled page must still load third-party scripts, such as the Turnstile widget managed import uses
+  // (#707). A classic cross-origin <script> is a no-cors fetch whose response is opaque, which the worker's
+  // code-response checks reject; the worker must leave cross-origin requests to the network entirely.
+  const thirdParty = createServer((request, response) => {
+    response.writeHead(200, { "content-type": "text/javascript", "cache-control": "no-store" });
+    response.end("window.__thirdPartyScriptRan = (window.__thirdPartyScriptRan || 0) + 1;");
+  });
+  await new Promise((resolve) => thirdParty.listen(0, "127.0.0.1", resolve));
+  try {
+    // localhost and 127.0.0.1 are different origins for the same server.
+    const thirdPartyUrl = `http://localhost:${thirdParty.address().port}/widget/v0/api.js`;
+    const loaded = await page.evaluate((src) => new Promise((resolve) => {
+      if (!navigator.serviceWorker.controller) { resolve({ uncontrolled: true }); return; }
+      const script = document.createElement("script");
+      script.src = src;
+      script.onload = () => resolve({ event: "load", ran: window.__thirdPartyScriptRan || 0 });
+      script.onerror = () => resolve({ event: "error", ran: window.__thirdPartyScriptRan || 0 });
+      document.head.append(script);
+    }), thirdPartyUrl);
+    assert.deepEqual(loaded, { event: "load", ran: 1 }, "a cross-origin script loads and runs under the controlling worker");
+    const cachedThirdParty = await page.evaluate(async (src) => !!(await caches.match(src)), thirdPartyUrl);
+    assert.equal(cachedThirdParty, false, "the worker caches nothing cross-origin");
+  } finally {
+    await new Promise((resolve) => thirdParty.close(resolve));
+  }
 
   await context.setOffline(true);
   try {

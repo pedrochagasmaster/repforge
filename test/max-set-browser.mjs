@@ -111,6 +111,12 @@ async function logSet(page, exId, n, { load = "50", reps = "10", rir = "2" } = {
   }, { id: exId, n }, { timeout: 10000 });
 }
 
+async function dismissRepeatedPainPicker(page) {
+  await page.locator("#exPickSheet").waitFor({state:"visible"});
+  assert(!await page.locator("#exActionsSheet").isVisible(),"a repeated discomfort mark opens the picker instead of leaving actions open");
+  await page.locator("#exPickCancel").click(); await page.locator("#exPickSheet").waitFor({state:"hidden"});
+}
+
 const browser = await launchChromium();
 const context = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: "en-US" });
 const page = await context.newPage();
@@ -421,7 +427,11 @@ try {
   for (const pressed of ["true","false"]) {
     await openActions(safety,safetyId); await safety.locator("#exActionDiscomfortBtn").click();
     await safety.waitForFunction(value => document.querySelector("#exActionDiscomfortBtn")?.getAttribute("aria-pressed") === value,pressed);
-    await safety.locator("#exActionsClose").click(); await safety.locator("#exActionsSheet").waitFor({state:"hidden"});
+    if (pressed === "true") {
+      await dismissRepeatedPainPicker(safety);
+    } else {
+      await safety.locator("#exActionsClose").click(); await safety.locator("#exActionsSheet").waitFor({state:"hidden"});
+    }
   }
   const sessionsBeforeClear = new Set(Object.keys((await readReplicas(safety)).local.sessionEvents));
   await finishSafety();
@@ -441,7 +451,7 @@ try {
   await safety.clock.setFixedTime(new Date("2026-11-11T03:02:00Z"));
   await openActions(safety,safetyId); await safety.locator("#exActionDiscomfortBtn").click();
   await safety.waitForFunction(() => document.querySelector("#exActionDiscomfortBtn")?.getAttribute("aria-pressed") === "true");
-  await safety.locator("#exActionsClose").click(); await safety.locator("#exActionsSheet").waitFor({state:"hidden"});
+  await dismissRepeatedPainPicker(safety);
   assert(await safety.locator(`${TIP}[data-tip="max-set"]`).count() === 0,"a real after-midnight mark blocks the live offer");
   const spanningSessionIds = new Set(Object.keys((await readReplicas(safety)).local.sessionEvents));
   await finishSafety();

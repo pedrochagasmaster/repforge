@@ -1352,6 +1352,16 @@
       "owner": "plan-081",
       "content": "flat",
       "scenario": "Early standing and counts after two recorded sessions."
+    },
+    "onboarding-import/freeform-managed": {
+      "owner": "adr-0025",
+      "content": "flat",
+      "scenario": "Managed import available: a pasted program, one note that the text goes to Anthropic, the verification widget, Import with Taurifer, and the ChatGPT or Claude hand-off as a quiet alternative."
+    },
+    "onboarding-import/freeform-managed-limit": {
+      "owner": "adr-0025",
+      "content": "flat",
+      "scenario": "Managed import after the daily limit: the alert under Import, the pasted source kept, and the ChatGPT or Claude hand-off still available."
     }
   },
   "components": [
@@ -1819,7 +1829,7 @@
     },
     {
       "id": "entryfreeformcontinue",
-      "selector": "#entryFreeformContinue",
+      "selector": "#entryFreeformContinue:not(.btn--ghost)",
       "roles": {
         "control": "primary"
       },
@@ -1932,7 +1942,9 @@
         "onboarding-import/freeform-filled",
         "onboarding-import/freeform-stage2",
         "onboarding-import/freeform-stage3",
-        "onboarding-import/freeform-unreadable"
+        "onboarding-import/freeform-unreadable",
+        "onboarding-import/freeform-managed",
+        "onboarding-import/freeform-managed-limit"
       ]
     },
     {
@@ -1958,7 +1970,9 @@
         "onboarding-import/freeform-filled",
         "onboarding-import/freeform-stage2",
         "onboarding-import/freeform-stage3",
-        "onboarding-import/freeform-unreadable"
+        "onboarding-import/freeform-unreadable",
+        "onboarding-import/freeform-managed",
+        "onboarding-import/freeform-managed-limit"
       ]
     },
     {
@@ -1982,7 +1996,9 @@
       "owner": "plan-058",
       "catalogStates": [
         "onboarding-import/freeform-empty",
-        "onboarding-import/freeform-filled"
+        "onboarding-import/freeform-filled",
+        "onboarding-import/freeform-managed",
+        "onboarding-import/freeform-managed-limit"
       ]
     },
     {
@@ -4392,7 +4408,9 @@
         "onboarding-recommend/result-confirm-offer",
         "onboarding-recommend/result-confirmed",
         "onboarding-recommend/muscle-priorities-skip",
-        "onboarding-recommend/deload-start"
+        "onboarding-recommend/deload-start",
+        "onboarding-import/freeform-managed",
+        "onboarding-import/freeform-managed-limit"
       ]
     },
     {
@@ -4471,7 +4489,9 @@
         "onboarding-recommend/result-confirmed",
         "onboarding-build/editor-alternates",
         "onboarding-recommend/muscle-priorities-skip",
-        "onboarding-recommend/deload-start"
+        "onboarding-recommend/deload-start",
+        "onboarding-import/freeform-managed",
+        "onboarding-import/freeform-managed-limit"
       ]
     },
     {
@@ -4593,7 +4613,9 @@
         "onboarding-recommend/result-confirm-offer",
         "onboarding-recommend/result-confirmed",
         "onboarding-recommend/muscle-priorities-skip",
-        "onboarding-recommend/deload-start"
+        "onboarding-recommend/deload-start",
+        "onboarding-import/freeform-managed",
+        "onboarding-import/freeform-managed-limit"
       ],
       "progressScopes": {
         "entry-route-step": "task"
@@ -6304,7 +6326,7 @@
     },
     {
       "id": "stats-button-aria-pressed",
-      "selector": "#stats button[aria-pressed]:not(.tabrow__tab):not(#strengthScopeSeg > button)",
+      "selector": "#stats button[aria-pressed]:not(.tabrow__tab):not(#strengthScopeSeg > button):not([data-adaptation-cause])",
       "roles": {
         "control": "selection",
         "elevation": [
@@ -12643,7 +12665,9 @@
         "history/delete-confirm",
         "workout/invalid-draft",
         "progress/strength-comparison",
-        "progress/strength-sparse"
+        "progress/strength-sparse",
+        "progress/review-proposal",
+        "progress/review-evaluated"
       ]
     },
     {
@@ -13473,7 +13497,12 @@
       "id": "weekly-adaptation-cause",
       "selector": "[data-adaptation-cause]",
       "roles": {
-        "control": "selection"
+        "control": "selection",
+        "elevation": [
+          "flat",
+          "selected"
+        ],
+        "boundary": "required"
       },
       "variant": null,
       "facets": [],
@@ -13482,6 +13511,7 @@
         "hover",
         "pressed",
         "focus-visible",
+        "selected",
         "disabled"
       ],
       "rationale": "Chooses a closed cause without changing the program.",
@@ -13633,6 +13663,53 @@
         "progress/overview-profile",
         "progress/overview-profile-first",
         "library/exercise-detail-suggested"
+      ]
+    },
+    {
+      "id": "entrymanagedfallback",
+      "selector": "#entryFreeformContinue.btn--ghost",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "With managed import available, the ChatGPT or Claude hand-off steps back to the same quiet treatment as the file switch below it; it keeps its id, its behaviour and the manual path.",
+      "owner": "adr-0025",
+      "catalogStates": [
+        "onboarding-import/freeform-managed",
+        "onboarding-import/freeform-managed-limit"
+      ]
+    },
+    {
+      "id": "entrymanagedconvert",
+      "selector": "#entryManagedConvert",
+      "roles": {
+        "control": "primary"
+      },
+      "variant": null,
+      "facets": [
+        "disabled"
+      ],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "loading"
+      ],
+      "rationale": "Sends the pasted program, once verified, to the managed import service. It is disabled until there is a program and a fresh challenge token, and busy while the request runs; the reply still goes through review and explicit activation.",
+      "owner": "adr-0025",
+      "catalogStates": [
+        "onboarding-import/freeform-managed",
+        "onboarding-import/freeform-managed-limit"
       ]
     }
   ],

@@ -296,8 +296,8 @@ try {
     return { status: rec?.status, engineStatus: rec?.engineStatus, load: rec?.load ?? null,
       cue: document.querySelector("#workout .exercise.is-current .fx-cue__l1")?.textContent || "" };
   }, rowId);
-  check(first.load == null && first.cue.includes("Pick a load for 6–10 reps"),
-    "the first opted-in session is a new lift: Focus asks for a load and invents none", first);
+  check(first.load == null && first.cue === "Find your weight",
+    "the first opted-in session is a new lift: Focus offers its opening ramp without accepting a load", first);
   for (const ordinal of [1, 2, 3]) await logSet(page, rowId, ordinal, durable.metricIds, { load: 60, reps: 10, rir: 2 });
   await finishEarly(page);
 

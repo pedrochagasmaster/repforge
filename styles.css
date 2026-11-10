@@ -750,7 +750,7 @@ body.is-sheet-open .topbar,
    the pressed transform picks them up, whatever its specificity. */
 .is-pressed:not(:disabled){--control-primary-bg:var(--control-primary-pressed-bg);--cta:var(--control-primary-pressed-bg)}
 :is(.btn--cta,.firstrun__cta,.program-editor__activate,#onbNext,#entryActivate,#entryRebuildRules,#entryResumeContinue,
-  #entryFreeformContinue,#entryFreeformClipboard,#entryFreeformReview,#entryFreeformSubmitGaps,#importCommit,#libPrimary,
+  #entryFreeformContinue:where(:not(.btn--ghost)),#entryFreeformClipboard,#entryFreeformReview,#entryFreeformSubmitGaps,#importCommit,#libPrimary,
   #previewAdd,#sessionEarlyConfirm,#exNoteSave,#historyDiscardKeep,#draftDiscardKeep,#sumShare,#shareSetupShare).is-pressed:not(:disabled){--control-pressed-transform:var(--control-primary-pressed-transform)}
 .btn:disabled{opacity:var(--control-disabled-opacity);cursor:default}
 /* A blanket 40% on the near-black CTA produced a mid-grey fill with washed
@@ -4739,6 +4739,18 @@ body.is-focus-wo .toast:not(.toast--top){bottom:calc(var(--toast-clear,0px) + va
 .entry__freeform-apps{display:flex;flex-wrap:wrap;gap:10px;margin:4px 0 0}
 .entry__freeform-app{flex:1 1 150px;text-decoration:none;text-align:center}
 .entry__freeform-app.is-disabled{background:var(--control-secondary-bg);color:var(--color-disabled-reason);border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed}
+/* Managed free-text import stays inside the existing Import visual system. */
+.entry__managed{display:grid;gap:10px;margin:12px 0 0}
+.entry__managed[hidden]{display:none}
+#onbBody.entry-route--import #entryManagedPanel .entry__managed-disclosure{margin:0}
+/* The widget sizes itself; an empty host (invisible mode, or not yet drawn) takes no space. */
+.entry__managed-widget{width:100%;max-width:100%;overflow:hidden}
+.entry__managed-widget:empty{display:none}
+.entry__managed .btn--cta{width:100%;min-height:var(--control-target)}
+.entry__managed #entryManagedStatus{margin:0}
+/* Only with the managed panel showing does the hand-off step back to a quiet
+   secondary action; without it, Continue keeps the route's primary recipe as is. */
+.entry__managed:not([hidden])+.entry__managed-fallback{display:block;width:auto;margin:4px auto 0}
 /* The escape hatches sit behind one line so three candidates and a way out fit
    a 390px row without wrapping into a wall of buttons. */
 .improw__more{grid-column:1/-1;flex:1 0 100%;width:100%;min-width:0;margin:6px 0 0}
@@ -7615,7 +7627,7 @@ body.is-entry-editor #entryProgramName,
 #onbBody.entry-route--import .entry__notice--warn>strong::before{color:var(--color-warning)}
 
 #onbBody.entry-route--import :is(
-  #entryFreeformContinue, #entryFreeformClipboard, #entryFreeformReview,
+  #entryFreeformContinue:where(:not(.btn--ghost)), #entryFreeformClipboard, #entryFreeformReview,
   #entryFreeformSubmitGaps, #entryActivate
 ){
   border-radius:var(--radius-button);background:var(--control-primary-bg);
@@ -7625,21 +7637,21 @@ body.is-entry-editor #entryProgramName,
 }
 @media (hover: hover) and (pointer: fine){
 #onbBody.entry-route--import :is(
-  #entryFreeformContinue, #entryFreeformClipboard, #entryFreeformReview,
+  #entryFreeformContinue:where(:not(.btn--ghost)), #entryFreeformClipboard, #entryFreeformReview,
   #entryFreeformSubmitGaps, #entryActivate
 ):hover:not(:disabled){
   background:var(--control-primary-bg);color:var(--control-primary-ink);border-color:var(--control-primary-boundary)
 }
 }
 #onbBody.entry-route--import :is(
-  #entryFreeformContinue, #entryFreeformClipboard, #entryFreeformReview,
+  #entryFreeformContinue:where(:not(.btn--ghost)), #entryFreeformClipboard, #entryFreeformReview,
   #entryFreeformSubmitGaps, #entryActivate
 ).is-pressed:not(:disabled){
   background:var(--control-primary-bg);color:var(--control-primary-ink);
   border-color:var(--control-primary-boundary);transform:var(--control-pressed-transform)
 }
 #onbBody.entry-route--import :is(
-  #entryFreeformContinue, #entryFreeformClipboard, #entryFreeformReview,
+  #entryFreeformContinue:where(:not(.btn--ghost)), #entryFreeformClipboard, #entryFreeformReview,
   #entryFreeformSubmitGaps, #entryActivate
 ):disabled{
   background:var(--control-primary-disabled-bg);color:var(--control-primary-disabled-ink);
@@ -7705,6 +7717,7 @@ body.is-entry-editor #entryProgramName,
 }
 
 #onbBody.entry-route--import :is(#entryFreeformFile, #entryFreeformBackToReply),
+#onbBody.entry-route--import #entryFreeformContinue.btn--ghost,
 #importBack,#importReviewCancel{
   min-height:var(--control-target);border-color:var(--control-quiet-boundary);
   border-radius:var(--radius-control);background:var(--control-quiet-bg);color:var(--control-quiet-ink);
@@ -7713,19 +7726,23 @@ body.is-entry-editor #entryProgramName,
 }
 @media (hover: hover) and (pointer: fine){
 #onbBody.entry-route--import :is(#entryFreeformFile, #entryFreeformBackToReply):hover:not(:disabled),
+#onbBody.entry-route--import #entryFreeformContinue.btn--ghost:hover:not(:disabled),
 #importBack:hover:not(:disabled),
 #importReviewCancel:hover:not(:disabled){
   background:var(--well);color:var(--control-quiet-ink);border-color:var(--control-quiet-boundary)
 }
 }
 #onbBody.entry-route--import :is(#entryFreeformFile, #entryFreeformBackToReply).is-pressed:not(:disabled),
+#onbBody.entry-route--import #entryFreeformContinue.btn--ghost.is-pressed:not(:disabled),
 #importBack.is-pressed:not(:disabled),
 #importReviewCancel.is-pressed:not(:disabled){
   background:var(--row-pressed-bg);color:var(--control-quiet-ink);border-color:var(--control-quiet-boundary)
 }
 #onbBody.entry-route--import :is(#entryFreeformFile, #entryFreeformBackToReply).is-pressed:not(:disabled),
+#onbBody.entry-route--import #entryFreeformContinue.btn--ghost.is-pressed:not(:disabled),
 #importBack.is-pressed:not(:disabled),#importReviewCancel.is-pressed:not(:disabled){transform:var(--control-pressed-transform)}
 #onbBody.entry-route--import :is(#entryFreeformFile, #entryFreeformBackToReply):disabled,
+#onbBody.entry-route--import #entryFreeformContinue.btn--ghost:disabled,
 #importBack:disabled,#importReviewCancel:disabled{
   background:var(--control-quiet-bg);color:var(--color-disabled-reason);
   border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none

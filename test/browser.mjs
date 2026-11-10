@@ -170,14 +170,46 @@ export async function waitForAsyncCondition(target, predicate, arg, { timeout = 
  * page, no successor is installing or waiting, and `cache` exists while the
  * cache it replaced (when named) is gone.
  */
-export function waitForWorkerTakeover(page, { cache, replaced = null, timeout = 30000 }) {
-  return waitForAsyncCondition(page, async ({ cache, replaced }) => {
-    const registration = await navigator.serviceWorker.getRegistration();
-    const names = await caches.keys();
-    return registration?.active?.state === "activated" && !registration.installing && !registration.waiting &&
-      navigator.serviceWorker.controller === registration.active &&
-      names.includes(cache) && !names.includes(replaced);
-  }, { cache, replaced }, { timeout });
+export async function waitForWorkerTakeover(page, { cache, replaced = null, timeout = 30000 }) {
+  try {
+    return await waitForAsyncCondition(page, async ({ cache, replaced }) => {
+      const registration = await navigator.serviceWorker.getRegistration();
+      const names = await caches.keys();
+      return registration?.active?.state === "activated" && !registration.installing && !registration.waiting &&
+        navigator.serviceWorker.controller === registration.active &&
+        names.includes(cache) && !names.includes(replaced);
+    }, { cache, replaced }, { timeout });
+  } catch (error) {
+    // Say which part of the takeover never happened: an install that went redundant,
+    // a worker left waiting, a missing claim, or a cache that was not replaced.
+    const state = await page.evaluate(async () => {
+      const registration = await navigator.serviceWorker.getRegistration();
+      const worker = (w) => w && { state: w.state, script: w.scriptURL.replace(location.origin, "") };
+      return {
+        installing: worker(registration?.installing), waiting: worker(registration?.waiting),
+        active: worker(registration?.active), controller: worker(navigator.serviceWorker.controller),
+        caches: await caches.keys(), lifecycle: window.__workerLifecycle || null,
+      };
+    }).catch((reason) => ({ unreadable: String(reason?.message || reason) }));
+    error.message += `\nworker takeover state: ${JSON.stringify(state)}`;
+    throw error;
+  }
+}
+
+/** Record the update lifecycle (found, then each state of the new worker, including
+ *  "redundant" when its install fails) so a takeover failure can name its cause. */
+export function traceWorkerLifecycle(page) {
+  return page.evaluate(async () => {
+    const registration = await navigator.serviceWorker.ready;
+    const log = window.__workerLifecycle = [];
+    const start = performance.now(), at = () => Math.round(performance.now() - start);
+    registration.addEventListener("updatefound", () => {
+      const worker = registration.installing;
+      log.push(`found@${at()}`);
+      worker?.addEventListener("statechange", () => log.push(`${worker.state}@${at()}`));
+    });
+    navigator.serviceWorker.addEventListener("controllerchange", () => log.push(`controllerchange@${at()}`));
+  });
 }
 
 /** Onboarding B's Recommend route (Plan 072), from the open entry hub to the
