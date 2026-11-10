@@ -316,7 +316,7 @@
   --band-ink-rule:rgba(var(--bg-rgb),.22);
   /* Settings is one text column: the caption of a group, the label of every row
      in it, and the rule between those rows all begin at this inset. */
-  --settings-inset:16px;
+  --settings-inset:0px;
   /* The dock floats: it is a capsule of --dock-h parked --dock-gap above the
      safe area, inset --dock-inset from each edge. --nav stays the single
      "space the dock claims at the bottom" token every other floating element
@@ -1386,6 +1386,13 @@ article.exercise--focus input,article.exercise--focus textarea{-webkit-user-sele
 /* The context region is focusable so a keyboard can scroll it, which hands it the shared 44px target floor; here the
    floor is the one the screen's budget allows (--focus-context-floor), and the selector outranks the shared rule. */
 article.exercise--focus .fcard__context{min-height:var(--focus-context-floor)}
+/* Next sits on the shelf: the context is a column and the Next row takes the free space above it, so the screen reads
+   as the set list, then the step to the next lift, then the shelf, with no dead band between them. */
+article.exercise--focus .fcard__context{display:flex;flex-direction:column}
+article.exercise--focus .fcard__context > *{flex-shrink:0}
+article.exercise--focus .fcard__context > .fx-next{margin-top:auto}
+/* The previous set reads as the row's caption, from the row's leading edge, not as a figure spread over two columns. */
+.fcard__ledger .ledgerline__prev{text-align:left}
 .fcard__context:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
 .fx-head{margin:0 0 var(--space-16)}
 .focus-ex__meta{
@@ -5315,7 +5322,13 @@ body.is-focus-wo .toast:not(.toast--top){bottom:calc(var(--toast-clear,0px) + va
    (orange category calibration-ring); the number is ink, with no % sign (the label says percent). */
 .calring{display:grid;place-items:center;flex:none;margin:0;padding:0;border:0;background:transparent;color:var(--ink);border-radius:50%}
 .calring svg{display:block;width:100%;height:100%;overflow:visible}
-.calring--title{width:clamp(46px,2.875rem,60px);height:clamp(46px,2.875rem,60px);align-self:center;margin-top:var(--space-4)}
+.calring--title{position:relative;width:clamp(46px,2.875rem,60px);height:clamp(46px,2.875rem,60px);align-self:center;margin-top:var(--space-4)}
+/* The ring names itself: the calibration title under it, small and quiet, so the number has a meaning before a tap. */
+.calring--title[data-caption]::after{
+  content:attr(data-caption);position:absolute;top:calc(100% + var(--space-4));right:0;white-space:nowrap;pointer-events:none;
+  font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);line-height:var(--line-tight);
+  letter-spacing:var(--track-label);text-transform:uppercase;color:var(--color-ink-secondary);
+}
 .calring--title.is-pressed{opacity:.4}
 .calring:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 :is(#todayDash)>.pagehead>.pagehead__actions>.calring--bar{width:var(--control-target);height:var(--control-target);
@@ -5467,6 +5480,10 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
 .exchart__title{margin:var(--space-8) 0 0;overflow-wrap:anywhere}
 .exchart__toggles{display:grid;gap:var(--space-16);margin-top:var(--space-26)}
 .exchart__toggles .segpill{margin:0}
+/* The metric is the lesser choice: underline tabs under the range control, not a second segmented control. */
+.exchart__toggles .segpill + .segpill{padding:0;border-radius:var(--radius-none);background:transparent;border-bottom:1px solid var(--boundary-decorative)}
+.exchart__toggles .segpill + .segpill > button{border-radius:var(--radius-none);color:var(--color-ink-secondary);box-shadow:none;background:transparent;border-bottom:2px solid transparent;margin-bottom:-1px}
+.exchart__toggles .segpill + .segpill > button[aria-pressed="true"]{background:transparent;box-shadow:none;color:var(--ink);border-bottom-color:var(--boundary-selected-quiet)}
 /* The chart's one statement of a per-side convention (refinement audit A6), under the toggles it qualifies. */
 .exchart__per-side{margin:var(--space-8) 0 0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
 .exchart__figs{
@@ -5535,7 +5552,7 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
 }
 .exrow.is-pressed{background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
 .exrow:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
-.exrow.is-sel{border-left-color:var(--boundary-selected-quiet)}
+.exrow.is-sel{border-left-color:var(--boundary-selected-quiet);background:rgba(var(--ink-rgb),.05)}
 .exrow.is-old span:first-child{color:var(--color-ink-secondary)}
 
 /* @ci-domain history */
