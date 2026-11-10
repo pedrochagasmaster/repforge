@@ -221,6 +221,25 @@ async function checkStandingLedger(browser) {
   assert(!failures.length, "standing leaves the whole current row above the shelf", failures.join(" | "));
 }
 
+
+async function checkOpeningStandingLedger(browser) {
+  const opened = await openCatalogState(browser, "workout/focus-ramp-floor", 320, "en", "normal",
+    { safe: { top: 0, bottom: 0 } });
+  try {
+    const m = await opened.page.evaluate(measureFocusCard, 0);
+    const standing = await opened.page.locator(".exercise.is-current .fx-cue__standing").boundingBox();
+    const row = m.openRow, bottom = Math.min(row.shelfTop, m.window.bottom);
+    assert(standing && row.bottom - standing.y <= bottom - m.window.top,
+      "320px opening-ramp fixture fits standing and the current row together");
+    assert(standing.y >= m.window.top - 1 && standing.y + standing.height <= bottom + 1 &&
+      row.top >= m.window.top - 1 && row.bottom <= bottom + 1,
+      "the first opening-ramp row stays visible with its fitting standing line",
+      JSON.stringify({ row, window: m.window, standing }));
+  } finally {
+    await opened.context.close();
+  }
+}
+
 async function main() {
   const browser = await launchChromium();
 
@@ -341,6 +360,7 @@ async function main() {
     if (wants("smallest")) {
       await checkFocusAtSmallestPhone(browser);
       await checkStandingLedger(browser);
+      await checkOpeningStandingLedger(browser);
     }
     if (!wants("gestures")) return;
 
