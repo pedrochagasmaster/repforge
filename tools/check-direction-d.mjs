@@ -140,6 +140,10 @@ export const ORANGE_ALLOWLIST = [
   { category: "current-exercise-segment", selector: "#woProgress .segbar__seg.is-current .segbar__bar" },
   // Today's week track marks the current week the same way (owner-approved hill-climb, 2026-11-10).
   { category: "current-exercise-segment", selector: "#todayProgram .segbar__seg.is-current" },
+  { category: "chart-trend", selector: ".exchart__svg .ch-line" },
+  { category: "chart-trend", selector: ".exchart__svg .ex-pt--sel" },
+  { category: "chart-trend", selector: ".exchart__marker" },
+  { category: "backup-action", selector: ".settings-identity .settings-identity__backup" },
   // Session details as a hub (#522, owner direction A, 2026-10-28): the map marks the current lift with the accent ring
   // round a dot beside a semibold name and the word Now, the same marker as the current segment.
   { category: "current-exercise-segment", selector: ".session-map__row.is-current .session-map__mark" },

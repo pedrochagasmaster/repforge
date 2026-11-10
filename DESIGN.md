@@ -168,7 +168,7 @@ elevation:
   persistent: "0 -4px 16px rgba(27,26,23,.09)"  # token: --elevation-persistent-shadow
   sheet: "0 -8px 40px rgba(27,26,23,.18)"  # token: --elevation-sheet-shadow
   dialog: "0 16px 40px rgba(27,26,23,.12)"  # token: --elevation-dialog-shadow
-  nav: "inset 0 1px 0 rgba(255,255,255,.7), inset 0 -1px 0 rgba(27,26,23,.05), 0 10px 30px rgba(27,26,23,.13), 0 2px 8px rgba(27,26,23,.07)"  # token: --elevation-nav-shadow
+  nav: "inset 0 1px 0 rgba(255,255,255,.7), inset 0 -1px 0 rgba(27,26,23,.05), 0 4px 14px rgba(27,26,23,.10), 0 1px 3px rgba(27,26,23,.06)"  # token: --elevation-nav-shadow
   focus-halo: "0 0 0 3px rgba(224,78,20,.12)"  # token: --control-focus-halo-shadow
 components:
   touch-target:
@@ -333,6 +333,10 @@ nothing to it.
    bar (`#woProgress .segbar__seg.is-current`). Done segments are ink.
    Today's week track marks the current week the same way
    (`#todayProgram .segbar__seg.is-current`, owner, 2026-11-10).
+   The exercise chart's trend line, selected point and marker carry the accent
+   too (`.ch-line`, `.ex-pt--sel`, `.exchart__marker`, owner hill-climb,
+   2026-11-10), and while a backup is due Settings' Back up now is filled in
+   `--accent-deep` on a warm-tinted status card.
 3. **A running timer's drain bar.** `.restinline__fill`, a `scaleX` transform on
    a 4px track while a rest runs. It stops being orange the moment the rest ends.
 4. **The CTA arrow.** The drawn arrow mask at the right edge of `.btn--cta`,

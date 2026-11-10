@@ -130,7 +130,7 @@
   --elevation-modal-shadow:0 10px 22px rgba(var(--shadow-rgb),.18),0 2px 5px rgba(var(--shadow-rgb),.08);
   --elevation-dialog-shadow:0 16px 40px rgba(var(--shadow-rgb),.12);
   --elevation-persistent-shadow:0 -4px 16px rgba(var(--shadow-rgb),.09);
-  --elevation-nav-shadow:inset 0 1px 0 var(--dock-sheen),inset 0 -1px 0 rgba(var(--shadow-rgb),.05),0 10px 30px rgba(var(--shadow-rgb),.13),0 2px 8px rgba(var(--shadow-rgb),.07);
+  --elevation-nav-shadow:inset 0 1px 0 var(--dock-sheen),inset 0 -1px 0 rgba(var(--shadow-rgb),.05),0 4px 14px rgba(var(--shadow-rgb),.10),0 1px 3px rgba(var(--shadow-rgb),.06);
   --elevation-program-dock-shadow:inset 0 1px 0 var(--dock-sheen),0 -4px 14px var(--dock-edge);
   --elevation-popover-shadow:0 8px 24px rgba(var(--shadow-rgb),.1);
   --elevation-tooltip-shadow:0 10px 22px rgba(var(--shadow-rgb),.18),0 2px 5px rgba(var(--shadow-rgb),.08);
@@ -1149,7 +1149,7 @@ div.settings-row{cursor:default}
 #startWorkout{
   position:sticky;bottom:calc(var(--nav) + env(safe-area-inset-bottom) + var(--restbar-reserve,0px) + var(--space-12));z-index:5;
   /* A tucked shadow (negative spread): the page clips sideways at the column, so a wide shadow would end in hard edges. */
-  box-shadow:0 10px 18px -10px rgba(var(--shadow-rgb),.45);
+  box-shadow:0 6px 10px -8px rgba(var(--shadow-rgb),.4);
 }
 /* The alternative to the day Today leads with, so it sits under the CTA and
    reads as the quieter of the two. */
@@ -1386,11 +1386,11 @@ article.exercise--focus input,article.exercise--focus textarea{-webkit-user-sele
 /* The context region is focusable so a keyboard can scroll it, which hands it the shared 44px target floor; here the
    floor is the one the screen's budget allows (--focus-context-floor), and the selector outranks the shared rule. */
 article.exercise--focus .fcard__context{min-height:var(--focus-context-floor)}
-/* The ledger and Next sit on the shelf: the context is a column and the ledger takes the free space above it, so the
-   hero leads at the top and the set list, the step to the next lift and the shelf read as one block. */
+/* The task rests on the shelf: the context is a column whose free space collects above the prescription, so the
+   cue, the set list, the step to the next lift and the shelf read as one block within the thumb's reach. */
 article.exercise--focus .fcard__context{display:flex;flex-direction:column}
 article.exercise--focus .fcard__context > *{flex-shrink:0}
-article.exercise--focus .fcard__context > .fcard__ledger{margin-top:auto}
+article.exercise--focus .fcard__context > .fx-head{margin-top:auto}
 /* The previous set reads as the row's caption, from the row's leading edge, not as a figure spread over two columns. */
 .fcard__ledger .ledgerline__prev{grid-column:1 / -1;text-align:left;font-size:var(--font-size-caption)}
 .fcard__context:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
@@ -1629,6 +1629,7 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
 .shelf__fieldbtn[aria-invalid="true"]{border-color:var(--control-error-boundary)}
 .shelf__pads{display:flex;gap:var(--space-8)}
 .shelf__pads .shelf__pad{
+  background:transparent;border:1px solid var(--boundary-required);
   flex:1 1 0;width:auto;min-width:0;height:48px;min-height:48px;padding:0 var(--space-12);border-radius:var(--shelf-inner-radius);
   font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);white-space:nowrap;
 }
@@ -4354,7 +4355,9 @@ body.is-focus-wo .toast:not(.toast--top){bottom:calc(var(--toast-clear,0px) + va
 .icon-mask--rosette{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='8.9' r='5.5'/%3E%3Cpath d='m9.4 8.8 1.9 1.9 3.3-3.5'/%3E%3Cpath d='m8.4 13.6-1.5 7.2 5.1-2.6 5.1 2.6-1.5-7.2'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='8.9' r='5.5'/%3E%3Cpath d='m9.4 8.8 1.9 1.9 3.3-3.5'/%3E%3Cpath d='m8.4 13.6-1.5 7.2 5.1-2.6 5.1 2.6-1.5-7.2'/%3E%3C/svg%3E")}
 .icon-btn{color:var(--ink)}
 .icon-btn--ghost{border:0;background:transparent;color:var(--ink)}
-.today-prog{padding:4px 0 12px;border-bottom:1px solid var(--boundary-decorative)}
+.today-prog{display:flex;flex-wrap:wrap;align-items:baseline;column-gap:var(--space-8);padding:0 0 12px;border-bottom:1px solid var(--boundary-decorative)}
+.today-prog > .segbar{flex-basis:100%}
+.today-prog > .today-prog__week::before{content:"·";margin-right:var(--space-8)}
 .today-prog__name{font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink)}
 .today-prog__week,.today-prog__deload{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);margin-top:4px}
 .today-prog .segbar{margin-top:10px}
@@ -4421,11 +4424,11 @@ body.is-focus-wo .toast:not(.toast--top){bottom:calc(var(--toast-clear,0px) + va
    places them. The columns come from one grid the head and the rows share, so
    the load and the target line up whatever the widest figure is. */
 .today-session__name--day{font-size:var(--font-size-section-title);line-height:var(--line-tight);margin:var(--space-4) 0 0;text-wrap:balance}
-.today-tally{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-4) var(--space-16);margin:var(--space-12) 0 0;padding:0;list-style:none;font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-standard);color:var(--color-ink)}
+.today-tally{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-4) var(--space-16);margin:var(--space-8) 0 0;padding:0;list-style:none;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink)}
 .today-tally__i{display:inline-flex;align-items:center;gap:var(--space-4)}
 /* With the prescription heading gone (the prototype, owner 2026-10-28), the verdict line leads into the column heads
    across the prototype's gap. */
-.today-tally{margin-bottom:var(--space-18)}
+.today-tally{margin-bottom:var(--space-12)}
 .today-tally .verdictmark__glyph{width:15px;height:15px}
 .today-rx{container-type:inline-size}
 /* The name keeps a fair share of the row (9rem, about three words, or all the
@@ -4550,6 +4553,11 @@ body.is-focus-wo .toast:not(.toast--top){bottom:calc(var(--toast-clear,0px) + va
 .settings-head .back-link{position:absolute;left:0}
 .settings-head__title{font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink)}
 .settings-identity{display:flex;align-items:flex-start;gap:14px;padding:8px var(--settings-inset) var(--space-32)}
+/* While no backup has been made the identity block is the backup's status card: a warm tint, the note, and the
+   action filled in the accent (owner hill-climb, 2026-11-10). */
+.settings-identity:has(#storageBackupNow:not([hidden])){margin-bottom:var(--space-18);padding:var(--space-14);border-radius:var(--radius-surface);background:rgba(var(--accent-rgb),.08)}
+.settings-identity:has(#storageBackupNow:not([hidden])) #storageNote{font-size:var(--font-size-body-small)}
+.settings-identity .settings-identity__backup{background:var(--accent-deep);color:var(--accent-ink)}
 .settings-identity__mark{width:44px;height:44px;border-radius:var(--radius-prominent);overflow:hidden;background:#efe5df;box-shadow:0 1px 2px rgba(23,23,25,.12),0 6px 18px rgba(23,23,25,.08);flex:none}
 .settings-identity__mark img{display:block;width:100%;height:100%;object-fit:cover}
 /* The cream tile would be the brightest thing on a dark page; it steps down to sit with the type. */
@@ -5492,7 +5500,7 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
 /* The chart's one statement of a per-side convention (refinement audit A6), under the toggles it qualifies. */
 .exchart__per-side{margin:var(--space-8) 0 0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
 .exchart__figs{
-  display:grid;grid-template-columns:repeat(auto-fit,minmax(5.25rem,1fr));gap:var(--space-12);
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(5.25rem,1fr));gap:var(--space-12);align-items:last baseline;
   margin-top:var(--space-18);padding:var(--space-12) 0;border-top:1px solid var(--boundary-decorative);border-bottom:1px solid var(--boundary-decorative);
 }
 .exchart__figs > :first-child b{font-size:var(--font-size-display)}
@@ -5510,18 +5518,18 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
 .exchart__svg .ch-ax,.exchart__ghost .ch-ax{fill:var(--color-ink-secondary);font-family:var(--font-language);font-variant-numeric:tabular-nums;font-size:var(--font-size-chart-axis);font-weight:var(--weight-regular)}
 .exchart__svg .ch-ax--l,.exchart__ghost .ch-ax--l{font-family:var(--font-language)}
 .exchart__svg .ch-block,.exchart__ghost .ch-block{stroke:var(--boundary-required);stroke-width:1;stroke-dasharray:3 3}
-.exchart__svg .ch-line,.exchart__ghost .ch-line{fill:none;stroke:var(--color-ink);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.exchart__svg .ch-line,.exchart__ghost .ch-line{fill:none;stroke:var(--accent);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
 .exchart__svg .ex-cursor,.exchart__ghost .ex-cursor{stroke:var(--boundary-required);stroke-width:1;stroke-dasharray:2 3}
 .exchart__svg .ex-pt,.exchart__ghost .ex-pt{fill:var(--bg);stroke:var(--color-ink);stroke-width:1.5}
 .exchart__svg .ex-pt--old,.exchart__ghost .ex-pt--old{stroke:var(--color-ink-secondary)}
-.exchart__svg .ex-pt--sel,.exchart__ghost .ex-pt--sel{fill:var(--color-ink)}
+.exchart__svg .ex-pt--sel,.exchart__ghost .ex-pt--sel{fill:var(--accent);stroke:var(--accent)}
 .exchart__svg .ex-tick,.exchart__ghost .ex-tick{fill:var(--color-ink)}
 /* D4: the selected-session marker in flight. Drawn by app.js only while `animateIndicator` carries
    it: a dot the size of the selected point and a dashed line the height of the cursor, over the plot.
    Both are inert; the destination's own point and cursor are set aside until the marker arrives, so
    there is one marker on screen. */
 .exchart__marker,.exchart__scrub{position:absolute;z-index:1;pointer-events:none;box-sizing:border-box}
-.exchart__marker{border-radius:var(--radius-round);background:var(--color-ink)}
+.exchart__marker{border-radius:var(--radius-round);background:var(--accent)}
 .exchart__scrub{background:repeating-linear-gradient(to bottom,var(--boundary-required) 0 2px,transparent 2px 5px)}
 .exchart__plot.is-marker-travel .ex-pt--sel,.exchart__plot.is-marker-travel .ex-cursor{visibility:hidden}
 .exchart__readout{
