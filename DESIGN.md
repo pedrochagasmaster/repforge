@@ -333,10 +333,11 @@ nothing to it.
    bar (`#woProgress .segbar__seg.is-current`). Done segments are ink.
    Today's week track marks the current week the same way
    (`#todayProgram .segbar__seg.is-current`, owner, 2026-11-10).
-   The exercise chart's trend line, selected point and marker carry the accent
-   too (`.ch-line`, `.ex-pt--sel`, `.exchart__marker`, owner hill-climb,
+   The exercise chart's trend line, its points (the selected one filled) and the
+   marker carry the accent too (`.ch-line`, `.ex-pt`, `.ex-pt--sel`,
+   `.exchart__marker`, owner hill-climb,
    2026-11-10). The current item is the accent everywhere: Focus's open set row
-   and the chart's selected session take a 3px accent bar on an 8% accent tint.
+   and the chart's selected session take a 3px accent bar on a 5% accent tint.
    While a backup is due, Settings' Back up now is `--accent-deep` on an accent
    tint inside a quiet status card.
 3. **A running timer's drain bar.** `.restinline__fill`, a `scaleX` transform on
@@ -461,7 +462,7 @@ the Focus evidence line, and the chart's readout, ledger and axis. A Mono
 figure next to Sans text read as a second, wider number style. Mono stays in
 History and the other ledgers. On Focus a prefilled value the lifter has not
 touched is ink at the regular weight rather than grey, and the open ledger row
-is a 5% ink tint with a 3px leading bar rather than a 2px ring, so the selected
+is a 5% accent tint with a 3px accent leading bar rather than a 2px ring, so the selected
 shelf field keeps the only ring on screen.
 
 ### Hierarchy

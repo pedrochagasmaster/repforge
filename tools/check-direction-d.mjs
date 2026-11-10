@@ -130,6 +130,10 @@ export const ORANGE_CATEGORIES = Object.freeze([
   "finish-share",
   // The calibration ring on Today (owner decision, 2026-11-06, direction B): the arc's fill and the done test-set dots.
   "calibration-ring",
+  // The owner's hill-climb amendments (2026-11-10, DESIGN.md "Owner decisions"): the exercise chart's trend, points
+  // and marker; the current item (Focus's open set row, the chart's selected session); Settings' Back up now while a
+  // backup is due; and a switch that is on.
+  "chart-trend", "current-item", "backup-action", "switch-on",
 ]);
 /**
  * [{ category, selector, pseudo?: "::before" | "::after" }]. Each R3 sub-slice adds the entries its

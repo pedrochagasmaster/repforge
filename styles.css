@@ -254,6 +254,14 @@
      the contract's 2px inset recipe; it adds no width. */
   --boundary-selected-quiet:var(--ink);
   --elevation-selected-quiet-shadow:inset 0 0 0 2px var(--boundary-selected-quiet);
+  /* Owner hill-climb recipes (2026-11-10). The current item (Focus's open set row, the chart's selected session) is a
+     3px accent bar; the selected shelf field a 1.5px quiet ring; the backup card a hairline; Start a tucked shadow
+     whose negative spread keeps it inside the column, which clips sideways. They resolve per theme through the tokens
+     they name. */
+  --boundary-current-item-shadow:inset 3px 0 0 var(--accent);
+  --boundary-field-selected-shadow:inset 0 0 0 1.5px var(--boundary-selected-quiet);
+  --boundary-card-hairline-shadow:inset 0 0 0 1px var(--boundary-decorative);
+  --elevation-cta-tucked-shadow:0 6px 10px -8px rgba(var(--shadow-rgb),.4);
   /* A choice row's mark is its required boundary (native UI kit §5, contract: choice rows): a 1.5px ring, accent
      when chosen. The row is the target, at least the kit's single-line row height. */
   --choice-row-min:52px;
@@ -1153,7 +1161,7 @@ div.settings-row{cursor:default}
 #startWorkout{
   position:sticky;bottom:calc(var(--nav) + env(safe-area-inset-bottom) + var(--restbar-reserve,0px) + var(--space-12));z-index:5;
   /* A tucked shadow (negative spread): the page clips sideways at the column, so a wide shadow would end in hard edges. */
-  box-shadow:0 6px 10px -8px rgba(var(--shadow-rgb),.4);
+  box-shadow:var(--elevation-cta-tucked-shadow);
 }
 /* The alternative to the day Today leads with, so it sits under the CTA and
    reads as the quieter of the two. */
@@ -1494,7 +1502,7 @@ article.exercise--focus .fcard__context > .fx-next{margin-top:auto;min-height:52
   align-items:center;font-family:inherit;font-size:inherit;font-weight:inherit;line-height:inherit;letter-spacing:inherit;text-transform:inherit;color:inherit;
 }
 .fcard__ledger .ledgerline__head .term{margin:0;padding-block:0;padding-inline:0;justify-content:flex-end;text-align:right;gap:var(--space-4);text-decoration:none}
-.fcard__ledger .ledgerline__head .term::after{content:"?";display:inline-grid;place-items:center;width:12px;height:12px;border:1px solid var(--ink-faint);border-radius:var(--radius-round);color:var(--ink-faint);font-size:8px;font-weight:var(--weight-regular);letter-spacing:0;line-height:1}
+.fcard__ledger .ledgerline__head .term::after{--term-glyph:8px;content:"?";display:inline-grid;place-items:center;width:12px;height:12px;border:1px solid var(--ink-faint);border-radius:var(--radius-round);color:var(--ink-faint);font-size:var(--term-glyph);font-weight:var(--weight-regular);letter-spacing:0;line-height:1}
 .ledgerline__vals > .fx-col{flex:0 0 auto;min-width:0;text-align:right}
 .ledgerline__vals > .fx-col:nth-child(1){min-width:4.5rem}
 /* Wide enough for the REPS heading, so the heading and the figures under it end on one edge. */
@@ -1520,7 +1528,7 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
    the only ring on screen. */
 .fcard__ledger .ledgerline--open{
   align-content:center;padding-block:6px;padding-inline:12px;border:0;border-bottom:1px solid var(--boundary-decorative);border-radius:var(--radius-none);
-  background:rgba(var(--accent-rgb),.05);box-shadow:inset 3px 0 0 var(--accent);
+  background:rgba(var(--accent-rgb),.05);box-shadow:var(--boundary-current-item-shadow);
 }
 .fx-next{
   display:flex;align-items:center;justify-content:space-between;gap:var(--space-12);width:100%;min-height:48px;margin:var(--space-8) 0 0;
@@ -1614,7 +1622,7 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
 /* The ring is the keyboard's cue: after a touch or typed entry (the motion layer's input modality) a field focused by
    script shows only its selected ring, whichever path moved focus there. Without the layer the ring stays. */
 :root[data-input-modality="pointer"] .shelf__fieldbtn:focus-visible{outline:none}
-.shelf__fieldbtn[aria-pressed="true"]{box-shadow:inset 0 0 0 1.5px var(--boundary-selected-quiet)}
+.shelf__fieldbtn[aria-pressed="true"]{box-shadow:var(--boundary-field-selected-shadow)}
 .shelf__lab{
   font-family:var(--font-language);font-size:var(--font-size-body-small);font-weight:var(--weight-regular);line-height:var(--line-standard);
   color:var(--color-ink-secondary);overflow-wrap:anywhere;
@@ -4571,7 +4579,7 @@ body.is-focus-wo .toast:not(.toast--top){bottom:calc(var(--toast-clear,0px) + va
    action filled in the accent (owner hill-climb, 2026-11-10). */
 .settings-identity:has(#storageBackupNow:not([hidden])){margin-bottom:var(--space-14);padding:var(--space-12);border-radius:var(--radius-surface);background:rgba(var(--ink-rgb),.04)}
 .settings-identity:has(#storageBackupNow:not([hidden])) #storageNote{margin-top:var(--space-8)!important;font-size:var(--font-size-body-small)}
-.settings-identity:has(#storageBackupNow:not([hidden])){display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:var(--space-12);row-gap:2px;align-items:start;background:var(--surface);box-shadow:inset 0 0 0 1px var(--boundary-decorative)}
+.settings-identity:has(#storageBackupNow:not([hidden])){display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:var(--space-12);row-gap:2px;align-items:start;background:var(--surface);box-shadow:var(--boundary-card-hairline-shadow)}
 .settings-identity:has(#storageBackupNow:not([hidden])) > div:last-child{display:contents}
 .settings-identity:has(#storageBackupNow:not([hidden])) .settings-identity__mark{grid-row:1 / span 2;align-self:center}
 .settings-identity:has(#storageBackupNow:not([hidden])) .settings-identity__cap{margin-top:0}
@@ -5587,7 +5595,7 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
 }
 .exrow.is-pressed{background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
 .exrow:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
-.exrow.is-sel{background:rgba(var(--accent-rgb),.05);box-shadow:inset 3px 0 0 var(--accent)}
+.exrow.is-sel{background:rgba(var(--accent-rgb),.05);box-shadow:var(--boundary-current-item-shadow)}
 .exrow.is-old span:first-child{color:var(--color-ink-secondary)}
 
 /* @ci-domain history */
