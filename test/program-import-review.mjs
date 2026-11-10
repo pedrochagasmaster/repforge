@@ -21,6 +21,7 @@
  *
  * Run: node test/program-import-review.mjs   (requires the app served over HTTP)
  */
+import { verifyImportedRepRanges } from "./fixtures/imported-rep-ranges.mjs";
 import { pathToFileURL } from "url";
 import { openInstalledEditor } from "./fixtures/installed-editor.mjs";
 import { launchChromium } from "./browser.mjs";
@@ -248,6 +249,7 @@ async function main() {
   const page = await context.newPage();
   page.on("dialog", (d) => d.accept());
   try {
+    results.passed += await verifyImportedRepRanges(browser, BASE);
     await page.goto(BASE, { waitUntil: "domcontentloaded" });
     await waitForApp(page);
     await resetWithProgram(page);

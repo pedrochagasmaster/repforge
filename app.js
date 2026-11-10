@@ -14883,7 +14883,7 @@ function dropPendingSuggestLoads(document,slotId){
   if(!list)return;
   const next=list.filter(id=>id!==slotId);
   if(next.length)meta.suggestLoadsPending=next;else delete meta.suggestLoadsPending}
-function syncEditorCanonicalIntent(document,baseDocument,edit,{cycleIndex=1}={}){
+function syncEditorCanonicalIntent(document,baseDocument,edit,{cycleIndex=1,importedRepRanges={}}={}){
   const meta=document.programMeta||(document.programMeta={});
   let definition=meta.programDefinition;
   const baseDefinition=baseDocument?.programMeta?.programDefinition;
@@ -14936,12 +14936,13 @@ function syncEditorCanonicalIntent(document,baseDocument,edit,{cycleIndex=1}={})
         set.provenance={source:"manual",policyVersion:"manual@1"}}
     }
     // A composition that counts repetitions needs a rep range to log against;
-    // a newly configured one starts from the row's range or Build's default.
+    // a newly configured one uses its pending imported range, row range or Build default.
     const repSemantic=edit.metricDefinitions.find(metric=>metric.semantic==="reps"||metric.semantic==="repsPerSide")?.semantic;
     const row=(document.program||[]).find(item=>String(item.slotId||item.id)===String(slotId));
     const rowMin=Number(row?.min),rowMax=Number(row?.max);
-    const defaultRange=Number.isSafeInteger(rowMin)&&rowMin>0&&Number.isSafeInteger(rowMax)&&rowMax>=rowMin
-      ?{min:rowMin,max:rowMax}:{min:6,max:10};
+    const defaultRange=Object.hasOwn(importedRepRanges,slotId)?importedRepRanges[slotId]:
+      Number.isSafeInteger(rowMin)&&rowMin>0&&Number.isSafeInteger(rowMax)&&rowMax>=rowMin
+        ?{min:rowMin,max:rowMax}:{min:6,max:10};
     for(const cycle of slot.prescriptionsByCycle||[])for(const set of cycle.sets||[]){
       set.status=edit.metricIds.length?"manual":"configuration_required";
       set.provenance={source:"manual",policyVersion:"manual@1"};
@@ -15312,7 +15313,8 @@ function createOnboardingProgramEditorAdapter(){
     read(){return{document:editorDocumentFromSnapshot(programEditorSnapshot()),token:{draftRevision:entryState?.revision||0}}},
     async commit({nextDocument,intent}){
       const baseline=editorDocumentFromSnapshot(programEditorSnapshot()),document=cloneSnapshot(nextDocument);
-      if(!syncEditorCanonicalIntent(document,baseline,intent,{cycleIndex:Number(intent?.cycleIndex)||1}))
+      if(!syncEditorCanonicalIntent(document,baseline,intent,{cycleIndex:Number(intent?.cycleIndex)||1,
+        importedRepRanges:readImportedRepRanges(entryState)}))
         return{ok:false,invalid:true,code:"invalid_canonical_editor_intent"};
       const proposal=programEditorSnapshot();proposal.program=cloneSnapshot(nextDocument.program||[]);
       proposal.program=cloneSnapshot(document.program||[]);
@@ -18631,9 +18633,16 @@ function importCandidate(draft){
   const programDefinition=kept?canonicalProgramDefinition(carriedDefinition,candidateCustomExercises)
     :manualProgramDefinitionFromRows(program,labels,candidateCustomExercises);
   const projected=programDefinition?flatProgramFromDefinition(programDefinition,candidateCustomExercises,1):program;
+  const pendingSlots=new Set((programDefinition?.days||[]).flatMap(day=>day.slots||[])
+    .filter(slot=>isCustomLibraryId(slot.exerciseId)&&
+      !slot.metricDefinitions.some(metric=>metric.semantic==="reps"||metric.semantic==="repsPerSide"))
+    .map(slot=>slot.id));
+  const importedRepRanges=Object.fromEntries(program.filter(row=>pendingSlots.has(row.slotId||row.id)&&
+    Number.isSafeInteger(row.min)&&row.min>=1&&Number.isSafeInteger(row.max)&&row.max>=row.min&&row.max<=1000)
+    .map(row=>[row.slotId||row.id,{min:row.min,max:row.max}]));
   const projectedDays=programDefinition?programDefinition.days.filter(day=>day.kind==="training").map((day,index)=>({
     dayId:day.id,label:day.name,order:index+1,exercises:projected.filter(row=>row.dayId===day.id).map(cloneSnapshot)})):days;
-  return{
+  return{importedRepRanges,preview:{
     program:projected,
     days:projectedDays,
     ...(programDefinition?{programDefinition}:{}),
@@ -18645,7 +18654,7 @@ function importCandidate(draft){
     customExercises:candidateCustomExercises,
     source:"import",
     format:draft.format,
-  }}
+  }}}
 
 /* Review decisions become an owned setup candidate. Durable active state moves
    only through the common explicit activation transaction on the next screen. */
@@ -18657,7 +18666,7 @@ async function commitImportReview(){
   const draft=importDraft;
   setStagedImportSource(draft.sourceType);
   ensureImportEntryFlow(draft);
-  const preview=importCandidate(draft);
+  const {preview,importedRepRanges}=importCandidate(draft);
   const name=typeof draft.meta?.name==="string"?draft.meta.name.trim():"";
   let next=ProgramEntry.setAnswers(entryState,{importReady:true});
   next={...next,versions:entryVersions()};
@@ -18672,7 +18681,7 @@ async function commitImportReview(){
   // including an unversioned first-run program file, remains a candidate until
   // the common preview's explicit activation action is chosen.
   entryState=next;
-  const saved=await persistSetupDraft(next);
+  const saved=await persistSetupDraft(next,storageIO,{importedRepRanges});
   if(!saved?.ok){toast(t("toast.program_import_failed"));return saved}
   closeImportReview({toProgram:false});
   entryUiNotice=null;
@@ -19609,6 +19618,46 @@ function mergeLog(s){return mergeImportedLog(s)}
 
 // @ci-domain global
 const SETUP_DRAFT_KEY="repforge_program_setup_draft_v1";
+const IMPORT_RANGES_KEY="repforge_import_ranges_v1";
+// Optional device-only hints stay outside the setup envelope: older releases
+// must be able to resume it, and activation receipts retain its exact bytes.
+function readImportedRepRanges(candidate){
+  if(candidate?.route!=="import")return{};
+  try{
+    const record=JSON.parse(localStorage.getItem(IMPORT_RANGES_KEY));
+    if(!isPlainStateObject(record)||record.schemaVersion!==1||record.draftId!==candidate.draftId||
+      Object.keys(record).some(key=>!["schemaVersion","draftId","ranges"].includes(key))||
+      !isPlainStateObject(record.ranges)||Object.keys(record.ranges).length>512)return{};
+    const slots=new Map((candidate.result?.preview?.programDefinition?.days||[])
+      .flatMap(day=>day.slots||[]).map(slot=>[slot.id,slot]));
+    const ranges=Object.create(null);
+    for(const [id,range] of Object.entries(record.ranges)){
+      if(!isPlainStateObject(range)||Object.keys(range).some(key=>!["exerciseId","min","max"].includes(key))||
+        typeof range.exerciseId!=="string"||!Number.isSafeInteger(range.min)||range.min<1||
+        !Number.isSafeInteger(range.max)||range.max<range.min||range.max>1000)return{};
+      const slot=slots.get(id);
+      if(slot&&isCustomLibraryId(slot.exerciseId)&&slot.exerciseId===range.exerciseId&&
+        !slot.metricDefinitions.some(metric=>metric.semantic==="reps"||metric.semantic==="repsPerSide"))
+        ranges[id]={min:range.min,max:range.max};
+    }
+    return ranges;
+  }catch{return{}}}
+function clearImportedRepRanges(draftId){
+  try{
+    if(JSON.parse(localStorage.getItem(IMPORT_RANGES_KEY))?.draftId===draftId)
+      localStorage.removeItem(IMPORT_RANGES_KEY);
+  }catch{}}
+function writeImportedRepRanges(candidate,ranges){
+  const slots=new Map((candidate.result?.preview?.programDefinition?.days||[])
+    .flatMap(day=>day.slots||[]).map(slot=>[slot.id,slot]));
+  const pending=Object.fromEntries(Object.entries(ranges).filter(([id])=>{
+    const slot=slots.get(id);
+    return candidate.route==="import"&&slot&&isCustomLibraryId(slot.exerciseId)&&
+      !slot.metricDefinitions.some(metric=>metric.semantic==="reps"||metric.semantic==="repsPerSide");
+  }).map(([id,range])=>[id,{exerciseId:slots.get(id).exerciseId,min:range.min,max:range.max}]));
+  if(!Object.keys(pending).length){clearImportedRepRanges(candidate.draftId);return}
+  try{localStorage.setItem(IMPORT_RANGES_KEY,JSON.stringify({schemaVersion:1,draftId:candidate.draftId,ranges:pending}))}
+  catch{clearImportedRepRanges(candidate.draftId)}}
 const ProgramEntry=typeof window!=="undefined"?window.RepForgeProgramEntry:null;
 const ProgramEntryAdapter=typeof window!=="undefined"?window.RepForgeProgramEntryAdapter:null;
 const ENTRY_MUSCLES=ProgramEntry.ENTRY_MUSCLES;
@@ -19706,6 +19755,8 @@ function removeObservedSetupDraft(handle){
   try{localStorage.removeItem(SETUP_DRAFT_KEY)}catch(error){
     reportSetupDraftWriteFailure("save_failed",error);
     return{ok:false,writeFailed:true}}
+  // Recovery can hold only the captured raw envelope, without its parsed handle.
+  try{clearImportedRepRanges(handle.envelope?.draftId||JSON.parse(handle.raw)?.draftId)}catch{}
   if(entryDraftHandle?.raw===handle.raw){entryDraftHandle=null;setupDraftConflicted=false;lastPersistedEntryState=null}
   return{ok:true}}
 function removeSetupDraftIfCurrent(handle=entryDraftHandle){
@@ -19738,7 +19789,11 @@ async function recoverCommittedSetupDraft(){
   const raw=readSetupDraftRaw();
   // A missing draft means the post-commit cleanup already won. A different
   // raw value belongs to a later owner/revision and must remain untouched.
-  if(raw===null||raw!==marker.raw)return{ok:true,absent:raw===null,conflict:raw!==null};
+  if(raw===null){
+    try{clearImportedRepRanges(JSON.parse(marker.raw)?.draftId)}catch{}
+    return{ok:true,absent:true};
+  }
+  if(raw!==marker.raw)return{ok:true,conflict:true};
   return withStorageLock(storageIO,()=>removeObservedSetupDraft({raw,envelope:null}));
 }
 function setupDraftPersistenceProjection(value){
@@ -19755,7 +19810,7 @@ function setupDraftPersistenceProjection(value){
   projectStructure(projected.result?.alternative?.preview?.programStructure);
   return projected;
 }
-function persistSetupDraft(next,io=storageIO){
+function persistSetupDraft(next,io=storageIO,{importedRepRanges}={}){
   // A received definition is a transient proposal until the recipient presses
   // Use this program. Keep the shared review editable in memory, but never put
   // its payload in the resumable setup-draft store before activation.
@@ -19811,6 +19866,7 @@ function persistSetupDraft(next,io=storageIO){
     try{await writeSetupDraft(raw)}catch(error){
       reportSetupDraftWriteFailure("save_failed",error);
       return{ok:false,writeFailed:true}}
+    writeImportedRepRanges(queuedState,importedRepRanges||readImportedRepRanges(queuedState));
     entryDraftHandle={raw,envelope};
     // Capture the value this call itself staged (via its closed-over
     // queuedState/stamped.result), not whatever the mutable entryState has
