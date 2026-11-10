@@ -67,7 +67,7 @@ colors-dark:
   shelf-field: "#2A2722"                 # token: --shelf-field-bg
   shelf-pad: "#2A2722"                   # token: --shelf-pad-bg
   dock-glass: "rgba(30,28,24,.66)"       # token: --dock-glass
-  dock-lens: "rgba(255,255,255,.07)"     # token: --dock-pill
+  dock-lens: "rgba(255,255,255,.13)"     # token: --dock-pill
   band-night: "#141310"                  # token: --band-night-bg
   band-night-raised: "#1E1C18"           # token: --band-night-raised
   band-night-ink: "#F2EFE9"              # token: --band-night-ink

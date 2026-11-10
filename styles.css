@@ -449,7 +449,7 @@
   --dock-rim:rgba(255,255,255,.12);
   --dock-caustic:rgba(255,255,255,.05);
   --dock-blur:blur(18px) saturate(160%) brightness(.85);
-  --dock-pill:rgba(255,255,255,.07);
+  --dock-pill:rgba(255,255,255,.13);
   --dock-pill-sheen:rgba(255,255,255,.05);
   /* Plan 075 phase 3: the scroll-edge bar's material, charcoal at 72%. The
      hairline is a literal white value, not --shadow-rgb, so it still reads
@@ -1411,7 +1411,7 @@ article.exercise--focus .fcard__context{min-height:var(--focus-context-floor)}
   max-width:22rem;margin:var(--space-8) 0 0;font-family:var(--font-language);font-size:var(--font-size-focus-evidence);
   line-height:var(--line-standard);color:var(--color-ink-secondary);overflow-wrap:anywhere;
 }
-.fx-cue__fig{font-family:var(--font-training-data);font-weight:var(--weight-medium);color:var(--color-ink)}
+.fx-cue__fig{font-family:var(--font-language);font-weight:var(--weight-semibold);font-variant-numeric:tabular-nums;color:var(--color-ink)}
 /* Inline in the evidence line the Why link keeps the 44px target: its padding reaches the floor and its negative
    margin gives the height back, so the line keeps its own leading. */
 .exercise--focus .fx-cue__evidence .text-link.focus-ex__why{
@@ -4527,7 +4527,7 @@ body.is-focus-wo .toast:not(.toast--top){bottom:calc(var(--toast-clear,0px) + va
 .settings-head{display:flex;align-items:center;justify-content:center;position:relative;min-height:var(--control-target);margin-bottom:18px}
 .settings-head .back-link{position:absolute;left:0}
 .settings-head__title{font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink)}
-.settings-identity{display:flex;align-items:flex-start;gap:14px;padding:8px 0 18px var(--settings-inset)}
+.settings-identity{display:flex;align-items:flex-start;gap:14px;padding:8px var(--settings-inset) 18px}
 .settings-identity__mark{width:52px;height:52px;border-radius:var(--radius-prominent);overflow:hidden;background:#efe5df;box-shadow:0 1px 2px rgba(23,23,25,.12),0 6px 18px rgba(23,23,25,.08);flex:none}
 .settings-identity__mark img{display:block;width:100%;height:100%;object-fit:cover}
 .settings-identity__name{font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink)}
@@ -5447,9 +5447,6 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
 #exercise.exview--chart #exBack .chevron{transform:rotate(180deg);color:inherit}
 .exchart__title{margin:var(--space-8) 0 0;overflow-wrap:anywhere}
 .exchart__toggles{display:grid;gap:var(--space-16);margin-top:var(--space-26)}
-/* The metric switch is the lesser of the two: it hugs its labels instead of spanning the column. */
-.exchart__toggles .segpill + .segpill{justify-self:start;grid-auto-columns:max-content}
-.exchart__toggles .segpill + .segpill > button{padding-inline:var(--space-16)}
 .exchart__toggles .segpill{margin:0}
 /* The chart's one statement of a per-side convention (refinement audit A6), under the toggles it qualifies. */
 .exchart__per-side{margin:var(--space-8) 0 0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
@@ -5489,15 +5486,15 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
   min-height:22px;margin:var(--space-8) 0 0;font-family:var(--font-language);font-size:var(--font-size-body-small);
   line-height:var(--line-standard);color:var(--color-ink);
 }
-.exchart__mono{font-family:var(--font-training-data);font-weight:var(--weight-medium)}
-/* A Mono space is a full digit wide, so "27.5 × 8" opens up in a sentence or a cell; the pairs close to a text space. */
-.exchart__mono,.exrow span:nth-child(n+2),.rxrow__target,.fx-cue__fig{word-spacing:-.25em}
+.exchart__mono{font-family:var(--font-language);font-weight:var(--weight-semibold);font-variant-numeric:tabular-nums}
+/* A Mono space is a full digit wide, so "3 × 12" opens up in the target column; the pairs close to a text space. */
+.rxrow__target{word-spacing:-.25em}
 .exchart__soft{color:var(--color-ink-secondary)}
 .exchart__cols,.exrow{
   display:grid;grid-template-columns:4.5rem minmax(0,1fr) 4rem 3.25rem;gap:var(--space-8);align-items:center;
 }
 .exchart__cols{
-  margin-top:var(--space-12);padding:var(--space-8) 0;border-bottom:1px solid var(--boundary-decorative);
+  margin-top:var(--space-12);padding:var(--space-8) var(--space-8) var(--space-8) calc(3px + var(--space-8));border-bottom:1px solid var(--boundary-decorative);
   font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);
   letter-spacing:var(--track-label);text-transform:uppercase;color:var(--color-ink-secondary);
 }
@@ -8736,7 +8733,7 @@ body.is-entry-editor #entryProgramName,
    scale with the root so they reflow at 200% text. Manual rows leave the mark
    slot empty so names still align. */
 .rxrow{
-  display:grid;grid-template-columns:1rem minmax(0,1fr) minmax(4.125rem,auto) minmax(4.875rem,auto);
+  display:grid;grid-template-columns:1rem minmax(0,1fr) minmax(3.5rem,auto) minmax(4.875rem,auto);
   column-gap:12px;align-items:baseline;width:100%;min-height:48px;margin:0;padding:12px 0;
   border:0;border-bottom:1px solid var(--boundary-decorative);border-radius:var(--radius-none);
   background:var(--control-quiet-bg);color:var(--control-quiet-ink);cursor:pointer;text-align:left;
