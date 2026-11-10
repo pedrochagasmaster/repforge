@@ -196,7 +196,9 @@
   "1a05c6f170d88060bbffeeb9acaa3c80": {
    "sourceName": "Seated dumbbell overhead press",
    "namePt": "Desenvolvimento sentado com halteres",
-   "aliases": []
+   "aliases": [
+    "Desenvolvimento com halteres"
+   ]
   },
   "1a05c6f170d88061a44edbcda249b9d4": {
    "sourceName": "Decline single arm dumbbell press",
@@ -468,7 +470,10 @@
   "1a05c6f170d880e28b6bfbd0e217fcbc": {
    "sourceName": "Standing dumbbell lateral raise",
    "namePt": "Elevação lateral em pé com halteres",
-   "aliases": []
+   "aliases": [
+    "Elevação lateral",
+    "Elevação lateral com halteres"
+   ]
   },
   "1a05c6f170d880e2b66afebd843e3b9f": {
    "sourceName": "Dumbbell floor press",
@@ -555,7 +560,9 @@
   "1a15c6f170d88003bf5cd77bef6a5034": {
    "sourceName": "EZ bar skull crusher",
    "namePt": "Tríceps testa com barra W",
-   "aliases": []
+   "aliases": [
+    "Tríceps testa"
+   ]
   },
   "1a15c6f170d88004a245f5a0ea564b67": {
    "sourceName": "Bent-over neutral grip T-bar row",
@@ -602,7 +609,11 @@
    "sourceName": "Overhand grip cable lat pulldown",
    "namePt": "Puxada frontal pegada pronada",
    "aliases": [
-    "Pulldown"
+    "Pulldown",
+    "Puxada alta",
+    "Puxada frente",
+    "Puxada frontal",
+    "Puxada na polia"
    ]
   },
   "1a15c6f170d88010a5b5f71c3ef7890d": {
@@ -775,10 +786,8 @@
   },
   "1a15c6f170d8802a953aeaebbfbb6656": {
    "sourceName": "Snatch grip high pull",
-   "namePt": "Puxada alta com pegada de arranco",
-   "aliases": [
-    "High pull com pegada de arranco"
-   ]
+   "namePt": "High pull com pegada de arranco",
+   "aliases": []
   },
   "1a15c6f170d8802b95b4cce475976c58": {
    "sourceName": "Bent-over dumbbell row",
@@ -864,7 +873,9 @@
    "sourceName": "EZ bar biceps curl",
    "namePt": "Rosca direta com barra W",
    "aliases": [
-    "Rosca com barra W"
+    "Rosca com barra W",
+    "Rosca direta barra W",
+    "Rosca barra W"
    ]
   },
   "1a15c6f170d8803aa8bffc5a0dae7406": {
@@ -897,7 +908,10 @@
   "1a15c6f170d88040bffdd2f6127e6d4c": {
    "sourceName": "EZ bar preacher curl",
    "namePt": "Rosca Scott com barra W",
-   "aliases": []
+   "aliases": [
+    "Rosca Scott",
+    "Rosca Scott com barra"
+   ]
   },
   "1a15c6f170d88041ba65c740787dc48a": {
    "sourceName": "Single arm dumbbell biceps curl",
@@ -942,7 +956,10 @@
    "sourceName": "Neutral grip cable row",
    "namePt": "Remada sentada na polia pegada neutra",
    "aliases": [
-    "Remada baixa com triângulo"
+    "Remada baixa com triângulo",
+    "Remada baixa",
+    "Remada baixa na polia",
+    "Remada sentada"
    ]
   },
   "1a15c6f170d880498730f15feec5e557": {
@@ -984,7 +1001,8 @@
    "namePt": "Peck deck",
    "aliases": [
     "Voador",
-    "Crucifixo na máquina"
+    "Crucifixo na máquina",
+    "Voador peitoral"
    ]
   },
   "1a15c6f170d8804f98d1f9c040eef407": {
@@ -1005,7 +1023,8 @@
    "sourceName": "Standing machine calf raise",
    "namePt": "Elevação de panturrilha em pé na máquina",
    "aliases": [
-    "Panturrilha em pé na máquina"
+    "Panturrilha em pé na máquina",
+    "Panturrilha em pé"
    ]
   },
   "1a15c6f170d8805196c7eefa5f50979f": {
@@ -1175,7 +1194,10 @@
   "1a15c6f170d88076aa27ee347803acb9": {
    "sourceName": "Seated dumbbell overhead triceps extension",
    "namePt": "Tríceps francês sentado com halter",
-   "aliases": []
+   "aliases": [
+    "Tríceps francês",
+    "Tríceps francês com halter"
+   ]
   },
   "1a15c6f170d88076b7f5e24347a8d8a0": {
    "sourceName": "Neutral grip plate-loaded machine shoulder press",
@@ -1271,7 +1293,10 @@
   "1a15c6f170d880868c06f216e31047c3": {
    "sourceName": "Standing dumbbell hammer curl",
    "namePt": "Rosca martelo em pé com halteres",
-   "aliases": []
+   "aliases": [
+    "Rosca martelo",
+    "Rosca martelo com halteres"
+   ]
   },
   "1a15c6f170d88086b226f5237d3b5ca4": {
    "sourceName": "Underhand grip barbell inverted row",
@@ -1372,7 +1397,9 @@
    "sourceName": "Wide grip cable lat pulldown",
    "namePt": "Puxada frontal na polia pegada aberta",
    "aliases": [
-    "Puxada aberta"
+    "Puxada aberta",
+    "Puxada alta pegada aberta",
+    "Puxada frente aberta"
    ]
   },
   "1a15c6f170d8809eabb9d8ff10141916": {
@@ -1391,7 +1418,9 @@
    "sourceName": "Chest-supported overhand grip T-bar row",
    "namePt": "Remada cavalinho com apoio no peito pegada pronada",
    "aliases": [
-    "T-bar com apoio no peito pegada pronada"
+    "T-bar com apoio no peito pegada pronada",
+    "Remada cavalinho",
+    "Cavalinho"
    ]
   },
   "1a15c6f170d880a38049e295e9919e8e": {
@@ -1435,9 +1464,7 @@
   "1a15c6f170d880aead54ef59165a07d5": {
    "sourceName": "Clean grip high pull",
    "namePt": "High pull com pegada de clean",
-   "aliases": [
-    "Puxada alta com pegada de clean"
-   ]
+   "aliases": []
   },
   "1a15c6f170d880b08845d6f0fe186dd1": {
    "sourceName": "Pin-loaded machine preacher curl",
@@ -1491,7 +1518,10 @@
   "1a15c6f170d880b987dfef02305048b6": {
    "sourceName": "Standing dumbbell front raise",
    "namePt": "Elevação frontal em pé com halteres",
-   "aliases": []
+   "aliases": [
+    "Elevação frontal",
+    "Elevação frontal com halteres"
+   ]
   },
   "1a15c6f170d880bab696d2c062c14ddd": {
    "sourceName": "Seated dumbbell hammer curl",
@@ -1546,7 +1576,10 @@
   "1a15c6f170d880c7b8d7f8060b06d9f4": {
    "sourceName": "Single arm dumbbell triceps kickback",
    "namePt": "Tríceps coice unilateral com halter",
-   "aliases": []
+   "aliases": [
+    "Tríceps coice",
+    "Coice de tríceps"
+   ]
   },
   "1a15c6f170d880caa8cfd43365a39d67": {
    "sourceName": "Pin-loaded machine donkey calf raise",
@@ -1753,7 +1786,8 @@
    "sourceName": "Bent-over barbell row",
    "namePt": "Remada curvada com barra",
    "aliases": [
-    "Remada curvada pegada pronada com barra"
+    "Remada curvada pegada pronada com barra",
+    "Remada curvada"
    ]
   },
   "1a15c6f170d880f9a7c3de4cae380ab5": {
@@ -1814,7 +1848,8 @@
    "namePt": "Agachamento hack",
    "aliases": [
     "Hack squat",
-    "Hack na máquina"
+    "Hack na máquina",
+    "Hack"
    ]
   },
   "1a25c6f170d8800b8768c160b4808e67": {
@@ -2099,7 +2134,10 @@
    "sourceName": "Dumbbell Bulgarian split squat",
    "namePt": "Agachamento búlgaro com halteres",
    "aliases": [
-    "Búlgaro com halteres"
+    "Búlgaro com halteres",
+    "Afundo búlgaro",
+    "Agachamento búlgaro",
+    "Búlgaro"
    ]
   },
   "1a25c6f170d880a7b3cdefbf6c09dae4": {
@@ -2115,7 +2153,8 @@
    "namePt": "Agachamento sumô com halter",
    "aliases": [
     "Agachamento plié com halter",
-    "Agachamento plié"
+    "Agachamento plié",
+    "Agachamento sumô"
    ]
   },
   "1a25c6f170d880b2a727d44db1872fd0": {
@@ -2732,7 +2771,9 @@
   "1a35c6f170d880ecbc83f9cf5358a9ba": {
    "sourceName": "Bodyweight crunch with hands behind head",
    "namePt": "Abdominal com mãos atrás da cabeça",
-   "aliases": []
+   "aliases": [
+    "Abdominal supra"
+   ]
   },
   "1a35c6f170d880edaf07d28f69c9da2e": {
    "sourceName": "Glute ham raise with arms by sides",
@@ -3182,7 +3223,11 @@
    "namePt": "Remada unilateral com halter cotovelo fechado",
    "aliases": [
     "Serrote cotovelo fechado",
-    "Remada unilateral com halter pegada neutra"
+    "Remada unilateral com halter pegada neutra",
+    "Remada unilateral",
+    "Remada unilateral com halter",
+    "Serrote",
+    "Remada serrote"
    ]
   },
   "1a95c6f170d880db929ad4f53f8ec4a8": {
@@ -4429,7 +4474,8 @@
    "namePt": "Elevação de panturrilha sentado na máquina de pino",
    "aliases": [
     "Panturrilha sentado na máquina de pino",
-    "Gêmeos sentado"
+    "Gêmeos sentado",
+    "Panturrilha sentado"
    ]
   },
   "25f5c6f170d880c98516dcc2f1cb2aab": {
@@ -5373,7 +5419,8 @@
    "sourceName": "Seated Arnold press",
    "namePt": "Desenvolvimento Arnold sentado com halteres",
    "aliases": [
-    "Arnold press"
+    "Arnold press",
+    "Desenvolvimento Arnold"
    ]
   },
   "2a25c6f170d880b99935d169af64e34f": {
