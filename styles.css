@@ -906,7 +906,7 @@ input:is([type=date],[type=time])::-webkit-date-and-time-value{min-height:1.5em;
   transition:transform .28s cubic-bezier(.32,.72,0,1),width .28s cubic-bezier(.32,.72,0,1);
 }
 .toggle[aria-checked="true"]::before,.toggle[aria-pressed="true"]::before,.toggle.is-on::before{
-  background:var(--accent-deep);box-shadow:none;
+  background:var(--accent);box-shadow:none;
 }
 .toggle[aria-checked="true"]::after,.toggle[aria-pressed="true"]::after,.toggle.is-on::after{transform:translateX(20px)}
 /* On the accent track the knob is the light one in both themes. */
@@ -1402,7 +1402,7 @@ article.exercise--focus .fcard__context{min-height:var(--focus-context-floor)}
    list and Next, and Next reads as the shelf's lead-in rather than a card of its own. */
 article.exercise--focus .fcard__context{display:flex;flex-direction:column}
 article.exercise--focus .fcard__context > *{flex-shrink:0}
-article.exercise--focus .fcard__context > .fx-next{margin-top:auto;min-height:52px;padding:0 var(--space-4);border-radius:var(--radius-none);border-top:1px solid var(--boundary-decorative);background:transparent;color:var(--color-ink)}
+article.exercise--focus .fcard__context > .fx-next{margin-top:auto;min-height:52px;padding:0 var(--space-12);border-radius:var(--radius-none);border-top:1px solid var(--boundary-decorative);background:transparent;color:var(--color-ink)}
 /* The previous set reads as the row's caption, from the row's leading edge, not as a figure spread over two columns. */
 .fcard__ledger .ledgerline__prev{grid-column:1 / -1;text-align:left;font-size:var(--font-size-caption)}
 .fcard__context:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
@@ -1414,7 +1414,7 @@ article.exercise--focus .fcard__context > .fx-next{margin-top:auto;min-height:52
 
 /* The hero (#523): the verb and the load as the screen's headline, the reps under it, then one line of evidence
    ending in the Why link (#518). The verdict mark rides inline before the words; a cue without one has no gap. */
-.fx-cue{margin:var(--space-26) 0 var(--space-18)}
+.fx-cue{margin:var(--space-14) 0 var(--space-18)}
 .fx-cue__mark{
   display:inline-block;width:.62em;height:.62em;margin-right:.14em;transform:translateY(-.04em);
 }
@@ -1494,7 +1494,7 @@ article.exercise--focus .fcard__context > .fx-next{margin-top:auto;min-height:52
   align-items:center;font-family:inherit;font-size:inherit;font-weight:inherit;line-height:inherit;letter-spacing:inherit;text-transform:inherit;color:inherit;
 }
 .fcard__ledger .ledgerline__head .term{margin:0;padding-block:0;padding-inline:0;justify-content:flex-end;text-align:right;gap:var(--space-4);text-decoration:none}
-.fcard__ledger .ledgerline__head .term::after{content:"?";display:inline-grid;place-items:center;width:14px;height:14px;border:1px solid currentColor;border-radius:var(--radius-round);font-size:9px;font-weight:var(--weight-semibold);letter-spacing:0;line-height:1}
+.fcard__ledger .ledgerline__head .term::after{content:"?";display:inline-grid;place-items:center;width:12px;height:12px;border:1px solid var(--ink-faint);border-radius:var(--radius-round);color:var(--ink-faint);font-size:8px;font-weight:var(--weight-regular);letter-spacing:0;line-height:1}
 .ledgerline__vals > .fx-col{flex:0 0 auto;min-width:0;text-align:right}
 .ledgerline__vals > .fx-col:nth-child(1){min-width:4.5rem}
 /* Wide enough for the REPS heading, so the heading and the figures under it end on one edge. */
@@ -1614,7 +1614,7 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
 /* The ring is the keyboard's cue: after a touch or typed entry (the motion layer's input modality) a field focused by
    script shows only its selected ring, whichever path moved focus there. Without the layer the ring stays. */
 :root[data-input-modality="pointer"] .shelf__fieldbtn:focus-visible{outline:none}
-.shelf__fieldbtn[aria-pressed="true"]{box-shadow:inset 0 0 0 1.5px var(--accent)}
+.shelf__fieldbtn[aria-pressed="true"]{box-shadow:inset 0 0 0 1.5px var(--boundary-selected-quiet)}
 .shelf__lab{
   font-family:var(--font-language);font-size:var(--font-size-body-small);font-weight:var(--weight-regular);line-height:var(--line-standard);
   color:var(--color-ink-secondary);overflow-wrap:anywhere;
@@ -3709,8 +3709,8 @@ body.is-library nav,body.is-preview nav,body.is-import nav{display:none}
    into the page instead of showing through as ghosted text. Below the sticky action (z-index 5), above the page. */
 body::after{
   content:"";position:fixed;left:0;right:0;bottom:0;z-index:4;pointer-events:none;
-  height:calc(var(--nav) + env(safe-area-inset-bottom) + var(--space-12) + 2 * var(--space-32) + var(--space-12));
-  background:var(--bg);border-top:1px solid var(--boundary-decorative);
+  height:calc(var(--nav) + env(safe-area-inset-bottom) + var(--space-12) + 2 * var(--space-32) + var(--space-26));
+  background:linear-gradient(to bottom,rgba(var(--bg-rgb),0),var(--bg) var(--space-26));
 }
 body.is-settings::after,body.is-exercise::after,body.is-onboarding::after,body.is-library::after,body.is-preview::after,
 body.is-import::after,body.is-focus-wo::after,body:has(#history.view.active.is-session-edit)::after,
@@ -5563,7 +5563,7 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
   display:grid;grid-template-columns:4.5rem minmax(0,1fr) 4rem 3.25rem;gap:var(--space-8);align-items:center;
 }
 .exchart__cols{
-  margin-top:var(--space-12);padding:var(--space-8) 0;border-bottom:1px solid var(--boundary-decorative);
+  margin-top:var(--space-12);padding:var(--space-8) var(--space-12);border-bottom:1px solid var(--boundary-decorative);
   font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);
   letter-spacing:var(--track-label);text-transform:uppercase;color:var(--color-ink-secondary);
 }
@@ -5577,7 +5577,7 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
   .exchart__cols span,.exrow span{overflow-wrap:anywhere}
 }
 .exrow{
-  width:100%;min-height:48px;padding:0;border:0;border-left:0 solid transparent;
+  width:100%;min-height:48px;padding:0 var(--space-12);border:0;border-left:0 solid transparent;
   border-bottom:1px solid var(--boundary-decorative);border-radius:var(--radius-none);
   background:var(--control-quiet-bg);color:var(--color-ink);text-align:left;cursor:pointer;
   font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);
@@ -5587,7 +5587,7 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
 }
 .exrow.is-pressed{background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
 .exrow:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
-.exrow.is-sel{background:rgba(var(--accent-rgb),.05);box-shadow:inset 3px 0 0 var(--accent);padding-left:var(--space-12)}
+.exrow.is-sel{background:rgba(var(--accent-rgb),.05);box-shadow:inset 3px 0 0 var(--accent)}
 .exrow.is-old span:first-child{color:var(--color-ink-secondary)}
 
 /* @ci-domain history */
