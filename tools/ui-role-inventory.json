@@ -1346,12 +1346,12 @@
     "progress/overview-profile": {
       "owner": "plan-081",
       "content": "flat",
-      "scenario": "Active program standing, counts and recent test sets."
+      "scenario": "Dated findings and the next evidence needed, followed by standing and counts."
     },
     "progress/overview-profile-first": {
       "owner": "plan-081",
       "content": "flat",
-      "scenario": "Early standing and counts after two recorded sessions."
+      "scenario": "Dated findings and the next evidence needed, followed by standing and counts."
     },
     "onboarding-import/freeform-managed": {
       "owner": "adr-0025",
@@ -13710,6 +13710,60 @@
       "catalogStates": [
         "onboarding-import/freeform-managed",
         "onboarding-import/freeform-managed-limit"
+      ]
+    },
+    {
+      "id": "profile-finding-copy",
+      "selector": ".profile-finding p",
+      "roles": {
+        "typography": "body-small"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "A sentence supported by the saved sessions.",
+      "owner": "plan-081",
+      "catalogStates": [
+        "progress/overview-profile",
+        "progress/overview-profile-first"
+      ]
+    },
+    {
+      "id": "profile-finding-date",
+      "selector": ".profile-finding time",
+      "roles": {
+        "typography": "caption"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "The first date the record supports the finding.",
+      "owner": "plan-081",
+      "catalogStates": [
+        "progress/overview-profile",
+        "progress/overview-profile-first"
+      ]
+    },
+    {
+      "id": "profile-finding-need",
+      "selector": ".profile-finding-need",
+      "roles": {
+        "typography": "body-small"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "The next finding and the evidence it still needs.",
+      "owner": "plan-081",
+      "catalogStates": [
+        "progress/overview-profile",
+        "progress/overview-profile-first"
       ]
     }
   ],
