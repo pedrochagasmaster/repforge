@@ -3083,6 +3083,18 @@ const EN = {
   "entry.effort_choice.numbers_hint": "0 to 5+",
   "landing.anim.ch5.title": "Test your guess",
   "landing.anim.ch5.text": "Guess how many reps you can do on your last set, then compare with what you did. Taurifer learns how you judge effort on this exercise.",
+  "entry.freeform.managed_lede": "Paste a workout from your coach, notes, or spreadsheet. Taurifer converts it, then shows every exercise for you to review before activation.",
+  "entry.freeform.managed_privacy": "When you tap Import with Taurifer, this text is sent to Anthropic to convert it. It isn't kept in your history, exports or analytics, and your workout history is never sent. You review every exercise before saving.",
+  "entry.freeform.managed_verify": "Verify the import request",
+  "entry.freeform.managed_submit": "Import with Taurifer",
+  "entry.freeform.managed_working": "Reading your program…",
+  "entry.freeform.managed_external": "Use ChatGPT or Claude instead",
+  "entry.freeform.managed_failed": "Could not import this program right now. Try again or use your assistant.",
+  "entry.freeform.managed_rate_limited": "The import limit was reached. Try again later, or use your own assistant.",
+  "entry.freeform.managed_challenge_failed": "Verification did not finish. Please retry the check above.",
+  "entry.freeform.managed_provider_failed": "The import service could not read your program. No changes were saved.",
+  "entry.freeform.managed_invalid": "Please paste a training program that includes its exercises.",
+  "entry.freeform.managed_unavailable": "Direct import is unavailable right now. Use your own assistant instead.",
 };
 const PT = {
   "catalog.unavailable.title": "Biblioteca de exercícios indisponível",
@@ -6167,6 +6179,18 @@ const PT = {
   "entry.effort_choice.numbers_hint": "0 a 5+",
   "landing.anim.ch5.title": "Teste seu palpite",
   "landing.anim.ch5.text": "Estime quantas reps consegue na última série e compare com o que fez. O Taurifer aprende como você avalia o esforço neste exercício.",
+  "entry.freeform.managed_lede": "Cole a ficha enviada pelo seu treinador, por mensagem ou planilha. O Taurifer converte o treino e mostra cada exercício para você revisar antes de ativar.",
+  "entry.freeform.managed_privacy": "Ao tocar em Importar com Taurifer, este texto é enviado à Anthropic para ser convertido. Ele não fica no seu histórico, nas exportações nem nas análises, e seu histórico de treinos nunca é enviado. Você revisa cada exercício antes de salvar.",
+  "entry.freeform.managed_verify": "Verificação para importar treino",
+  "entry.freeform.managed_submit": "Importar com Taurifer",
+  "entry.freeform.managed_working": "Lendo seu treino…",
+  "entry.freeform.managed_external": "Usar ChatGPT ou Claude",
+  "entry.freeform.managed_failed": "Não foi possível importar agora. Tente novamente ou use seu assistente.",
+  "entry.freeform.managed_rate_limited": "O limite de importações foi atingido. Tente mais tarde ou use seu assistente.",
+  "entry.freeform.managed_challenge_failed": "A verificação não foi concluída. Tente novamente acima.",
+  "entry.freeform.managed_provider_failed": "O serviço não conseguiu ler seu treino. Nenhuma alteração foi salva.",
+  "entry.freeform.managed_invalid": "Cole uma ficha de treino com os exercícios prescritos.",
+  "entry.freeform.managed_unavailable": "A importação direta está indisponível. Use seu assistente por enquanto.",
 };
 (function (root) {
   const STRINGS = { en: EN, pt: PT };

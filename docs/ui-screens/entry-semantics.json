@@ -60696,6 +60696,1146 @@
       ]
     },
     {
+      "key": "onboarding-import/freeform-managed__phone-320-light-en",
+      "flow": "onboarding-import",
+      "screen": "freeform-managed",
+      "label": "Import — import with Taurifer",
+      "viewport": "phone-320",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Paste a program from anywhere",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Paste a workout from your coach, notes, or spreadsheet. Taurifer converts it, then shows every exercise for you to review before activation."
+        },
+        {
+          "tag": "span",
+          "text": "Your program"
+        },
+        {
+          "tag": "textarea",
+          "name": "Your program",
+          "value": "Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
+        },
+        {
+          "tag": "p",
+          "text": "73 of 12,000 characters"
+        },
+        {
+          "tag": "p",
+          "role": "note",
+          "text": "When you tap Import with Taurifer, this text is sent to Anthropic to convert it. It isn't kept in your history, exports or analytics, and your workout history is never sent. You review every exercise before saving.",
+          "name": "When you tap Import with Taurifer, this text is sent to Anthropic to convert it. It isn't kept in your history, exports or analytics, and your workout history is never sent. You review every exercise before saving."
+        },
+        {
+          "tag": "div",
+          "label": "Verify the import request"
+        },
+        {
+          "tag": "span",
+          "text": "Success!"
+        },
+        {
+          "tag": "span",
+          "text": "✓"
+        },
+        {
+          "tag": "span",
+          "text": "Privacy · Terms"
+        },
+        {
+          "tag": "b",
+          "text": "CLOUDFLARE"
+        },
+        {
+          "tag": "button",
+          "text": "Import with Taurifer",
+          "name": "Import with Taurifer",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use ChatGPT or Claude instead",
+          "name": "Use ChatGPT or Claude instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Import a Taurifer file instead",
+          "name": "Import a Taurifer file instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "I'd rather write it from scratch",
+          "name": "I'd rather write it from scratch",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-managed__phone-390-dark-en",
+      "flow": "onboarding-import",
+      "screen": "freeform-managed",
+      "label": "Import — import with Taurifer",
+      "viewport": "phone-390",
+      "theme": "dark",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Paste a program from anywhere",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Paste a workout from your coach, notes, or spreadsheet. Taurifer converts it, then shows every exercise for you to review before activation."
+        },
+        {
+          "tag": "span",
+          "text": "Your program"
+        },
+        {
+          "tag": "textarea",
+          "name": "Your program",
+          "value": "Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
+        },
+        {
+          "tag": "p",
+          "text": "73 of 12,000 characters"
+        },
+        {
+          "tag": "p",
+          "role": "note",
+          "text": "When you tap Import with Taurifer, this text is sent to Anthropic to convert it. It isn't kept in your history, exports or analytics, and your workout history is never sent. You review every exercise before saving.",
+          "name": "When you tap Import with Taurifer, this text is sent to Anthropic to convert it. It isn't kept in your history, exports or analytics, and your workout history is never sent. You review every exercise before saving."
+        },
+        {
+          "tag": "div",
+          "label": "Verify the import request"
+        },
+        {
+          "tag": "span",
+          "text": "Success!"
+        },
+        {
+          "tag": "span",
+          "text": "✓"
+        },
+        {
+          "tag": "span",
+          "text": "Privacy · Terms"
+        },
+        {
+          "tag": "b",
+          "text": "CLOUDFLARE"
+        },
+        {
+          "tag": "button",
+          "text": "Import with Taurifer",
+          "name": "Import with Taurifer",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use ChatGPT or Claude instead",
+          "name": "Use ChatGPT or Claude instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Import a Taurifer file instead",
+          "name": "Import a Taurifer file instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "I'd rather write it from scratch",
+          "name": "I'd rather write it from scratch",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-managed__phone-390-light-en",
+      "flow": "onboarding-import",
+      "screen": "freeform-managed",
+      "label": "Import — import with Taurifer",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Paste a program from anywhere",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Paste a workout from your coach, notes, or spreadsheet. Taurifer converts it, then shows every exercise for you to review before activation."
+        },
+        {
+          "tag": "span",
+          "text": "Your program"
+        },
+        {
+          "tag": "textarea",
+          "name": "Your program",
+          "value": "Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
+        },
+        {
+          "tag": "p",
+          "text": "73 of 12,000 characters"
+        },
+        {
+          "tag": "p",
+          "role": "note",
+          "text": "When you tap Import with Taurifer, this text is sent to Anthropic to convert it. It isn't kept in your history, exports or analytics, and your workout history is never sent. You review every exercise before saving.",
+          "name": "When you tap Import with Taurifer, this text is sent to Anthropic to convert it. It isn't kept in your history, exports or analytics, and your workout history is never sent. You review every exercise before saving."
+        },
+        {
+          "tag": "div",
+          "label": "Verify the import request"
+        },
+        {
+          "tag": "span",
+          "text": "Success!"
+        },
+        {
+          "tag": "span",
+          "text": "✓"
+        },
+        {
+          "tag": "span",
+          "text": "Privacy · Terms"
+        },
+        {
+          "tag": "b",
+          "text": "CLOUDFLARE"
+        },
+        {
+          "tag": "button",
+          "text": "Import with Taurifer",
+          "name": "Import with Taurifer",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use ChatGPT or Claude instead",
+          "name": "Use ChatGPT or Claude instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Import a Taurifer file instead",
+          "name": "Import a Taurifer file instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "I'd rather write it from scratch",
+          "name": "I'd rather write it from scratch",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-managed__phone-390-light-en-reduced",
+      "flow": "onboarding-import",
+      "screen": "freeform-managed",
+      "label": "Import — import with Taurifer",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "reduced",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Paste a program from anywhere",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Paste a workout from your coach, notes, or spreadsheet. Taurifer converts it, then shows every exercise for you to review before activation."
+        },
+        {
+          "tag": "span",
+          "text": "Your program"
+        },
+        {
+          "tag": "textarea",
+          "name": "Your program",
+          "value": "Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
+        },
+        {
+          "tag": "p",
+          "text": "73 of 12,000 characters"
+        },
+        {
+          "tag": "p",
+          "role": "note",
+          "text": "When you tap Import with Taurifer, this text is sent to Anthropic to convert it. It isn't kept in your history, exports or analytics, and your workout history is never sent. You review every exercise before saving.",
+          "name": "When you tap Import with Taurifer, this text is sent to Anthropic to convert it. It isn't kept in your history, exports or analytics, and your workout history is never sent. You review every exercise before saving."
+        },
+        {
+          "tag": "div",
+          "label": "Verify the import request"
+        },
+        {
+          "tag": "span",
+          "text": "Success!"
+        },
+        {
+          "tag": "span",
+          "text": "✓"
+        },
+        {
+          "tag": "span",
+          "text": "Privacy · Terms"
+        },
+        {
+          "tag": "b",
+          "text": "CLOUDFLARE"
+        },
+        {
+          "tag": "button",
+          "text": "Import with Taurifer",
+          "name": "Import with Taurifer",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use ChatGPT or Claude instead",
+          "name": "Use ChatGPT or Claude instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Import a Taurifer file instead",
+          "name": "Import a Taurifer file instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "I'd rather write it from scratch",
+          "name": "I'd rather write it from scratch",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-managed__phone-390-light-en-text200",
+      "flow": "onboarding-import",
+      "screen": "freeform-managed",
+      "label": "Import — import with Taurifer",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "text200",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Paste a program from anywhere",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Paste a workout from your coach, notes, or spreadsheet. Taurifer converts it, then shows every exercise for you to review before activation."
+        },
+        {
+          "tag": "span",
+          "text": "Your program"
+        },
+        {
+          "tag": "textarea",
+          "name": "Your program",
+          "value": "Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
+        },
+        {
+          "tag": "p",
+          "text": "73 of 12,000 characters"
+        },
+        {
+          "tag": "p",
+          "role": "note",
+          "text": "When you tap Import with Taurifer, this text is sent to Anthropic to convert it. It isn't kept in your history, exports or analytics, and your workout history is never sent. You review every exercise before saving.",
+          "name": "When you tap Import with Taurifer, this text is sent to Anthropic to convert it. It isn't kept in your history, exports or analytics, and your workout history is never sent. You review every exercise before saving."
+        },
+        {
+          "tag": "div",
+          "label": "Verify the import request"
+        },
+        {
+          "tag": "span",
+          "text": "Success!"
+        },
+        {
+          "tag": "span",
+          "text": "✓"
+        },
+        {
+          "tag": "span",
+          "text": "Privacy · Terms"
+        },
+        {
+          "tag": "b",
+          "text": "CLOUDFLARE"
+        },
+        {
+          "tag": "button",
+          "text": "Import with Taurifer",
+          "name": "Import with Taurifer",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use ChatGPT or Claude instead",
+          "name": "Use ChatGPT or Claude instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Import a Taurifer file instead",
+          "name": "Import a Taurifer file instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "I'd rather write it from scratch",
+          "name": "I'd rather write it from scratch",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-managed__phone-390-light-pt",
+      "flow": "onboarding-import",
+      "screen": "freeform-managed",
+      "label": "Import — import with Taurifer",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "pt",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Criar um treino"
+        },
+        {
+          "tag": "button",
+          "text": "Voltar",
+          "name": "Voltar",
+          "label": "Voltar",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancelar",
+          "name": "Cancelar",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Colar um treino de qualquer lugar",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Cole a ficha enviada pelo seu treinador, por mensagem ou planilha. O Taurifer converte o treino e mostra cada exercício para você revisar antes de ativar."
+        },
+        {
+          "tag": "span",
+          "text": "Seu treino"
+        },
+        {
+          "tag": "textarea",
+          "name": "Seu treino",
+          "value": "Empurrar A Supino reto 4x6-8 Desenvolvimento militar 3x8-10 Puxar A Remada curvada 4x6-10"
+        },
+        {
+          "tag": "p",
+          "text": "90 de 12.000 caracteres"
+        },
+        {
+          "tag": "p",
+          "role": "note",
+          "text": "Ao tocar em Importar com Taurifer, este texto é enviado à Anthropic para ser convertido. Ele não fica no seu histórico, nas exportações nem nas análises, e seu histórico de treinos nunca é enviado. Você revisa cada exercício antes de salvar.",
+          "name": "Ao tocar em Importar com Taurifer, este texto é enviado à Anthropic para ser convertido. Ele não fica no seu histórico, nas exportações nem nas análises, e seu histórico de treinos nunca é enviado. Você revisa cada exercício antes de salvar."
+        },
+        {
+          "tag": "div",
+          "label": "Verificação para importar treino"
+        },
+        {
+          "tag": "span",
+          "text": "Sucesso!"
+        },
+        {
+          "tag": "span",
+          "text": "✓"
+        },
+        {
+          "tag": "span",
+          "text": "Privacidade · Termos"
+        },
+        {
+          "tag": "b",
+          "text": "CLOUDFLARE"
+        },
+        {
+          "tag": "button",
+          "text": "Importar com Taurifer",
+          "name": "Importar com Taurifer",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Usar ChatGPT ou Claude",
+          "name": "Usar ChatGPT ou Claude",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Importar um arquivo Taurifer",
+          "name": "Importar um arquivo Taurifer",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Prefiro escrever do zero",
+          "name": "Prefiro escrever do zero",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-managed__phone-390-light-pt-text200",
+      "flow": "onboarding-import",
+      "screen": "freeform-managed",
+      "label": "Import — import with Taurifer",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "pt",
+      "text": "text200",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Criar um treino"
+        },
+        {
+          "tag": "button",
+          "text": "Voltar",
+          "name": "Voltar",
+          "label": "Voltar",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancelar",
+          "name": "Cancelar",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Colar um treino de qualquer lugar",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Cole a ficha enviada pelo seu treinador, por mensagem ou planilha. O Taurifer converte o treino e mostra cada exercício para você revisar antes de ativar."
+        },
+        {
+          "tag": "span",
+          "text": "Seu treino"
+        },
+        {
+          "tag": "textarea",
+          "name": "Seu treino",
+          "value": "Empurrar A Supino reto 4x6-8 Desenvolvimento militar 3x8-10 Puxar A Remada curvada 4x6-10"
+        },
+        {
+          "tag": "p",
+          "text": "90 de 12.000 caracteres"
+        },
+        {
+          "tag": "p",
+          "role": "note",
+          "text": "Ao tocar em Importar com Taurifer, este texto é enviado à Anthropic para ser convertido. Ele não fica no seu histórico, nas exportações nem nas análises, e seu histórico de treinos nunca é enviado. Você revisa cada exercício antes de salvar.",
+          "name": "Ao tocar em Importar com Taurifer, este texto é enviado à Anthropic para ser convertido. Ele não fica no seu histórico, nas exportações nem nas análises, e seu histórico de treinos nunca é enviado. Você revisa cada exercício antes de salvar."
+        },
+        {
+          "tag": "div",
+          "label": "Verificação para importar treino"
+        },
+        {
+          "tag": "span",
+          "text": "Sucesso!"
+        },
+        {
+          "tag": "span",
+          "text": "✓"
+        },
+        {
+          "tag": "span",
+          "text": "Privacidade · Termos"
+        },
+        {
+          "tag": "b",
+          "text": "CLOUDFLARE"
+        },
+        {
+          "tag": "button",
+          "text": "Importar com Taurifer",
+          "name": "Importar com Taurifer",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Usar ChatGPT ou Claude",
+          "name": "Usar ChatGPT ou Claude",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Importar um arquivo Taurifer",
+          "name": "Importar um arquivo Taurifer",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Prefiro escrever do zero",
+          "name": "Prefiro escrever do zero",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-managed__phone-430-light-en",
+      "flow": "onboarding-import",
+      "screen": "freeform-managed",
+      "label": "Import — import with Taurifer",
+      "viewport": "phone-430",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Paste a program from anywhere",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Paste a workout from your coach, notes, or spreadsheet. Taurifer converts it, then shows every exercise for you to review before activation."
+        },
+        {
+          "tag": "span",
+          "text": "Your program"
+        },
+        {
+          "tag": "textarea",
+          "name": "Your program",
+          "value": "Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
+        },
+        {
+          "tag": "p",
+          "text": "73 of 12,000 characters"
+        },
+        {
+          "tag": "p",
+          "role": "note",
+          "text": "When you tap Import with Taurifer, this text is sent to Anthropic to convert it. It isn't kept in your history, exports or analytics, and your workout history is never sent. You review every exercise before saving.",
+          "name": "When you tap Import with Taurifer, this text is sent to Anthropic to convert it. It isn't kept in your history, exports or analytics, and your workout history is never sent. You review every exercise before saving."
+        },
+        {
+          "tag": "div",
+          "label": "Verify the import request"
+        },
+        {
+          "tag": "span",
+          "text": "Success!"
+        },
+        {
+          "tag": "span",
+          "text": "✓"
+        },
+        {
+          "tag": "span",
+          "text": "Privacy · Terms"
+        },
+        {
+          "tag": "b",
+          "text": "CLOUDFLARE"
+        },
+        {
+          "tag": "button",
+          "text": "Import with Taurifer",
+          "name": "Import with Taurifer",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use ChatGPT or Claude instead",
+          "name": "Use ChatGPT or Claude instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Import a Taurifer file instead",
+          "name": "Import a Taurifer file instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "I'd rather write it from scratch",
+          "name": "I'd rather write it from scratch",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-managed-limit__phone-390-dark-en",
+      "flow": "onboarding-import",
+      "screen": "freeform-managed-limit",
+      "label": "Import — import limit reached",
+      "viewport": "phone-390",
+      "theme": "dark",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Paste a program from anywhere",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Paste a workout from your coach, notes, or spreadsheet. Taurifer converts it, then shows every exercise for you to review before activation."
+        },
+        {
+          "tag": "span",
+          "text": "Your program"
+        },
+        {
+          "tag": "textarea",
+          "name": "Your program",
+          "value": "Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
+        },
+        {
+          "tag": "p",
+          "text": "73 of 12,000 characters"
+        },
+        {
+          "tag": "p",
+          "role": "note",
+          "text": "When you tap Import with Taurifer, this text is sent to Anthropic to convert it. It isn't kept in your history, exports or analytics, and your workout history is never sent. You review every exercise before saving.",
+          "name": "When you tap Import with Taurifer, this text is sent to Anthropic to convert it. It isn't kept in your history, exports or analytics, and your workout history is never sent. You review every exercise before saving."
+        },
+        {
+          "tag": "div",
+          "label": "Verify the import request"
+        },
+        {
+          "tag": "span",
+          "text": "Success!"
+        },
+        {
+          "tag": "span",
+          "text": "✓"
+        },
+        {
+          "tag": "span",
+          "text": "Privacy · Terms"
+        },
+        {
+          "tag": "b",
+          "text": "CLOUDFLARE"
+        },
+        {
+          "tag": "button",
+          "text": "Import with Taurifer",
+          "name": "Import with Taurifer",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "role": "alert",
+          "text": "The import limit was reached. Try again later, or use your own assistant.",
+          "name": "The import limit was reached. Try again later, or use your own assistant."
+        },
+        {
+          "tag": "button",
+          "text": "Use ChatGPT or Claude instead",
+          "name": "Use ChatGPT or Claude instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Import a Taurifer file instead",
+          "name": "Import a Taurifer file instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "I'd rather write it from scratch",
+          "name": "I'd rather write it from scratch",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-managed-limit__phone-390-light-en",
+      "flow": "onboarding-import",
+      "screen": "freeform-managed-limit",
+      "label": "Import — import limit reached",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Paste a program from anywhere",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Paste a workout from your coach, notes, or spreadsheet. Taurifer converts it, then shows every exercise for you to review before activation."
+        },
+        {
+          "tag": "span",
+          "text": "Your program"
+        },
+        {
+          "tag": "textarea",
+          "name": "Your program",
+          "value": "Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
+        },
+        {
+          "tag": "p",
+          "text": "73 of 12,000 characters"
+        },
+        {
+          "tag": "p",
+          "role": "note",
+          "text": "When you tap Import with Taurifer, this text is sent to Anthropic to convert it. It isn't kept in your history, exports or analytics, and your workout history is never sent. You review every exercise before saving.",
+          "name": "When you tap Import with Taurifer, this text is sent to Anthropic to convert it. It isn't kept in your history, exports or analytics, and your workout history is never sent. You review every exercise before saving."
+        },
+        {
+          "tag": "div",
+          "label": "Verify the import request"
+        },
+        {
+          "tag": "span",
+          "text": "Success!"
+        },
+        {
+          "tag": "span",
+          "text": "✓"
+        },
+        {
+          "tag": "span",
+          "text": "Privacy · Terms"
+        },
+        {
+          "tag": "b",
+          "text": "CLOUDFLARE"
+        },
+        {
+          "tag": "button",
+          "text": "Import with Taurifer",
+          "name": "Import with Taurifer",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "role": "alert",
+          "text": "The import limit was reached. Try again later, or use your own assistant.",
+          "name": "The import limit was reached. Try again later, or use your own assistant."
+        },
+        {
+          "tag": "button",
+          "text": "Use ChatGPT or Claude instead",
+          "name": "Use ChatGPT or Claude instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Import a Taurifer file instead",
+          "name": "Import a Taurifer file instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "I'd rather write it from scratch",
+          "name": "I'd rather write it from scratch",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-managed-limit__phone-390-light-pt",
+      "flow": "onboarding-import",
+      "screen": "freeform-managed-limit",
+      "label": "Import — import limit reached",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "pt",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Criar um treino"
+        },
+        {
+          "tag": "button",
+          "text": "Voltar",
+          "name": "Voltar",
+          "label": "Voltar",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancelar",
+          "name": "Cancelar",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Colar um treino de qualquer lugar",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Cole a ficha enviada pelo seu treinador, por mensagem ou planilha. O Taurifer converte o treino e mostra cada exercício para você revisar antes de ativar."
+        },
+        {
+          "tag": "span",
+          "text": "Seu treino"
+        },
+        {
+          "tag": "textarea",
+          "name": "Seu treino",
+          "value": "Empurrar A Supino reto 4x6-8 Desenvolvimento militar 3x8-10 Puxar A Remada curvada 4x6-10"
+        },
+        {
+          "tag": "p",
+          "text": "90 de 12.000 caracteres"
+        },
+        {
+          "tag": "p",
+          "role": "note",
+          "text": "Ao tocar em Importar com Taurifer, este texto é enviado à Anthropic para ser convertido. Ele não fica no seu histórico, nas exportações nem nas análises, e seu histórico de treinos nunca é enviado. Você revisa cada exercício antes de salvar.",
+          "name": "Ao tocar em Importar com Taurifer, este texto é enviado à Anthropic para ser convertido. Ele não fica no seu histórico, nas exportações nem nas análises, e seu histórico de treinos nunca é enviado. Você revisa cada exercício antes de salvar."
+        },
+        {
+          "tag": "div",
+          "label": "Verificação para importar treino"
+        },
+        {
+          "tag": "span",
+          "text": "Sucesso!"
+        },
+        {
+          "tag": "span",
+          "text": "✓"
+        },
+        {
+          "tag": "span",
+          "text": "Privacidade · Termos"
+        },
+        {
+          "tag": "b",
+          "text": "CLOUDFLARE"
+        },
+        {
+          "tag": "button",
+          "text": "Importar com Taurifer",
+          "name": "Importar com Taurifer",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "role": "alert",
+          "text": "O limite de importações foi atingido. Tente mais tarde ou use seu assistente.",
+          "name": "O limite de importações foi atingido. Tente mais tarde ou use seu assistente."
+        },
+        {
+          "tag": "button",
+          "text": "Usar ChatGPT ou Claude",
+          "name": "Usar ChatGPT ou Claude",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Importar um arquivo Taurifer",
+          "name": "Importar um arquivo Taurifer",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Prefiro escrever do zero",
+          "name": "Prefiro escrever do zero",
+          "type": "button"
+        }
+      ]
+    },
+    {
       "key": "onboarding-import/freeform-stage2__phone-320-light-en",
       "flow": "onboarding-import",
       "screen": "freeform-stage2",

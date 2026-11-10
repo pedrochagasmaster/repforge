@@ -3080,5 +3080,17 @@
   "entry.effort_choice.numbers": "Reps left",
   "entry.effort_choice.numbers_hint": "0 to 5+",
   "landing.anim.ch5.title": "Test your guess",
-  "landing.anim.ch5.text": "Guess how many reps you can do on your last set, then compare with what you did. Taurifer learns how you judge effort on this exercise."
+  "landing.anim.ch5.text": "Guess how many reps you can do on your last set, then compare with what you did. Taurifer learns how you judge effort on this exercise.",
+  "entry.freeform.managed_lede": "Paste a workout from your coach, notes, or spreadsheet. Taurifer converts it, then shows every exercise for you to review before activation.",
+  "entry.freeform.managed_privacy": "When you tap Import with Taurifer, this text is sent to Anthropic to convert it. It isn't kept in your history, exports or analytics, and your workout history is never sent. You review every exercise before saving.",
+  "entry.freeform.managed_verify": "Verify the import request",
+  "entry.freeform.managed_submit": "Import with Taurifer",
+  "entry.freeform.managed_working": "Reading your program…",
+  "entry.freeform.managed_external": "Use ChatGPT or Claude instead",
+  "entry.freeform.managed_failed": "Could not import this program right now. Try again or use your assistant.",
+  "entry.freeform.managed_rate_limited": "The import limit was reached. Try again later, or use your own assistant.",
+  "entry.freeform.managed_challenge_failed": "Verification did not finish. Please retry the check above.",
+  "entry.freeform.managed_provider_failed": "The import service could not read your program. No changes were saved.",
+  "entry.freeform.managed_invalid": "Please paste a training program that includes its exercises.",
+  "entry.freeform.managed_unavailable": "Direct import is unavailable right now. Use your own assistant instead."
 }

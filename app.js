@@ -18263,6 +18263,198 @@ let entryFreeformReplyInvalidated=false,entryFreeformFailReason=null;
 let entryFreeformEpoch=0,entryFreeformClipboardSeq=0;
 let entryFreeformClipboardBusy=false,entryFreeformClipboardNote=null;
 const entryFreeformCopiedApps=new Set();
+/* Managed import is an optional transport, not an alternate parser or program model.
+ * A server-side Worker owns the API key, Turnstile and request limits. This
+ * client only sends source after explicit tap, then uses startFreeformReview. */
+const MANAGED_IMPORT_CONFIG_URL="/api/program-import/config";
+let managedImportState="idle",managedImportConfig=null,managedImportToken=null;
+let managedImportWidgetId=null,managedImportWidgetHost=null,managedImportScript=null;
+let managedImportBusy=false,managedImportError=null,managedImportController=null;
+const MANAGED_IMPORT_ERROR_KEYS={
+  limit_reached:"entry.freeform.managed_rate_limited",
+  challenge_failed:"entry.freeform.managed_challenge_failed",
+  provider_unavailable:"entry.freeform.managed_provider_failed",
+  invalid_program:"entry.freeform.managed_invalid",
+  unavailable:"entry.freeform.managed_unavailable",
+  quota_unavailable:"entry.freeform.managed_unavailable",
+  origin_not_allowed:"entry.freeform.managed_unavailable"
+};
+function clearManagedImportWidget(){
+  managedImportToken=null;
+  if(managedImportWidgetId!==null&&window.turnstile?.remove)
+    try{window.turnstile.remove(managedImportWidgetId)}catch{}
+  managedImportWidgetId=null;
+  managedImportWidgetHost=null;
+}
+function abortManagedImport(){
+  if(managedImportController){
+    try{managedImportController.abort()}catch{}
+    managedImportController=null;
+  }
+  managedImportBusy=false;
+  managedImportError=null;
+  clearManagedImportWidget();
+}
+function updateManagedImportUI(){
+  const panel=$("#entryManagedPanel");
+  if(!panel)return;
+  const ready=managedImportState==="ready";
+  panel.hidden=!ready;
+  // One honest note: the tab-only note no longer holds once text can be sent.
+  const tabOnly=$("#entryFreeformPrivacy");
+  if(tabOnly)tabOnly.hidden=ready;
+  const lede=$("#entryManagedLede");
+  if(lede&&entryFreeformStage===1)
+    lede.textContent=t(ready?"entry.freeform.managed_lede":"entry.freeform.lede");
+  const legacy=$("#entryFreeformContinue");
+  if(legacy){
+    legacy.textContent=t(ready?"entry.freeform.managed_external":"entry.freeform.continue");
+    legacy.classList.toggle("btn--cta",!ready);
+    legacy.classList.toggle("btn--ghost",ready);
+  }
+  const button=$("#entryManagedConvert");
+  if(button){
+    button.disabled=!ready||!freeformProgram()||!managedImportToken||managedImportBusy;
+    button.setAttribute("aria-busy",managedImportBusy?"true":"false");
+    button.textContent=t(managedImportBusy?"entry.freeform.managed_working":"entry.freeform.managed_submit");
+  }
+  const status=$("#entryManagedStatus");
+  if(status){
+    const message=managedImportBusy?"entry.freeform.managed_working":managedImportError?
+      (MANAGED_IMPORT_ERROR_KEYS[managedImportError]||"entry.freeform.managed_failed"):"";
+    status.textContent=message?t(message):"";
+    status.hidden=!message;
+    status.setAttribute("role",managedImportError?"alert":"status");
+  }
+}
+function loadManagedImportConfig(){
+  if(managedImportState!=="idle")return;
+  managedImportState="loading";
+  fetch(MANAGED_IMPORT_CONFIG_URL,{cache:"no-store",headers:{Accept:"application/json"},
+    signal:AbortSignal.timeout(6000)})
+    .then(async res=>{
+      if(!res.ok)throw Error("unavailable");
+      const info=await res.json();
+      if(info?.enabled!==true||typeof info.sitekey!=="string"||
+          info.sitekey.length<12)throw Error("unavailable");
+      managedImportConfig={sitekey:info.sitekey};
+      managedImportState="ready";
+    })
+    .catch(()=>{managedImportState="unavailable"})
+    .finally(()=>{
+      updateManagedImportUI();
+      if(managedImportState==="ready")mountManagedImportWidget();
+    });
+}
+function ensureManagedTurnstile(){
+  if(typeof window.turnstile?.render==="function")return Promise.resolve();
+  if(managedImportScript)return managedImportScript;
+  managedImportScript=new Promise((resolve,reject)=>{
+    const script=document.createElement("script");
+    script.async=true;
+    script.src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+    script.onload=()=>typeof window.turnstile?.render==="function"?resolve():reject(Error("turnstile"));
+    script.onerror=()=>reject(Error("turnstile"));
+    document.head.appendChild(script);
+  }).catch(err=>{managedImportScript=null;throw err});
+  return managedImportScript;
+}
+async function mountManagedImportWidget(){
+  const host=$("#entryManagedWidget");
+  if(!host||managedImportState!=="ready"||entryFreeformStage!==1)return;
+  if(managedImportWidgetHost===host&&managedImportWidgetId!==null)return;
+  clearManagedImportWidget();
+  managedImportWidgetHost=host;
+  try{
+    await ensureManagedTurnstile();
+    if(managedImportWidgetHost!==host||!host.isConnected||
+       entryFreeformStage!==1)return;
+    managedImportWidgetId=window.turnstile.render(host,{
+      sitekey:managedImportConfig.sitekey,action:"program_import",
+      theme:document.documentElement.dataset.theme==="dark"?"dark":"light",
+      size:"flexible",
+      callback:token=>{
+        if(managedImportWidgetHost!==host)return;
+        managedImportToken=token;
+        // A fresh token answers a failed challenge, not a failed import: the
+        // reset after a failed request must not hide that request's error.
+        if(managedImportError==="challenge_failed")managedImportError=null;
+        updateManagedImportUI();
+      },
+      "expired-callback":()=>{
+        managedImportToken=null;
+        updateManagedImportUI();
+      },
+      "error-callback":()=>{
+        managedImportToken=null;
+        managedImportError="challenge_failed";
+        updateManagedImportUI();
+      }
+    });
+  }catch{
+    if(host.isConnected){
+      managedImportError="challenge_failed";
+      updateManagedImportUI();
+    }
+  }
+}
+function managedImportCurrent(epoch,source){
+  return epoch===entryFreeformEpoch&&
+    source===entryFreeformInput&&entryFreeformStage===1&&
+    importSourceMode()==="freeform"&&!importDraft;
+}
+async function submitManagedImport(){
+  if(managedImportBusy||managedImportState!=="ready"||
+     !managedImportToken||!freeformProgram())return;
+  const source=entryFreeformInput,epoch=entryFreeformEpoch;
+  const token=managedImportToken;
+  managedImportBusy=true;
+  managedImportError=null;
+  managedImportToken=null;
+  const controller=new AbortController();
+  managedImportController=controller;
+  const timeout=setTimeout(()=>controller.abort(),45000);
+  updateManagedImportUI();
+  try{
+    const res=await fetch("/api/program-import",{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      cache:"no-store",credentials:"same-origin",signal:controller.signal,
+      body:JSON.stringify({source:source.trim(),locale:isPt()?"pt":"en",token})
+    });
+    const result=await res.json();
+    if(!res.ok)throw Error(typeof result?.code==="string"?result.code:"provider_unavailable");
+    if(typeof result?.reply!=="string"||!result.reply.trim())
+      throw Error("provider_unavailable");
+    if(!managedImportCurrent(epoch,source))return;
+    // An unreadable reply stays on the source with the manual path, instead of
+    // opening the paste-reply stage on text the lifter never saw.
+    const parsed=parseFreeformProgramReply(result.reply);
+    if(!parsed||parsed.status==="unreadable"||(parsed.status!=="gaps"&&!parsed.exercises?.length)){
+      captureEvent("program_import_parsed",{source:"freeform",outcome:"unreadable",gap_count:0});
+      throw Error("provider_unavailable");
+    }
+    entryFreeformReply=result.reply;
+    entryFreeformStatus=null;
+    entryFreeformFailReason=null;
+    entryFreeformStage=3;
+    entryFreeformLastProvider="taurifer";
+    saveFreeformSession();
+    startFreeformReview();
+  }catch(error){
+    if(managedImportCurrent(epoch,source)){
+      managedImportError=controller.signal.aborted?"provider_unavailable":error.message;
+    }
+  }finally{
+    clearTimeout(timeout);
+    if(managedImportController===controller)managedImportController=null;
+    managedImportBusy=false;
+    managedImportToken=null;
+    if(managedImportWidgetId!==null&&window.turnstile?.reset)
+      try{window.turnstile.reset(managedImportWidgetId)}catch{}
+    updateManagedImportUI();
+  }
+}
+
 
 function loadFreeformSession(){
   try{
@@ -18319,6 +18511,7 @@ function clearStagedImportSource(){
 }
 
 function resetFreeformImport(){
+  abortManagedImport();
   entryFreeformEpoch++;
   entryFreeformClipboardNote=null;
   entryFreeformInput="";
@@ -21625,8 +21818,14 @@ function renderFreeformSourceStep(){
       `<textarea id="entryFreeformIn" rows="7" maxlength="${FREEFORM_MAX_CHARS}" spellcheck="false" autocapitalize="off" placeholder="${esc(t("entry.freeform.input_placeholder"))}">${esc(entryFreeformInput)}</textarea></label>`+
       `<p class="entry__hint" id="entryFreeformCount">${esc(freeformCountLabel())}</p>`+
       `<p class="entry__hint" id="entryFreeformNeeds"${program?" hidden":""}>${esc(t("entry.freeform.needs_input"))}</p>`+
-      `<p class="entry__explain" role="note">${esc(t("entry.freeform.privacy"))}</p>`+
-      `<button type="button" class="btn btn--cta" id="entryFreeformContinue"${program?"":" disabled"}>${esc(t("entry.freeform.continue"))}</button>`;
+      `<p class="entry__explain" id="entryFreeformPrivacy" role="note"${managedImportState==="ready"?" hidden":""}>${esc(t("entry.freeform.privacy"))}</p>`+
+      `<div class="entry__managed" id="entryManagedPanel" hidden>`+
+        `<p class="entry__explain entry__managed-disclosure" role="note">${esc(t("entry.freeform.managed_privacy"))}</p>`+
+        `<div class="entry__managed-widget" id="entryManagedWidget" aria-label="${esc(t("entry.freeform.managed_verify"))}"></div>`+
+        `<button type="button" class="btn btn--cta" id="entryManagedConvert" disabled>${esc(t("entry.freeform.managed_submit"))}</button>`+
+        `<p class="entry__notice entry__notice--warn" id="entryManagedStatus" role="status" hidden></p>`+
+      `</div>`+
+      `<button type="button" class="btn btn--cta entry__managed-fallback" id="entryFreeformContinue"${program?"":" disabled"}>${esc(t("entry.freeform.continue"))}</button>`;
   }else if(entryFreeformStage===2){
     bodyHtml=
       entryGroupLab(t("entry.freeform.stage2_title"),"wand")+
@@ -21665,7 +21864,7 @@ function renderFreeformSourceStep(){
       `<button type="button" class="btn btn--ghost btn--destructive" id="entryFreeformStartOver">${esc(t("entry.freeform.start_over"))}</button></div>`;
   }
 
-  return entryHeading(t("entry.freeform.title"))+`<p class="onb__explain">${esc(t("entry.freeform.lede"))}</p>`+
+  return entryHeading(t("entry.freeform.title"))+`<p class="onb__explain" id="entryManagedLede">${esc(t(entryFreeformStage===1&&managedImportState==="ready"?"entry.freeform.managed_lede":"entry.freeform.lede"))}</p>`+
     (hasActiveProgram()?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+
     summaryHtml+
     `<div class="entry__freeform ph-no-capture">${bodyHtml}</div>`+
@@ -21685,6 +21884,7 @@ function refreshFreeformControls(){
     wireFreeformAppControls();
   }
   const copy=$("#entryFreeformCopy");if(copy)copy.disabled=!program;
+  updateManagedImportUI();
   saveFreeformSession();}
 
 window.addEventListener("visibilitychange",()=>{
@@ -22362,9 +22562,17 @@ function wireEntryDom(){
     entryFreeformInput=freeformIn.value.slice(0,FREEFORM_MAX_CHARS);
     entryFreeformCopiedApps.clear();
     refreshFreeformControls()};
+  const managedConvert=$("#entryManagedConvert");
+  if(managedConvert)managedConvert.onclick=submitManagedImport;
+  if($("#entryManagedPanel")){
+    if(managedImportState==="idle")loadManagedImportConfig();
+    updateManagedImportUI();
+    if(managedImportState==="ready")mountManagedImportWidget();
+  }
   const freeformContinue=$("#entryFreeformContinue");
   if(freeformContinue)freeformContinue.onclick=()=>{
     if(!freeformProgram())return;
+    abortManagedImport();
     entryFreeformStage=2;
     saveFreeformSession();
     renderOnboarding();

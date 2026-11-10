@@ -2165,10 +2165,14 @@ export const APP_SCENARIOS = {
     await focusMode(page);
     const term = page.locator('#workout .exercise.is-current [data-term="Effort"]');
     await term.waitFor({ state: "visible", timeout: 20000 });
+    // The popover's top is read from the term's position at the click and then held. A click while
+    // Focus is still moving into place pinned it a few pixels off (#707 CI), so click once it rests.
+    const motionSettled = () => document.getAnimations().every((animation) => animation.playState !== "running");
+    await page.waitForFunction(motionSettled, undefined, { timeout: 10000 });
     await term.click();
     await page.waitForSelector("#glossary:not(.hidden)", { timeout: 10000 });
     await assertGlossaryViewport(page, "Focus");
-    await sleep(page, 400);
+    await page.waitForFunction(motionSettled, undefined, { timeout: 10000 });
   },
   "workout/session": async page => { await focusMode(page); await page.click("#sessionSheetBtn"); await resetSheetScroll(page, ".session-sheet__body"); },
   // #522: the confirmation opens at the end of the scroll, so the frame shows the scroll pinned to its end.

@@ -57,9 +57,15 @@ required.delete(null);
 // posthog-config.js is precached as optional but must ship whenever index.html loads it.
 if (/<script src="posthog-config\.js\?/.test(html)) { optional.delete("posthog-config.js"); required.add("posthog-config.js"); }
 
+// The managed-import Worker (services/program-import) answers this URL on the apex
+// once deployed. Until then, and on every preview, Pages serves this disabled default,
+// so the app's availability probe is a quiet 200 instead of a 404 or the app shell.
+const serviceDefaults = new Set(["api/program-import/config"]);
+for (const file of serviceDefaults) required.add(file);
+
 const present = (relative) => existsSync(join(ROOT, relative)) && statSync(join(ROOT, relative)).isFile();
 function copyFile(relative) {
-  if (!allowedExtension.test(relative)) throw new Error("Unexpected public asset: " + relative);
+  if (!allowedExtension.test(relative) && !serviceDefaults.has(relative)) throw new Error("Unexpected public asset: " + relative);
   mkdirSync(dirname(join(OUT, relative)), { recursive: true });
   copyFileSync(join(ROOT, relative), join(OUT, relative));
 }

@@ -1,0 +1,28 @@
+{
+  "benchmark": "taurifer-program-import",
+  "version": "1.0.0",
+  "stress": {
+    "stressCount": 40,
+    "positiveCount": 24,
+    "rejectCount": 16,
+    "adjudicationCount": 8,
+    "stressSha256": "21e6b766963dcd62c57cc83e82f8a11871f3546d324f722261d489a7fbb36ca4",
+    "adjudicationSha256": "f5c3edf3a7211ab30d3a1073ba88d9820a0d4ebae8905a9f8fabc0ebf65d5665"
+  },
+  "generatedAtPolicy": "reproducible (no volatile timestamps)",
+  "generation": "20 researched format references x 10 original synthetic cases per reference",
+  "referenceCount": 20,
+  "syntheticCaseCount": 200,
+  "localeCounts": {
+    "en": 100,
+    "pt": 100
+  },
+  "splitCounts": {
+    "development": 120,
+    "validation": 40,
+    "holdout": 40
+  },
+  "sha256": "f97f25167cc99c942bf106a2b79de95c34daeac4e266163b54faf20fd92138be",
+  "goldPolicy": "Generated directly from synthetic structured prescription, never LLM-scored",
+  "licensePolicy": "Public URL and broad format descriptors only; no reference post text stored"
+}
