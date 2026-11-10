@@ -7740,8 +7740,7 @@
       "rationale": "Reopens a settled import row's mapping choices without changing its current decision; the active row then replaces this button.",
       "owner": "plan-058",
       "catalogStates": [
-        "onboarding-import/review",
-        "onboarding-import/review-suggestions"
+        "onboarding-import/review"
       ]
     },
     {
