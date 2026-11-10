@@ -8603,7 +8603,7 @@ function rxSetsLine(sets,withUnit){
   const rows=sets.filter(x=>+x.reps>0);if(!rows.length)return"";
   const same=rows.every(x=>sameLoad(+x.load,+rows[0].load));
   return same?`${fmtLoad(rows[0].load)}${withUnit?` ${unitLabel()}`:""} × ${rows.map(x=>x.reps).join(", ")}`
-    :rows.map(x=>`${fmtLoad(x.load)} × ${x.reps}`).join(", ")}
+    :rows.map(x=>`${fmtLoad(x.load)}\u00a0×\u00a0${x.reps}`).join(", ")}
 // @ci-domain today
 function rxTargetText(ex,rec){
   if(ex?.hasRepTarget===false)return programPrescriptionSummary(ex);

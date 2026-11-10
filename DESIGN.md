@@ -64,8 +64,8 @@ colors-dark:
   scrim: "rgba(0,0,0,.62)"               # token: --scrim
   quiet-selected: "#F2EFE9"              # token: --boundary-selected-quiet
   rule-on-surface: "#4A453D"             # token: --rule-on-surface
-  shelf-field: "#191713"                 # token: --shelf-field-bg
-  shelf-pad: "#141310"                   # token: --shelf-pad-bg
+  shelf-field: "#2A2722"                 # token: --shelf-field-bg
+  shelf-pad: "#2A2722"                   # token: --shelf-pad-bg
   dock-glass: "rgba(30,28,24,.66)"       # token: --dock-glass
   dock-lens: "rgba(255,255,255,.07)"     # token: --dock-pill
   band-night: "#141310"                  # token: --band-night-bg
