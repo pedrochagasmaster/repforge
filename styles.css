@@ -402,9 +402,8 @@
 :root[data-theme="dark"]{
   --rest-light-core:#FFB48A;--rest-light-bloom:var(--accent);--rest-light-gain:1;
   --switch-off-track:rgba(255,255,255,.10);
-  --segment-thumb-bg:#55534F;
-  /* A hairline lifts the dark thumb off its track, so the selected segment reads as raised, not as a grey slab. */
-  --segment-thumb-shadow:0 0 0 1px rgba(255,255,255,.14),0 2px 6px rgba(0,0,0,.4);
+  --segment-thumb-bg:#45423D;
+  --segment-thumb-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 1px 3px rgba(0,0,0,.35);
   --menu-destructive-ink:var(--color-destructive);
   --menu-bg:rgba(36,33,29,.86);
   --row-pressed-bg:rgba(255,255,255,.07);
@@ -1397,13 +1396,13 @@ article.exercise--focus input,article.exercise--focus textarea{-webkit-user-sele
 article.exercise--focus .fcard__context{min-height:var(--focus-context-floor)}
 /* The task reads top-down from the prescription; the set rows take a roomier height so the list, not empty paper,
    fills the screen above the shelf. */
-.fcard__ledger .ledgerline:not(.ledgerline__head){min-height:68px}
+.fcard__ledger .ledgerline:not(.ledgerline__head){min-height:68px;align-content:center}
 .fcard__ledger + .fx-next{margin-top:var(--space-26)}
 /* Next is a quiet navigation row resting on the shelf: the context is a column, the free space sits between the set
    list and Next, and Next reads as the shelf's lead-in rather than a card of its own. */
 article.exercise--focus .fcard__context{display:flex;flex-direction:column}
 article.exercise--focus .fcard__context > *{flex-shrink:0}
-article.exercise--focus .fcard__context > .fx-next{margin-top:auto;min-height:52px;padding:0 var(--space-4);border-radius:var(--radius-none);border-top:1px solid var(--boundary-decorative);background:transparent;color:var(--color-ink-secondary)}
+article.exercise--focus .fcard__context > .fx-next{margin-top:auto;min-height:52px;padding:0 var(--space-4);border-radius:var(--radius-none);border-top:1px solid var(--boundary-decorative);background:transparent;color:var(--color-ink)}
 /* The previous set reads as the row's caption, from the row's leading edge, not as a figure spread over two columns. */
 .fcard__ledger .ledgerline__prev{grid-column:1 / -1;text-align:left;font-size:var(--font-size-caption)}
 .fcard__context:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
@@ -1467,7 +1466,7 @@ article.exercise--focus .fcard__context > .fx-next{margin-top:auto;min-height:52
   font-size:var(--font-size-focus-meta);line-height:var(--line-reading);cursor:pointer;
 }
 .fx-note-add .icon-mask{width:18px;height:18px}
-.fx-note-add:has(.fx-note-add__label){display:inline-flex;gap:var(--space-4);width:auto;padding:0 var(--space-12);border-radius:var(--radius-pill);background:var(--control-track);color:var(--ink)}
+.fx-note-add:has(.fx-note-add__label){display:inline-flex;gap:var(--space-4);width:auto;padding:0 var(--space-8);border-radius:var(--radius-pill);background:none;color:var(--color-ink-secondary)}
 .fx-note-add__label{font-family:var(--font-language);font-size:var(--font-size-body-small);font-weight:var(--weight-medium)}
 .fx-note{
   display:flex;align-items:center;gap:var(--space-8);width:100%;min-width:0;margin:var(--space-4) 0 0;padding:0;
@@ -1520,7 +1519,7 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
 /* The open row is a tint with a 3px ink bar on its leading edge (owner, 2026-11-10), so the focused shelf field keeps
    the only ring on screen. */
 .fcard__ledger .ledgerline--open{
-  align-content:center;padding-block:6px;padding-inline:12px;border:0;border-radius:var(--radius-none);
+  align-content:center;padding-block:6px;padding-inline:12px;border:0;border-bottom:1px solid var(--boundary-decorative);border-radius:var(--radius-none);
   background:rgba(var(--accent-rgb),.05);box-shadow:inset 3px 0 0 var(--accent);
 }
 .fx-next{
@@ -3710,8 +3709,8 @@ body.is-library nav,body.is-preview nav,body.is-import nav{display:none}
    into the page instead of showing through as ghosted text. Below the sticky action (z-index 5), above the page. */
 body::after{
   content:"";position:fixed;left:0;right:0;bottom:0;z-index:4;pointer-events:none;
-  height:calc(var(--nav) + env(safe-area-inset-bottom) + var(--space-12) + 3 * var(--space-32));
-  background:linear-gradient(to bottom,rgba(var(--bg-rgb),0),var(--bg) calc(var(--space-32) + var(--space-16)));
+  height:calc(var(--nav) + env(safe-area-inset-bottom) + var(--space-12) + 2 * var(--space-32) + var(--space-12));
+  background:var(--bg);border-top:1px solid var(--boundary-decorative);
 }
 body.is-settings::after,body.is-exercise::after,body.is-onboarding::after,body.is-library::after,body.is-preview::after,
 body.is-import::after,body.is-focus-wo::after,body:has(#history.view.active.is-session-edit)::after,
@@ -4572,7 +4571,7 @@ body.is-focus-wo .toast:not(.toast--top){bottom:calc(var(--toast-clear,0px) + va
    action filled in the accent (owner hill-climb, 2026-11-10). */
 .settings-identity:has(#storageBackupNow:not([hidden])){margin-bottom:var(--space-14);padding:var(--space-12);border-radius:var(--radius-surface);background:rgba(var(--ink-rgb),.04)}
 .settings-identity:has(#storageBackupNow:not([hidden])) #storageNote{margin-top:var(--space-8)!important;font-size:var(--font-size-body-small)}
-.settings-identity:has(#storageBackupNow:not([hidden])){display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:var(--space-12);align-items:start}
+.settings-identity:has(#storageBackupNow:not([hidden])){display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:var(--space-12);row-gap:2px;align-items:start;background:var(--surface);box-shadow:inset 0 0 0 1px var(--boundary-decorative)}
 .settings-identity:has(#storageBackupNow:not([hidden])) > div:last-child{display:contents}
 .settings-identity:has(#storageBackupNow:not([hidden])) .settings-identity__mark{grid-row:1 / span 2;align-self:center}
 .settings-identity:has(#storageBackupNow:not([hidden])) .settings-identity__cap{margin-top:0}
@@ -5536,6 +5535,7 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
 .exchart__plot{position:relative;margin-top:var(--space-8);touch-action:pan-y pinch-zoom;cursor:pointer;-webkit-user-select:none;user-select:none}
 .exchart__svg,.exchart__ghost{display:block;width:100%;height:auto}
 .exchart__svg .ch-grid,.exchart__ghost .ch-grid{stroke:var(--boundary-decorative);stroke-width:1;stroke-opacity:.6}
+:root[data-theme="dark"] :is(.exchart__svg,.exchart__ghost) .ch-grid{stroke:var(--rule-strong);stroke-opacity:1}
 .exchart__svg .ch-ax,.exchart__ghost .ch-ax{fill:var(--color-ink-secondary);font-family:var(--font-language);font-variant-numeric:tabular-nums;font-size:var(--font-size-chart-axis);font-weight:var(--weight-regular)}
 .exchart__svg .ch-ax--l,.exchart__ghost .ch-ax--l{font-family:var(--font-language)}
 .exchart__svg .ch-block,.exchart__ghost .ch-block{stroke:var(--boundary-required);stroke-width:1;stroke-dasharray:3 3}
@@ -5554,7 +5554,7 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
 .exchart__scrub{background:repeating-linear-gradient(to bottom,var(--boundary-required) 0 2px,transparent 2px 5px)}
 .exchart__plot.is-marker-travel .ex-pt--sel,.exchart__plot.is-marker-travel .ex-cursor{visibility:hidden}
 .exchart__readout{
-  min-height:22px;margin:var(--space-4) 0 0;font-family:var(--font-language);font-size:var(--font-size-caption);
+  min-height:22px;margin:var(--space-12) 0 0;font-family:var(--font-language);font-size:var(--font-size-caption);
   line-height:var(--line-standard);color:var(--color-ink-secondary);
 }
 .exchart__mono{font-family:var(--font-language);font-weight:var(--weight-semibold);font-variant-numeric:tabular-nums}
@@ -5563,7 +5563,7 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
   display:grid;grid-template-columns:4.5rem minmax(0,1fr) 4rem 3.25rem;gap:var(--space-8);align-items:center;
 }
 .exchart__cols{
-  margin-top:var(--space-12);padding:var(--space-8) var(--space-8) var(--space-8) calc(3px + var(--space-8));border-bottom:1px solid var(--boundary-decorative);
+  margin-top:var(--space-12);padding:var(--space-8) 0;border-bottom:1px solid var(--boundary-decorative);
   font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);
   letter-spacing:var(--track-label);text-transform:uppercase;color:var(--color-ink-secondary);
 }
@@ -5577,7 +5577,7 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
   .exchart__cols span,.exrow span{overflow-wrap:anywhere}
 }
 .exrow{
-  width:100%;min-height:48px;padding:0 var(--space-8);border:0;border-left:3px solid transparent;
+  width:100%;min-height:48px;padding:0;border:0;border-left:0 solid transparent;
   border-bottom:1px solid var(--boundary-decorative);border-radius:var(--radius-none);
   background:var(--control-quiet-bg);color:var(--color-ink);text-align:left;cursor:pointer;
   font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);
@@ -5587,7 +5587,7 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
 }
 .exrow.is-pressed{background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
 .exrow:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
-.exrow.is-sel{border-left-color:var(--accent);background:rgba(var(--accent-rgb),.05)}
+.exrow.is-sel{background:rgba(var(--accent-rgb),.05);box-shadow:inset 3px 0 0 var(--accent);padding-left:var(--space-12)}
 .exrow.is-old span:first-child{color:var(--color-ink-secondary)}
 
 /* @ci-domain history */
