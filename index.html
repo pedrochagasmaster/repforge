@@ -33,7 +33,7 @@
   <link rel="apple-touch-startup-image" href="icons/splash-1640x2360.png" media="screen and (device-width: 820px) and (device-height: 1180px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
   <link rel="apple-touch-startup-image" href="icons/splash-1668x2224.png" media="screen and (device-width: 834px) and (device-height: 1112px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
   <link rel="apple-touch-startup-image" href="icons/splash-1536x2048.png" media="screen and (device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
-  <link rel="stylesheet" href="styles.css?v=699">
+  <link rel="stylesheet" href="styles.css?v=722">
   <link rel="stylesheet" href="motion-polish.css?v=643">
   <!-- Runs before the first paint, and only reads.
        Theme: app.js owns the Appearance setting, but it is the last script on the
@@ -414,6 +414,7 @@
           <p class="impreview__file" id="importFile"></p>
           <div id="importNotImported"></div>
           <div class="impcounts" id="importCounts" role="status" aria-live="polite"></div>
+          <button type="button" class="btn btn--steel btn--noarrow impreview__useall" id="importUseAll" hidden></button>
           <div id="importRows"></div>
           <div id="importOriginalText"></div>
           <p class="impreview__safe" id="importSafe" data-i18n="import.safe">Your history will not be changed.</p>
@@ -1512,7 +1513,7 @@ Triceps pushdown 3x12-15</pre>
   <script src="posthog-init.js"></script>
   <script src="schedule.js"></script>
   <script src="notify.js"></script>
-  <script src="i18n.js?v=699"></script>
+  <script src="i18n.js?v=722"></script>
   <script src="exercises.js?v=067"></script>
   <script src="generation-identity.js?v=459"></script>
   <script src="exercise-catalog.js?v=459"></script>
@@ -1550,6 +1551,6 @@ Triceps pushdown 3x12-15</pre>
   <script src="progress-model.js?v=309"></script>
   <script src="history-ui.js?v=694"></script>
   <script src="share-cards.js?v=639"></script>
-  <script src="app.js?v=699"></script>
+  <script src="app.js?v=722"></script>
 </body>
 </html>

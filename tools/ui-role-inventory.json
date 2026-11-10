@@ -223,10 +223,20 @@
       "content": "flat",
       "scenario": "Managed import after the daily limit: the alert under Import, the pasted source kept, and the ChatGPT or Claude hand-off still available."
     },
+    "onboarding-import/freeform-managed-gaps": {
+      "owner": "import-quality-2026-11",
+      "content": "flat",
+      "scenario": "Managed import that left values open: the gaps screen says Taurifer converted the program, and the missing sets and reps sit under one heading per training day."
+    },
     "onboarding-import/review": {
       "owner": "plan-054",
       "content": "flat",
       "scenario": "Reviewing candidate matches: a settled row with Change, candidate chips, an expanded disclosure, and unmatched escape hatches."
+    },
+    "onboarding-import/review-suggestions": {
+      "owner": "import-quality-2026-11",
+      "content": "flat",
+      "scenario": "Review after a managed import: Converted by Taurifer, three Likely rows with their suggestions, one name with no match, and Use all suggestions above the rows."
     },
     "onboarding-import/preview": {
       "owner": "plan-054",
@@ -1717,7 +1727,8 @@
       "owner": "plan-058",
       "catalogStates": [
         "onboarding-import/freeform-gaps",
-        "onboarding-import/freeform-gaps-invalid"
+        "onboarding-import/freeform-gaps-invalid",
+        "onboarding-import/freeform-managed-gaps"
       ]
     },
     {
@@ -2053,7 +2064,8 @@
       "owner": "plan-058",
       "catalogStates": [
         "onboarding-import/freeform-gaps",
-        "onboarding-import/freeform-gaps-invalid"
+        "onboarding-import/freeform-gaps-invalid",
+        "onboarding-import/freeform-managed-gaps"
       ]
     },
     {
@@ -3620,7 +3632,8 @@
       "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
       "owner": "plan-058",
       "catalogStates": [
-        "onboarding-import/review"
+        "onboarding-import/review",
+        "onboarding-import/review-suggestions"
       ]
     },
     {
@@ -3644,7 +3657,29 @@
       "rationale": "Advances the current task with the strongest action weight.",
       "owner": "plan-058",
       "catalogStates": [
-        "onboarding-import/review"
+        "onboarding-import/review",
+        "onboarding-import/review-suggestions"
+      ]
+    },
+    {
+      "id": "importuseall",
+      "selector": "#importUseAll",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible"
+      ],
+      "neverDisabledReason": "It is hidden, never disabled, when fewer than two rows are Likely.",
+      "rationale": "Accepts every undecided Likely top match in one tap; each row folds to Confirmed and keeps its own Change.",
+      "owner": "import-quality-2026-11",
+      "catalogStates": [
+        "onboarding-import/review-suggestions"
       ]
     },
     {
@@ -3665,7 +3700,8 @@
       "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
       "owner": "plan-058",
       "catalogStates": [
-        "onboarding-import/review"
+        "onboarding-import/review",
+        "onboarding-import/review-suggestions"
       ]
     },
     {
@@ -4322,7 +4358,8 @@
         "onboarding-recommend/muscle-priorities-skip",
         "onboarding-recommend/deload-start",
         "onboarding-import/freeform-managed",
-        "onboarding-import/freeform-managed-limit"
+        "onboarding-import/freeform-managed-limit",
+        "onboarding-import/freeform-managed-gaps"
       ]
     },
     {
@@ -4403,7 +4440,8 @@
         "onboarding-recommend/muscle-priorities-skip",
         "onboarding-recommend/deload-start",
         "onboarding-import/freeform-managed",
-        "onboarding-import/freeform-managed-limit"
+        "onboarding-import/freeform-managed-limit",
+        "onboarding-import/freeform-managed-gaps"
       ]
     },
     {
@@ -4527,7 +4565,9 @@
         "onboarding-recommend/muscle-priorities-skip",
         "onboarding-recommend/deload-start",
         "onboarding-import/freeform-managed",
-        "onboarding-import/freeform-managed-limit"
+        "onboarding-import/freeform-managed-limit",
+        "onboarding-import/freeform-managed-gaps",
+        "onboarding-import/review-suggestions"
       ],
       "progressScopes": {
         "entry-route-step": "task"
@@ -7463,7 +7503,8 @@
       "owner": "plan-058",
       "catalogStates": [
         "onboarding-import/freeform-gaps",
-        "onboarding-import/freeform-gaps-invalid"
+        "onboarding-import/freeform-gaps-invalid",
+        "onboarding-import/freeform-managed-gaps"
       ]
     },
     {
@@ -7677,7 +7718,8 @@
       "rationale": "Chooses a proposed import mapping or how to keep the exercise. Once chosen, the alternatives leave the row and the resulting mapping is shown as row content.",
       "owner": "plan-058",
       "catalogStates": [
-        "onboarding-import/review"
+        "onboarding-import/review",
+        "onboarding-import/review-suggestions"
       ]
     },
     {
@@ -7698,7 +7740,8 @@
       "rationale": "Reopens a settled import row's mapping choices without changing its current decision; the active row then replaces this button.",
       "owner": "plan-058",
       "catalogStates": [
-        "onboarding-import/review"
+        "onboarding-import/review",
+        "onboarding-import/review-suggestions"
       ]
     },
     {
@@ -8992,7 +9035,8 @@
         "programlab/comparison",
         "history/list-scrolled",
         "history/minibar-rest",
-        "program/volume-audit"
+        "program/volume-audit",
+        "onboarding-import/review-suggestions"
       ]
     },
     {

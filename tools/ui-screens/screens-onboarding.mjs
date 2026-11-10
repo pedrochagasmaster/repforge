@@ -697,15 +697,61 @@ async function managedImportTo(page, step) {
     status: 200, contentType: "application/json",
     body: JSON.stringify({ enabled: true, sitekey: "0x4AAAAAAF5mnFwEyHhOD9pl", maxChars: 12000 })
   }));
-  await page.route("**/api/program-import", (r) => r.fulfill({
-    status: 429, contentType: "application/json", body: JSON.stringify({ ok: false, code: "limit_reached", retryAfter: 3600 })
-  }));
+  // The gaps state answers with a converted program that left two days' values open; every other
+  // state meets the daily limit.
+  await page.route("**/api/program-import", (r) => r.fulfill(step === "gaps" || step === "suggestions"
+    ? { status: 200, contentType: "application/json", body: JSON.stringify({ ok: true,
+      reply: step === "gaps" ? managedGapReply(page) : managedSuggestionReply() }) }
+    : { status: 429, contentType: "application/json", body: JSON.stringify({ ok: false, code: "limit_reached", retryAfter: 3600 }) }));
   await freeformTo(page, "filled");
   await page.waitForSelector("#entryManagedConvert:not([disabled])", { timeout: 20000 });
   if (step === "ready") return;
   await page.click("#entryManagedConvert");
+  if (step === "gaps") {
+    await page.waitForSelector("#entryFreeformSubmitGaps", { timeout: 20000 });
+    return;
+  }
+  if (step === "suggestions") {
+    await page.waitForSelector("#importReview.active #importUseAll:not([hidden])", { timeout: 20000 });
+    return;
+  }
   await page.waitForFunction(() => document.querySelector("#entryManagedStatus")?.hidden === false &&
     !document.querySelector("#entryManagedConvert")?.disabled, undefined, { timeout: 20000 });
+}
+
+/** A converted coach program with two days, as the managed route returns it, with one missing
+ *  rep range on each day and a missing set count, in the frame's language. */
+function managedGapReply(page) {
+  const pt = managedGapLocale.get(page) === "pt";
+  const [a, b] = pt
+    ? ["TREINO A – Peito/Ombro/Tríceps (segunda)", "TREINO B – Costas/Bíceps (terça)"]
+    : ["DAY A – Chest/Shoulders/Triceps (Monday)", "DAY B – Back/Biceps (Tuesday)"];
+  const names = pt
+    ? ["Supino reto c/ barra", "Tríceps corda", "Mergulho no banco", "Barra fixa", "Remada curvada"]
+    : ["Barbell bench press", "Rope triceps pushdown", "Bench dip", "Pull-up", "Barbell row"];
+  return JSON.stringify({
+    version: 3, meta: { name: pt ? "Treino do coach" : "Coach program" },
+    exercises: [
+      { day: a, order: 1, name: names[0], sets: 4, min: 6, max: 8 },
+      { day: a, order: 2, name: names[1], sets: 3, min: 12, max: 12 },
+      { day: a, order: 3, name: names[2], sets: 3 },
+      { day: b, order: 1, name: names[3], sets: 4 },
+      { day: b, order: 2, name: names[4], min: 8, max: 10 },
+    ],
+    missing: [{ day: a, order: 3, field: "reps" }, { day: b, order: 1, field: "reps" }, { day: b, order: 2, field: "sets" }],
+    notImported: ["supersets", "rest_times"],
+  });
+}
+const managedGapLocale = new WeakMap();
+/** Names from the owner's sample that the matcher only suggests, so the review opens them as
+ *  Likely and offers Use all suggestions, beside one name it cannot place at all. */
+function managedSuggestionReply() {
+  const names = ["Supino reto c/ barra", "Abdominal prancha", "Farmer walk", "Zorblex machine wiggle"];
+  return JSON.stringify({
+    version: 3, meta: { name: "Coach program" },
+    exercises: names.map((name, i) => ({ day: "Day 1", order: i + 1, name, sets: 3, min: 10, max: 12 })),
+    missing: [], notImported: [],
+  });
 }
 
 async function freeformTo(page, step) {
@@ -1347,6 +1393,11 @@ export const ONBOARDING_SCENARIOS = {
   "onboarding-import/freeform-unreadable": (page) => freeformTo(page, "unreadable"),
   "onboarding-import/freeform-managed": (page) => managedImportTo(page, "ready"),
   "onboarding-import/freeform-managed-limit": (page) => managedImportTo(page, "limit"),
+  "onboarding-import/review-suggestions": (page) => managedImportTo(page, "suggestions"),
+  "onboarding-import/freeform-managed-gaps": async (page) => {
+    managedGapLocale.set(page, await page.evaluate(() => document.documentElement.lang === "pt-BR" ? "pt" : "en"));
+    await managedImportTo(page, "gaps");
+  },
   "onboarding-import/preview": (page) => importTo(page, "preview"),
 
   "onboarding-shared/gate": (page) => sharedTo(page, "gate"),
