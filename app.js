@@ -7850,7 +7850,7 @@ function renderTodayCalibration(){
   for(const el of [ring,bar])if(el){el.classList.toggle("hidden",!g);el.hidden=!g}
   if(!g){ring.innerHTML="";if(bar)bar.innerHTML="";return}
   const c=g.counts,svg=calRingSvg(g.percent,c.counted,c.needed);
-  ring.innerHTML=svg;ring.setAttribute("aria-label",t("calib.ring_aria",{n:g.percent,done:c.counted,m:c.needed}));ring.dataset.caption=t("calib.title");
+  ring.innerHTML=svg;ring.setAttribute("aria-label",t("calib.ring_aria",{n:g.percent,done:c.counted,m:c.needed}));
   if(bar)bar.innerHTML=svg}
 /** The ring's tap: Progress › Overview, at the calibration card. */
 function openCalibrationFromToday(){

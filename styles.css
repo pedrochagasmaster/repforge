@@ -348,7 +348,7 @@
   --dock-caustic:rgba(255,255,255,.22);
   --dock-blur:blur(14px) saturate(190%) brightness(1.05);
   --dock-rim-shadow:inset 0 0 0 .5px var(--dock-rim),inset 0 6px 12px -8px var(--dock-rim);
-  --dock-pill:rgba(255,255,255,.82);
+  --dock-pill:rgba(27,26,23,.07);
   --dock-pill-sheen:rgba(255,255,255,.82);
   /* Plan 075 phase 3: the scroll-edge bar's material, the same glass grammar
      as the dock, paper at 72%. It appears only once the large title below
@@ -402,7 +402,7 @@
 :root[data-theme="dark"]{
   --rest-light-core:#FFB48A;--rest-light-bloom:var(--accent);--rest-light-gain:1;
   --switch-off-track:rgba(255,255,255,.10);
-  --segment-thumb-bg:#58524A;
+  --segment-thumb-bg:#55534F;
   --menu-destructive-ink:var(--color-destructive);
   --menu-bg:rgba(36,33,29,.86);
   --row-pressed-bg:rgba(255,255,255,.07);
@@ -422,7 +422,7 @@
   --positive:#63C267;
   /* A quiet parchment rather than a lit white card. Scale and placement make
      the CTA primary; maximum luminance does not need to. */
-  --cta:#DED7CC;
+  --cta:#F2EFE9;
   --control-primary-pressed-bg:#C9C1B4;
   --well:#191713;
   --cta-ink:#161513;
@@ -1386,13 +1386,13 @@ article.exercise--focus input,article.exercise--focus textarea{-webkit-user-sele
 /* The context region is focusable so a keyboard can scroll it, which hands it the shared 44px target floor; here the
    floor is the one the screen's budget allows (--focus-context-floor), and the selector outranks the shared rule. */
 article.exercise--focus .fcard__context{min-height:var(--focus-context-floor)}
-/* Next sits on the shelf: the context is a column and the Next row takes the free space above it, so the screen reads
-   as the set list, then the step to the next lift, then the shelf, with no dead band between them. */
+/* The ledger and Next sit on the shelf: the context is a column and the ledger takes the free space above it, so the
+   hero leads at the top and the set list, the step to the next lift and the shelf read as one block. */
 article.exercise--focus .fcard__context{display:flex;flex-direction:column}
 article.exercise--focus .fcard__context > *{flex-shrink:0}
-article.exercise--focus .fcard__context > .fx-next{margin-top:auto}
+article.exercise--focus .fcard__context > .fcard__ledger{margin-top:auto}
 /* The previous set reads as the row's caption, from the row's leading edge, not as a figure spread over two columns. */
-.fcard__ledger .ledgerline__prev{text-align:left}
+.fcard__ledger .ledgerline__prev{grid-column:1 / -1;text-align:left;font-size:var(--font-size-caption)}
 .fcard__context:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
 .fx-head{margin:0 0 var(--space-16)}
 .focus-ex__meta{
@@ -1505,7 +1505,7 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
    the only ring on screen. */
 .fcard__ledger .ledgerline--open{
   align-content:center;padding-block:6px;padding-inline:12px;border:0;border-radius:var(--radius-none);
-  background:rgba(var(--ink-rgb),.05);box-shadow:inset 3px 0 0 var(--boundary-selected-quiet);
+  background:rgba(var(--ink-rgb),.08);box-shadow:inset 3px 0 0 var(--boundary-selected-quiet);
 }
 .fx-next{
   display:flex;align-items:center;justify-content:space-between;gap:var(--space-12);width:100%;min-height:48px;margin:var(--space-8) 0 0;
@@ -3604,7 +3604,7 @@ nav::before{
     linear-gradient(180deg,var(--dock-rim) 0,transparent 32%),
     linear-gradient(0deg,var(--dock-caustic) 0,transparent 24%);
   box-shadow:var(--dock-rim-shadow);
-  opacity:.9;
+  opacity:.5;
 }
 /* Without backdrop-filter the panel is a plain translucent sheet and the page
    shows through sharp, so pay for legibility with opacity instead. */
@@ -4354,15 +4354,15 @@ body.is-focus-wo .toast:not(.toast--top){bottom:calc(var(--toast-clear,0px) + va
 .icon-mask--rosette{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='8.9' r='5.5'/%3E%3Cpath d='m9.4 8.8 1.9 1.9 3.3-3.5'/%3E%3Cpath d='m8.4 13.6-1.5 7.2 5.1-2.6 5.1 2.6-1.5-7.2'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='8.9' r='5.5'/%3E%3Cpath d='m9.4 8.8 1.9 1.9 3.3-3.5'/%3E%3Cpath d='m8.4 13.6-1.5 7.2 5.1-2.6 5.1 2.6-1.5-7.2'/%3E%3C/svg%3E")}
 .icon-btn{color:var(--ink)}
 .icon-btn--ghost{border:0;background:transparent;color:var(--ink)}
-.today-prog{padding:8px 0 16px;border-bottom:1px solid var(--boundary-decorative)}
+.today-prog{padding:4px 0 12px;border-bottom:1px solid var(--boundary-decorative)}
 .today-prog__name{font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink)}
 .today-prog__week,.today-prog__deload{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);margin-top:4px}
-.today-prog .segbar{margin-top:12px}
+.today-prog .segbar{margin-top:10px}
 #todayProgram .segbar__seg{background:var(--rule-strong);border-radius:var(--radius-compact)}
-/* Where the lifter is now is the strongest mark: the current week in ink, the weeks behind in soft ink, the weeks
-   ahead a hairline. */
+/* Where the lifter is now is the strongest mark: the current week in the accent (as the current exercise is in Focus),
+   the weeks behind in soft ink, the weeks ahead a hairline. */
 #todayProgram .segbar__seg.is-done{background:var(--color-ink-secondary)}
-#todayProgram .segbar__seg.is-current{background:var(--color-ink)}
+#todayProgram .segbar__seg.is-current{background:var(--accent)}
 
 /* Today, once a session is saved: a recap stands where the start CTA would be. */
 .today-done{padding:4px 0 8px}
@@ -4420,7 +4420,7 @@ body.is-focus-wo .toast:not(.toast--top){bottom:calc(var(--toast-clear,0px) + va
    aligned columns on hairlines. The rows are the shared .rxrow; this block only
    places them. The columns come from one grid the head and the rows share, so
    the load and the target line up whatever the widest figure is. */
-.today-session__name--day{font-size:var(--font-size-title);line-height:var(--line-tight);margin:var(--space-4) 0 0;text-wrap:balance}
+.today-session__name--day{font-size:var(--font-size-section-title);line-height:var(--line-tight);margin:var(--space-4) 0 0;text-wrap:balance}
 .today-tally{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-4) var(--space-16);margin:var(--space-12) 0 0;padding:0;list-style:none;font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-standard);color:var(--color-ink)}
 .today-tally__i{display:inline-flex;align-items:center;gap:var(--space-4)}
 /* With the prescription heading gone (the prototype, owner 2026-10-28), the verdict line leads into the column heads
@@ -4550,7 +4550,7 @@ body.is-focus-wo .toast:not(.toast--top){bottom:calc(var(--toast-clear,0px) + va
 .settings-head .back-link{position:absolute;left:0}
 .settings-head__title{font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink)}
 .settings-identity{display:flex;align-items:flex-start;gap:14px;padding:8px var(--settings-inset) var(--space-32)}
-.settings-identity__mark{width:52px;height:52px;border-radius:var(--radius-prominent);overflow:hidden;background:#efe5df;box-shadow:0 1px 2px rgba(23,23,25,.12),0 6px 18px rgba(23,23,25,.08);flex:none}
+.settings-identity__mark{width:44px;height:44px;border-radius:var(--radius-prominent);overflow:hidden;background:#efe5df;box-shadow:0 1px 2px rgba(23,23,25,.12),0 6px 18px rgba(23,23,25,.08);flex:none}
 .settings-identity__mark img{display:block;width:100%;height:100%;object-fit:cover}
 /* The cream tile would be the brightest thing on a dark page; it steps down to sit with the type. */
 :root[data-theme="dark"] .settings-identity__mark{filter:brightness(.78);box-shadow:none}
@@ -4558,7 +4558,7 @@ body.is-focus-wo .toast:not(.toast--top){bottom:calc(var(--toast-clear,0px) + va
 /* The backup warning's remedy: a quiet action in the ink, a full target, under the note it answers. */
 /* The one action the storage note asks for reads as a button: a quiet secondary pill, not a link. */
 .settings-identity__backup{display:inline-flex;align-items:center;min-height:var(--control-target);margin-top:var(--space-8);padding:0 var(--space-16);
-  border:1px solid var(--boundary-required);border-radius:var(--radius-pill);background:var(--surface);color:var(--control-quiet-ink);
+  border:0;border-radius:var(--radius-control);background:var(--control-track);color:var(--control-quiet-ink);
   font-size:var(--font-size-body-small);font-weight:var(--weight-semibold);text-decoration:none}
 .settings-identity__backup[hidden]{display:none}
 .settings-identity__cap{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);margin-top:2px}
@@ -5322,12 +5322,17 @@ body.is-focus-wo .toast:not(.toast--top){bottom:calc(var(--toast-clear,0px) + va
    (orange category calibration-ring); the number is ink, with no % sign (the label says percent). */
 .calring{display:grid;place-items:center;flex:none;margin:0;padding:0;border:0;background:transparent;color:var(--ink);border-radius:50%}
 .calring svg{display:block;width:100%;height:100%;overflow:visible}
-.calring--title{position:relative;width:clamp(46px,2.875rem,60px);height:clamp(46px,2.875rem,60px);align-self:center;margin-top:var(--space-4)}
-/* The ring names itself: the calibration title under it, small and quiet, so the number has a meaning before a tap. */
-.calring--title[data-caption]::after{
-  content:attr(data-caption);position:absolute;top:calc(100% + var(--space-4));right:0;white-space:nowrap;pointer-events:none;
-  font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);line-height:var(--line-tight);
-  letter-spacing:var(--track-label);text-transform:uppercase;color:var(--color-ink-secondary);
+.calring--title{width:clamp(46px,2.875rem,60px);height:clamp(46px,2.875rem,60px);align-self:center;margin-top:var(--space-4)}
+/* The ring names itself: the calibration title under it, small and quiet, so the number has a meaning before a tap.
+   The caption is the ring's sibling, so the button keeps its own box. */
+.calring-wrap{display:flex;flex-direction:column;align-items:center;gap:var(--space-4);align-self:center;flex:none}
+.calring-wrap:has(> .calring.hidden){display:none}
+/* Only where the head has room: on a narrow phone or at enlarged text the title keeps the width and the ring stands alone. */
+#todayDash > .pagehead{container:todayhead / inline-size}
+@container todayhead (max-width:20em){.calring-wrap__cap{display:none}}
+.calring-wrap__cap{
+  max-width:6.5rem;text-align:center;font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-regular);
+  line-height:var(--line-tight);color:var(--color-ink-secondary);
 }
 .calring--title.is-pressed{opacity:.4}
 .calring:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
@@ -5478,7 +5483,7 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
 #exercise.exview--chart #exBack{gap:var(--space-4);color:var(--control-quiet-ink)}
 #exercise.exview--chart #exBack .chevron{transform:rotate(180deg);color:inherit}
 .exchart__title{margin:var(--space-8) 0 0;overflow-wrap:anywhere}
-.exchart__toggles{display:grid;gap:var(--space-16);margin-top:var(--space-26)}
+.exchart__toggles{display:grid;gap:var(--space-8);margin-top:var(--space-18)}
 .exchart__toggles .segpill{margin:0}
 /* The metric is the lesser choice: underline tabs under the range control, not a second segmented control. */
 .exchart__toggles .segpill + .segpill{padding:0;border-radius:var(--radius-none);background:transparent;border-bottom:1px solid var(--boundary-decorative)}
@@ -5490,6 +5495,7 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
   display:grid;grid-template-columns:repeat(auto-fit,minmax(5.25rem,1fr));gap:var(--space-12);
   margin-top:var(--space-18);padding:var(--space-12) 0;border-top:1px solid var(--boundary-decorative);border-bottom:1px solid var(--boundary-decorative);
 }
+.exchart__figs > :first-child b{font-size:var(--font-size-display)}
 .exchart__figs b{
   display:block;font-family:var(--font-language);font-weight:var(--weight-semibold);letter-spacing:-.02em;font-variant-numeric:tabular-nums;font-size:var(--font-size-metric);
   line-height:var(--line-tight);color:var(--color-ink);white-space:nowrap;
@@ -5500,7 +5506,7 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
 }
 .exchart__plot{position:relative;margin-top:var(--space-18);touch-action:pan-y pinch-zoom;cursor:pointer;-webkit-user-select:none;user-select:none}
 .exchart__svg,.exchart__ghost{display:block;width:100%;height:auto}
-.exchart__svg .ch-grid,.exchart__ghost .ch-grid{stroke:var(--boundary-decorative);stroke-width:1}
+.exchart__svg .ch-grid,.exchart__ghost .ch-grid{stroke:var(--boundary-decorative);stroke-width:1;stroke-opacity:.6}
 .exchart__svg .ch-ax,.exchart__ghost .ch-ax{fill:var(--color-ink-secondary);font-family:var(--font-language);font-variant-numeric:tabular-nums;font-size:var(--font-size-chart-axis);font-weight:var(--weight-regular)}
 .exchart__svg .ch-ax--l,.exchart__ghost .ch-ax--l{font-family:var(--font-language)}
 .exchart__svg .ch-block,.exchart__ghost .ch-block{stroke:var(--boundary-required);stroke-width:1;stroke-dasharray:3 3}

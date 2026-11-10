@@ -25,7 +25,7 @@ colors:
   shelf-field: "#FAF8F5"                 # token: --shelf-field-bg
   shelf-pad: "#F4F2EF"                   # token: --shelf-pad-bg
   dock-glass: "rgba(250,248,245,.5)"     # token: --dock-glass
-  dock-lens: "rgba(255,255,255,.82)"     # token: --dock-pill
+  dock-lens: "rgba(27,26,23,.07)"        # token: --dock-pill
   band-night: "#141310"                  # token: --band-night-bg
   band-night-raised: "#1E1C18"           # token: --band-night-raised
   band-night-ink: "#F2EFE9"              # token: --band-night-ink
@@ -57,7 +57,7 @@ colors-dark:
   forge-orange: "#F2703B"                # token: --accent
   forge-orange-deep: "#FF8A3D"           # token: --accent-deep
   accent-ink: "#231A14"                  # token: --accent-ink
-  cta-black: "#DED7CC"                   # token: --cta
+  cta-black: "#F2EFE9"                   # token: --cta
   cta-ink: "#161513"                     # token: --cta-ink
   positive: "#63C267"                    # token: --positive
   danger: "#FF6670"                      # token: --danger
@@ -331,6 +331,8 @@ nothing to it.
    green. Orange on a verdict means the engine asked for more.
 2. **The current-exercise segment.** The current segment of the Focus exercise
    bar (`#woProgress .segbar__seg.is-current`). Done segments are ink.
+   Today's week track marks the current week the same way
+   (`#todayProgram .segbar__seg.is-current`, owner, 2026-11-10).
 3. **A running timer's drain bar.** `.restinline__fill`, a `scaleX` transform on
    a 4px track while a rest runs. It stops being orange the moment the rest ends.
 4. **The CTA arrow.** The drawn arrow mask at the right edge of `.btn--cta`,
@@ -372,7 +374,7 @@ orange band is a ground, not a mark, and is described under Landing bands.
 - **Rule on Surface** (`--rule-on-surface`, `--rule` in light and `--rule-strong`
   in dark): the decorative separator drawn on `--surface`, inside sheets and the
   shelf.
-- **CTA Black** (`--cta`, #161513 light / #DED7CC dark): the single primary
+- **CTA Black** (`--cta`, #161513 light / #F2EFE9 dark): the single primary
   action. It inverts between themes while the orange does not.
 - **Quiet Selected** (`--boundary-selected-quiet`, an alias of `--ink`): the
   selected boundary wherever the orange is rationed.

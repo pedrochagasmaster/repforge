@@ -138,6 +138,8 @@ export const ORANGE_CATEGORIES = Object.freeze([
 export const ORANGE_ALLOWLIST = [
   // R3c: the current exercise's segment in Focus's exercise bar (the bar inside the segment button).
   { category: "current-exercise-segment", selector: "#woProgress .segbar__seg.is-current .segbar__bar" },
+  // Today's week track marks the current week the same way (owner-approved hill-climb, 2026-11-10).
+  { category: "current-exercise-segment", selector: "#todayProgram .segbar__seg.is-current" },
   // Session details as a hub (#522, owner direction A, 2026-10-28): the map marks the current lift with the accent ring
   // round a dot beside a semibold name and the word Now, the same marker as the current segment.
   { category: "current-exercise-segment", selector: ".session-map__row.is-current .session-map__mark" },

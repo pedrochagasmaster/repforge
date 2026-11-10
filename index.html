@@ -150,7 +150,10 @@
           <!-- The calibration ring (owner direction B, 2026-11-06): the gauge's number in the large title's white
                space, and its eight test sets as the dots across its foot. Its twin rides in the bar beside the gear
                once the title has scrolled under it. Both open Progress › Overview at the calibration card. -->
-          <button type="button" class="calring calring--title hidden" id="todayCalRing"></button>
+          <div class="calring-wrap">
+            <button type="button" class="calring calring--title hidden" id="todayCalRing"></button>
+            <span class="calring-wrap__cap" aria-hidden="true" data-i18n="calib.title">Effort calibration</span>
+          </div>
           <div class="pagehead__actions">
             <button type="button" class="calring calring--bar hidden" id="todayCalRingBar" tabindex="-1" aria-hidden="true"></button>
             <button type="button" class="settings-btn" id="openSettings" data-telemetry-action="settings_open" data-i18n-aria="nav.settings" aria-label="Settings">
