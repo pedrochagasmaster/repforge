@@ -40,9 +40,9 @@ function observed(){
 
 const browser=await launchChromium();
 let passed=0;const failures=[];
-async function scenario(name,{config={enabled:true,sitekey:SITEKEY,maxChars:12000},configRaw=null,mockConfig=true,worker},body){
-  const ctx=await browser.newContext({serviceWorkers:"block",viewport:{width:390,height:844}});
-  await ctx.addInitScript(()=>{
+async function scenario(name,{config={enabled:true,sitekey:SITEKEY,maxChars:12000},configRaw=null,mockConfig=true,serviceWorkers="block",stubTurnstile=true,worker},body){
+  const ctx=await browser.newContext({serviceWorkers,viewport:{width:390,height:844}});
+  if(stubTurnstile)await ctx.addInitScript(()=>{
     /* Fake Turnstile: numbered tokens, and callbacks a test can fire to expire
        the token or fail the challenge. */
     let issued=0;
@@ -78,7 +78,7 @@ async function scenario(name,{config={enabled:true,sitekey:SITEKEY,maxChars:1200
   try{
     await page.goto(BASE,{waitUntil:"domcontentloaded"});
     await waitForAppBoot(page,{base:BASE});
-    await body({page,sent,failed,consoleErrors});
+    await body({page,ctx,sent,failed,consoleErrors});
     passed++;
     console.log("✓ "+name);
   }catch(error){
@@ -144,6 +144,27 @@ try{
     assert.deepEqual(sent.items,[{source,locale:"en",token:"synthetic-token-1"}]);
     assert.equal(await page.locator("[data-imp-row]").count(),2);
     assert.equal((await savedProgram(page)).length,0,"no program activated without explicit review");
+  });
+
+  await scenario("under an active service worker, the real Turnstile script loads and Import becomes available",{
+    serviceWorkers:"allow",stubTurnstile:false,worker:()=>({body:{ok:true,reply:programReply()}})
+  },async({page,ctx,sent})=>{
+    // The app loads Turnstile from its real URL. This stands in for it, so the request path is the production one:
+    // a classic cross-origin script, from a page the release worker controls (the #707 production failure).
+    let scriptRequests=0;
+    await ctx.route("https://challenges.cloudflare.com/turnstile/v0/api.js*",route=>{
+      scriptRequests++;
+      return route.fulfill({status:200,contentType:"text/javascript",body:`window.turnstile={
+        render(element,options){queueMicrotask(()=>options.callback("sw-token"));return "sw-widget"},
+        reset(){},remove(){}};`});
+    });
+    await waitForAsyncCondition(page,()=>!!navigator.serviceWorker.controller);
+    await readyToImport(page);
+    assert.equal(scriptRequests,1,"the page fetched the Turnstile script itself");
+    assert.equal(await statusText(page),"","no challenge error");
+    await page.locator("#entryManagedConvert").click();
+    await page.waitForSelector("#importReview.active");
+    assert.equal(sent.items[0].token,"sw-token");
   });
 
   await scenario("reply with a gap → the existing missing-value step, then review",{

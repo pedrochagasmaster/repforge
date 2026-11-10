@@ -153,6 +153,10 @@ self.addEventListener("message", event => {
 self.addEventListener("fetch", event => {
   if (event.request.method !== "GET") return;
   const url = new URL(event.request.url);
+  // Cross-origin requests (the Turnstile widget, analytics) go straight to the network. A classic cross-origin
+  // script comes back opaque, which the code-response checks below would turn into a 503, and nothing from
+  // another origin belongs in this release's cache.
+  if (url.origin !== self.location.origin) return;
   // Managed import availability and replies are network-only, never cached as app shell.
   if (url.origin === self.location.origin && url.pathname.startsWith("/api/program-import")) return;
   if (url.origin === TRANSFER_ORIGIN && url.pathname.startsWith("/v1/")) return;
