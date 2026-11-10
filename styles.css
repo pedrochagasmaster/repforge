@@ -89,7 +89,7 @@
   --font-size-rest-clock:clamp(2rem,10cqi,2.625rem);
   /* The Focus hero (#523, owner 2026-10-28, direction A of focus-hero.html): the instruction is the screen's headline,
      its second line, the evidence line under them and the demoted prescription line. A contextual variant, Focus only. */
-  --font-size-focus-cue:2.125rem;
+  --font-size-focus-cue:2.375rem;
   --font-size-focus-cue-second:1.3125rem;
   --font-size-focus-evidence:.9375rem;
   --font-size-focus-meta:.8125rem;
@@ -909,6 +909,7 @@ input:is([type=date],[type=time])::-webkit-date-and-time-value{min-height:1.5em;
 .toggle[aria-checked="true"]::after,.toggle[aria-pressed="true"]::after,.toggle.is-on::after{transform:translateX(20px)}
 /* On the accent track the knob is the light one in both themes. */
 :root[data-theme="dark"] :is(.toggle[aria-checked="true"],.toggle[aria-pressed="true"],.toggle.is-on)::after{background:var(--ink)}
+:root[data-theme="dark"] :is(.toggle[aria-checked="true"],.toggle[aria-pressed="true"],.toggle.is-on)::before{background:var(--accent)}
 /* Held down, the knob stretches towards the side it is about to travel to. */
 .toggle.is-pressed::after{width:31px}
 .toggle[aria-checked="true"].is-pressed::after,.toggle[aria-pressed="true"].is-pressed::after,.toggle.is-on.is-pressed::after{
@@ -1388,8 +1389,8 @@ article.exercise--focus input,article.exercise--focus textarea{-webkit-user-sele
 article.exercise--focus .fcard__context{min-height:var(--focus-context-floor)}
 /* The task reads top-down from the prescription; the set rows take a roomier height so the list, not empty paper,
    fills the screen above the shelf. */
-.fcard__ledger .ledgerline:not(.ledgerline__head){min-height:60px}
-.fcard__ledger + .fx-next{margin-top:var(--space-16)}
+.fcard__ledger .ledgerline:not(.ledgerline__head){min-height:68px}
+.fcard__ledger + .fx-next{margin-top:var(--space-26)}
 /* The previous set reads as the row's caption, from the row's leading edge, not as a figure spread over two columns. */
 .fcard__ledger .ledgerline__prev{grid-column:1 / -1;text-align:left;font-size:var(--font-size-caption)}
 .fcard__context:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
@@ -1401,7 +1402,7 @@ article.exercise--focus .fcard__context{min-height:var(--focus-context-floor)}
 
 /* The hero (#523): the verb and the load as the screen's headline, the reps under it, then one line of evidence
    ending in the Why link (#518). The verdict mark rides inline before the words; a cue without one has no gap. */
-.fx-cue{margin:var(--space-18) 0 var(--space-12)}
+.fx-cue{margin:var(--space-32) 0 var(--space-26)}
 .fx-cue__mark{
   display:inline-block;width:.62em;height:.62em;margin-right:.14em;transform:translateY(-.04em);
 }
@@ -1504,7 +1505,7 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
    the only ring on screen. */
 .fcard__ledger .ledgerline--open{
   align-content:center;padding-block:6px;padding-inline:12px;border:0;border-radius:var(--radius-none);
-  background:rgba(var(--accent-rgb),.08);box-shadow:inset 3px 0 0 var(--accent);
+  background:rgba(var(--accent-rgb),.05);box-shadow:inset 3px 0 0 var(--accent);
 }
 .fx-next{
   display:flex;align-items:center;justify-content:space-between;gap:var(--space-12);width:100%;min-height:48px;margin:var(--space-8) 0 0;
@@ -1598,7 +1599,7 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
 /* The ring is the keyboard's cue: after a touch or typed entry (the motion layer's input modality) a field focused by
    script shows only its selected ring, whichever path moved focus there. Without the layer the ring stays. */
 :root[data-input-modality="pointer"] .shelf__fieldbtn:focus-visible{outline:none}
-.shelf__fieldbtn[aria-pressed="true"]{box-shadow:var(--elevation-selected-quiet-shadow)}
+.shelf__fieldbtn[aria-pressed="true"]{box-shadow:inset 0 0 0 1.5px var(--accent)}
 .shelf__lab{
   font-family:var(--font-language);font-size:var(--font-size-body-small);font-weight:var(--weight-regular);line-height:var(--line-standard);
   color:var(--color-ink-secondary);overflow-wrap:anywhere;
@@ -3603,7 +3604,7 @@ nav::before{
     linear-gradient(180deg,var(--dock-rim) 0,transparent 32%),
     linear-gradient(0deg,var(--dock-caustic) 0,transparent 24%);
   box-shadow:var(--dock-rim-shadow);
-  opacity:.5;
+  opacity:.25;
 }
 /* Without backdrop-filter the panel is a plain translucent sheet and the page
    shows through sharp, so pay for legibility with opacity instead. */
@@ -4553,10 +4554,10 @@ body.is-focus-wo .toast:not(.toast--top){bottom:calc(var(--toast-clear,0px) + va
 .settings-identity{display:flex;align-items:flex-start;gap:14px;padding:8px var(--settings-inset) var(--space-32)}
 /* While no backup has been made the identity block is the backup's status card: a warm tint, the note, and the
    action filled in the accent (owner hill-climb, 2026-11-10). */
-.settings-identity:has(#storageBackupNow:not([hidden])){margin-bottom:var(--space-18);padding:var(--space-14);border-radius:var(--radius-surface);background:rgba(var(--ink-rgb),.04)}
+.settings-identity:has(#storageBackupNow:not([hidden])){margin-bottom:var(--space-14);padding:var(--space-12);border-radius:var(--radius-surface);background:rgba(var(--ink-rgb),.04)}
 .settings-identity:has(#storageBackupNow:not([hidden])) #storageNote{font-size:var(--font-size-body-small)}
 .settings-identity .settings-identity__backup{background:rgba(var(--accent-rgb),.14);color:var(--accent-deep)}
-.settings-identity__mark{width:44px;height:44px;border-radius:var(--radius-prominent);overflow:hidden;background:#efe5df;box-shadow:0 1px 2px rgba(23,23,25,.12),0 6px 18px rgba(23,23,25,.08);flex:none}
+.settings-identity__mark{width:36px;height:36px;border-radius:var(--radius-prominent);overflow:hidden;background:#efe5df;box-shadow:0 1px 2px rgba(23,23,25,.12),0 6px 18px rgba(23,23,25,.08);flex:none}
 .settings-identity__mark img{display:block;width:100%;height:100%;object-fit:cover}
 /* The cream tile would be the brightest thing on a dark page; it steps down to sit with the type. */
 :root[data-theme="dark"] .settings-identity__mark{filter:brightness(.78);box-shadow:none}
@@ -5486,10 +5487,11 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
    itself, a readout and the table that selects the same sessions. The plot is
    one pointer target; the table rows are the keyboard and screen-reader way in. */
 #exercise.exview--chart .exview-head__title{display:none}
+#exercise.exview--chart .exchart__title{font-size:var(--font-size-section-title)}
 #exercise.exview--chart #exBack{gap:var(--space-4);color:var(--control-quiet-ink)}
 #exercise.exview--chart #exBack .chevron{transform:rotate(180deg);color:inherit}
 .exchart__title{margin:var(--space-8) 0 0;overflow-wrap:anywhere}
-.exchart__toggles{display:grid;gap:var(--space-8);margin-top:var(--space-18)}
+.exchart__toggles{display:grid;gap:var(--space-4);margin-top:var(--space-12)}
 .exchart__toggles .segpill{margin:0}
 /* The metric is the lesser choice: underline tabs under the range control, not a second segmented control. */
 .exchart__toggles .segpill + .segpill{padding:0;border-radius:var(--radius-none);background:transparent;border-bottom:1px solid var(--boundary-decorative)}
@@ -5499,7 +5501,7 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
 .exchart__per-side{margin:var(--space-8) 0 0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
 .exchart__figs{
   display:grid;grid-template-columns:repeat(auto-fit,minmax(5.25rem,1fr));gap:var(--space-12);align-items:last baseline;
-  margin-top:var(--space-18);padding:var(--space-12) 0;border-top:1px solid var(--boundary-decorative);border-bottom:1px solid var(--boundary-decorative);
+  margin-top:var(--space-12);padding:var(--space-8) 0;border-top:1px solid var(--boundary-decorative);border-bottom:1px solid var(--boundary-decorative);
 }
 .exchart__figs > :first-child b{font-size:var(--font-size-display)}
 .exchart__figs b{
@@ -5510,7 +5512,7 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
   display:block;margin-top:var(--space-4);font-family:var(--font-language);font-size:var(--font-size-body-small);
   line-height:var(--line-standard);color:var(--color-ink-secondary);
 }
-.exchart__plot{position:relative;margin-top:var(--space-18);touch-action:pan-y pinch-zoom;cursor:pointer;-webkit-user-select:none;user-select:none}
+.exchart__plot{position:relative;margin-top:var(--space-8);touch-action:pan-y pinch-zoom;cursor:pointer;-webkit-user-select:none;user-select:none}
 .exchart__svg,.exchart__ghost{display:block;width:100%;height:auto}
 .exchart__svg .ch-grid,.exchart__ghost .ch-grid{stroke:var(--boundary-decorative);stroke-width:1;stroke-opacity:.6}
 .exchart__svg .ch-ax,.exchart__ghost .ch-ax{fill:var(--color-ink-secondary);font-family:var(--font-language);font-variant-numeric:tabular-nums;font-size:var(--font-size-chart-axis);font-weight:var(--weight-regular)}
@@ -5564,7 +5566,7 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
 }
 .exrow.is-pressed{background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
 .exrow:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
-.exrow.is-sel{border-left-color:var(--accent);background:rgba(var(--accent-rgb),.08)}
+.exrow.is-sel{border-left-color:var(--accent);background:rgba(var(--accent-rgb),.05)}
 .exrow.is-old span:first-child{color:var(--color-ink-secondary)}
 
 /* @ci-domain history */
