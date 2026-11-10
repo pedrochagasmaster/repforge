@@ -72,6 +72,20 @@ test("dist/ holds every URL the app precaches or references", () => {
   }
 });
 
+test("dist/ ships the managed-import service's disabled default", () => {
+  // The Worker route on the apex answers this URL once deployed; until then, and on
+  // every preview, the static default keeps the probe a quiet 200 instead of a 404.
+  try {
+    build();
+    assert.deepEqual(JSON.parse(readFileSync(join(DIST, "api/program-import/config"), "utf8")),
+      { enabled: false, sitekey: null, maxChars: 12000 });
+    assert.deepEqual(walk(join(DIST, "api")).map((file) => file.replace(/\\/g, "/")), ["api/program-import/config"],
+      "nothing else is published under api/");
+  } finally {
+    rmSync(DIST, { recursive: true, force: true });
+  }
+});
+
 test("dist/ excludes repository research, sources and documentation", () => {
   try {
     build();
@@ -88,7 +102,7 @@ test("dist/ excludes repository research, sources and documentation", () => {
 
 test("the Pages build command publishes the generated posthog-config.js", () => {
   // Run the exact Pages command in a copy, because the generator rewrites index.html.
-  const runtimeDirs = new Set(["assets", "icons", "fonts", "vendor", "scripts"]);
+  const runtimeDirs = new Set(["api", "assets", "icons", "fonts", "vendor", "scripts"]);
   const tracked = execFileSync("git", ["ls-files"], { cwd: ROOT, encoding: "utf8" }).split("\n")
     .filter((file) => file && (!file.includes("/") || runtimeDirs.has(file.split("/")[0])) && existsSync(join(ROOT, file)));
   const work = mkdtempSync(join(tmpdir(), "taurifer-pages-"));
