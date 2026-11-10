@@ -1386,11 +1386,10 @@ article.exercise--focus input,article.exercise--focus textarea{-webkit-user-sele
 /* The context region is focusable so a keyboard can scroll it, which hands it the shared 44px target floor; here the
    floor is the one the screen's budget allows (--focus-context-floor), and the selector outranks the shared rule. */
 article.exercise--focus .fcard__context{min-height:var(--focus-context-floor)}
-/* The task rests on the shelf: the context is a column whose free space collects above the prescription, so the
-   cue, the set list, the step to the next lift and the shelf read as one block within the thumb's reach. */
-article.exercise--focus .fcard__context{display:flex;flex-direction:column}
-article.exercise--focus .fcard__context > *{flex-shrink:0}
-article.exercise--focus .fcard__context > .fx-head{margin-top:auto}
+/* The task reads top-down from the prescription; the set rows take a roomier height so the list, not empty paper,
+   fills the screen above the shelf. */
+.fcard__ledger .ledgerline:not(.ledgerline__head){min-height:60px}
+.fcard__ledger + .fx-next{margin-top:var(--space-16)}
 /* The previous set reads as the row's caption, from the row's leading edge, not as a figure spread over two columns. */
 .fcard__ledger .ledgerline__prev{grid-column:1 / -1;text-align:left;font-size:var(--font-size-caption)}
 .fcard__context:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
@@ -1505,7 +1504,7 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
    the only ring on screen. */
 .fcard__ledger .ledgerline--open{
   align-content:center;padding-block:6px;padding-inline:12px;border:0;border-radius:var(--radius-none);
-  background:rgba(var(--ink-rgb),.08);box-shadow:inset 3px 0 0 var(--boundary-selected-quiet);
+  background:rgba(var(--accent-rgb),.08);box-shadow:inset 3px 0 0 var(--accent);
 }
 .fx-next{
   display:flex;align-items:center;justify-content:space-between;gap:var(--space-12);width:100%;min-height:48px;margin:var(--space-8) 0 0;
@@ -1629,7 +1628,6 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
 .shelf__fieldbtn[aria-invalid="true"]{border-color:var(--control-error-boundary)}
 .shelf__pads{display:flex;gap:var(--space-8)}
 .shelf__pads .shelf__pad{
-  background:transparent;border:1px solid var(--boundary-required);
   flex:1 1 0;width:auto;min-width:0;height:48px;min-height:48px;padding:0 var(--space-12);border-radius:var(--shelf-inner-radius);
   font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);white-space:nowrap;
 }
@@ -3695,8 +3693,8 @@ body.is-library nav,body.is-preview nav,body.is-import nav{display:none}
    into the page instead of showing through as ghosted text. Below the sticky action (z-index 5), above the page. */
 body::after{
   content:"";position:fixed;left:0;right:0;bottom:0;z-index:4;pointer-events:none;
-  height:calc(var(--nav) + env(safe-area-inset-bottom) + var(--space-12) + 2 * var(--space-32) + var(--space-16));
-  background:linear-gradient(to bottom,rgba(var(--bg-rgb),0),var(--bg) var(--space-16));
+  height:calc(var(--nav) + env(safe-area-inset-bottom) + var(--space-12) + 3 * var(--space-32));
+  background:linear-gradient(to bottom,rgba(var(--bg-rgb),0),var(--bg) calc(var(--space-32) + var(--space-16)));
 }
 body.is-settings::after,body.is-exercise::after,body.is-onboarding::after,body.is-library::after,body.is-preview::after,
 body.is-import::after,body.is-focus-wo::after,body:has(#history.view.active.is-session-edit)::after,
@@ -4555,9 +4553,9 @@ body.is-focus-wo .toast:not(.toast--top){bottom:calc(var(--toast-clear,0px) + va
 .settings-identity{display:flex;align-items:flex-start;gap:14px;padding:8px var(--settings-inset) var(--space-32)}
 /* While no backup has been made the identity block is the backup's status card: a warm tint, the note, and the
    action filled in the accent (owner hill-climb, 2026-11-10). */
-.settings-identity:has(#storageBackupNow:not([hidden])){margin-bottom:var(--space-18);padding:var(--space-14);border-radius:var(--radius-surface);background:rgba(var(--accent-rgb),.08)}
+.settings-identity:has(#storageBackupNow:not([hidden])){margin-bottom:var(--space-18);padding:var(--space-14);border-radius:var(--radius-surface);background:rgba(var(--ink-rgb),.04)}
 .settings-identity:has(#storageBackupNow:not([hidden])) #storageNote{font-size:var(--font-size-body-small)}
-.settings-identity .settings-identity__backup{background:var(--accent-deep);color:var(--accent-ink)}
+.settings-identity .settings-identity__backup{background:rgba(var(--accent-rgb),.14);color:var(--accent-deep)}
 .settings-identity__mark{width:44px;height:44px;border-radius:var(--radius-prominent);overflow:hidden;background:#efe5df;box-shadow:0 1px 2px rgba(23,23,25,.12),0 6px 18px rgba(23,23,25,.08);flex:none}
 .settings-identity__mark img{display:block;width:100%;height:100%;object-fit:cover}
 /* The cream tile would be the brightest thing on a dark page; it steps down to sit with the type. */
@@ -5520,7 +5518,7 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
 .exchart__svg .ch-block,.exchart__ghost .ch-block{stroke:var(--boundary-required);stroke-width:1;stroke-dasharray:3 3}
 .exchart__svg .ch-line,.exchart__ghost .ch-line{fill:none;stroke:var(--accent);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
 .exchart__svg .ex-cursor,.exchart__ghost .ex-cursor{stroke:var(--boundary-required);stroke-width:1;stroke-dasharray:2 3}
-.exchart__svg .ex-pt,.exchart__ghost .ex-pt{fill:var(--bg);stroke:var(--color-ink);stroke-width:1.5}
+.exchart__svg .ex-pt,.exchart__ghost .ex-pt{fill:var(--bg);stroke:var(--accent);stroke-width:1.5}
 .exchart__svg .ex-pt--old,.exchart__ghost .ex-pt--old{stroke:var(--color-ink-secondary)}
 .exchart__svg .ex-pt--sel,.exchart__ghost .ex-pt--sel{fill:var(--accent);stroke:var(--accent)}
 .exchart__svg .ex-tick,.exchart__ghost .ex-tick{fill:var(--color-ink)}
@@ -5566,7 +5564,7 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
 }
 .exrow.is-pressed{background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
 .exrow:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
-.exrow.is-sel{border-left-color:var(--boundary-selected-quiet);background:rgba(var(--ink-rgb),.05)}
+.exrow.is-sel{border-left-color:var(--accent);background:rgba(var(--accent-rgb),.08)}
 .exrow.is-old span:first-child{color:var(--color-ink-secondary)}
 
 /* @ci-domain history */

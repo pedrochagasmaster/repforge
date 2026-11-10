@@ -335,8 +335,10 @@ nothing to it.
    (`#todayProgram .segbar__seg.is-current`, owner, 2026-11-10).
    The exercise chart's trend line, selected point and marker carry the accent
    too (`.ch-line`, `.ex-pt--sel`, `.exchart__marker`, owner hill-climb,
-   2026-11-10), and while a backup is due Settings' Back up now is filled in
-   `--accent-deep` on a warm-tinted status card.
+   2026-11-10). The current item is the accent everywhere: Focus's open set row
+   and the chart's selected session take a 3px accent bar on an 8% accent tint.
+   While a backup is due, Settings' Back up now is `--accent-deep` on an accent
+   tint inside a quiet status card.
 3. **A running timer's drain bar.** `.restinline__fill`, a `scaleX` transform on
    a 4px track while a rest runs. It stops being orange the moment the rest ends.
 4. **The CTA arrow.** The drawn arrow mask at the right edge of `.btn--cta`,
