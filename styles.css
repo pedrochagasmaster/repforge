@@ -1068,7 +1068,7 @@ input:is([type=date],[type=time])::-webkit-date-and-time-value{min-height:1.5em;
    toggle, and the panel under a disclosure, are the tail of that row, so the
    next rule falls after them where the next row begins. */
 .settings-row::before{
-  content:"";position:absolute;left:var(--settings-inset);right:0;top:0;height:1px;background:var(--boundary-decorative)
+  content:"";position:absolute;left:var(--settings-inset);right:var(--settings-inset);top:0;height:1px;background:var(--boundary-decorative)
 }
 div.settings-row{cursor:default}
 .settings-row:first-child::before{display:none}
@@ -1260,7 +1260,7 @@ body:has(.exercise--focus.is-text-scaled) .wo-head__title{font-size:min(var(--fo
   background:var(--control-quiet-bg);cursor:pointer;
 }
 #woProgress .segbar__bar{
-  position:absolute;left:var(--space-4);right:var(--space-4);top:50%;height:5px;margin-top:-2px;border-radius:var(--radius-compact);background:var(--boundary-required);
+  position:absolute;left:var(--space-4);right:var(--space-4);top:50%;height:5px;margin-top:-2px;border-radius:var(--radius-compact);background:var(--rule-strong);
 }
 #woProgress .segbar__seg.is-done .segbar__bar{background:var(--color-ink)}
 #woProgress .segbar__seg.is-current .segbar__bar{background:var(--color-action)}
@@ -1473,7 +1473,7 @@ article.exercise--focus .fcard__context{min-height:var(--focus-context-floor)}
 .ledgerline__vals > .fx-col:nth-child(1){min-width:4.5rem}
 .ledgerline__vals > .fx-col:nth-child(2){min-width:2.5rem}
 .ledgerline__vals > .fx-col:nth-child(3){min-width:4.5rem}
-.ledgerline__vals > .fx-col.is-soft{color:var(--color-ink-secondary)}
+.ledgerline__vals > .fx-col.is-soft{color:var(--color-ink)}
 button.ledgerline{cursor:pointer;text-align:left;border-top:0;border-inline:0}
 @media (hover: hover) and (pointer: fine){
 button.ledgerline:hover:not(:disabled){background:var(--well)}
@@ -5446,7 +5446,7 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
 #exercise.exview--chart #exBack{gap:var(--space-4);color:var(--control-quiet-ink)}
 #exercise.exview--chart #exBack .chevron{transform:rotate(180deg);color:inherit}
 .exchart__title{margin:var(--space-8) 0 0;overflow-wrap:anywhere}
-.exchart__toggles{display:grid;gap:var(--space-16);margin-top:var(--space-12)}
+.exchart__toggles{display:grid;gap:var(--space-16);margin-top:var(--space-26)}
 /* The metric switch is the lesser of the two: it hugs its labels instead of spanning the column. */
 .exchart__toggles .segpill + .segpill{justify-self:start;grid-auto-columns:max-content}
 .exchart__toggles .segpill + .segpill > button{padding-inline:var(--space-16)}
@@ -5468,7 +5468,7 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
 .exchart__plot{position:relative;margin-top:var(--space-18);touch-action:pan-y pinch-zoom;cursor:pointer;-webkit-user-select:none;user-select:none}
 .exchart__svg,.exchart__ghost{display:block;width:100%;height:auto}
 .exchart__svg .ch-grid,.exchart__ghost .ch-grid{stroke:var(--boundary-decorative);stroke-width:1}
-.exchart__svg .ch-ax,.exchart__ghost .ch-ax{fill:var(--color-ink-secondary);font-family:var(--font-training-data);font-size:var(--font-size-chart-axis);font-weight:var(--weight-regular)}
+.exchart__svg .ch-ax,.exchart__ghost .ch-ax{fill:var(--color-ink-secondary);font-family:var(--font-language);font-variant-numeric:tabular-nums;font-size:var(--font-size-chart-axis);font-weight:var(--weight-regular)}
 .exchart__svg .ch-ax--l,.exchart__ghost .ch-ax--l{font-family:var(--font-language)}
 .exchart__svg .ch-block,.exchart__ghost .ch-block{stroke:var(--boundary-required);stroke-width:1;stroke-dasharray:3 3}
 .exchart__svg .ch-line,.exchart__ghost .ch-line{fill:none;stroke:var(--color-ink);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
@@ -5490,6 +5490,8 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
   line-height:var(--line-standard);color:var(--color-ink);
 }
 .exchart__mono{font-family:var(--font-training-data);font-weight:var(--weight-medium)}
+/* A Mono space is a full digit wide, so "27.5 × 8" opens up in a sentence or a cell; the pairs close to a text space. */
+.exchart__mono,.exrow span:nth-child(n+2),.rxrow__target,.fx-cue__fig{word-spacing:-.25em}
 .exchart__soft{color:var(--color-ink-secondary)}
 .exchart__cols,.exrow{
   display:grid;grid-template-columns:4.5rem minmax(0,1fr) 4rem 3.25rem;gap:var(--space-8);align-items:center;
@@ -5509,7 +5511,7 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
   .exchart__cols span,.exrow span{overflow-wrap:anywhere}
 }
 .exrow{
-  width:100%;min-height:48px;padding:0 0 0 var(--space-8);border:0;border-left:3px solid transparent;
+  width:100%;min-height:48px;padding:0 var(--space-8);border:0;border-left:3px solid transparent;
   border-bottom:1px solid var(--boundary-decorative);border-radius:var(--radius-none);
   background:var(--control-quiet-bg);color:var(--color-ink);text-align:left;cursor:pointer;
   font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);
