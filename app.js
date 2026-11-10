@@ -10572,7 +10572,7 @@ function focusCardHtml(ex,r,draft,prev,opts){
   const noteVal=String(draft.__exnotes?.[ex.id]??lastExerciseNote(ex)).trim();
   const noteAct=peek?dead():` data-fnote="${esc(ex.id)}"`;
   const noteAdd=noteVal?"":`<button type="button" class="fx-note-add"${noteAct} aria-label="${esc(t("focus.note.add_aria"))}">`+
-    `<span class="icon-mask icon-mask--note" aria-hidden="true"></span></button>`;
+    `<span class="icon-mask icon-mask--note" aria-hidden="true"></span><span class="fx-note-add__label" aria-hidden="true">${esc(t("log.note"))}</span></button>`;
   const note=noteVal?`<button type="button" class="fx-note"${noteAct} aria-label="${esc(t("focus.note.open_aria",{note:noteVal}))}">`+
     `<span class="icon-mask icon-mask--sm icon-mask--note" aria-hidden="true"></span><span class="fx-note__text">${esc(noteVal)}</span></button>`:"";
   const editing=!!(focusEdit&&focusEdit.exId===ex.id&&n);
