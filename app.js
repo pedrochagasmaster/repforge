@@ -11454,14 +11454,17 @@ function sizeFocusCard(card){
   syncTextScale(card);
   // The context region scrolls as one: keep the row being worked on in view. At the first set nothing has been
   // logged and the shelf already shows the set, so the card opens at its top with the exercise's prescription and the
-  // hero; later the row scrolls into view. At large text (Plan 075 phase 5) the open set comes first, at every set.
+  // hero, unless a fitting standing line and open row would be clipped. Later the row scrolls into view. At large
+  // text (Plan 075 phase 5) the open set comes first, at every set.
   const scaled=card.classList.contains("is-text-scaled");
   const context=card.querySelector(".fcard__context");
   const open=context?.querySelector(".ledgerline--open");if(!open)return;
   const box=context.getBoundingClientRect(),row=open.getBoundingClientRect();
   // The rest tab rises out of the shelf over the window's foot; the row is in view only above it.
   const tab=card.querySelector(".resttab"),bottom=tab?Math.min(box.bottom,tab.getBoundingClientRect().top-4):box.bottom;
-  if(!scaled&&+open.dataset.lrow<=1&&context.scrollTop===0)return;
+  if(!scaled&&+open.dataset.lrow<=1&&context.scrollTop===0){
+    const standing=context.querySelector(".fx-cue__standing");
+    if(!standing||row.bottom<=bottom||row.bottom-standing.getBoundingClientRect().top>bottom-box.top)return}
   // At large text the region is only as tall as the open set (#541): a margin, or moving back to show a cut line whole,
   // would push the set itself out, so it is aligned to the region's top whenever it is not wholly in view.
   // Floored: the region's top can sit on a fraction of a pixel and the scroll on a whole one, and a rounded scroll
