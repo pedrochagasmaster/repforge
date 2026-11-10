@@ -339,6 +339,8 @@ function directionDBeforeSession() {
  */
 export const DIRECTION_D_SUMMARY_SESSION = Object.freeze({
   "session/summary": "dd-2026-08-31-day1",
+  "session/summary-finding": "dd-2026-08-31-day1",
+  "session/summary-profile": "dd-2026-08-31-day1",
   "session/summary-maintained": "dd-2026-08-26-day2",
   "session/summary-declined": "dd-2026-08-28-day3",
   "session/summary-first": "dd-2026-08-12-day2-mixed",
@@ -432,6 +434,11 @@ export function appState(key, lang) {
   if (["workout/focus-ramp","workout/focus-ramp-ratio","workout/focus-ramp-substitution","workout/focus-ramp-changed-movement","workout/focus-ramp-floor","workout/focus-ramp-easy","history/ramp-rows"].includes(key)) return emptyEntryState(lang);
   if (key === "workout/why-setup") return emptyEntryState(lang);
   if (DIRECTION_D_BEFORE_SESSION.has(key)) return localeState(directionDBeforeSession(), lang);
+  if (["session/summary-finding", "session/summary-profile"].includes(key)) {
+    const state = directionDThroughSession(DIRECTION_D_SUMMARY_SESSION[key]);
+    state.log = withTestSets(state.log);
+    return localeState(state, lang);
+  }
   if (DIRECTION_D_SUMMARY_SESSION[key]) return localeState(directionDThroughSession(DIRECTION_D_SUMMARY_SESSION[key]), lang);
   if (key.startsWith("progress/sibling-") || key === "progress/volume-reduction-preview" ||
       ["progress/recovery-ineligible","progress/recovery-questions","progress/recovery-preview","progress/recovery-active","progress/recovery-reassessment"].includes(key)) {
@@ -2750,6 +2757,20 @@ export const APP_SCENARIOS = {
   "workout/why-manual": whyOnBuildRange,
   "workout/why-setup": whyOnGeneratedPerSide,
 
+  "session/summary-finding": async (page) => {
+    await openFixtureSummary(page, DIRECTION_D_SUMMARY_SESSION["session/summary-finding"]);
+    await page.waitForSelector('#sumFinding[data-finding="first_check"]');
+    await page.evaluate(() => {
+      const sheet = document.querySelector("#sessionSummary"), finding = document.querySelector("#sumFinding");
+      sheet.scrollTop = Math.max(0, finding.getBoundingClientRect().top - sheet.getBoundingClientRect().top + sheet.scrollTop - 24);
+    });
+  },
+  "session/summary-profile": async (page) => {
+    await openFixtureSummary(page, DIRECTION_D_SUMMARY_SESSION["session/summary-profile"]);
+    await page.click("#sumFinding");
+    await page.waitForSelector("#summaryProfileBack");
+    await page.waitForFunction(() => document.activeElement === document.querySelector("#overviewProfile"));
+  },
   "session/summary": async (page) => {
     await openFixtureSummary(page, DIRECTION_D_SUMMARY_SESSION["session/summary"]);
     await page.waitForSelector('.sum-outcome[data-outcome="improved"]', { timeout: 20000 });

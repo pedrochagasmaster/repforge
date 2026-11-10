@@ -437,6 +437,8 @@ async function setDeviceSections(page) {
     const before = localStorage.getItem("repforge_telemetry_identity_v1");
     window.__repforgeUi?.setTheme?.("dark");
     window.__repforgeUi?.setPref?.("effortChosen", true);
+    const prefs = window.__repforgeUi.loadUiPrefs();
+    localStorage.setItem("repforge_ui_v1", JSON.stringify({ ...prefs, findingsSeen: ["first_check", "first_target"] }));
     const consent = window.RepForgeTelemetry?.setEnabled?.(false);
     return {
       consent,
@@ -1005,6 +1007,12 @@ async function seedMeaningfulDestination(page, kind, envelope) {
       window.__repforgeUi.setPref("effortChosen", value);
       return { ok: window.__repforgeUi.loadUiPrefs().effortChosen === value };
     }
+    if (["findings-seen", "findings-unknown", "findings-malformed"].includes(kind)) {
+      const prefs = parse(localStorage.getItem(uiKey)) || {};
+      prefs.findingsSeen = kind === "findings-seen" ? ["first_check"] : kind === "findings-unknown" ? ["future-finding"] : "first_check";
+      localStorage.setItem(uiKey, JSON.stringify(prefs));
+      return { ok: true };
+    }
     if (kind === "prefs-only") {
       window.__repforgeUi?.setTheme?.("dark");
       return { ok: window.__repforgeUi?.loadUiPrefs?.()?.theme === "dark" };
@@ -1146,6 +1154,9 @@ async function runMeaningfulDestinationMatrix(browser, envelope) {
     ["prefs-only", "prefs-only"],
     ["effort choice", "effort-choice"],
     ["malformed effort choice", "effort-choice-malformed"],
+    ["seen findings only", "findings-seen"],
+    ["unknown finding preference", "findings-unknown"],
+    ["malformed finding preference", "findings-malformed"],
     ["unknown-guide-only", "unknown-guide"],
     ["wrong-version-guide-only", "wrong-version-guide"],
     ["missing-version-guide-only", "missing-version-guide"],
@@ -2360,7 +2371,7 @@ async function main() {
       "source persists a current program-entry candidate through __repforgePersistSetupDraft", candidate);
     if (!candidate.ok) throw new Error(JSON.stringify(candidate));
     const device = await setDeviceSections(source);
-    check(device.consent === false && device.identityBefore === device.identityAfter && device.prefs?.theme === "dark",
+    check(device.consent === false && device.identityBefore === device.identityAfter && device.prefs?.theme === "dark" && sameValue(device.prefs?.findingsSeen, ["first_check", "first_target"]),
       "source sets non-default UI preference, disabled consent, and preserves stable identity", device);
     await flush(source);
 
@@ -2395,7 +2406,7 @@ async function main() {
     const automaticGuideState = freshGuideRecords.length > 0 && freshGuideRecords.every(([id, record]) =>
       record?.status === "unseen" || id === "privacy" && record?.status === "shown");
     check(freshDestinationPrefs?.entryLandingSeen === true &&
-      freshDestinationPrefs?.theme === undefined && freshDestinationPrefs?.effortChosen === undefined && automaticGuideState &&
+      freshDestinationPrefs?.theme === undefined && freshDestinationPrefs?.effortChosen === undefined && freshDestinationPrefs?.findingsSeen === undefined && automaticGuideState &&
       freshDestinationPrefs?.installLastOfferedMilestone === null &&
       freshDestinationPrefs?.installLastOfferedAt === null &&
       freshDestinationPrefs?.installDismissedMilestone === null &&
@@ -2442,6 +2453,18 @@ async function main() {
       check(sameValue(refusalAfter.local, refusalBefore.local) && sameValue(refusalAfter.idb, refusalBefore.idb),
         "meaningful-destination refusal leaves storage bytes/logical state unchanged");
       await refusal.close();
+      const bootDestination = await browser.newContext({ guides: "live" });
+      try {
+        const bootPage = await bootDestination.newPage();
+        bootPage.on("dialog", dialog => dialog.dismiss().catch(() => {}));
+        await bootPage.goto(BASE, { waitUntil: "domcontentloaded" });
+        await waitForAppBoot(bootPage, { base: BASE });
+        const importedAtBoot = await importInto(bootPage, envelope);
+        check(importedAtBoot?.ok === true, "ordinary first boot stays eligible without initializing findingsSeen", importedAtBoot);
+        const bootLogical = await readLogical(bootPage);
+        check(sameValue(bootLogical.uiPreferences.findingsSeen, envelope.uiPreferences.findingsSeen),
+          "install transfer carries seen finding ids to the fresh device");
+      } finally { await bootDestination.close(); }
       await runFaultMatrix(browser, envelope);
       await runProfileDestinationProtection(browser, envelope);
       await runMalformedProfileSettings(browser);

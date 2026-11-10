@@ -1133,13 +1133,14 @@ const ROUTE_PUSH_DEADLINE_MS=1500;
    route does not push it a second time. While a pull is live the page it returns
    to is mounted beneath it (History has none to mount: its list is rendered
    over the session page, so the pull shows the paper beneath). */
-const EDGE_BACK={exercise:"#exBack",library:"#libBack",exercisePreview:"#previewBack",history:"[data-history-back]"};
+const EDGE_BACK={stats:"#summaryProfileBack",exercise:"#exBack",library:"#libBack",exercisePreview:"#previewBack",history:"[data-history-back]"};
 let routeEdge=null,routeEdgeFrame=0;
 function edgeBackPage(){
   if(document.body.classList.contains("is-focus-wo"))return null;
   const view=$(".view.active");
   if(!view||!EDGE_BACK[view.id])return null;
   if(view.id==="history"&&!view.classList.contains("is-session-page"))return null;
+  if(view.id==="stats"&&!sessionSummaryProfileReturn)return null;
   return view}
 function syncEdgeSwipe(){
   routeEdgeFrame=0;
@@ -1205,6 +1206,7 @@ function openPushedRoutes(){
   if(body.contains("is-preview"))open.push("exercisePreview");
   if(body.contains("is-exercise"))open.push("exercise");
   if(history?.classList.contains("active")&&HistoryUi.hasPushedPage())open.push("history");
+  if(sessionSummaryProfileReturn&&$("#stats")?.classList.contains("active"))open.push("stats");
   return open}
 function syncRouteHistory(){
   if(expectedRouteDepth!==null)return;
@@ -7385,7 +7387,7 @@ function stageTipTarget(){
   const to="c",pref=stageTipPref(to);
   if(pref.n>=2||pref.until&&Date.now()<Date.parse(pref.until))return null;
   return stageTipQualifyingWorkouts(stage)>=STAGE_TIP_WORKOUTS?to:null}
-function setStageTipPref(to,value){setUiPref("stageTip",{...(uiPrefs.stageTip||{}),[to]:value})}
+function setStageTipPref(to,value){updateUiPrefs(prefs=>({...prefs,stageTip:{...(prefs.stageTip||{}),[to]:value}}))}
 function dismissStageTip(to){
   const n=stageTipPref(to).n+1;
   setStageTipPref(to,n>=2?{n:2}:{n,until:new Date(Date.now()+STAGE_TIP_SNOOZE_DAYS*864e5).toISOString()})}
@@ -8257,7 +8259,8 @@ function renderOverviewProfile(){
       `<small class="calcheck__result">${esc(line)}</small></span></li>`}).join("")
     :`<li class="calcheck calcheck--empty">${esc(t("calib.empty"))}</li>`;
   const lifts=days().flatMap(day=>state.program.filter(ex=>ex.day===day));
-  el.innerHTML=`<div class="ovsec"><h3 class="ovsec__title">${esc(t("profile.title"))}</h3></div>`+
+  el.innerHTML=(sessionSummaryProfileReturn?`<button type="button" class="back-link" id="summaryProfileBack">${esc(t("exercise.back"))}</button>`:"")+
+    `<div class="ovsec"><h3 class="ovsec__title">${esc(t("profile.title"))}</h3></div>`+
     profileFindingsHtml()+
     `<p class="profile-stage">${esc(t("profile.stage",{stage:t(STAGE_LABEL[effortStage()])}))}</p>`+
     `<p class="profile-effort">${esc(t("profile.chosen",effort))}</p>`+
@@ -8267,7 +8270,8 @@ function renderOverviewProfile(){
     `<p class="profile-history-label">${esc(t("profile.history"))}</p><ul class="profile-signals">${lifts.map(ex=>{
       const n=(state.log||[]).filter(row=>!row.warmup&&maxSetRowKey(row)===programGaugeKey(ex)).length;
       return `<li class="profile-signal"><span>${esc(exerciseDisplayName(ex))}</span><span>${esc(t("profile.history_sets",{n}))}</span></li>`}).join("")}</ul>`+
-    `<div class="ovsec"><h3 class="ovsec__title">${esc(t("calib.recent"))}</h3></div><ul class="calchecks">${rows}</ul>`}
+    `<div class="ovsec"><h3 class="ovsec__title">${esc(t("calib.recent"))}</h3></div><ul class="calchecks">${rows}</ul>`;
+  const back=$("#summaryProfileBack");if(back)back.onclick=returnFromSummaryProfile}
 /* "Not now" closes the prompt for that exercise in this workout. */
 const maxSetDeclined=new Set();
 let maxSetUi=null;
@@ -12009,17 +12013,11 @@ function sessionOutcomeGroups(rows,prs=[]){
       next:line?{glyph:rxVerdict(rec),line}:null}});
   return{evidence,showBaseline,liftGroups}}
 
-/* ---- The finish screen's numbers (owner decisions, 2026-11-05) ----
-   Four tiles: strength gained this block, records, weeks in a row and the load moved. A tile the session cannot
-   back (no gain, no record, a streak under two weeks) gives its place to the fallbacks, sets then total reps. */
-const SUMMARY_TILES=["strength","records","streak","volume"],SUMMARY_TILE_FALLBACKS=["sets","reps"];
+/* ---- The finish screen's numbers ----
+   Strength gained this block, records and load moved. Unsupported figures give
+   their place to the working-set and total-rep counts. */
+const SUMMARY_TILES=["strength","records","volume"],SUMMARY_TILE_FALLBACKS=["sets","reps"];
 const strengthKey=row=>`${liftKey(row)}\u0000${row.strengthConvention||"load"}`;
-/** Consecutive Monday–Sunday weeks with at least one logged session, counting back from the week of `date`. */
-function weeksInARow(log,date){
-  const weeks=new Set((log||[]).map(row=>weekStart(row.date)));
-  let count=0;
-  for(let week=weekStart(date);weeks.has(week);week=shiftDate(week,-7))count++;
-  return count}
 /** The day's first lift that can set a record, and how much heavier its top working set is than in the block's first
  *  session with that lift, in the same convention. Null outside a block, in week 1, or when it is not heavier. */
 function strengthGainedThisBlock(rows,prevLog){
@@ -12036,8 +12034,8 @@ function strengthGainedThisBlock(rows,prevLog){
   return now>then&&!sameLoad(now,then)?{name:displayName(mine[0]),liftKey:liftKey(mine[0]),delta:now-then}:null}
 /** The tiles in order: each default the session can back, else the next fallback. */
 function summaryTiles(facts){
-  // A tile says something the session achieved: no records, or a streak of one week, gives its place to a fallback.
-  const backed={strength:!!facts.strength,records:facts.records>0,streak:facts.streak>=2,volume:true,sets:true,reps:true};
+  // Only show a gain or record when the session supports it.
+  const backed={strength:!!facts.strength,records:facts.records>0,volume:true,sets:true,reps:true};
   const fallbacks=SUMMARY_TILE_FALLBACKS.filter(id=>backed[id]);
   return SUMMARY_TILES.map(id=>backed[id]?id:fallbacks.shift()).filter(Boolean)}
 /** The card the row opens on: the session's heaviest record, else its first improved lift; none otherwise. */
@@ -12047,6 +12045,18 @@ function summaryLeadCard(prs,liftGroups){
   if(!lift)return null;
   const top=lift.sets.reduce((a,b)=>b.load>a.load||(sameLoad(b.load,a.load)&&b.reps>a.reps)?b:a);
   return{kind:"improved",name:lift.name,liftKey:lift.liftKey,load:top.load,reps:top.reps,pr:null}}
+
+function sessionFinding(rows,prevLog,date){
+  const readings=findingReadings();
+  const derive=(log,asOf=date)=>RepForgeProgressModel.buildFindings(readLogRows(log),state.program,state.programMeta,asOf,readings);
+  const previous=prevLog||[];
+  // A calendar finding can become available between sessions, without a set on its release date.
+  const previousDate=previous.reduce((last,row)=>row.date<=date&&row.date>last?row.date:last,"")||date;
+  const before=new Set(derive(previous,previousDate).released.map(finding=>finding.id));
+  const after=derive([...(prevLog||[]),...rows]);
+  const finding=after.released.find(finding=>!before.has(finding.id));
+  const need=after.next?.need?t("finding.next",{need:findingNeedText(after.next)}):"";
+  return{finding:finding?{id:finding.id,text:[findingText(finding),need].filter(Boolean).join(" ")}:null,findingNeed:need}}
 
 /** Everything the finished session earns the right to say about itself. */
 function buildSessionSummary({rows,prevLog,session,date,day:sessDay,startedAt}){
@@ -12064,11 +12074,12 @@ function buildSessionSummary({rows,prevLog,session,date,day:sessDay,startedAt}){
   // A clock only earns a slot when it plausibly measured this session: a draft
   // resumed the next morning would otherwise report a nine-hour workout.
   const mins=startedAt?Math.round((Date.now()-startedAt)/60000):0;
-  const strength=strengthGainedThisBlock(rows,prevLog),streak=weeksInARow([...(prevLog||[]),...rows],date);
+  const strength=strengthGainedThisBlock(rows,prevLog);
   return{session,date,day:sessDay,
-    strength,streak,
+    ...sessionFinding(rows,prevLog,date),
+    strength,
     reps:sum(performedWorkingRows(rows).map(row=>+row.reps)),
-    tiles:summaryTiles({strength,streak,records:prs.length}),
+    tiles:summaryTiles({strength,records:prs.length}),
     lead:summaryLeadCard(prs,liftGroups),
     sets:rows.length,
     volume:movedTonnage(rows),
@@ -12442,7 +12453,6 @@ function summaryTileValues(s){
   return s.tiles.map(id=>id==="strength"?{id,label:t("summary.tile.strength"),text:`+${fmtLoad(s.strength.delta)}`,unit,accent:true,
       sub:liftDisplayName(s.strength.name,s.strength.liftKey)}
     :id==="records"?{id,label:t("summary.tile.records"),text:fmt(s.prs.length),ramp:s.prs.length,accent:s.prs.length>0}
-    :id==="streak"?{id,label:t("summary.tile.streak"),text:fmt(s.streak),ramp:s.streak}
     :id==="volume"?{id,label:t("summary.tile.moved"),text:kfmt(toDisplay(s.volume)),ramp:toDisplay(s.volume),kfmt:true,unit}
     :id==="sets"?{id,label:t("summary.tile.sets"),text:fmt(s.sets),ramp:s.sets}
     :{id,label:t("summary.tile.reps"),text:fmt(s.reps),ramp:s.reps})}
@@ -12459,13 +12469,23 @@ function summaryLiftHtml(lift,s){
       `<span class="sum-grp__next"${lift.exerciseId?` data-parity-target="${esc(lift.exerciseId)}"`:""}>`+
       `${verdictMarkHtml(lift.next.glyph)}<span>${esc(lift.next.line)}</span></span></p>`:"")+`</div>`}
 
+function summaryUnseenFinding(s){
+  const seen=loadUiPrefs().findingsSeen;
+  return s.finding&&!(Array.isArray(seen)&&seen.includes(s.finding.id))?s.finding:null}
+function summaryFindingHtml(s){
+  const finding=summaryUnseenFinding(s),line=finding?.text||s.findingNeed;
+  if(!line)return "";
+  return `<button type="button" class="sum-finding" id="sumFinding"${finding?` data-finding="${esc(finding.id)}"`:""}>`+
+    (finding?`<span class="sum-finding__label">${esc(t("summary.new_today"))}</span>`:"")+`${esc(line)}</button>`}
+
 function sessionSummaryHtml(s){
   const out=[];
   out.push(`<p class="sum-eyebrow">${esc(t("summary.eyebrow"))}</p>`);
   out.push(`<h2 class="sum-hero" id="sumTitle" tabindex="-1">${esc(dayLabel(s.day))}</h2>`);
   out.push(`<p class="sum-sub">${esc(summarySubLine(s))}</p>`);
   out.push(summaryCardsHtml(s));
-  // The four numbers. The counts ramp (motion amendment M2); a signed margin does not.
+  out.push(summaryFindingHtml(s));
+  // The session figures. The counts ramp (motion amendment M2); a signed margin does not.
   out.push(`<div class="sum-stats sum-tiles">${summaryTileValues(s).map(tile=>`<div class="sum-tile" data-tile="${tile.id}">`+
     `<p class="sum-tile__lab">${esc(tile.label)}</p><p class="sum-tile__val${tile.accent?" is-accent":""}">`+
     (tile.ramp!=null?`<span data-ramp="${esc(tile.ramp)}"${tile.kfmt?' data-kfmt="1"':""}>${esc(tile.text)}</span>`:`<span>${esc(tile.text)}</span>`)+
@@ -12532,11 +12552,30 @@ function rampSessionStats(root){
     run.raf=requestAnimationFrame(step)};
   run.raf=requestAnimationFrame(step)}
 
-let sessionSummaryCurrent=null;
+let sessionSummaryCurrent=null,sessionSummaryProfileReturn=null;
+function clearSummaryProfileReturn(){
+  if(sessionSummaryProfileReturn)sessionSummaryCurrent=null;
+  sessionSummaryProfileReturn=null;$("#summaryProfileBack")?.remove()}
+async function openSummaryProfile(summary){
+  const sheet=$("#sessionSummary");
+  const returning={summary,view:currentViewId(),scroll:sheet.scrollTop};
+  stopSummaryRamp();await closeModal(sheet);
+  sessionSummaryProfileReturn=returning;
+  navTo("stats");setStatsSeg("overview");syncRouteHistory();
+  const profile=$("#overviewProfile");
+  if(profile){profile.setAttribute("tabindex","-1");profile.scrollIntoView({block:"start"});profile.focus({preventScroll:true})}}
+function returnFromSummaryProfile(){
+  const returning=sessionSummaryProfileReturn;if(!returning)return;
+  clearSummaryProfileReturn();returnToTab(returning.view);render();syncRouteHistory();
+  openSessionSummary(returning.summary);
+  $("#sessionSummary").scrollTop=returning.scroll;
+  $("#sumFinding")?.focus({preventScroll:true})}
+
 function renderSessionSummary(s){
   const body=$("#sessionSummaryBody");if(!body)return;
   stopSummaryRamp();
   body.innerHTML=sessionSummaryHtml(s);
+  const finding=$("#sumFinding");if(finding)finding.onclick=()=>openSummaryProfile(s);
   const done=$("#sumDone");if(done)done.onclick=()=>closeSessionSummary();
   const share=$("#sumShare");if(share)share.onclick=()=>openShareSheet(share);
   const see=$("#sumSee");if(see)see.onclick=()=>{
@@ -12544,6 +12583,7 @@ function renderSessionSummary(s){
     closeSessionSummary({nav:"history"})}}
 
 function clearSessionSummaryView(){
+  clearSummaryProfileReturn();syncRouteHistory();
   sessionSummaryCurrent=null;
   stopSummaryRamp();
   const el=$("#sessionSummary");
@@ -12559,6 +12599,10 @@ function openSessionSummary(s){
   renderSessionSummary(s);
   const ok=openModal(el,{initialFocus:()=>$("#sumTitle"),onEscape:()=>closeSessionSummary()});
   if(!ok){sessionSummaryCurrent=null;return false}
+  const finding=summaryUnseenFinding(s);
+  if(finding){
+    updateUiPrefs(prefs=>({...prefs,findingsSeen:[...new Set([
+      ...(Array.isArray(prefs.findingsSeen)?prefs.findingsSeen:[]),finding.id])]}))}
   // The blocks are all present and opaque on the first frame; only the totals count up. The ramp starts
   // before the first paint, so the finished figures are never seen and then reset to zero.
   rampSessionStats(el.querySelector(".sum-stats"));
@@ -12567,6 +12611,7 @@ function openSessionSummary(s){
   return true}
 
 function closeSessionSummary(opts={}){
+  clearSummaryProfileReturn();
   const el=$("#sessionSummary");
   sessionSummaryCurrent=null;
   stopSummaryRamp();
@@ -12694,11 +12739,11 @@ function historyShareSummary(sid,{week=null}={}){
       sets:[...group.rows].sort((a,b)=>(+a.set||0)-(+b.set||0)).map(row=>({load:+row.load,reps:+row.reps})),
       state:outcome==="improved"?{kind:"outcome",outcome:"improved"}:{kind:"insufficient",reason:null},
       pr:prs.find(entry=>entry.liftKey===group.liftKey)||null,next:null}});
-  const date=first.date,strength=week>=2?strengthGainedThisBlock(rows,prevLog):null,streak=weeksInARow([...prevLog,...rows],date);
+  const date=first.date,strength=week>=2?strengthGainedThisBlock(rows,prevLog):null;
   const seconds=state.sessionTiming?.[id]?.durationSeconds,mins=Number.isFinite(seconds)?Math.round(seconds/60):null;
-  return{session:id,date,day:first.day,strength,streak,
+  return{session:id,date,day:first.day,strength,
     reps:sum(work.map(row=>+row.reps)),
-    tiles:summaryTiles({strength,streak,records:prs.length}),
+    tiles:summaryTiles({strength,records:prs.length}),
     lead:summaryLeadCard(prs,liftGroups),
     sets:rows.length,volume:movedTonnage(rows),prs,liftGroups,
     minutes:mins>=1&&mins<=480?mins:null,
@@ -16000,13 +16045,13 @@ function renderProgramHeader(){
 }
 
 // Collapsed program days live in UI prefs so the state survives reloads without touching training data.
-function collapsedProgramDays(){const v=uiPrefs.collapsedProgramDays;return Array.isArray(v)?v.filter(x=>typeof x==="string"):[]}
-function setDayCollapsed(d,on){const cur=new Set(collapsedProgramDays());
-  on?cur.add(d):cur.delete(d);
-  setUiPref("collapsedProgramDays",[...cur].filter(x=>programEditorProgram().days().includes(x)))}
-function renameCollapsedDay(oldName,newName){const cur=collapsedProgramDays();
-  if(!cur.includes(oldName))return;
-  setUiPref("collapsedProgramDays",cur.map(x=>x===oldName?newName:x))}
+function collapsedProgramDays(prefs=uiPrefs){const v=prefs.collapsedProgramDays;return Array.isArray(v)?v.filter(x=>typeof x==="string"):[]}
+function setDayCollapsed(d,on){updateUiPrefs(prefs=>{
+  const cur=new Set(collapsedProgramDays(prefs));on?cur.add(d):cur.delete(d);
+  return {...prefs,collapsedProgramDays:[...cur].filter(x=>programEditorProgram().days().includes(x))}})}
+function renameCollapsedDay(oldName,newName){updateUiPrefs(prefs=>{
+  const cur=collapsedProgramDays(prefs);
+  return cur.includes(oldName)?{...prefs,collapsedProgramDays:cur.map(x=>x===oldName?newName:x)}:prefs})}
 
 /* The raw JSON box is the one field a lifter types a whole document into, so a
    render() firing mid-edit used to throw the draft away — every route into
@@ -23829,26 +23874,22 @@ window.closeOnboarding=closeOnboarding;window.startOnboarding=startOnboarding;
 const UIKEY=INSTALL_UI_KEY;
 function loadUiPrefs(){try{const o=JSON.parse(localStorage.getItem(UIKEY));return o&&typeof o==="object"?o:{}}catch{return{}}}
 let uiPrefs=loadUiPrefs();
-function setUiPref(k,v){
+function updateUiPrefs(update){
   if(installTransferMutationFrozen())return false;
-  uiPrefs[k]=v;try{localStorage.setItem(UIKEY,JSON.stringify(uiPrefs));return true}
+  const live=loadUiPrefs(),next=update(live);
+  try{
+    if(JSON.stringify(next)!==JSON.stringify(live))localStorage.setItem(UIKEY,JSON.stringify(next));
+    uiPrefs=next;return true}
   catch(e){console.warn("ui prefs save failed",e);return false}}
+function setUiPref(k,v){return updateUiPrefs(prefs=>({...prefs,[k]:v}))}
 const INSTALL_PREF_DEFAULTS=Object.freeze({installLastOfferedMilestone:null,installLastOfferedAt:null,
   installDismissedMilestone:null,installDismissedAt:null});
-function replaceUiPrefs(next){
-  if(installTransferMutationFrozen())return false;
-  try{localStorage.setItem(UIKEY,JSON.stringify(next));uiPrefs=next;return true}
-  catch(e){console.warn("ui prefs save failed",e);return false}}
 function ensureInstallPolicyPrefs(){
-  let changed=false;const next={...uiPrefs};
-  for(const[key,value]of Object.entries(INSTALL_PREF_DEFAULTS)){
-    if(!Object.prototype.hasOwnProperty.call(next,key)){next[key]=value;changed=true}}
-  if(changed)replaceUiPrefs(next)}
+  updateUiPrefs(prefs=>({...INSTALL_PREF_DEFAULTS,...prefs}))}
 function ensureGuidePrefs({persist=true}={}){
   if(!GuideRegistry?.migrateLegacyTourDone)return;
-  const next=GuideRegistry.migrateLegacyTourDone(uiPrefs);
-  if(JSON.stringify(next)===JSON.stringify(uiPrefs))return;
-  if(persist)replaceUiPrefs({...next});else uiPrefs={...next}}
+  if(persist)updateUiPrefs(prefs=>({...GuideRegistry.migrateLegacyTourDone(prefs)}));
+  else uiPrefs={...GuideRegistry.migrateLegacyTourDone(loadUiPrefs())}}
 
 /* ---- Appearance ----
    A UI pref, not a setting: which paper this device prefers says nothing about
@@ -23932,10 +23973,10 @@ function installPolicyDecision(source="automatic"){
     uiPrefs,nowMs:Date.now(),source,transferAvailable:installPolicyTransferAvailable()})}
 function recordInstallPolicyOffer(decision){
   if(!Number.isInteger(decision?.milestone))return;
-  replaceUiPrefs({...InstallPolicy.recordInstallOffer(uiPrefs,{milestone:decision.milestone,nowMs:Date.now()})})}
+  updateUiPrefs(prefs=>({...InstallPolicy.recordInstallOffer(prefs,{milestone:decision.milestone,nowMs:Date.now()})}))}
 function recordInstallPolicyDismissal(decision){
   if(!Number.isInteger(decision?.milestone))return;
-  replaceUiPrefs({...InstallPolicy.recordInstallDismissal(uiPrefs,{milestone:decision.milestone,nowMs:Date.now()})})}
+  updateUiPrefs(prefs=>({...InstallPolicy.recordInstallDismissal(prefs,{milestone:decision.milestone,nowMs:Date.now()})}))}
 let installPresentedDecision=null;
 function installInstructions(){
   if(isIOS())return t("install.ios_instructions",{icon:IOS_SHARE_SVG});
@@ -26005,9 +26046,8 @@ function guideAnchor(guide){
 function guideStored(id){return uiPrefs.guideState?.[id]||null}
 function saveGuideTransition(id,status){
   const guide=guideDefinition(id);if(!guide||!GuideRegistry?.recordGuideTransition)return false;
-  const live=GuideRegistry.migrateLegacyTourDone(loadUiPrefs());
-  const next=GuideRegistry.recordGuideTransition(live,id,status,{version:guide.version,nowMs:Date.now()});
-  return replaceUiPrefs({...next})}
+  return updateUiPrefs(prefs=>({...GuideRegistry.recordGuideTransition(
+    GuideRegistry.migrateLegacyTourDone(prefs),id,status,{version:guide.version,nowMs:Date.now()})}))}
 function guideDialogElement(){
   let el=$("#guideDialog");
   if(el)return el;
@@ -26085,10 +26125,8 @@ function maybeShowContextualGuides(ids=GuideRegistry?.PLAN_054_GUIDE_IDS||[]){
   return false}
 function replayContextualGuide(id){
   const guide=guideDefinition(id);if(!guide||!GuideRegistry?.replayGuideState)return false;
-  uiPrefs=loadUiPrefs();
   if(activeGuideId===id)removeContextualGuide();
-  const next=GuideRegistry.replayGuideState(uiPrefs,id,{version:guide.version,nowMs:Date.now()});
-  if(!replaceUiPrefs({...next}))return false;
+  if(!updateUiPrefs(prefs=>({...GuideRegistry.replayGuideState(prefs,id,{version:guide.version,nowMs:Date.now()})})))return false;
   captureEvent("guide_replay",{guideId:id});
   const returnFocus=document.activeElement;
   queueMicrotask(()=>showContextualGuide(id,{returnFocus,persistDeferred:true}));return true}
@@ -26119,6 +26157,7 @@ function renderBuildRelease(){
   ask(sw.controller);
   sw.addEventListener("controllerchange",()=>ask(sw.controller))}
 function showSettings(){
+  clearSummaryProfileReturn();
   $$("nav button").forEach(x=>{x.classList.remove("active");x.setAttribute("aria-current","false")});
   $$(".view").forEach(v=>v.classList.toggle("active",v.id==="settings"));
   document.body.classList.add("is-settings");document.body.classList.remove("is-exercise","is-onboarding","is-workout");
@@ -26747,6 +26786,7 @@ function init(){
     }
     if(programEditMode)finishInstalledEditor();
     if(dockRetap(b))return;
+    if(b.dataset.view!=="stats")clearSummaryProfileReturn();
     abandonVoiceOp();
     exView=null;cancelWorkoutEntry();workoutActive=false;workoutLeft=true;
     // Progress remembers its segment, so arriving there can itself open the review.
