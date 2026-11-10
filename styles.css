@@ -3687,8 +3687,8 @@ body.is-library nav,body.is-preview nav,body.is-import nav{display:none}
    into the page instead of showing through as ghosted text. Below the sticky action (z-index 5), above the page. */
 body::after{
   content:"";position:fixed;left:0;right:0;bottom:0;z-index:4;pointer-events:none;
-  height:calc(var(--nav) + env(safe-area-inset-bottom) + var(--space-12) + 2 * var(--space-32));
-  background:linear-gradient(to bottom,rgba(var(--bg-rgb),0),var(--bg) var(--space-26));
+  height:calc(var(--nav) + env(safe-area-inset-bottom) + var(--space-12) + 2 * var(--space-32) + var(--space-16));
+  background:linear-gradient(to bottom,rgba(var(--bg-rgb),0),var(--bg) var(--space-16));
 }
 body.is-settings::after,body.is-exercise::after,body.is-onboarding::after,body.is-library::after,body.is-preview::after,
 body.is-import::after,body.is-focus-wo::after,body:has(#history.view.active.is-session-edit)::after,
@@ -4352,8 +4352,10 @@ body.is-focus-wo .toast:not(.toast--top){bottom:calc(var(--toast-clear,0px) + va
 .today-prog__week,.today-prog__deload{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);margin-top:4px}
 .today-prog .segbar{margin-top:12px}
 #todayProgram .segbar__seg{background:var(--rule-strong);border-radius:var(--radius-compact)}
-#todayProgram .segbar__seg.is-done{background:var(--color-ink)}
-#todayProgram .segbar__seg.is-current{background:var(--color-ink-secondary)}
+/* Where the lifter is now is the strongest mark: the current week in ink, the weeks behind in soft ink, the weeks
+   ahead a hairline. */
+#todayProgram .segbar__seg.is-done{background:var(--color-ink-secondary)}
+#todayProgram .segbar__seg.is-current{background:var(--color-ink)}
 
 /* Today, once a session is saved: a recap stands where the start CTA would be. */
 .today-done{padding:4px 0 8px}
@@ -4543,6 +4545,8 @@ body.is-focus-wo .toast:not(.toast--top){bottom:calc(var(--toast-clear,0px) + va
 .settings-identity{display:flex;align-items:flex-start;gap:14px;padding:8px var(--settings-inset) var(--space-32)}
 .settings-identity__mark{width:52px;height:52px;border-radius:var(--radius-prominent);overflow:hidden;background:#efe5df;box-shadow:0 1px 2px rgba(23,23,25,.12),0 6px 18px rgba(23,23,25,.08);flex:none}
 .settings-identity__mark img{display:block;width:100%;height:100%;object-fit:cover}
+/* The cream tile would be the brightest thing on a dark page; it steps down to sit with the type. */
+:root[data-theme="dark"] .settings-identity__mark{filter:brightness(.78);box-shadow:none}
 .settings-identity__name{font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink)}
 /* The backup warning's remedy: a quiet action in the ink, a full target, under the note it answers. */
 /* The one action the storage note asks for reads as a button: a quiet secondary pill, not a link. */
