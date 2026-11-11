@@ -355,7 +355,8 @@
   --dock-caustic:rgba(255,255,255,.22);
   --dock-blur:blur(14px) saturate(190%) brightness(1.05);
   --dock-rim-shadow:inset 0 0 0 .5px var(--dock-rim),inset 0 6px 12px -8px var(--dock-rim);
-  --dock-pill:rgba(27,26,23,.07);
+  /* The light lens stays white: the active tab's accent icon and label measured under 3:1 and 4.5:1 on the climb's ink tint. */
+  --dock-pill:rgba(255,255,255,.82);
   --dock-pill-sheen:rgba(255,255,255,.82);
   /* Plan 075 phase 3: the scroll-edge bar's material, the same glass grammar
      as the dock, paper at 72%. It appears only once the large title below

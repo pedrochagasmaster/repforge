@@ -486,7 +486,7 @@ async function focusMotion(browser, { reducedMotion = "no-preference" } = {}) {
         return ex ? ex.setOrder.filter((sid) => ex.sets[sid].completion !== "pending").length : 0; })(),
         samples, openAfterTop: openAfter?.getBoundingClientRect().top ?? null,
         ringAfter: document.querySelectorAll(`${card} .ledgerline__ring`).length, travelAfter: document.querySelectorAll(`${card} .is-ring-travel`).length,
-        border: openAfter ? getComputedStyle(openAfter).borderTopColor : "", borderWidth: openAfter ? getComputedStyle(openAfter).borderTopWidth : "" };
+        border: openAfter ? getComputedStyle(openAfter).borderLeftColor : "", borderWidth: openAfter ? getComputedStyle(openAfter).borderLeftWidth : "" };
     }, CARD);
   };
   // The first set of an install brings up its own guide and re-flows the card, which would move
@@ -505,8 +505,9 @@ async function focusMotion(browser, { reducedMotion = "no-preference" } = {}) {
     assert(adv.openAfterTop > adv.openBefore + 1 && Math.abs(tops[0] - adv.openBefore) < 1 && rising
       && tops.every((v) => v <= adv.openAfterTop + 0.5),
       "on advance the outline travels once from the logged set down to the next one", JSON.stringify({ tops: tops.slice(0, 12), from: adv.openBefore, to: adv.openAfterTop }));
-    assert(adv.ringAfter === 0 && adv.travelAfter === 0 && adv.borderWidth === "2px" && adv.border !== "rgba(0, 0, 0, 0)",
-      "afterwards the open row wears its own 2px ring and nothing is left over", JSON.stringify({ ring: adv.ringAfter, travel: adv.travelAfter, border: adv.border, width: adv.borderWidth }));
+    // The open row's own marker is the current item's 3px accent bar on its leading edge (owner hill-climb, 2026-11-10).
+    assert(adv.ringAfter === 0 && adv.travelAfter === 0 && adv.borderWidth === "3px" && adv.border !== "rgba(0, 0, 0, 0)",
+      "afterwards the open row wears its own 3px leading bar and nothing is left over", JSON.stringify({ ring: adv.ringAfter, travel: adv.travelAfter, border: adv.border, width: adv.borderWidth }));
   }
 
   // Logging does not wait for the outline: the next set goes in while the last one is still moving.
