@@ -16,7 +16,8 @@
       "namePt": "Supino reto com barra",
       "aliases": [
         "Supino",
-        "Supino com barra"
+        "Supino com barra",
+        "Supino reto"
       ],
       "mediaId": "pr_bb"
     },
@@ -25,7 +26,8 @@
       "namePt": "Elevação pélvica com barra",
       "aliases": [
         "Hip thrust",
-        "Elevação pélvica"
+        "Elevação pélvica",
+        "Elevação de quadril"
       ],
       "mediaId": "ht_bb"
     },
@@ -34,7 +36,8 @@
       "namePt": "Desenvolvimento militar com barra",
       "aliases": [
         "Desenvolvimento com barra",
-        "Press militar com barra"
+        "Press militar com barra",
+        "Desenvolvimento militar"
       ],
       "mediaId": "sp_bb"
     },
@@ -43,7 +46,10 @@
       "namePt": "Levantamento terra romeno com barra",
       "aliases": [
         "Terra romeno",
-        "RDL"
+        "RDL",
+        "Stiff",
+        "Stiff com barra",
+        "Levantamento terra romeno"
       ],
       "mediaId": "hg_bb"
     },
@@ -51,7 +57,8 @@
       "sourceName": "Barbell shrug",
       "namePt": "Encolhimento com barra",
       "aliases": [
-        "Encolhimento de ombros"
+        "Encolhimento de ombros",
+        "Encolhimento"
       ],
       "mediaId": "sh_bb"
     },
@@ -84,7 +91,8 @@
       "namePt": "Crucifixo com halteres",
       "aliases": [
         "Crucifixo",
-        "Fly com halteres"
+        "Fly com halteres",
+        "Crucifixo reto"
       ],
       "mediaId": "cf_db"
     },
@@ -92,7 +100,8 @@
       "sourceName": "Dumbbell pullover",
       "namePt": "Pullover com halteres",
       "aliases": [
-        "Pullover com halteres"
+        "Pullover com halteres",
+        "Pullover"
       ],
       "mediaId": "pv_db"
     },
@@ -186,12 +195,17 @@
     "1a15c6f170d880ee83eccf109356e208": {
       "sourceName": "Barbell biceps curl",
       "namePt": "Rosca com barra",
-      "aliases": []
+      "aliases": [
+        "Rosca direta",
+        "Rosca direta com barra"
+      ]
     },
     "1a35c6f170d880f7a755cd3780a63371": {
       "sourceName": "Conventional deadlift",
       "namePt": "Levantamento terra com barra",
-      "aliases": []
+      "aliases": [
+        "Levantamento terra"
+      ]
     },
     "2965c6f170d880f8b368e35f599819f7": {
       "sourceName": "Barbell front raise",
@@ -311,7 +325,9 @@
     "1a15c6f170d880d7b8cbf608580aaa50": {
       "sourceName": "Dumbbell concentration curl",
       "namePt": "Rosca concentrada com halteres",
-      "aliases": []
+      "aliases": [
+        "Rosca concentrada"
+      ]
     },
     "3065c6f170d8807abd9fc6be633e0b19": {
       "sourceName": "Dumbbell deadlift",
@@ -366,7 +382,9 @@
     "1a45c6f170d880ff8f44dfd8ac3f86a2": {
       "sourceName": "Bent-leg reverse crunch",
       "namePt": "Abdominal invertido",
-      "aliases": []
+      "aliases": [
+        "Abdominal infra"
+      ]
     },
     "1a25c6f170d880e9a081d306d6073583": {
       "sourceName": "Sissy squat",
