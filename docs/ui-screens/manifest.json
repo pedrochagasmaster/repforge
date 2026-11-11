@@ -1438,6 +1438,20 @@
       "variants": "demandingText"
     },
     {
+      "id": "summary-share-edit",
+      "flow": "session",
+      "label": "Session summary — share editor",
+      "scenario": "The share sheet's editor open on the Sticker over the chosen photo: the card in its frame with the drag and pinch hint, the size slider, Darken photo, Reset, and Cancel and Done.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "summary-share-line",
+      "flow": "session",
+      "label": "Session summary — Line sticker on clear",
+      "scenario": "The share sheet on the Line sticker with the clear background: the transparent card over the preview's check, its formats and grounds, and Save and Share.",
+      "variants": "demandingText"
+    },
+    {
       "id": "summary-first",
       "flow": "session",
       "label": "Session summary — first session",
