@@ -280,7 +280,7 @@
     kicker(ctx, G.kicker, pad, kickY, S.kick, ink);
     text(ctx, G.name, pad, nameY, { weight: 600, size: fit(ctx, G.name, 600, S.name, right - pad, 28), color: ink.ink, ink });
     figure(ctx, G.delta, G.unit, pad, figY, S.fig, right - pad, o.ground === "dark" ? ink.accent : ink.ink, ink);
-    const L = { strong: `${G.from} → ${G.to} kg`, accent: G.span };
+    const L = { strong: `${G.from} → ${G.to} ${G.unit}`, accent: G.span };
     support(ctx, L, pad, overY, right, S.ls, ink, o.ground === "orange" ? ink.ink : ink.accent, 0, false);
     signature(ctx, pad, S.sig, story ? 34 : 26, ink, o);
     meta(ctx, card, right, S.sig, story ? 32 : 24, ink);

@@ -11954,16 +11954,23 @@ const SHARE_MARK_SRC="assets/brand/mark.png";
 const SHARE_FINISH_TEMPLATES=["hero","stats"];
 let shareSheet=null,shareMarkImage=null;
 
-/** Sessions with performed working sets up to this one's date, this one included. */
+/** The log's working rows up to and including this session, in the log's own chronology: a later session on the same
+ *  day is not part of a card shared for an earlier one. */
+function shareRowsThrough(s){
+  const id=String(s.session),rows=performedWorkingRows(state.log),mine=rows.filter(row=>String(row.session)===id);
+  if(!mine.length)return rows.filter(row=>String(row.date)<=String(s.date));
+  const first=mine.reduce((a,b)=>compareLogChronology(a,b)<=0?a:b);
+  return rows.filter(row=>String(row.session)===id||compareLogChronology(row,first)<0)}
+/** Sessions with performed working sets up to this one, this one included. */
 function shareSessionsThrough(s){
-  const ids=new Set(performedWorkingRows(state.log).filter(row=>String(row.date)<=String(s.date)).map(row=>String(row.session)));
+  const ids=new Set(shareRowsThrough(s).map(row=>String(row.session)));
   ids.add(String(s.session));
   return ids.size}
-/** One lift's heaviest working load in each session, oldest first, through this session's date. */
+/** One lift's heaviest working load in each session, oldest first, through this session. */
 function shareLiftPoints(key,s){
   const bySession=new Map();
-  for(const row of performedWorkingRows(state.log)){
-    if(liftKey(row)!==key||String(row.date)>String(s.date)||!(+row.load>0))continue;
+  for(const row of shareRowsThrough(s)){
+    if(liftKey(row)!==key||!(+row.load>0))continue;
     const id=String(row.session),cur=bySession.get(id);
     if(!cur||+row.load>cur.load)bySession.set(id,{load:+row.load,date:String(row.date),row})}
   const all=[...bySession.values()].sort((a,b)=>compareLogChronology(a.row,b.row));
@@ -12119,7 +12126,7 @@ function syncShareControls(st){
   const size=$("#shareCardSize");if(size)size.value=st.size;
   const edit=$("#shareCardEdit"),drawn=st.drawn[template];
   if(edit)edit.hidden=!(drawn?.hit||ground==="photo");
-  const grounds=$("#shareGrounds");
+  const grounds=$("#shareGrounds"),focused=document.activeElement?.closest?.("#shareGrounds [data-ground]")?.dataset.ground;
   if(grounds){
     const offered=SHARE_GROUND_ORDER.filter(g=>TauriferShareCards.OFFERS[template].includes(g));
     grounds.innerHTML=offered.map(g=>{
@@ -12128,26 +12135,32 @@ function syncShareControls(st){
       const swatch=photo&&st.thumb?`<span class="sharesheet__swatch is-photo" style="background-image:url(${st.thumb})">${on?'<span class="sharesheet__cam" aria-hidden="true"><span class="icon-mask icon-mask--camera"></span></span>':""}</span>`
         :photo?`<span class="sharesheet__swatch is-add"><span class="icon-mask icon-mask--camera" aria-hidden="true"></span></span>`
         :`<span class="sharesheet__swatch is-${g}"></span>`;
-      return `<button type="button" class="sharesheet__ground" role="radio" data-ground="${g}" aria-checked="${on}">${swatch}<span>${esc(label)}</span></button>`}).join("")}
+      return `<button type="button" class="sharesheet__ground" role="radio" data-ground="${g}" aria-checked="${on}" tabindex="${on?0:-1}">${swatch}<span>${esc(label)}</span></button>`}).join("");
+    // Rebuilding the swatches keeps the keyboard where it was.
+    if(focused)grounds.querySelector(`[data-ground="${focused}"]`)?.focus({preventScroll:true})}
   const note=$("#shareCardSheet .sharesheet__note");if(note)note.textContent=t(ground==="photo"?"share.photo_note":"share.note");
   window.RepForgeMotion?.syncNativeControls?.($("#shareCardSheet"))}
+/** Everything the card in view is drawn from. Share and Save hand over the file only while it matches. */
+const shareViewKey=st=>{const template=shareTemplate(st);
+  return JSON.stringify([template,st.size,shareGroundFor(st,template),st.photoSerial,shareEditsFor(st,template)])};
 function syncShareAvailability(st){
-  const ready=!!st.file;
+  const ready=!!st.file&&st.fileKey===shareViewKey(st);
   const share=$("#shareCardShare"),save=$("#shareCardSave");
   if(share)share.disabled=!ready;if(save)save.disabled=!ready}
-/** Makes the PNG for the card in view; a newer card wins over a slower older one. */
+/** Makes the PNG for the card in view. Any newer view wins over a slower older encode, and until the file matches
+ *  the card in view Share and Save wait: they never hand over a different card. */
 async function makeShareFile(){
   const st=shareSheet;if(!st)return;
-  // The last good file stays available until the new one is made: a failed draw never strands Share and Save.
-  const token=++st.token,template=shareTemplate(st);
+  const token=++st.token,template=shareTemplate(st),key=shareViewKey(st);
+  syncShareAvailability(st);
   const canvas=$$("#shareRail .sharesheet__slide")[st.index]?.querySelector("canvas");
   if(!canvas)return;
   const blob=await TauriferShareCards.toBlob(canvas);
-  if(shareSheet!==st||token!==st.token||!blob)return;
+  if(shareSheet!==st||token!==st.token||key!==shareViewKey(st)||!blob)return;
   if(st.url)URL.revokeObjectURL(st.url);
   st.url=URL.createObjectURL(blob);
   st.file=new File([blob],shareFileName(st,template),{type:"image/png"});
-  st.fileTemplate=template;st.bytes=blob.size;
+  st.fileTemplate=template;st.fileKey=key;st.bytes=blob.size;
   syncShareAvailability(st)}
 function settleShareIndex(i){
   const st=shareSheet;if(!st||i===st.index||i<0||i>=st.templates.length)return;
@@ -12158,7 +12171,7 @@ function openShareSheet(opener,{summary:given=null,origin="summary"}={}){
   const model=shareCardModel(s),templates=shareTemplates(model);
   const first=origin==="summary"?shareCardInView():"hero";
   shareSheet={summary:s,origin,model,templates,index:Math.max(0,templates.indexOf(first)),size:"story",ground:"dark",
-    edits:{},drawn:{},token:0,photoToken:0,url:"",file:null,photo:null,thumb:"",mark:null,editor:null};
+    edits:{},drawn:{},token:0,photoToken:0,photoSerial:0,url:"",file:null,fileKey:"",photo:null,thumb:"",mark:null,editor:null};
   // Without file sharing (desktop Firefox, some web views) the image is saved instead: Save leads.
   const canShare=shareCanFiles(),share=$("#shareCardShare"),save=$("#shareCardSave");
   if(share){share.hidden=!canShare;share.classList.toggle("hidden",!canShare)}
@@ -12218,8 +12231,10 @@ function openShareEditor(){
   if(hit){const range=$("#shareEditSize");range.min=hit.range[0];range.max=hit.range[1]}
   const shadeRow=$("#shareEditShadeRow");if(shadeRow){shadeRow.hidden=!st.editor.shade;shadeRow.classList.toggle("hidden",!st.editor.shade)}
   ed.hidden=false;ed.classList.remove("hidden");
-  // The sheet under the editor is out of reach until it closes.
-  $$("#shareCardSheet > :not(#shareEditor)").forEach(el=>{el.inert=true});
+  // The sheet under the editor is out of reach until it closes, and, once the editor covers it, out of the Tab loop.
+  const under=$$("#shareCardSheet > :not(#shareEditor)");
+  under.forEach(el=>{el.inert=true});
+  st.editor.cover=setTimeout(()=>{if(shareSheet?.editor)under.forEach(el=>{el.style.visibility="hidden"})},reducedMotion()?0:340);
   // The card fills the stage the tools leave, in its format's shape.
   const stage=ed.querySelector(".sharedit__stage"),ratio=st.size==="story"?9/16:1;
   const h=Math.min(stage.clientHeight-46,(stage.clientWidth-40)/ratio);
@@ -12228,11 +12243,11 @@ function openShareEditor(){
 function closeShareEditor(commit){
   const st=shareSheet,ed=$("#shareEditor");if(!st?.editor)return;
   const{template,edits}=st.editor;
-  cancelAnimationFrame(st.editor.raf);
+  cancelAnimationFrame(st.editor.raf);clearTimeout(st.editor.cover);
   st.editor=null;
   ed.classList.remove("is-open");ed.hidden=true;ed.classList.add("hidden");
   $("#shareEditFrame")?.replaceChildren();
-  $$("#shareCardSheet > :not(#shareEditor)").forEach(el=>{el.inert=false});
+  $$("#shareCardSheet > :not(#shareEditor)").forEach(el=>{el.inert=false;el.style.visibility=""});
   if(commit){st.edits[shareEditKey(st,template)]=edits;paintShareRow()}
   $("#shareCardEdit")?.focus({preventScroll:true})}
 function paintShareEditor(){
@@ -12291,13 +12306,27 @@ function bindShareSheet(){
     rail.addEventListener("scroll",()=>{
       const st=shareSheet;if(!st)return;
       const slide=rail.querySelector(".sharesheet__slide"),step=(slide?.offsetWidth||1)+16,i=Math.round(rail.scrollLeft/step);
-      if(i!==st.index&&i>=0&&i<st.templates.length){st.index=i;syncShareControls(st)}
-      clearTimeout(settle);settle=setTimeout(()=>{if(shareSheet===st&&st.fileTemplate!==shareTemplate(st))makeShareFile()},120)},{passive:true});
+      // A new card in view voids any encode still running for the last one.
+      if(i!==st.index&&i>=0&&i<st.templates.length){st.index=i;st.token++;syncShareControls(st);syncShareAvailability(st)}
+      clearTimeout(settle);settle=setTimeout(()=>{if(shareSheet===st&&st.fileKey!==shareViewKey(st))makeShareFile()},120)},{passive:true});
+    // The keyboard moves through the cards as a swipe does: arrows, Home and End.
+    rail.addEventListener("keydown",event=>{
+      const st=shareSheet;if(!st)return;
+      const last=st.templates.length-1,to={ArrowRight:st.index+1,ArrowLeft:st.index-1,Home:0,End:last}[event.key];
+      if(to===undefined)return;
+      event.preventDefault();
+      const slide=rail.querySelector(".sharesheet__slide");
+      rail.scrollTo({left:Math.max(0,Math.min(last,to))*((slide?.offsetWidth||0)+16),behavior:reducedMotion()?"auto":"smooth"})});
     // A tap on a neighbouring card brings it into view.
     rail.addEventListener("click",event=>{
       const st=shareSheet,slide=event.target.closest(".sharesheet__slide");if(!st||!slide)return;
       const i=[...rail.children].indexOf(slide);
       if(i!==st.index)rail.scrollTo({left:i*(slide.offsetWidth+16),behavior:reducedMotion()?"auto":"smooth"})})}
+  $("#shareGrounds")?.addEventListener("keydown",event=>{
+    const buttons=$$("#shareGrounds [data-ground]"),i=buttons.indexOf(document.activeElement);
+    const step={ArrowRight:1,ArrowDown:1,ArrowLeft:-1,ArrowUp:-1}[event.key];
+    if(i<0||!step)return;
+    event.preventDefault();buttons[(i+step+buttons.length)%buttons.length].focus()});
   $("#shareGrounds")?.addEventListener("click",event=>{
     const st=shareSheet,button=event.target.closest(".sharesheet__ground");if(!st||!button)return;
     const ground=button.dataset.ground,current=shareGroundFor(st,shareTemplate(st));
@@ -12313,7 +12342,7 @@ function bindShareSheet(){
     const token=++st.photoToken,photo=await decodeSharePhoto(file);
     if(shareSheet!==st||token!==st.photoToken){releaseSharePhoto({photo});return}
     if(!photo)return toast(t("share.photo_error"),{placement:"top"});
-    releaseSharePhoto(st);st.photo=photo;
+    releaseSharePhoto(st);st.photo=photo;st.photoSerial++;
     const thumb=document.createElement("canvas"),r=96/Math.min(photo.width,photo.height);
     thumb.width=thumb.height=96;thumb.getContext("2d").drawImage(photo,(96-photo.width*r)/2,(96-photo.height*r)/2,photo.width*r,photo.height*r);
     st.thumb=thumb.toDataURL("image/jpeg",0.8);

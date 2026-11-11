@@ -149,6 +149,53 @@ try {
     } finally { await context.close(); }
   }
 
+  console.log("\nThe file always matches the card in view");
+  {
+    const { context, page, errors } = await openSummary(browser, "session/summary", { canShare: true });
+    try {
+      await openSheet(page);
+      // Hold the next encode, move on to another card and back, then let the held encode finish.
+      await page.evaluate(() => {
+        const cards = window.TauriferShareCards = { ...window.TauriferShareCards }, original = cards.toBlob;
+        cards.toBlob = (canvas) => { cards.toBlob = original; return new Promise((resolve) => { window.__releaseBlob = () => original(canvas).then(resolve); }); };
+      });
+      await page.evaluate(() => { const rail = document.querySelector("#shareRail"); rail.scrollLeft = rail.querySelector(".sharesheet__slide").offsetWidth + 16; });
+      await page.waitForFunction(() => !!window.__releaseBlob);
+      check((await state(page)).shareDisabled, "while the card in view has no file yet, Share waits");
+      await page.evaluate(() => { document.querySelector("#shareRail").scrollLeft = 0; });
+      await page.waitForFunction(() => window.__repforgeShareSheet.state().template === "hero");
+      await page.evaluate(() => window.__releaseBlob());
+      await page.waitForFunction(() => { const st = window.__repforgeShareSheet.state(); return st.template === "hero" && !st.shareDisabled; }, undefined, { timeout: 15000 });
+      const s = await state(page);
+      check(s.file.name === "taurifer-2026-08-31-hero-story.png" && s.fileTemplate === "hero", "a slower encode for a card left behind never replaces the card in view", s.file);
+
+      // The keyboard: arrows move through the cards; a background keeps focus when chosen.
+      await page.focus("#shareRail");
+      await page.keyboard.press("ArrowRight");
+      await page.waitForFunction(() => window.__repforgeShareSheet.state().template === "progress", undefined, { timeout: 5000 }).catch(() => {});
+      await page.keyboard.press("End");
+      await page.waitForFunction(() => window.__repforgeShareSheet.state().template === "summary", undefined, { timeout: 5000 }).catch(() => {});
+      check((await state(page)).template === "summary", "arrow keys and End move through the cards", (await state(page)).template);
+      await page.focus('#shareGrounds [data-ground="orange"]');
+      await page.keyboard.press("Enter");
+      await page.waitForFunction(() => window.__repforgeShareSheet.state().ground === "orange");
+      check(await page.evaluate(() => document.activeElement?.dataset?.ground) === "orange", "choosing a background keeps the keyboard on it",
+        await page.evaluate(() => document.activeElement?.outerHTML?.slice(0, 80)));
+
+      // In the editor, Tab stays among the editor's own controls.
+      await page.keyboard.press("Home");
+      await page.focus("#shareRail"); await page.keyboard.press("Home");
+      await page.waitForFunction(() => window.__repforgeShareSheet.state().template === "hero");
+      await page.click("#shareCardEdit");
+      await page.waitForFunction(() => document.querySelector("#shareEditor.is-open"));
+      await page.waitForTimeout(400);
+      const visited = [];
+      for (let i = 0; i < 8; i++) { await page.keyboard.press("Tab"); visited.push(await page.evaluate(() => document.activeElement?.closest("#shareEditor") ? document.activeElement.id || document.activeElement.tagName : `OUT:${document.activeElement?.id || document.activeElement?.tagName}`)); }
+      check(visited.every((id) => !id.startsWith("OUT")) && new Set(visited).size === 3, "Tab cycles through the editor's controls only", visited);
+      check(!errors.length, "no page errors", errors);
+    } finally { await context.close(); }
+  }
+
   console.log("\nThe editor");
   {
     const { context, page, errors } = await openSummary(browser, "session/summary", { canShare: true });
@@ -298,18 +345,24 @@ try {
       check(s.photo.width === 640 && s.photo.height === 320, "N13: an older photo decode cannot overwrite the newer pick", s.photo);
 
       for (const failure of ["render-null", "blob-null"]) {
+        // Every draw fails until released: a new format with no file of its own must not keep the old one.
         await page.evaluate((kind) => {
           const cards = window.TauriferShareCards = { ...window.TauriferShareCards }, method = kind === "render-null" ? "render" : "toBlob", original = cards[method];
           window.__failedPaint = false;
-          cards[method] = (...args) => { cards[method] = original; window.__failedPaint = true; return method === "render" ? null : Promise.resolve(null); };
+          cards[method] = () => { window.__failedPaint = true; return method === "render" ? null : Promise.resolve(null); };
+          window.__restorePaint = () => { cards[method] = original; };
           const size = document.querySelector("#shareCardSize");
           size.value = size.value === "story" ? "square" : "story";
           size.dispatchEvent(new Event("change", { bubbles: true }));
         }, failure);
         await page.waitForFunction(() => window.__failedPaint);
-        await page.evaluate(() => new Promise(requestAnimationFrame));
+        await page.waitForTimeout(300);
         s = await state(page);
-        check(!s.shareDisabled && !s.saveDisabled && !!s.file?.name, `N13: ${failure} keeps a file available to Share and Save`, s);
+        check(s.shareDisabled && s.saveDisabled, `N13: after ${failure}, Share and Save wait rather than hand over a different card`, { disabled: s.shareDisabled, file: s.file });
+        await page.evaluate(() => window.__restorePaint());
+        await chooseGround(page, "dark");
+        await page.waitForFunction(() => { const st = window.__repforgeShareSheet.state(); return st.fileTemplate === st.template && !st.shareDisabled; }, undefined, { timeout: 15000 });
+        check(!(await state(page)).shareDisabled, `N13: the next draw after ${failure} makes the card shareable again`);
       }
 
       await page.keyboard.press("Escape");
