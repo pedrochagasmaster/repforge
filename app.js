@@ -12138,8 +12138,8 @@ function syncShareAvailability(st){
 /** Makes the PNG for the card in view; a newer card wins over a slower older one. */
 async function makeShareFile(){
   const st=shareSheet;if(!st)return;
+  // The last good file stays available until the new one is made: a failed draw never strands Share and Save.
   const token=++st.token,template=shareTemplate(st);
-  st.file=null;syncShareAvailability(st);
   const canvas=$$("#shareRail .sharesheet__slide")[st.index]?.querySelector("canvas");
   if(!canvas)return;
   const blob=await TauriferShareCards.toBlob(canvas);
@@ -12303,7 +12303,8 @@ function bindShareSheet(){
     const ground=button.dataset.ground,current=shareGroundFor(st,shareTemplate(st));
     // Photo with no picture yet, or tapped again, goes to the picker inside the same tap.
     if(ground==="photo"&&(!st.photo||current==="photo")){st.photoToken++;pickSharePhoto();return}
-    st.ground=ground;paintShareRow()});
+    // An explicit choice wins over a photo still being decoded.
+    st.photoToken++;st.ground=ground;paintShareRow()});
   const input=$("#sharePhotoInput");
   if(input)input.addEventListener("change",async()=>{
     const st=shareSheet,file=input.files?.[0];
@@ -12321,7 +12322,8 @@ function bindShareSheet(){
 window.__repforgeShareSheet={state:()=>{
   const st=shareSheet;if(!st)return null;
   const template=shareTemplate(st);
-  return{template,templates:[...st.templates],index:st.index,size:st.size,ground:shareGroundFor(st,template),
+  return{template,templates:[...st.templates],index:st.index,size:st.size,ground:shareGroundFor(st,template),lead:st.model.lead.kind,
+    stats:st.model.stats.map(stat=>stat.key),row:st.model.row.map(stat=>stat.key),progress:!!st.model.progress,
     edits:structuredClone(st.edits),drawn:st.drawn[template]||null,fileTemplate:st.fileTemplate||null,
     file:st.file?{name:st.file.name,type:st.file.type,size:st.file.size}:null,
     photo:st.photo?{width:st.photo.width,height:st.photo.height}:null,

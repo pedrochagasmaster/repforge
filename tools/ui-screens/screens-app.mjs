@@ -2603,16 +2603,16 @@ export const APP_SCENARIOS = {
     });
     await sleep(page, 400);
   },
-  // Share on the finish screen: the sheet with the record poster drawn on the device, Story, orange.
+  // Share on the finish screen (share templates, 2026-11-11): the sheet on the Highlight, Story, dark, every card in its row.
   "session/summary-share": async (page) => {
     await openFixtureSummary(page, DIRECTION_D_SUMMARY_SESSION["session/summary-share"]);
     await page.click("#sumShare");
     await page.waitForFunction(() => window.__repforgeShareSheet?.state()?.file, undefined, { timeout: 20000 });
     await page.waitForSelector("#shareCardSheet.is-open", { timeout: 20000 });
-    await page.waitForFunction(() => document.querySelector("#shareCardPreview")?.complete, undefined, { timeout: 20000 });
+    await page.waitForFunction(() => document.querySelectorAll("#shareRail .sharesheet__slide canvas").length >= 5, undefined, { timeout: 20000 });
     await sleep(page, 700);
   },
-  // The Photo style over a picture chosen in the system picker. The picture is a drawn stand-in for a gym photo
+  // The Photo background under a picture chosen in the system picker. The picture is a drawn stand-in for a gym photo
   // (bright window, warm wall, dark racks), made in the page so the frame is the same on every run.
   "session/summary-share-photo": async (page) => {
     await openFixtureSummary(page, DIRECTION_D_SUMMARY_SESSION["session/summary-share-photo"]);
@@ -2631,10 +2631,11 @@ export const APP_SCENARIOS = {
       return [...new Uint8Array(await (await c.convertToBlob({ type: "image/png" })).arrayBuffer())];
     }));
     const [chooser] = await Promise.all([page.waitForEvent("filechooser", { timeout: 20000 }),
-      page.locator('#shareStyleSegments [data-value="photo"]').click()]);
+      page.locator('#shareGrounds [data-ground="photo"]').click()]);
     await chooser.setFiles({ name: "gym.png", mimeType: "image/png", buffer: photo });
     await page.waitForFunction(() => window.__repforgeShareSheet?.state()?.drawn?.photo, undefined, { timeout: 20000 });
-    await page.waitForFunction(() => document.querySelector("#shareCardPreview")?.complete, undefined, { timeout: 20000 });
+    await page.waitForFunction(() => { const s = window.__repforgeShareSheet.state(); return s.fileTemplate === s.template && !s.shareDisabled; }, undefined, { timeout: 20000 });
+    await page.waitForFunction(() => document.querySelectorAll("#shareRail .sharesheet__slide canvas").length >= 5, undefined, { timeout: 20000 });
     await sleep(page, 700);
   },
   "session/summary-maintained": async (page) => {
@@ -2774,13 +2775,13 @@ export const APP_SCENARIOS = {
     await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
     await sleep(page, 400);
   },
-  // Share from a past session's page (finish-share PR 4): the same sheet, on that session's record poster.
+  // Share from a past session's page (finish-share PR 4): the same sheet, on that session's Highlight.
   "history/session-share": async (page) => {
     await APP_SCENARIOS["history/session"](page);
     await page.click("[data-history-share]");
     await page.waitForFunction(() => window.__repforgeShareSheet?.state()?.file, undefined, { timeout: 20000 });
     await page.waitForSelector("#shareCardSheet.is-open", { timeout: 20000 });
-    await page.waitForFunction(() => document.querySelector("#shareCardPreview")?.complete, undefined, { timeout: 20000 });
+    await page.waitForFunction(() => document.querySelectorAll("#shareRail .sharesheet__slide canvas").length >= 5, undefined, { timeout: 20000 });
     await sleep(page, 700);
   },
   "history/edit-dirty": async (page) => {

@@ -323,7 +323,7 @@
     const two = twoLines(ctx, L, S.line, inner);
     const ch = Math.round(padIn + S.kick + 58 * k + S.name + 34 * k + S.fig * 0.74 + 54 * k + S.line + (two ? S.lg : 0) + 74 * k + S.sig + padIn - 8 * k);
     const m0 = story ? 130 : 40, ox = o.offset?.x || 0, oy = o.offset?.y || 0;
-    const cy0 = (h - ch) / 2 + (story ? 40 : 0);
+    const cy0 = Math.round((h - ch) / 2 + (story ? 40 : 0));
     const xa = Math.max(40, Math.min(w - cw - 40, x0 + ox)), cy = Math.round(Math.max(m0, Math.min(h - ch - m0, cy0 + oy)));
     o.eff = { x: xa - x0, y: cy - cy0 };
     // On an orange ground the chip turns dark, so it never vanishes into its own colour.

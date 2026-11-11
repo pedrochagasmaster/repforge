@@ -186,9 +186,12 @@ export const ORANGE_ALLOWLIST = [
   { category: "active-dock-icon", selector: "nav button.active" },
   // The Program page's Edit, in its navigation bar's trailing slot (owner-approved bar-actions mock, 2026-10-23).
   { category: "bar-text-button", selector: "#program.program-ledger:not(.sheet) #programEditToggle" },
-  { category: "finish-share", selector: "#sessionSummary .sharecard--poster" },
-  { category: "finish-share", selector: "#sessionSummary .sharecard__val.is-accent" },
-  { category: "finish-share", selector: "#sessionSummary .sharecard__mark.is-up" },
+  // The share sheet (share templates, owner 2026-11-11): Edit in the bar's leading slot, the dot of the card in view,
+  // the chosen background's ring and the orange background's own swatch.
+  { category: "bar-text-button", selector: "#shareCardEdit" },
+  { category: "finish-share", selector: "#shareDots i.is-on" },
+  { category: "finish-share", selector: "#shareGrounds .sharesheet__ground[aria-checked=\"true\"] .sharesheet__swatch", pseudo: "::after" },
+  { category: "finish-share", selector: "#shareGrounds .sharesheet__swatch.is-orange" },
   { category: "finish-share", selector: "#sessionSummary .sum-tile__val.is-accent" },
   { category: "finish-share", selector: "#sessionSummary .sum-tile__val.is-accent > span" },
   { category: "calibration-ring", selector: "#todayDash .calring__fill" },
