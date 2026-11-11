@@ -4012,6 +4012,8 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
 .sharesheet__ground{border:0;background:none;padding:0;min-width:3.5rem;display:grid;justify-items:center;gap:6px;cursor:pointer;
   font-family:var(--font-language);font-size:var(--font-size-caption);font-weight:var(--weight-medium);color:var(--color-ink-secondary);
   max-width:100%;text-align:center;overflow-wrap:anywhere}
+/* Wide enough for the swatch and its 4px selection ring, whatever the generic button floor says. */
+#shareGrounds .sharesheet__ground{min-width:3.5rem}
 .sharesheet__ground[aria-checked="true"]{color:var(--color-ink);font-weight:var(--weight-semibold)}
 .sharesheet__ground:focus-visible{outline:var(--control-focus-outline);outline-offset:4px;border-radius:var(--radius-control)}
 .sharesheet__swatch{position:relative;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;background-size:cover;background-position:center;
