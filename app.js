@@ -11300,12 +11300,17 @@ async function performWorkoutAction(action){
 let nativeMenuClose=null;
 /** Opens the panel beside the lifted row: below it when it fits, above otherwise,
  *  always inside the dialog's safe-area padding. */
-function placeContextMenu(dialog,panel,rect){
+function placeContextMenu(dialog,panel,rect,preview=null){
   const view=window.visualViewport,inset=getComputedStyle(dialog),offset=view?.offsetTop||0;
   const top=offset+(parseFloat(inset.paddingTop)||0)+12;
   const bottom=offset+(view?.height||innerHeight)-(parseFloat(inset.paddingBottom)||0)-12;
   const left=(parseFloat(inset.paddingLeft)||0)+12,right=innerWidth-(parseFloat(inset.paddingRight)||0)-12;
-  const box=panel.getBoundingClientRect(),below=rect.bottom+8+box.height<bottom;
+  const box=panel.getBoundingClientRect();
+  if(preview&&rect.height+box.height+8<=bottom-top&&rect.top-box.height-8<top&&rect.bottom+8+box.height>bottom){
+    preview.style.top=`${parseFloat(preview.style.top)+top+box.height+8-rect.top}px`;
+    rect=preview.getBoundingClientRect();
+  }
+  const below=rect.bottom+8+box.height<bottom;
   const x=Math.max(left,Math.min(rect.left+8,right-box.width));
   // It grows from under the row's centre, as the prototype's menu does.
   const originX=Math.max(0,Math.min(box.width,rect.left+rect.width/2-x));
@@ -11344,6 +11349,9 @@ function openRowContextMenu({anchor,items,opener=anchor,title=""}){
       const cls=[item.destructive?"is-destructive":"",item.separatorBefore?"is-group":""].filter(Boolean).join(" ");
       const label=item.sub?`<span class="native-context__label"><span>${esc(item.label)}</span><span class="native-context__sub">${esc(item.sub)}</span></span>`:`<span>${esc(item.label)}</span>`;
       return `<button type="button" role="${radio?"menuitemradio":"menuitem"}"${radio?` aria-checked="${item.checked}"`:""} data-menu-value="${esc(item.value)}"${cls?` class="${cls}"`:""}${item.disabled?" disabled":""}>${label}${icon?`<span class="icon-mask icon-mask--${esc(icon)} native-context__icon" aria-hidden="true"></span>`:radio||item.sub?`<span class="native-context__icon" aria-hidden="true"></span>`:""}</button>`}).join("")}</div>`;
+    if(anchor.classList.contains("today-rx__row")){
+      preview.classList.add("today-rx__grid");preview.style.height="auto";
+    }
     dialog.prepend(preview);document.body.append(dialog);
     const panel=dialog.querySelector('[role="menu"]');
     let closing=false,untrack=null;
@@ -11367,7 +11375,7 @@ function openRowContextMenu({anchor,items,opener=anchor,title=""}){
       else if(!panel.contains(event.target))finish(null);
     });
     dialog.showModal();
-    placeContextMenu(dialog,panel,rect);
+    placeContextMenu(dialog,panel,anchor.classList.contains("today-rx__row")?preview.getBoundingClientRect():rect,anchor.classList.contains("today-rx__row")?preview:null);
     window.RepForgeMotion?.animateContextMenu?.(panel,preview);
     quietFocus(panel.querySelector("button:not(:disabled)"));
   });

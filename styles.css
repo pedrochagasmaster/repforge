@@ -1097,6 +1097,8 @@ div.settings-row{cursor:default}
 .settings-row.is-danger .settings-row__label{color:var(--control-destructive-ink)}
 /* A choice row's pull-down mark: the kit's 16px chev-down after the value, in the value's ink. */
 .settings-row__pull{flex:none;width:16px;height:16px}
+.settings-row--pull .settings-row__label{min-width:min-content}
+.settings-row--pull .settings-row__value{flex-shrink:1;min-width:0}
 /* The one row that is still a box: a destructive action is not part of the
    list above it, and the outline is what says so. */
 .settings-row.is-danger,#reset.settings-row{
@@ -3769,7 +3771,7 @@ body:has(#log.view.active #todayDash:not(.hidden) #startWorkout:not(.hidden))::a
     rgba(var(--bg-rgb),0) calc(100% - var(--nav) - env(safe-area-inset-bottom)));
 }
 body.is-settings::after,body.is-exercise::after,body.is-onboarding::after,body.is-library::after,body.is-preview::after,
-body.is-import::after,body.is-focus-wo::after,body:has(#history.view.active.is-session-edit)::after,
+body.is-import::after,body.is-focus-wo::after,body:has(#draftRecovery:not(.hidden))::after,body:has(#history.view.active.is-session-edit)::after,
 body:has(:is(#program,[data-copy-id="program"]).program-editor-installed)::after{display:none}
 body.is-settings,body.is-exercise,body.is-onboarding,
 body.is-library,body.is-preview,body.is-import{padding-bottom:env(safe-area-inset-bottom)}
@@ -9352,7 +9354,10 @@ body.is-entry-editor #entryProgramName,
 .native-context{position:fixed;inset:0;width:100%;height:100%;max-width:none;max-height:none;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px);margin:0;border:0;background:transparent;color:var(--ink);overflow:hidden}
 .native-context::backdrop{background:var(--menu-backdrop);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
 .native-context__preview{position:fixed!important;display:flex;align-items:center;padding-inline:var(--space-12);pointer-events:none;background:var(--surface);border-radius:var(--radius-surface);box-shadow:var(--elevation-drag-shadow);transform:scale(1.03)}
-.native-context__preview.today-rx__row{background:var(--bg);display:grid;grid-template-columns:1rem minmax(0,1fr) auto auto;gap:var(--space-8)}
+.native-context__preview.today-rx__row{background:var(--bg);container-type:inline-size}
+@container (max-width:18rem){
+  .native-context__preview.today-rx__row .rxrow{grid-template-columns:var(--rx-mark,1rem) minmax(0,1fr) auto}
+}
 .native-context__preview .native-row-menu{display:none}
 .native-context__preview.shelf__field{padding:0;background:transparent;box-shadow:none}
 .native-context__preview.shelf__field .shelf__fieldbtn{box-shadow:var(--elevation-drag-shadow)}

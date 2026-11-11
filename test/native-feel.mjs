@@ -2555,11 +2555,41 @@ async function concentricShelf(browser) {
   }
 }
 
+async function refreshLayout(browser) {
+  for (const [state, lang, width = 390, text = "text200"] of [["settings/effort-menu", "pt"], ["today/context-menu", "en"], ["today/context-menu", "pt"], ["today/context-menu", "en", 320, "normal"], ["workout/invalid-draft", "pt"]]) {
+    const opened = await openCatalogState(browser, state, width, lang, text);
+    try {
+      const geometry = await opened.page.evaluate(() => {
+        const preview = document.querySelector(".native-context__preview");
+        if (preview) {
+          const box = preview.getBoundingClientRect();
+          const texts = [...preview.querySelectorAll(".settings-row__label,.settings-row__value,.rxrow__name,.rxrow__sub")].map(el => {
+            const range = document.createRange(); range.selectNodeContents(el);
+            return [...range.getClientRects()].map(r => ({left:r.left,right:r.right,top:r.top,bottom:r.bottom}));
+          }).flat();
+          const textBox = selector => {
+            const el = preview.querySelector(selector); if (!el) return null;
+            const range = document.createRange(); range.selectNodeContents(el); return range.getBoundingClientRect();
+          };
+          const label = textBox(".settings-row__label"), value = textBox(".settings-row__value");
+          const menu = document.querySelector(".native-context__menu").getBoundingClientRect();
+          return { menuSeparated: menu.bottom <= box.top + 1 || menu.top >= box.bottom - 1, contained: texts.every(r => r.left >= box.left - 1 && r.right <= box.right + 1 && r.top >= box.top - 1 && r.bottom <= box.bottom + 1), separated: !label || !value || label.right <= value.left + 1 || label.bottom <= value.top + 1 };
+        }
+        return { fade: getComputedStyle(document.body, "::after").display };
+      });
+      if (process.env.REPFORGE_ARTIFACT_DIR) await opened.page.screenshot({ path: `${process.env.REPFORGE_ARTIFACT_DIR}/refresh-${state.replace("/", "-")}-${lang}-${width}.png` });
+      if (state === "workout/invalid-draft") assert(geometry.fade === "none", "recovery actions are not painted over by the Today fade", JSON.stringify(geometry));
+      else assert(geometry.contained && geometry.separated && geometry.menuSeparated, `${state} ${lang}: lifted preview contains its text without collisions`, JSON.stringify(geometry));
+    } finally { await opened.context.close(); }
+  }
+}
+
 // NATIVE_FEEL_ONLY=rest runs the ten-cycle held Settings probe, =large runs just phase 5, =shelf just its addendum, =wheel just the wheel picker and =swipe just the
-// history and back-swipe phases, for a local red/green; CI runs everything.
+// history and back-swipe phases, =refresh just the catalog layout regressions, for a local red/green; CI runs everything.
 const ONLY = process.env.NATIVE_FEEL_ONLY || "";
 const browser = await launchChromium();
 try {
+ if (!ONLY || ONLY === "refresh") await refreshLayout(browser);
  if (!ONLY) {
   phase("A primary action is pressed on touch-down");
   {
@@ -2782,7 +2812,7 @@ try {
     await autoSwipe(browser);
     await standaloneSwipe(browser);
   }
-  if (!["wheel", "swipe", "rest"].includes(ONLY)) await concentricShelf(browser);
+  if (!["wheel", "swipe", "rest", "refresh"].includes(ONLY)) await concentricShelf(browser);
 } finally {
   await browser.close();
 }
