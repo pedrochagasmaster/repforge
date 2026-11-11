@@ -17764,6 +17764,12 @@ function renderImportReview(){
     `<span class="impcount"><b>${counts.linked}</b>${esc(t("import.count_linked"))}</span>`+
     `<span class="impcount"><b>${counts.review}</b>${esc(t("import.count_review"))}</span>`+
     `<span class="impcount"><b>${counts.custom}</b>${esc(t("import.count_custom"))}</span>`;
+  const useAll=$("#importUseAll");
+  if(useAll){
+    const n=importSuggestedRows(importDraft).length;
+    useAll.hidden=n<2;
+    useAll.textContent=n<2?"":t("import.use_all",{n});
+    useAll.onclick=acceptImportSuggestions}
   const rows=$("#importRows");
   if(rows){
     // Rows still needing a decision come first: they are the only reason this
@@ -17864,6 +17870,22 @@ function importRowAction(act,key,idx){
       stageOnly:true,
       onSave:entry=>{row.createdCustom=entry;row.createdCustomId=entry.id;
         row.decision="custom";settleImportRow(row,"custom")}})}}
+/** Undecided rows whose top candidate the matcher called Likely. Unmatched rows, and rows the
+ *  lifter has already decided, are never part of a bulk accept. */
+function importSuggestedRows(draft){
+  return (draft?.rows||[]).filter(row=>!row.reviewed&&row.status===IMPORT_PROBABLE&&(row.shortlist?.[0]||row.match))}
+/** Use all suggestions: each Likely row takes its top candidate, exactly as tapping its first
+ *  "Use …" would, and folds to Confirmed with its own Change, so any one stays changeable. */
+function acceptImportSuggestions(){
+  const rows=importSuggestedRows(importDraft);
+  if(!rows.length)return;
+  for(const row of rows){
+    row.match=row.shortlist?.[0]||row.match;row.decision="link";
+    captureEvent("program_import_row_resolved",
+      {method:"use_all",source:importDraft?.sourceType==="freeform"?"freeform":"file"});
+    row.reviewed=true;row.expanded=false}
+  renderImportReview();
+  $("#importHeading")?.focus({preventScroll:true})}
 /** A decided row folds back down: the alternatives have done their job.
  *  How it was decided is the only measure of whether matching improved for
  *  programs we have never seen. Categorical, and never the exercise name. */
@@ -18593,7 +18615,7 @@ function assembleFreeformProgramDocument(gapResult,gapAnswers){
   }
   return JSON.stringify({
     version:3,
-    meta:gapResult.envelope?.meta||{name:t("entry.freeform.source_name")},
+    meta:gapResult.envelope?.meta||{name:freeformSourceName()},
     exercises:rows,
   });
 }
@@ -18745,7 +18767,7 @@ function openFreeformApp(app,event){
 function loadFreeformProgram(source){
   pendingImportIo=null;
   captureUnsupportedWorkoutConcepts(source.notImported);
-  const draft=buildImportDraft(source,t("entry.freeform.source_name"));
+  const draft=buildImportDraft(source,freeformSourceName());
   draft.sourceType="freeform";
   draft.notImported=source.notImported||[];
   draft.originalText=entryFreeformInput;
@@ -18756,6 +18778,11 @@ function loadFreeformProgram(source){
   return draft}
 
 /** The reply becomes an ordinary import draft: same review, same activation. */
+/** Where the program came from, as the review names it: Taurifer's own conversion, or text
+ *  the lifter pasted back from their assistant. */
+function freeformSourceName(){
+  return t(entryFreeformLastProvider==="taurifer"?"entry.freeform.source_name_managed":"entry.freeform.source_name")}
+
 function startFreeformReview(){
   const reply=String(entryFreeformReply||"").trim();
   if(!reply){toast(t("toast.freeform_empty"));return null}
@@ -18829,20 +18856,31 @@ function renderFreeformGapsStep(){
     const items=notImported.map(cat=>t(FREEFORM_NOT_IMPORTED_KEYS[cat]||"entry.freeform.not_imported.other_notes")).join(", ");
     notImportedHtml=`<p class="entry__notice entry__notice--info" role="status">${esc(t("entry.freeform.not_imported_notice",{items}))}</p>`;
   }
-  const gapRows=gaps.map(gap=>{
+  const gapField=gap=>{
     const isSets=gap.field==="sets";
     const val=entryFreeformGapAnswers[gap.key]||"";
     const hasError=entryFreeformGapErrors.has(gap.key);
     const label=isSets
-      ?t("entry.freeform.gap_sets_label",{exercise:`${gap.day} · ${gap.name}`})
-      :t("entry.freeform.gap_reps_label",{exercise:`${gap.day} · ${gap.name}`});
+      ?t("entry.freeform.gap_sets_label",{exercise:gap.name})
+      :t("entry.freeform.gap_reps_label",{exercise:gap.name});
     const placeholder=isSets?t("entry.freeform.gap_sets_placeholder"):t("entry.freeform.gap_reps_placeholder");
     return `<label class="entry__field"><span>${esc(label)}</span>`+
       `<input type="text" class="entry__field-input${hasError?" is-invalid":""}"${hasError?' aria-invalid="true"':""} data-gap-key="${esc(gap.key)}" value="${esc(val)}" placeholder="${esc(placeholder)}"></label>`;
-  }).join("");
+  };
+  // One heading per training day: a coach's day label ("TREINO A – Peito/Ombro/Tríceps (segunda)")
+  // repeated on every field crowded out the exercise each field asks about.
+  const days=[];
+  for(const gap of gaps){
+    let group=days.find(d=>d.day===gap.day);
+    if(!group)days.push(group={day:gap.day,gaps:[]});
+    group.gaps.push(gap)}
+  const gapRows=days.map(group=>
+    `<fieldset class="entry__gap-day"><legend class="entry__gap-day-title">${esc(group.day)}</legend>`+
+      group.gaps.map(gapField).join("")+
+    `</fieldset>`).join("");
 
   return entryHeading(t("entry.freeform.gaps_title"))+
-    `<p class="onb__explain">${esc(t("entry.freeform.gaps_lede"))}</p>`+
+    `<p class="onb__explain">${esc(t(entryFreeformLastProvider==="taurifer"?"entry.freeform.gaps_lede_managed":"entry.freeform.gaps_lede"))}</p>`+
     notImportedHtml+
     (entryFreeformGapErrors.size?`<p class="entry__notice entry__notice--warn" role="alert">${esc(t("entry.freeform.gap_error"))}</p>`:"")+
     `<div class="entry__gaps-list">${gapRows}</div>`+

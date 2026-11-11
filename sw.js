@@ -1,14 +1,14 @@
-const CACHE = "repforge-v723";
+const CACHE = "repforge-v724";
 const ASSETS = [
-  "./", "./index.html", "./styles.css", "./styles.css?v=699", "./motion-polish.css", "./motion-polish.css?v=643", "./manifest.webmanifest",
+  "./", "./index.html", "./styles.css", "./styles.css?v=724", "./motion-polish.css", "./motion-polish.css?v=643", "./manifest.webmanifest",
   { url: "./vendor/motion/motion.js", owner: "RepForgeMotion", required: false, immutable: true },
   { url: "./vendor/dnd-kit/dnd-kit.js", owner: "RepForgeDndRuntime", required: false },
   { url: "./vendor/dnd-kit/dnd-kit.runtime.js", owner: "RepForgeDndRuntime", required: false, immutable: true },
   "./motion-layer.js", "./motion-layer.js?v=684",
-  "./telemetry.js", "./unsupported-workout-grammar.js", { url: "./posthog-config.js", owner: "RepForgeTelemetry", required: false }, "./posthog-init.js", "./schedule.js", "./notify.js", "./i18n.js", "./i18n.js?v=699", "./exercises.js", "./exercises.js?v=723", "./exercise-catalog.js?v=459", "./assets/exercise-catalog.json?v=067", "./exercise-metrics.js?v=485", "./install-transfer-contract.js", "./install-transfer-contract.js?v=643", "./install-transfer.js", "./install-transfer.js?v=673",
+  "./telemetry.js", "./unsupported-workout-grammar.js", { url: "./posthog-config.js", owner: "RepForgeTelemetry", required: false }, "./posthog-init.js", "./schedule.js", "./notify.js", "./i18n.js", "./i18n.js?v=724", "./exercises.js", "./exercises.js?v=723", "./exercise-catalog.js?v=459", "./assets/exercise-catalog.json?v=067", "./exercise-metrics.js?v=485", "./install-transfer-contract.js", "./install-transfer-contract.js?v=643", "./install-transfer.js", "./install-transfer.js?v=673",
   "./generation-identity.js", "./generation-identity.js?v=459", "./generation-candidates.js", "./generation-candidates.js?v=466", "./generation-layout.js", "./engine-policy.js", "./engine-policy.js?v=560", "./generation-layout.js?v=560",
   "./progression-engine.js", "./progression-engine.js?v=644", "./progress-model.js", "./progress-model.js?v=309", "./program-compiler.js", "./program-compiler.js?v=560", "./program-entry.js", "./program-entry.js?v=515", "./program-entry-adapter.js", "./program-entry-adapter.js?v=560", "./program-editor.js", "./program-editor.js?v=689", "./program-review.js", "./program-review.js?v=692",
-  "./shared-setup.js", "./shared-setup.js?v=574", "./workout-draft.js", "./workout-draft.js?v=671", "./effort-calibration.js", "./effort-calibration.js?v=640", "./calibration-gauge.js", "./calibration-gauge.js?v=640", "./program-transition.js", "./program-transition.js?v=560", "./program-engine.js?v=669", "./install-policy.js", "./install-policy.js?v=307", "./rest-timer.js", "./rest-timer.js?v=678", "./guide-registry.js", "./guide-registry.js?v=423", "./durable-state.js", "./durable-state.js?v=682", "./history-ui.js", "./history-ui.js?v=694", "./share-cards.js", "./share-cards.js?v=639", "./app.js", "./app.js?v=723",
+  "./shared-setup.js", "./shared-setup.js?v=574", "./workout-draft.js", "./workout-draft.js?v=671", "./effort-calibration.js", "./effort-calibration.js?v=640", "./calibration-gauge.js", "./calibration-gauge.js?v=640", "./program-transition.js", "./program-transition.js?v=560", "./program-engine.js?v=669", "./install-policy.js", "./install-policy.js?v=307", "./rest-timer.js", "./rest-timer.js?v=678", "./guide-registry.js", "./guide-registry.js?v=423", "./durable-state.js", "./durable-state.js?v=682", "./history-ui.js", "./history-ui.js?v=694", "./share-cards.js", "./share-cards.js?v=639", "./app.js", "./app.js?v=724",
   "./icons/icon.svg", "./icons/favicon-32.png", "./icons/icon-192.png",
   "./icons/icon-512.png", "./icons/icon-1024.png",
   "./icons/icon-maskable-512.png", "./icons/apple-touch-icon.png",
