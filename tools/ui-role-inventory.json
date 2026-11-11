@@ -483,6 +483,16 @@
       "content": "flat",
       "scenario": "The share sheet's Photo style over a chosen picture: the record poster on the dimmed photo, Change photo, and Share and Save."
     },
+    "session/summary-share-edit": {
+      "owner": "plan-064/r3h",
+      "content": "flat",
+      "scenario": "The share editor open on the Sticker over the chosen photo: frame, hint, size, Darken photo, Reset, Cancel and Done."
+    },
+    "session/summary-share-line": {
+      "owner": "plan-064/r3h",
+      "content": "flat",
+      "scenario": "The share sheet on the Line sticker with the clear background."
+    },
     "session/summary-maintained": {
       "owner": "plan-064/r3h",
       "content": "flat",
@@ -6568,12 +6578,14 @@
       "states": [
         "default"
       ],
-      "rationale": "Blocks the finish screen with dialog semantics while the card is chosen and shared; the summary comes back when it closes.",
+      "rationale": "Blocks the finish screen with dialog semantics while a card is chosen, edited and shared; the summary comes back when it closes.",
       "owner": "finish-share",
       "catalogStates": [
         "session/summary-share",
         "session/summary-share-photo",
-        "history/session-share"
+        "history/session-share",
+        "session/summary-share-edit",
+        "session/summary-share-line"
       ]
     },
     {
@@ -6592,7 +6604,9 @@
       "catalogStates": [
         "session/summary-share",
         "session/summary-share-photo",
-        "history/session-share"
+        "history/session-share",
+        "session/summary-share-edit",
+        "session/summary-share-line"
       ]
     },
     {
@@ -6616,7 +6630,9 @@
       "catalogStates": [
         "session/summary-share",
         "session/summary-share-photo",
-        "history/session-share"
+        "history/session-share",
+        "session/summary-share-edit",
+        "session/summary-share-line"
       ],
       "neverDisabledReason": "Closing is always available."
     },
@@ -6642,7 +6658,9 @@
       "catalogStates": [
         "session/summary-share",
         "session/summary-share-photo",
-        "history/session-share"
+        "history/session-share",
+        "session/summary-share-edit",
+        "session/summary-share-line"
       ]
     },
     {
@@ -6665,12 +6683,14 @@
       "catalogStates": [
         "session/summary-share",
         "session/summary-share-photo",
-        "history/session-share"
+        "history/session-share",
+        "session/summary-share-edit",
+        "session/summary-share-line"
       ]
     },
     {
-      "id": "sharephotopick",
-      "selector": "#sharePhotoPick",
+      "id": "sharecardedit",
+      "selector": "#shareCardEdit",
       "roles": {
         "control": "quiet-navigation"
       },
@@ -6682,12 +6702,201 @@
         "pressed",
         "focus-visible"
       ],
-      "rationale": "Opens the system photo picker for the Photo style; it reads Change photo once a picture is in use.",
+      "rationale": "The sheet bar's leading text button: opens the card in view in the editor.",
+      "owner": "finish-share",
+      "catalogStates": [
+        "session/summary-share",
+        "session/summary-share-photo",
+        "history/session-share",
+        "session/summary-share-edit",
+        "session/summary-share-line"
+      ],
+      "neverDisabledReason": "Edit shows only while the card in view has something to adjust."
+    },
+    {
+      "id": "shareeditcancel",
+      "selector": "#shareEditCancel",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "Leaves the share editor without keeping the edit; the card goes back to how it was.",
+      "owner": "finish-share",
+      "catalogStates": [
+        "session/summary-share-edit"
+      ],
+      "neverDisabledReason": "Leaving the editor is always available."
+    },
+    {
+      "id": "shareeditdone",
+      "selector": "#shareEditDone",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "Keeps the edit and returns to the share sheet with the card redrawn.",
+      "owner": "finish-share",
+      "catalogStates": [
+        "session/summary-share-edit"
+      ],
+      "neverDisabledReason": "Done keeps whatever the card is now, unchanged included."
+    },
+    {
+      "id": "shareeditsize",
+      "selector": "#shareEditSize",
+      "roles": {
+        "control": "adjustment"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "focus-visible"
+      ],
+      "rationale": "Sizes the card's text or sticker within the range its template allows, as a pinch does.",
+      "owner": "finish-share",
+      "catalogStates": [
+        "session/summary-share-edit"
+      ],
+      "neverDisabledReason": "Shown only for a template that can be sized; hidden, not disabled, otherwise."
+    },
+    {
+      "id": "shareeditshade",
+      "selector": "#shareEditShade",
+      "roles": {
+        "control": "selection"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "pressed",
+        "focus-visible",
+        "selected"
+      ],
+      "rationale": "Darkens the photo under the card so light text holds; shown only over a photo.",
+      "owner": "finish-share",
+      "catalogStates": [
+        "session/summary-share-edit"
+      ],
+      "neverDisabledReason": "Shown only over a photo; hidden, not disabled, otherwise."
+    },
+    {
+      "id": "shareeditreset",
+      "selector": "#shareEditReset",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Puts the card back to its template's own placement and size; disabled while there is nothing to reset.",
+      "owner": "finish-share",
+      "catalogStates": [
+        "session/summary-share-edit"
+      ]
+    },
+    {
+      "id": "sharegrounds",
+      "selector": "#shareGrounds .sharesheet__ground",
+      "roles": {
+        "control": "selection",
+        "boundary": "state-cues"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "selected"
+      ],
+      "rationale": "Chooses the card's background; the photo swatch opens the picker, then changes the photo.",
+      "owner": "finish-share",
+      "catalogStates": [
+        "session/summary-share",
+        "session/summary-share-photo",
+        "history/session-share",
+        "session/summary-share-edit",
+        "session/summary-share-line"
+      ],
+      "neverDisabledReason": "Every background a card offers can always be chosen."
+    },
+    {
+      "id": "sharesheet-swatch",
+      "selector": "#shareGrounds .sharesheet__swatch",
+      "roles": {
+        "boundary": "decorative"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "A background's picture inside its ground button (photo, dark, orange, clear, add); the button carries the selection.",
+      "owner": "finish-share",
+      "catalogStates": [
+        "session/summary-share",
+        "session/summary-share-photo",
+        "session/summary-share-line",
+        "history/session-share"
+      ]
+    },
+    {
+      "id": "sharesheet-cam",
+      "selector": "#shareGrounds .sharesheet__cam",
+      "roles": {
+        "boundary": "decorative"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "The camera badge on the chosen photo's swatch, cut out of its selection ring: the photo can be changed.",
       "owner": "finish-share",
       "catalogStates": [
         "session/summary-share-photo"
+      ]
+    },
+    {
+      "id": "shareeditframe",
+      "selector": "#shareEditFrame",
+      "roles": {
+        "elevation": "flat",
+        "boundary": "decorative"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
       ],
-      "neverDisabledReason": "Choosing a photo is always available while the Photo style is chosen."
+      "rationale": "The editor's drag and pinch surface, a pointer-only canvas that is not focusable; its keyboard and assistive equivalents are the size slider and Reset, which carry the control roles.",
+      "owner": "finish-share",
+      "catalogStates": [
+        "session/summary-share-edit"
+      ]
     },
     {
       "id": "sharecardsegments",
@@ -6710,7 +6919,9 @@
       "catalogStates": [
         "session/summary-share",
         "session/summary-share-photo",
-        "history/session-share"
+        "history/session-share",
+        "session/summary-share-edit",
+        "session/summary-share-line"
       ],
       "neverDisabledReason": "Every choice the sheet offers can be drawn; a card the session cannot back is hidden, not disabled."
     },
@@ -9385,7 +9596,9 @@
         "workout/skip-reason",
         "workout/discomfort-mark",
         "onboarding-start/effort-choice",
-        "workout/pain-swap"
+        "workout/pain-swap",
+        "session/summary-share-edit",
+        "session/summary-share-line"
       ]
     },
     {
@@ -12677,7 +12890,9 @@
         "settings/effort-menu",
         "session/summary-share",
         "session/summary-share-photo",
-        "history/session-share"
+        "history/session-share",
+        "session/summary-share-edit",
+        "session/summary-share-line"
       ]
     },
     {
@@ -12708,7 +12923,9 @@
         "settings/effort-menu",
         "session/summary-share",
         "session/summary-share-photo",
-        "history/session-share"
+        "history/session-share",
+        "session/summary-share-edit",
+        "session/summary-share-line"
       ]
     },
     {
@@ -14566,6 +14783,18 @@
           "property": "font-weight",
           "value": "var(--weight-focus-cue)"
         }
+      ]
+    },
+    {
+      "selector": "#shareRail figure.sharesheet__slide",
+      "role": "share card artwork preview",
+      "rationale": "Each slide is the PNG Share will send, lifted off the sheet like a photo on a table so its own ground (dark, orange, photo, clear) reads as a picture, not as part of the sheet; it is not a control surface and nothing nests on it.",
+      "owner": "finish-share",
+      "catalogStates": [
+        "session/summary-share",
+        "session/summary-share-photo",
+        "session/summary-share-line",
+        "history/session-share"
       ]
     }
   ],

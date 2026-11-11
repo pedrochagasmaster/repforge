@@ -320,9 +320,9 @@ const readSummary = (page) =>
       })),
       prSets: [...body.querySelectorAll(".sum-lift")].filter((g) => g.querySelector(".sum-lift__pr")).map((g) => g.querySelector(".sum-grp__sets").textContent.trim()),
       recordTiles: txt(".sum-rtile__n"),
-      cards: [...body.querySelectorAll(".sum-cards .sharecard")].map((card) => ({ kind: card.classList.contains("sharecard--poster") ? "poster" : "stats",
-        label: card.getAttribute("aria-label"), role: card.tagName === "FIGURE" && card.querySelector(".sharecard__in")?.getAttribute("aria-hidden") === "true" ? "figure" : "?", lifts: card.querySelectorAll(".sharecard__lifts li").length,
-        brand: card.querySelector(".sharecard__brand")?.textContent.trim() || "" })),
+      // The finish row (share templates, 2026-11-11): the Highlight and Numbers cards, drawn by the share renderer.
+      cards: [...body.querySelectorAll(".sum-cards .sharecard")].map((card) => ({ template: card.dataset.template,
+        label: card.getAttribute("aria-label"), role: card.tagName === "FIGURE" && card.querySelector("canvas.sharecard__img")?.getAttribute("aria-hidden") === "true" ? "figure" : "?" })),
       overflowLine: !!body.querySelector(".sum-more"),
       chips: txt(".sum-chip"),
       outcomeRoles: [...body.querySelectorAll(".sum-outcome")].map((row) => ({
@@ -429,11 +429,9 @@ async function run() {
     "strength gained names the day's first lift; records read as a figure", JSON.stringify(s.tiles));
   // 62.5×8 + 62.5×7 + 50×10 + 50×9 + 10×8 = 1967.5 kg through the hands; the unit is said once.
   assert(s.tiles[2].value === "1,968kg" && s.tiles[2].label === "Moved", "volume is the load actually moved, its unit once", JSON.stringify(s.tiles[2]));
-  assert(s.cards.length === 2 && s.cards[0].kind === "poster" && s.cards[1].kind === "stats" && s.cards.every((card) => card.role === "figure" && card.lifts === 3
-      && /Taurifer\s*taurifer\.com/.test(card.brand)),
-    "the card row opens on the record poster, then the stats card; each is one labelled figure that lists every lift and carries the brand",
-    JSON.stringify(s.cards));
-  assert(/New record, Bench press, 62\.5 kg × 8/.test(s.cards[0].label), "the poster is the session's heaviest record", s.cards[0].label);
+  assert(s.cards.length === 2 && s.cards[0].template === "hero" && s.cards[1].template === "stats" && s.cards.every((card) => card.role === "figure"),
+    "the card row opens on the Highlight, then the Numbers card; each is one labelled figure drawn by the share renderer", JSON.stringify(s.cards));
+  assert(/^Highlight: New record, Bench press, 62\.5 kg, 8 reps$/.test(s.cards[0].label), "the Highlight is the session's heaviest record", s.cards[0].label);
   assert(s.recordTiles.join() === "Bench press,Barbell row", "each record has its own tile", JSON.stringify(s.recordTiles));
 
   assert(s.prMarks === 2 && s.prNames.length === 2, "only the lifts that set a record get a line", JSON.stringify([s.prMarks, s.prNames]));
@@ -587,7 +585,8 @@ async function run() {
   assert(!s.outcomeRoles.length, "a baseline has no sufficient outcome rows", JSON.stringify(s.outcomeRoles));
   assert(s.tiles.map((tile) => tile.id).join() === "sets,reps,volume" && s.tiles[0].value === "1",
     "a first session has no gain or record to show, so the fallbacks stand in and nothing reads zero", JSON.stringify(s.tiles));
-  assert(s.cards.length === 1 && s.cards[0].kind === "stats", "with no record and no improved lift, the stats card is the only card", JSON.stringify(s.cards));
+  assert(s.cards.length === 2 && /^Highlight: Getting started, Day 1, 1 workout, /.test(s.cards[0].label),
+    "with no record and no improved lift, a first session's Highlight leads with the workouts done", JSON.stringify(s.cards));
 
   // A second completed session must not ask again.
   await page.keyboard.press("Escape");
@@ -662,8 +661,8 @@ async function run() {
     "no gain and no record give their places to sets and total reps, and nothing reads as a loss",
     JSON.stringify(s.tiles));
   assert(s.tiles[1].value === "16", "total reps counts the working reps", JSON.stringify(s.tiles[1]));
-  assert(!s.recordTiles.length && s.cards.every((card) => card.kind === "stats"),
-    "with no record and nothing improved there is no poster", JSON.stringify(s.cards));
+  assert(!s.recordTiles.length && /^Highlight: (Getting started|Showing up), /.test(s.cards[0].label),
+    "with no record and nothing improved the Highlight leads with the workouts done", JSON.stringify(s.cards));
   await page.keyboard.press("Escape");
   await page.waitForTimeout(200);
 
@@ -685,8 +684,8 @@ async function run() {
   s = await readSummary(page);
   assert(!s.prMarks && s.lifts.find((lift) => lift.name === "Bench press")?.word === "Improved",
     "the bench beat last time without beating its best", JSON.stringify(s.lifts));
-  assert(s.cards.length === 2 && s.cards[0].kind === "poster" && /Most improved, Bench press, 60 kg × 8/.test(s.cards[0].label),
-    "the poster names the most-improved lift and its top set, not a record", JSON.stringify(s.cards));
+  assert(s.cards.length === 2 && /^Highlight: Getting started, /.test(s.cards[0].label),
+    "starting out, an improvement that is not a record leaves the Highlight on the workouts done", JSON.stringify(s.cards));
   await page.keyboard.press("Escape");
   await page.waitForTimeout(200);
 

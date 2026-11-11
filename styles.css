@@ -140,6 +140,19 @@
   --elevation-nav-indicator-shadow:inset 0 1px 0 var(--dock-pill-sheen),0 1px 3px rgba(var(--shadow-rgb),.09);
   --control-focus-halo-shadow:0 0 0 3px rgba(var(--accent-rgb),.12);
   --switch-off-track:rgba(var(--ink-rgb),.10);
+  /* The share sheet (share templates): the clear ground's check, the card's lift off the sheet, a swatch's edge and the
+     chosen one's ring, the camera badge cut out of that ring. */
+  /* A clear sticker is white, so its preview check is dark in both themes. */
+  --share-checker-a:#3A3733;--share-checker-b:#2A2825;
+  --elevation-share-slide-shadow:0 1px 2px rgba(var(--shadow-rgb),.1),0 10px 30px rgba(var(--shadow-rgb),.18);
+  --boundary-share-swatch-shadow:inset 0 0 0 1px var(--boundary-decorative);
+  --boundary-share-ground-selected-shadow:0 0 0 2px var(--accent-deep);
+  --boundary-share-cam-cut-shadow:0 0 0 2px var(--surface);
+  /* The share editor is dark in both themes, like a photo editor, so a card is judged against a neutral surround. */
+  --share-editor-bg:#0E0D0B;--share-editor-ink:#F4F1EC;--share-editor-ink-secondary:#B9B3A9;
+  --share-editor-switch-off:rgba(150,144,134,.34);--share-editor-checker-a:#3A3733;--share-editor-checker-b:#2A2825;
+  --elevation-share-editor-frame-shadow:0 0 0 .5px rgba(255,255,255,.12);
+  --share-editor-box-edge:rgba(255,255,255,.85);--elevation-share-editor-box-shadow:0 0 0 1px rgba(0,0,0,.3);
   --switch-on-track:var(--accent-deep);
   /* The wheel picker's selection band: ink at 7%, as the prototype draws it, in either theme. */
   --wheel-band:rgba(var(--ink-rgb),.07);
@@ -410,6 +423,9 @@
 :root[data-theme="dark"]{
   --rest-light-core:#FFB48A;--rest-light-bloom:var(--accent);--rest-light-gain:1;
   --switch-off-track:rgba(255,255,255,.10);
+  --share-checker-a:#3A3733;--share-checker-b:#2A2825;
+  --elevation-share-slide-shadow:0 0 0 1px rgba(255,250,240,.12),0 12px 32px rgba(0,0,0,.5);
+  --boundary-share-swatch-shadow:inset 0 0 0 1.5px rgba(255,250,240,.26);
   /* The light theme's deep accent: the light knob on the dark theme's brighter orange measured 2.56:1. */
   --switch-on-track:#B8410E;
   --segment-thumb-bg:#45423D;
@@ -3960,39 +3976,11 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
 .sum-cards{display:flex;gap:var(--space-12);margin:var(--space-18) calc(-1 * var(--sum-pad-r)) 0 calc(-1 * var(--sum-pad-l));padding:0 var(--sum-pad-r) 0 var(--sum-pad-l);scroll-padding-inline:var(--sum-pad-l) var(--sum-pad-r);
   overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;overscroll-behavior-x:contain}
 .sum-cards::-webkit-scrollbar{display:none}
-.sharecard{margin:0;--sharecard-text-xs:2.5cqi;--sharecard-text-s:3.2cqi;--sharecard-text-m:3.6cqi;--sharecard-text-l:5.6cqi;--sharecard-text-xl:10cqi;--sharecard-text-figure:21cqi;flex:none;width:calc(100% - var(--sum-pad-l) - var(--sum-pad-r) - var(--space-32));scroll-snap-align:start;aspect-ratio:1;container-type:inline-size;border-radius:var(--radius-prominent);overflow:hidden}
+/* The finish screen's row (share templates, owner 2026-11-11): the Highlight and Numbers cards as the share renderer
+   draws them, square on the dark ground, so the row previews exactly what Share sends. */
+.sharecard{margin:0;flex:none;width:calc(100% - var(--sum-pad-l) - var(--sum-pad-r) - var(--space-32));scroll-snap-align:start;aspect-ratio:1;border-radius:var(--radius-prominent);overflow:hidden;background:var(--share-card-dark);outline:1px solid var(--boundary-decorative);outline-offset:-1px}
 .sum-cards .sharecard:only-child{width:calc(100% - var(--sum-pad-l) - var(--sum-pad-r))}
-.sharecard--poster{background:var(--share-card-orange);color:var(--share-card-orange-ink)}
-.sharecard--stats{background:var(--share-card-dark);color:var(--share-card-dark-ink);outline:1px solid var(--boundary-decorative);outline-offset:-1px}
-.sharecard__in{display:flex;flex-direction:column;height:100%;padding:7.5cqi 7.5cqi 6cqi;font-family:var(--font-language);line-height:1.2}
-.sharecard p{margin:0}
-.sharecard__kicker{display:flex;justify-content:space-between;gap:3cqi;font-size:var(--sharecard-text-s);align-items:baseline}
-.sharecard__kicker b{font-weight:var(--weight-semibold);letter-spacing:.18em;text-transform:uppercase}
-.sharecard__kicker span{white-space:nowrap}
-.sharecard__lift{margin-top:2.5cqi!important;font-size:var(--sharecard-text-l);font-weight:var(--weight-semibold);text-wrap:balance;overflow-wrap:anywhere}
-.sharecard__fig{font-size:var(--sharecard-text-figure);font-weight:var(--weight-semibold);line-height:.95;letter-spacing:-.03em;font-variant-numeric:tabular-nums;margin-top:1.5cqi!important}
-.sharecard__meta{display:flex;flex-wrap:wrap;gap:1cqi 3cqi;align-items:baseline;margin-top:1.5cqi!important;font-size:var(--sharecard-text-m)}
-.sharecard__reps{font-family:var(--font-training-data)}
-.sharecard__over{font-weight:var(--weight-medium)}
-.sharecard__day{font-size:var(--sharecard-text-l);font-weight:var(--weight-semibold)}
-.sharecard__date{font-size:var(--sharecard-text-s);color:var(--share-card-dark-soft);margin-top:1cqi!important}
-.sharecard__tiles{display:grid;grid-template-columns:1fr 1fr;gap:3cqi 4cqi;margin-top:4cqi}
-.sharecard__lab{font-size:var(--sharecard-text-xs);font-weight:var(--weight-semibold);letter-spacing:.12em;text-transform:uppercase;color:var(--share-card-dark-soft)}
-.sharecard__val{font-size:var(--sharecard-text-xl);font-weight:var(--weight-semibold);line-height:1;letter-spacing:-.02em;font-variant-numeric:tabular-nums;margin-top:1cqi!important}
-.sharecard__val small{font-size:var(--sharecard-text-m);font-weight:var(--weight-medium);margin-left:.2em;letter-spacing:0;color:var(--share-card-dark-soft)}
-.sharecard__val.is-accent{color:var(--share-card-accent)}
-.sharecard__lifts{list-style:none;margin:4cqi 0 0;padding:3cqi 0 0;border-top:1px solid color-mix(in srgb,currentColor 35%,transparent);
-  display:grid;grid-template-columns:minmax(0,1fr) max-content max-content;gap:1.8cqi 2cqi;font-size:var(--sharecard-text-xs);align-items:baseline}
-.sharecard__lifts li{display:contents}
-.sharecard__name{grid-column:1;min-width:0;font-weight:var(--weight-medium);overflow-wrap:anywhere}
-.sharecard__sets{grid-column:2;font-family:var(--font-training-data);white-space:nowrap}
-.sharecard--stats .sharecard__sets,.sharecard--stats .sharecard__brand span{color:var(--share-card-dark-soft)}
-.sharecard__mark{grid-column:3;font-family:var(--font-training-data);font-weight:var(--weight-medium);white-space:nowrap;text-align:right}
-.sharecard--stats .sharecard__mark.is-pr{color:var(--share-card-positive)}
-.sharecard--stats .sharecard__mark.is-up{color:var(--share-card-accent)}
-.sharecard__brand{display:flex;align-items:center;gap:1.8cqi;margin-top:auto!important;padding-top:3.5cqi;font-size:var(--sharecard-text-s)}
-.sharecard__brand img{width:4.4cqi;height:4.4cqi;border-radius:1cqi}
-.sharecard__brand b{font-weight:var(--weight-semibold)}
+.sharecard__img{display:block;width:100%;height:100%}
 /* The four numbers: Sans with tabular numerals (Mono's comma opens a gap in "6,453"), the unit once, small. */
 .sum-finding{display:block;width:100%;min-height:var(--control-target);margin-top:var(--space-18);padding:var(--space-14) 0;border:0;border-block:1px solid var(--boundary-decorative);background:var(--control-quiet-bg);color:var(--control-quiet-ink);text-align:left;font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-reading);overflow-wrap:anywhere}
 .sum-finding__label{font-weight:var(--weight-semibold);margin-right:var(--space-8)}
@@ -4025,20 +4013,95 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
 /* While the share sheet is up the finish screen stays in view beneath its scrim. */
 .sumsheet.is-under-sheet{z-index:39}
 /* The share sheet (finish-share PR 2): the card as it will be sent, then its card, format and style. */
-.sheet--sharecard{height:auto;max-height:calc(var(--vvh,100dvh) - 56px);display:flex;flex-direction:column}
-.sharesheet{flex:1 1 auto;min-height:0;overflow-y:auto;padding:0 var(--space-16) var(--space-12);display:flex;flex-direction:column;gap:var(--space-12)}
-.sharesheet__preview{margin:var(--space-4) 0 0;display:flex;justify-content:center}
-.sharesheet__preview img{display:block;width:auto;height:auto;max-width:100%;max-height:min(40vh,22rem);border-radius:var(--radius-surface)}
-.sharesheet__segments{width:100%}
-/* Three styles share the row: each label takes the width it needs, so a long one ("Laranja" at 200% on 320) isn't
-   crushed by a short one beside it. */
-#shareStyleSegments{grid-auto-columns:auto}
-#shareStyleSegments button{overflow-wrap:anywhere}
-.sharesheet__photo{display:flex;margin:0}
-.sharesheet__photo #sharePhotoPick{width:100%}
-.sharesheet__note{margin:0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
-.sharesheet__actions{display:flex;flex-direction:column;gap:var(--space-8);padding:var(--space-12) var(--space-16) calc(var(--space-16) + env(safe-area-inset-bottom));border-top:1px solid var(--boundary-persistent)}
-.sharesheet__actions .btn{width:100%}
+/* The share sheet (share templates, owner 2026-11-11): Edit in the bar's leading slot, the cards in a swiping row,
+   then the format, the background and Save/Share. The editor slides up inside the sheet, always dark like a photo
+   editor, so a card is judged against a neutral surround in either theme. */
+.sheet--sharecard{height:var(--sheet-max-height);max-height:var(--sheet-max-height);display:flex;flex-direction:column;overflow:hidden}
+/* Equal side slots that keep their content (Edit, close) and a centre that shrinks first and wraps: at 200% text a
+   centred title of auto width ran over Edit ("EditarCompartilhar"). */
+.sheetband.sharesheet__band{grid-template-columns:minmax(max-content,1fr) minmax(0,max-content) minmax(max-content,1fr);column-gap:var(--space-12);grid-template-areas:"handle handle handle" "lead title close";padding-bottom:var(--space-4)}
+.sheetband.sharesheet__band .sheetband__title{min-width:0;text-align:center;align-self:center;padding-block:0;font-size:var(--font-size-body);overflow-wrap:anywhere}
+.sheetband.sharesheet__band .sheetband__close{justify-self:end}
+.sharesheet__edit{grid-area:lead;justify-self:start;align-self:center;min-height:var(--control-target);padding:0 8px 0 0;
+  color:var(--accent-deep);font-size:var(--font-size-body);font-weight:var(--weight-medium);text-decoration:none}
+.sharesheet__edit:not([hidden]){display:inline-flex;align-items:center;gap:6px}
+.sharesheet__edit > .icon-mask{width:18px;height:18px;flex:none}
+.sharesheet__edit[hidden]{display:none}
+.sharesheet{flex:1 1 auto;min-height:0;overflow-y:auto;padding:0 var(--space-16) var(--space-8);display:flex;flex-direction:column;gap:var(--space-12)}
+/* The card area does not grow with the text size (the slide is sized from the stage): a 16rem floor doubled at 200%
+   and pushed the format, backgrounds and note below the fold. */
+.sharesheet__stage{flex:1 1 0;min-height:clamp(200px,62vw,256px);display:flex;flex-direction:column;justify-content:center;margin:0 calc(-1 * var(--space-16))}
+.sharesheet__rail{flex:none;display:flex;align-items:center;gap:16px;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x mandatory;scrollbar-width:none;
+  padding:6px calc((100% - var(--slide-w,15rem)) / 2) 10px}
+.sharesheet__rail::-webkit-scrollbar{display:none}
+.sharesheet__slide{flex:none;margin:0;width:var(--slide-w,15rem);height:var(--slide-h,26.5rem);scroll-snap-align:center;border-radius:var(--radius-surface);overflow:hidden;
+  box-shadow:var(--elevation-share-slide-shadow);transform:scale(.92);opacity:.55;transition:transform .28s cubic-bezier(.2,.8,.2,1),opacity .28s}
+.sharesheet__slide.is-current{transform:none;opacity:1}
+.sharesheet__slide.is-clear{background:repeating-conic-gradient(var(--share-checker-a) 0 25%,var(--share-checker-b) 0 50%) 0 0/14px 14px}
+.sharesheet__slide canvas{display:block;width:100%;height:100%}
+.sharesheet__name{margin:0;text-align:center;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink)}
+.sharesheet__dots{display:flex;justify-content:center;gap:8px;padding:8px 0 0}
+.sharesheet__dots i{width:8px;height:8px;border-radius:var(--radius-compact);background:var(--color-ink-secondary);opacity:.5;transition:width .2s,opacity .2s}
+.sharesheet__dots i.is-on{width:22px;background:var(--accent-deep);opacity:1}
+.sharesheet__segments{width:100%;flex:none}
+.sharesheet__shape{--corner:2px;display:inline-block;flex:none;margin-inline-end:6px;border-radius:var(--corner);background:currentColor;opacity:.6}
+.sharesheet__shape.is-story{width:8px;height:14px}
+.sharesheet__shape.is-square{width:11px;height:11px}
+/* At large text the swatches take a second row, and a long label breaks inside its own button rather than past it. */
+.sharesheet__grounds{flex:none;display:flex;flex-wrap:wrap;justify-content:center;gap:var(--space-12) var(--space-16)}
+.sharesheet__ground{border:0;background:none;padding:0;min-width:3.5rem;display:grid;justify-items:center;gap:6px;cursor:pointer;
+  font-family:var(--font-language);font-size:var(--font-size-caption);font-weight:var(--weight-medium);color:var(--color-ink-secondary);
+  max-width:100%;text-align:center;overflow-wrap:anywhere}
+/* Wide enough for the swatch and its 4px selection ring, whatever the generic button floor says. */
+#shareGrounds .sharesheet__ground{min-width:3.5rem}
+.sharesheet__ground[aria-checked="true"]{color:var(--color-ink);font-weight:var(--weight-semibold)}
+.sharesheet__ground:focus-visible{outline:var(--control-focus-outline);outline-offset:4px;border-radius:var(--radius-control)}
+.sharesheet__swatch{position:relative;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;background-size:cover;background-position:center;
+  box-shadow:var(--boundary-share-swatch-shadow)}
+.sharesheet__ground[aria-checked="true"] .sharesheet__swatch::after{content:"";position:absolute;inset:-4px;border-radius:50%;box-shadow:var(--boundary-share-ground-selected-shadow)}
+.sharesheet__swatch.is-dark{background-color:var(--share-card-dark)}
+.sharesheet__swatch.is-orange{background-color:var(--share-card-orange)}
+.sharesheet__swatch.is-clear{background:repeating-conic-gradient(var(--share-checker-a) 0 25%,var(--share-checker-b) 0 50%) 0 0/10px 10px}
+.sharesheet__swatch.is-add{background-color:var(--control-track);color:var(--color-ink)}
+.sharesheet__swatch > .icon-mask{width:20px;height:20px}
+/* The camera badge on the chosen photo sits above the selection ring, cut out of it by the sheet's colour. */
+.sharesheet__cam{position:absolute;z-index:1;right:-4px;bottom:-4px;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;
+  background:var(--color-ink);color:var(--surface);box-shadow:var(--boundary-share-cam-cut-shadow)}
+.sharesheet__cam > .icon-mask{width:11px;height:11px}
+.sharesheet__note{flex:none;margin:0;text-align:center;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+.sharesheet__actions{flex:none;display:flex;gap:var(--space-8);padding:var(--space-12) var(--space-16) calc(var(--space-16) + env(safe-area-inset-bottom));border-top:1px solid var(--boundary-persistent)}
+.sharesheet__actions .btn{flex:1 1 0;width:auto;gap:8px}
+.sharesheet__actions #shareCardShare{flex-grow:1.35}
+.sharesheet__actions .icon-mask{width:18px;height:18px}
+.sharedit{position:absolute;inset:0;z-index:2;display:flex;flex-direction:column;border-radius:inherit;background:var(--share-editor-bg);color:var(--share-editor-ink);
+  --color-ink:var(--share-editor-ink);--color-ink-secondary:var(--share-editor-ink-secondary);--switch-off-track:var(--share-editor-switch-off);
+  --share-checker-a:var(--share-editor-checker-a);--share-checker-b:var(--share-editor-checker-b);
+  transform:translateY(100%);transition:transform .34s cubic-bezier(.2,.8,.2,1)}
+.sharedit.is-open{transform:none}
+@media (prefers-reduced-motion: reduce){.sharedit,.sharesheet__slide{transition:none}}
+/* As the sheet's header: content-sized sides (Cancel, Done) and a centre that shrinks and wraps at 200% text. */
+.sharedit__bar{flex:none;display:grid;grid-template-columns:minmax(max-content,1fr) minmax(0,max-content) minmax(max-content,1fr);column-gap:var(--space-12);align-items:center;min-height:3.5rem;padding:8px 16px 0}
+.sharedit__title{min-width:0;margin:0;text-align:center;overflow-wrap:anywhere;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-semibold)}
+.sharedit__cancel,.sharedit__done{min-height:var(--control-target);padding:0 4px;border:0;background:none;cursor:pointer;font-family:var(--font-language);font-size:var(--font-size-body);color:var(--share-editor-ink)}
+.sharedit__cancel{justify-self:start}
+.sharedit__done{justify-self:end;color:var(--share-card-accent);font-weight:var(--weight-semibold)}
+.sharedit__cancel:focus-visible,.sharedit__done:focus-visible{outline:2px solid var(--share-editor-ink);outline-offset:2px;border-radius:var(--radius-control)}
+.sharedit__stage{flex:1 1 0;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:8px 20px}
+.sharedit__frame{position:relative;flex:none;touch-action:none;border-radius:var(--radius-surface);overflow:hidden;cursor:grab;box-shadow:var(--elevation-share-editor-frame-shadow)}
+.sharedit__frame.is-fixed{cursor:default}
+.sharedit__frame.is-clear{background:repeating-conic-gradient(var(--share-checker-a) 0 25%,var(--share-checker-b) 0 50%) 0 0/14px 14px}
+.sharedit__frame canvas{display:block;width:100%;height:100%}
+.sharedit__box{--corner:10px;position:absolute;border:1.5px solid var(--share-editor-box-edge);border-radius:var(--corner);pointer-events:none;box-shadow:var(--elevation-share-editor-box-shadow);opacity:0;transition:opacity .15s}
+.sharedit__frame.is-active .sharedit__box{opacity:1}
+.sharedit__hint{flex:none;margin:0;text-align:center;font-family:var(--font-language);font-size:var(--font-size-caption);line-height:var(--line-standard);color:var(--share-editor-ink-secondary)}
+.sharedit__tools{flex:none;display:grid;gap:6px;padding:8px 20px calc(16px + env(safe-area-inset-bottom))}
+.sharedit__size{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:14px;align-items:center;min-height:var(--control-target)}
+.sharedit__a{--glyph:20px;font-family:var(--font-language);font-size:var(--glyph);font-weight:var(--weight-semibold);color:var(--share-editor-ink-secondary)}
+.sharedit__a.is-small{--glyph:13px}
+.sharedit__size input{width:100%;accent-color:var(--share-card-accent)}
+.sharedit__shade{display:flex;align-items:center;justify-content:space-between;gap:var(--space-12);min-height:var(--control-target);font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-medium)}
+.sharedit__reset{justify-self:center;width:auto;min-height:40px;padding:0 20px}
+.sharedit [hidden],.sharedit .hidden{display:none}
 .sum-cards__hint{margin:var(--space-8) 0 0;text-align:center;text-wrap:balance;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
 .sum-see{display:flex;margin:var(--space-18) 0 0}
 .sum-see #sumSee{width:100%}
@@ -4579,6 +4642,7 @@ body.is-focus-wo .toast:not(.toast--top){bottom:calc(var(--toast-clear,0px) + va
 .icon-mask--clipboard{-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M9%205H7.4A1.9%201.9%200%200%200%205.5%206.9v11.6a1.9%201.9%200%200%200%201.9%201.9h9.2a1.9%201.9%200%200%200%201.9-1.9V6.9A1.9%201.9%200%200%200%2016.6%205H15M9.2%2014l2%202%203.8-4.2%27%2F%3E%3Crect%20x%3D%279%27%20y%3D%273.2%27%20width%3D%276%27%20height%3D%273.6%27%20rx%3D%271.2%27%2F%3E%3C%2Fsvg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M9%205H7.4A1.9%201.9%200%200%200%205.5%206.9v11.6a1.9%201.9%200%200%200%201.9%201.9h9.2a1.9%201.9%200%200%200%201.9-1.9V6.9A1.9%201.9%200%200%200%2016.6%205H15M9.2%2014l2%202%203.8-4.2%27%2F%3E%3Crect%20x%3D%279%27%20y%3D%273.2%27%20width%3D%276%27%20height%3D%273.6%27%20rx%3D%271.2%27%2F%3E%3C%2Fsvg%3E")}
 .icon-mask--download{-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M12%203.8v11.2M7.8%2011l4.2%204.2%204.2-4.2M4.5%2017v1.6A2.4%202.4%200%200%200%206.9%2021h10.2a2.4%202.4%200%200%200%202.4-2.4V17%27%2F%3E%3C%2Fsvg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M12%203.8v11.2M7.8%2011l4.2%204.2%204.2-4.2M4.5%2017v1.6A2.4%202.4%200%200%200%206.9%2021h10.2a2.4%202.4%200%200%200%202.4-2.4V17%27%2F%3E%3C%2Fsvg%3E")}
 .icon-mask--share{-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M12%203.5v11M8%207.2l4-3.7%204%203.7M8.5%2010.5H6.8a1.8%201.8%200%200%200-1.8%201.8v6.4a1.8%201.8%200%200%200%201.8%201.8h10.4a1.8%201.8%200%200%200%201.8-1.8v-6.4a1.8%201.8%200%200%200-1.8-1.8h-1.7%27%2F%3E%3C%2Fsvg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M12%203.5v11M8%207.2l4-3.7%204%203.7M8.5%2010.5H6.8a1.8%201.8%200%200%200-1.8%201.8v6.4a1.8%201.8%200%200%200%201.8%201.8h10.4a1.8%201.8%200%200%200%201.8-1.8v-6.4a1.8%201.8%200%200%200-1.8-1.8h-1.7%27%2F%3E%3C%2Fsvg%3E")}
+.icon-mask--camera{-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M3.5%208.6c0-1.1.9-2%202-2h1.9l1.4-2.1h6.4l1.4%202.1h1.9c1.1%200%202%20.9%202%202v8.6c0%201.1-.9%202-2%202h-13c-1.1%200-2-.9-2-2z%27%2F%3E%3Ccircle%20cx%3D%2712%27%20cy%3D%2712.6%27%20r%3D%273.4%27%2F%3E%3C%2Fsvg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M3.5%208.6c0-1.1.9-2%202-2h1.9l1.4-2.1h6.4l1.4%202.1h1.9c1.1%200%202%20.9%202%202v8.6c0%201.1-.9%202-2%202h-13c-1.1%200-2-.9-2-2z%27%2F%3E%3Ccircle%20cx%3D%2712%27%20cy%3D%2712.6%27%20r%3D%273.4%27%2F%3E%3C%2Fsvg%3E")}
 .icon-mask--sheet{-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M3.5%209.8h17M10%209.8v9.7M3.5%2014.6h17%27%2F%3E%3Crect%20x%3D%273.5%27%20y%3D%274.5%27%20width%3D%2717%27%20height%3D%2715%27%20rx%3D%272.4%27%2F%3E%3C%2Fsvg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M3.5%209.8h17M10%209.8v9.7M3.5%2014.6h17%27%2F%3E%3Crect%20x%3D%273.5%27%20y%3D%274.5%27%20width%3D%2717%27%20height%3D%2715%27%20rx%3D%272.4%27%2F%3E%3C%2Fsvg%3E")}
 .icon-mask--flex{-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M5.5%207.4V5.5a2%202%200%200%201%202-2h1.2a2%202%200%200%201%202%202v4.1C12.5%208%2015%207.6%2017%208.4c2.3.9%203.5%203.1%203.5%205.6v3.5a3%203%200%200%201-3%203H7A3.5%203.5%200%200%201%203.5%2017v-3.5c0-2.5.7-4.5%202-6.1zM10.7%209.6c-.7%201.5-1%203-1%204.6%27%2F%3E%3C%2Fsvg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M5.5%207.4V5.5a2%202%200%200%201%202-2h1.2a2%202%200%200%201%202%202v4.1C12.5%208%2015%207.6%2017%208.4c2.3.9%203.5%203.1%203.5%205.6v3.5a3%203%200%200%201-3%203H7A3.5%203.5%200%200%201%203.5%2017v-3.5c0-2.5.7-4.5%202-6.1zM10.7%209.6c-.7%201.5-1%203-1%204.6%27%2F%3E%3C%2Fsvg%3E")}
 .icon-mask--scale{-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M12%204v16.5M8%2020.5h8M4.5%208h15M7%208l-3%206M7%208l3%206M17%208l-3%206M17%208l3%206M4%2014a3%203%200%200%200%206%200M14%2014a3%203%200%200%200%206%200%27%2F%3E%3C%2Fsvg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M12%204v16.5M8%2020.5h8M4.5%208h15M7%208l-3%206M7%208l3%206M17%208l-3%206M17%208l3%206M4%2014a3%203%200%200%200%206%200M14%2014a3%203%200%200%200%206%200%27%2F%3E%3C%2Fsvg%3E")}

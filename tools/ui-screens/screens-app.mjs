@@ -347,6 +347,8 @@ export const DIRECTION_D_SUMMARY_SESSION = Object.freeze({
   "session/summary-lifts": "dd-2026-08-31-day1",
   "session/summary-share": "dd-2026-08-31-day1",
   "session/summary-share-photo": "dd-2026-08-31-day1",
+  "session/summary-share-edit": "dd-2026-08-31-day1",
+  "session/summary-share-line": "dd-2026-08-31-day1",
 });
 function directionDThroughSession(sessionId) {
   const state = directionDState();
@@ -2026,6 +2028,42 @@ async function rampAnswer(page,word,count){
   }
 }
 
+/** The share sheet with the Photo background under a drawn stand-in for a gym photo (bright window, warm wall, dark
+ *  racks), chosen through the system picker and made in the page so the frame is the same on every run. */
+async function shareOverPhoto(page, key) {
+  await openFixtureSummary(page, DIRECTION_D_SUMMARY_SESSION[key]);
+  await page.click("#sumShare");
+  await page.waitForFunction(() => window.__repforgeShareSheet?.state()?.file, undefined, { timeout: 20000 });
+  await page.waitForSelector("#shareCardSheet.is-open", { timeout: 20000 });
+  const photo = Buffer.from(await page.evaluate(async () => {
+    const w = 1512, h = 2016, c = new OffscreenCanvas(w, h), x = c.getContext("2d");
+    const g = x.createLinearGradient(0, 0, 0, h);
+    g.addColorStop(0, "#E9E4DA"); g.addColorStop(0.35, "#B49A7C"); g.addColorStop(0.7, "#4A3D33"); g.addColorStop(1, "#1D1915");
+    x.fillStyle = g; x.fillRect(0, 0, w, h);
+    x.fillStyle = "#FBFAF5"; x.fillRect(w * 0.55, h * 0.05, w * 0.35, h * 0.22);
+    x.fillStyle = "#26221F"; for (let i = 0; i < 4; i++) x.fillRect(w * (0.1 + i * 0.22), h * 0.3, w * 0.05, h * 0.55);
+    x.fillStyle = "#9A9A9A"; x.fillRect(w * 0.05, h * 0.52, w * 0.9, h * 0.025);
+    x.fillStyle = "#B03030"; x.beginPath(); x.arc(w * 0.2, h * 0.53, h * 0.09, 0, Math.PI * 2); x.fill();
+    return [...new Uint8Array(await (await c.convertToBlob({ type: "image/png" })).arrayBuffer())];
+  }));
+  const [chooser] = await Promise.all([page.waitForEvent("filechooser", { timeout: 20000 }),
+    page.locator('#shareGrounds [data-ground="photo"]').click()]);
+  await chooser.setFiles({ name: "gym.png", mimeType: "image/png", buffer: photo });
+  await page.waitForFunction(() => window.__repforgeShareSheet?.state()?.drawn?.photo, undefined, { timeout: 20000 });
+  await page.waitForFunction(() => { const s = window.__repforgeShareSheet.state(); return s.fileTemplate === s.template && !s.shareDisabled; }, undefined, { timeout: 20000 });
+  await page.waitForFunction(() => document.querySelectorAll("#shareRail .sharesheet__slide canvas").length >= 5, undefined, { timeout: 20000 });
+  // A scripted click scrolls the chosen swatch into view and a tap does not: the frame is the sheet from its top.
+  await page.evaluate(() => { const body = document.querySelector("#shareCardSheet .sharesheet"); if (body) body.scrollTop = 0; });
+}
+/** Brings a template's card into view in the sheet's row and waits until its file is the one Share would send. */
+async function showShareTemplate(page, template) {
+  await page.evaluate((name) => {
+    const st = window.__repforgeShareSheet.state(), rail = document.querySelector("#shareRail");
+    const slide = rail.querySelector(".sharesheet__slide");
+    rail.scrollLeft = st.templates.indexOf(name) * (slide.offsetWidth + 16);
+  }, template);
+  await page.waitForFunction((name) => { const s = window.__repforgeShareSheet.state(); return s?.template === name && s.fileTemplate === name; }, template, { timeout: 20000 });
+}
 export const APP_SCENARIOS = {
   "workout/focus-ramp": async page=>{await rampFixture(page)},
   "workout/focus-ramp-ratio": async page=>{await rampFixture(page,{ratio:true})},
@@ -2784,38 +2822,41 @@ export const APP_SCENARIOS = {
     });
     await sleep(page, 400);
   },
-  // Share on the finish screen: the sheet with the record poster drawn on the device, Story, orange.
+  // Share on the finish screen (share templates, 2026-11-11): the sheet on the Highlight, Story, dark, every card in its row.
   "session/summary-share": async (page) => {
     await openFixtureSummary(page, DIRECTION_D_SUMMARY_SESSION["session/summary-share"]);
     await page.click("#sumShare");
     await page.waitForFunction(() => window.__repforgeShareSheet?.state()?.file, undefined, { timeout: 20000 });
     await page.waitForSelector("#shareCardSheet.is-open", { timeout: 20000 });
-    await page.waitForFunction(() => document.querySelector("#shareCardPreview")?.complete, undefined, { timeout: 20000 });
+    await page.waitForFunction(() => document.querySelectorAll("#shareRail .sharesheet__slide canvas").length >= 5, undefined, { timeout: 20000 });
     await sleep(page, 700);
   },
-  // The Photo style over a picture chosen in the system picker. The picture is a drawn stand-in for a gym photo
+  // The Photo background under a picture chosen in the system picker. The picture is a drawn stand-in for a gym photo
   // (bright window, warm wall, dark racks), made in the page so the frame is the same on every run.
   "session/summary-share-photo": async (page) => {
-    await openFixtureSummary(page, DIRECTION_D_SUMMARY_SESSION["session/summary-share-photo"]);
+    await shareOverPhoto(page, "session/summary-share-photo");
+    await sleep(page, 700);
+  },
+  // The editor open on the Sticker over the same photo: drag and pinch on the frame, size, Reset, Cancel and Done.
+  "session/summary-share-edit": async (page) => {
+    await shareOverPhoto(page, "session/summary-share-edit");
+    await showShareTemplate(page, "badge");
+    await page.click("#shareCardEdit");
+    await page.waitForFunction(() => document.querySelector("#shareEditor.is-open") && document.querySelector("#shareEditFrame canvas"), undefined, { timeout: 20000 });
+    await sleep(page, 700);
+  },
+  // The Line sticker on the clear ground: a transparent card for layering in a Story, shown on the preview's check.
+  "session/summary-share-line": async (page) => {
+    await openFixtureSummary(page, DIRECTION_D_SUMMARY_SESSION["session/summary-share-line"]);
     await page.click("#sumShare");
-    await page.waitForFunction(() => window.__repforgeShareSheet?.state()?.file, undefined, { timeout: 20000 });
     await page.waitForSelector("#shareCardSheet.is-open", { timeout: 20000 });
-    const photo = Buffer.from(await page.evaluate(async () => {
-      const w = 1512, h = 2016, c = new OffscreenCanvas(w, h), x = c.getContext("2d");
-      const g = x.createLinearGradient(0, 0, 0, h);
-      g.addColorStop(0, "#E9E4DA"); g.addColorStop(0.35, "#B49A7C"); g.addColorStop(0.7, "#4A3D33"); g.addColorStop(1, "#1D1915");
-      x.fillStyle = g; x.fillRect(0, 0, w, h);
-      x.fillStyle = "#FBFAF5"; x.fillRect(w * 0.55, h * 0.05, w * 0.35, h * 0.22);
-      x.fillStyle = "#26221F"; for (let i = 0; i < 4; i++) x.fillRect(w * (0.1 + i * 0.22), h * 0.3, w * 0.05, h * 0.55);
-      x.fillStyle = "#9A9A9A"; x.fillRect(w * 0.05, h * 0.52, w * 0.9, h * 0.025);
-      x.fillStyle = "#B03030"; x.beginPath(); x.arc(w * 0.2, h * 0.53, h * 0.09, 0, Math.PI * 2); x.fill();
-      return [...new Uint8Array(await (await c.convertToBlob({ type: "image/png" })).arrayBuffer())];
-    }));
-    const [chooser] = await Promise.all([page.waitForEvent("filechooser", { timeout: 20000 }),
-      page.locator('#shareStyleSegments [data-value="photo"]').click()]);
-    await chooser.setFiles({ name: "gym.png", mimeType: "image/png", buffer: photo });
-    await page.waitForFunction(() => window.__repforgeShareSheet?.state()?.drawn?.photo, undefined, { timeout: 20000 });
-    await page.waitForFunction(() => document.querySelector("#shareCardPreview")?.complete, undefined, { timeout: 20000 });
+    await page.waitForFunction(() => document.querySelectorAll("#shareRail .sharesheet__slide canvas").length >= 5, undefined, { timeout: 20000 });
+    await showShareTemplate(page, "sticker");
+    await page.locator('#shareGrounds [data-ground="clear"]').click();
+    await page.waitForFunction(() => { const s = window.__repforgeShareSheet.state(); return s.ground === "clear" && s.fileTemplate === "sticker" && !s.shareDisabled; }, undefined, { timeout: 20000 });
+    // At 200% text Clear sits below the fold and the click scrolls the sheet to it; the frame is the sheet at rest, from
+    // its top, so it is the same on every machine.
+    await page.evaluate(() => { const body = document.querySelector("#shareCardSheet .sharesheet"); if (body) body.scrollTop = 0; });
     await sleep(page, 700);
   },
   "session/summary-maintained": async (page) => {
@@ -3000,13 +3041,13 @@ export const APP_SCENARIOS = {
     await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
     await sleep(page, 400);
   },
-  // Share from a past session's page (finish-share PR 4): the same sheet, on that session's record poster.
+  // Share from a past session's page (finish-share PR 4): the same sheet, on that session's Highlight.
   "history/session-share": async (page) => {
     await APP_SCENARIOS["history/session"](page);
     await page.click("[data-history-share]");
     await page.waitForFunction(() => window.__repforgeShareSheet?.state()?.file, undefined, { timeout: 20000 });
     await page.waitForSelector("#shareCardSheet.is-open", { timeout: 20000 });
-    await page.waitForFunction(() => document.querySelector("#shareCardPreview")?.complete, undefined, { timeout: 20000 });
+    await page.waitForFunction(() => document.querySelectorAll("#shareRail .sharesheet__slide canvas").length >= 5, undefined, { timeout: 20000 });
     await sleep(page, 700);
   },
   "history/edit-dirty": async (page) => {
