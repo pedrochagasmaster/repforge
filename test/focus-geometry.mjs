@@ -29,7 +29,7 @@ import { CATALOG_PHONES, SAFE_AREA, inPool, openCatalogState } from "./fixtures/
 const BASE_URL = process.env.REPFORGE_URL || "http://localhost:8000/";
 const STATE_KEY = "repforge_v1";
 
-// FOCUS_GEOMETRY_ONLY=large,smallest runs just those sections (stability, large, smallest, standing, context, gestures); the default is all.
+// FOCUS_GEOMETRY_ONLY=large,smallest runs just those sections (stability, large, smallest, standing, context, test-set, gestures); the default is all.
 const only = (process.env.FOCUS_GEOMETRY_ONLY || "").split(",").filter(Boolean);
 const wants = (section) => !only.length || only.includes(section);
 
@@ -280,6 +280,40 @@ async function checkContextText(browser) {
   assert(!failures.length, "Focus context text is never clipped below the progress bars", failures.join(" | "));
 }
 
+async function checkTestSetPrompt(browser) {
+  const failures = [];
+  for (const key of ["workout/max-set-prompt", "workout/max-set-recheck"]) {
+    for (const lang of ["en", "pt"]) for (const text of ["normal", "text200"]) {
+      const opened = await openCatalogState(browser, key, 320, lang, text, { safe: { top: 0, bottom: 0 } });
+      const label = `${key} 320px ${lang} ${text}`;
+      try {
+        const measured = await opened.page.evaluate(() => {
+          const card = document.querySelector(".exercise.is-current");
+          const tip = card.querySelector('[data-tip="max-set"]');
+          const prompt = tip.getBoundingClientRect();
+          const covered = [".fx-cue", ".ledgerline--open"].filter(selector => {
+            const box = card.querySelector(selector).getBoundingClientRect();
+            return Math.min(box.right, prompt.right) > Math.max(box.left, prompt.left) + 1 &&
+              Math.min(box.bottom, prompt.bottom) > Math.max(box.top, prompt.top) + 1;
+          });
+          return { covered, left: prompt.left, right: prompt.right };
+        });
+        if (measured.covered.length || measured.left < 0 || measured.right > 320)
+          failures.push(`${label}: prompt covers the target or open row, or spills horizontally: ${JSON.stringify(measured)}`);
+        const guess = opened.page.locator('.exercise.is-current [data-maxset-guess]');
+        await guess.scrollIntoViewIfNeeded();
+        await guess.click();
+        await opened.page.locator("#maxSetSheet.is-open").waitFor({ state: "visible" });
+        console.log(`  ${label}: ${JSON.stringify(measured)}`);
+      } finally {
+        await opened.context.close();
+      }
+    }
+  }
+  assert(!failures.length, "test-set prompts leave the target and open row readable", failures.join(" | "));
+  console.log("  8 test-set frames keep the target and open row clear, with Make a guess reachable");
+}
+
 async function main() {
   const browser = await launchChromium();
 
@@ -396,6 +430,7 @@ async function main() {
     /* ======================================================================
      * 2. The shelf's action stays whole at large text (R7 V-02)
      * ====================================================================== */
+    if (wants("test-set")) await checkTestSetPrompt(browser);
     if (wants("context")) await checkContextText(browser);
     if (wants("large")) await checkFocusStatesAtLargeText(browser);
     if (only.includes("standing")) { await checkStandingLedger(browser); await checkOpeningStandingLedger(browser); }
