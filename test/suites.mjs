@@ -20,7 +20,7 @@ const TIER_VOCABULARY = new Set(["feedback", "packet", "candidate"]);
  */
 export const CI_SHARDS = 5;
 export const FULL_SHARDS = 12;
-export const UI_SYSTEM_SHARDS = 9;
+export const UI_SYSTEM_SHARDS = 10;
 /* The slowest measured cost of one UI-system render on ubuntu-latest: 6.42 s
  * across 42 green `--shard k/7` runs on 2026-10-29 (#456), rounded up.
  * test/ci.mjs holds every shard's states × this cost under 85% of its
@@ -144,7 +144,7 @@ export const SUITES = {
     s("test/history-delete-replay.mjs", [], {"domains": ["history"], "cost": "normal", "tier": "feedback", "seconds": 13}),
     s("test/focus-pending-field.mjs", [], {"domains": ["global"], "cost": "normal", "tier": "feedback", "seconds": 67}),
     s("test/workout-draft-parity.mjs", [], {"domains": ["workout"], "cost": "normal", "tier": "feedback", "seconds": 53}),
-    s("test/workout-finish-boundary.mjs", [], {"domains": ["workout"], "cost": "normal", "tier": "feedback", "seconds": 8}),
+    s("test/workout-finish-boundary.mjs", [], {"domains": ["workout", "history", "persistence"], "cost": "normal", "tier": "feedback", "seconds": 70}),
     s("test/management-summary.mjs", [], {"domains": ["global"], "cost": "normal", "tier": "feedback", "seconds": 3}),
     s("test/progress-lifecycle.mjs", [], {"domains": ["progress", "today", "workout", "persistence"], "cost": "long", "tier": "candidate", "env": {"REPFORGE_LIFECYCLE_BROWSER": "1"}, "timeoutMs": 900000, "seconds": 23}),
     s("test/progress-recovery.mjs", [], {"domains": ["progress"], "cost": "long", "tier": "candidate", "timeoutMs": 900000, "seconds": 7}),
@@ -315,6 +315,7 @@ export const FULL_SUITES = {
 };
 
 export const SUPPORT = {
+  "test/session-zero-browser.mjs": "Session-zero browser journeys executed by workout-finish-boundary.mjs in the PR lane.",
   "test/week-review-browser.mjs": "Plan 082 weekly facts journeys executed by test/progress-lifecycle.mjs in the PR lane.",
   "test/week-review.mjs": "Plan 082 weekly-facts assertions executed by test/progress-model.mjs in the PR lane.",
   "test/engine-standing.mjs": "Standing and frozen selection proofs executed by progression-engine-plan067.mjs in the PR lane.",

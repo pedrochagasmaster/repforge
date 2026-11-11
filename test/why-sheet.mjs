@@ -27,8 +27,14 @@
  * Run: REPFORGE_URL=http://localhost:8000/ node test/why-sheet.mjs
  */
 import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
+import { cases as standingCases } from "./fixtures/engine-standing.mjs";
 import { chooseRepsLeft, launchChromium, openShelfField, waitForAppBoot } from "./browser.mjs";
+import { seed as seedHistory } from "../tools/ui-screens/session.mjs";
+import { installGeneratedProgram, definitionSlot, isWeightRepsSlot, metricLogRow } from "./fixtures/history-metric-rows.mjs";
 import { installSeedProgram } from "./fixtures/seed-program.mjs";
+import { openActions, exerciseAction, finishEarly as finishRampSession } from "./fixtures/focus-workout.mjs";
+import { openCatalogState } from "./fixtures/catalog-state.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const DATA = new URL("../plans/067/data/", import.meta.url);
@@ -253,7 +259,7 @@ async function openWhy(page) {
     target: document.querySelector("#whyTarget")?.textContent?.trim() || "",
     mark: [...document.querySelectorAll("#whyTarget .verdictmark")].map((el) => el.className.replace(/.*verdictmark--/, "")),
     blocks: [...document.querySelectorAll("#whyBody .whysheet__block")].map((el) => ({
-      lead: el.getAttribute("data-lead"), text: el.querySelector(".whysheet__text")?.textContent?.trim() || "",
+      lead: el.getAttribute("data-lead"), text: [...el.querySelectorAll(".whysheet__text")].map(node => node.textContent.trim()).join(" "),
     })),
   }));
 }
@@ -277,7 +283,8 @@ async function engineTruth(page, slotId) {
       engineStatus: rec.engineStatus, reason: rec.reason, reasonCodes: rec.reasonCodes,
       min: ex.min, max: ex.max, sets: ex.sets, executionMode: slot?.executionMode ?? null,
       historyAnchor: rec.historyAnchor, fatigue: rec.fatigue,
-      loadingAssumptions: rec.loadingAssumptions,
+      loadingAssumptions: rec.loadingAssumptions, standing: rec.standing,
+      resultStanding: rec.targetSets?.[0]?.result?.standing,
       metricDefinitions: rec.metricDefinitions,
       firstTargets: rec.targetSets?.[0]?.result?.targets || null,
       firstRir: rec.targetSets?.[0]?.prescription?.rir ?? null,
@@ -308,6 +315,16 @@ async function expectedAnchorText(page, truth) {
   }, { anchor, cap, displayLoad, fatigueCap, showFatigue, unit: "kg" });
 }
 
+const Engine = createRequire(import.meta.url)("../progression-engine.js");
+for (const { name, input } of standingCases) {
+  const [prescriptions, ...rest] = structuredClone(input);
+  const batch = [prescriptions[0], { ...prescriptions[0], id: "second", setIndex: 2 },
+    { ...prescriptions[0], id: "different-load-model", setIndex: 3, loadingModel: { bodyweightCoefficient: 1 } },
+    { ...prescriptions[0], id: "other-slot", slotId: "other-slot" }, prescriptions[0]];
+  assert(JSON.stringify(Engine.recommendSets(batch, ...rest)) ===
+    JSON.stringify(batch.map(p => Engine.recommendSets([p], ...rest)[0])),
+    `P080: batched results equal independent prescriptions for ${name}`);
+}
 const browser = await launchChromium();
 try {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
@@ -353,8 +370,10 @@ try {
     knownPerSideTruth.executionMode === "bilateral",
     "P069-S3-WHY: entering the generated known-bilateral slot establishes m=2 in the actual workout context", knownPerSideContext);
   const knownPerSideCue = await focusCue(perSidePage);
-  assert(knownPerSideCue.line1 === `Pick a load for ${knownPerSideTruth.min}–${knownPerSideTruth.max} reps` && !knownPerSideCue.line2,
-    "P069-S3-CUE: generated known-bilateral Focus asks for a load without claiming setup is missing",
+  assert(await perSidePage.evaluate(() => document.querySelector("#workout .exercise.is-current .fx-cue__standing")?.textContent ?? null) === "First time on this lift",
+    "P080: Focus names a first lift without inventing evidence");
+  assert(knownPerSideCue.line1 === "Find your weight" && knownPerSideCue.line2 === `aim for ${knownPerSideTruth.min} reps`,
+    "P069-S3-CUE: generated known-bilateral Focus starts the ramp without claiming setup is missing",
     JSON.stringify({ cue: knownPerSideCue, truth: knownPerSideTruth }));
 
   const perSideTruth = await engineTruth(perSidePage, perSideProgram.perSide.slotId);
@@ -370,7 +389,7 @@ try {
   assert(perSideCue.line1 === "Needs setup" && perSideCue.line2 === `${perSideTruth.min}–${perSideTruth.max} reps`,
     "P069-S3-CUE: Focus labels the Review catalog-picked ambiguous range Needs setup", JSON.stringify({ cue: perSideCue, truth: perSideTruth }));
   const perSideWhy = await openWhy(perSidePage);
-  const perSideWhyText = perSideWhy.blocks.map((block) => block.text).join(" ");
+  const perSideWhyText = perSideWhy.blocks.find((block) => block.lead === "setup")?.text;
   assert(perSideWhyText === "Tell Taurifer how you do this: both sides together, or one side at a time.",
     "P069-S3-WHY: ambiguous Review catalog pick explains the missing execution mode", perSideWhy);
   await closeWhy(perSidePage);
@@ -451,6 +470,12 @@ try {
   assert(truthBefore.status !== "manual" && truthBefore.status !== "new",
     "the generated program has a real adaptive recommendation after one session", truthBefore);
 
+  assert(truthBefore.standing?.word === "learning" &&
+    JSON.stringify(truthBefore.standing) === JSON.stringify(truthBefore.resultStanding),
+    "P080: recommendation carries the engine's standing without recomputing it", truthBefore);
+  const standingLine = await page.evaluate(() => document.querySelector("#workout .exercise.is-current .fx-cue__standing")?.textContent ?? null);
+  assert(standingLine === "Still learning this lift", "P080: Focus quietly names a learning target", standingLine);
+
   // RT-05, before any set this session: the headline is exactly the Focus cue.
   const cueBefore = await focusCue(page);
   const whyBefore = await openWhy(page);
@@ -461,6 +486,19 @@ try {
     "RT-05: before any set this session, the verdict mark is the cue's",
     `cue=${JSON.stringify(cueBefore.mark)} why=${JSON.stringify(whyBefore.mark)}`);
 
+  const standingBlock = whyBefore.blocks.find((b) => b.lead === "engine-standing");
+  assert(standingBlock?.text.includes("session") &&
+    standingBlock?.text.includes("Still learning this lift"),
+    "P080: Why explains the learning word and its set/session evidence", standingBlock);
+  for (const lang of ["pt", "en"]) {
+    await closeWhy(page);
+    await page.evaluate((lang) => window.RepForgeI18n.setLang(lang), lang);
+    const localized = await openWhy(page);
+    const footing = localized.blocks.find((b) => b.lead === "engine-standing");
+    const expected = lang === "pt" ? "Ainda conhecendo este exercício" : "Still learning this lift";
+    assert(footing?.text.includes(expected) && !/why\.standing|standing\.learning/.test(footing.text),
+      `P080: Why standing is translated in ${lang}`, footing);
+  }
   // RT-01: the "What you showed" block (data-lead="engine-anchor") names each
   // of last session's two sets at its own load — never one shared sentence.
   const anchorBlock = whyBefore.blocks.find((b) => b.lead === "engine-anchor");
@@ -575,11 +613,47 @@ try {
   assert(buildCue.line1 === "Your targets" && buildCue.line2 === `${buildRow.min}–${buildRow.max} reps`,
     "P069-S1-CUE: Focus labels a Build slot's stored range as Your targets", JSON.stringify(buildCue));
   const buildWhy = await openWhy(buildPage);
-  const buildWhyText = buildWhy.blocks.map((block) => block.text).join(" ");
+  const buildWhyText = buildWhy.blocks.find((block) => block.lead === "manual")?.text;
   assert(buildWhy.target === "" && buildWhyText === "This exercise has a rep range, but Taurifer does not suggest a load.",
     "P069-S1-WHY: a Build slot has no invented target and Why stays neutral about who chose the range", buildWhy);
   assert(buildErrors.length === 0, "no page errors in the Build Why journey", buildErrors);
   await buildContext.close();
+
+  for (const lang of ["pt", "en"]) {
+    const manual = await openCatalogState(browser, "workout/why-manual", 390, lang, "normal");
+    try {
+      const saved = await manual.page.evaluate(() => {
+        const state = JSON.parse(localStorage.getItem("repforge_v1"));
+        const id = document.querySelector("#workout .exercise.is-current").dataset.ex;
+        const row = state.program.find(row => row.id === id);
+        return { row, history: state.log.filter(row => row.exerciseId === id) };
+      });
+      assert(saved.history.length === 4 && new Set(saved.history.map(row => row.session)).size === 2,
+        `P080-R1: ${lang} manual regression has four saved sets in two sessions`, saved);
+      const truth = await engineTruth(manual.page, saved.row.slotId);
+      assert(truth.reasonCodes.includes("rir_target_required") && truth.load === null,
+        `P080-R1: ${lang} manual target keeps its missing-effort reason and no suggested load`, truth);
+      const footing = await manual.page.locator('#whyBody [data-lead="engine-standing"]').count();
+      assert(footing === 0, `P080-R1: ${lang} manual Why never invents first-time evidence over saved history`);
+      const manualText = await manual.page.locator('#whyBody [data-lead="manual"] .whysheet__text').textContent();
+      const expected = await manual.page.evaluate(() => window.RepForgeI18n.t("why.manual"));
+      assert(manualText.trim() === expected, `P080-R1: ${lang} manual Why keeps its original explanation`);
+      await closeWhy(manual.page);
+      const cue = await focusCue(manual.page);
+      assert(await manual.page.locator("#workout .exercise.is-current .fx-cue__standing").count() === 0,
+        `P080-R1: ${lang} manual Focus never claims this is the first time`);
+      const range = await manual.page.evaluate(({ min, max }) =>
+        window.RepForgeI18n.t("focus.cue.range_reps", { reps: `${min}–${max}` }), saved.row);
+      assert(cue.line2 === range,
+        `P080-R1: ${lang} manual Focus keeps its programmed rep range`, cue);
+      await manual.page.locator("#woDayTitle [data-exopen]").click();
+      await manual.page.waitForSelector("#exDetail");
+      assert(await manual.page.locator("#exDetail .recblock__standing").count() === 0,
+        `P080-R1: ${lang} manual exercise page never claims this is the first time`);
+    } finally {
+      await manual.context.close();
+    }
+  }
 
   const setupPtContext = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: "pt-BR" });
   try {
@@ -637,6 +711,156 @@ try {
     await manualPtContext.close();
   }
 
+  const standingContext = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: "pt-BR" });
+  const standingPage = await standingContext.newPage();
+  await standingPage.clock.setFixedTime(new Date("2026-03-04T09:00:00Z"));
+  await standingPage.goto(BASE, { waitUntil: "domcontentloaded" });
+  await waitForAppBoot(standingPage, { base: BASE });
+  const standingState = await installGeneratedProgram(standingPage);
+  const standingRow = standingState.program.find(row => isWeightRepsSlot(definitionSlot(standingState.programMeta, row)));
+  for (const scenario of ["first", "break", "solid", "disagreement", "inconsistent"]) {
+    const snapshot = structuredClone(standingState);
+    const date = scenario === "break" ? "2026-01-14" : "2026-03-04";
+    snapshot.log = scenario === "first" ? [] : Array.from({ length: 4 }, (_, session) =>
+      [40, scenario === "disagreement" ? 60 : 37.5, 35].map((load, index) => metricLogRow(snapshot.programMeta, standingRow, {
+        session: `standing-${session}`, date, set: index + 1, load, reps: 8, rir: 2,
+        extra: { effortSource: "reps_left" },
+      }))).flat();
+    if (scenario === "inconsistent") snapshot.log.push(...[3, 15, 3, 15].map((predictedReps, index) =>
+      metricLogRow(snapshot.programMeta, standingRow, { session: `check-${index}`, date, set: 4, load: 35, reps: 8, rir: 0,
+        extra: { effortSource: "failure", calibration: { v: 1, predictedReps, predictionEdited: false, prefillBasis: "reps_rir" } },
+      })));
+    await seedHistory(standingPage, snapshot);
+    await standingPage.evaluate(day => window.__repforgeEnterWorkout({ day }), standingRow.day);
+    await standingPage.waitForSelector("#workout.is-focus .exercise.is-current");
+    await standingPage.evaluate(id => window.__repforgeGoToLogExercise(id), standingRow.id);
+    await standingPage.waitForFunction(id => document.querySelector("#workout .exercise.is-current")?.dataset.ex === id, standingRow.id);
+    const truth = await engineTruth(standingPage, standingRow.slotId);
+    const word = scenario === "first" ? "first" : scenario === "solid" ? "solid" : "learning";
+    assert(truth.standing?.word === word, `P080: ${scenario} reads its standing through the production adapter`, truth.standing);
+    const line = standingPage.locator("#workout .exercise.is-current .fx-cue__standing");
+    assert(word === "solid" ? await line.count() === 0 : await line.count() === 1,
+      `P080: ${scenario} renders one quiet line, solid renders none`);
+    if (scenario !== "first") {
+    const sheet = await openWhy(standingPage);
+    const block = sheet.blocks.find(b => b.lead === "engine-standing");
+    const reasons = await standingPage.locator('[data-lead="engine-standing"] [data-standing-reason]').evaluateAll(nodes => nodes.map(node => node.dataset.standingReason));
+    assert(JSON.stringify(reasons) === JSON.stringify(truth.standing?.reasons),
+      `P080: ${scenario} explains each engine reason exactly once`, { reasons, standing: truth.standing });
+    assert(block && !/\d\s*%|why\.standing/.test(block.text), `P080: ${scenario} explains footing in translated words`, block);
+    if (scenario === "break") assert(block?.text.includes("7 semanas"), "P080: Why explains a 50-day break in weeks", block);
+    if (scenario === "inconsistent") {
+      const leads = sheet.blocks.map(b => b.lead);
+      assert(leads.indexOf("engine-standing") < leads.indexOf("engine-calibration"), "P080: standing comes before calibration", leads);
+    }
+    await closeWhy(standingPage);
+    }
+    await standingPage.locator("#woDayTitle [data-exopen]").click();
+    await standingPage.waitForSelector("#exDetail .recblock");
+    const detailLine = standingPage.locator("#exDetail .recblock__standing");
+    assert(word === "solid" ? await detailLine.count() === 0 : await detailLine.count() === 1,
+      `P080: exercise page shares the ${scenario} standing line`);
+  }
+  await standingContext.close();
+  const swapContext = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: "en-US", serviceWorkers: "block" });
+  const swapPage = await swapContext.newPage();
+  swapPage.on("pageerror", error => errors.push(String(error)));
+  swapPage.on("dialog", dialog => dialog.accept());
+  await swapPage.goto(BASE);
+  await waitForAppBoot(swapPage, { base: BASE });
+  const swapState = await installGeneratedProgram(swapPage);
+  const hack = swapState.program.find(row => row.name === "Hack squat");
+  await swapPage.evaluate(async () => {
+    const state = JSON.parse(localStorage.getItem("repforge_v1"));
+    state.settings.rirMode = "effort";
+    state.settings.lang = "en";
+    state.profile = { weightKg: 80 };
+    state.programMeta.experience = "beginner";
+    await window.__repforgeCommitProposedState(state);
+    await window.__repforgeStorage.flush();
+  });
+  const focus = "#workout .exercise.is-current";
+  const currentExercise = () => swapPage.evaluate(() => {
+    const draft = window.__repforgeWorkoutDraft.current();
+    return draft.exercises[draft.session.selectedExerciseId];
+  });
+  async function logRamp(effort, load) {
+    const exercise = await currentExercise();
+    const set = exercise.setOrder.map(id => exercise.sets[id]).find(set => set.completion === "pending");
+    const before = exercise.setOrder.filter(id => exercise.sets[id].completion !== "pending").length;
+    for (const [semantic, value] of [["loadKg", load], ["reps", 8]]) {
+      const metric = set.programmed.metrics.find(metric => metric.semantic === semantic);
+      const input = swapPage.locator(`${focus} input[data-metric-id="${metric.id}"]`);
+      if (await input.getAttribute("aria-hidden") === "true")
+        await openShelfField(swapPage, `${focus} [data-shelf-field="metric_${metric.id}"]`);
+      await input.fill(String(value));
+    }
+    await swapPage.locator(`${focus} [data-shelf-field="rir"]`).click();
+    await swapPage.locator(`${focus} [data-effchip][data-e="${effort}"]`).click();
+    await swapPage.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    await swapPage.locator(`${focus} .saveset`).click();
+    await swapPage.waitForFunction(({ id, before }) => Object.values(window.__repforgeWorkoutDraft.current().exercises[id].sets)
+      .filter(set => set.completion !== "pending").length > before, { id: exercise.exerciseInstanceId, before });
+    await swapPage.evaluate(() => window.stopRest());
+  }
+  await swapPage.reload();
+  await waitForAppBoot(swapPage, { base: BASE });
+  await swapPage.evaluate(id => window.__repforgeGoToLogExercise(id), hack.id);
+  await swapPage.locator(`${focus} [data-ramp-start]`).click();
+  await logRamp("easy", 20);
+  await swapPage.locator(`${focus} [data-ramp-start]`).click();
+  await logRamp("hard", 40);
+  await openActions(swapPage, hack.id);
+  await swapPage.locator("#exActionDiscomfortBtn").click();
+  assert(!await swapPage.locator("#exPickSheet").isVisible(), "B1: first discomfort records pain without a picker");
+  await swapPage.locator("#exActionsClose").click();
+  await finishRampSession(swapPage);
+  await swapPage.locator("#sumDone").click();
+  await swapPage.evaluate(() => window.__repforgeStorage.flush());
+  await swapPage.reload();
+  await waitForAppBoot(swapPage, { base: BASE });
+  await swapPage.evaluate(id => window.__repforgeGoToLogExercise(id), hack.id);
+  const original = await openWhy(swapPage);
+  const originalStanding = original.blocks.find(block => block.lead === "engine-standing")?.text;
+  assert(originalStanding?.includes("0.5") && originalStanding.includes("Recorded sessions on this lift: 1."), "B1: saved Hack squat has its own half-set and session", originalStanding);
+  await closeWhy(swapPage);
+  await openActions(swapPage, hack.id);
+  await swapPage.locator("#exActionDiscomfortBtn").click();
+  await swapPage.locator("#exPickSheet").waitFor({ state: "visible" });
+  await swapPage.locator("#exPickSearch").fill("Pendulum");
+  await swapPage.locator("#exPickList .pickrow__name").filter({ hasText: /^Pendulum squat$/i }).click();
+  await swapPage.locator('[data-pick-reason="pain"]').click();
+  await swapPage.locator("#exPickSheet").waitFor({ state: "hidden" });
+  await swapPage.evaluate(() => window.__repforgeWorkoutDraft.flush());
+  const replacement = await currentExercise();
+  const savedRows = await swapPage.evaluate(() => window.__repforgeWorkoutDraft.state().log);
+  assert(!savedRows.some(row => row.performedLibraryId === replacement.substitution.replacement.libraryId) &&
+    !replacement.setOrder.some(id => replacement.sets[id].completion !== "pending"),
+    "B1: Pendulum squat has no saved or live completed sets");
+  assert(await swapPage.locator(`${focus} .fx-cue__standing`).textContent() === "First time on this lift",
+    "B1: Focus does not inherit Hack squat standing");
+  const swapped = await openWhy(swapPage);
+  const swappedStanding = swapped.blocks.find(block => block.lead === "engine-standing")?.text;
+  assert(swappedStanding === "First time on this lift No comparable sessions recorded yet.", "B1: Why makes no claim to another movement's sets or sessions", swappedStanding);
+  assert(swapped.target === original.target, "B1: substitution keeps the inherited selected load unchanged", { original: original.target, swapped: swapped.target });
+  await closeWhy(swapPage);
+  await swapPage.locator("#woDayTitle [data-exopen]").click();
+  await swapPage.waitForSelector("#exDetail .recblock");
+  assert(await swapPage.locator("#exDetail .recblock__standing").textContent() === "First time on this lift",
+    "B1: exercise page does not inherit Hack squat standing");
+  await swapPage.locator("#exBack").click();
+  await exerciseAction(swapPage, hack.id, "#exActionRestoreOrigBtn");
+  const restored = await openWhy(swapPage);
+  assert(restored.blocks.find(block => block.lead === "engine-standing")?.text === originalStanding,
+    "B1: restoring Hack squat restores its own standing evidence");
+  assert(restored.target === original.target, "B1: restoration keeps the original selected load");
+  await closeWhy(swapPage);
+  assert(await swapPage.locator(`${focus} .fx-cue__standing`).textContent() === "Still learning this lift", "B1: restored Focus reads Hack squat standing");
+  await swapPage.locator("#woDayTitle [data-exopen]").click();
+  await swapPage.waitForSelector("#exDetail .recblock");
+  assert(await swapPage.locator("#exDetail .recblock__standing").textContent() === "Still learning this lift",
+    "B1: restored exercise page reads Hack squat standing");
+  await swapContext.close();
   assert(errors.length === 0, "no page errors during the why-sheet sessions", errors);
 } finally {
   await browser.close();

@@ -928,6 +928,7 @@ async function activationConflict(page) {
 /** Bring the frame's subject into view for surfaces taller than the viewport. */
 const FOCUS_SELECTOR = {
   // The landing is one scrolling page inside #firstRun; each scrolled state brings its band to the middle of the frame.
+  "onboarding-start/first-run-check": ".firstrun-check",
   "onboarding-start/first-run-ways": ".firstrun-way--surface",
   "onboarding-start/first-run-features": ".firstrun-feat__panel",
   "onboarding-start/first-run-data": ".firstrun-rows",
@@ -980,6 +981,7 @@ export const ONBOARDING_SCENARIOS = {
   "onboarding-start/first-run": openLanding,
   "onboarding-start/first-run-proof": openLanding,
   "onboarding-start/first-run-proof-test": openLanding,
+  "onboarding-start/first-run-check": openLanding,
   "onboarding-start/first-run-ways": openLanding,
   "onboarding-start/first-run-features": openLanding,
   "onboarding-start/first-run-data": openLanding,

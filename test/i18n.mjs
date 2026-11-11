@@ -176,6 +176,16 @@ const FOCUS_PREV_LINE_FAMILIES = Object.freeze([
 const FOCUS_PREV_LINE_ENDINGS = Object.freeze(["rir", "norir", "effort"]);
 
 const DYNAMIC_FAMILIES = [
+  { test: (s) => s.includes("review.proposal.applied.${record.kind}"), keys: () => ["review.proposal.applied.swap_exercise", "review.proposal.applied.drop_exercise", "review.proposal.applied.reduce_sets"] },
+  { test: (s) => s.includes("review.proposal.evaluation.${record.evaluation.outcome}"), keys: () => ["review.proposal.evaluation.pattern_stopped", "review.proposal.evaluation.pattern_continued", "review.proposal.evaluation.insufficient"] },
+  { test: (s) => s.includes("review.proposal.${proposal.kind}"), keys: () => ["review.proposal.swap_exercise", "review.proposal.drop_exercise", "review.proposal.reduce_sets"] },
+  { test: (s) => s.includes("review.why.${cause}"), keys: () => ["review.why.time", "review.why.equipment", "review.why.pain", "review.why.preference", "review.why.other", "review.why.recovery", "review.why.schedule"] },
+  { test: (s) => s.includes("review.pattern.${pattern.pattern}"), keys: () => ["review.pattern.recurring_skip", "review.pattern.recurring_pain", "review.pattern.recurring_fatigue", "review.pattern.stall_hard"] },
+  { test: (s) => s.includes("review.proposal.${action}"), keys: () => ["review.proposal.accept", "review.proposal.change", "review.proposal.later", "review.proposal.decline"] },
+  { test: (s) => s.includes("maxset.invite_reason_${offer.reason}"), keys: () => ["maxset.invite_reason_learning", "maxset.invite_reason_recheck"] },
+  { test: (s) => s.includes("focus.evidence.${cue.ramp.record.basis}"), keys: () => ["focus.evidence.prior", "focus.evidence.floor", "focus.evidence.ratio"] },
+  { test: (s) => s.includes("landing.check.${kind}"), keys: () => ["landing.check.more", "landing.check.fewer", "landing.check.equal"] },
+  { test: (s) => s.includes("why.standing.${reason}"), keys: () => ["why.standing.no_history", "why.standing.live_only", "why.standing.few_sets", "why.standing.few_sessions", "why.standing.disagreement", "why.standing.inconsistent_checks", "why.standing.break", "why.standing.evidence"] },
   { test: (s) => s.includes("review.week.sessions_only.${"), keys: () => ["one", "other"].map((form) => `review.week.sessions_only.${form}`) },
   { test: (s) => s.includes("review.week.${event.kind}"), keys: () => ["pain", "discomfort"].flatMap((kind) => ["", "_swapped"].map((ending) => `review.week.${kind}${ending}`)) },
   { test: (s) => s.includes("focus.skip_reason.${"), keys: () => ["time", "recovery", "pain", "equipment", "schedule", "trim", "other"].map((reason) => `focus.skip_reason.${reason}`) },

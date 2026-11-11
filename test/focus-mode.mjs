@@ -1612,10 +1612,9 @@ async function main() {
 
     await enter();
     let cue = await cardState(ad);
-    const range = `${target.reps.min}–${target.reps.max}`;
-    assert(cue.cueKind === "is-start" && cue.cueL1 === `Pick a load for ${range} reps` && cue.cueMark === null &&
+    assert(cue.cueKind === "is-ramp" && cue.cueL1 === "Find your weight" && cue.cueL2 === `aim for ${target.reps.min} reps` && cue.cueMark === null &&
       (await draftSet(1)).load == null,
-    "a lift with no history asks for a starting load and the draft holds none", JSON.stringify({ cue, set: await draftSet(1) }));
+    "a lift with no history offers the opening ramp and the draft holds no accepted load", JSON.stringify({ cue, set: await draftSet(1) }));
     for (let n = 1; n <= 2; n++) {
       await ad.locator(`#workout .exercise.is-current .focus-shelf .shelf__input[data-metric-id="${WEIGHT}"]`).fill("100");
       await ad.locator(`#workout .exercise.is-current .focus-shelf .shelf__input[data-metric-id="${REPS}"]`).fill("8");

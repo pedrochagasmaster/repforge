@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 259 screens,
-1524 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 269 screens,
+1589 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -62,13 +62,14 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [One-time landing — three ways](screens/onboarding-start/first-run-ways__phone-390-light-en.png) | 3 | Scrolled to the three ways to start your training: the orange, surface and ink stripes, with the paste hand-off closed. |
 | [One-time landing — feature tabs](screens/onboarding-start/first-run-features__phone-390-light-en.png) | 3 | Scrolled to the five feature tabs, held mid-scene on Progress: the strength trend with its record and the week's hard sets by muscle. |
 | [One-time landing — your data](screens/onboarding-start/first-run-data__phone-390-light-en.png) | 3 | Scrolled to the ink band: the history stays on the phone, in three rows. |
-| [One-time landing — questions](screens/onboarding-start/first-run-faq-open__phone-390-light-en.png) | 3 | Scrolled to the questions with the RIR answer open. |
+| [One-time landing — questions](screens/onboarding-start/first-run-faq-open__phone-390-light-en.png) | 3 | Scrolled to seven questions with the original third question, RIR, open and the two test-set questions closed below it. |
 | [One-time landing — close](screens/onboarding-start/first-run-close__phone-390-light-en.png) | 3 | Scrolled to the closing orange band with the Build pill and the Track link; the persistent Build control has stepped aside. |
 | [Entry hub](screens/onboarding-start/hub__phone-390-light-en.png) | 7 | B's hub: Recommend, Build and Import as choice cards, the setup-link note, Continue held until a choice. |
 | [Entry hub — guide](screens/onboarding-start/hub-guide__phone-390-light-en.png) | 7 | The entry guide over the hub: the guide dialog, centred over the dimmed hub. |
 | [Entry hub — Recommend chosen](screens/onboarding-start/hub-chosen__phone-390-light-en.png) | 3 | The hub with Recommend chosen and Continue enabled. |
 | [Entry hub — existing program](screens/onboarding-start/hub-existing__phone-390-light-en.png) | 3 | Opened from Settings while a program is active, so replacement consequences are in view. |
 | [Effort choice at activation](screens/onboarding-start/effort-choice__phone-390-light-en.png) | 7 | At durable activation on a fresh device, choose words or reps left. Words are selected. |
+| [One-time landing — test-set comparisons](screens/onboarding-start/first-run-check__phone-390-light-en.png) | 3 | Scrolled to the surface band: computed guess/result comparisons, safety ceilings, correction limits and excluded barbell movements. |
 
 ### Onboarding — Recommend one for me
 
@@ -192,7 +193,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 
 | Screen | Frames | What it shows |
 | --- | --- | --- |
-| [Workout — focus mode](screens/workout/focus__phone-390-light-en.png) | 8 | One exercise at a time. |
+| [Workout — focus mode](screens/workout/focus__phone-390-light-en.png) | 8 | One exercise at a time. One prior session leaves the target still learning this lift. |
 | [Workout — first-set guide](screens/workout/first-set-guide__phone-390-light-en.png) | 8 | The first-set guide, opened by the first tap on a shelf field: the guide dialog centred over the dimmed Focus, holding the tap until Got it. |
 | [Workout — workout menu guide](screens/workout/focus-utilities-guide__phone-390-light-en.png) | 8 | The focus-utilities guide: the guide dialog centred over the dimmed Focus. |
 | [Workout — Focus, per-side target](screens/workout/focus-per-side__phone-390-light-en.png) | 8 | A generated bilateral press shows its per-side load label and adaptive target prefilled in ordinary Focus. |
@@ -207,7 +208,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Workout — rest done](screens/workout/rest-done__phone-390-light-en.png) | 8 | The rest has run out: the tab reads Rest done in accent with a check and counts the overrun up (+0:15); the cue and the shelf are as they were. |
 | [Rest sheet](screens/workout/rest-sheet__phone-390-light-en.png) | 8 | The tab opens the rest sheet: the dial at 1:24 of 2:00 with the next set, Pause between -30s and +30s, the presets as the segmented control, and Restart and End rest. |
 | [Rest sheet, no rest running](screens/workout/rest-sheet-idle__phone-390-light-en.png) | 3 | With no rest running the sheet opens from the actions sheet's Rest timer row: the dial at the default length and Start. |
-| [Workout — test-set prompt](screens/workout/max-set-prompt__phone-390-light-en.png) | 8 | During the rest before a lift's last set, the prompt above the shelf offers to make it a test set: guess the reps at the load, then go to failure. Not now and × close it. |
+| [Workout — test-set prompt](screens/workout/max-set-prompt__phone-390-light-en.png) | 8 | During the rest before a lift's last set, the prompt above the shelf offers to make it a test set: guess the reps at the load, then go to failure. Not now and × close it. The invite explains that the app is still learning this lift. |
 | [Workout — test-set guess](screens/workout/max-set-guess__phone-390-light-en.png) | 8 | The guess sheet, still resting: How many reps at the load, prefilled from the set before (reps + reps left − 1) with − and +, the failure rule and the safety line, then Not now or Use as my last set. |
 | [Workout — test set](screens/workout/max-set-active__phone-390-light-en.png) | 3 | The last set as a test set: the effort field reads Failure with one pad to make it a normal set again, and the row carries the guess. |
 | [Workout — test-set result](screens/workout/max-set-result__phone-390-light-en.png) | 8 | The logged test set: under its row, the guess and the reps side by side and one line on the difference; nothing changes yet. |
@@ -220,7 +221,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Workout — exercise note](screens/workout/exercise-note__phone-390-light-en.png) | 8 | The per-exercise note sheet. |
 | [Workout — wheel picker, Load](screens/workout/wheel-load__phone-390-light-en.png) | 8 | A second tap on the selected Load field opens the wheel: the rail centred on its current value, with the keyboard button and Done in the sheet's bar. |
 | [Workout — wheel picker, Reps](screens/workout/wheel-reps__phone-390-light-en.png) | 8 | A second tap on the selected Reps field opens the wheel, 1 to 30, with the prescription's target range marked on the rail. |
-| [Workout — why this weight](screens/workout/why-this-weight__phone-390-light-en.png) | 8 | The recommendation inspector for a range lift: sentences first, each under a bold lead, the working behind See the working, the evidence footer. |
+| [Workout — why this weight](screens/workout/why-this-weight__phone-390-light-en.png) | 8 | The recommendation inspector for a range lift: sentences first, each under a bold lead, the working behind See the working, the evidence footer. Estimate basis explains the target’s standing before the effort estimate. |
 | [Workout — Why, effort estimate](screens/workout/why-calibration__phone-390-light-en.png) | 3 | The Why sheet for a lift with three on-target test sets: its effort-estimate line says the lifter's estimates have matched their test sets. |
 | [Workout — why this weight, mid-session](screens/workout/why-in-session__phone-390-light-en.png) | 8 | Opened after set 1 is logged: what the set showed (the observed capacity) before the prediction for the next set. |
 | [Workout — why this weight, manual](screens/workout/why-manual__phone-390-light-en.png) | 8 | A Build-backed manual range: Why says Taurifer does not suggest a load without saying who chose the range. |
@@ -242,6 +243,12 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Workout actions](screens/workout/actions__phone-390-light-en.png) | 8 | Focus session actions with a separate Cancel, before any action commits. |
 | [Workout — discomfort recorded](screens/workout/discomfort-mark__phone-390-light-en.png) | 8 | Exercise actions acknowledge a discomfort mark for this session. |
 | [Workout — skip reason](screens/workout/skip-reason__phone-390-light-en.png) | 8 | Closed skip reasons, with no reason chosen before the tap. |
+| [Finding an opening load](screens/workout/focus-ramp__phone-390-light-en.png) | 8 | A fresh generated program with bodyweight 80 kg offers the declared opening and the skip. |
+| [After an Easy ramp set](screens/workout/focus-ramp-easy__phone-390-light-en.png) | 8 | A completed Easy set is a warm-up; the cue offers the next grid load before the working sets. |
+| [Finding a weight without bodyweight](screens/workout/focus-ramp-floor__phone-390-light-en.png) | 8 | Without bodyweight the opening uses the equipment floor and offers the existing Session bodyweight field. |
+| [Workout — Why, standing](screens/workout/why-standing__phone-390-light-en.png) | 3 | The standing block for a learning lift after a 50-day break, with few sets and few sessions. |
+| [Workout — test-set re-check](screens/workout/max-set-recheck__phone-390-light-en.png) | 8 | A solid calibrated lift, its last check 60 days ago with regular sessions since. The invite explains that it has been a while since the last check. |
+| [Workout: immediate pain swap](screens/workout/pain-swap__phone-390-light-en.png) | 3 | Second marked session on the same movement and slot opens the dismissible swap picker, with different equipment classes first. |
 
 ### Session summary
 
@@ -291,6 +298,8 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Progress — recovery preview](screens/progress/recovery-preview__phone-390-light-en.png) | 8 | The policy-versioned week-one prescription diff before confirmation. |
 | [Progress — active recovery week](screens/progress/recovery-active__phone-390-light-en.png) | 8 | The confirmed recovery overlay is visible during week one. |
 | [Progress — recovery reassessment](screens/progress/recovery-reassessment__phone-390-light-en.png) | 8 | Canonical week two asks Better, About the same, or Worse. |
+| [Review with a proposed change](screens/progress/review-proposal__phone-390-light-en.png) | 8 | Recurring skips, an equipment cause and an alternate, with four explicit actions. |
+| [Review of an accepted change](screens/progress/review-evaluated__phone-390-light-en.png) | 8 | An accepted removal and the following week’s observed outcome. |
 
 ### History
 
@@ -306,6 +315,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [History — invalid edit](screens/history/edit-invalid__phone-390-light-en.png) | 8 | An invalid set value is held at the field boundary with the editor's validation state visible. |
 | [History — confirmed delete](screens/history/delete-confirm__phone-390-light-en.png) | 8 | The explicit delete confirmation surface for one selected session. |
 | [History — edit conflict](screens/history/conflict__phone-390-light-en.png) | 8 | A stale session edit refuses to overwrite a newer durable change and offers recovery actions. |
+| [Saved ramp rows](screens/history/ramp-rows__phone-390-light-en.png) | 8 | Two warm-up ramp rows precede the first working row, whose opening provenance survives saving. |
 
 ### Exercise library
 
@@ -315,7 +325,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Exercise library — selected movement](screens/library/list-selected__phone-390-light-en.png) | 8 | One movement is selected and the persistent add bar is visible. |
 | [Exercise library — preview](screens/library/exercise-preview__phone-390-light-en.png) | 3 | An illustrated movement preview. |
 | [Exercise library — detail](screens/library/exercise-detail__phone-390-light-en.png) | 3 | The full movement detail surface. |
-| [Exercise library — detail with a suggestion](screens/library/exercise-detail-suggested__phone-390-light-en.png) | 3 | Movement detail for an Adaptive lift: the suggested weight with Understand RIR and Why this weight?. |
+| [Exercise library — detail with a suggestion](screens/library/exercise-detail-suggested__phone-390-light-en.png) | 3 | Movement detail for an Adaptive lift: the suggested weight with Understand RIR and Why this weight?. The target shares Focus’s quiet standing line. |
 | [Exercise library — detail glossary definition](screens/library/exercise-detail-glossary__phone-390-light-en.png) | 8 | A definition is open after tapping a term in movement detail. |
 
 ### Program

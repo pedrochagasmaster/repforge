@@ -134,6 +134,16 @@ _Avoid_: Dashboard, score, calibration %, training profile (the excluded Plan 07
 The surface for bounded within-block adaptation: the week's facts (sessions done, lifts that moved, lifts that stalled, pain reported) and, where one applies, a cause-matched proposal the lifter approves or declines. A lifter who gets facts only is never shown what a proposal would have been.
 _Avoid_: Weekly report, check-in (the coach register), recap, summary email
 
+**Pattern**:
+A recurring observation in the lifter's sessions that can justify asking why or proposing a bounded change. A pain pattern belongs to the same movement in the same exercise template; a replacement does not inherit it.
+_PT (user-facing)_: padrão.
+_Avoid_: Diagnosis, problem, warning score
+
+**Adaptation**:
+A bounded change to one main variable within the current mesocycle, proposed from a recurring pattern, approved by the lifter, and evaluated against later sessions. A session swap remains separate from a program change.
+_PT (user-facing)_: ajuste.
+_Avoid_: Automatic adjustment, transition, new program
+
 **Coach**:
 The human comparison only: hired coaches are a competitor and the internal yardstick for what the first month must do. Never a name for Taurifer, Taurifer AI, or any surface, and never a claim in copy; prescribing training is a regulated profession in Brazil.
 _Avoid_: "Your coach", "AI coach", "virtual trainer", treinador (as a product name), personal

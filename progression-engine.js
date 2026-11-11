@@ -756,13 +756,25 @@
     const boundedSession = Array.isArray(currentSession) ? currentSession.slice(-100) : [];
     const date = new Date();
     const now = settings?.now ?? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    // A batch repeats a slot's prescription for each working set. Standing scans the same history for all of them.
+    // Keep this reuse inside the call, so edited history, a different day or calibration can never leave stale evidence.
+    const standings = new Map();
     return prescriptions.map((prescription) => {
       const result = recommendOne(prescription, boundedHistory, boundedSession, loadingContext, settings);
       let standing;
-      try { standing = standingFor(result, prescription, boundedHistory, loadingContext, settings, now); }
+      try {
+        const key = result.historyAnchor ? JSON.stringify({ ...prescription, id: null, setIndex: null,
+          standingSource: result.historyAnchor.source, standingConfigurationRequired: result.status === "configuration_required" }) : null;
+        standing = key == null ? null : standings.get(key);
+        if (!standing) {
+          standing = standingFor(result, prescription, boundedHistory, loadingContext, settings, now);
+          if (key != null) standings.set(key, standing);
+        }
+        standing = { ...standing, reasons: [...standing.reasons], evidence: { ...standing.evidence } };
+      }
       catch {
         // Standing is supporting evidence. Its failure cannot take an already selected target away.
-        standing = { version: STANDING_VERSION, word: result.historyAnchor ? "learning" : "first",
+        standing = { unavailable: true, version: STANDING_VERSION, word: result.historyAnchor ? "learning" : "first",
           reasons: result.historyAnchor ? ["few_sets", "few_sessions"] : ["no_history"], evidence: emptyStandingEvidence() };
       }
       return { ...result, standing };

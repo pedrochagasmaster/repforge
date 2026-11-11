@@ -186,22 +186,49 @@ sections 5 through 8.
 
 ## 4. What the app learns about you
 
-From your recent history (the last three sessions of each exercise), the
-app maintains two personal reference points per lift. Both are
-measurements of how you actually train — never targets you're pushed
-toward.
+The engine anchors a lift on the median first-set capacity of its last three
+comparable sessions. It uses the observed drop between sets to estimate the
+later sets, then searches the available loads for the program's rep target.
+A test-set correction can adjust how reported reps left are read, within the
+existing load bound. Standing does not change the selected load or reps. If its evidence cannot be
+calculated, the target remains and no test set is requested.
 
-- **Your usual effort margin.** The typical reps-in-reserve you tend to
-  keep. A to-failure lifter's margin is about 0; a more conservative
-  lifter's might be 2. When the app predicts how many reps you will
-  *actually perform* (rather than could perform), it subtracts this margin
-  from your capacity — so its targets land at the effort level you already
-  train at, whoever you are.
-- **Your capacity baseline.** Your recent typical strength score for the
-  lift. Today's performance is read against it: clearly below baseline
-  means you're having a rough day; at or above means business as usual.
-  A lift needs at least two logged sessions before it has a baseline at
-  all.
+Standing describes the evidence behind that estimate:
+
+- **First time:** no comparable history, or only sets from the live session.
+- **Still learning this lift:** fewer than six weighted sets or two sessions,
+  disagreement across at least four consecutive-set pairs, inconsistent test
+  sets, or a break of at least 42 days.
+- **Solid:** the history clears those thresholds.
+
+Typed reps left count fully; words, capped answers and older rows without an
+effort source count half. Prefilled or unsure effort does not count. Evidence
+has a 90-day half-life. Consecutive sets agree when their capacity ratio is
+between 0.85 and 1.03; identical pairs are skipped. These measurements describe
+the record, never an effort target.
+
+A test set is requested when a lift is still being learned, has fewer than
+three checks, or has inconsistent checks. A solid lift with a calibrated,
+over-estimating or under-estimating record can be re-checked after 60 days.
+There is no global monthly schedule. Among eligible opportunities, the lift
+with fewer weighted sets goes first.
+
+Every safety ceiling still applies: prompts must be on, at least two working
+sets must be prescribed, and only the last working set can become a test set.
+It replaces that set. It is never offered immediately after a Max or zero
+reps-left set, during a lighter week, after pain or discomfort on that movement
+today, including earlier saved sessions, or on an excluded free-barbell squat,
+bench press or deadlift. Any catalog exercise whose English name contains both
+"barbell" and "squat" is excluded too, regardless of case or performed equipment.
+Saved observations match by movement identity. A session protects today when either its workout date or its completion falls on today locally. Completion
+comes from the saved session timing or the log row timestamp, so a session
+spanning midnight still protects the day it finished. If neither date can be
+read, the request is refused. A mark cleared before finishing is absent from
+the saved observations. Unreadable evidence prevents a test-set request.
+There must be a valid guess from the previous set, and rep targets above 20
+are excluded. Limits remain one test set per session, one per movement every
+14 days, and two per ISO calendar week. Dismissal declines the opportunity for
+that exercise in the current session.
 
 ## 5. Between workouts: the recommendation on each exercise
 

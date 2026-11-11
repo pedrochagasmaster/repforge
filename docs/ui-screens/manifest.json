@@ -538,7 +538,7 @@
       "id": "first-run-faq-open",
       "flow": "onboarding-start",
       "label": "One-time landing — questions",
-      "scenario": "Scrolled to the questions with the RIR answer open.",
+      "scenario": "Scrolled to seven questions with the original third question, RIR, open and the two test-set questions closed below it.",
       "variants": "standard"
     },
     {
@@ -1161,7 +1161,7 @@
       "id": "focus",
       "flow": "workout",
       "label": "Workout — focus mode",
-      "scenario": "One exercise at a time.",
+      "scenario": "One exercise at a time. One prior session leaves the target still learning this lift.",
       "variants": "demandingText"
     },
     {
@@ -1266,7 +1266,7 @@
       "id": "max-set-prompt",
       "flow": "workout",
       "label": "Workout — test-set prompt",
-      "scenario": "During the rest before a lift's last set, the prompt above the shelf offers to make it a test set: guess the reps at the load, then go to failure. Not now and × close it.",
+      "scenario": "During the rest before a lift's last set, the prompt above the shelf offers to make it a test set: guess the reps at the load, then go to failure. Not now and × close it. The invite explains that the app is still learning this lift.",
       "variants": "demandingText"
     },
     {
@@ -1357,7 +1357,7 @@
       "id": "why-this-weight",
       "flow": "workout",
       "label": "Workout — why this weight",
-      "scenario": "The recommendation inspector for a range lift: sentences first, each under a bold lead, the working behind See the working, the evidence footer.",
+      "scenario": "The recommendation inspector for a range lift: sentences first, each under a bold lead, the working behind See the working, the evidence footer. Estimate basis explains the target’s standing before the effort estimate.",
       "variants": "demandingText"
     },
     {
@@ -1763,7 +1763,7 @@
       "id": "exercise-detail-suggested",
       "flow": "library",
       "label": "Exercise library — detail with a suggestion",
-      "scenario": "Movement detail for an Adaptive lift: the suggested weight with Understand RIR and Why this weight?.",
+      "scenario": "Movement detail for an Adaptive lift: the suggested weight with Understand RIR and Why this weight?. The target shares Focus’s quiet standing line.",
       "variants": "standard"
     },
     {
@@ -2299,11 +2299,81 @@
       "variants": "demandingText"
     },
     {
+      "id": "focus-ramp",
+      "flow": "workout",
+      "label": "Finding an opening load",
+      "scenario": "A fresh generated program with bodyweight 80 kg offers the declared opening and the skip.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "focus-ramp-easy",
+      "flow": "workout",
+      "label": "After an Easy ramp set",
+      "scenario": "A completed Easy set is a warm-up; the cue offers the next grid load before the working sets.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "ramp-rows",
+      "flow": "history",
+      "label": "Saved ramp rows",
+      "scenario": "Two warm-up ramp rows precede the first working row, whose opening provenance survives saving.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "focus-ramp-floor",
+      "flow": "workout",
+      "label": "Finding a weight without bodyweight",
+      "scenario": "Without bodyweight the opening uses the equipment floor and offers the existing Session bodyweight field.",
+      "variants": "demandingText"
+    },
+    {
       "id": "effort-choice",
       "flow": "onboarding-start",
       "label": "Effort choice at activation",
       "scenario": "At durable activation on a fresh device, choose words or reps left. Words are selected.",
       "variants": "accessibility"
+    },
+    {
+      "id": "why-standing",
+      "flow": "workout",
+      "label": "Workout — Why, standing",
+      "scenario": "The standing block for a learning lift after a 50-day break, with few sets and few sessions.",
+      "variants": "localized"
+    },
+    {
+      "id": "max-set-recheck",
+      "flow": "workout",
+      "label": "Workout — test-set re-check",
+      "scenario": "A solid calibrated lift, its last check 60 days ago with regular sessions since. The invite explains that it has been a while since the last check.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "review-proposal",
+      "flow": "progress",
+      "label": "Review with a proposed change",
+      "scenario": "Recurring skips, an equipment cause and an alternate, with four explicit actions.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "review-evaluated",
+      "flow": "progress",
+      "label": "Review of an accepted change",
+      "scenario": "An accepted removal and the following week’s observed outcome.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "pain-swap",
+      "flow": "workout",
+      "label": "Workout: immediate pain swap",
+      "scenario": "Second marked session on the same movement and slot opens the dismissible swap picker, with different equipment classes first.",
+      "variants": "localized"
+    },
+    {
+      "id": "first-run-check",
+      "flow": "onboarding-start",
+      "label": "One-time landing — test-set comparisons",
+      "scenario": "Scrolled to the surface band: computed guess/result comparisons, safety ceilings, correction limits and excluded barbell movements.",
+      "variants": "standard"
     }
   ]
 }

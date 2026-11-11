@@ -1,11 +1,19 @@
 import assert from "node:assert/strict";
 import {join} from "node:path";
-import {mkdirSync} from "node:fs";
+import {mkdirSync,readFileSync} from "node:fs";
 import {loadManifest} from "../tools/ui-screens/manifest.mjs";
 import {appState, APP_SCENARIOS} from "../tools/ui-screens/screens-app.mjs";
 import {openPage, dismissChrome, seed, settle} from "../tools/ui-screens/session.mjs";
 import {waitForAppBoot,openShelfField,answerRecommend} from "./browser.mjs";
 import {openActions,finishEarly} from "./fixtures/focus-workout.mjs";
+import {openInstalledEditor,applyInstalledEditor} from "./fixtures/installed-editor.mjs";
+import {metricLogRow} from "./fixtures/history-metric-rows.mjs";
+
+async function enterFirstWorkout(page){
+  const day=await page.evaluate(()=>window.__repforgeWorkoutDraft.state().program[0]?.day);
+  await page.evaluate(day=>window.__repforgeEnterWorkout(day?{day}:{}),day);
+  await page.locator("#workout .exercise.is-current").waitFor({state:"visible"});
+}
 
 async function holdDraftWrite(page){
   await page.evaluate(()=>{window.proofLockHeld=false;window.proofLock=navigator.locks.request("repforge:draft-write",()=>{window.proofLockHeld=true;return new Promise(resolve=>window.proofRelease=resolve)})});
@@ -63,7 +71,7 @@ async function runRoundTwoCases(browser,manifest){
       const state=appState("workout/discomfort-mark","en");state.log=[];delete state.sessionEvents;
       const {page,context}=await openPage(browser,manifest,{flow:"workout",screen:"discomfort-mark",viewport:"phone-390",theme:"light",locale:"en",text:"normal",motion:"normal"},state);
       try{
-        await dismissChrome(page);await APP_SCENARIOS["workout/focus"](page);
+        await dismissChrome(page);await enterFirstWorkout(page);
         await page.evaluate(()=>{
           window.reasonEvents=[];localStorage.setItem("repforge_telemetry_enabled_v1","true");
           window.RepForgeTelemetry.boot({adapter:{capture:(name,properties)=>{if(name==="substitution_used")window.reasonEvents.push(properties)},setEnabled(){}},storage:localStorage});
@@ -99,7 +107,7 @@ async function runRoundTwoCases(browser,manifest){
   await check("single skip separators",async()=>{
     const {page,context}=await openPage(browser,manifest,{flow:"workout",screen:"skip-reason",viewport:"phone-390",theme:"light",locale:"en",text:"normal",motion:"normal"},appState("workout/skip-reason","en"));
     try{
-      await dismissChrome(page);await APP_SCENARIOS["workout/focus"](page);
+      await dismissChrome(page);await enterFirstWorkout(page);
       const id=await page.locator("#workout .exercise.is-current").getAttribute("data-ex");await openActions(page,id);
       const bottom=await page.locator("#exActionSkipBtn").evaluate(el=>parseFloat(getComputedStyle(el).borderBottomWidth));
       await page.locator("#exActionSkipBtn").click();await page.locator('[data-skip-reason="time"]').waitFor({state:"visible"});
@@ -209,8 +217,264 @@ async function runCatalogWeekCardCases(browser,manifest){
   }
 }
 
+async function runAdaptationCases(browser,manifest){
+  const failures=[];
+  for(const followups of [2,1]){
+    const state=appState("progress/review-proposal","en"),lifts=state.program.filter(row=>row.day==="Day 1").slice(0,2),target=lifts[0];
+    const dates=followups===2?["2026-08-20","2026-08-25","2026-08-28"]:["2026-08-20","2026-08-21","2026-08-25"];
+    state.log=dates.flatMap((date,index)=>lifts.map(exercise=>metricLogRow(state.programMeta,exercise,{
+      session:`fatigue-${index}`,date,created:`${date}T12:00:00.000Z`,day:"Day 1",set:1,load:60,reps:12-index*2,rir:1})));
+    state.sessionEvents={};
+    for(const day of state.programMeta.programDefinition.days)for(const slot of day.slots)for(const cycle of slot.prescriptionsByCycle)for(const set of cycle.sets){
+      set.rir=1;set.status="ready";set.provenance={source:"manual",policyVersion:"manual-adaptive@1"};
+    }
+    const instant="2026-08-24T12:00:00.000Z";
+    state.programMeta.adaptations=[{id:"fatigue-followup",v:1,blockId:state.programMeta.blockId,week:"2026-08-24",pattern:"recurring_fatigue",cause:"recovery",kind:"reduce_sets",
+      target:{slotId:target.id,exerciseId:target.libraryId,setsDelta:-1},proposedAt:instant,decision:"accepted",decidedAt:instant,
+      appliedEdit:{expectedToken:{revision:1,programId:state.programMeta.id,blockId:state.programMeta.blockId,fingerprint:"before-reduction"},intent:"adaptation_apply"}}];
+    const expected=followups===2?"pattern_continued":"pattern_stopped";
+    const {page,context}=await openPage(browser,manifest,{flow:"progress",screen:"review-proposal",viewport:"phone-390",theme:"light",locale:"en",text:"normal",motion:"normal"},state);
+    try{
+      await dismissChrome(page);await APP_SCENARIOS["progress/review-active"](page);
+      await page.waitForFunction(()=>window.__repforgeWorkoutDraft.state().programMeta.adaptations[0].evaluation);
+      assert.equal(await page.evaluate(()=>window.__repforgeWorkoutDraft.state().programMeta.adaptations[0].evaluation.outcome),expected,"fatigue comparisons retain the baseline while only post-approval sessions count");
+      await page.evaluate(()=>window.__repforgeStorage.flush());await page.reload({waitUntil:"domcontentloaded"});await waitForAppBoot(page);
+      await APP_SCENARIOS["progress/review-active"](page);
+      assert.equal(await page.evaluate(()=>window.__repforgeWorkoutDraft.state().programMeta.adaptations[0].evaluation.outcome),expected,"fatigue evaluation survives the production loader");
+      assert.match(await page.locator('[data-adaptation-evaluation]').innerText(),followups===2?/the pattern continued/:/no recurring pattern was detected/);
+    }catch(error){failures.push(error)}finally{await context.close()}
+  }
+  {
+    const state=appState("progress/review-evaluated","en");state.programMeta.mesocycleStatus="completed";
+    const {page,context}=await openPage(browser,manifest,{flow:"progress",screen:"review-evaluated",viewport:"phone-390",theme:"light",locale:"en",text:"normal",motion:"normal"},state);
+    try{
+      await dismissChrome(page);await APP_SCENARIOS["progress/review-active"](page);
+      const before=await page.evaluate(()=>structuredClone(window.__repforgeWorkoutDraft.state()));
+      await page.locator('[data-review-action="repeat"]').click();
+      await page.waitForFunction(block=>window.__repforgeWorkoutDraft.state().programMeta.blockId!==block,before.programMeta.blockId);
+      await page.evaluate(()=>window.__repforgeStorage.flush());await page.reload({waitUntil:"domcontentloaded"});await waitForAppBoot(page);
+      const after=await page.evaluate(()=>structuredClone(window.__repforgeWorkoutDraft.state()));
+      assert.deepEqual(after.programMeta.adaptations,before.programMeta.adaptations,"Repeat retains the full approval and evaluation record");
+      assert.equal(after.programMeta.id,before.programMeta.id);assert.notEqual(after.programMeta.blockId,before.programMeta.blockId);
+      assert.deepEqual(after.programMeta.programDefinition,before.programMeta.programDefinition,"Repeat retains the adapted prescription");
+      const record=before.programMeta.adaptations[0];
+      assert.equal(await page.evaluate(({record,blockId})=>RepForgeProgramTransition.adaptationEligible(window.__repforgeWorkoutDraft.state().programMeta.adaptations,
+        {pattern:record.pattern,slotId:record.target.slotId,exerciseId:record.target.exerciseId},blockId,record.week),{record,blockId:after.programMeta.blockId}),true,"retained old-block receipts do not suppress a new block's proposal");
+    }catch(error){failures.push(error)}finally{await context.close()}
+  }
+  {
+    const state=appState("progress/review-evaluated","en");
+    const {page,context}=await openPage(browser,manifest,{flow:"progress",screen:"review-evaluated",viewport:"phone-390",theme:"light",locale:"en",text:"normal",motion:"normal"},state);
+    try{
+      await dismissChrome(page);await APP_SCENARIOS["progress/review-evaluated"](page);
+      const evaluation=await page.locator('[data-adaptation-evaluation]').innerText();
+      assert.match(evaluation,/removed/i,"the evaluation identifies the accepted change as well as its outcome");
+      assert.ok(evaluation.includes(state.sessionEvents["weekly-1"].skips[0].name),"the evaluation keeps the captured name of the removed lift");
+    }catch(error){failures.push(error)}finally{await context.close()}
+  }
+  {
+    const state=appState("progress/review-proposal","en");
+    state.log=state.log.filter(row=>row.session!=="weekly-stall");
+    const {page,context}=await openPage(browser,manifest,{flow:"progress",screen:"review-proposal",viewport:"phone-390",theme:"light",locale:"en",text:"normal",motion:"normal"},state);
+    try{
+      await dismissChrome(page);await APP_SCENARIOS["progress/review-proposal"](page);
+      assert.equal(await page.locator('[data-adaptation-why]').count(),1,"the existing three-session hard-set stall remains visible when its first exposure precedes the two-week event window");
+      await page.evaluate(()=>{
+        window.weeklyObservedEvents=[];
+        const telemetry=window.RepForgeTelemetry;
+        window.RepForgeTelemetry={...telemetry,capture(name,properties){window.weeklyObservedEvents.push(name);return telemetry.capture(name,properties)}};
+      });
+      await page.locator('[data-adaptation-why]').click();await page.locator("#whySheet").waitFor({state:"visible"});
+      assert.deepEqual(await page.evaluate(()=>window.weeklyObservedEvents),[],"the alpha review's Why reader does not claim a Focus telemetry interaction");
+    }catch(error){failures.push(error)}finally{await context.close()}
+  }
+  {
+    const state=appState("progress/review-proposal","en");
+    const {page,context}=await openPage(browser,manifest,{flow:"progress",screen:"review-proposal",viewport:"phone-390",theme:"light",locale:"en",text:"normal",motion:"normal"},state);
+    try{
+      await dismissChrome(page);await APP_SCENARIOS["progress/review-proposal"](page);
+      const sibling=await context.newPage();await sibling.goto(page.url(),{waitUntil:"domcontentloaded"});await waitForAppBoot(sibling);
+      await openInstalledEditor(sibling);
+      await sibling.locator('#programEditor [data-role="program-name-edit"]').click();
+      await sibling.locator('#reviewSheet [data-role="rename-input"]').fill("Concurrent edit");
+      await sibling.locator('#reviewSheet [data-role="rename-save"]').click();
+      await sibling.locator('#reviewSheet').waitFor({state:"hidden"});await applyInstalledEditor(sibling);
+      assert.equal(await sibling.evaluate(()=>window.__repforgeWorkoutDraft.state().programMeta.name),"Concurrent edit","the sibling editor committed its rename before the stale proposal is tapped");
+      await page.locator('[data-adaptation-action="accept"]').click();
+      await page.locator('[data-adaptation-card] [role="alert"]').waitFor({state:"visible"});
+      assert.deepEqual(await page.evaluate(()=>window.__repforgeWorkoutDraft.state().programMeta.adaptations||[]),[],"a concurrent editor commit refuses the adaptation and its receipt together");
+      assert.equal(await page.evaluate(()=>window.__repforgeWorkoutDraft.state().programMeta.name),"Concurrent edit","the other tab's program edit survives");
+      await page.locator('#statsSeg [data-seg="review"]').click();
+      await page.locator('[data-adaptation-cause="equipment"]').click();
+      await page.locator('[data-adaptation-action="accept"]').click();
+      await page.waitForFunction(()=>window.__repforgeWorkoutDraft.state().programMeta.adaptations?.length===1);
+      assert.equal(await page.evaluate(()=>window.__repforgeWorkoutDraft.state().programMeta.name),"Concurrent edit","reopening Review proposes against the new editor token");
+    }catch(error){failures.push(error)}finally{await context.close()}
+  }
+  for(const timing of ["after","before"]){
+    const state=appState("progress/review-evaluated","en"),record=state.programMeta.adaptations[0];
+    delete record.evaluation;
+    state.sessionEvents["weekly-second"]={v:1,skips:[structuredClone(state.sessionEvents["weekly-2"].skips[0])],pain:[]};
+    if(timing==="before")state.log=state.log.map(row=>["weekly-2","weekly-second"].includes(row.session)
+      ?{...row,date:record.week,created:`${record.week}T09:00:00.000Z`}:row);
+    const expected=timing==="after"?"pattern_continued":"insufficient";
+    const {page,context}=await openPage(browser,manifest,{flow:"progress",screen:"review-evaluated",viewport:"phone-390",theme:"light",locale:"en",text:"normal",motion:"normal"},state);
+    try{
+      await dismissChrome(page);await APP_SCENARIOS["progress/review-evaluated"](page);
+      await page.waitForFunction(()=>window.__repforgeWorkoutDraft.state().programMeta.adaptations[0].evaluation);
+      assert.equal(await page.evaluate(()=>window.__repforgeWorkoutDraft.state().programMeta.adaptations[0].evaluation.outcome),expected,"evaluation uses post-approval observations of the captured lift, including a removed slot");
+      await page.evaluate(()=>window.__repforgeStorage.flush());
+      await page.reload({waitUntil:"domcontentloaded"});await waitForAppBoot(page);
+      assert.equal(await page.evaluate(()=>window.__repforgeWorkoutDraft.state().programMeta.adaptations[0].evaluation.outcome),expected,"the evaluated receipt survives the actual loader");
+    }catch(error){failures.push(error)}finally{await context.close()}
+  }
+  for(const action of ["accept","decline","later","change"]){
+    const state=appState("progress/review-active","en");
+    state.programMeta.blockId="weekly-adaptation-block";
+    state.log=state.log.map(row=>({...row,blockId:state.programMeta.blockId}));
+    const skipped=state.program.filter(exercise=>exercise.day==="Day 1")[2];
+    const slot=state.programMeta.programDefinition.days.flatMap(day=>day.slots).find(slot=>slot.id===skipped.id);
+    slot.alternates=[state.program[0].libraryId];
+    state.sessionEvents["weekly-1"]={v:1,skips:[{exerciseId:skipped.libraryId,slotId:skipped.id,name:skipped.name,reason:"equipment"}],pain:[]};
+    const capture={flow:"progress",screen:"review-active",viewport:"phone-390",theme:"light",locale:"en",text:"normal",motion:"normal"};
+    const {page,context}=await openPage(browser,manifest,capture,state);
+    try{
+      await dismissChrome(page);await APP_SCENARIOS["progress/review-active"](page);
+      const card=page.locator('[data-adaptation-card]');
+      await card.waitFor({state:"visible"});
+      const before=await page.evaluate(()=>structuredClone(window.__repforgeWorkoutDraft.state()));
+      await page.locator('[data-adaptation-cause="equipment"]').click();
+      assert.equal((await page.evaluate(()=>window.__repforgeWorkoutDraft.state().programMeta.adaptations||[])).length,0,"view and why choice never write a program change");
+      assert.deepEqual(await page.evaluate(()=>window.__repforgeWorkoutDraft.state().program),before.program,"choosing a cause never edits the active program");
+      assert.deepEqual(await page.evaluate(()=>window.__repforgeWorkoutDraft.state().programMeta.programDefinition),before.programMeta.programDefinition);
+      await page.locator(`[data-adaptation-action="${action}"]`).click();
+      if(action==="change"){
+        await page.locator('#programEditor').waitFor({state:"visible"});
+        await page.locator(`#reviewSheet [data-pe-sheet="exercise"][data-id="${skipped.id}"]`).waitFor({state:"visible"});
+        assert.equal((await page.evaluate(()=>window.__repforgeWorkoutDraft.state().programMeta.adaptations||[])).length,0,"Change only opens the ordinary editor");
+      }else{
+        await page.waitForFunction(()=>window.__repforgeWorkoutDraft.state().programMeta.adaptations?.length===1);
+        await page.evaluate(()=>window.__repforgeStorage.flush());
+        const saved=await page.evaluate(()=>structuredClone(window.__repforgeWorkoutDraft.state()));
+        const record=saved.programMeta.adaptations[0];
+        assert.equal(await page.evaluate(()=>document.activeElement!==document.body&&document.activeElement?.isConnected&&!document.activeElement.closest('[hidden],.hidden')),true,"a completed decision returns focus to the live Review");
+        assert.equal(record.decision,{accept:"accepted",decline:"declined",later:"snoozed"}[action]);
+        assert.deepEqual(saved.log,before.log,"decisions never alter historical loads");
+        if(action==="accept"){
+          assert.equal(record.appliedEdit.intent,"adaptation_apply");
+          assert.equal(saved.programMeta.programDefinition.days.flatMap(day=>day.slots).find(slot=>slot.id===skipped.id).exerciseId,slot.alternates[0]);
+          assert.ok(saved._storageRevision>before._storageRevision,"editor commit bumps durable token");
+        }else assert.deepEqual(saved.program,before.program,"decline and snooze do not edit the program");
+        await page.reload({waitUntil:"domcontentloaded"});await waitForAppBoot(page);
+        await APP_SCENARIOS["progress/review-active"](page);
+        assert.equal(await page.locator('[data-adaptation-card]').count(),0,"decision survives reload and suppresses this week's second proposal");
+        assert.deepEqual(await page.evaluate(()=>window.__repforgeWorkoutDraft.state().programMeta.adaptations),saved.programMeta.adaptations,"normalization retains the complete receipt");
+        if(action==="accept"){
+          await page.evaluate(()=>window.__repforgeShowSettings());
+          await page.locator("#dataBackupRow").click();
+          const [download]=await Promise.all([page.waitForEvent("download"),page.locator("#exportJson").click()]);
+          const backup=JSON.parse(readFileSync(await download.path(),"utf8"));
+          assert.deepEqual(backup.programMeta.adaptations,saved.programMeta.adaptations,"the actual backup exporter carries the receipt");
+          await page.evaluate(()=>window.__repforgeShowSettings());await page.locator("#dataImportRow").click();
+          await page.locator("#importJson").setInputFiles({name:"weekly-change.json",mimeType:"application/json",buffer:Buffer.from(JSON.stringify(backup))});
+          await page.locator("#importChoice").waitFor({state:"visible"});await page.locator("#importReplace").click();
+          await page.locator("#importChoice").waitFor({state:"hidden"});await page.evaluate(()=>window.__repforgeStorage.flush());
+          await page.reload({waitUntil:"domcontentloaded"});await waitForAppBoot(page);
+          assert.deepEqual(await page.evaluate(()=>window.__repforgeWorkoutDraft.state().programMeta.adaptations),saved.programMeta.adaptations,"the production backup importer and reload preserve the receipt");
+          await page.clock.setFixedTime(new Date("2026-09-07T12:00:00Z"));
+          await page.reload({waitUntil:"domcontentloaded"});await waitForAppBoot(page);
+          await APP_SCENARIOS["progress/review-active"](page);
+          await page.waitForFunction(()=>window.__repforgeWorkoutDraft.state().programMeta.adaptations[0].evaluation);
+          assert.equal(await page.evaluate(()=>window.__repforgeWorkoutDraft.state().programMeta.adaptations[0].evaluation.outcome),"insufficient","an unobserved following week is not called a success");
+          assert.match(await page.locator('[data-adaptation-evaluation]').innerText(),/not enough sessions/);
+        }
+      }
+    }catch(error){failures.push(error)}finally{await context.close()}
+  }
+  if(failures.length)throw new AggregateError(failures,"weekly adaptation proofs failed");
+  console.log("PASS weekly adaptation browser: four actions, explicit approval, editor token, historical loads, durable receipt and reload suppression");
+}
+
+async function runImmediatePainCases(browser,manifest){
+  const machine="1a25c6f170d88079a926dde776766181",dumbbell="1a25c6f170d880708256e9a8bf6337bf";
+  let passed=0;
+  for(const kind of ["barbell-equipment","second-mark","first-mark","other-slot","other-movement","cleared","no-alternates","replacement-new","replacement-known","dismiss-during-write"]){
+    const state=appState("workout/discomfort-mark","en"),original=state.program[0];
+    const slot=state.programMeta.programDefinition.days.flatMap(day=>day.slots).find(slot=>slot.id===original.id);
+    const sameEquipment=kind==="barbell-equipment"?"2115c6f170d880dfb3e2ff8447c9a0b5":machine;
+    const replacementId=kind==="barbell-equipment"?"1a25c6f170d8803d8231d083fdd65458":machine;
+    slot.alternates=kind==="no-alternates"?[]:[sameEquipment,dumbbell];
+    const date="2026-08-28",session="pain-path-prior";
+    state.log=[metricLogRow(state.programMeta,original,{session,date,day:original.day,set:1,load:40,reps:8,rir:2,created:`${date}T12:00:00.000Z`})];
+    state.sessionEvents={[session]:{v:1,skips:[],pain:kind==="first-mark"||kind==="cleared"?[]:[{
+      slotId:kind==="other-slot"?state.program[1].id:original.id,
+      exerciseId:kind==="barbell-equipment"?replacementId:["other-movement","replacement-known"].includes(kind)?machine:original.libraryId,name:original.name,kind:"pain",swapped:false,
+    }]}};
+    const {page,context}=await openPage(browser,manifest,{flow:"workout",screen:"discomfort-mark",viewport:"phone-390",theme:"light",locale:"en",text:"normal",motion:"normal"},state);
+    try{
+      await dismissChrome(page);await enterFirstWorkout(page);
+      const id=await page.locator("#workout .exercise.is-current").getAttribute("data-ex");
+      assert.equal(id,original.id);
+      if(kind.startsWith("replacement-")||kind==="barbell-equipment"){
+        await openActions(page,id);await page.locator("#exActionSubstBtn").click();
+        await page.locator(`#exPickList [data-pick="${replacementId}"]`).click();await page.locator("#exPickReasonSkip").click();
+        await page.locator("#exPickSheet").waitFor({state:"hidden"});
+      }
+      const before=await page.evaluate(()=>structuredClone(window.__repforgeWorkoutDraft.state()));
+      const beforeDraft=await page.evaluate(()=>structuredClone(window.__repforgeWorkoutDraft.current()));
+      await openActions(page,id);
+      if(kind==="dismiss-during-write")await holdDraftWrite(page);
+      await page.locator("#exActionDiscomfortBtn").click();
+      if(kind==="dismiss-during-write"){
+        await page.locator("#exActionsClose").click();
+        await page.locator("#exActionsSheet").waitFor({state:"hidden"});await releaseDraftWrite(page);
+        assert.equal(await page.locator("#exPickSheet").isVisible(),false,"a delayed write cannot reopen a dismissed flow");
+      }else if(["barbell-equipment","second-mark","no-alternates","replacement-known"].includes(kind)){
+        await page.locator("#exPickSheet").waitFor({state:"visible"});
+        assert.equal(await page.locator("#exActionsSheet").isVisible(),false,"the picker replaces the actions sheet");
+        const draft=await page.evaluate(()=>structuredClone(window.__repforgeWorkoutDraft.current()));
+        assert.equal(draft.exercises[id].discomfort.length,1);
+        assert.deepEqual(draft.exercises[id].substitution,beforeDraft.exercises[id].substitution,"opening the path does not swap");
+        assert.deepEqual(await page.evaluate(()=>window.__repforgeWorkoutDraft.state()),before,"opening never writes a program or proposal");
+        if(["barbell-equipment","second-mark"].includes(kind)){
+          assert.deepEqual((await page.locator("#exPickList [data-pick]").evaluateAll(rows=>rows.slice(0,2).map(row=>row.dataset.pick))),[dumbbell,sameEquipment],"different equipment class leads, same-class alternate stays reachable");
+        }else assert.ok(await page.locator("#exPickList [data-pick]").count()>0,"no alternates still offers the ordinary library");
+        await page.locator("#exPickCancel").click();await page.locator("#exPickSheet").waitFor({state:"hidden"});
+        assert.deepEqual(await page.evaluate(()=>window.__repforgeWorkoutDraft.current()),draft,"dismissal keeps the acknowledged mark and changes nothing else");
+        await page.reload({waitUntil:"domcontentloaded"});await waitForAppBoot(page);
+        assert.equal(await page.locator("#exPickSheet").isVisible(),false,"reload never repeats the opening");
+        assert.equal(await page.evaluate(id=>window.__repforgeWorkoutDraft.current().exercises[id].discomfort.length,id),1);
+        if(kind==="second-mark"){
+          await enterFirstWorkout(page);await openActions(page,id);
+          await page.locator("#exActionSubstBtn").click();
+          await page.locator("#exPickSheet [data-pick]").first().waitFor({state:"visible"});
+          assert.deepEqual((await page.locator("#exPickList [data-pick]").evaluateAll(rows=>rows.slice(0,2).map(row=>row.dataset.pick))),[machine,dumbbell],"ordinary swaps retain authored alternate order");
+          await page.locator(`#exPickList [data-pick="${replacementId}"]`).click();await page.locator("#exPickReasonSkip").click();
+          assert.equal(await page.evaluate(id=>window.__repforgeWorkoutDraft.current().exercises[id].substitution.replacement.libraryId,id),machine,"only a pick changes the session movement");
+          assert.deepEqual(await page.evaluate(()=>window.__repforgeWorkoutDraft.state().programMeta.programDefinition),before.programMeta.programDefinition,"a session swap never edits the program");
+        }
+      }else{
+        await page.waitForFunction(()=>document.querySelector("#exActionDiscomfortBtn").getAttribute("aria-pressed")==="true");
+        assert.equal(await page.locator("#exPickSheet").isVisible(),false,`${kind} is not a second marked session on this movement and slot`);
+        if(kind==="cleared"){
+          await page.locator("#exActionDiscomfortBtn").click();
+          await page.waitForFunction(()=>document.querySelector("#exActionDiscomfortBtn").getAttribute("aria-pressed")==="false");
+          await page.reload({waitUntil:"domcontentloaded"});await waitForAppBoot(page);
+          await enterFirstWorkout(page);await openActions(page,id);await page.locator("#exActionDiscomfortBtn").click();
+          await page.waitForFunction(()=>document.querySelector("#exActionDiscomfortBtn").getAttribute("aria-pressed")==="true");
+          assert.equal(await page.locator("#exPickSheet").isVisible(),false,"a cleared mark and re-mark are still one session");
+        }
+      }
+      passed++;console.log(`PASS immediate pain: ${kind}`);
+    }finally{await context.close()}
+  }
+  console.log(`PASS immediate pain: ${passed} browser cases`);
+}
+
 export async function runWeekReviewBrowser(browser) {
   const manifest=loadManifest();
+  await runImmediatePainCases(browser,manifest);
+  await runAdaptationCases(browser,manifest);
   await runCatalogWeekCardCases(browser,manifest);
   await runRoundFourCases(browser,manifest);
   await runRoundThreeCases(browser,manifest);
@@ -281,7 +545,7 @@ export async function runWeekReviewBrowser(browser) {
     const capture={flow:"workout",screen:"discomfort-mark",viewport:"phone-390",theme:"light",locale:"en",text:"normal",motion:"normal"};
     const {page,context}=await openPage(browser,manifest,capture,appState("workout/discomfort-mark","en"));
     try {
-      await dismissChrome(page);await APP_SCENARIOS["workout/focus"](page);
+      await dismissChrome(page);await enterFirstWorkout(page);
       const id=await page.locator("#workout .exercise.is-current").getAttribute("data-ex");
       const replacement=appState("workout/discomfort-mark","en").program.find(exercise=>exercise.id!==id).libraryId;
       await page.locator("#woOverflowBtn").click();await page.locator('[data-workout-action="exercise"]').click();
@@ -300,7 +564,7 @@ export async function runWeekReviewBrowser(browser) {
     const capture={flow:"workout",screen:"discomfort-mark",viewport:"phone-390",theme:"light",locale:"en",text:"normal",motion:"normal"};
     const {page,context}=await openPage(browser,manifest,capture,state);
     try{
-      await dismissChrome(page);await APP_SCENARIOS["workout/focus"](page);
+      await dismissChrome(page);await enterFirstWorkout(page);
       const id=await page.locator("#workout .exercise.is-current").getAttribute("data-ex");
       const original=state.program.find(exercise=>exercise.id===id),replacement=state.program.find(exercise=>exercise.id!==id),skipped=state.program[2];
       await openActions(page,id);await page.locator("#exActionSubstBtn").click();

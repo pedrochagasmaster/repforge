@@ -15,6 +15,7 @@ import { maybeStartLocalPreview } from "../local-preview.mjs";
 import { catalogState, directionDState, emptyEntryState, localeState } from "./fixtures.mjs";
 import { CAPTURE_NOW, dismissChrome, LOG_DRAFT, replayGuide, seed, sleep } from "./session.mjs";
 import { definitionSlot, installGeneratedProgram, isWeightRepsSlot, metricLogRow } from "../../test/fixtures/history-metric-rows.mjs";
+import { finishEarly } from "../../test/fixtures/focus-workout.mjs";
 import { openShelfField } from "../../test/browser.mjs";
 import { DIRECTION_D_CANONICAL_ID_BY_LEGACY_ID } from "./direction-d-canonical-fixture.generated.mjs";
 
@@ -295,7 +296,7 @@ const D_FIXTURE_STATES = new Set([
   "workout/deload-week", // Plan 072 S4: the deload cue in Focus
   "workout/session", "workout/early-finish", "workout/rest-overrun-finish", "workout/exercise-note", "workout/warmup-actions", // R3d
   "workout/exercise-note-line", // the exercise note on the card (owner, 2026-11-05)
-  "workout/max-set-prompt", "workout/max-set-guess", "workout/max-set-active", "workout/max-set-result", // Plan 077 PR 3
+  "workout/max-set-prompt", "workout/max-set-recheck", "workout/max-set-guess", "workout/max-set-active", "workout/max-set-result", // Plan 077 PR 3
   "workout/effort-stage-a", "workout/effort-stage-b", "workout/effort-menu", "workout/stage-tip", // Plan 077 PR 2
   "workout/reorder", "workout/skipped-actions", "workout/substituted-actions", // R3d
   "workout/actions", "workout/exercise-actions", // R3x: the redrawn sheet, on the lifter the drawing shows
@@ -419,6 +420,7 @@ export function appState(key, lang) {
     return emptyEntryState(lang);
   }
   if (key === "history/per-side-session" || key === "workout/focus-per-side") return emptyEntryState(lang);
+  if (["workout/focus-ramp","workout/focus-ramp-floor","workout/focus-ramp-easy","history/ramp-rows"].includes(key)) return emptyEntryState(lang);
   if (key === "workout/why-setup") return emptyEntryState(lang);
   if (DIRECTION_D_BEFORE_SESSION.has(key)) return localeState(directionDBeforeSession(), lang);
   if (DIRECTION_D_SUMMARY_SESSION[key]) return localeState(directionDThroughSession(DIRECTION_D_SUMMARY_SESSION[key]), lang);
@@ -456,7 +458,14 @@ export function appState(key, lang) {
   // movements (tools/build-seed-program-fixture.mjs), so program/share-*
   // no longer needs to fabricate varied libraryIds onto a flat-row fixture.
   const state = catalogState();
-  if (["progress/review-active","today/week-card"].includes(key)) {
+  if (key === "workout/pain-swap") {
+    const exercise=state.program[0],date=isoDaysAgo(3),session="pain-path-prior";
+    const slot=state.programMeta.programDefinition.days.flatMap(day=>day.slots).find(slot=>slot.id===exercise.id);
+    slot.alternates=["1a25c6f170d88079a926dde776766181","1a25c6f170d880708256e9a8bf6337bf"];
+    state.log=[metricLogRow(state.programMeta,exercise,{session,date,day:exercise.day,set:1,load:40,reps:8,rir:2,created:`${date}T12:00:00.000Z`})];
+    state.sessionEvents={[session]:{v:1,skips:[],pain:[{exerciseId:exercise.libraryId,slotId:exercise.id,name:exercise.name,kind:"pain",swapped:false}]}};
+  }
+  if (["progress/review-active","progress/review-proposal","progress/review-evaluated","today/week-card"].includes(key)) {
     const [up,stall,skipped]=state.program.filter(exercise=>exercise.day==="Day 1");
     const dates=[isoDaysAgo(19),isoDaysAgo(12),isoDaysAgo(5)];
     state.log=dates.flatMap((date,index)=>[up,stall].map((exercise,i)=>metricLogRow(state.programMeta,exercise,{
@@ -465,6 +474,30 @@ export function appState(key, lang) {
     const date=isoDaysAgo(4);
     state.log.push(metricLogRow(state.programMeta,up,{session:"weekly-second",date,day:"Day 1",set:1,load:55,reps:11,rir:2,created:`${date}T12:00:00.000Z`}));
     state.sessionEvents={"weekly-2":{v:1,skips:[{exerciseId:skipped.libraryId,name:skipped.name,slotId:skipped.id,reason:"time"}],pain:[{exerciseId:stall.libraryId,name:stall.name,slotId:stall.id,kind:"discomfort",swapped:false}]}};
+  }
+
+  if (["progress/review-proposal","progress/review-evaluated"].includes(key)) {
+    state.programMeta.blockId="catalog-weekly-adaptation-block";
+    state.log=state.log.map(row=>({...row,blockId:state.programMeta.blockId}));
+    const stalled=state.program.filter(exercise=>exercise.day==="Day 1")[1];
+    for(const row of state.log)if(row.exerciseId===stalled.id)row.rir=1;
+    const stallDate=isoDaysAgo(10);
+    state.log.push(metricLogRow(state.programMeta,stalled,{session:"weekly-stall",date:stallDate,day:"Day 1",set:1,load:40,reps:10,rir:1,created:`${stallDate}T12:00:00.000Z`}));
+    const skipped=state.program.filter(exercise=>exercise.day==="Day 1")[2];
+    const slot=state.programMeta.programDefinition.days.flatMap(day=>day.slots).find(slot=>slot.id===skipped.id);
+    slot.alternates=[state.program[0].libraryId];
+    state.sessionEvents["weekly-1"]={v:1,skips:[{exerciseId:skipped.libraryId,slotId:slot.id,name:skipped.name,reason:"equipment"}],pain:[]};
+    if(key==="progress/review-evaluated"){
+      const monday=isoDaysAgo(7),instant=`${monday}T12:00:00.000Z`;
+      state.programMeta.adaptations=[{id:"adaptation-catalog",v:1,blockId:state.programMeta.blockId||state.programMeta.id,
+        week:monday,pattern:"recurring_skip",cause:"equipment",kind:"drop_exercise",target:{slotId:slot.id,exerciseId:slot.exerciseId},
+        proposedAt:instant,decision:"accepted",decidedAt:instant,
+        appliedEdit:{expectedToken:{revision:1,programId:state.programMeta.id,blockId:state.programMeta.blockId||state.programMeta.id,fingerprint:"catalog-before-change"},intent:"adaptation_apply"},
+        evaluation:{week:isoDaysAgo(0),outcome:"pattern_stopped"}}];
+      state.program=state.program.filter(row=>row.id!==slot.id);
+      for(const day of new Set(state.program.map(row=>row.day)))state.program.filter(row=>row.day===day).forEach((row,index)=>{row.order=index+1});
+      for(const day of state.programMeta.programDefinition.days)day.slots=day.slots.filter(item=>item.id!==slot.id).map((slot,index)=>({...slot,order:index+1}));
+    }
   }
 
   if (key === "progress/overview-baseline" || key === "progress/review-insufficient") {
@@ -476,7 +509,7 @@ export function appState(key, lang) {
       return true;
     });
   }
-  if ((key.startsWith("progress/review-") && key !== "progress/review-active") || key.startsWith("progress/schedule-") ||
+  if ((key.startsWith("progress/review-") && !["progress/review-active","progress/review-proposal","progress/review-evaluated"].includes(key)) || key.startsWith("progress/schedule-") ||
       key.startsWith("progress/sibling-") || key.startsWith("progress/guided-") ||
       key.startsWith("progress/volume-reduction") || key.startsWith("progress/recovery-")) {
     state.programMeta.mesocycleStatus = "completed";
@@ -601,6 +634,17 @@ async function enterWorkout(page, options = {}) {
 
 /** Focus on the program's first day. Boot now defaults to the day after the last one trained (#528), so a state that
  *  depicts the first lift of a session names its day instead of inheriting whichever day the fixture's history implies. */
+async function focusLearning(page){
+  const state=await page.evaluate(()=>JSON.parse(localStorage.getItem("repforge_v1")));
+  const row=state.program[0],slot=definitionSlot(state.programMeta,row);
+  const rows=state.log.filter(item=>item.performedLibraryId===slot.exerciseId||item.exerciseId===row.id);
+  const latest=rows.at(-1)?.session;
+  if(!latest)throw new Error("standing Focus fixture needs a prior session");
+  state.log=state.log.filter(item=>!rows.includes(item)||item.session===latest);
+  await seed(page,state);
+  await focusMode(page);
+  await page.waitForSelector("#workout .exercise.is-current .fx-cue__standing");
+}
 async function focusMode(page) {
   const first = await page.evaluate(() => JSON.parse(localStorage.getItem("repforge_v1") || "{}").program?.[0]?.day || null);
   await enterWorkout(page, first ? { day: first } : {});
@@ -1292,17 +1336,18 @@ async function startInlineRest(page) {
 
 /** Plan 077 PR 3: Focus on the first lift that can take a max set, every working set but its last logged at 45 × 12 with
  *  2 left, and the rest running, so the prompt is up. */
-async function maxSetRest(page) {
+async function maxSetRest(page, { exerciseId = null } = {}) {
   await focusMode(page);
   await page.evaluate(() => { state.settings.maxSetPrompts = true; });
-  const at = await page.evaluate(() => {
+  const at = await page.evaluate((exerciseId) => {
     const draft = window.__repforgeWorkoutDraft.current();
     return focusList().findIndex((ex) => {
+      if (exerciseId && ex.id !== exerciseId) return false;
       const de = draft.exercises[ex.id];
       const working = de ? de.setOrder.map((id) => de.sets[id]).filter((set) => set.role === "working") : [];
       return working.length >= 2 && maxSetEligibility(de, working.at(-1)).eligible;
     });
-  });
+  }, exerciseId);
   if (at < 0) throw new Error("No lift in the fixture can take a max set");
   await page.evaluate((i) => window.__repforgeFocus.to(i), at);
   await page.waitForFunction((i) => focusIndex === i, at, { timeout: 20000 });
@@ -1396,13 +1441,13 @@ async function logAdaptiveSet(page, slotId, ordinal, { load, reps, rir }) {
  * generated program the sheet is built by engineWhyModel/engineWhyRows and
  * always leads with "engine-anchor", "engine-target" and "engine-assumptions".
  */
-async function adaptiveWhyFixture(page) {
+async function adaptiveWhyFixture(page,{daysAgo=7}={}) {
   const state = await installGeneratedProgram(page, { name: "Why sheet proof" });
   const day = state.program[0]?.day;
   const row = state.program.find((candidate) => candidate.day === day && isWeightRepsSlot(definitionSlot(state.programMeta, candidate)));
   if (!row) throw new Error("adaptive Why fixture: no Weight+Reps slot on the generated program's first day");
   const past = new Date(Date.parse(CAPTURE_NOW));
-  past.setUTCDate(past.getUTCDate() - 7);
+  past.setUTCDate(past.getUTCDate() - daysAgo);
   const pastDate = past.toISOString().slice(0, 10);
   state.log = [
     metricLogRow(state.programMeta, row, { session: "why-history", date: pastDate, set: 1, load: 40, reps: 8, rir: 2 }),
@@ -1662,7 +1707,7 @@ async function whyOnBuildRange(page) {
   const row = catalogState().program[0];
   await navigateToWhy(page, { exerciseId: row.id, day: row.day });
   await expectWhyLeads(page, ["manual"]);
-  const text = await page.locator("#whyBody .whysheet__text").textContent();
+  const text = await page.locator('#whyBody [data-lead="manual"] .whysheet__text').textContent();
   const expected = await page.evaluate(() => window.RepForgeI18n.t("why.manual"));
   if (text?.trim() !== expected) throw new Error(`The Build-backed manual Why sentence was ${JSON.stringify(text)}`);
 }
@@ -1727,7 +1772,7 @@ async function whyOnGeneratedPerSide(page) {
   if (truth.status !== "configuration_required" || !truth.reasonCodes?.includes("execution_context_required") || truth.load != null)
     throw new Error(`The ambiguous generated slot lost its execution-mode requirement or acquired a load: ${JSON.stringify(truth)}`);
   await expectWhyLeads(page, ["setup"]);
-  const text = await page.locator("#whyBody .whysheet__text").textContent();
+  const text = await page.locator('#whyBody [data-lead="setup"] .whysheet__text').textContent();
   const expected = await page.evaluate(() => window.RepForgeI18n.t("why.setup.execution_mode"));
   if (text?.trim() !== expected) throw new Error(`The generated per-side Why sentence was ${JSON.stringify(text)}`);
 }
@@ -1878,7 +1923,7 @@ async function whyPerSideAssumption(page) {
     || (lang.toLowerCase().startsWith("pt") ? text.includes("peso corporal") : /bodyweight/i.test(text))) {
     throw new Error(`The rendered Why sheet omits the approved per-side anchor or multiplier, or counts bodyweight: ${JSON.stringify({ text, lang })}`);
   }
-  await expectWhyLeads(page, ["engine-anchor", "engine-target", "engine-assumptions"]);
+  await expectWhyLeads(page, ["engine-anchor", "engine-target", "engine-assumptions", "engine-standing"]);
 }
 
 let programLabPreview;
@@ -1913,7 +1958,54 @@ async function captureProgramLab(page, result = false) {
     await page.locator('#scenarioHeading').evaluate(element => element.scrollIntoView({ block: 'start' }));
   }
 }
+async function rampFixture(page,{bodyweight=true}={}){
+  const state=await installGeneratedProgram(page,{name:"Session zero"});
+  state.profile=bodyweight?{weightKg:80}:{};state.programMeta.experience="beginner";state.settings.rirMode="effort";
+  delete state.settings.effortScale;
+  const target=state.program.find(row=>isWeightRepsSlot(definitionSlot(state.programMeta,row))&&row.sets>=3);
+  if(!target)throw new Error("ramp fixture requires a generated Weight+Reps slot");
+  await seed(page,state);
+  await page.evaluate(id=>window.__repforgeGoToLogExercise(id),target.id);
+  await page.locator("#workout .exercise.is-current [data-ramp-start]").waitFor();
+  return target;
+}
+async function rampAnswer(page,word,count){
+  const card="#workout .exercise.is-current";
+  await page.locator(`${card} [data-shelf-field="rir"]`).click();
+  await page.locator(`${card} [data-effchip][data-e="${word}"]`).click();
+  await page.evaluate(()=>window.__repforgeWorkoutDraft.flush());
+  await page.locator(`${card} .saveset`).click();
+  if(word==="easy"){
+    await page.locator(`${card} .saveset[data-save$="_${count+1}"]`).waitFor();
+    await page.waitForFunction(()=>window.__repforgeRest.state().active);
+    await page.evaluate(()=>window.stopRest());
+    await page.waitForFunction(()=>!window.__repforgeRest.state().active);
+    await page.locator(`${card} [data-ramp-start][data-ramp-n="${count+1}"]`).waitFor();
+  }
+  else {
+    await page.waitForFunction(()=>window.__repforgeRest.state().active);
+    await page.evaluate(()=>window.stopRest());
+    await page.waitForFunction(()=>!window.__repforgeRest.state().active);
+    await page.locator(`${card} .fx-cue.is-now`).waitFor();
+  }
+}
+
 export const APP_SCENARIOS = {
+  "workout/focus-ramp": async page=>{await rampFixture(page)},
+  "workout/focus-ramp-floor": async page=>{await rampFixture(page,{bodyweight:false})},
+  "workout/focus-ramp-easy": async page=>{
+    await rampFixture(page);await page.locator("#workout .exercise.is-current [data-ramp-start]").click();
+    await rampAnswer(page,"easy",1);
+  },
+  "history/ramp-rows": async page=>{
+    await rampFixture(page);await page.locator("#workout .exercise.is-current [data-ramp-start]").click();
+    await rampAnswer(page,"easy",1);await rampAnswer(page,"easy",2);await rampAnswer(page,"hard",2);
+    await finishEarly(page);await page.locator("#sumDone").click();
+    await view(page,"history");await page.locator("#sessions .session__open").first().click();
+    await page.locator(".session--read").waitFor();
+    await page.waitForFunction(()=>!document.body.classList.contains("is-pushing"));
+    await page.evaluate(async()=>{await document.fonts.ready;window.scrollTo({top:document.documentElement.scrollHeight,behavior:"instant"})});
+  },
   "programlab/editor": page => captureProgramLab(page),
   "programlab/comparison": page => captureProgramLab(page, true),
   "catalog-recovery/unavailable": reloadWithUnavailableExerciseCatalog,
@@ -2131,7 +2223,7 @@ export const APP_SCENARIOS = {
     }
   },
 
-  "workout/focus": focusMode,
+  "workout/focus": focusLearning,
   "workout/first-set-guide": async (page) => {
     // Replayed away from Focus, the guide waits for its anchor; in Focus it waits for the first tap on the shelf.
     await page.evaluate(() => window.__repforgeUi.replayGuide("first-set"));
@@ -2486,6 +2578,27 @@ export const APP_SCENARIOS = {
     await maxSetRest(page);
     await sleep(page, 400);
   },
+  "workout/max-set-recheck": async (page) => {
+    const state = await installGeneratedProgram(page, {name:"Test set re-check"});
+    const eligibleIds = await page.evaluate(rows => rows.filter(row =>
+      RepForgeEffortCalibration.eligibility({exercise:rawExercise(row.libraryId),lookup:rawCatalogObject}).eligible
+    ).map(row => row.id), state.program);
+    const row = state.program.find(row => row.day === state.program[0].day && eligibleIds.includes(row.id) &&
+      isWeightRepsSlot(definitionSlot(state.programMeta,row)));
+    if (!row) throw new Error("No eligible generated Weight+Reps lift for re-check");
+    state.log = [];
+    for (const days of [88,74,60,35,28,21,14,7]) {
+      const date = new Date(Date.parse(CAPTURE_NOW)-days*864e5).toISOString().slice(0,10);
+      for (let set = 1; set <= 3; set++) state.log.push(metricLogRow(state.programMeta,row,{
+        session:`recheck-${days}`,date,set,load:40,reps:12-set,rir:days>=60&&set===3?0:2,
+        extra:{effortSource:days>=60&&set===3?"failure":"reps_left",
+          ...(days>=60&&set===3?{calibration:{v:1,predictedReps:9,predictionEdited:false,prefillBasis:"reps"}}:{})}}));
+    }
+    await seed(page,state);
+    await maxSetRest(page,{exerciseId:row.id});
+    await page.waitForFunction(() => document.querySelector('.exercise.is-current [data-tip="max-set"]')?.textContent.includes(
+      t("maxset.invite_reason_recheck")));
+  },
   "workout/max-set-guess": async (page) => {
     await maxSetRest(page);
     await page.locator("#workout .exercise.is-current [data-maxset-guess]").click({ timeout: 20000 });
@@ -2566,9 +2679,17 @@ export const APP_SCENARIOS = {
     await clickWhy(page, "#workout .exercise.is-current [data-why]");
     await page.waitForSelector("#whySheet.is-open", { timeout: 20000 });
     await sleep(page, 400);
-    await expectWhyLeads(page, ["engine-anchor", "engine-target", "engine-assumptions"]);
+    await expectWhyLeads(page, ["engine-anchor", "engine-target", "engine-assumptions", "engine-standing"]);
   },
   // Plan 077 PR 5: a lift with three on-target test sets: the Why sheet's effort-estimate line says so.
+  "workout/why-standing": async (page) => {
+    await adaptiveWhyFixture(page,{daysAgo:50});
+    await clickWhy(page,"#workout .exercise.is-current [data-why]");
+    await page.waitForSelector("#whySheet.is-open");
+    await expectWhyLeads(page,["engine-standing"]);
+    await page.evaluate(()=>{document.querySelector("#whySheet").dataset.detent="large"});
+    await page.locator('[data-lead="engine-standing"]').scrollIntoViewIfNeeded();
+  },
   "workout/why-calibration": async (page) => {
     const state = await installGeneratedProgram(page, { name: "Why sheet proof" });
     const day = state.program[0]?.day;
@@ -2586,7 +2707,7 @@ export const APP_SCENARIOS = {
     await clickWhy(page, "#workout .exercise.is-current [data-why]");
     await page.waitForSelector("#whySheet.is-open", { timeout: 20000 });
     await sleep(page, 400);
-    await expectWhyLeads(page, ["engine-anchor", "engine-target", "engine-calibration"]);
+    await expectWhyLeads(page, ["engine-anchor", "engine-target", "engine-standing", "engine-calibration"]);
     // The line is the sheet's last block: the sheet raised to its large detent and read to its end, as the lifter would.
     await page.evaluate(() => { document.querySelector("#whySheet").dataset.detent = "large"; });
     await sleep(page, 400);
@@ -2599,7 +2720,7 @@ export const APP_SCENARIOS = {
     await clickWhy(page, "#workout .exercise.is-current [data-why]");
     await page.waitForSelector("#whySheet.is-open", { timeout: 20000 });
     await sleep(page, 400);
-    await expectWhyLeads(page, ["engine-anchor", "engine-target", "engine-assumptions"]);
+    await expectWhyLeads(page, ["engine-anchor", "engine-target", "engine-assumptions", "engine-standing"]);
   },
   "workout/why-manual": whyOnBuildRange,
   "workout/why-setup": whyOnGeneratedPerSide,
@@ -2736,7 +2857,22 @@ export const APP_SCENARIOS = {
   "progress/review": (page) => progressSegment(page, "review"),
   "progress/review-guide": async (page) => { await progressSegment(page, "review"); await replayGuide(page, "block-transition"); },
   "progress/review-active": (page) => progressSegment(page, "review"),
+  "progress/review-proposal": async page => {
+    await progressSegment(page,"review");
+    await page.locator('[data-adaptation-cause="equipment"]').click();
+    await page.locator('.week-proposal__actions').evaluate(element=>element.scrollIntoView({block:"center",behavior:"instant"}));
+  },
+  "progress/review-evaluated": async page => {
+    await progressSegment(page,"review");
+    await page.locator('[data-adaptation-evaluation]').evaluate(element=>element.scrollIntoView({block:"center",behavior:"instant"}));
+  },
   "today/week-card": async page => {await page.locator("#todayWeekCard:not(.hidden)").waitFor();},
+  "workout/pain-swap": async page => {
+    await focusMode(page);await page.locator("#woOverflowBtn").click();
+    await page.locator('[data-workout-action="exercise"]').click();
+    await page.locator("#exActionDiscomfortBtn").click();
+    await page.locator("#exPickSheet.is-open .pick__section").first().waitFor();
+  },
   "workout/discomfort-mark": async page => {
     await focusMode(page);await page.locator("#woOverflowBtn").click();
     await page.locator('[data-workout-action="exercise"]').click();

@@ -22,7 +22,7 @@
     "exercise_add", "exercise_remove", "day_remove", "exercise_replace",
     "exercise_move", "slot_alternates", "metric_target", "metric_composition",
     "prescription_field", "load_step", "suggest_loads", "suggest_loads_rir", "execution_mode",
-    "day_move", "save_draft", "apply", "apply_discard_workout",
+    "day_move", "save_draft", "apply", "apply_discard_workout", "adaptation_apply",
   ]);
   const INTENT_SET = new Set(PROGRAM_EDITOR_INTENTS);
   const maxAlternates = () => root?.RepForgeProgramCompiler?.MAX_SLOT_ALTERNATES || 5;

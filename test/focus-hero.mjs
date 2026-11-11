@@ -227,14 +227,18 @@ try {
     ok(engine.status === "new" && engine.reasonCodes.includes("no_comparable_history") && engine.load == null,
       "the fixture's first set has no comparable history", engine);
     const now = await card(page);
-    const expected = await t(page, "focus.evidence.none_history");
-    ok(now.l1 === await t(page, "focus.cue.pick_load", { min: (await page.evaluate((id) => window.__repforgeProgression.programSlot(id).min, target.rowId)),
-      max: (await page.evaluate((id) => window.__repforgeProgression.programSlot(id).max, target.rowId)) }), "the hero asks for a load", now.l1);
+    const expected = await t(page, "focus.evidence.floor");
+    ok(now.l1 === await t(page, "focus.cue.find_weight"), "the hero finds an opening load", now.l1);
     ok(now.evidenceText === expected, "the evidence line gives the no-history reason from the catalog", now);
     ok(!now.figs.length, "with nothing performed, nothing in the line rides in Mono", now.figs);
     ok(!/\d+(?:[.,]\d+)?\s*kg/.test(now.evidenceText), "the no-suggestion line names no weight", now.evidenceText);
     ok(!now.marks.length && !now.markColumn, "a cue without a verdict has no mark and no reserved column", now);
     ok(now.l1Size === 34 && now.largest === 34, "the hero is 34px and the largest text on the card", now);
+    await page.locator("#workout .exercise.is-current [data-ramp-bodyweight]").click();
+    await page.locator("#sessionSheet.is-open").waitFor();
+    ok(await page.locator("#sessionBodyweight").isVisible(), "the floor cue opens the existing Session bodyweight field");
+    await page.locator("#sessionSheetClose").click();
+    await page.locator("#sessionSheet").waitFor({state:"hidden"});
   }
 
   console.log("Set 2 after set 1: the engine's target, and the evidence the Why sheet names");
@@ -448,7 +452,7 @@ try {
   {
     const run = await open(browser, { width: 320, height: 568, lang: "pt", text: "text200" });
     const { page, target } = run;
-    ok((await card(page)).evidenceText === await t(page, "focus.evidence.none_history"), "the Portuguese no-history reason comes from the Portuguese catalog");
+    ok((await card(page)).evidenceText === await t(page, "focus.evidence.floor"), "the Portuguese no-history reason comes from the Portuguese catalog");
     for (let n = 1; n < target.sets; n++) await logSet(page, target.slotId, n, { load: 60, reps: 8, rir: 1 }, { stopRest: n < target.sets - 1 });
     const engine = await engineSet(page, target.rowId, target.sets);
     const now = await card(page);
