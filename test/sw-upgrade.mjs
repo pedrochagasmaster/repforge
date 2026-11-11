@@ -11,7 +11,7 @@ import { createHash } from "node:crypto";
 import { readFileSync, statSync, createReadStream } from "node:fs";
 import { dirname, extname, join, normalize, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { launchChromium, traceWorkerLifecycle, waitForAppBoot, waitForWorkerTakeover } from "./browser.mjs";
+import { launchChromium, traceWorkerLifecycle, waitForAppBoot, waitForAsyncCondition, waitForWorkerTakeover } from "./browser.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 // Exact bytes from released starting-main e7b6d162 (the v120 worker). Keeping
@@ -27,6 +27,10 @@ assert(oldCache && currentCache && oldCache !== currentCache, `worker cache vers
 
 let mode = "old";
 let requiredCodeRequested = false;
+let releaseOldFetch;
+const oldFetchRelease = new Promise(resolve => { releaseOldFetch = resolve; });
+let markOldFetchStarted;
+const oldFetchStarted = new Promise(resolve => { markOldFetchStarted = resolve; });
 const statSafe = (file) => { try { return statSync(file); } catch { return null; } };
 const mimeType = (extension) => ({
   ".html": "text/html", ".css": "text/css", ".js": "text/javascript", ".json": "application/json",
@@ -35,6 +39,14 @@ const mimeType = (extension) => ({
 }[extension] || "application/octet-stream");
 const server = createServer((request, response) => {
   const pathname = decodeURIComponent((request.url || "/").split("?", 1)[0]);
+  if (pathname === "/__old-worker-fetch__") {
+    markOldFetchStarted();
+    oldFetchRelease.then(() => {
+      response.writeHead(200, { "content-type": "text/plain", "cache-control": "no-store" });
+      response.end("released");
+    });
+    return;
+  }
   if (pathname === "/sw.js") {
     response.writeHead(200, { "content-type": "text/javascript", "cache-control": "no-store" });
     response.end(mode === "old" ? oldWorker : currentWorker);
@@ -84,8 +96,10 @@ const browser = await launchChromium();
 const context = await browser.newContext();
 const page = await context.newPage();
 try {
-  await page.goto(base);
-  await waitForAppBoot(page, { base });
+  // Own the worker lifecycle on a quiet client. The app's boot marker does not acknowledge its deferred fetches;
+  // v120 must finish every fetch event before skipWaiting can hand control to its successor.
+  await page.goto(`${base}__sw-test__`);
+  await page.evaluate(() => navigator.serviceWorker.register("./sw.js"));
   await page.evaluate(async () => {
     const registration = await navigator.serviceWorker.ready;
     await registration.update();
@@ -96,14 +110,33 @@ try {
   assert.equal(await page.evaluate(() => navigator.serviceWorker.controller?.scriptURL.endsWith("/sw.js")), true, "released worker controls the first launch");
   assert.equal(await page.evaluate((cache) => caches.has(cache), oldCache), true, `released cache ${oldCache} is installed`);
 
+  await page.evaluate(() => {
+    window.__oldWorkerFetch = fetch("./__old-worker-fetch__").then(response => response.text());
+  });
+  await oldFetchStarted;
   mode = "current";
   await traceWorkerLifecycle(page);
   await page.evaluate(async () => {
     const registration = await navigator.serviceWorker.ready;
     await registration.update();
   });
+  // Installed is not takeover: even skipWaiting must wait for the old worker's pending event to finish.
+  // Keep the response held until this exact state is acknowledged, without elapsed-time guesses.
+  const held = await waitForAsyncCondition(page, async ({ oldCache, currentCache }) => {
+    const registration = await navigator.serviceWorker.getRegistration();
+    const names = await caches.keys();
+    if (registration?.waiting?.state !== "installed" || registration.installing) return false;
+    return { controllerIsOld: navigator.serviceWorker.controller === registration.active,
+      active: registration.active?.state, caches: names, lifecycle: window.__workerLifecycle };
+  }, { oldCache, currentCache }, { timeout: 20000 });
+  assert.equal(held.controllerIsOld, true, "the released worker controls the client while its fetch is held");
+  assert.equal(held.active, "activated", "the released worker stays active until its fetch finishes");
+  assert(held.caches.includes(oldCache) && held.caches.includes(currentCache), "both release caches exist at the held hand-off");
+  console.log(`held worker hand-off: ${JSON.stringify(held)}`);
+  releaseOldFetch();
+  assert.equal(await page.evaluate(() => window.__oldWorkerFetch), "released", "the old worker's held fetch is acknowledged");
   await waitForWorkerTakeover(page, { cache: currentCache, replaced: oldCache, timeout: 20000 });
-  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.goto(base, { waitUntil: "domcontentloaded" });
   await waitForAppBoot(page, { base });
   assert.equal(await page.locator("#dayTabs").count(), 1, "updated worker boots the entry shell");
   assert.equal(await page.evaluate(() => !!window.RepForgeProgramEntry), true, "updated shell includes program entry code");
@@ -219,6 +252,7 @@ try {
   }
   console.log(`service-worker upgrade: ${oldCache} controls first, ${currentCache} activates, old cache is deleted, cached offline entry shell boots`);
 } finally {
+  releaseOldFetch();
   await context.close();
   await browser.close();
   await new Promise((resolve) => server.close(resolve));
