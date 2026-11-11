@@ -142,7 +142,8 @@
   --switch-off-track:rgba(var(--ink-rgb),.10);
   /* The share sheet (share templates): the clear ground's check, the card's lift off the sheet, a swatch's edge and the
      chosen one's ring, the camera badge cut out of that ring. */
-  --share-checker-a:#CFCBC4;--share-checker-b:#E6E3DE;
+  /* A clear sticker is white, so its preview check is dark in both themes. */
+  --share-checker-a:#3A3733;--share-checker-b:#2A2825;
   --elevation-share-slide-shadow:0 1px 2px rgba(var(--shadow-rgb),.1),0 10px 30px rgba(var(--shadow-rgb),.18);
   --boundary-share-swatch-shadow:inset 0 0 0 1px var(--boundary-decorative);
   --boundary-share-ground-selected-shadow:0 0 0 2px var(--accent-deep);
@@ -3988,11 +3989,13 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
 .sheetband.sharesheet__band .sheetband__close{justify-self:end}
 .sharesheet__edit{grid-area:lead;justify-self:start;align-self:center;min-height:var(--control-target);padding:0 8px 0 0;
   color:var(--accent-deep);font-size:var(--font-size-body);font-weight:var(--weight-medium);text-decoration:none}
+.sharesheet__edit:not([hidden]){display:inline-flex;align-items:center;gap:6px}
+.sharesheet__edit > .icon-mask{width:18px;height:18px;flex:none}
 .sharesheet__edit[hidden]{display:none}
 .sharesheet{flex:1 1 auto;min-height:0;overflow-y:auto;padding:0 var(--space-16) var(--space-8);display:flex;flex-direction:column;gap:var(--space-12)}
 /* The card area does not grow with the text size (the slide is sized from the stage): a 16rem floor doubled at 200%
    and pushed the format, backgrounds and note below the fold. */
-.sharesheet__stage{flex:1 1 0;min-height:256px;display:flex;flex-direction:column;justify-content:center;margin:0 calc(-1 * var(--space-16))}
+.sharesheet__stage{flex:1 1 0;min-height:clamp(200px,62vw,256px);display:flex;flex-direction:column;justify-content:center;margin:0 calc(-1 * var(--space-16))}
 .sharesheet__rail{flex:none;display:flex;align-items:center;gap:16px;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x mandatory;scrollbar-width:none;
   padding:6px calc((100% - var(--slide-w,15rem)) / 2) 10px}
 .sharesheet__rail::-webkit-scrollbar{display:none}
