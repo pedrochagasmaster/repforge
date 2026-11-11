@@ -4612,6 +4612,32 @@
       ]
     },
     {
+      "id": "settings-identity",
+      "selector": "div.settings-identity",
+      "roles": {
+        "elevation": "flat",
+        "boundary": "decorative"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Settings' identity and backup status (owner hill-climb, 2026-11-10): a quiet card on the page, outlined by a decorative hairline while a backup is due; its Back up now carries the action.",
+      "owner": "plan-058",
+      "catalogStates": [
+        "settings/appearance",
+        "settings/guides",
+        "settings/guides-replay",
+        "settings/load-controls",
+        "settings/main",
+        "settings/privacy",
+        "settings/rest-controls",
+        "settings/language-menu",
+        "settings/effort-menu"
+      ]
+    },
+    {
       "id": "calring-title",
       "selector": "#todayCalRing",
       "roles": {
@@ -10440,7 +10466,7 @@
     },
     {
       "id": "segpill-button-not-id",
-      "selector": ".segpill > button:not([id])",
+      "selector": ".segpill:not(.segpill--tabs) > button:not([id])",
       "roles": {
         "control": "selection",
         "elevation": [
@@ -10460,6 +10486,33 @@
         "disabled"
       ],
       "rationale": "Chooses the chart's scope or metric without committing data, on the native segmented recipe (UI kit S5, owner 2026-10-24): a soft track and the chosen segment a raised thumb with a semibold label (contract: state cues).",
+      "owner": "kit-b",
+      "catalogStates": [
+        "progress/exercise-chart"
+      ]
+    },
+    {
+      "id": "segpill-tab",
+      "selector": ".segpill--tabs > button",
+      "roles": {
+        "control": "selection",
+        "elevation": [
+          "flat",
+          "selected"
+        ],
+        "boundary": "state-cues"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "selected",
+        "disabled"
+      ],
+      "rationale": "The exercise chart's metric choice as underline tabs (owner hill-climb, 2026-11-10): the selected tab is ink and heavier over a 2px quiet indicator; the others are secondary ink.",
       "owner": "kit-b",
       "catalogStates": [
         "progress/exercise-chart"

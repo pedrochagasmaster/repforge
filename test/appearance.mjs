@@ -267,8 +267,9 @@ async function runSettingsRow(browser) {
       `${semanticDistance.toFixed(1)} RGB units: ${refined["--accent-deep"]} / ${refined["--danger"]}`
     );
     assert(
-      luminance(parseColor(refined["--cta"])) < luminance(parseColor(refined["--ink"])),
-      "The dark CTA is parchment, not the brightest white ink",
+      // Owner hill-climb (2026-11-10, DESIGN.md "CTA Black"): the dark CTA is the bright-ink pill, no longer parchment.
+      refined["--cta"].toUpperCase() === refined["--ink"].toUpperCase(),
+      "The dark CTA is the bright-ink pill",
       `${refined["--cta"]} / ${refined["--ink"]}`
     );
     const settingsFill = await page.evaluate(
@@ -445,6 +446,7 @@ const settingsGeometry = (page) =>
       rowLabelX: x(rows[0].querySelector(".settings-row__label")),
       groupX: x(groups[0]),
       ruleLeft: rule.left,
+      rowPadLeft: getComputedStyle(rows[1]).paddingLeft,
       ruleRight: rule.right,
       // The space above a caption is the only boundary between two groups now.
       gapAbove: +(captions[1].getBoundingClientRect().top - groups[0].getBoundingClientRect().bottom).toFixed(1),
@@ -468,9 +470,11 @@ async function runSettingsReadsAsOneList(browser) {
         JSON.stringify({ caption: g.captionX, row: g.rowLabelX })
       );
       assert(
-        g.ruleLeft === "16px" && g.ruleRight === "0px",
+        // The rule starts where the row's label starts (the row's inline padding, --settings-inset: 0 since the
+        // owner hill-climb put rows and captions on one edge with the page gutter, 2026-11-10).
+        g.ruleLeft === g.rowPadLeft && g.ruleRight === "0px",
         `The rule between rows is held to the text column, not run edge to edge (${scheme})`,
-        JSON.stringify({ left: g.ruleLeft, right: g.ruleRight })
+        JSON.stringify({ left: g.ruleLeft, pad: g.rowPadLeft, right: g.ruleRight })
       );
       assert(
         g.gapAbove >= g.gapBelow * 3,

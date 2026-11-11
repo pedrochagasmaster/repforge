@@ -33,7 +33,7 @@
   <link rel="apple-touch-startup-image" href="icons/splash-1640x2360.png" media="screen and (device-width: 820px) and (device-height: 1180px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
   <link rel="apple-touch-startup-image" href="icons/splash-1668x2224.png" media="screen and (device-width: 834px) and (device-height: 1112px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
   <link rel="apple-touch-startup-image" href="icons/splash-1536x2048.png" media="screen and (device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
-  <link rel="stylesheet" href="styles.css?v=724">
+  <link rel="stylesheet" href="styles.css?v=725">
   <link rel="stylesheet" href="motion-polish.css?v=643">
   <!-- Runs before the first paint, and only reads.
        Theme: app.js owns the Appearance setting, but it is the last script on the
@@ -150,7 +150,10 @@
           <!-- The calibration ring (owner direction B, 2026-11-06): the gauge's number in the large title's white
                space, and its eight test sets as the dots across its foot. Its twin rides in the bar beside the gear
                once the title has scrolled under it. Both open Progress › Overview at the calibration card. -->
-          <button type="button" class="calring calring--title hidden" id="todayCalRing"></button>
+          <div class="calring-wrap">
+            <button type="button" class="calring calring--title hidden" id="todayCalRing"></button>
+            <span class="calring-wrap__cap" aria-hidden="true" data-i18n="calib.title">Effort calibration</span>
+          </div>
           <div class="pagehead__actions">
             <button type="button" class="calring calring--bar hidden" id="todayCalRingBar" tabindex="-1" aria-hidden="true"></button>
             <button type="button" class="settings-btn" id="openSettings" data-telemetry-action="settings_open" data-i18n-aria="nav.settings" aria-label="Settings">
@@ -1551,6 +1554,6 @@ Triceps pushdown 3x12-15</pre>
   <script src="progress-model.js?v=309"></script>
   <script src="history-ui.js?v=694"></script>
   <script src="share-cards.js?v=639"></script>
-  <script src="app.js?v=724"></script>
+  <script src="app.js?v=725"></script>
 </body>
 </html>

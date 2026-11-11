@@ -130,7 +130,7 @@
   --elevation-modal-shadow:0 10px 22px rgba(var(--shadow-rgb),.18),0 2px 5px rgba(var(--shadow-rgb),.08);
   --elevation-dialog-shadow:0 16px 40px rgba(var(--shadow-rgb),.12);
   --elevation-persistent-shadow:0 -4px 16px rgba(var(--shadow-rgb),.09);
-  --elevation-nav-shadow:inset 0 1px 0 var(--dock-sheen),inset 0 -1px 0 rgba(var(--shadow-rgb),.05),0 10px 30px rgba(var(--shadow-rgb),.13),0 2px 8px rgba(var(--shadow-rgb),.07);
+  --elevation-nav-shadow:inset 0 1px 0 var(--dock-sheen),inset 0 -1px 0 rgba(var(--shadow-rgb),.05),0 4px 14px rgba(var(--shadow-rgb),.10),0 1px 3px rgba(var(--shadow-rgb),.06);
   --elevation-program-dock-shadow:inset 0 1px 0 var(--dock-sheen),0 -4px 14px var(--dock-edge);
   --elevation-popover-shadow:0 8px 24px rgba(var(--shadow-rgb),.1);
   --elevation-tooltip-shadow:0 10px 22px rgba(var(--shadow-rgb),.18),0 2px 5px rgba(var(--shadow-rgb),.08);
@@ -140,6 +140,7 @@
   --elevation-nav-indicator-shadow:inset 0 1px 0 var(--dock-pill-sheen),0 1px 3px rgba(var(--shadow-rgb),.09);
   --control-focus-halo-shadow:0 0 0 3px rgba(var(--accent-rgb),.12);
   --switch-off-track:rgba(var(--ink-rgb),.10);
+  --switch-on-track:var(--accent-deep);
   /* The wheel picker's selection band: ink at 7%, as the prototype draws it, in either theme. */
   --wheel-band:rgba(var(--ink-rgb),.07);
   --switch-off-ring:inset 0 0 0 1.5px var(--boundary-required);
@@ -254,6 +255,12 @@
      the contract's 2px inset recipe; it adds no width. */
   --boundary-selected-quiet:var(--ink);
   --elevation-selected-quiet-shadow:inset 0 0 0 2px var(--boundary-selected-quiet);
+  /* Owner hill-climb recipes (2026-11-10): the selected shelf field a 1.5px quiet ring; the backup card a hairline; Start a tucked shadow
+     whose negative spread keeps it inside the column, which clips sideways. They resolve per theme through the tokens
+     they name. */
+  --boundary-field-selected-shadow:inset 0 0 0 1.5px var(--boundary-selected-quiet);
+  --boundary-card-hairline-shadow:inset 0 0 0 1px var(--boundary-decorative);
+  --elevation-cta-tucked-shadow:0 6px 10px -8px rgba(var(--shadow-rgb),.4);
   /* A choice row's mark is its required boundary (native UI kit §5, contract: choice rows): a 1.5px ring, accent
      when chosen. The row is the target, at least the kit's single-line row height. */
   --choice-row-min:52px;
@@ -316,7 +323,7 @@
   --band-ink-rule:rgba(var(--bg-rgb),.22);
   /* Settings is one text column: the caption of a group, the label of every row
      in it, and the rule between those rows all begin at this inset. */
-  --settings-inset:16px;
+  --settings-inset:0px;
   /* The dock floats: it is a capsule of --dock-h parked --dock-gap above the
      safe area, inset --dock-inset from each edge. --nav stays the single
      "space the dock claims at the bottom" token every other floating element
@@ -348,6 +355,7 @@
   --dock-caustic:rgba(255,255,255,.22);
   --dock-blur:blur(14px) saturate(190%) brightness(1.05);
   --dock-rim-shadow:inset 0 0 0 .5px var(--dock-rim),inset 0 6px 12px -8px var(--dock-rim);
+  /* The light lens stays white: the active tab's accent icon and label measured under 3:1 and 4.5:1 on the climb's ink tint. */
   --dock-pill:rgba(255,255,255,.82);
   --dock-pill-sheen:rgba(255,255,255,.82);
   /* Plan 075 phase 3: the scroll-edge bar's material, the same glass grammar
@@ -402,7 +410,10 @@
 :root[data-theme="dark"]{
   --rest-light-core:#FFB48A;--rest-light-bloom:var(--accent);--rest-light-gain:1;
   --switch-off-track:rgba(255,255,255,.10);
-  --segment-thumb-bg:#3A3630;
+  /* The light theme's deep accent: the light knob on the dark theme's brighter orange measured 2.56:1. */
+  --switch-on-track:#B8410E;
+  --segment-thumb-bg:#45423D;
+  --segment-thumb-shadow:0 1px 3px rgba(0,0,0,.35);
   --menu-destructive-ink:var(--color-destructive);
   --menu-bg:rgba(36,33,29,.86);
   --row-pressed-bg:rgba(255,255,255,.07);
@@ -422,7 +433,7 @@
   --positive:#63C267;
   /* A quiet parchment rather than a lit white card. Scale and placement make
      the CTA primary; maximum luminance does not need to. */
-  --cta:#DED7CC;
+  --cta:#F2EFE9;
   --control-primary-pressed-bg:#C9C1B4;
   --well:#191713;
   --cta-ink:#161513;
@@ -449,7 +460,7 @@
   --dock-rim:rgba(255,255,255,.12);
   --dock-caustic:rgba(255,255,255,.05);
   --dock-blur:blur(18px) saturate(160%) brightness(.85);
-  --dock-pill:rgba(255,255,255,.07);
+  --dock-pill:rgba(255,255,255,.13);
   --dock-pill-sheen:rgba(255,255,255,.05);
   /* Plan 075 phase 3: the scroll-edge bar's material, charcoal at 72%. The
      hairline is a literal white value, not --shadow-rgb, so it still reads
@@ -469,8 +480,9 @@
   --choice-mark-ring:inset 0 0 0 1.5px var(--boundary-required);
   --choice-mark-ring-on:inset 0 0 0 1.5px var(--accent-deep);
   --rule-on-surface:var(--rule-strong);
-  --shelf-field-bg:var(--well);
-  --shelf-pad-bg:var(--bg);
+  /* On the dark sheet a recessed tile reads as a hole; the tiles sit one step above the sheet instead. */
+  --shelf-field-bg:#2A2722;
+  --shelf-pad-bg:#2A2722;
   --band-night-bg:#141310;
   --band-night-raised:#1E1C18;
   --band-night-ink:#F2EFE9;
@@ -660,6 +672,7 @@ h2{font-size:var(--font-size-title);font-weight:var(--weight-semibold);letter-sp
    page they move with it (its transform holds them). The Program page sheet's own head keeps Cancel and Done.
    Under large text the title's glyphs rise above its line box, so the gap below the bar grows with the root size. */
 :is(#todayDash,#stats,#history:not(.is-session-page),:is(#program,[data-copy-id="program"]):not(.sheet))>.pagehead{margin-top:calc(36px + (1rem - 16px) / 2)}
+#todayDash > .pagehead{margin-bottom:var(--space-8)}
 :is(#todayDash,#stats,#history:not(.is-session-page),:is(#program,[data-copy-id="program"]):not(.sheet))>.pagehead>.pagehead__actions{
   position:fixed;z-index:22;top:env(safe-area-inset-top);right:max(0px,calc(50% - var(--maxw) / 2));
   height:44px;margin:0;padding:0 max(8px,env(safe-area-inset-right)) 0 8px;gap:0;
@@ -903,9 +916,12 @@ input:is([type=date],[type=time])::-webkit-date-and-time-value{min-height:1.5em;
   transition:transform .28s cubic-bezier(.32,.72,0,1),width .28s cubic-bezier(.32,.72,0,1);
 }
 .toggle[aria-checked="true"]::before,.toggle[aria-pressed="true"]::before,.toggle.is-on::before{
-  background:var(--accent-deep);box-shadow:none;
+  background:var(--switch-on-track);box-shadow:none;
 }
 .toggle[aria-checked="true"]::after,.toggle[aria-pressed="true"]::after,.toggle.is-on::after{transform:translateX(20px)}
+/* On the accent track the knob is the light one in both themes. */
+:root[data-theme="dark"] :is(.toggle[aria-checked="true"],.toggle[aria-pressed="true"],.toggle.is-on)::after{background:var(--ink)}
+:root[data-theme="dark"] :is(.toggle[aria-checked="true"],.toggle[aria-pressed="true"],.toggle.is-on)::before{background:var(--switch-on-track)}
 /* Held down, the knob stretches towards the side it is about to travel to. */
 .toggle.is-pressed::after{width:31px}
 .toggle[aria-checked="true"].is-pressed::after,.toggle[aria-pressed="true"].is-pressed::after,.toggle.is-on.is-pressed::after{
@@ -1041,6 +1057,7 @@ input:is([type=date],[type=time])::-webkit-date-and-time-value{min-height:1.5em;
    read as one: 34px above a caption against 8px below it. */
 .settings-group{margin-bottom:34px}
 .settings-group__summary{
+  text-wrap:pretty;
   margin:0 var(--settings-inset) 8px;color:var(--color-ink-secondary);font-family:var(--font-language);
   font-size:var(--font-size-body-small);line-height:var(--line-reading)
 }
@@ -1067,7 +1084,7 @@ input:is([type=date],[type=time])::-webkit-date-and-time-value{min-height:1.5em;
    toggle, and the panel under a disclosure, are the tail of that row, so the
    next rule falls after them where the next row begins. */
 .settings-row::before{
-  content:"";position:absolute;left:var(--settings-inset);right:0;top:0;height:1px;background:var(--boundary-decorative)
+  content:"";position:absolute;left:var(--settings-inset);right:var(--settings-inset);top:0;height:1px;background:var(--boundary-decorative)
 }
 div.settings-row{cursor:default}
 .settings-row:first-child::before{display:none}
@@ -1137,6 +1154,7 @@ div.settings-row{cursor:default}
 .today-session{padding:4px 0 8px}
 .today-session__name{font-family:var(--font-language);font-size:var(--font-size-feature-title);font-weight:var(--weight-semibold);line-height:var(--line-tight);letter-spacing:-0.02em;margin:4px 0 6px;color:var(--color-ink)}
 .today-session + .btn--cta,#startWorkout{margin-top:32px}
+#startWorkout{min-height:48px}
 /* Start / Continue stays in reach while the lifter reads the prescription (#303). It is sticky, not fixed: it keeps its
    place in the flow, so it rides a deliberate gap above the dock (positioned from --nav, the Dock Reservation Rule,
    plus the safe area) only while its own place is still below the fold, and settles back above Choose another day
@@ -1144,7 +1162,8 @@ div.settings-row{cursor:default}
    It floats on the existing floating elevation, a primary pill over the page, never a fifth dock item. */
 #startWorkout{
   position:sticky;bottom:calc(var(--nav) + env(safe-area-inset-bottom) + var(--restbar-reserve,0px) + var(--space-12));z-index:5;
-  box-shadow:var(--elevation-floating-shadow);
+  /* A tucked shadow (negative spread): the page clips sideways at the column, so a wide shadow would end in hard edges. */
+  box-shadow:var(--elevation-cta-tucked-shadow);
 }
 /* The alternative to the day Today leads with, so it sits under the CTA and
    reads as the quieter of the two. */
@@ -1152,6 +1171,13 @@ div.settings-row{cursor:default}
 /* @ci-domain workout,session,today,history */
 /* ---- Active workout ---- */
 .wo-head{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-8);margin-bottom:0;min-height:var(--control-target)}
+/* Equal leading and trailing slots, so the title sits on the screen's centre line. */
+/* The climb's centred title (owner hill-climb, 2026-11-10): equal content-sized side slots around a centre that shrinks
+   first. Where the title takes its own row (the narrowest phones, large text) the head stays the wrapping flex row
+   below, or a long title widens the centre past the screen and the slots overlap, Back under the menu. */
+.wo-head{display:grid;grid-template-columns:minmax(max-content,1fr) minmax(0,max-content) minmax(max-content,1fr)}
+.wo-head > :first-child{justify-self:start}
+.wo-head > .wo-head__end{justify-self:end}
 /* The title wraps rather than truncates, so it hangs from the top of the bar: when the timer chip widens and
    takes room from it, the controls and the first line of the title stay where they were. */
 .wo-head__center{text-align:center;min-width:0;flex:1;padding-top:var(--space-12)}
@@ -1172,11 +1198,11 @@ div.settings-row{cursor:default}
    (the narrowest phones, and any phone at large text) it takes the row under the controls, so a running timer's
    wider pill neither squeezes it nor moves it. */
 @media (max-width:340px){
-  .wo-head{flex-wrap:wrap;row-gap:0}
+  .wo-head{display:flex;flex-wrap:wrap;row-gap:0}
   .wo-head__center{order:3;flex:1 0 100%;padding-top:0}
 }
 body:has(.exercise--focus.is-text-scaled){--focus-context-floor:0px}
-body:has(.exercise--focus.is-text-scaled) .wo-head{flex-wrap:wrap;row-gap:0}
+body:has(.exercise--focus.is-text-scaled) .wo-head{display:flex;flex-wrap:wrap;row-gap:0}
 body:has(.exercise--focus.is-text-scaled) .fcard__context{padding-block:0}
 body:has(.exercise--focus.is-text-scaled) #log > :not(#workoutShell){margin-bottom:0}
 /* The shelf's labels are one or two short words that wrap in a third of the screen; tight leading keeps their two lines
@@ -1381,6 +1407,28 @@ article.exercise--focus input,article.exercise--focus textarea{-webkit-user-sele
 /* The context region is focusable so a keyboard can scroll it, which hands it the shared 44px target floor; here the
    floor is the one the screen's budget allows (--focus-context-floor), and the selector outranks the shared rule. */
 article.exercise--focus .fcard__context{min-height:var(--focus-context-floor)}
+/* The task reads top-down from the prescription; the set rows take a roomier height so the list, not empty paper,
+   fills the screen above the shelf. */
+/* The open set is the tall row (owner hill-climb); logged and upcoming rows keep their natural height so the window
+   still holds the earlier sets above the open one on the last set (focus-space-summary, focus-hero). */
+.fcard__ledger .ledgerline--open{min-height:68px}
+.fcard__ledger .ledgerline:not(.ledgerline__head){align-content:center}
+.fcard__ledger + .fx-next{margin-top:var(--space-26)}
+/* Next is a quiet navigation row resting on the shelf: the context is a column, the free space sits between the set
+   list and Next, and Next reads as the shelf's lead-in rather than a card of its own. */
+article.exercise--focus .fcard__context{display:flex;flex-direction:column}
+article.exercise--focus .fcard__context > *{flex-shrink:0}
+/* A flex column does not collapse margins: the cue's own margins would stack on the head's and the ledger's (30px
+   above, 26px below, where block flow gave 18 and 12) and cost the window the earlier set on the last set. The cue
+   adds only what collapsing would have added. */
+article.exercise--focus .fcard__context > .fx-slot > .fx-cue{margin:0 0 var(--space-12)}
+/* A short window (is-hero-compact) keeps the hero above the open set: the cue adds no margin of its own and the open
+   row takes its natural height rather than the climb's roomier 68px. */
+article.exercise--focus.is-hero-compact .fcard__context > .fx-slot > .fx-cue{margin:0 0 var(--space-4)}
+.exercise--focus.is-hero-compact .fcard__ledger .ledgerline--open{min-height:0}
+article.exercise--focus .fcard__context > .fx-next{margin-top:auto;min-height:52px;padding:0 var(--space-12);border-radius:var(--radius-none);border-top:1px solid var(--boundary-decorative);background:transparent;color:var(--color-ink)}
+/* The previous set reads as the row's caption, from the row's leading edge, not as a figure spread over two columns. */
+.fcard__ledger .ledgerline__prev{grid-column:1 / -1;text-align:left;font-size:var(--font-size-caption)}
 .fcard__context:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
 .fx-head{margin:0 0 var(--space-16)}
 .focus-ex__meta{
@@ -1390,7 +1438,7 @@ article.exercise--focus .fcard__context{min-height:var(--focus-context-floor)}
 
 /* The hero (#523): the verb and the load as the screen's headline, the reps under it, then one line of evidence
    ending in the Why link (#518). The verdict mark rides inline before the words; a cue without one has no gap. */
-.fx-cue{margin:var(--space-18) 0 var(--space-12)}
+.fx-cue{margin:var(--space-14) 0 var(--space-18)}
 .fx-cue__mark{
   display:inline-block;width:.62em;height:.62em;margin-right:.14em;transform:translateY(-.04em);
 }
@@ -1410,7 +1458,7 @@ article.exercise--focus .fcard__context{min-height:var(--focus-context-floor)}
   max-width:22rem;margin:var(--space-8) 0 0;font-family:var(--font-language);font-size:var(--font-size-focus-evidence);
   line-height:var(--line-standard);color:var(--color-ink-secondary);overflow-wrap:anywhere;
 }
-.fx-cue__fig{font-family:var(--font-training-data);font-weight:var(--weight-medium);color:var(--color-ink)}
+.fx-cue__fig{font-family:var(--font-language);font-weight:var(--weight-semibold);font-variant-numeric:tabular-nums;color:var(--color-ink)}
 /* Inline in the evidence line the Why link keeps the 44px target: its padding reaches the floor and its negative
    margin gives the height back, so the line keeps its own leading. */
 .exercise--focus .fx-cue__evidence .text-link.focus-ex__why{
@@ -1442,6 +1490,8 @@ article.exercise--focus .fcard__context{min-height:var(--focus-context-floor)}
   font-size:var(--font-size-focus-meta);line-height:var(--line-reading);cursor:pointer;
 }
 .fx-note-add .icon-mask{width:18px;height:18px}
+.fx-note-add:has(.fx-note-add__label){display:inline-flex;gap:var(--space-4);width:auto;padding:0 var(--space-8);border-radius:var(--radius-pill);background:none;color:var(--color-ink-secondary)}
+.fx-note-add__label{font-family:var(--font-language);font-size:var(--font-size-body-small);font-weight:var(--weight-medium)}
 .fx-note{
   display:flex;align-items:center;gap:var(--space-8);width:100%;min-width:0;margin:var(--space-4) 0 0;padding:0;
   border:0;background:none;text-align:start;cursor:pointer;
@@ -1467,12 +1517,17 @@ article.exercise--focus .fcard__context{min-height:var(--focus-context-floor)}
 .fcard__ledger .ledgerline__head .ledgerline__vals{
   align-items:center;font-family:inherit;font-size:inherit;font-weight:inherit;line-height:inherit;letter-spacing:inherit;text-transform:inherit;color:inherit;
 }
-.fcard__ledger .ledgerline__head .term{margin:0;padding-block:0}
+.fcard__ledger .ledgerline__head .term{margin:0;padding-block:0;padding-inline:0;justify-content:flex-end;text-align:right;gap:var(--space-4);text-decoration:none}
+.fcard__ledger .ledgerline__head .term::after{--term-glyph:8px;content:"?";display:inline-grid;place-items:center;width:12px;height:12px;border:1px solid var(--ink-faint);border-radius:var(--radius-round);color:var(--ink-faint);font-size:var(--term-glyph);font-weight:var(--weight-regular);letter-spacing:0;line-height:1}
 .ledgerline__vals > .fx-col{flex:0 0 auto;min-width:0;text-align:right}
 .ledgerline__vals > .fx-col:nth-child(1){min-width:4.5rem}
-.ledgerline__vals > .fx-col:nth-child(2){min-width:2.5rem}
+/* Wide enough for the REPS heading, so the heading and the figures under it end on one edge. */
+.ledgerline__vals > .fx-col:nth-child(2){min-width:3.25rem}
 .ledgerline__vals > .fx-col:nth-child(3){min-width:4.5rem}
-.ledgerline__vals > .fx-col.is-soft{color:var(--color-ink-secondary)}
+.ledgerline__vals > .fx-col.is-soft{color:var(--color-ink)}
+/* Focus and Today set their figures in Plex Sans with tabular digits, the face of the sentences around them (owner,
+   2026-11-10); Mono stays in History and the other ledgers. */
+.fcard__ledger .ledgerline__vals,.fcard__ledger .ledgerline__idx{font-family:var(--font-language);font-variant-numeric:tabular-nums}
 button.ledgerline{cursor:pointer;text-align:left;border-top:0;border-inline:0}
 @media (hover: hover) and (pointer: fine){
 button.ledgerline:hover:not(:disabled){background:var(--well)}
@@ -1485,8 +1540,11 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
 }
 /* The open row's ring is a real 2px edge, so the rendered-role audit can measure it; the
    padding gives the 2px back, which leaves the row the size of its neighbours. */
+/* The open row is a tint with a 3px ink bar on its leading edge (owner, 2026-11-10), so the focused shelf field keeps
+   the only ring on screen. */
 .fcard__ledger .ledgerline--open{
-  align-content:center;padding-block:4px;padding-inline:10px;border:2px solid var(--boundary-selected-quiet);box-shadow:none;
+  align-content:center;padding-block:6px;padding-inline:9px 12px;border:0;border-left:3px solid var(--accent);border-bottom:1px solid var(--boundary-decorative);border-radius:var(--radius-none);
+  background:rgba(var(--accent-rgb),.05);box-shadow:none;
 }
 .fx-next{
   display:flex;align-items:center;justify-content:space-between;gap:var(--space-12);width:100%;min-height:48px;margin:var(--space-8) 0 0;
@@ -1580,23 +1638,25 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
 /* The ring is the keyboard's cue: after a touch or typed entry (the motion layer's input modality) a field focused by
    script shows only its selected ring, whichever path moved focus there. Without the layer the ring stays. */
 :root[data-input-modality="pointer"] .shelf__fieldbtn:focus-visible{outline:none}
-.shelf__fieldbtn[aria-pressed="true"]{box-shadow:var(--elevation-selected-quiet-shadow)}
+.shelf__fieldbtn[aria-pressed="true"]{box-shadow:var(--boundary-field-selected-shadow)}
 .shelf__lab{
   font-family:var(--font-language);font-size:var(--font-size-body-small);font-weight:var(--weight-regular);line-height:var(--line-standard);
   color:var(--color-ink-secondary);overflow-wrap:anywhere;
 }
 .shelf__val{
-  font-family:var(--font-training-data);font-size:min(var(--font-size-metric),var(--shelf-numeral-fit));font-weight:var(--weight-medium);line-height:var(--line-tight);
+  font-family:var(--font-language);font-size:min(var(--font-size-metric),var(--shelf-numeral-fit));font-weight:var(--weight-medium);line-height:var(--line-tight);
   color:var(--control-selection-ink);font-variant-numeric:tabular-nums;overflow-wrap:anywhere;
 }
-.shelf__field.is-untouched .shelf__val{color:var(--color-ink-secondary)}
+/* A prefilled value the lifter has not touched is ink at the regular weight; touching it sets it in medium (owner,
+   2026-11-10: grey read as a placeholder). */
+.shelf__field.is-untouched .shelf__val{color:var(--color-ink);font-weight:var(--weight-regular)}
 /* The input is always present so the draft handlers have one element to read and
    flag. Until the second tap it is invisible and inert; then it takes the field's place. */
 .shelf__input{
   position:absolute;inset:0;width:100%;height:100%;min-height:56px;margin:0;padding:var(--space-4) var(--space-12) 0;
   opacity:0;pointer-events:none;border:1px solid var(--control-field-boundary);border-radius:var(--shelf-inner-radius);
   background:var(--control-field-bg);color:var(--control-field-ink);box-shadow:var(--elevation-selected-quiet-shadow);
-  font-family:var(--font-training-data);font-size:min(var(--font-size-metric),var(--shelf-numeral-fit));font-weight:var(--weight-medium);line-height:var(--line-tight);
+  font-family:var(--font-language);font-size:min(var(--font-size-metric),var(--shelf-numeral-fit));font-weight:var(--weight-medium);line-height:var(--line-tight);
   font-variant-numeric:tabular-nums;text-align:left;
 }
 .shelf__field.is-editing .shelf__input{opacity:1;pointer-events:auto;padding-top:calc(var(--space-4) + var(--font-size-body-small) * var(--line-standard) + 2px);padding-bottom:0}
@@ -3586,7 +3646,7 @@ nav::before{
     linear-gradient(180deg,var(--dock-rim) 0,transparent 32%),
     linear-gradient(0deg,var(--dock-caustic) 0,transparent 24%);
   box-shadow:var(--dock-rim-shadow);
-  opacity:.9;
+  opacity:.25;
 }
 /* Without backdrop-filter the panel is a plain translucent sheet and the page
    shows through sharp, so pay for legibility with opacity instead. */
@@ -3672,6 +3732,22 @@ nav button.active .nav__icon{background:var(--accent)}
 .nav__icon[data-i=program]{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round'%3E%3Cpath d='M8 4h10a2 2 0 0 1 2 2v14H8a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z'/%3E%3Cpath d='M9 9h8M9 13h8M9 17h5'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round'%3E%3Cpath d='M8 4h10a2 2 0 0 1 2 2v14H8a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z'/%3E%3Cpath d='M9 9h8M9 13h8M9 17h5'/%3E%3C/svg%3E")}
 body.is-settings nav,body.is-exercise nav,body.is-onboarding nav,
 body.is-library nav,body.is-preview nav,body.is-import nav{display:none}
+/* Paper under the dock: rows that scroll beneath the floating dock (and the gap a sticky action leaves above it) fade
+   into the page instead of showing through as ghosted text. Below the sticky action (z-index 5), above the page. */
+/* Only on Today while Start workout rides above the dock: elsewhere there is no row to clip, and the band would hide
+   content and the dock's glass (#301). */
+body:has(#log.view.active #todayDash:not(.hidden) #startWorkout:not(.hidden))::after{
+  content:"";position:fixed;left:0;right:0;bottom:0;z-index:4;pointer-events:none;
+  height:calc(var(--nav) + env(safe-area-inset-bottom) + var(--space-12) + 2 * var(--space-32) + var(--space-26));
+  /* Paper behind Start workout and the row it clips (owner hill-climb), clear again under the dock itself, which stays
+     glass (#301): the band ends where the capsule begins. */
+  background:linear-gradient(to bottom,rgba(var(--bg-rgb),0),var(--bg) var(--space-26),
+    var(--bg) calc(100% - var(--nav) - env(safe-area-inset-bottom) - var(--space-12)),
+    rgba(var(--bg-rgb),0) calc(100% - var(--nav) - env(safe-area-inset-bottom)));
+}
+body.is-settings::after,body.is-exercise::after,body.is-onboarding::after,body.is-library::after,body.is-preview::after,
+body.is-import::after,body.is-focus-wo::after,body:has(#history.view.active.is-session-edit)::after,
+body:has(:is(#program,[data-copy-id="program"]).program-editor-installed)::after{display:none}
 body.is-settings,body.is-exercise,body.is-onboarding,
 body.is-library,body.is-preview,body.is-import{padding-bottom:env(safe-area-inset-bottom)}
 /* No paper fade under the dock (#301): the dock is glass, and glass only reads as glass when the page passes beneath
@@ -4326,13 +4402,17 @@ body.is-focus-wo .toast:not(.toast--top){bottom:calc(var(--toast-clear,0px) + va
 .icon-mask--rosette{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='8.9' r='5.5'/%3E%3Cpath d='m9.4 8.8 1.9 1.9 3.3-3.5'/%3E%3Cpath d='m8.4 13.6-1.5 7.2 5.1-2.6 5.1 2.6-1.5-7.2'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='8.9' r='5.5'/%3E%3Cpath d='m9.4 8.8 1.9 1.9 3.3-3.5'/%3E%3Cpath d='m8.4 13.6-1.5 7.2 5.1-2.6 5.1 2.6-1.5-7.2'/%3E%3C/svg%3E")}
 .icon-btn{color:var(--ink)}
 .icon-btn--ghost{border:0;background:transparent;color:var(--ink)}
-.today-prog{padding:8px 0 16px;border-bottom:1px solid var(--boundary-decorative)}
+.today-prog{display:flex;flex-wrap:wrap;align-items:baseline;column-gap:var(--space-8);padding:0 0 12px;border-bottom:1px solid var(--boundary-decorative)}
+.today-prog > .segbar{flex-basis:100%}
+.today-prog > .today-prog__week::before{content:"·";margin-right:var(--space-8)}
 .today-prog__name{font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink)}
 .today-prog__week,.today-prog__deload{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);margin-top:4px}
-.today-prog .segbar{margin-top:12px}
+.today-prog .segbar{margin-top:10px}
 #todayProgram .segbar__seg{background:var(--boundary-required);border-radius:var(--radius-compact)}
-#todayProgram .segbar__seg.is-done{background:var(--color-ink)}
-#todayProgram .segbar__seg.is-current{background:var(--color-ink-secondary)}
+/* Where the lifter is now is the strongest mark: the current week in the accent (as the current exercise is in Focus),
+   the weeks behind in soft ink, the weeks ahead a hairline. */
+#todayProgram .segbar__seg.is-done{background:var(--color-ink-secondary)}
+#todayProgram .segbar__seg.is-current{background:var(--accent)}
 
 /* Today, once a session is saved: a recap stands where the start CTA would be. */
 .today-done{padding:4px 0 8px}
@@ -4390,12 +4470,12 @@ body.is-focus-wo .toast:not(.toast--top){bottom:calc(var(--toast-clear,0px) + va
    aligned columns on hairlines. The rows are the shared .rxrow; this block only
    places them. The columns come from one grid the head and the rows share, so
    the load and the target line up whatever the widest figure is. */
-.today-session__name--day{font-size:var(--font-size-title);line-height:var(--line-tight);margin:var(--space-4) 0 0;text-wrap:balance}
-.today-tally{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-4) var(--space-16);margin:var(--space-12) 0 0;padding:0;list-style:none;font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-standard);color:var(--color-ink)}
+.today-session__name--day{font-size:var(--font-size-section-title);line-height:var(--line-tight);margin:var(--space-4) 0 0;text-wrap:balance}
+.today-tally{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-4) var(--space-16);margin:var(--space-8) 0 0;padding:0;list-style:none;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink)}
 .today-tally__i{display:inline-flex;align-items:center;gap:var(--space-4)}
 /* With the prescription heading gone (the prototype, owner 2026-10-28), the verdict line leads into the column heads
    across the prototype's gap. */
-.today-tally{margin-bottom:var(--space-18)}
+.today-tally{margin-bottom:var(--space-12)}
 .today-tally .verdictmark__glyph{width:15px;height:15px}
 .today-rx{container-type:inline-size}
 /* The name keeps a fair share of the row (9rem, about three words, or all the
@@ -4519,13 +4599,27 @@ body.is-focus-wo .toast:not(.toast--top){bottom:calc(var(--toast-clear,0px) + va
 .settings-head{display:flex;align-items:center;justify-content:center;position:relative;min-height:var(--control-target);margin-bottom:18px}
 .settings-head .back-link{position:absolute;left:0}
 .settings-head__title{font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink)}
-.settings-identity{display:flex;align-items:center;gap:14px;padding:8px 0 18px}
-.settings-identity__mark{width:52px;height:52px;border-radius:var(--radius-prominent);overflow:hidden;background:#efe5df;box-shadow:0 1px 2px rgba(23,23,25,.12),0 6px 18px rgba(23,23,25,.08);flex:none}
+.settings-identity{display:flex;align-items:flex-start;gap:14px;padding:8px var(--settings-inset) var(--space-32)}
+/* While no backup has been made the identity block is the backup's status card: a warm tint, the note, and the
+   action filled in the accent (owner hill-climb, 2026-11-10). */
+.settings-identity:has(#storageBackupNow:not([hidden])){margin-bottom:var(--space-14);padding:var(--space-12);border-radius:var(--radius-surface);background:rgba(var(--ink-rgb),.04)}
+.settings-identity:has(#storageBackupNow:not([hidden])) #storageNote{margin-top:var(--space-8)!important;font-size:var(--font-size-body-small)}
+.settings-identity:has(#storageBackupNow:not([hidden])){display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:var(--space-12);row-gap:2px;align-items:start;background:var(--surface);box-shadow:var(--boundary-card-hairline-shadow)}
+.settings-identity:has(#storageBackupNow:not([hidden])) > div:last-child{display:contents}
+.settings-identity:has(#storageBackupNow:not([hidden])) .settings-identity__mark{grid-row:1 / span 2;align-self:center}
+.settings-identity:has(#storageBackupNow:not([hidden])) .settings-identity__cap{margin-top:0}
+.settings-identity:has(#storageBackupNow:not([hidden])) :is(#storageNote,#storageBackupNow,#storageDegraded){grid-column:1 / -1;justify-self:start}
+.settings-identity .settings-identity__backup{background:rgba(var(--accent-rgb),.14);color:var(--accent-deep)}
+.settings-identity__mark{width:36px;height:36px;border-radius:var(--radius-prominent);overflow:hidden;background:#efe5df;box-shadow:0 1px 2px rgba(23,23,25,.12),0 6px 18px rgba(23,23,25,.08);flex:none}
 .settings-identity__mark img{display:block;width:100%;height:100%;object-fit:cover}
+/* The cream tile would be the brightest thing on a dark page; it steps down to sit with the type. */
+:root[data-theme="dark"] .settings-identity__mark{filter:brightness(.78);box-shadow:none}
 .settings-identity__name{font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink)}
 /* The backup warning's remedy: a quiet action in the ink, a full target, under the note it answers. */
-.settings-identity__backup{display:inline-flex;align-items:center;min-height:var(--control-target);padding:0;color:var(--control-quiet-ink);
-  font-size:var(--font-size-body-small);font-weight:var(--weight-semibold);text-decoration:underline;text-underline-offset:.2em}
+/* The one action the storage note asks for reads as a button: a quiet secondary pill, not a link. */
+.settings-identity__backup{display:inline-flex;align-items:center;min-height:var(--control-target);margin-top:var(--space-8);padding:0 var(--space-16);
+  border:0;border-radius:var(--radius-control);background:var(--control-track);color:var(--control-quiet-ink);
+  font-size:var(--font-size-body-small);font-weight:var(--weight-semibold);text-decoration:none}
 .settings-identity__backup[hidden]{display:none}
 .settings-identity__cap{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);margin-top:2px}
 /* A panel is the tail of the row that opened it: it shares that row's text
@@ -5294,6 +5388,17 @@ body.is-focus-wo .toast:not(.toast--top){bottom:calc(var(--toast-clear,0px) + va
 .calring{display:grid;place-items:center;flex:none;margin:0;padding:0;border:0;background:transparent;color:var(--ink);border-radius:50%}
 .calring svg{display:block;width:100%;height:100%;overflow:visible}
 .calring--title{width:clamp(46px,2.875rem,60px);height:clamp(46px,2.875rem,60px);align-self:center;margin-top:var(--space-4)}
+/* The ring names itself: the calibration title under it, small and quiet, so the number has a meaning before a tap.
+   The caption is the ring's sibling, so the button keeps its own box. */
+.calring-wrap{display:flex;flex-direction:column;align-items:center;gap:var(--space-4);align-self:center;flex:none}
+.calring-wrap:has(> .calring.hidden){display:none}
+/* Only where the head has room: on a narrow phone or at enlarged text the title keeps the width and the ring stands alone. */
+#todayDash > .pagehead{container:todayhead / inline-size}
+@container todayhead (max-width:20em){.calring-wrap__cap{display:none}}
+.calring-wrap__cap{
+  max-width:6.5rem;text-align:center;font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-regular);
+  line-height:var(--line-tight);color:var(--color-ink-secondary);
+}
 .calring--title.is-pressed{opacity:.4}
 .calring:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 :is(#todayDash)>.pagehead>.pagehead__actions>.calring--bar{width:var(--control-target);height:var(--control-target);
@@ -5440,17 +5545,26 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
    itself, a readout and the table that selects the same sessions. The plot is
    one pointer target; the table rows are the keyboard and screen-reader way in. */
 #exercise.exview--chart .exview-head__title{display:none}
+#exercise.exview--chart .exchart__title{font-size:var(--font-size-section-title)}
 #exercise.exview--chart #exBack{gap:var(--space-4);color:var(--control-quiet-ink)}
 #exercise.exview--chart #exBack .chevron{transform:rotate(180deg);color:inherit}
 .exchart__title{margin:var(--space-8) 0 0;overflow-wrap:anywhere}
-.exchart__toggles{display:grid;gap:var(--space-8);margin-top:var(--space-12)}
+.exchart__toggles{display:grid;gap:var(--space-4);margin-top:var(--space-12)}
 .exchart__toggles .segpill{margin:0}
+/* The metric is the lesser choice: underline tabs under the range control, not a second segmented control. */
+.exchart__toggles .segpill + .segpill{padding:0;border-radius:var(--radius-none);background:transparent;border-bottom:1px solid var(--boundary-decorative)}
+.exchart__toggles .segpill + .segpill > button{border-radius:var(--radius-none);color:var(--color-ink-secondary);box-shadow:none;background:transparent;border-bottom:2px solid transparent;margin-bottom:-1px}
+.exchart__toggles .segpill + .segpill > button[aria-pressed="true"]{background:transparent;box-shadow:none;color:var(--ink);border-bottom-color:var(--boundary-selected-quiet)}
 /* The chart's one statement of a per-side convention (refinement audit A6), under the toggles it qualifies. */
-.exchart__per-side{margin:var(--space-8) 0 0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+.exchart__per-side{margin:var(--space-4) 0 0;font-family:var(--font-language);font-size:var(--font-size-caption);line-height:var(--line-standard);color:var(--color-ink-secondary)}
 .exchart__figs{
-  display:grid;grid-template-columns:repeat(auto-fit,minmax(5.25rem,1fr));gap:var(--space-12);
-  margin-top:var(--space-18);padding:var(--space-12) 0;border-top:1px solid var(--boundary-decorative);border-bottom:1px solid var(--boundary-decorative);
+  /* Wrapping items rather than equal columns: the display-size best figure (owner hill-climb) needs more than a third
+     at 320 and at 200% text, and an equal column let it run into its neighbour. */
+  display:flex;flex-wrap:wrap;gap:var(--space-12);align-items:last baseline;
+  margin-top:var(--space-12);padding:var(--space-8) 0;border-top:1px solid var(--boundary-decorative);border-bottom:1px solid var(--boundary-decorative);
 }
+.exchart__figs > *{flex:1 1 5.25rem;min-width:min-content}
+.exchart__figs > :first-child b{font-size:var(--font-size-display)}
 .exchart__figs b{
   display:block;font-family:var(--font-language);font-weight:var(--weight-semibold);letter-spacing:-.02em;font-variant-numeric:tabular-nums;font-size:var(--font-size-metric);
   line-height:var(--line-tight);color:var(--color-ink);white-space:nowrap;
@@ -5459,37 +5573,38 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
   display:block;margin-top:var(--space-4);font-family:var(--font-language);font-size:var(--font-size-body-small);
   line-height:var(--line-standard);color:var(--color-ink-secondary);
 }
-.exchart__plot{position:relative;margin-top:var(--space-18);touch-action:pan-y pinch-zoom;cursor:pointer;-webkit-user-select:none;user-select:none}
+.exchart__plot{position:relative;margin-top:var(--space-8);touch-action:pan-y pinch-zoom;cursor:pointer;-webkit-user-select:none;user-select:none}
 .exchart__svg,.exchart__ghost{display:block;width:100%;height:auto}
-.exchart__svg .ch-grid,.exchart__ghost .ch-grid{stroke:var(--boundary-decorative);stroke-width:1}
-.exchart__svg .ch-ax,.exchart__ghost .ch-ax{fill:var(--color-ink-secondary);font-family:var(--font-training-data);font-size:var(--font-size-chart-axis);font-weight:var(--weight-regular)}
+.exchart__svg .ch-grid,.exchart__ghost .ch-grid{stroke:var(--boundary-decorative);stroke-width:1;stroke-opacity:.6}
+:root[data-theme="dark"] :is(.exchart__svg,.exchart__ghost) .ch-grid{stroke:var(--rule-strong);stroke-opacity:1}
+.exchart__svg .ch-ax,.exchart__ghost .ch-ax{fill:var(--color-ink-secondary);font-family:var(--font-language);font-variant-numeric:tabular-nums;font-size:var(--font-size-chart-axis);font-weight:var(--weight-regular)}
 .exchart__svg .ch-ax--l,.exchart__ghost .ch-ax--l{font-family:var(--font-language)}
 .exchart__svg .ch-block,.exchart__ghost .ch-block{stroke:var(--boundary-required);stroke-width:1;stroke-dasharray:3 3}
-.exchart__svg .ch-line,.exchart__ghost .ch-line{fill:none;stroke:var(--color-ink);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.exchart__svg .ch-line,.exchart__ghost .ch-line{fill:none;stroke:var(--accent);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
 .exchart__svg .ex-cursor,.exchart__ghost .ex-cursor{stroke:var(--boundary-required);stroke-width:1;stroke-dasharray:2 3}
-.exchart__svg .ex-pt,.exchart__ghost .ex-pt{fill:var(--bg);stroke:var(--color-ink);stroke-width:1.5}
+.exchart__svg .ex-pt,.exchart__ghost .ex-pt{fill:var(--bg);stroke:var(--accent);stroke-width:1.5}
 .exchart__svg .ex-pt--old,.exchart__ghost .ex-pt--old{stroke:var(--color-ink-secondary)}
-.exchart__svg .ex-pt--sel,.exchart__ghost .ex-pt--sel{fill:var(--color-ink)}
+.exchart__svg .ex-pt--sel,.exchart__ghost .ex-pt--sel{fill:var(--accent);stroke:var(--accent)}
 .exchart__svg .ex-tick,.exchart__ghost .ex-tick{fill:var(--color-ink)}
 /* D4: the selected-session marker in flight. Drawn by app.js only while `animateIndicator` carries
    it: a dot the size of the selected point and a dashed line the height of the cursor, over the plot.
    Both are inert; the destination's own point and cursor are set aside until the marker arrives, so
    there is one marker on screen. */
 .exchart__marker,.exchart__scrub{position:absolute;z-index:1;pointer-events:none;box-sizing:border-box}
-.exchart__marker{border-radius:var(--radius-round);background:var(--color-ink)}
+.exchart__marker{border-radius:var(--radius-round);background:var(--accent)}
 .exchart__scrub{background:repeating-linear-gradient(to bottom,var(--boundary-required) 0 2px,transparent 2px 5px)}
 .exchart__plot.is-marker-travel .ex-pt--sel,.exchart__plot.is-marker-travel .ex-cursor{visibility:hidden}
 .exchart__readout{
-  min-height:22px;margin:var(--space-8) 0 0;font-family:var(--font-language);font-size:var(--font-size-body-small);
-  line-height:var(--line-standard);color:var(--color-ink);
+  min-height:22px;margin:var(--space-12) 0 0;font-family:var(--font-language);font-size:var(--font-size-caption);
+  line-height:var(--line-standard);color:var(--color-ink-secondary);
 }
-.exchart__mono{font-family:var(--font-training-data);font-weight:var(--weight-medium)}
+.exchart__mono{font-family:var(--font-language);font-weight:var(--weight-semibold);font-variant-numeric:tabular-nums}
 .exchart__soft{color:var(--color-ink-secondary)}
 .exchart__cols,.exrow{
   display:grid;grid-template-columns:4.5rem minmax(0,1fr) 4rem 3.25rem;gap:var(--space-8);align-items:center;
 }
 .exchart__cols{
-  margin-top:var(--space-12);padding:var(--space-8) 0;border-bottom:1px solid var(--boundary-decorative);
+  margin-top:var(--space-12);padding:var(--space-8) var(--space-12);border-bottom:1px solid var(--boundary-decorative);
   font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);
   letter-spacing:var(--track-label);text-transform:uppercase;color:var(--color-ink-secondary);
 }
@@ -5503,7 +5618,7 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
   .exchart__cols span,.exrow span{overflow-wrap:anywhere}
 }
 .exrow{
-  width:100%;min-height:48px;padding:0 0 0 var(--space-8);border:0;border-left:3px solid transparent;
+  width:100%;min-height:48px;padding:0 var(--space-12);border:0;border-left:0 solid transparent;
   border-bottom:1px solid var(--boundary-decorative);border-radius:var(--radius-none);
   background:var(--control-quiet-bg);color:var(--color-ink);text-align:left;cursor:pointer;
   font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);
@@ -5513,7 +5628,7 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
 }
 .exrow.is-pressed{background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
 .exrow:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
-.exrow.is-sel{border-left-color:var(--boundary-selected-quiet)}
+.exrow.is-sel{padding-left:calc(var(--space-12) - 3px);border-left:3px solid var(--accent);background:rgba(var(--accent-rgb),.05)}
 .exrow.is-old span:first-child{color:var(--color-ink-secondary)}
 
 /* @ci-domain history */
@@ -8728,8 +8843,8 @@ body.is-entry-editor #entryProgramName,
    scale with the root so they reflow at 200% text. Manual rows leave the mark
    slot empty so names still align. */
 .rxrow{
-  display:grid;grid-template-columns:1rem minmax(0,1fr) minmax(4.125rem,auto) minmax(4.875rem,auto);
-  column-gap:12px;align-items:baseline;width:100%;min-height:48px;margin:0;padding:12px 0;
+  display:grid;grid-template-columns:1rem minmax(0,1fr) auto auto;
+  column-gap:var(--space-8);align-items:baseline;width:100%;min-height:48px;margin:0;padding:12px 0;
   border:0;border-bottom:1px solid var(--boundary-decorative);border-radius:var(--radius-none);
   background:var(--control-quiet-bg);color:var(--control-quiet-ink);cursor:pointer;text-align:left;
   font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-regular);line-height:var(--line-standard);
@@ -8745,13 +8860,15 @@ body.is-entry-editor #entryProgramName,
 .rxrow__sub{display:block;font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
 .rxrow__load{
   text-align:right;white-space:nowrap;
-  font-family:var(--font-training-data);font-size:var(--font-size-metric);font-weight:var(--weight-regular);line-height:var(--line-tight);color:var(--color-ink);
+  font-family:var(--font-language);font-size:var(--font-size-metric);font-weight:var(--weight-regular);line-height:var(--line-tight);color:var(--color-ink);
+  font-variant-numeric:tabular-nums;
 }
 /* The load leads in ink at the regular weight; the target is the quieter second column (the prototype's ledger;
    owner decision 2026-10-24, superseding #485 deviation 1's heavier figures). */
 .rxrow__target{
   text-align:right;white-space:nowrap;
-  font-family:var(--font-training-data);font-size:var(--font-size-body-small);font-weight:var(--weight-regular);line-height:var(--line-standard);color:var(--color-ink-secondary);
+  font-family:var(--font-language);font-size:var(--font-size-body-small);font-weight:var(--weight-regular);line-height:var(--line-standard);color:var(--color-ink-secondary);
+  font-variant-numeric:tabular-nums;
 }
 .rxrow__op,.rxrow__unit{color:var(--color-ink-secondary)}
 
@@ -8964,7 +9081,8 @@ body.is-entry-editor #entryProgramName,
 /* Settings: Back, the guide cue, the warning line and the switches' on state. */
 #settings #settingsBack{color:var(--control-quiet-ink)}
 #settings .settings-warn{color:var(--color-ink)}
-#settings .toggle[aria-checked="true"]::before,#settings .toggle[aria-pressed="true"]::before,#settings .toggle.is-on::before{background:var(--boundary-selected-quiet)}
+/* Settings' switches take the shared accent on-track (owner, 2026-11-10: a sixth orange use, see DESIGN.md): an ink
+   track read as off in dark. */
 
 /* Sheets headed by the shared band: the commit action that sat in the old three-slot head (Done, Save, Copy) is now
    the first action in the foot, and the foot wraps when enlarged text asks for another row. The band's 16px gutter
