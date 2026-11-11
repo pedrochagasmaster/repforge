@@ -13798,7 +13798,12 @@
       "catalogStates": [
         "progress/overview-profile",
         "progress/overview-profile-first",
-        "session/summary-profile"
+        "session/summary-profile",
+        "progress/overview",
+        "progress/minibar",
+        "progress/overview-guide",
+        "progress/overview-baseline",
+        "progress/overview-action"
       ]
     },
     {
@@ -13817,7 +13822,12 @@
       "catalogStates": [
         "progress/overview-profile",
         "progress/overview-profile-first",
-        "session/summary-profile"
+        "session/summary-profile",
+        "progress/overview",
+        "progress/minibar",
+        "progress/overview-guide",
+        "progress/overview-baseline",
+        "progress/overview-action"
       ]
     },
     {
@@ -13836,7 +13846,12 @@
       "catalogStates": [
         "progress/overview-profile",
         "progress/overview-profile-first",
-        "session/summary-profile"
+        "session/summary-profile",
+        "progress/overview",
+        "progress/minibar",
+        "progress/overview-guide",
+        "progress/overview-baseline",
+        "progress/overview-action"
       ]
     },
     {
@@ -13883,7 +13898,8 @@
         "session/summary-finding",
         "session/summary-first",
         "session/summary-maintained",
-        "session/summary-declined"
+        "session/summary-declined",
+        "session/summary-lifts"
       ],
       "neverDisabledReason": "The profile is available whenever the finish screen has a finding or a next need."
     }
