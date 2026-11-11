@@ -1784,6 +1784,7 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
   padding:var(--space-12) var(--space-14);border-radius:var(--radius-surface);background:var(--toast-bg);color:var(--toast-ink);
   box-shadow:var(--elevation-floating-shadow);font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);
 }
+.fcard__context > .resttip[data-tip="max-set"]{position:relative;inset:auto;margin:var(--space-12) 0}
 .resttip__text{margin:0;padding-right:var(--space-26)}
 .resttip__text b{font-weight:var(--weight-semibold)}
 .resttip__acts{display:flex;justify-content:flex-end;gap:var(--space-4);margin:var(--space-4) calc(-1 * var(--space-8)) calc(-1 * var(--space-8)) 0}

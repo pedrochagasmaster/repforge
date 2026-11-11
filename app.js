@@ -7325,7 +7325,7 @@ function restTabHtml(){
     `<span class="resttab__label"></span><span class="resttab__end"><span class="resttab__time"></span>`+
     `<span class="resttab__chev icon-mask icon-mask--chev-up" aria-hidden="true"></span></span></button>`+restLightSvg()}
 /* ---- Between-sets tips (Plan 077, OD-6) ----
-   At most one tip, during a rest only, standing over the shelf; it never covers the shelf, so logging stays live under
+   At most one tip, during a rest only; it never covers the shelf, so logging stays live under
    it. Each entry decides for the open set whether it applies, draws itself, and binds its own buttons; the first that
    applies is shown. */
 const restTips=[
@@ -7338,14 +7338,16 @@ function focusRestTipHtml(ex,n){return restTipFor(ex,n)?.html(ex,n)||""}
 function focusDraftSet(exId,n){
   const draft=activeWorkoutDraft?.exercises?.[exId];
   return draft?.sets?.[draft.setOrder.find(id=>draft.sets[id].ordinal===n)]||null}
-/** Put the tip on the shelf, or take it away; one already showing stays as it is. */
+/** Test-set invitations follow the ledger in its scroller; other tips belong to the shelf. */
 function syncRestTip(shelf){
   const card=shelf?.closest(".exercise"),base=card?prog.find(card.dataset.ex):null,ex=base?sessionExercise(base):null;
   const n=ex?focusActiveSet(ex):0,entry=shelf?restTipFor(ex,n):null;
-  $$(".resttip").forEach(el=>{if(el.parentElement!==shelf||el.dataset.tip!==entry?.id)el.remove()});
-  if(!entry||shelf.querySelector(`.resttip[data-tip="${entry.id}"]`))return;
-  shelf.insertAdjacentHTML("afterbegin",entry.html(ex,n));
-  entry.bind?.(shelf.querySelector(".resttip"),shelf,ex,n)}
+  const host=entry?.id==="max-set"?card.querySelector(".fcard__context"):shelf;
+  $$(".resttip").forEach(el=>{if(el.parentElement!==host||el.dataset.tip!==entry?.id)el.remove()});
+  if(!entry||host.querySelector(`.resttip[data-tip="${entry.id}"]`))return;
+  if(entry.id==="max-set")host.querySelector(".fcard__ledger").insertAdjacentHTML("afterend",entry.html(ex,n));
+  else host.insertAdjacentHTML("afterbegin",entry.html(ex,n));
+  entry.bind?.(host.querySelector(".resttip"),shelf,ex,n)}
 
 /** The set the lifter has started entering during this rest: the stage tip never sits over a set being entered. */
 let stageTipEnteringKey=null;
@@ -8409,6 +8411,7 @@ function openMaxSetSheet(exId){
     :t("maxset.guess_from_reps",{n:offer.before.ordinal,reps:fmt(offer.reps)});
   $("#maxSetPress").hidden=!offer.press;
   paintMaxSetGuess();
+  sizeFocusCard(focusCard());
   document.body.classList.add("is-sheet-open");
   openModal(sheet,{initialFocus:$("#maxSetStart"),returnFocus:document.activeElement,onEscape:closeMaxSetSheet,scrim,
     delayHide:reducedMotion()?0:280});

@@ -1377,7 +1377,7 @@ async function maxSetRest(page, { exerciseId = null } = {}) {
     if (left <= 1) break;
     await logFixtureSet(page, { load: "45", reps: "12", rir: "2" });
   }
-  await page.waitForSelector("#workout .exercise.is-current .focus-shelf.has-rest .resttip", { state: "visible", timeout: 20000 });
+  await page.waitForSelector('#workout .exercise.is-current .resttip[data-tip="max-set"]', { state: "visible", timeout: 20000 });
 }
 
 /** Log the current lift's next set at these values, through the draft's own commands (its fields are metrics, which

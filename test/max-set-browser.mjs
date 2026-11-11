@@ -97,7 +97,7 @@ async function readReplicas(page) {
   }, KEY);
 }
 
-const TIP = `${SHELF} .resttip`;
+const TIP = "#workout .exercise.is-current .resttip";
 const draftNow = (page) => page.evaluate(() => window.__repforgeWorkoutDraft.current());
 
 async function logSet(page, exId, n, { load = "50", reps = "10", rir = "2" } = {}) {
