@@ -58,7 +58,7 @@
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { isDeepStrictEqual } from "node:util";
-import { launchChromium, waitForAppBoot } from "./browser.mjs";
+import { launchChromium, waitForAppBoot, waitForAsyncCondition } from "./browser.mjs";
 import { encodeSetupLink } from "./fixtures/setup-link-v4.mjs";
 import {
   APP_INDEX,
@@ -682,15 +682,22 @@ const readFinal = (sectionNames) => {
   };
 };
 
-const dockState = () => {
+const dockState = (expected) => {
   const dock = document.querySelector("#firstRunCreateDock");
   if (!dock) return { present: false, visible: false };
   const box = dock.getBoundingClientRect();
   const style = getComputedStyle(dock);
   const hiddenByAria = dock.getAttribute("aria-hidden") === "true" || !!dock.closest("[aria-hidden='true'],.hidden,[hidden]");
   const onScreen = box.width > 0 && box.height > 0 && box.bottom > 0 && box.top < innerHeight && style.visibility !== "hidden" && style.display !== "none";
-  return { present: true, visible: !hiddenByAria && onScreen };
+  const state = { present: true, visible: !hiddenByAria && onScreen };
+  // The observer removes is-on before CSS finishes sliding the dock off screen.
+  if (typeof expected === "boolean") {
+    const moving = dock.closest("#firstRunDock")?.getAnimations().some(animation => animation.playState !== "finished");
+    return !moving && state.visible === expected ? state : false;
+  }
+  return state;
 };
+const waitForDockState = (page, visible) => waitForAsyncCondition(page, dockState, visible);
 
 const proofState = () => window.__repforgeLandingProof?.() ?? null;
 /** The proof's chapters and phone as the lifter sees them. */
@@ -834,7 +841,7 @@ async function finalPage(browser) {
       values.includes(tr(lang, "nav.settings")) && values.includes(tr(lang, "settings.max_set_prompts"))),
       `[${lang}] the failure answer names the real Settings switch`);
     await page.evaluate(() => document.querySelector("#firstRun").scrollTo({top: 0, behavior: "instant"}));
-    await page.waitForFunction(() => !document.querySelector("#firstRunDock").classList.contains("is-on"));
+    await waitForDockState(page, false);
     const exercise = Catalog.exercises.find(ex => ex.id === BENCH);
     assert(calibration.eligibility({exercise, lookup: id => Catalog.uuidIndex[id]}).eligible, 'the proof movement can take a test set');
     for (const [time, selector, key] of [[14.5, '.firstrun-demo__test-tip', 'maxset.invite_title'],
@@ -905,13 +912,13 @@ async function finalPage(browser) {
 
     // The persistent Build control: hidden at the top, present once the hero action is behind (past the stages, which
     // it steps aside for), gone at the close.
-    const top = await page.evaluate(dockState);
+    const top = await waitForDockState(page, false);
     assert(!top.visible, `[${lang}] the dock is hidden while the hero action is on screen`, JSON.stringify(top));
     await scrollLanding(page, '#firstRun [data-landing-section="data"]');
-    const past = await page.evaluate(dockState);
+    const past = await waitForDockState(page, true);
     assert(past.present && past.visible, `[${lang}] #firstRunCreateDock shows once the hero action has scrolled away`, JSON.stringify(past));
     await scrollLanding(page, '#firstRun [data-landing-section="close"]');
-    const closing = await page.evaluate(dockState);
+    const closing = await waitForDockState(page, false);
     assert(!closing.visible, `[${lang}] the dock steps aside at the closing action`, JSON.stringify(closing));
     assert(errors.length === 0, `[${lang}] no uncaught page errors while the captures are missing or present`, errors.slice(0, 2).join(" | "));
     await context.close();
@@ -1331,7 +1338,7 @@ async function finalPage(browser) {
     await waitForAppBoot(page, { base: BASE });
     await waitForFirstRun(page);
     await scrollLanding(page, '#firstRun [data-landing-section="data"]');
-    const dock = await page.evaluate(dockState);
+    const dock = await waitForDockState(page, true);
     assert(dock.present && dock.visible, "the dock shows on the invalid-link landing once the hero action is behind", JSON.stringify(dock));
     await context.close();
   }
@@ -1453,6 +1460,44 @@ async function dockFocusRing(browser) {
   }
 }
 
+// Hold the real exit transition after the observer has acknowledged the hero's return.
+async function heldDockExit(browser) {
+  phase("Dock acknowledgement: a removed class can still be visibly transitioning");
+  const { context, page } = await landingPage(browser, { lang: "pt" });
+  try {
+    await page.evaluate(() => document.querySelector('[data-landing-section="data"]').scrollIntoView({ behavior: "instant" }));
+    await page.waitForFunction(() => document.querySelector("#firstRunDock").classList.contains("is-on"));
+    await page.evaluate(async () => {
+      const dock = document.querySelector("#firstRunDock");
+      await Promise.all(dock.getAnimations().map(animation => animation.finished));
+      window.__heldDockExit = new Promise(resolve => {
+        const observer = new MutationObserver(() => {
+          if (dock.classList.contains("is-on")) return;
+          const animations = dock.getAnimations();
+          if (!animations.length) return;
+          animations.forEach(animation => { animation.pause(); animation.currentTime = 0; });
+          window.__releaseDockExit = () => animations.forEach(animation => animation.play());
+          observer.disconnect();
+          const hero = document.querySelector("#firstRunCreate").getBoundingClientRect();
+          resolve({ on: dock.classList.contains("is-on"), animations: animations.map(animation => animation.playState),
+            heroVisible: hero.bottom > 0 && hero.top < innerHeight });
+        });
+        observer.observe(dock, { attributes: true, attributeFilter: ["class"] });
+      });
+      document.querySelector("#firstRun").scrollTo({ top: 0, behavior: "instant" });
+      return window.__heldDockExit;
+    });
+    const held = await page.evaluate(() => window.__heldDockExit);
+    const visible = await page.evaluate(dockState);
+    assert(!held.on && held.heroVisible && held.animations.every(state => state === "paused") && visible.visible,
+      "held exit reproduces the acknowledged class with a still-visible dock", JSON.stringify({ held, visible }));
+    const pending = waitForDockState(page, false);
+    await page.evaluate(() => window.__releaseDockExit());
+    const top = await pending;
+    assert(!top.visible, "the dock check waits for the acknowledged exit to finish", JSON.stringify(top));
+  } finally { await context.close(); }
+}
+
 // A held catalog proof must not depend on the camera path Chromium rasterized before it.
 async function heldCatalogProof(browser) {
   const manifest = loadManifest();
@@ -1496,6 +1541,11 @@ async function main() {
   copyPins();
   const browser = await launchChromium();
   try {
+    await heldDockExit(browser);
+    if (process.env.LANDING_VARIANTS_ONLY === "dock") {
+      if (results.failed) throw new Error("held dock proof failed");
+      return;
+    }
     await heldCatalogProof(browser);
     if (process.env.LANDING_VARIANTS_ONLY === "capture") {
       if (results.failed) throw new Error("held catalog proof failed");
