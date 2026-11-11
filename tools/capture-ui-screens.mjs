@@ -449,6 +449,7 @@ async function main(options = parseArgs(process.argv.slice(2))) {
       ]);
       try {
         const opened = await openPage(browser, MANIFEST, capture, stateFor(capture), {
+          catalog: true,
           userAgent: APP_USER_AGENT[key],
           now: APP_CLOCK[key],
         });

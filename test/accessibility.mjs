@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /** Focused Playwright checks for modal, disclosure, and live-status semantics. Requires the app HTTP server. */
 import { pathToFileURL } from "url";
-import { launchChromium, openShelfField } from "./browser.mjs";
+import { chooseRepsLeft, launchChromium, openShelfField } from "./browser.mjs";
 import { runProgramEntryA11y } from "./program-entry-a11y.mjs";
 import { MINIMAL_PAYLOAD, cloneFixture } from "./fixtures/shared-setup.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
@@ -371,6 +371,7 @@ export async function runWorkoutValidationFocusCheck(browser, check = assert) {
   const setKey = loadKey?.replace(`_metric_${WEIGHT_METRIC}`, "");
   const repsKey = `${setKey}_metric_${REPS_METRIC}`;
   const shelfFill = async (selector, field, value) => {
+    if (field === "rir") { await chooseRepsLeft(page, value); return; }
     const input = page.locator(`#workout .exercise.is-current .focus-shelf ${selector}`);
     if (await input.getAttribute("aria-hidden") === "true")
       await openShelfField(page, `#workout .exercise.is-current .focus-shelf [data-shelf-field="${field}"]`);
@@ -2112,6 +2113,8 @@ async function runDimmedStateAccessibility(browser) {
     const skippedId=await page.locator("#workout .exercise.is-current").getAttribute("data-ex");
     await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
     await page.locator("#exActionSkipBtn").click();
+    await page.locator('[data-skip-reason="other"]').click();
+    await page.locator("#skipReasonSheet").waitFor({state:"hidden"});
     await page.locator("#exActionsSheet").waitFor({state:"hidden"});
     await page.locator("#sessionSheetBtn").click();
     // The skipped state is a dashed mark and a word under the name (#522).

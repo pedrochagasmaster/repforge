@@ -1,5 +1,5 @@
-/* Calibration evidence (Plan 077, OD-20): one user-level 0–100 number that says how much recent evidence Taurifer has
-   about the lifter's effort estimates, never how accurate they are. Pure: no DOM, no storage. The app hands it the
+/* Calibration evidence (Plan 081): six signals presented as counts in the profile. The combined percentage remains
+   for stale readers for one release. Pure: no DOM, no storage. The app hands it the
    log's working sets as observations, the max sets as checks, and the suggestion replay (H) as hits.
 
    G = floor(100 × (0.55·T + 0.15·A + 0.12·H + 0.08·W + 0.05·S + 0.05·R)). Every item weighs 0.5^(age / 90 days) times
@@ -39,7 +39,7 @@
     if (!row || row.warmup) return 0;
     switch (row.effortSource) {
       case "rir": case "reps_left": return 1;
-      case "effort": case "reps_left_3plus": case undefined: case null: return 0.5;
+      case "effort": case "reps_left_3plus": case "reps_left_5plus": case undefined: case null: return 0.5;
       default: return 0;
     }
   }
@@ -126,7 +126,7 @@
         const [w0, a] = weeks[i - 1], [w1, b] = weeks[i];
         if (w1 - w0 > WEEK_GAP) continue;
         const before = median(a.caps), after = median(b.caps);
-        out.push({ date: b.date, q: Math.min(Math.min(...a.q), Math.min(...b.q)),
+        out.push({ date: b.date, before, after, q: Math.min(Math.min(...a.q), Math.min(...b.q)),
           agree: Math.abs(after / before - 1) <= WEEK_DRIFT + 1e-12 });
       }
     }
@@ -228,6 +228,7 @@
       S: shown(recentTaps ? taps : [], TARGETS.S), R: { n: historyEvidence(observations, programKeys, now).n, rate: null, target: TARGETS.R } };
     return {
       version: VERSION,
+      // Retained for one release for stale readers. No UI renders this value (Plan 081).
       percent: combine({ ...components, taps: recentTaps }),
       evidence,
       components,

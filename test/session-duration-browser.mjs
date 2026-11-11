@@ -13,9 +13,9 @@
 import { webcrypto } from "node:crypto";
 import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
-import { launchChromium, openShelfField, waitForAppBoot } from "./browser.mjs";
+import { chooseRepsLeft, launchChromium, openShelfField, waitForAppBoot } from "./browser.mjs";
 import { finishEarly, openEarlyFinish, selectExercise } from "./fixtures/focus-workout.mjs";
-import { installSeedProgram } from "./fixtures/seed-program.mjs";
+import { seedProgram, installSeedProgram } from "./fixtures/seed-program.mjs";
 
 const require = createRequire(import.meta.url);
 const RAW_CATALOG = require("../assets/exercise-catalog.json");
@@ -34,6 +34,7 @@ const SEED_A = "seed-ex-1";
 const STARTED = "2026-10-05T12:00:00.000Z";
 const FINISHED = "2026-10-05T12:42:10.000Z";
 
+const canonical=value=>Array.isArray(value)?value.map(canonical):value&&typeof value==="object"?Object.fromEntries(Object.keys(value).sort().map(key=>[key,canonical(value[key])])):value;
 let passed = 0;
 const failures = [];
 function check(condition, message, detail) {
@@ -50,9 +51,12 @@ const durable = (page) => page.evaluate(async () => {
 });
 const sessionIds = (state) => [...new Set((state.log || []).map((row) => String(row.session)))];
 
-async function bootFresh(context, at) {
+async function bootFresh(context, at, {withoutTelemetry=false}={}) {
   const page = await context.newPage();
   page.on("dialog", (dialog) => dialog.accept().catch(() => {}));
+  // Isolate UI preference eligibility from the separately protected analytics
+  // identity which an ordinary browser visit creates before a second boot.
+  if(withoutTelemetry)await page.route("**/telemetry.js*",route=>route.fulfill({status:200,contentType:"text/javascript",body:""}));
   await page.clock.setFixedTime(new Date(at));
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
   await waitForAppBoot(page, { base: BASE });
@@ -75,7 +79,7 @@ async function saveFirstSet(page) {
   const rir = page.locator(`#workout .exercise.is-current .focus-shelf input[data-k="${SEED_A}_1_rir"]`);
   if (await rir.getAttribute("aria-hidden") === "true")
     await page.locator('#workout .exercise.is-current .focus-shelf [data-shelf-field="rir"]').click();
-  await rir.fill("1");
+  await chooseRepsLeft(page, "1");
   await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
   await page.locator(`#workout .exercise.is-current [data-save="${SEED_A}_1"]`).click();
   await page.waitForFunction((id) => {
@@ -243,14 +247,39 @@ async function main() {
   try {
     phase("Saving a session records its start and its explicit finish with it");
     const source = await bootFresh(await context({ acceptDownloads: true }), STARTED);
-    await installSeedProgram(source, { waitFor: () => waitForAppBoot(source, { base: BASE }) });
+    await installSeedProgram(source, { waitFor: () => waitForAppBoot(source, { base: BASE }), settings: { rirMode: "numeric" } });
     await enterWorkout(source);
     await saveFirstSet(source);
+    await selectExercise(source, SEED_A);
+    await source.locator("#woOverflowBtn").click();
+    await source.locator('[data-workout-action="exercise"]').click();
+    check(await source.locator("#exActionDiscomfortBtn").count()===1,"exercise actions offer a discomfort mark");
+    await source.locator("#exActionDiscomfortBtn").click();
+    await source.waitForFunction(()=>window.__repforgeWorkoutDraft.current()?.exercises?.["seed-ex-1"]?.discomfort?.[0]?.kind==="discomfort");
+    await source.locator("#exActionsClose").click();
+    await selectExercise(source, "seed-ex-2");
+    await source.locator("#woOverflowBtn").click();
+    await source.locator('[data-workout-action="exercise"]').click();
+    await source.locator("#exActionSkipBtn").click();
+    await source.locator('[data-skip-reason="time"]').click();
+    await source.waitForFunction(()=>window.__repforgeWorkoutDraft.current()?.exercises?.["seed-ex-2"]?.skipReason==="time");
+    await reload(source);
+    check((await source.evaluate(()=>window.__repforgeWorkoutDraft.current()?.exercises?.["seed-ex-1"]?.discomfort?.[0]?.kind))==="discomfort","draft recovery keeps discomfort");
+    check((await source.evaluate(()=>window.__repforgeWorkoutDraft.current()?.exercises?.["seed-ex-2"]?.skipReason))==="time","draft recovery keeps the skip reason");
     await source.clock.setFixedTime(new Date(FINISHED));
     const finished = await finishEarly(source);
     let state = await durable(source);
     const [sid] = sessionIds(state);
     const expected = { startedAt: STARTED, completedAt: FINISHED, durationSeconds: 2530 };
+    const [first,second]=seedProgram();
+    const expectedEvents = {v:1,skips:[{exerciseId:second.libraryId,name:second.name,slotId:"seed-ex-2",reason:"time"}],pain:[{exerciseId:first.libraryId,name:first.name,slotId:"seed-ex-1",kind:"discomfort",swapped:false}]};
+    check(JSON.stringify(canonical(state.sessionEvents?.[sid]))===JSON.stringify(canonical(expectedEvents)),"session events commit beside the rows",state.sessionEvents);
+    const replica=await source.evaluate(async()=>{
+      const db=await new Promise((resolve,reject)=>{const r=indexedDB.open("repforge",1);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)});
+      const value=await new Promise((resolve,reject)=>{const r=db.transaction("kv").objectStore("kv").get("repforge_v1");r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)});
+      db.close();return value;
+    });
+    check(JSON.stringify(canonical(replica.sessionEvents?.[sid]))===JSON.stringify(canonical(expectedEvents)),"the acknowledged replica carries the same session events",replica.sessionEvents);
     check(finished?.localOk || finished?.idbOk, "the early finish saved the session", finished);
     check(JSON.stringify(state.sessionTiming?.[sid]) === JSON.stringify(expected),
       "the session keeps its start, its finish and 42 min 10 s of wall-clock time", state.sessionTiming);
@@ -261,9 +290,12 @@ async function main() {
     await reload(source);
     state = await durable(source);
     check(JSON.stringify(state.sessionTiming?.[sid]) === JSON.stringify(expected), "a reload reads the same timing", state.sessionTiming);
+    check(JSON.stringify(canonical(state.sessionEvents?.[sid]))===JSON.stringify(canonical(expectedEvents)),"session events survive this reload/import boundary",state.sessionEvents);
+    await source.evaluate(()=>window.__repforgeUi.setPref("weekCardSeen","2026-W40"));
     const backup = await exportBackup(source);
     check(JSON.stringify(backup.sessionTiming?.[sid]) === JSON.stringify(expected), "the backup export carries it", backup.sessionTiming);
     const envelope = await transferEnvelope(source);
+    check(envelope.uiPreferences.weekCardSeen==="2026-W40"&&!JSON.stringify(backup).includes("weekCardSeen"),"week dismissal travels only in the install clone");
     check(JSON.stringify(envelope.durableState.sessionTiming?.[sid]) === JSON.stringify(expected),
       "the install-transfer envelope carries it and passes the transfer contract", envelope.durableState.sessionTiming);
 
@@ -272,20 +304,32 @@ async function main() {
     await reload(restored);
     state = await durable(restored);
     check(JSON.stringify(state.sessionTiming?.[sid]) === JSON.stringify(expected), "a backup Replace and reload keep it", state.sessionTiming);
+    check(JSON.stringify(canonical(state.sessionEvents?.[sid]))===JSON.stringify(canonical(expectedEvents)),"session events survive this reload/import boundary",state.sessionEvents);
 
-    const transferred = await bootFresh(await context({ guides: "live" }), FINISHED);
+    const transferred = await bootFresh(await context({ guides: "live" }), FINISHED,{withoutTelemetry:true});
+    await reload(transferred);
     const imported = await importTransfer(transferred, envelope);
-    check(imported?.ok === true, "a fresh destination accepts the transfer", imported);
+    check(imported?.ok === true, "a fresh destination accepts the transfer", {imported,ui:await transferred.evaluate(()=>JSON.parse(localStorage.getItem("repforge_ui_v1")))});
+    check(await transferred.evaluate(()=>JSON.parse(localStorage.getItem("repforge_ui_v1")).weekCardSeen)==="2026-W40","install transfer keeps the dismissed week");
+    for(const value of ["2026-W40",{invalid:true}]){
+      const protectedPage=await bootFresh(await context({guides:"live"}),FINISHED,{withoutTelemetry:true});
+      await protectedPage.evaluate(value=>window.__repforgeUi.setPref("weekCardSeen",value),value);
+      await reload(protectedPage);
+      const refused=await importTransfer(protectedPage,envelope);
+      check(refused?.ok!==true&&sessionIds(await durable(protectedPage)).length===0,"explicit or malformed week preferences protect a destination",refused);
+    }
     await reload(transferred);
     state = await durable(transferred);
     check(JSON.stringify(state.sessionTiming?.[sid]) === JSON.stringify(expected), "an install-transfer import and reload keep it", state.sessionTiming);
+    check(JSON.stringify(canonical(state.sessionEvents?.[sid]))===JSON.stringify(canonical(expectedEvents)),"session events survive this reload/import boundary",state.sessionEvents);
 
     const merged = await bootFresh(await context(), FINISHED);
-    await installSeedProgram(merged, { waitFor: () => waitForAppBoot(merged, { base: BASE }) });
+    await installSeedProgram(merged, { waitFor: () => waitForAppBoot(merged, { base: BASE }), settings: { rirMode: "numeric" } });
     await importBackupThroughUi(merged, backup, "#importMerge");
     await reload(merged);
     state = await durable(merged);
     check(JSON.stringify(state.sessionTiming?.[sid]) === JSON.stringify(expected), "a backup Merge brings the added session's timing", state.sessionTiming);
+    check(JSON.stringify(canonical(state.sessionEvents?.[sid]))===JSON.stringify(canonical(expectedEvents)),"session events survive this reload/import boundary",state.sessionEvents);
 
     phase("A reader takes a payload that carries timing without refusing it");
     // Built by hand, so this phase also runs against a release that writes none.
@@ -343,6 +387,16 @@ async function main() {
       JSON.stringify(Object.keys(state.sessionTiming || {})) === JSON.stringify([sid]),
     "a save that lost to another tab writes no rows and no timing", { refused, timing: state.sessionTiming });
 
+    phase("Abandoning a marked session writes no events");
+    await reload(source);
+    await source.evaluate(()=>window.__repforgeWorkoutDraft.dispatch("markDiscomfort",{exerciseInstanceId:"seed-ex-1",kind:"discomfort"}));
+    await source.locator("#sessionSheetBtn").click();
+    await source.locator("#sessionAbandon").click();
+    await source.locator("#sessionAbandonConfirm").click();
+    await source.waitForFunction(()=>window.__repforgeWorkoutDraft.current()===null);
+    state=await durable(source);
+    check(JSON.stringify(Object.keys(state.sessionEvents||{}))===JSON.stringify([sid]),"an abandoned marked session writes no event record",state.sessionEvents);
+
     phase("Deleting the session deletes its timing");
     await reload(source);
     // The refused save left its draft open; step out of it to reach History.
@@ -358,6 +412,7 @@ async function main() {
       sid, { timeout: 10000 });
     state = await durable(source);
     check(!state.sessionTiming || !(sid in state.sessionTiming), "no timing outlives its session", state.sessionTiming);
+    check(!state.sessionEvents?.[sid],"no session events outlive the deleted session",state.sessionEvents);
   } catch (error) {
     failures.push(String(error?.stack || error));
     console.error(error?.stack || error);

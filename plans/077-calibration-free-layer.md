@@ -11,6 +11,31 @@ Written against `main` f40d84f2e and updated against 98b80ee5; check for drift b
 Out of scope: Pro, trials, paywalls, billing, clusters, any telemetry change (frozen; synthesis §12.6), and a
 Training Profile dashboard.
 
+### Amendments (owner, 2026-11-08)
+
+Recorded from the owner's decisions in `docs/coach-layer-strategy-2026-11-08.md` (§10). They govern the
+follow-on plans; the body below is left as the history of what shipped.
+
+- **OD-3, OD-4, OD-6 — two stages, words by default (D-3, D-15).** Reps left and RIR are one quantity, and the
+  engine credits performed RIR only up to the cap of 5 (OD-23b), so the numeric field's extra range is never
+  used. Stages B and C merge into one numeric stage labelled *reps left*, chips 0 · 1 · 2 · 3 · 4 · 5+, with
+  5+ stored as 5. RIR becomes a glossary word, never a mode label. A new install starts in words
+  (`DEFAULTS.rirMode:"effort"`, `effortScale:"feel"`); one onboarding question lets a lifter who already counts
+  reps left start on the numeric stage. The B→C tip is retired; `effortScale` is retired or kept for
+  compatibility, decided in the ladder plan. `rirMode` keeps its two values for setup links and the transfer
+  contract; provenance rows keep `reps_left` and `reps_left_3plus`.
+- **OD-12 — the calendar becomes a ceiling (D-4).** Under the estimator (`ENGINE_VERSION` 078.x, its own plan)
+  test sets are requested when a lift's estimate is uncertain. The safety rules stay as written; the
+  fourteen-day and two-per-week rules remain as ceilings, not as the schedule.
+- **OD-20 — the percentage is dissolved (D-6).** The Today ring and the Progress percent go. The six signals
+  survive as counts and standing words inside the lifter's **profile**, "what Taurifer knows about you". The
+  Training Profile exclusion above is lifted: the profile is planned, all Free in the alpha (D-8).
+- **OD-21 — stays open (D-7).** The alpha runs with every Pro feature on; whether any calibration surface is
+  a Pro lever is decided after it.
+- **Session zero and declared priors (D-2, D-5)** are new Free work in their own plan: a guided first session
+  that finds starting loads in words, and a published, versioned priors table for opening loads and new-lift
+  ratios.
+
 ## 1. Problem
 
 Taurifer turns every logged set into capacity, `effectiveLoad × (1 + (reps + RIR)/30)`

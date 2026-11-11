@@ -128,8 +128,6 @@ export const ORANGE_CATEGORIES = Object.freeze([
   // Finish and share (owner decisions, 2026-11-05, prototype v2): the record poster's ground, the stats card's accent
   // figure and improvement mark, and the finish screen's gain and record figures.
   "finish-share",
-  // The calibration ring on Today (owner decision, 2026-11-06, direction B): the arc's fill and the done test-set dots.
-  "calibration-ring",
   // The owner's hill-climb amendments (2026-11-10, DESIGN.md "Owner decisions"): the exercise chart's trend, points
   // and marker; the current item (Focus's open set row, the chart's selected session); Settings' Back up now while a
   // backup is due; and a switch that is on.
@@ -194,8 +192,6 @@ export const ORANGE_ALLOWLIST = [
   { category: "finish-share", selector: "#shareGrounds .sharesheet__swatch.is-orange" },
   { category: "finish-share", selector: "#sessionSummary .sum-tile__val.is-accent" },
   { category: "finish-share", selector: "#sessionSummary .sum-tile__val.is-accent > span" },
-  { category: "calibration-ring", selector: "#todayDash .calring__fill" },
-  { category: "calibration-ring", selector: "#todayDash .calring__dot.is-done" },
   // Today's live card (owner-approved mock A, 2026-10-23): the live dot and its pulse, the tag, the sets bar's fill, and
   // the current lift's status ring.
   { category: "live-session", selector: "#todayLive .today-live__dot" },
@@ -611,7 +607,15 @@ function catalogMatchers(dictionary) {
   if (compiled.has(dictionary)) return compiled.get(dictionary);
   const escape = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const patterns = [];
-  for (const value of Object.values(dictionary)) {
+  for (const [key, value] of Object.entries(dictionary)) {
+    if (/^focus\.exmeta\.(?:effort|goal|range)$/.test(key)) {
+      const number = "\\d+(?:[.,]\\d+)?";
+      const line = escape(String(value)).replace(escape("{rmin}–{rmax}"), `${number}(?:–${number})?`)
+        .replace(/\\\{\w+\\\}/g, number);
+      const methods = Object.entries(dictionary).filter(([name]) => name === "program.progression.adaptive"
+        || name.startsWith("program.progression.strategy.")).map(([, label]) => escape(String(label)));
+      patterns.push(new RegExp(`^${line} · (?:${methods.join("|")})$`, "iu"));
+    }
     for (const segment of String(value).split(/<[^>]*>/)) {
       const normal = segment.replace(/\s+/g, " ").trim();
       if (!/\p{L}/u.test(normal.replace(/\{\w+\}/g, ""))) continue;
@@ -655,6 +659,10 @@ export function checkStrings(evidence, catalog) {
   const catalogOrData = (value) => {
     const whole = value.replace(/\s+/g, " ").trim();
     if (!/\p{L}/u.test(whole) || matchers.some((pattern) => pattern.test(whole))) return true;
+    // Validate composed sentences before punctuation/data splitting can erase a
+    // catalog sentence's own comma or a decimal inside its substituted figures.
+    const sentences = whole.split(/(?<=[.!?])\s+/u);
+    if (sentences.length > 1 && sentences.every(sentence => matchers.some(pattern => pattern.test(sentence)))) return true;
     // Keep exact catalog fragments intact before removing arbitrary raw data strings. A
     // recorded value such as "Reps" can also be part of approved copy such as "Reps por lado".
     const protectedParts = whole.split(/(\s*[·•|,;:()[\]+×–]\s*|\s+-\s+)/u);

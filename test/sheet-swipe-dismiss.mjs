@@ -380,7 +380,7 @@ async function run() {
     localStorage.removeItem(d);
   }, DRAFT);
   // The sheets under test describe a program; a fresh device holds none.
-  await installSeedProgram(page, { waitFor: settle });
+  await installSeedProgram(page, { waitFor: settle, settings: { rirMode: "numeric" } });
 
   // ---- the program-text sheet: the whole grammar of the gesture ---------------
   phase("a long push down dismisses the sheet");

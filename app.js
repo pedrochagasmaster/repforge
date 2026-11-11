@@ -421,6 +421,8 @@ function isSafeProgressionMeta(value,customDefinitions=[]){
   if(value==null)return true;
   if(!isPlainStateObject(value))return false;
   if(!isValidMuscleDomainTree(value))return false;
+  if(Object.prototype.hasOwnProperty.call(value,"adaptations")&&
+    !window.RepForgeProgramTransition?.validateAdaptations(value.adaptations))return false;
   if(Object.prototype.hasOwnProperty.call(value,"blockId")&&
     !isValidBlockId(value.blockId,value.id))return false;
   if(Object.prototype.hasOwnProperty.call(value,"transitionIn")&&value.transitionIn!=null&&
@@ -462,6 +464,7 @@ function isSafeLogRow(entry){
   if(Object.prototype.hasOwnProperty.call(entry,"effortSource")&&!(WorkoutDraft?.EFFORT_SOURCES||[]).includes(entry.effortSource))return false;
   // "Was the last rep slow?" (Plan 077, OD-25): a boolean, or absent.
   if(Object.prototype.hasOwnProperty.call(entry,"lastRepSlow")&&typeof entry.lastRepSlow!=="boolean")return false;
+  if(Object.prototype.hasOwnProperty.call(entry,"startingLoad")&&!WorkoutDraft?.validStartingLoad?.(entry.startingLoad))return false;
   // A max set's guess (Plan 077, OD-17): the draft's shape, or absent.
   if(Object.prototype.hasOwnProperty.call(entry,"calibration")&&!WorkoutDraft?.validCalibration?.(entry.calibration))return false;
   for(const key of ["performedName","performedLibraryId","performedMovementId","performedPrimary","performedSecondary"])
@@ -545,6 +548,7 @@ function isValidStateShape(s){
     // relabeling or dropping unknown historical muscle identity.
     if(!isPlainStateObject(s)||!Array.isArray(s.program)||!s.program.every(isSafeProgressionFields)||
       !Array.isArray(s.log)||!s.log.every(isSafeLogRow))return false;
+    if(Object.prototype.hasOwnProperty.call(s,"sessionEvents")&&!WorkoutDraft.validateSessionEvents(s.sessionEvents))return false;
     if(Object.prototype.hasOwnProperty.call(s,"programMeta")&&!isSafeProgressionMeta(s.programMeta,s.customExercises||[]))return false;
     if(Object.prototype.hasOwnProperty.call(s,"recoveryTransitions")&&!isValidRecoveryTransitions(s.recoveryTransitions))return false;
     if(Object.prototype.hasOwnProperty.call(s,STORAGE_DRAFT_TXN)&&!pendingDraftTransaction(s))return false;
@@ -1129,13 +1133,14 @@ const ROUTE_PUSH_DEADLINE_MS=1500;
    route does not push it a second time. While a pull is live the page it returns
    to is mounted beneath it (History has none to mount: its list is rendered
    over the session page, so the pull shows the paper beneath). */
-const EDGE_BACK={exercise:"#exBack",library:"#libBack",exercisePreview:"#previewBack",history:"[data-history-back]"};
+const EDGE_BACK={stats:"#summaryProfileBack",exercise:"#exBack",library:"#libBack",exercisePreview:"#previewBack",history:"[data-history-back]"};
 let routeEdge=null,routeEdgeFrame=0;
 function edgeBackPage(){
   if(document.body.classList.contains("is-focus-wo"))return null;
   const view=$(".view.active");
   if(!view||!EDGE_BACK[view.id])return null;
   if(view.id==="history"&&!view.classList.contains("is-session-page"))return null;
+  if(view.id==="stats"&&!sessionSummaryProfileReturn)return null;
   return view}
 function syncEdgeSwipe(){
   routeEdgeFrame=0;
@@ -1201,6 +1206,7 @@ function openPushedRoutes(){
   if(body.contains("is-preview"))open.push("exercisePreview");
   if(body.contains("is-exercise"))open.push("exercise");
   if(history?.classList.contains("active")&&HistoryUi.hasPushedPage())open.push("history");
+  if(sessionSummaryProfileReturn&&$("#stats")?.classList.contains("active"))open.push("stats");
   return open}
 function syncRouteHistory(){
   if(expectedRouteDepth!==null)return;
@@ -1537,34 +1543,32 @@ async function shareOrDownload(text,name,type,title="Taurifer backup"){
   try{if(navigator.canShare){const file=new File([text],name,{type});
     if(navigator.canShare({files:[file]})){await navigator.share({files:[file],title});return}}}catch{}
   download(text,name,type)}
-/* The effort vocabulary (Plan 077, OD-2 to OD-4): stage A's words, stage B's reps left ("3+" credited as 3) and
-   "Not sure", which saves no RIR. The draft owns the same map. */
+/* Words and numeric reps left share the effort shelf. Legacy tokens remain readable. */
 const EFFORT_RIR={easy:3,hard:1,max:0,r0:0,r1:1,r2:2,r3p:3,unsure:null};
 const EFFORT_STEPS=["easy","hard","max"];
 const EFFORT_LEFT=["r0","r1","r2","r3p"];
+const REPS_LEFT=["0","1","2","3","4","5"];
 const isEffortMode=()=>state?.settings?.rirMode==="effort";
-/** The app-wide effort stage (OD-4): "a" Easy / Hard / Max, "b" reps left, "c" numeric RIR. Stages A and B are
- *  both `rirMode:"effort"`; the device-local `effortScale` tells them apart. */
-const effortStage=()=>!isEffortMode()?"c":state.settings.effortScale==="reps"?"b":"a";
-/** The choices a stage's chips offer, or null for the numeric field. */
-const stageTokens=stage=>stage==="a"?EFFORT_STEPS:stage==="b"?EFFORT_LEFT:null;
-/** The stage a token belongs to; "Not sure" belongs to none. */
-const tokenStage=e=>EFFORT_STEPS.includes(e)?"a":EFFORT_LEFT.includes(e)?"b":null;
-/** Bucket a logged RIR into the effort word closest to it. */
+const effortStage=()=>isEffortMode()?"a":"c";
+const stageTokens=stage=>stage==="a"?EFFORT_STEPS:REPS_LEFT;
+const tokenStage=e=>EFFORT_STEPS.includes(e)?"a":EFFORT_LEFT.includes(e)?"c":null;
 const effortForRir=rir=>+rir>=2.5?"easy":+rir<=0.5?"max":"hard";
-/** Bucket a logged RIR into the reps-left chip closest to it. */
-const leftForRir=rir=>+rir>=2.5?"r3p":+rir>=1.5?"r2":+rir>=0.5?"r1":"r0";
-/** A token in a stage's own vocabulary: the same token when it already is one, else its RIR bucketed; "Not sure"
- *  and unknown values give null. */
+const repsLeftChip=rir=>{
+  if(rir==null||String(rir).trim()==="")return null;
+  const value=parseDec(rir);
+  return Number.isFinite(value)&&value>=0?String(Math.min(5,Math.round(value))):null};
+const repsLeftView=(raw,authored)=>{
+  const offered=repsLeftChip(raw);
+  if(offered==null)return{text:"",chip:null,prefill:null};
+  const exact=String(raw),chip=authored?(REPS_LEFT.includes(exact)?exact:null):offered;
+  return{text:authored?(exact==="5"?"5+":fmt(parseDec(raw))):effortLabel(offered),chip,prefill:offered}};
 const tokenInStage=(e,stage)=>{
   if(tokenStage(e)===stage)return e;
   const rir=EFFORT_RIR[e];
-  return rir==null?null:stage==="b"?leftForRir(rir):effortForRir(rir)};
-/** Words in copy only in stage A; stage B's reps left read as the numbers they are. */
+  return rir==null?null:stage==="c"?repsLeftChip(rir):effortForRir(rir)};
 const isWordMode=()=>effortStage()==="a";
-/** The token the app's stage logs for a RIR (stages A and B). */
-const stageEffortForRir=rir=>effortStage()==="b"?leftForRir(rir):effortForRir(rir);
-const effortLabel=e=>EFFORT_LEFT.includes(e)?(e==="r3p"?"3+":e.slice(1)):t("effort."+e);
+const stageEffortForRir=effortForRir;
+const effortLabel=e=>REPS_LEFT.includes(e)?(e==="5"?"5+":e):EFFORT_LEFT.includes(e)?(e==="r3p"?"3+":e.slice(1)):t("effort."+e);
 /** The same word inside a sentence ("… at hard effort", "… esforço difícil"). */
 const effortWord=e=>effortLabel(e).toLocaleLowerCase(locTag());
 const effortHint=e=>t("effort.hint."+e);
@@ -1733,7 +1737,7 @@ function glossaryPopover(termKey,anchor){const g=$("#glossary");if(!g)return;
   const viewportHeight=document.documentElement.clientHeight||window.innerHeight;
   const top=Math.max(8,Math.min(r.bottom+6,viewportHeight-bounds.height-8));
   g.style.top=`${window.scrollY+top}px`;g.style.left=`${window.scrollX+left}px`}
-const DEFAULTS={jumpPct:2.5,minJump:2.5,rirHigh:2,hardRir:4,restSec:120,lastExport:"",unit:"kg",lang:null,rirMode:"numeric",effortScale:"feel",voiceInputEnabled:false,maxSetPrompts:true,slowRepTaps:true,notify:{enabled:false,timer:true,session:true,unfinished:true,missed:true}};
+const DEFAULTS={jumpPct:2.5,minJump:2.5,rirHigh:2,hardRir:4,restSec:120,lastExport:"",unit:"kg",lang:null,rirMode:"effort",voiceInputEnabled:false,maxSetPrompts:true,slowRepTaps:true,notify:{enabled:false,timer:true,session:true,unfinished:true,missed:true}};
 const normSetting=(v,def,min=0)=>Number.isFinite(+v)&&+v>=min?+v:def;
 /** The hard-set threshold is an RIR a set must be at or under to count as hard: 1 to 10, else the default (Plan 077,
  *  OD-23e). A setup link may still carry 0–100; the device applies it within these bounds. */
@@ -1753,7 +1757,7 @@ function withUnknownKeys(raw,known){
   return Object.assign(out,known)}
 function normalizeNotify(n){
   return withUnknownKeys(n,{enabled:!!(n&&n.enabled),timer:n?.timer!==false,session:n?.session!==false,unfinished:n?.unfinished!==false,missed:n?.missed!==false})}
-const normalizeSettings=s=>{const lang=I18N?.normalizeLang(s?.lang)||I18N?.detectLang()||"en";return withUnknownKeys(s,{jumpPct:normSetting(s?.jumpPct,DEFAULTS.jumpPct,0),minJump:normSetting(s?.minJump,DEFAULTS.minJump,0.01),rirHigh:normSetting(s?.rirHigh,DEFAULTS.rirHigh,0),hardRir:normHardRir(s?.hardRir),restSec:normalizeRestSec(s?.restSec),lastExport:typeof s?.lastExport==="string"?s.lastExport:"",unit:s?.unit==="lb"?"lb":"kg",lang,rirMode:s?.rirMode==="effort"?"effort":"numeric",effortScale:s?.effortScale==="reps"?"reps":"feel",voiceInputEnabled:normBool(s?.voiceInputEnabled,DEFAULTS.voiceInputEnabled),maxSetPrompts:normBool(s?.maxSetPrompts,DEFAULTS.maxSetPrompts),slowRepTaps:normBool(s?.slowRepTaps,DEFAULTS.slowRepTaps),notify:normalizeNotify(s?.notify)})};
+const normalizeSettings=s=>{const lang=I18N?.normalizeLang(s?.lang)||I18N?.detectLang()||"en";const normalized=withUnknownKeys(s,{jumpPct:normSetting(s?.jumpPct,DEFAULTS.jumpPct,0),minJump:normSetting(s?.minJump,DEFAULTS.minJump,0.01),rirHigh:normSetting(s?.rirHigh,DEFAULTS.rirHigh,0),hardRir:normHardRir(s?.hardRir),restSec:normalizeRestSec(s?.restSec),lastExport:typeof s?.lastExport==="string"?s.lastExport:"",unit:s?.unit==="lb"?"lb":"kg",lang,rirMode:s?.rirMode==="numeric"||s?.rirMode==="effort"&&s?.effortScale==="reps"?"numeric":"effort",voiceInputEnabled:normBool(s?.voiceInputEnabled,DEFAULTS.voiceInputEnabled),maxSetPrompts:normBool(s?.maxSetPrompts,DEFAULTS.maxSetPrompts),slowRepTaps:normBool(s?.slowRepTaps,DEFAULTS.slowRepTaps),notify:normalizeNotify(s?.notify)});delete normalized.effortScale;return normalized};
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 const LB=2.2046226218;
 /* Locale keyboards (pt-BR, de, fr, …) put a comma on the decimal pad. HTML
@@ -2697,10 +2701,15 @@ function substitutionProgram(id,libraryRef){
   if(!metricDefinitions)return null;
   if(custom&&!metricDefinitions.length)return"unconfigured";
   const{loadingModel,loadingConvention,loadingContext}=metricLoading(metricDefinitions,source);
+  const projection=slotLoadingProjection({exerciseId:libraryRef,metricDefinitions,loadingModel});
+  loadingContext.externalLoadMultiplier=projection.externalLoadMultiplier;
   const semantics=new Set(metricDefinitions.map(metric=>metric.semantic));
   const programmedSets=draftExercise.setOrder.map(setId=>{
     const programmed=draftExercise.sets[setId].programmed;
     const targets=Object.fromEntries(Object.entries(programmed.targets||{}).filter(([semantic])=>semantics.has(semantic)));
+    const repMetric=metricDefinitions.find(metric=>["reps","repsPerSide"].includes(metric.semantic));
+    const oldRepTarget=programmed.targets?.reps??programmed.targets?.repsPerSide;
+    if(repMetric&&oldRepTarget!=null)targets[repMetric.semantic]=cloneSnapshot(oldRepTarget);
     const repTarget=targets.reps??targets.repsPerSide,reps=Number.isSafeInteger(repTarget?.min??repTarget);
     return{metricDefinitions,targets,restSeconds:programmed.restSeconds??null,targetRir:programmed.targetRir??null,
       minReps:reps?repTarget?.min??repTarget:null,maxReps:reps?repTarget?.max??repTarget:null,
@@ -3139,7 +3148,9 @@ function captureDraftCommandTelemetry(command,before,after,ui){
     // the reason after the pick (refinement audit A4, owner 2026-11-01), so its swap's event waits for that answer and
     // goes out then, with the payload it had when the reason was asked first.
     if(command.type==="substituteExercise"&&(ui?.substitutionSource==="alternate"||ui?.substitutionSource==="library")){
-      if(ui.reasonAfter)pendingSubstitutionEvent={source:ui.substitutionSource};
+      if(ui.reasonAfter){const substitution=after.exercises[command.exerciseInstanceId].substitution;
+        pendingSubstitutionEvent={source:ui.substitutionSource,draftId:after.draftId,exerciseInstanceId:command.exerciseInstanceId,
+          selectedAt:substitution.selectedAt,replacementId:substitution.replacement.exerciseInstanceId}}
       else captureEvent("substitution_used",SUBSTITUTION_REASONS.includes(ui.substitutionReason)
         ?{source:ui.substitutionSource,reason:ui.substitutionReason}:{source:ui.substitutionSource})}}
   catch{}}
@@ -3147,10 +3158,25 @@ function captureDraftCommandTelemetry(command,before,after,ui){
 let pendingSubstitutionEvent=null;
 /** Send the held swap event with the reason chosen, or with none for a skip, a dismissal or the page going away: the
  *  same event and properties as when the reason was chosen before the pick, once. */
-function settleSubstitutionEvent(reason){
-  const pending=pendingSubstitutionEvent;pendingSubstitutionEvent=null;
-  if(!pending)return;
-  captureEvent("substitution_used",SUBSTITUTION_REASONS.includes(reason)?{source:pending.source,reason}:{source:pending.source})}
+async function settleSubstitutionEvent(reason){
+  const pending=pendingSubstitutionEvent;
+  if(!pending)return{status:"missing"};
+  const answered=SUBSTITUTION_REASONS.includes(reason);
+  if(pending.inFlight){
+    if(!answered)pending.cancelAfterAttempt=true;
+    return pending.inFlight}
+  const report=answer=>{
+    if(pendingSubstitutionEvent===pending)pendingSubstitutionEvent=null;
+    captureEvent("substitution_used",answer?{source:pending.source,reason:answer}:{source:pending.source})};
+  if(!answered){report(null);return{status:"cancelled"}}
+  const {draftId,exerciseInstanceId,selectedAt,replacementId}=pending;
+  pending.inFlight=WorkoutSession.dispatch("recordSubstitutionReason",{draftId,exerciseInstanceId,selectedAt,replacementId,reason},{draftId})
+    .then(result=>{
+      if(result.status==="applied")report(reason);
+      else if(pending.cancelAfterAttempt)report(null);
+      return result})
+    .finally(()=>{pending.inFlight=null});
+  return pending.inFlight}
 addEventListener("pagehide",()=>settleSubstitutionEvent(null));
 function enqueueDraftCommand(type,payload={},ui={}){
   const operationId=`draft-${uid()}`;
@@ -3160,6 +3186,7 @@ function enqueueDraftCommand(type,payload={},ui={}){
   const task=draftWriteTail.then(async()=>{
     if(installTransferMutationFrozen())return{status:"transfer-frozen",code:"install-transfer-frozen"};
     if(!activeWorkoutDraft)return{status:"missing"};
+    if(ui.draftId&&activeWorkoutDraft.draftId!==ui.draftId)return{status:"stale"};
     if((draftUiRecovery?.attempt||draftUiRecovery?.status==="refresh-failed")&&!draftUiRecovery.allowRetry){
       focusDraftRecovery();return{status:"recovery-pending"}}
     if(type==="refreshUntouchedSuggestions"&&window.__repforgeDraftFault==="stale-suggestion-loop")
@@ -3379,13 +3406,11 @@ async function requestWorkoutDay(nextDay,{undo=false,ofDraft}={}){
    progress takes it from the next set on: the live DraftV2 switches its mode in the same commit as the setting, and
    every set it already holds keeps the vocabulary it was entered in. */
 /** The Settings radio that stands for each stage, and the stage's name. */
-const STAGE_LABEL={a:"settings.rir_effort",b:"settings.rir_reps",c:"settings.rir_numbers"};
-const STAGE_SUB={a:"focus.effort_menu.sub_a",b:"focus.effort_menu.sub_b",c:"focus.effort_menu.sub_c"};
-const STAGE_PICK={a:"effort",b:"reps",c:"numeric"};
-const stageForPick=v=>v==="reps"?"b":v==="effort"?"a":"c";
-/** The two settings a stage is stored as. Stage C keeps the scale, so a return to words finds the lifter's last one. */
-const stageSettings=(stage,settings=state.settings)=>({rirMode:stage==="c"?"numeric":"effort",
-  effortScale:stage==="b"?"reps":stage==="a"?"feel":settings.effortScale==="reps"?"reps":"feel"});
+const STAGE_LABEL={a:"settings.rir_effort",c:"settings.rir_numbers"};
+const STAGE_SUB={a:"focus.effort_menu.sub_a",c:"focus.effort_menu.sub_c"};
+const STAGE_PICK={a:"effort",c:"numeric"};
+const stageForPick=v=>v==="effort"?"a":"c";
+const stageSettings=stage=>({rirMode:stage==="a"?"effort":"numeric"});
 /** The draft side of a mode change: a live DraftV2 takes `setRirMode` in the settings commit, so the two never
  *  disagree. No draft needs nothing; a draft that refuses (one that is finishing) blocks the change. */
 function draftRirModeEffect(expectedRaw,newMode){
@@ -3451,15 +3476,32 @@ async function applyCustomSub(id,raw,libraryRef=null,ui={}){
   if(result.status==="domain-error"&&result.error?.code==="substitution-touched-pending-set")toast(t("toast.substitute_started_sets"));
   if(result.status!=="applied")return false;
   if(workoutActive)renderWorkout();else renderToday();return true}
+function sessionSetCount(ex){return activeWorkoutDraft?.exercises?.[ex.id]?.setOrder.length??ex.sets}
 function sessionExercise(ex){
   if(!ex||!substituted.has(ex.id))return ex;
   const name=substituted.get(ex.id),ref=substitutedRef.get(ex.id),entry=ref?libraryEntry(ref):null;
   if(!entry)return Object.assign({},ex,{name,libraryId:undefined,movementId:`adhoc:${movementToken(name)}`});
   return Object.assign({},ex,exerciseFieldsFromLibrary(entry),{name,libraryId:entry.id})}
+function earlierPainOnMovement(exercise,movementId){
+  const sessions=new Set(readLogRows().map(row=>row.session));
+  return Object.entries(state.sessionEvents||{}).some(([session,events])=>sessions.has(session)&&
+    events.pain.some(event=>event.slotId===exercise.sourceExerciseId&&event.exerciseId===movementId))}
+function painAlternateOrder(ids,movementId){
+  // Shared loading plates do not make a barbell and dumbbells the same class.
+  // Unknown equipment stays behind alternatives known to differ.
+  const classes=id=>{
+    const equipment=(rawExercise(id)?.resistanceEquipmentGroupIds||[]).flatMap(id=>{
+      const item=rawCatalogObject(id);
+      return item?.type==="equipment"?[item]:(item?.equipment||[]).map(rawCatalogObject).filter(Boolean)});
+    return new Set(equipment.filter(item=>!/^(weight|bumper) plates?$/i.test(item.name))
+      .map(item=>item.category).filter(Boolean))};
+  const current=classes(movementId);
+  const different=id=>{const next=classes(id);return current.size>0&&next.size>0&&![...next].some(value=>current.has(value))};
+  return [...ids].sort((a,b)=>Number(different(b))-Number(different(a)))}
 /* Mid-session swap. The slot's own movement stays in the list, and picking it
    is how a lifter undoes a swap — the alternative was a "back to X" row that
    means nothing until you already know what X was. */
-function openSubstitutePicker(id){
+function openSubstitutePicker(id,{painMovementId=null}={}){
   const ex=prog.find(id);if(!ex)return;
   const byName=new Map(pickableExercises().map(e=>[foldSearch(libraryName(e)),e]));
   const self=(ex.libraryId&&libraryEntry(ex.libraryId))||byName.get(foldSearch(ex.name))||null;
@@ -3467,8 +3509,9 @@ function openSubstitutePicker(id){
   // substitution rules (shared metrics, typed sets protected) apply unchanged.
   const slotId=String(ex.slotId||ex.id);
   const slot=(state.programMeta?.programDefinition?.days||[]).flatMap(day=>day.slots||[]).find(item=>item?.id===slotId);
-  openExercisePicker({title:t("picker.title_substitute"),subtitle:exerciseDisplayName(ex),
-    leading:{title:"picker.section_alternates",ids:Array.isArray(slot?.alternates)?slot.alternates:[]},
+  openExercisePicker({title:t("picker.title_substitute"),subtitle:exerciseDisplayName(painMovementId?sessionExercise(ex):ex),
+    leading:{title:"picker.section_alternates",ids:painMovementId
+      ?painAlternateOrder(slot?.alternates||[],painMovementId):slot?.alternates||[]},
     reasons:SUBSTITUTION_REASONS,
     returnFocus:workoutActive?null:()=>document.querySelector(`#todayExList [data-row-menu="${CSS.escape(id)}"]`),
     onPick:entry=>{
@@ -3496,7 +3539,7 @@ function trimmedNamesText(ids){
   if(names.length===2)return t("log.trimmed_named.two",{a:names[0],b:names[1]});
   return t("log.trimmed_named.more",{a:names[0],b:names[1],n:names.length-2})}
 /* The Trim toast: the day-change toast's shape (an Undo beside the text, no focus moved, a second one replaces it).
-   Undo restores the lifts this Trim hid and re-hides any it had brought back, by hand, so no reason is recorded. */
+   Undo restores the lifts this Trim hid and re-hides any it had brought back without recording a new reason. */
 let trimToastEl=null,trimToastTimer=null;
 function hideTrimToast(){clearTimeout(trimToastTimer);trimToastTimer=null;trimToastEl?.remove();trimToastEl=null}
 function showTrimToast(trimmed,restored,draftId){
@@ -3664,6 +3707,10 @@ function normalizeProgramMeta(m,log=[],program=[],options={}){const now=new Date
     created:typeof m.created==="string"?m.created:base.created,updated:typeof m.updated==="string"?m.updated:now,
     goal,experience,daysPerWeek,splitType,equipment,priorityMuscles,sessionLength,mesocycleLengthWeeks,mesocycleStatus,completedAt,onboarded,
     progressionRelations,progressionModifiers,progressionIncompatibilities:incompatibilities,blockPromptDismissedId,programStructure,entrySource};
+  if(Object.prototype.hasOwnProperty.call(m,"adaptations")){
+    if(!window.RepForgeProgramTransition?.validateAdaptations(m.adaptations))throw new TypeError("adaptations: invalid versioned records");
+    metaObj.adaptations=cloneSnapshot(m.adaptations);
+  }
   if(plannedVolumeHistory!=null)metaObj.plannedVolumeHistory=plannedVolumeHistory;
   if(programDefinition)metaObj.programDefinition=programDefinition;
   if(Object.prototype.hasOwnProperty.call(m,"blockId"))metaObj.blockId=m.blockId;
@@ -3824,11 +3871,20 @@ function normalizeSessionTiming(value,log){
     const record=sessionTimingRecord(entry.startedAt,entry.completedAt);
     if(record&&record.durationSeconds===entry.durationSeconds)out[sid]=record}
   return Object.keys(out).length?out:null}
+function normalizeSessionEvents(value,log){
+  if(!WorkoutDraft.validateSessionEvents(value))return null;
+  const sessions=new Set((log||[]).map(row=>String(row?.session??"")));
+  const entries=Object.entries(value).filter(([sid])=>sessions.has(sid));
+  return entries.length?cloneSnapshot(Object.fromEntries(entries)):null}
 function normalizeLoaded(s,options={}){
   if(s==null)return{settings:{...DEFAULTS},programMeta:defaultProgramMeta([]),program:[],log:[],programHistory:[],customExercises:[],[STORAGE_REV]:0};
   if(!isValidStateShape(s))throw new TypeError("Invalid Taurifer state");
   const customs=normalizeCustomExercises(s.customExercises),lookup=snapshotLookup(customs);
-  const out={settings:normalizeSettings(s.settings),programMeta:null,
+  // A legacy installed snapshot or backup can predate the explicit mode. Its
+  // old implicit numeric choice must survive the new fresh-device default.
+  const hasTraining=!!(s.program?.length||s.log?.length||s.programHistory?.length||s.programMeta?.onboarded||structureDayLabels(s.programMeta));
+  const settings=hasTraining&&!["numeric","effort"].includes(s.settings?.rirMode)?{...s.settings,rirMode:"numeric"}:s.settings;
+  const out={settings:normalizeSettings(settings),programMeta:null,
     program:[],log:cloneSnapshot(s.log),
     programHistory:normalizeProgramHistory(Object.prototype.hasOwnProperty.call(s,"programHistory")?s.programHistory:[],lookup),
     customExercises:customs};
@@ -3852,6 +3908,9 @@ function normalizeLoaded(s,options={}){
     const normalized=window.RepForgeProgramEntry?.normalizeProfile?.(s.profile);
     out.profile=normalized?.ok&&Object.keys(normalized.value).length
       ?normalized.value:cloneSnapshot(s.profile)}
+  if(Object.prototype.hasOwnProperty.call(s,"sessionEvents")){
+    const events=normalizeSessionEvents(s.sessionEvents,out.log);
+    if(events)out.sessionEvents=events}
   if(Object.prototype.hasOwnProperty.call(s,"sessionTiming")){
     const timing=normalizeSessionTiming(s.sessionTiming,out.log);
     if(timing)out.sessionTiming=timing}
@@ -3884,6 +3943,8 @@ async function mergeImportedLog(incoming,io=storageIO){
   if(!added)return{revision:readRevision(state),localOk:true,idbOk:true,added:0};
   const proposal=cloneSnapshot(state);
   proposal.log=proposal.log.concat(cloneSnapshot(add));
+  const addedEvents=normalizeSessionEvents(incoming.sessionEvents,add);
+  if(addedEvents)proposal.sessionEvents={...(proposal.sessionEvents||{}),...addedEvents};
   const addedTiming=normalizeSessionTiming(incoming.sessionTiming,add);
   if(addedTiming)proposal.sessionTiming={...(proposal.sessionTiming||{}),...addedTiming};
   migrateLogSnapshot(proposal);
@@ -4210,6 +4271,265 @@ function buildPlainSummary(snapshot){if(!snapshot)return"";
   const copy=blockRecommendationCopy(snapshot.recommendation);
   parts.push(copy.line.replace(/^Recommendation:\s*/i,"").trim());
   return parts.join(" ")}
+// Calendar facts use the same comparison, stall and fatigue owners as Progress.
+function weekReviewFacts(date){
+  const Model=window.RepForgeProgressModel,{start,end}=weekRange(date),blockId=snapshotBlockId(state);
+  const log=state.log.filter(row=>String(row.date)<=end&&(!blockId||row.blockId===blockId));
+  const rows=readLogRows(log),trained=new Set(rows.filter(row=>String(row.date)>=start&&isWork(row)).map(liftKey));
+  const outcomes=strengthEvidenceRecords("current-block",log).filter(record=>trained.has(record.exerciseId)&&record.outcome)
+    .map(({exerciseId,outcome})=>({exerciseId,outcome}));
+  const stalled=[],fatigue=[];
+  for(const key of trained){
+    const current=currentExerciseForLiftKey(key),sample=rows.find(row=>liftKey(row)===key);
+    const ex=current||exerciseIdentityFromRow(sample);
+    if(isStalled(sessionsForLog(ex,rows)))stalled.push(key);
+    if(!current)continue;
+    const matched=canonicalPrescriptionSlot(current,state.programMeta?.programDefinition);
+    if(!matched)continue;
+    const definition=state.programMeta.programDefinition;
+    const elapsed=Math.floor(RepForgeProgressModel.calendarDayDistance(state.programMeta.started,end)/7)+1;
+    const cycle=Math.min(definition.cycles,Math.max(1,elapsed));
+    const first=RepForgeProgramCompiler.prescriptionsForCycle(definition,cycle).find(item=>item.slotId===matched.slot.id);
+    if(!first)continue;
+    const history=progressionHistoryFor(first.exerciseId,first.metricIds,slotLoadingProjection(matched.slot),matched.slot.metricDefinitions,log);
+    const trend=window.RepForgeProgression?.performanceTrend?.(first,history,{bySlotId:{[matched.slot.id]:slotLoadingContext(matched.slot)}});
+    if(fatigueSignal({performanceTrend:trend}))fatigue.push(key);
+  }
+  const meta={...state.programMeta,blockId,trainingDays:prog.days(),completedWeek:end<today(),weekFacts:{start,end,outcomes,stalled,fatigue}};
+  return Model.buildWeekReview(readLogRows(),state.sessionEvents,prog.toJSON(),meta,date);
+}
+function weekFactName(id){
+  const ex=prog.find(id)||currentExerciseForLiftKey(id);
+  if(ex)return exerciseDisplayName(ex);
+  const row=readLogRows().find(row=>liftKey(row)===id||row.exerciseId===id);
+  return row?displayName(row):id;
+}
+function weekSessionSentence(facts){
+  return facts.plannedSessions===null
+    ? t(`review.week.sessions_only.${facts.completedSessions===1?"one":"other"}`,{done:facts.completedSessions})
+    : t("review.week.sessions",{done:facts.completedSessions,planned:facts.plannedSessions});
+}
+function weekFactSentences(facts){
+  const names=ids=>[...new Set(ids.map(weekFactName))].join(", ");
+  const lines=[weekSessionSentence(facts)];
+  if(facts.missedDays.length)lines.push(t("review.week.missed",{days:facts.missedDays.map(dayLabel).join(", ")}));
+  for(const event of facts.pain)lines.push(t(`review.week.${event.kind}${event.swapped?"_swapped":""}`,{lift:event.name}));
+  for(const event of facts.skips)lines.push(!event.reason||event.reason==="other"
+    ? t("review.week.skipped_unspecified",{lift:event.name})
+    : t("review.week.skipped",{lift:event.name,reason:t(`focus.skip_reason.${event.reason}`)}));
+  if(facts.trimUsed)lines.push(t("review.week.trim"));
+  if(facts.outcomes.length||facts.stalled.length||facts.fatigue.length)lines.push(t("review.week.performance_scope"));
+  for(const outcome of REVIEW_OUTCOME_ORDER){const ids=facts.outcomes.filter(fact=>fact.outcome===outcome).map(fact=>fact.exerciseId);
+    if(ids.length)lines.push(t(`review.week.${outcome}`,{lifts:names(ids)}))}
+  if(facts.stalled.length)lines.push(t("review.week.stalled",{lifts:names(facts.stalled)}));
+  if(facts.fatigue.length)lines.push(t("review.week.fatigue",{lifts:names(facts.fatigue)}));
+  return lines;
+}
+function weekReviewHtml(date,period){
+  const facts=weekReviewFacts(date);
+  if(period==="last"&&!facts.programExisted)return "";
+  return `<section class="review__week" data-week-review="${period}" aria-labelledby="weekReview-${period}">`+
+    `<h4 class="section-label" id="weekReview-${period}">${esc(t(period==="last"?"review.week.last":"review.week.current"))}</h4>`+
+    weekFactSentences(facts).map(line=>`<p>${esc(line)}</p>`).join("")+`</section>`;
+}
+function isoWeekId(date){
+  const d=new Date(`${date}T12:00:00Z`),dow=d.getUTCDay()||7;
+  d.setUTCDate(d.getUTCDate()+4-dow);
+  const year=d.getUTCFullYear(),first=new Date(Date.UTC(year,0,1));
+  const week=Math.ceil((((d-first)/86400000)+1)/7);
+  return `${year}-W${String(week).padStart(2,"0")}`;
+}
+function renderWeekCard(){
+  const el=$("#todayWeekCard");if(!el)return;
+  const id=isoWeekId(today());
+  if(uiPrefs.weekCardSeen===id){el.classList.add("hidden");el.replaceChildren();return}
+  const facts=weekReviewFacts(shiftDate(weekStart(today()),-7));
+  const visible=facts.programExisted&&facts.completedSessions>0;
+  el.classList.toggle("hidden",!visible);el.replaceChildren();if(!visible)return;
+  const summary=weekSessionSentence(facts);
+  const counts={improved:facts.outcomes.filter(fact=>fact.outcome==="improved").length,stalled:facts.stalled.length,pain:facts.pain.length};
+  const detail=Object.entries(counts).filter(([,count])=>count>0)
+    .map(([key,count])=>t(`review.week.card_facts.${key}`,{[key]:count})).join(" ");
+  el.innerHTML=`<p class="section-label">${esc(t("review.week.last"))}</p><p>${esc(summary)}</p>`+
+    (detail?`<p>${esc(detail)}</p>`:"")+`<div class="week-card__actions">`+
+    `<button type="button" class="text-link" id="weekCardReview">${esc(t("review.week.open"))}</button>`+
+    `<button type="button" class="text-link" id="weekCardDismiss">${esc(t("review.week.dismiss"))}</button></div>`;
+  $("#weekCardReview").onclick=()=>{setUiPref("weekCardSeen",id);renderWeekCard();navTo("stats");setStatsSeg("review")};
+  $("#weekCardDismiss").onclick=()=>{if(setUiPref("weekCardSeen",id))renderWeekCard()};
+}
+
+let weeklyAdaptationView=null,weeklyAdaptationBusy=false,weeklyEvaluationPending=false;
+function weeklyPatterns(week=weekStart(today()),source=state,observationTargets=null,observations=source.log){
+  const start=shiftDate(week,-14),end=shiftDate(week,-1),blockId=snapshotBlockId(source);
+  if(!blockId)return[];
+  const historical=source.log.filter(row=>String(row.date)<=end&&row.blockId===blockId);
+  const history=readLogRows(historical),log=observations.filter(row=>row.blockId===blockId&&String(row.date)>=start&&String(row.date)<=end);
+  const fatigueSessions={},hardStalls=[];
+  const definition=source.programMeta?.programDefinition;
+  for(const ex of source.program){
+    const rows=history.filter(matchLift(ex)),sessions=sessionsForLog(ex,rows);
+    if(sessions.at(-1)?.date>=start&&isStalled(sessions)&&rows.filter(isWork).length&&
+      rows.filter(row=>isWork(row)&&sessions.slice(-3).some(session=>session.session===row.session)).every(row=>row.rir!=null&&row.rir!==""&&Number.isFinite(Number(row.rir))&&Number(row.rir)<=1))
+      hardStalls.push({slotId:ex.slotId||ex.id,exerciseId:ex.libraryId||ex.movementId||ex.id});
+    const matched=canonicalPrescriptionSlot(ex,definition);if(!matched)continue;
+    for(const session of sessions.filter(session=>session.date>=start)){
+      const upto=source.log.filter(row=>row.blockId===blockId&&(row.session===session.session||compareLogChronology(row,session)<0));
+      const cycle=Math.min(definition.cycles,Math.max(1,Math.floor(RepForgeProgressModel.calendarDayDistance(source.programMeta.started,session.date)/7)+1));
+      const first=RepForgeProgramCompiler.prescriptionsForCycle(definition,cycle).find(item=>item.slotId===matched.slot.id);
+      if(!first)continue;
+      const history=progressionHistoryFor(first.exerciseId,first.metricIds,slotLoadingProjection(matched.slot),matched.slot.metricDefinitions,upto);
+      const trend=window.RepForgeProgression?.performanceTrend?.(first,history,{bySlotId:{[matched.slot.id]:slotLoadingContext(matched.slot)}});
+      if(fatigueSignal({performanceTrend:trend}))(fatigueSessions[session.session]||=[]).push(matched.slot.id);
+    }
+  }
+  return RepForgeProgressModel.detectPatterns(log,source.sessionEvents,source.program,
+    {...source.programMeta,blockId,fatigueSessions,hardStalls,observationTargets},week);
+}
+function weeklyProposal(pattern,cause,document=installedEditorDocument()){
+  return RepForgeProgramTransition.proposeAdaptation(pattern,document,{
+    cause,week:weekStart(today()),cycleIndex:mesocycleLifecycle(state.programMeta).current||1,
+    isDifferentMovement:(before,after)=>before!==after,
+    isAccessory:slot=>{
+      const raw=rawExercise(slot.exerciseId);
+      return!!raw&&["singleJoint","core"].includes(window.RepForgeGenerationCandidates?.describeExercise(raw)?.exerciseType);
+    },
+    replaceExercise:(next,slot,replacementId)=>{
+      const entry=libraryEntry(replacementId);if(!entry)return null;
+      const model=makeProgram(next.program,snapshotLookup(next.customExercises),next.programMeta);
+      const row=model.replaceExercise(slot.id,entry);if(!row)return null;
+      next.program=model.toJSON();
+      if(!syncEditorCanonicalIntent(next,document,{kind:"exercise_replace",targetId:row.id,slotId:slot.id,exercise:row},
+        {cycleIndex:mesocycleLifecycle(state.programMeta).current||1}))return null;
+      return next;
+    }});
+}
+function weeklyAdaptationContext(record){
+  let latest=null,name=null,observedDay=null;
+  for(const row of state.log){
+    if(row.blockId!==record.blockId)continue;
+    const events=state.sessionEvents?.[row.session];
+    const observations=[...(events?.skips||[]),...(events?.pain||[])];
+    const event=observations.find(event=>event.slotId===record.target.slotId&&event.exerciseId===record.target.exerciseId);
+    const tracked=event||observations.find(event=>event.slotId===record.target.slotId&&event.exerciseId===record.target.replacementId);
+    if(!tracked)continue;
+    observedDay=observedDay||row.day;
+    if(event&&row.date<record.week&&(!latest||compareLogChronology(row,latest)>0)){latest=row;name=event.name}
+  }
+  const day=state.programMeta.programDefinition?.days.find(day=>day.slots.some(slot=>slot.id===record.target.slotId))?.name||latest?.day||observedDay;
+  return{day,lift:name||libraryName(libraryEntry(record.target.exerciseId))||t("program.default.exercise")};
+}
+function weeklyAdaptationHtml(){
+  const week=weekStart(today()),blockId=snapshotBlockId(state),records=state.programMeta.adaptations||[];
+  const patterns=weeklyPatterns(week);
+  const lines=patterns.filter(pattern=>pattern.pattern==="stall_hard").map(pattern=>
+    `<p>${esc(t("review.pattern.stall_hard",{lift:weekFactName(pattern.slotId)}))} <button type="button" class="text-link" data-adaptation-why="${esc(pattern.slotId)}">${esc(t("review.proposal.why_reader"))}</button></p>`).join("");
+  const evaluations=records.filter(record=>record.blockId===blockId&&record.evaluation?.week<=week).slice(-1).map(record=>{
+    const {lift}=weeklyAdaptationContext(record);
+    const replacement=libraryName(libraryEntry(record.target.replacementId))||t("program.default.exercise");
+    const change=t(`review.proposal.applied.${record.kind}`,{lift,replacement});
+    return `<p data-adaptation-evaluation>${esc(t(`review.proposal.evaluation.${record.evaluation.outcome}`,{week:longDate(record.week),change}))}</p>`;
+  }).join("");
+  const pattern=patterns.find(pattern=>pattern.pattern!=="stall_hard"&&
+    RepForgeProgramTransition.adaptationEligible(records,pattern,blockId,week)&&weeklyProposal(pattern,null));
+  if(!pattern){weeklyAdaptationView=null;return lines+evaluations}
+  const key=`${blockId}:${week}:${pattern.pattern}:${pattern.slotId}:${pattern.exerciseId}`;
+  if(weeklyAdaptationView?.key!==key)weeklyAdaptationView={key,pattern,cause:pattern.pattern==="recurring_pain"?"pain":null,
+    proposedAt:new Date().toISOString(),token:installedEditorToken()};
+  const view=weeklyAdaptationView,proposal=weeklyProposal(pattern,view.cause),needsCause=pattern.pattern!=="recurring_pain";
+  view.proposal=proposal;
+  if(!proposal||!proposal.nextDocument)return lines+evaluations;
+  const lift=weekFactName(pattern.slotId),replacement=proposal.target.replacementId?libraryName(libraryEntry(proposal.target.replacementId)):"";
+  const change=t(`review.proposal.${proposal.kind}`,{lift,replacement,day:dayLabel(pattern.day)});
+  const setChanges=proposal.kind==="reduce_sets"?proposal.nextDocument.programMeta.programDefinition.days.flatMap(day=>day.slots).map(slot=>{
+    const before=state.programMeta.programDefinition.days.flatMap(day=>day.slots).find(item=>item.id===slot.id);
+    const changed=slot.prescriptionsByCycle.find(cycle=>cycle.sets.length!==before?.prescriptionsByCycle.find(item=>item.cycleIndex===cycle.cycleIndex)?.sets.length);
+    if(!changed)return"";
+    const count=before.prescriptionsByCycle.find(item=>item.cycleIndex===changed.cycleIndex).sets.length;
+    return `<p>${esc(t("review.proposal.set_change",{lift:weekFactName(slot.id),week:changed.cycleIndex,before:count,after:changed.sets.length}))}</p>`;
+  }).join(""):"";
+  const why=needsCause?`<p id="weeklyAdaptationWhy">${esc(t("review.proposal.ask_why"))}</p><div class="week-proposal__causes" role="group" aria-labelledby="weeklyAdaptationWhy">`+
+    RepForgeProgramTransition.ADAPTATION_CAUSES[pattern.pattern].map(cause=>`<button type="button" class="week-proposal__cause" data-adaptation-cause="${cause}" aria-pressed="${view.cause===cause}"${weeklyAdaptationBusy?" disabled":""}>${esc(t(`review.why.${cause}`))}</button>`).join("")+`</div>`:"";
+  return lines+evaluations+`<section class="review__week week-proposal" data-adaptation-card aria-labelledby="weeklyAdaptationTitle">`+
+    `<h4 class="section-label" id="weeklyAdaptationTitle">${esc(t("review.proposal.title"))}</h4>`+
+    `<p>${esc(t(`review.pattern.${pattern.pattern}`,{lift,day:dayLabel(pattern.day)}))}</p>`+why+
+    `<p data-adaptation-change>${esc(change)}</p>`+setChanges+
+    (view.error?`<p role="alert">${esc(t("review.proposal.save_failed"))}</p>`:"")+
+    `<div class="week-proposal__actions">`+["accept","change","later","decline"].map(action=>`<button type="button"${action==="accept"?' id="weeklyAdaptationAccept"':""} class="${action==="accept"?"btn btn--cta btn--noarrow":"text-link"}" data-adaptation-action="${action}"${weeklyAdaptationBusy||action==="accept"&&needsCause&&!view.cause?" disabled":""}>${esc(t(`review.proposal.${action}`))}</button>`).join("")+`</div></section>`;
+}
+function bindWeeklyAdaptation(){
+  $$('[data-adaptation-cause]').forEach(button=>button.onclick=()=>{
+    if(weeklyAdaptationBusy||!weeklyAdaptationView)return;
+    weeklyAdaptationView.cause=button.dataset.adaptationCause;renderReview();
+    $(`[data-adaptation-cause="${button.dataset.adaptationCause}"]`)?.focus({preventScroll:true});
+  });
+  $$('[data-adaptation-why]').forEach(button=>button.onclick=()=>openWhySheetFor(prog.find(button.dataset.adaptationWhy),button,{surface:"exercise",measure:false}));
+  $$('[data-adaptation-action]').forEach(button=>button.onclick=()=>decideWeeklyAdaptation(button.dataset.adaptationAction));
+}
+async function decideWeeklyAdaptation(action){
+  const view=weeklyAdaptationView;if(!view||weeklyAdaptationBusy)return;
+  if(action==="change"){
+    navTo("program");programEditMode=true;renderProgram();
+    afterModalSettles(()=>{
+      $('#programEditor [data-role="day-tab"][data-day="'+CSS.escape(view.pattern.day)+'"]')?.click();
+      $('#programEditor [data-role="exercise-row"][data-id="'+CSS.escape(view.pattern.slotId)+'"]')?.click();
+    });
+    return;
+  }
+  const decision={accept:"accepted",decline:"declined",later:"snoozed"}[action];
+  if(!decision||decision==="accepted"&&!view.proposal.cause)return;
+  const record={id:`adaptation:${uid()}`,v:1,blockId:snapshotBlockId(state),week:weekStart(today()),
+    pattern:view.pattern.pattern,cause:view.proposal.cause,kind:view.proposal.kind,target:cloneSnapshot(view.proposal.target),
+    proposedAt:view.proposedAt,decision,decidedAt:new Date().toISOString(),
+    ...(decision==="accepted"?{appliedEdit:{expectedToken:cloneSnapshot(view.token),intent:"adaptation_apply"}}:{})};
+  weeklyAdaptationBusy=true;view.error=false;renderReview();
+  let result;
+  try{
+    if(decision==="accepted"){
+      const document=cloneSnapshot(view.proposal.nextDocument);
+      document.programMeta.adaptations=[...(document.programMeta.adaptations||[]),record];
+      result=await createInstalledProgramEditorAdapter().commit({expectedToken:view.token,nextDocument:document,
+        intent:{kind:"adaptation_apply",record}});
+    }else{
+      const proposal=cloneSnapshot(state);proposal.programMeta.adaptations=[...(proposal.programMeta.adaptations||[]),record];
+      result=await commitProposedState(proposal,storageIO,{preflight:({head})=>
+        editorTokenEqual(view.token,installedEditorToken(head))?{proposal}:{reject:true,result:{ok:false,conflict:true}}});
+    }
+  }catch{result={ok:false}}
+  weeklyAdaptationBusy=false;
+  if(result?.ok||result?.committed&&result?.settled){
+    weeklyAdaptationView=null;render();renderReview();focusRoute($("#weekReview-current"));
+  }else{
+    if(result?.conflict){
+      const refreshed=await refreshPersistenceHead();
+      if(!refreshed.conflict&&refreshed.head)applyAcceptedSnapshot(cloneSnapshot(state),refreshed.head);
+    }
+    view.error=true;renderReview();focusRoute($(`[data-adaptation-action="${action}"]`));
+  }
+}
+async function evaluateWeeklyAdaptations(){
+  if(weeklyEvaluationPending)return;
+  const week=weekStart(today()),blockId=snapshotBlockId(state),token=installedEditorToken();
+  const pending=(state.programMeta.adaptations||[]).filter(record=>record.blockId===blockId&&record.decision==="accepted"&&!record.evaluation&&record.week<week);
+  if(!pending.length)return;
+  const proposal=cloneSnapshot(state);
+  for(const record of pending){
+    const followingEnd=shiftDate(record.week,7);
+    const following=RepForgeProgramTransition.adaptationFollowupRows(record,state.log);
+    const slot=state.programMeta.programDefinition?.days.flatMap(day=>day.slots).find(slot=>slot.id===record.target.slotId);
+    const {day}=weeklyAdaptationContext(record);
+    const observed=following.some(row=>day&&row.day===day||slot&&(row.slotId||row.exerciseId)===slot.id);
+    const targets=record.kind==="reduce_sets"?null:[...new Set([record.target.exerciseId,record.target.replacementId].filter(Boolean))]
+      .map(exerciseId=>({slotId:record.target.slotId,exerciseId,day}));
+    const evaluation=RepForgeProgramTransition.evaluateAdaptation(record,weeklyPatterns(followingEnd,state,targets,following),{week:followingEnd,observed});
+    proposal.programMeta.adaptations.find(item=>item.id===record.id).evaluation=evaluation;
+  }
+  weeklyEvaluationPending=true;
+  try{const result=await commitProposedState(proposal,storageIO,{preflight:({head})=>
+    editorTokenEqual(token,installedEditorToken(head))?{proposal}:{reject:true,result:{ok:false,conflict:true}}});
+    if(result.committed&&result.settled){weeklyAdaptationView=null;renderReview()}
+  }catch{}finally{weeklyEvaluationPending=false}
+}
+
 function renderReview(){const el=$("#reviewPanel");if(!el)return;
   if(!state.programMeta?.started){el.innerHTML=`<p class="lede">${esc(t("review.no_start"))}</p>`;return}
   const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;
@@ -4229,19 +4549,21 @@ function renderReview(){const el=$("#reviewPanel");if(!el)return;
   const outcomeLine=reviewOutcomesHtml(checkpoint.observedOutcomes,
     records.filter(r=>r.evidenceState!=="sufficient").length,key=>liftDisplayName(nameForLiftKey(key),key));
   const actions=checkpoint.lifecycle==="block-complete"?renderReviewActions(checkpoint):"";
-  const readOnlyNote=checkpoint.lifecycle==="active-block"
-    ?`<p class="review__readonly" role="note">${esc(t("review.active_readonly"))}</p>`:"";
+  const weeklyFacts=checkpoint.lifecycle==="active-block"
+    ?weekReviewHtml(shiftDate(weekStart(today()),-7),"last")+weekReviewHtml(today(),"current"):"";
   const evidenceNote=checkpoint.lifecycle==="block-complete"&&!checkpoint.hasSufficientEvidence
     ?`<p class="review__summary">${esc(t("review.insufficient.note"))}</p>`:"";
   if(reviewFlow){renderReviewFlow(el);return}
-  el.innerHTML=`<div class="blockprogress" data-progress-dimension="block" data-progress-scope="block-review-evidence"><h4 class="blockprogress__title">${esc(t("review.progress_title"))}</h4>`+
+  const adaptation=checkpoint.lifecycle==="active-block"?weeklyAdaptationHtml():"";
+  el.innerHTML=weeklyFacts+adaptation+`<div class="blockprogress" data-progress-dimension="block" data-progress-scope="block-review-evidence"><h4 class="blockprogress__title">${esc(t("review.progress_title"))}</h4>`+
     `<p><b>${esc(weekLine)}</b></p>`+
     `<p><b>${esc(t("review.sessions"))}</b> ${esc(t("review.sessions_completed",{done:volume.completedSessions,planned:volume.period.plannedSessions||volume.plannedSessions}))}</p>`+
     `<p><b>${esc(t("review.volume"))}</b> ${esc(t("review.volume_planned",{pct}))}</p>`+
     `<p class="lede">${esc(t("stats.volume.period_text",{start:longDate(volume.period.start||meta.started||""),end:longDate(volume.period.end||today())}))}</p></div>`+
     `<p class="section-label">${esc(t("review.outcomes.label"))}</p><div class="review__outcomes">${outcomeLine}</div>`+
-    evidenceNote+readOnlyNote+actions;
-  bindReviewActions()}
+    evidenceNote+actions;
+  bindReviewActions();bindWeeklyAdaptation();
+  if(checkpoint.lifecycle==="active-block")void evaluateWeeklyAdaptations()}
 const REVIEW_OUTCOME_ORDER=["improved","maintained","declined"];
 const REVIEW_UNCOMPARED_KEYS=["review.outcomes.uncompared.one","review.outcomes.uncompared.other"];
 /** The block's observed outcomes, one group per verdict: its word once, as a heading with the count, and the
@@ -4644,7 +4966,7 @@ function commitNextBlock(strategy,io=storageIO,expectedOldId=null){
       // carry compiler/progression provenance into the fresh block while the
       // activation fields above still describe the new block boundary.
       for(const key of ["progressionRelations","progressionModifiers","progressionIncompatibilities",
-        "programStructure","compilerContext","entrySource","programDefinition","loadingConfiguration"]){
+        "programStructure","compilerContext","entrySource","programDefinition","loadingConfiguration","adaptations"]){
         if(Object.prototype.hasOwnProperty.call(cap.oldMeta||{},key))
           nextMeta[key]=cloneSnapshot(cap.oldMeta[key]);
       }
@@ -5703,7 +6025,7 @@ async function runInstallTransferPreBootRequest(){
   }catch(error){return{ok:false,code:error?.message||"preboot-import-failed"}}}
 async function deleteTrainingLog(io=storageIO,{discardDraftRaw=readDraftRaw()}={}){
   const proposal=cloneSnapshot(state);
-  proposal.log=[];delete proposal.sessionTiming;
+  proposal.log=[];delete proposal.sessionTiming;delete proposal.sessionEvents;
   const effect=destructiveDraftClearEffect(discardDraftRaw);
   const result=await commitProposedState(proposal,io,{effect});
   if(result.localOk||result.idbOk){
@@ -6240,9 +6562,7 @@ function mountTopBars(){
       if(!bar||!title)return;
       // A title that isn't laid out (its page is hidden) hasn't scrolled under anything.
       new IntersectionObserver(([entry])=>{const scrolled=!entry.isIntersecting&&entry.boundingClientRect.height>0;
-        bar.classList.toggle("is-scrolled",scrolled);
-        // Today's calibration ring hands over to its bar twin as the title goes under the bar.
-        if(barSel==="#logTopbar")$("#todayCalRingBar")?.classList.toggle("is-shown",scrolled)},
+        bar.classList.toggle("is-scrolled",scrolled)},
         {threshold:0,rootMargin}).observe(title)})}
 mountTopBars();
 /* ---- The dock's large-content viewer (Plan 075 phase 5, audit F-5) ----
@@ -6337,6 +6657,7 @@ function setStatsSeg(seg){
   paintStatsTabs();
   for(const [k,id] of Object.entries(STATS_SEG)){const el=$("#"+id);if(el)el.classList.toggle("active",k===seg)}
   for(const [k,id] of Object.entries(EVIDENCE_SEG)){const el=$("#"+id);if(el)el.classList.remove("active")}
+  if(opensReview||seg==="review"&&weeklyAdaptationView?.error)weeklyAdaptationView=null;
   if(seg==="review")renderReview();
   if(opensReview)captureBlockReviewViewed();
   queueMicrotask(()=>maybeShowContextualGuides([seg==="review"?"block-transition":"progress"]))}
@@ -6406,7 +6727,7 @@ function canonicalPrescriptionSlot(ex,definition=state.programMeta?.programDefin
   return null}
 function enginePerformedRow(row,exerciseId,metricIds){
   const performedId=String(row?.performedLibraryId||row?.performedMovementId||"");
-  if(performedId!==exerciseId||row?.metricType!=="source_metrics@1"||
+  if(row?.origin==="ramp"||performedId!==exerciseId||row?.metricType!=="source_metrics@1"||
     !Array.isArray(row.metricIds)||JSON.stringify(row.metricIds)!==JSON.stringify(metricIds)||
     !Array.isArray(row.metricValues)||!Number.isInteger(row.setIndex)||row.setIndex<0)return null;
   const values=ExerciseMetrics?.validateMetricValues?.(metricIds,row.metricValues);
@@ -6418,6 +6739,7 @@ function enginePerformedRow(row,exerciseId,metricIds){
     loadingConvention:row.loadingConvention,metricIds:[...row.metricIds],metricValues:cloneSnapshot(row.metricValues),
     loadingContext:isPlainStateObject(row.loadingContext)?cloneSnapshot(row.loadingContext):null,
     ...(row.effortSource?{effortSource:row.effortSource}:{}),
+    ...(row.warmup===true?{warmup:true}:{}),
     ...(row.effortSource==="failure"&&WorkoutDraft?.validCalibration?.(row.calibration)?{calibration:cloneSnapshot(row.calibration)}:{})}}
 /** A lift's calibration checks: its max sets in the comparable history (same equipment and loading as today), with any
  *  of `extra` (sessions not yet in the log), read by the estimator. */
@@ -6433,11 +6755,11 @@ function liftCalibration(history,context,metricDefinitions,extra=[],asOf=null){
   const Calibration=window.RepForgeEffortCalibration;
   const errors=Calibration?.checkErrors?.({sessions,today:asOf||activeWorkoutDraft?.program?.scheduleDate||today()})||[];
   return Calibration?.estimate?.(errors)||{version:null,n:0,bias:0,spread:null,state:"uncalibrated",reason:"few",delta:0}}
-function progressionHistoryFor(exerciseId,metricIds,slotProjection,metricDefinitions){
+function progressionHistoryFor(exerciseId,metricIds,slotProjection,metricDefinitions,log=state.log){
   const grouped=new Map();
   const requiresExecutionMode=(metricDefinitions||[]).some(metric=>
     ["repsPerSide","loadPerSideKg","persistentLoadPerSideKg"].includes(metric.semantic));
-  for(const row of state.log||[]){
+  for(const row of log||[]){
     const performed=enginePerformedRow(row,exerciseId,metricIds);if(!performed)continue;
     if(requiresExecutionMode){
       const projection=readLogRow(row),mode=slotProjection?.executionMode;
@@ -6453,8 +6775,12 @@ function progressionCurrentSession(prescription){
     Object.values(activeWorkoutDraft.exercises).find(item=>item.libraryId===prescription.exerciseId||item.sourceExerciseId===prescription.exerciseId);
   if(!exercise||exercise.status==="skipped")return[];
   const sets=[];
+  let rampCount=0;
   for(const setId of exercise.setOrder||[]){
-    const set=exercise.sets?.[setId];if(!set||set.completion==="pending"||set.role==="warmup")continue;
+    const set=exercise.sets?.[setId];if(!set)continue;
+    if(set.origin==="ramp"){rampCount++;continue}
+    if(set.role==="warmup"||set.completion==="pending"||set.programmed?.sourceLibraryId!==prescription.exerciseId)continue;
+    const setIndex=set.ordinal-1-rampCount;
     const values=[];let valid=true;
     for(const metric of set.programmed?.metrics||[]){
       const parsed=ExerciseMetrics?.parseMetricValue?.(metric,set.edited?.metrics?.[metric.id]);
@@ -6466,14 +6792,15 @@ function progressionCurrentSession(prescription){
     const word=set.edited?.effort,effortMode=activeWorkoutDraft.program?.rirMode==="effort";
     const byWord=Object.prototype.hasOwnProperty.call(EFFORT_RIR,word??"")&&(effortMode||set.edited?.rir==null);
     const rir=byWord?EFFORT_RIR[word]:effortMode&&set.edited?.rir==null?null:rawRir==null?null:Number(rawRir);
-    const loadingContext=cloneSnapshot(exercise.programmed?.loadingContext||{});
-    loadingContext.loadingConvention=exercise.programmed?.loadingConvention||loadingContext.loadingConvention;
+    const programmed=set.programmed||exercise.programmed;
+    const loadingContext=cloneSnapshot(programmed?.loadingContext||{});
+    loadingContext.loadingConvention=programmed?.loadingConvention||loadingContext.loadingConvention;
     loadingContext.bodyweightKg=activeWorkoutDraft.session?.bodyweight==null||activeWorkoutDraft.session.bodyweight===""?null:Number(activeWorkoutDraft.session.bodyweight);
     if(typeof loadingContext.bodyweightContributionEnabled!=="boolean")
       loadingContext.bodyweightContributionEnabled=materialBodyweightCoefficient(loadingContext.bodyweightCoefficient,loadingContext.loadingConvention)>0&&loadingContext.bodyweightKg>0;
-    sets.push({exerciseId:prescription.exerciseId,completed:true,setIndex:set.ordinal-1,
-      rir:Number.isFinite(rir)&&rir>=0?rir:null,equipmentId:exercise.programmed?.equipmentId??null,
-      loadingConvention:exercise.programmed?.loadingConvention,metricIds:[...prescription.metricIds],metricValues:values,
+    sets.push({exerciseId:prescription.exerciseId,completed:true,setIndex,
+      rir:Number.isFinite(rir)&&rir>=0?rir:null,equipmentId:programmed?.equipmentId??null,
+      loadingConvention:programmed?.loadingConvention,metricIds:[...prescription.metricIds],metricValues:values,
       loadingContext,...(set.completion?.effortSource?{effortSource:set.completion.effortSource}:{}),
       ...(set.completion?.effortSource==="failure"&&set.calibration?{calibration:cloneSnapshot(set.calibration)}:{})})}
   return sets}
@@ -6509,32 +6836,51 @@ function slotLoadingContext(slot){
   return{equipmentId:null,availableLoadsKg:loadGridKg(loadStepKg(slot.exerciseId)),loadingConvention,
     bodyweightContributionEnabled:coefficient>0&&bodyweight>0,bodyweightKg:bodyweight||null,
     executionMode,externalLoadMultiplier}}
-function recommendation(ex){
+function recommendation(ex,{savedHistoryOnly=false}={}){
   const compiler=typeof window!=="undefined"?window.RepForgeProgramCompiler:null;
   const engine=typeof window!=="undefined"?window.RepForgeProgression:null;
-  const definition=state.programMeta?.programDefinition,matched=canonicalPrescriptionSlot(ex,definition);
+  const definition=state.programMeta?.programDefinition;
+  let matched=canonicalPrescriptionSlot(ex,definition);
   if(!compiler?.prescriptionsForCycle||!engine?.recommendSets||!matched)
     return{status:"manual",engineStatus:"manual",reason:"canonical_program_definition_required",load:null,targetSets:[]};
   const cycleCount=Number.isInteger(definition.cycles)&&definition.cycles>0?definition.cycles:1;
   const elapsed=mesocycleLifecycle(state.programMeta).current||1,cycleNumber=Math.min(cycleCount,Math.max(1,elapsed));
-  const prescriptions=compiler.prescriptionsForCycle(definition,cycleNumber).filter(item=>item.slotId===matched.slot.id);
+  const liveExercise=activeWorkoutDraft?.exercises?.[ex.id];
+  // A saved profile names a movement, even while its program slot has a different live replacement.
+  const draftExercise=savedHistoryOnly&&liveExercise?.substitution?.replacement?.libraryId!==ex.libraryId?null:liveExercise;
+  const nonRampOrdinals=draftExercise?.setOrder.map(id=>draftExercise.sets[id]).filter(set=>set.origin!=="ramp").map(set=>set.ordinal)||[];
+  let prescriptions=compiler.prescriptionsForCycle(definition,cycleNumber).filter(item=>item.slotId===matched.slot.id);
+  // A fresh swap executes the replacement's metric prescription. The installed program stays unchanged.
+  const replacementId=draftExercise?.substitution?.replacement?.libraryId;
+  const replacementSets=draftExercise?.setOrder.map(id=>draftExercise.sets[id]).filter(set=>set.origin!=="ramp")||[];
+  if(replacementId&&replacementSets.length&&replacementSets.every(set=>set.programmed.sourceLibraryId===replacementId)){
+    const programmed=replacementSets[0].programmed;
+    matched={...matched,slot:{...matched.slot,exerciseId:replacementId,metricIds:programmed.metricIds,
+      metricDefinitions:programmed.metrics,metricOrigin:programmed.metricOrigin,loadingModel:programmed.loadingModel,
+      executionMode:programmed.loadingContext?.executionMode||null}};
+    prescriptions=prescriptions.map((item,index)=>{
+      const set=replacementSets[index]?.programmed||programmed;
+      return{...item,exerciseId:replacementId,metricIds:set.metricIds,metricDefinitions:set.metrics,
+        loadingModel:set.loadingModel,targets:set.targets,rir:set.targetRir,restSeconds:set.restSeconds}});
+  }
   if(!prescriptions.length)return{status:"manual",engineStatus:"manual",reason:"cycle_prescription_unavailable",load:null,targetSets:[]};
   const first=prescriptions[0],slotProjection=slotLoadingProjection(matched.slot);
   const history=progressionHistoryFor(first.exerciseId,first.metricIds,slotProjection,matched.slot.metricDefinitions);
-  const currentSession=progressionCurrentSession(first);
+  const currentSession=savedHistoryOnly?[]:progressionCurrentSession(first);
   const loadingContext={bySlotId:{[matched.slot.id]:slotLoadingContext(matched.slot)}};
   // The lift's own max sets say how its reported RIR reads (Plan 077, OD-14 to OD-18): from three checks, the engine
   // reads it shifted, within its load bound. Today's checks count from the next session on.
-  const calibration=liftCalibration(history,loadingContext.bySlotId[matched.slot.id],matched.slot.metricDefinitions);
+  const calibration=liftCalibration(history,loadingContext.bySlotId[matched.slot.id],matched.slot.metricDefinitions,[],savedHistoryOnly?today():null);
   const results=engine.recommendSets(prescriptions,history,currentSession,loadingContext,{
-    weightMatch:state.settings.weightMatch===true,expandRepRange:state.settings.expandRepRange!==false,
-    ...(calibration.delta?{calibration:{version:calibration.version,delta:calibration.delta}}:{})});
+    now:today(),weightMatch:state.settings.weightMatch===true,expandRepRange:state.settings.expandRepRange!==false,
+    calibration:{version:calibration.version,delta:calibration.delta,n:calibration.n,spread:calibration.spread,state:calibration.state,reason:calibration.reason}});
   // Owner, 2026-11-04: an adaptive set with no comparable history starts from the load the program authored for it,
   // offered as a suggestion; once history exists the engine's recommendation takes over. No load is invented.
   const plannedSemantic=(matched.slot.metricDefinitions||[]).find(metric=>PLANNED_LOAD_SEMANTICS.includes(metric.semantic))?.semantic||null;
   const targetSets=prescriptions.map((prescription,index)=>{
     const result=results[index]||null;
-    const item={prescription,result,targets:result?.status==="recommended"?result.targets:prescription.targets,
+    const displayPrescription={...prescription,setIndex:nonRampOrdinals[index]??prescription.setIndex};
+    const item={prescription:displayPrescription,result,targets:result?.status==="recommended"?result.targets:prescription.targets,
       rir:prescription.rir,status:result?.status||"manual"};
     const codes=result?.reasonCodes||[],authoredLoad=plannedSemantic?prescription.targets?.[plannedSemantic]:null;
     const planned=result?.status!=="recommended"&&prescription.status==="ready"&&codes.includes("no_comparable_history")&&
@@ -6543,7 +6889,7 @@ function recommendation(ex){
     // Not enumerable: the recommendation that serialises (and that the parity proofs compare) is unchanged.
     Object.defineProperty(item,"planned",{value:planned});
     return item});
-  const firstActual=targetSets.find(item=>item.prescription.setIndex===1)||targetSets[0];
+  const firstActual=targetSets[0];
   const result=firstActual?.result,definitions=matched.slot.metricDefinitions||[];
   const requiresExecutionMode=definitions.some(metric=>
     ["repsPerSide","loadPerSideKg","persistentLoadPerSideKg"].includes(metric.semantic));
@@ -6580,6 +6926,9 @@ function recommendation(ex){
   Object.defineProperty(rec,"progressionInputs",{value:{history,currentSession}});
   Object.defineProperty(rec,"plannedLoad",{value:status==="new"?firstActual?.planned?.value??null:null});
   // Not enumerable either: what the lift's checks say, and whether the shift moved any of its targets.
+  Object.defineProperty(rec,"standing",{value:result?.standing||null});
+  const movement=savedHistoryOnly?ex:draftExercise?.substitution?.replacement||draftExercise||ex;
+  Object.defineProperty(rec,"standingMovementMatches",{value:(movement.libraryId||movement.movementId)===first.exerciseId});
   Object.defineProperty(rec,"calibration",{value:{...calibration,moved:results.some(item=>item?.calibration?.moved===true)}});
   // Whether the lift's own performance dropped, the one fatigue signal (owner, 2026-11-06). Not enumerable, like the above.
   // Read lazily: only the fatigue surfaces ask, and most recommendations are drawn without them.
@@ -6759,7 +7108,7 @@ function inSessionNote(ex,draft){
   const done=new Set(draft.__done||[]),warm=new Set(draft.__warm||[]),changed=new Set(draft.__touched||[]);
   const rec=recommendation(ex),u=unitLabel();
   if(rec.status==="manual")return"";
-  for(let n=1;n<=ex.sets;n++){const key=`${ex.id}_${n}`;
+  for(let n=1;n<=sessionSetCount(ex);n++){const key=`${ex.id}_${n}`;
     if(done.has(key)||warm.has(key)||changed.has(key))continue;
     const sg=setSuggestion(ex,n,rec,draft,null);
     if(sg.src==="session-up")return t("log.insession.up",{set:n,load:fmtLoad(sg.load),unit:u});
@@ -6814,12 +7163,12 @@ function explainRecommendation(ex){
   if(note)rows.push(whyRow("session",{label:t("why.session"),text:note}));
   return rows}
 function applyAcknowledgedSuggestions(ex,draft){
-  for(let n=1;n<=ex.sets;n++){const key=`${ex.id}_${n}`;
+  for(let n=1;n<=sessionSetCount(ex);n++){const key=`${ex.id}_${n}`;
     const stored=activeWorkoutDraft?.exercises?.[ex.id],setId=stored?.setOrder?.find(id=>stored.sets[id]?.ordinal===n),set=setId?stored.sets[setId]:null;
     if(committed.has(key)||warmups.has(key)||!set||set.completion!=="pending")continue;
     if(!set.touched.load&&Object.prototype.hasOwnProperty.call(draft,`${key}_load`)){const li=$(`[data-k="${key}_load"]`);if(li)li.value=draft[`${key}_load`]??""}
     if(!set.touched.reps&&Object.prototype.hasOwnProperty.call(draft,`${key}_reps`)){const ri=$(`[data-k="${key}_reps"]`);if(ri)ri.value=draft[`${key}_reps`]??""}}}
-const hasCommittedSets=ex=>{for(let n=1;n<=ex.sets;n++)if(committed.has(`${ex.id}_${n}`))return true;return false};
+const hasCommittedSets=ex=>{for(let n=1;n<=sessionSetCount(ex);n++)if(committed.has(`${ex.id}_${n}`))return true;return false};
 /* Recommended metric values fill only pending sets the lifter has not touched. */
 function metricSuggestionUpdates(stored,rec){
   const updates=[];
@@ -6845,7 +7194,7 @@ function suggestionUpdatesFor(ex,draft){
   if(stored.setOrder.some(setId=>Array.isArray(stored.sets[setId]?.programmed?.metrics)))
     return metricSuggestionUpdates(stored,recommendation(ex));
   const rec=recommendation(ex),prev=last(ex),updates=[];
-  for(let n=1;n<=ex.sets;n++){
+  for(let n=1;n<=sessionSetCount(ex);n++){
     const key=`${ex.id}_${n}`,setId=stored.setOrder.find(id=>stored.sets[id]?.ordinal===n),set=setId?stored.sets[setId]:null;
     if(!set||set.role==="warmup"||set.completion!=="pending")continue;
     const sg=setSuggestion(ex,n,rec,draft,prev.find(x=>x.set===n)),fields={};
@@ -7010,12 +7359,10 @@ function bindStageTip(tip,shelf,ex,n){
     const to=tip.dataset.to;tip.remove();
     if(await commitEffortStage(to)){
       acceptStageTip(to);toast(t("toast.effort_stage",{stage:t(STAGE_LABEL[to])}),{quiet:true})}})}
-/* The stage tip (OD-6): Taurifer suggests the next stage up, never down, once the lifter has settled into this one.
-   A→B after 6 workouts in stage A with at least 80% of their working sets given a word by the lifter (not left at the
-   offered one); B→C after 6 workouts in stage B with at most 10% "Not sure". A dismissal keeps it quiet for 4 weeks,
-   a second for good; trying it ends it too. Its state is this device's, like the stage itself. */
+/* Offer counting reps left after six workouts with at least 80% lifter-chosen words.
+   One dismissal snoozes four weeks; the second dismissal or acceptance ends the tip. */
 const STAGE_TIP_WORKOUTS=6,STAGE_TIP_SNOOZE_DAYS=28;
-const STAGE_TIP_COPY={b:{title:"focus.stage_tip.b_title",body:"focus.stage_tip.b_body"},c:{title:"focus.stage_tip.c_title",body:"focus.stage_tip.c_body"}};
+const STAGE_TIP_COPY={title:"focus.stage_tip.b_title",body:"focus.stage_tip.b_body"};
 /** Workouts in the log that qualify a stage for its tip, counted from the rows' recorded effortSource. */
 function stageTipQualifyingWorkouts(stage){
   const sessions=new Map();
@@ -7024,30 +7371,29 @@ function stageTipQualifyingWorkouts(stage){
     const s=sessions.get(row.session)||{n:0,words:0,left:0,unsure:0,numbers:0};
     s.n++;
     if(row.effortSource==="effort")s.words++;
-    else if(row.effortSource==="reps_left"||row.effortSource==="reps_left_3plus")s.left++;
+    else if(row.effortSource==="reps_left"||row.effortSource==="reps_left_3plus"||row.effortSource==="reps_left_5plus")s.left++;
     else if(row.effortSource==="unsure")s.unsure++;
     else if(row.effortSource==="rir")s.numbers++;
     sessions.set(row.session,s)}
   let count=0;
   for(const s of sessions.values()){
     if(s.numbers)continue;
-    if(stage==="a"&&!s.left&&s.words>=0.8*s.n)count++;
-    if(stage==="b"&&!s.words&&s.left>0&&s.unsure<=0.1*s.n)count++}
+    if(stage==="a"&&!s.left&&s.words>=0.8*s.n)count++}
   return count}
-const stageTipPref=to=>{const v=uiPrefs.stageTip?.[to];return{n:Number.isInteger(v?.n)?v.n:0,until:typeof v?.until==="string"?v.until:""}};
+const stageTipPref=to=>{const v=uiPrefs.stageTip?.[to]??uiPrefs.stageTip?.b;return{n:Number.isInteger(v?.n)?v.n:0,until:typeof v?.until==="string"?v.until:""}};
 /** The stage the tip suggests now, or null. */
 function stageTipTarget(){
   const stage=effortStage();if(stage==="c")return null;
-  const to=stage==="a"?"b":"c",pref=stageTipPref(to);
+  const to="c",pref=stageTipPref(to);
   if(pref.n>=2||pref.until&&Date.now()<Date.parse(pref.until))return null;
   return stageTipQualifyingWorkouts(stage)>=STAGE_TIP_WORKOUTS?to:null}
-function setStageTipPref(to,value){setUiPref("stageTip",{...(uiPrefs.stageTip||{}),[to]:value})}
+function setStageTipPref(to,value){updateUiPrefs(prefs=>({...prefs,stageTip:{...(prefs.stageTip||{}),[to]:value}}))}
 function dismissStageTip(to){
   const n=stageTipPref(to).n+1;
   setStageTipPref(to,n>=2?{n:2}:{n,until:new Date(Date.now()+STAGE_TIP_SNOOZE_DAYS*864e5).toISOString()})}
 const acceptStageTip=to=>setStageTipPref(to,{n:2});
 function stageTipHtml(to){
-  const copy=STAGE_TIP_COPY[to],title=t(copy.title);
+  const copy=STAGE_TIP_COPY,title=t(copy.title);
   return `<section class="resttip" data-tip="stage-tip" data-to="${to}" aria-label="${esc(title)}">`+
     `<p class="resttip__text"><b>${esc(title)}</b> ${esc(t(copy.body))}</p>`+
     `<div class="resttip__acts"><button type="button" class="resttip__no" data-tipdismiss>${esc(t("focus.stage_tip.not_now"))}</button>`+
@@ -7715,7 +8061,7 @@ function updateFocusChrome(){document.body.classList.toggle("is-focus-wo",workou
 const EffortCalibration=window.RepForgeEffortCalibration;
 const CalibrationGauge=window.RepForgeCalibrationGauge;
 /* ---- Calibration evidence (Plan 077, OD-20) ----
-   One user-level number, read off the log: the max sets (T), sets that agree within a workout (A), hitting the
+   The six signals, read off the log: the max sets (T), sets that agree within a workout (A), hitting the
    suggestion (H, the engine replayed on the history before each recent workout), week-to-week consistency (W), the
    "last rep slow?" answers (S) and history (R). Pure arithmetic lives in calibration-gauge.js; this gathers its inputs,
    once per log and day. */
@@ -7792,73 +8138,140 @@ function calibrationGauge(){
   value.recent=recent.sort((a,b)=>String(b.date).localeCompare(String(a.date))).slice(0,3);
   gaugeCache={key,value};
   return value}
-const gaugeBar=(pct,cls="")=>`<span class="calbar${cls}" aria-hidden="true"><span class="calbar__fill" style="width:${Math.max(0,Math.min(100,pct))}%"></span></span>`;
-/** Progress › Overview: the number, what it is, the six signals with their plain counts, and the recent max sets. */
-function renderOverviewCalibration(){
-  const el=$("#overviewCalibration");if(!el)return;
-  const g=calibrationGauge();
-  el.classList.toggle("hidden",!g);if(!g){el.innerHTML="";return}
-  const c=g.counts,comp=g.components,ev=g.evidence;
-  // Each signal reads its evidence against its target and, where there is any, the share that agrees: the same two
-  // numbers its bar multiplies (min(1, n / target) × agreement). Evidence is weighted (it fades, coarse rows count
-  // half), so the counts never run past the target.
-  const reading=(item,unitKey)=>{const n=Math.floor(Math.min(item.n,item.target)+1e-9);
-    const base=t(unitKey,{n,m:item.target});
-    return item.rate==null||item.n<=0?base:`${base} · ${t("calib.ev.agree",{pct:Math.round(item.rate*100)})}`};
+/** The same standing reason and test-set reading used by Why and the logged test-set row. */
+function profileLiftHtml(ex,rec=recommendation(ex,{savedHistoryOnly:true})){
+  const standing=targetStanding(rec),e=standing?.evidence;
+  const vars=e?{sets:fmt(Math.round(e.sets*10)/10),setWord:tp(Math.round(e.sets*10)/10,"set"),sessions:e.sessions,
+    sessionWord:tp(e.sessions,"session"),weeks:Math.floor((e.gapDays||0)/7),checks:e.checks}:{};
+  const reason=standing?t(`why.standing.${standing.reasons[0]||"evidence"}`,vars):t("profile.unavailable");
+  const cal=rec.calibration,left=cal?Math.max(0,EffortCalibration.ESTIMATOR.minChecks-cal.n):0;
+  const status=left?t(left===1?"maxset.status_wait_one":"maxset.status_wait",{n:left})
+    :cal?.state==="under"||cal?.state==="over"?t("maxset.status_shifted")
+      :cal?.state==="calibrated"?t("maxset.status_calibrated"):t("maxset.status_varies");
+  const checks=cal?.n?t(cal.n===1?"profile.tests_one":"profile.tests_other",{n:cal.n})+" · "+status:t("profile.no_tests");
+  const history=(state.log||[]).filter(row=>maxSetRowKey(row)===programGaugeKey(ex)).sort(compareLogChronology);
+  // The opening record and the working load are from the same first session, never a later target.
+  const opening=history.find(row=>row.startingLoad),working=opening&&history.find(row=>row.session===opening.session&&!row.warmup&&readLogRow(row).load>0);
+  const load=opening&&working?t("profile.opening",{opening:fmtLoad(opening.startingLoad.openingKg),worked:fmtLoad(readLogRow(working).load),unit:unitLabel()}):"";
+  return `<li class="profile-lift"><h4 class="profile-lift__name">${esc(exerciseDisplayName(ex))}</h4>`+
+    `<p class="profile-lift__standing">${esc(standing?standingWord(standing):t("profile.unavailable"))}</p>`+
+    (standing?`<p>${esc(reason)}</p>`:"")+`<p>${esc(checks)}</p>`+
+    (load?`<p>${esc(load)}</p>`:"")+`</li>`}
+/** Recent sessions use the same effortSource provenance as the stage tip. Prefilled and unsure are not chosen. */
+function profileEffortCounts(){
+  const rows=[...state.log||[]].sort(compareLogChronology);
+  const sessions=[...new Set(rows.map(row=>row.session))].slice(-10);
+  const recent=rows.filter(row=>sessions.includes(row.session)&&!row.warmup&&row.effortSource&&row.effortSource!=="failure");
+  return{n:recent.filter(row=>["effort","rir","reps_left","reps_left_3plus","reps_left_5plus"].includes(row.effortSource)).length,m:recent.length}}
+/** Historical profile readings use the engine and the same comparable history
+ * as Why. No live draft, future session or stored finding enters the replay. */
+function findingReadings(){
+  const compiler=window.RepForgeProgramCompiler,engine=window.RepForgeProgression;
+  const definition=state.programMeta?.programDefinition;
+  if(!compiler||!engine||!definition)return()=>[];
+  const plans=[],cycles=new Map();
+  for(const ex of state.program){
+    const matched=canonicalPrescriptionSlot(ex),key=String(ex.libraryId||ex.movementId||ex.name||"");
+    if(!matched)continue;
+    const slot=matched.slot;
+    plans.push({key,name:exerciseDisplayName(ex),slot,projection:slotLoadingProjection(slot)})}
+  return(log,asOf,request={recommendation:true,weeks:true,calibration:true})=>{
+    const elapsed=state.programMeta?.started?Math.floor(RepForgeProgressModel.calendarDayDistance(state.programMeta.started,asOf)/7)+1:1;
+    const cycle=Math.max(1,Math.min(definition.cycles||1,elapsed));
+    if(!cycles.has(cycle))cycles.set(cycle,compiler.prescriptionsForCycle(definition,cycle));
+    const measurement=log.filter(row=>Number(row.loadingContext?.bodyweightKg??row.bodyweight)>0).slice().sort(compareLogChronology).at(-1);
+    const bodyweight=Number(measurement?.loadingContext?.bodyweightKg??measurement?.bodyweight)||null;
+    return plans.filter(plan=>!request.keys||request.keys.includes(plan.key)).flatMap(plan=>{
+    const{slot,key}=plan,context={...plan.projection,equipmentId:null,availableLoadsKg:loadGridKg(loadStepKg(slot.exerciseId)),
+      bodyweightKg:bodyweight,bodyweightContributionEnabled:materialBodyweightCoefficient(slot.loadingModel?.bodyweightCoefficient,plan.projection.loadingConvention)>0&&bodyweight>0};
+    const first=cycles.get(cycle).find(item=>item.slotId===slot.id);if(!first)return[];
+    const history=progressionHistoryFor(first.exerciseId,first.metricIds,plan.projection,slot.metricDefinitions,log);
+    const calibration=liftCalibration(history,context,slot.metricDefinitions,[],asOf);
+    const recommendation=request.recommendation?engine.recommendSets([first],history,[],{bySlotId:{[slot.id]:context}},
+      {now:asOf,weightMatch:state.settings.weightMatch===true,expandRepRange:state.settings.expandRepRange!==false,calibration})[0]:null;
+    const compatible=log.filter(row=>String(row.performedLibraryId||row.performedMovementId||row.sourceLibraryId||row.performedName||row.name||"")===key&&
+      !row.warmup&&row.origin!=="ramp");
+    const bySession=new Map();
+    for(const row of compatible){if(!bySession.has(row.session))bySession.set(row.session,[]);bySession.get(row.session).push(row)}
+    const sessions=[...bySession.values()];
+    const withEffort=rows=>rows.every(row=>typeof row.rir==="number"&&Number.isFinite(row.rir));
+    const improved=sessions.length>1&&withEffort(sessions[0])&&withEffort(sessions.at(-1))&&compareProjectedSessionOutcome(sessions.at(-1),sessions[0]).status==="improved";
+    // W is the gauge's own first-set capacity rule, including its quality and
+    // two-week gap. Equipment/convention stays separate, as it does in Why.
+    const observations=compatible.filter(row=>row.strengthComparable!==false&&(row.equipmentId??null)===(context.equipmentId??null)&&row.loadingConvention===context.loadingConvention)
+      .map(row=>({key:`${key}|${row.strengthConvention||"load"}`,session:String(row.session),date:row.date,set:row.setIndex??Number(row.set)-1,
+        load:row.load,reps:row.reps,rir:row.rir,q:CalibrationGauge.rowQuality(row)}));
+    const records=[],past=[];
+    for(const session of request.weeks?sessions:[]){
+      const record=sessionPRs(session,past)[0];
+      if(record){records.push({...record,date:session[0].date});break}
+      past.push(...session)}
+    return[{key,name:plan.name,recommendation,targetEligible:first.status==="ready",standing:recommendation?.standing,nextSetQuality:CalibrationGauge.rowQuality({effortSource:effortStage()==="a"?"effort":"rir"}),calibration,weeks:request.weeks?CalibrationGauge.weeksFrom(observations,capE1rm):[],
+      records,improved}]})}}
+let findingsCache={key:"",value:null};
+function profileFindings(){
+  const key=JSON.stringify([state.log,state.program,state.programMeta,state.settings,today(),I18N.getLang()]);
+  if(findingsCache.key!==key)findingsCache={key,value:RepForgeProgressModel.buildFindings(
+    readLogRows(),state.program,state.programMeta,today(),findingReadings())};
+  return findingsCache.value}
+function findingText(finding){
+  const vars={...finding};
+  if(finding.key)vars.lift=localizedMovementName(finding.lift,finding.key);
+  if(finding.loadingConvention==="bodyweight")vars.load=t("finding.bodyweight");
+  if(finding.load!=null)vars.load=`${fmtLoad(finding.load)} ${unitLabel()}`;
+  if(finding.becauseDate)vars.date=shortDate(finding.becauseDate);
+  if(finding.id==="month_one"){vars.sessionWord=tp(finding.sessions,"session");vars.liftWord=tp(finding.improved,"exercise")}
+  if(finding.sets!=null)vars.sets=fmt(Math.round(finding.sets*10)/10);
+  if(finding.cap1!=null){vars.cap1=`${fmtLoad(finding.cap1)} ${unitLabel()}`;vars.cap2=`${fmtLoad(finding.cap2)} ${unitLabel()}`}
+  const key=finding.id==="weights_found"&&finding.n===1?"finding.weights_found_one":finding.id==="effort_read"?`finding.effort_read_${finding.state}`:`finding.${finding.id}`;
+  const record=finding.record?t("finding.record",{load:`${fmtLoad(finding.record.load)} ${unitLabel()}`,reps:finding.record.reps}):"";
+  return t(key,vars)+(record?" "+record:"")}
+function findingNeedText(next){
+  const vars={...next.need,lift:localizedMovementName(next.need.lift,next.need.key)};
+  const suffix=next.id==="month_one"&&vars.d===1?"_one":next.id==="weights_found"&&vars.m===1?"_one":next.id==="effort_read"&&vars.k===1?"_one":next.id==="first_solid"&&vars.reason==="sets"&&vars.m===1?"_one":next.id==="effort_read"&&vars.reason==="agreement"?"_agreement"
+    :next.id==="first_solid"&&vars.reason!=="sets"?`_${vars.reason}`:"";
+  return t(`finding.need.${next.id}${suffix}`,vars)}
+function profileFindingsHtml(){
+  const findings=profileFindings();
+  return `<div class="ovsec"><h3 class="ovsec__title">${esc(t("profile.findings"))}</h3></div>`+
+    (findings.released.length?`<ul class="profile-findings">${findings.released.map(finding=>
+      `<li class="profile-finding" data-finding="${finding.id}"><time datetime="${finding.date}">${esc(shortDate(finding.date))}</time>`+
+      `<p>${esc(findingText(finding))}</p></li>`).join("")}</ul>`:`<p class="profile-finding-empty">${esc(t("finding.empty"))}</p>`)+
+    (findings.next?.need?`<p class="profile-finding-need" data-finding-next="${findings.next.id}">${esc(t("finding.next",{need:findingNeedText(findings.next)}))}</p>`:"")}
+
+/** Progress › Overview reads counts from the six signals. No component or combined percentage is presented. */
+function renderOverviewProfile(){
+  const el=$("#overviewProfile");if(!el)return;
+  el.classList.toggle("hidden",!hasProgramContent());if(!hasProgramContent()){el.innerHTML="";return}
+  const g=calibrationGauge(),c=g?.counts,effort=profileEffortCounts();
   const signals=[
-    ["calib.sig.tests",t("calib.of",{n:c.counted,m:c.needed}),comp.T,true],
-    ["calib.sig.agree",reading(ev.A,"calib.ev.pairs"),comp.A],
-    ["calib.sig.hit",reading(ev.H,"calib.ev.sets"),comp.H],
-    ["calib.sig.weeks",reading(ev.W,"calib.ev.weeks"),comp.W],
-    ["calib.sig.slow",state.settings.slowRepTaps===false?t("calib.off"):reading(ev.S,"calib.ev.taps"),comp.S],
-    ["calib.sig.history",reading(ev.R,"calib.ev.history"),comp.R]];
-  const lifts=c.checkKeys;
-  const rows=g.recent.length?g.recent.map(item=>`<li class="calcheck"><span class="calcheck__name">${esc(item.name)}<small>${esc(shortDate(item.date))}</small></span>`+
-    `<span class="calcheck__gd">${esc(t("maxset.guessed"))} <b>${esc(String(item.guess))}</b> → ${esc(t("maxset.did"))} <b>${esc(String(item.did??"—"))}</b></span></li>`).join("")
+    ["profile.sig.tests",t(c?.checks===1?"profile.tests_one":"profile.tests_other",{n:c?.checks||0})],
+    ["profile.sig.agree",t("profile.pairs",{n:c?.pairs.agree||0,m:c?.pairs.total||0})],
+    ["profile.sig.hit",t("profile.sets",{n:c?.hits.agree||0,m:c?.hits.total||0})],
+    ["profile.sig.weeks",t("profile.weeks",{n:c?.weeks.agree||0,m:c?.weeks.total||0})],
+    ["profile.sig.slow",state.settings.slowRepTaps===false?t("profile.off"):t("profile.answers",{n:c?.taps.agree||0,m:c?.taps.total||0})]];
+  const recent=g?.recent||[];
+  const rows=recent.length?recent.map(item=>{
+    const result=EffortCalibration.result(item.guess,item.did);
+    const line=result.error<0?t("maxset.result_more",{n:-result.error}):result.error>0?t("maxset.result_fewer",{n:result.error}):t("maxset.result_same");
+    return `<li class="calcheck"><span class="calcheck__name">${esc(item.name)}<small>${esc(shortDate(item.date))}</small></span>`+
+      `<span><span class="calcheck__gd">${esc(t("maxset.guessed"))} <b>${esc(String(item.guess))}</b> → ${esc(t("maxset.did"))} <b>${esc(String(item.did??"—"))}</b></span>`+
+      `<small class="calcheck__result">${esc(line)}</small></span></li>`}).join("")
     :`<li class="calcheck calcheck--empty">${esc(t("calib.empty"))}</li>`;
-  el.innerHTML=`<div class="ovsec"><h3 class="ovsec__title">${esc(t("calib.title"))}</h3></div>`+
-    `<div class="calcard" role="group" aria-label="${esc(t("calib.aria",{n:g.percent}))}">`+
-      `<p class="calcard__big"><b>${esc(t("calib.percent",{n:g.percent}))}</b><span>${esc(c.checks?`${t(c.checks===1?"calib.tests_one":"calib.tests_other",{n:c.checks})} · ${t(lifts===1?"calib.lifts_one":"calib.lifts_other",{n:lifts})}`:t("calib.no_tests"))}</span></p>`+
-      gaugeBar(g.percent)+
-      `<p class="calcard__what">${esc(t(g.percent>=100?"calib.full":"calib.what"))}</p>`+
-      `<ul class="calsigs">${signals.map(([label,value,share,lead])=>`<li class="calsig${lead?" calsig--lead":""}"><span>${esc(t(label))}</span><span>${esc(value)}</span>${gaugeBar(share*100," calbar--thin")}</li>`).join("")}</ul>`+
-      `<p class="calcard__fade">${esc(t("calib.fade"))}</p></div>`+
-    `<div class="ovsec"><h3 class="ovsec__title">${esc(t("calib.recent"))}</h3></div><ul class="calchecks">${rows}</ul>`}
-/* ---- The calibration ring on Today (owner direction B, 2026-11-06) ----
-   The gauge's number inside an arc that fills with it, open at the foot, where one dot per test set the gauge counts
-   (two per exercise, up to four exercises) fills as each is done: at 7% the lifter sees the one test set behind it.
-   No % sign in the ring; its label says percent. Drawn on a 46-unit square; CSS sets the size (46 px beside the large
-   title, up to 1.3× under large text; 30 px in the bar). */
-const CALRING_GAP=116;
-function calRingSvg(percent,counted,needed){
-  const c=23,r=19.55,pct=Math.max(0,Math.min(100,Math.round(percent))),a0=180+CALRING_GAP/2,a1=540-CALRING_GAP/2;
-  const at=deg=>{const rad=(deg-90)*Math.PI/180;return[c+r*Math.cos(rad),c+r*Math.sin(rad)]};
-  const arc=(from,to)=>{const [x0,y0]=at(from),[x1,y1]=at(to);return `M${x0.toFixed(2)} ${y0.toFixed(2)}A${r} ${r} 0 ${to-from>180?1:0} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`};
-  let out=`<path class="calring__track" d="${arc(a0,a1)}"/>`;
-  if(pct>0)out+=`<path class="calring__fill" d="${arc(a0,Math.max(a0+2,a0+(a1-a0)*pct/100))}"/>`;
-  // The dots keep clear of the arc's round ends, so the first test set reads as its own dot.
-  const n=Math.max(1,Math.min(8,needed|0)),done=Math.max(0,Math.min(n,counted|0)),span=CALRING_GAP-32;
-  for(let i=0;i<n;i++){
-    const [x,y]=at(a0-16-(n>1?i*span/(n-1):span/2));
-    out+=`<circle class="calring__dot${i<done?" is-done":""}" cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="${i<done?1.8:1.25}"/>`}
-  out+=`<text class="calring__n${pct?"":" is-empty"}" x="${c}" y="${c+(pct===100?4.2:5)}" text-anchor="middle" font-size="${pct===100?13.8:16.5}">${pct}</text>`;
-  return `<svg viewBox="0 0 46 46" aria-hidden="true" focusable="false">${out}</svg>`}
-/** Today: the ring beside the large title and its twin in the bar, from the first logged workout. */
-function renderTodayCalibration(){
-  const ring=$("#todayCalRing"),bar=$("#todayCalRingBar");if(!ring)return;
-  const g=calibrationGauge();
-  for(const el of [ring,bar])if(el){el.classList.toggle("hidden",!g);el.hidden=!g}
-  if(!g){ring.innerHTML="";if(bar)bar.innerHTML="";return}
-  const c=g.counts,svg=calRingSvg(g.percent,c.counted,c.needed);
-  ring.innerHTML=svg;ring.setAttribute("aria-label",t("calib.ring_aria",{n:g.percent,done:c.counted,m:c.needed}));
-  if(bar)bar.innerHTML=svg}
-/** The ring's tap: Progress › Overview, at the calibration card. */
-function openCalibrationFromToday(){
-  navTo("stats");setStatsSeg("overview");
-  requestAnimationFrame(()=>{const card=$("#overviewCalibration");if(!card||card.classList.contains("hidden"))return;
-    card.scrollIntoView({block:"start",behavior:scrollBehavior()});
-    const head=card.querySelector(".ovsec__title");
-    if(head){head.tabIndex=-1;try{head.focus({preventScroll:true})}catch{}}})}
+  const lifts=days().flatMap(day=>state.program.filter(ex=>ex.day===day));
+  el.innerHTML=(sessionSummaryProfileReturn?`<button type="button" class="back-link" id="summaryProfileBack">${esc(t("exercise.back"))}</button>`:"")+
+    `<div class="ovsec"><h3 class="ovsec__title">${esc(t("profile.title"))}</h3></div>`+
+    profileFindingsHtml()+
+    `<p class="profile-stage">${esc(t("profile.stage",{stage:t(STAGE_LABEL[effortStage()])}))}</p>`+
+    `<p class="profile-effort">${esc(t("profile.chosen",effort))}</p>`+
+    `<ul class="profile-lifts">${lifts.map(ex=>profileLiftHtml(ex)).join("")}</ul>`+
+    `<div class="ovsec"><h3 class="ovsec__title">${esc(t("profile.signals"))}</h3></div>`+
+    `<ul class="profile-signals">${signals.map(([label,value])=>`<li class="profile-signal"><span>${esc(t(label))}</span><span>${esc(value)}</span></li>`).join("")}</ul>`+
+    `<p class="profile-history-label">${esc(t("profile.history"))}</p><ul class="profile-signals">${lifts.map(ex=>{
+      const n=(state.log||[]).filter(row=>!row.warmup&&maxSetRowKey(row)===programGaugeKey(ex)).length;
+      return `<li class="profile-signal"><span>${esc(exerciseDisplayName(ex))}</span><span>${esc(t("profile.history_sets",{n}))}</span></li>`}).join("")}</ul>`+
+    `<div class="ovsec"><h3 class="ovsec__title">${esc(t("calib.recent"))}</h3></div><ul class="calchecks">${rows}</ul>`;
+  const back=$("#summaryProfileBack");if(back)back.onclick=returnFromSummaryProfile}
 /* "Not now" closes the prompt for that exercise in this workout. */
 const maxSetDeclined=new Set();
 let maxSetUi=null;
@@ -7886,8 +8299,39 @@ function maxSetEligibility(de,set){
   const equipmentName=equipmentId?rawCatalogObject(equipmentId)?.name??null:null;
   return EffortCalibration.eligibility({exercise,lookup:id=>rawCatalogObject(id),equipmentName,
     customName:exercise?"":String(de?.substitution?.replacement?.displayName||de?.displayName||"")})}
+/** Live and saved observations protect the performed movement for its whole calendar day. */
+function maxSetPainAllows(draft,movementId,date){
+  try{
+    if(Object.values(draft.exercises).some(item=>(item.discomfort||[]).some(observation=>
+      observation.exerciseId===movementId&&["pain","discomfort"].includes(observation.kind))))return false;
+    if(!Object.prototype.hasOwnProperty.call(state,"sessionEvents"))return true;
+    if(!WorkoutDraft.validateSessionEvents(state.sessionEvents)||!Array.isArray(state.log))return false;
+    const completionDay=value=>{
+      if(typeof value!=="string"&&typeof value!=="number")return null;
+      const at=new Date(value);
+      if(!Number.isFinite(at.getTime())||typeof value==="string"&&at.toISOString()!==value)return null;
+      return `${at.getFullYear()}-${String(at.getMonth()+1).padStart(2,"0")}-${String(at.getDate()).padStart(2,"0")}`};
+    const records=new Map(Object.entries(state.sessionEvents)
+      .filter(([,record])=>record.pain.some(observation=>observation.exerciseId===movementId))
+      .map(([session])=>[session,{workout:new Set(),completed:new Set()}]));
+    for(const row of state.log){
+      const record=records.get(String(row.session));if(!record)continue;
+      record.workout.add(row.date);
+      const completed=completionDay(row.created);if(completed)record.completed.add(completed)}
+    for(const [session,record] of records){
+      const timing=state.sessionTiming?.[session];
+      const verified=timing&&sessionTimingRecord(timing.startedAt,timing.completedAt);
+      if(verified&&verified.durationSeconds===timing.durationSeconds){
+        const completed=completionDay(verified.completedAt);if(completed)record.completed.add(completed)}
+      const [workout]=record.workout;
+      const workoutDay=record.workout.size===1?parseCalendarDate(workout).value:null;
+      if(workoutDay===date||record.completed.has(date))return false;
+      if(record.workout.size>1||record.completed.size>1||!workoutDay&&!record.completed.size)return false;
+    }
+    return true;
+  }catch{return false}}
 /** The max set Taurifer may offer on this exercise's set n now, or null. */
-function maxSetOffer(ex,n){
+function maxSetCandidate(ex,n){
   const draft=activeWorkoutDraft;
   if(!EffortCalibration||state.settings.maxSetPrompts===false||!draft||!n||draft.session.status!=="active")return null;
   const de=draft.exercises?.[ex.id];if(!de||de.status!=="active")return null;
@@ -7903,17 +8347,41 @@ function maxSetOffer(ex,n){
   const fit=maxSetEligibility(de,set);if(!fit.eligible)return null;
   const inWorkout=Object.values(draft.exercises).reduce((count,item)=>count+Object.values(item.sets).filter(other=>other.calibration).length,0);
   const history=(state.log||[]).filter(row=>row?.calibration&&row.effortSource==="failure").map(row=>({exerciseKey:maxSetRowKey(row),date:row.date}));
-  // At a gauge of 100 % the checks keep coming, at most once a month (OD-12).
-  const gaugeFull=(calibrationGauge()?.percent??0)>=100;
-  if(!EffortCalibration.frequencyAllows({history,today:draft.program.scheduleDate||today(),exerciseKey:maxSetDraftKey(de,set),inWorkout,gaugeFull}).ok)return null;
+  const date=draft.program.scheduleDate||today(),key=maxSetDraftKey(de,set);
+  if(!EffortCalibration.frequencyAllows({history,today:date,exerciseKey:key,inWorkout}).ok)return null;
+  const movement=de.substitution?.replacement||de;
+  const movementId=movement.libraryId||movement.movementId||movement.programmed?.movementId||movement.sourceExerciseId;
+  // Plan 082 owns both live observations and their saved session projection.
+  if(!maxSetPainAllows(draft,movementId,today()))return null;
+  const rec=recommendation(ex);
+  const now=Date.parse(`${date}T00:00:00Z`);
+  const dates=history.filter(row=>row.exerciseKey===key).map(row=>Date.parse(`${row.date}T00:00:00Z`))
+    .filter(at=>Number.isFinite(at)&&at<=now);
+  const lastCheckDays=dates.length?(now-Math.max(...dates))/86400000:null;
+  const request=EffortCalibration.shouldOffer({standing:rec.standing,calibration:rec.calibration,lastCheckDays});
+  if(!request.ok)return null;
   const guess=EffortCalibration.prefillGuess(reps,rir);if(!guess)return null;
-  const kg=parseDec(setFieldVals(ex,before.ordinal,recommendation(ex),hydrateWorkoutDraft(),last(ex)).kgVal);
-  return{set,before,guess,reps,rir,press:fit.press,load:Number.isFinite(kg)&&kg>0?`${fmt(kg)} ${unitLabel()}`:""}}
+  const kg=parseDec(setFieldVals(ex,before.ordinal,rec,hydrateWorkoutDraft(),last(ex)).kgVal);
+  return{set,before,guess,reps,rir,reason:request.reason,weightedSets:rec.standing?.evidence?.sets??0,press:fit.press,load:Number.isFinite(kg)&&kg>0?`${fmt(kg)} ${unitLabel()}`:""}}
+/** Of the currently safe opportunities, request the lift with the least evidence. Draft order breaks ties. */
+function maxSetOffer(ex,n){
+  const offer=maxSetCandidate(ex,n);if(!offer)return null;
+  const draft=activeWorkoutDraft;
+  for(const id of draft.exerciseOrder){
+    if(id===ex.id)continue;
+    const base=prog.find(id);if(!base)continue;
+    const de=draft.exercises[id],lastWorking=de?.setOrder.map(key=>de.sets[key]).filter(set=>set.role==="working").at(-1);
+    const other=lastWorking?maxSetCandidate(sessionExercise(base),lastWorking.ordinal):null;
+    if(other&&(other.weightedSets<offer.weightedSets||other.weightedSets===offer.weightedSets&&
+      draft.exerciseOrder.indexOf(id)<draft.exerciseOrder.indexOf(ex.id)))return null;
+  }
+  return offer}
 /** The prompt above the shelf while the rest runs (CSS hides it once the rest ends). */
 function maxSetTipHtml(ex,n,peek){
   if(peek)return"";
   const offer=maxSetOffer(ex,n);if(!offer)return"";
-  const title=t("maxset.invite_title"),body=t(offer.load?"maxset.invite_body":"maxset.invite_body_noload",{load:offer.load});
+  const title=t("maxset.invite_title"),body=t(offer.load?"maxset.invite_body":"maxset.invite_body_noload",
+    {load:offer.load,reason:t(`maxset.invite_reason_${offer.reason}`)});
   return `<section class="resttip" data-tip="max-set" aria-label="${esc(title)}">`+
     `<p class="resttip__text"><b>${esc(title)}</b> ${esc(body)}</p>`+
     `<div class="resttip__acts"><button type="button" class="resttip__no" data-maxset-no>${esc(t("maxset.not_now"))}</button>`+
@@ -8869,7 +9337,7 @@ function paintSessionRest(){
 function renderTodayNoProgram(){
   for(const sel of["#todayProgram","#todaySessionLabel","#todaySession","#startWorkout","#chooseAnotherDay",
     "#reviewTodaySession","#logAnotherSession","#todayWeekLabel","#todayWeek",
-    "#todayUpNextLabel","#todayUpNext","#todayLast","#todayCalRing","#todayCalRingBar"]){
+    "#todayUpNextLabel","#todayUpNext","#todayLast"]){
     const el=$(sel);if(el)el.classList.add("hidden")}
   const sess=$("#todaySession");parkDayAction();if(sess)sess.innerHTML="";
   renderTodayLive(null);
@@ -8886,11 +9354,11 @@ function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent
   // The dashboard describes a program: with none there is nothing to describe,
   // and the empty state stands in for the whole surface.
   const empty=$("#todayNoProgram");
-  if(!hasProgramContent())return renderTodayNoProgram();
+  if(!hasProgramContent()){ $("#todayWeekCard")?.classList.add("hidden");return renderTodayNoProgram()}
   if(empty)empty.classList.add("hidden");
   for(const sel of["#todaySessionLabel","#todaySession","#todayWeekLabel","#todayWeek","#todayUpNextLabel","#todayUpNext","#todayLast"]){
     const el=$(sel);if(el)el.classList.remove("hidden")}
-  renderTodayCalibration();
+  renderWeekCard();
   const week=weeklySnapshot();
   const mc=mesocycleWeek(),nm=state.programMeta?.name,progEl=$("#todayProgram");
   if(progEl){if(nm||mc.current!=null||mc.isComplete){progEl.classList.remove("hidden");
@@ -9307,6 +9775,11 @@ function renderExActionsSheet(exId) {
     ? exerciseDisplayName(draftEx.substitution.replacement)
     : draftEx.displayName ? exerciseDisplayName(draftEx)
       : progEx ? exerciseDisplayName(sessionExercise(progEx)) : exId;
+  const movement=draftEx.substitution?.replacement || draftEx;
+  const movementId=movement.libraryId || movement.movementId || movement.programmed?.movementId || movement.sourceExerciseId;
+  const hasMark=(draftEx.discomfort || []).some(observation=>observation.exerciseId===movementId);
+  $("#exActionDiscomfortStatus")?.classList.toggle("hidden",!hasMark);
+  $("#exActionDiscomfortBtn")?.setAttribute("aria-pressed",String(hasMark));
   const nameEl = $("#exActionsName");
   if (nameEl) nameEl.textContent = shownName;
 
@@ -9526,14 +9999,19 @@ function setFieldVals(ex,n,r,draft,prev){
   const key=`${ex.id}_${n}`,isW=warmups.has(key);
   // A set the lifter entered keeps the vocabulary they entered it in; any other shows the app's stage, its offered
   // value (the set above's, then what was there, then last session's, then about 1 left) put into that stage's words.
-  const stage=setStageOf(ex.id,n),words=stage==="b"?"b":"a";
+  const stage=setStageOf(ex.id,n),words="a";
   const own=pending("effort")??(shelfTouched(ex.id,n).effort?draft[`${key}_effort`]:null);
-  const bucket=rir=>words==="b"?leftForRir(rir):effortForRir(rir);
+  const bucket=effortForRir;
   const carriedRir=carried("rir"),carriedEffort=tokenInStage(carried("effort"),words)||(carriedRir!=null&&carriedRir!==""?bucket(parseDec(carriedRir)):null);
   const effortVal=own&&(own==="unsure"||tokenStage(own)===stage)?own
     :carriedEffort||tokenInStage(draft[`${key}_effort`],words)||bucket(old&&old.rir!=null?old.rir:1);
-  const rirVal=pending("rir")??carriedRir??draft[`${key}_rir`]??(old&&old.rir!=null?fmtPlain(old.rir):1);
-  return{key,isW,kgVal,repsVal,rirVal,effortVal,stage,unsure:own==="unsure"}}
+  const legacy=own&&EFFORT_LEFT.includes(own)?EFFORT_RIR[own]:null;
+  const numericTarget=stage==="c"?draftSetAt(ex.id,n)?.programmed?.targetRir:null;
+  const rirVal=pending("rir")??(legacy!=null?String(legacy):null)??carriedRir??draft[`${key}_rir`]
+    ??(carried("effort")!=null?String(EFFORT_RIR[carried("effort")]??1):null)
+    ??(numericTarget!=null?String(numericTarget):old&&old.rir!=null?fmtPlain(old.rir):1);
+  const numericEffort=repsLeftView(rirVal,committed.has(key)||hasPendingField(`${key}_rir`)||!!shelfTouched(ex.id,n).effort);
+  return{key,isW,kgVal,repsVal,rirVal,numericEffort,effortVal,stage,unsure:own==="unsure"}}
 /** The stage a set is drawn in (Plan 077, OD-5): the vocabulary the lifter entered its effort in, else the app's.
  *  "Not sure" belongs to no stage, so a set marked so is drawn in the app's. */
 function setStageOf(exId,n){
@@ -9561,14 +10039,14 @@ function setStageOf(exId,n){
 const dead=()=>` tabindex="-1"`;
 /** Set numbers already committed on this exercise, in order. */
 function focusDoneSets(ex){const out=[];
-  for(let n=1;n<=ex.sets;n++)if(committed.has(`${ex.id}_${n}`))out.push(n);
+  for(let n=1;n<=sessionSetCount(ex);n++)if(committed.has(`${ex.id}_${n}`))out.push(n);
   if(focusEdit?.exId===ex.id&&!out.includes(focusEdit.n))out.push(focusEdit.n);
   out.sort((a,b)=>a-b);
   return out}
 /** The set the shelf is working on: the one being edited, else the first unlogged. */
 function focusActiveSet(ex){
-  if(focusEdit&&focusEdit.exId===ex.id&&focusEdit.n>=1&&focusEdit.n<=ex.sets)return focusEdit.n;
-  for(let n=1;n<=ex.sets;n++)if(!committed.has(`${ex.id}_${n}`))return n;
+  if(focusEdit&&focusEdit.exId===ex.id&&focusEdit.n>=1&&focusEdit.n<=sessionSetCount(ex))return focusEdit.n;
+  for(let n=1;n<=sessionSetCount(ex);n++)if(!committed.has(`${ex.id}_${n}`))return n;
   return 0}
 const focusExDone=ex=>focusActiveSet(ex)===0;
 /** The load the next set is judged against: this session's last logged set,
@@ -9580,12 +10058,85 @@ function focusRefLoad(ex,n,draft,prev){
     if(Number.isFinite(v)&&v>0)return v}
   const old=prev.find(x=>x.set===n)||prev.at(-1);
   return old&&old.load!=null?+old.load:null}
-/** The two lines above the ledger: what to do with this set, and why. Line one
- *  is the verb and the load, line two the reps to aim for. The load is the
- *  engine's: `setSuggestion` for this set, never a figure derived here. */
+/* Only recorded working observations can seed a new movement. A swap first checks
+   its original movement; a new slot checks other recorded movements in recency order. */
+function focusOpeningLoad(options,de,loadMetric){
+  const loads=window.RepForgeStartingLoads,plain=loads.openingLoad(options);
+  const originalId=de.substitution?.original?.libraryId;
+  const rows=state.log.filter(row=>isWork(row)&&row.origin!=="ramp")
+    .sort((a,b)=>compareLogChronology(b,a)||(a.setIndex??a.set)-(b.setIndex??b.set));
+  const sources=originalId?[...rows.filter(row=>row.performedLibraryId===originalId),...rows.filter(row=>row.performedLibraryId!==originalId)]:rows;
+  for(const row of sources){
+    const sourceId=row.performedLibraryId||row.sourceLibraryId,exercise=rawExercise(sourceId),seen=readLogRow(row);
+    if(!exercise||sourceId===options.exercise?.id||!seen.strengthComparable||
+      row.loadingContext?.externalLoadMultiplier===0||!row.metricDefinitions?.some(metric=>metric.semantic===loadMetric.semantic))continue;
+    const from={exercise,lookup:rawCatalogObject,convention:row.loadingConvention,
+      equipmentName:row.equipmentId?rawCatalogObject(row.equipmentId)?.name:null,experience:options.experience};
+    const opening=loads.ratioLoad({anchorLoadKg:seen.load,from,to:options});
+    if(opening.basis==="ratio")return opening;
+  }
+  return plain;
+}
+/* The opening is a declared prior only while this lift has no working record.
+   Pending values and provenance live in DraftV2, so a reload resumes the same ramp. */
+function focusRamp(ex,n,r){
+  const de=activeWorkoutDraft?.exercises?.[ex.id],set=draftSetAt(ex.id,n),loads=window.RepForgeStartingLoads;
+  if(!loads||!de||!set||set.completion!=="pending"||set.role!=="working"||set.programmed.sourceLibraryId!==ex.libraryId||set.calibration||
+    r.status!=="new"||r.plannedLoad!=null||r.targetSets?.some(item=>item.planned)||last(ex).length||r.progressionInputs?.history?.length||
+    de.setOrder.some(id=>de.sets[id].role==="working"&&(de.sets[id].completion!=="pending"||de.sets[id].performed)))return null;
+  const convention=set.programmed.loadingConvention;
+  if(!["external","per_side"].includes(convention)||set.programmed.loadingContext?.externalLoadMultiplier===0)return null;
+  const metrics=draftSetMetrics(set),loadMetric=metrics.find(metric=>["loadKg","loadPerSideKg","persistentLoadPerSideKg"].includes(metric.semantic));
+  const repsMetric=metrics.find(metric=>["reps","repsPerSide"].includes(metric.semantic));
+  if(metrics.length!==2||!loadMetric||!repsMetric||!ex.min)return null;
+  const grid=loadGridKg(loadStepKg(ex.libraryId)),exercise=rawExercise(ex.libraryId);
+  const equipmentName=set.programmed.equipmentId?rawCatalogObject(set.programmed.equipmentId)?.name:null;
+  const recorded=set.startingLoad;
+  const opening=recorded?{loadKg:recorded.openingKg,basis:recorded.basis}
+    :focusOpeningLoad({exercise,lookup:rawCatalogObject,equipmentName,convention,bodyweightKg:sessionBodyweightKg(),
+      experience:state.programMeta?.experience||"beginner",grid},de,loadMetric);
+  if(opening.loadKg==null)return null;
+  const load=Number(set.edited?.metrics?.[loadMetric.id]);
+  return{set,de,loadMetric,repsMetric,grid,loadKg:load>0?load:opening.loadKg,
+    record:recorded||{v:1,openingKg:opening.loadKg,basis:opening.basis,
+      ramps:de.setOrder.filter(id=>de.sets[id].origin==="ramp"&&de.sets[id].programmed.sourceLibraryId===ex.libraryId).length,version:loads.PRIORS_VERSION}}}
+async function startFocusRamp(exId,n,typed=false,offered=null){
+  await WorkoutSession.flush();
+  const base=prog.find(exId),ex=base?sessionExercise(base):null,r=ex?recommendation(ex):null;
+  const ramp=ex?focusRamp(ex,n,r):null;if(!ramp)return;
+  // A queued bodyweight edit can settle after the button was pressed. Show
+  // the revised offer before accepting it; an accepted or typed load stays put.
+  if(offered&&(ramp.loadKg!==offered.loadKg||ramp.record.basis!==offered.basis)){
+    renderWorkout();return}
+  const record={...ramp.record,...(typed?{basis:"typed",openingKg:ramp.loadKg}:{})};
+  const fields={metrics:{[ramp.loadMetric.id]:String(ramp.loadKg),[ramp.repsMetric.id]:String(ex.min)}};
+  const result=await WorkoutSession.dispatch("refreshUntouchedSuggestions",{sourceRevision:activeWorkoutDraft.revision,
+    updates:[{exerciseInstanceId:exId,setId:ramp.set.setId,fields,startingLoad:record}]});
+  if(result.status!=="applied")return;
+  renderWorkout();
+  if(typed)openWheelSheet(`${exId}_${n}`,`metric_${ramp.loadMetric.id}`,"load")}
+/* Copy the performed Easy set into an inserted warm-up. The working set keeps its
+   identity and all programmed working sets remain available. */
+async function saveRampEasy(ex,n,r){
+  const ramp=focusRamp(ex,n,r);if(!ramp||ramp.record.basis==="typed"||ramp.de.setOrder.filter(id=>ramp.de.sets[id].origin==="ramp").length>=3||!ramp.set.startingLoad)return false;
+  const rir=draftSetRir(ramp.set),reps=draftSetReps(ramp.set),load=Number(ramp.set.edited.metrics?.[ramp.loadMetric.id]);
+  if(!(rir>=3&&reps>0&&load>0))return false;
+  const next=window.RepForgeStartingLoads.nextRampLoad({loadKg:load,reps,targetRir:ramp.set.programmed.targetRir??2,grid:ramp.grid});
+  if(next==null)return false;
+  const setId=`ramp-${uid()}`,record={...ramp.record,ramps:ramp.record.ramps+1};
+  const inserted=await WorkoutSession.dispatch("insertSet",{exerciseInstanceId:ex.id,beforeSetId:ramp.set.setId,setId,
+    role:"warmup",origin:"ramp",programmed:ramp.set.programmed,edited:ramp.set.edited,startingLoad:record,nextLoadKg:next});
+  if(inserted.status!=="applied")return true;
+  const completed=await WorkoutSession.dispatch("completeSet",{exerciseInstanceId:ex.id,setId});
+  if(completed.status!=="applied")return true;
+  lastCommitAt=Date.now();if(!sessionStartedAt)sessionStartedAt=lastCommitAt;
+  applyRest(RepForgeRestTimer.setLength(restClock,0));startRest(exerciseRestSec(prog.find(ex.id)),ex.id);armUnfinishedWatch();
+  focusLogged={exId:ex.id,n};
+  renderWorkout();focusWorkoutHandoff("next",{exId:ex.id,n});return true}
+/** Working cues read the engine's setSuggestion; a first opening uses the declared prior. */
 function focusCue(ex,n,r,draft,prev,editing){
   const unit=unitLabel();
-  if(editing){const text=t("focus.cue.editing_set",{n,total:ex.sets});
+  if(editing){const text=t("focus.cue.editing_set",{n,total:sessionSetCount(ex)});
     return{kind:"edit",move:"",headHtml:esc(text),sub:""}}
   // A test set is taken to failure at its own load: the cue says that and the guess, not the engine's move (Plan 077).
   const maxSet=draftSetAt(ex.id,n);
@@ -9594,6 +10145,9 @@ function focusCue(ex,n,r,draft,prev,editing){
     const sentence=t(loadText?"maxset.cue_head":"maxset.cue_head_noload",{load:"\u0000",unit});
     return{kind:"maxset",move:"",loadText,headHtml:esc(sentence).replace("\u0000",`<b class="fx-cue__load">${esc(loadText)}</b>`),
       sub:t("maxset.cue_sub",{n:maxSet.calibration.predictedReps})}}
+  const ramp=focusRamp(ex,n,r);
+  if(ramp&&ramp.record.basis!=="typed")return{kind:"ramp",move:"",ramp,headHtml:esc(t("focus.cue.find_weight")),
+    sub:t("focus.cue.reps",{reps:ex.min})};
   const sg=setSuggestion(ex,n,r,draft,prev.find(x=>x.set===n));
   if(r.status==="manual")return{kind:"manual",move:"",headHtml:esc(t("focus.cue.your_targets")),
     sub:t("focus.cue.range_reps",{reps:`${ex.min}–${ex.max}`})};
@@ -9692,6 +10246,7 @@ const evidenceFig=v=>`<span class="fx-cue__fig">${esc(v)}</span>`;
  *  Why sheet (`engineSetFacts`), or, with no suggestion, the honest reason. Mono carries the figures. */
 function focusEvidenceText(ex,n,r,cue){
   if(cue.kind==="edit")return"";
+  if(cue.kind==="ramp")return esc(t(`focus.evidence.${cue.ramp.record.basis}`));
   // One quiet sentence: only the performed set's figures ride in Mono (owner review of #550).
   const effort=isWordMode(),mono=evidenceFig,plain=v=>esc(v),say=evidenceSay;
   if(cue.kind==="planned")return esc(t("focus.evidence.planned"));
@@ -9711,6 +10266,23 @@ function focusEvidenceText(ex,n,r,cue){
   if(facts.reps!=null&&facts.rir!=null)parts.push(say(`focus.evidence.target${facts.fatigued?"_fatigue":""}${effort?"_effort":""}`,
     {reps:plain(facts.reps),rir:plain(fmt(facts.rir)),effort:esc(effortLabel(effortForRir(facts.rir)))}));
   return parts.join(" ")}
+function targetStanding(rec,n=1){
+  // Substitution targets still use the authored slot; its evidence cannot describe the replacement lift.
+  if(rec.standingMovementMatches===false)return{word:"first",reasons:["no_history"],
+    evidence:{sets:0,sessions:0,pairs:0,agreement:null,gapDays:null,checks:0,spread:null,state:"uncalibrated"}};
+  const result=rec.targetSets?.find(item=>item.prescription.setIndex===n)?.result;
+  const standing=result?.standing||rec.standing;
+  // A manual or unconfigured prescription can lack an anchor for reasons unrelated to the lift's history.
+  if(standing?.word==="first"&&standing.reasons.includes("no_history")&&
+    !(result?.reasonCodes||rec.reasonCodes||[]).includes("no_comparable_history"))return null;
+  return standing}
+function standingWord(standing){
+  if(!standing)return "";
+  return t(standing.word==="first"?(standing.reasons.includes("live_only")?"standing.first_load":"standing.first")
+    :standing.word==="learning"?"standing.learning":"standing.solid")}
+function standingLine(rec,n,cls){
+  const standing=targetStanding(rec,n);
+  return standing&&standing.word!=="solid"?`<p class="${cls}">${esc(standingWord(standing))}</p>`:""}
 /** The hero: the verb and the load at the screen's largest size, the reps under it, then one line of evidence that
  *  ends in the Why link. The verdict mark is the shared one, so hold draws the ink "=" and up the orange arrow exactly
  *  as the Why headline does; it rides inline before the words, and a cue with no verdict has no mark and no gap. */
@@ -9723,16 +10295,19 @@ function focusCueBlockHtml(ex,n,r,cue,{peek,name,draft}){
     ?`<button type="button" class="text-link fx-cue__cancel"${peek?dead():" data-fcancel"}>${esc(t("focus.cancel_edit"))}</button>`:"";
   return `<div class="fx-cue is-${cue.kind}"><p class="fx-cue__l1">${mark}${cue.headHtml}</p>`+
     (cue.sub?`<p class="fx-cue__l2">${esc(cue.sub)}</p>`:"")+
+    (cue.kind==="ramp"?`<div class="fx-ramp-actions"><button type="button" class="btn"${peek?dead():` data-ramp-start="${esc(ex.id)}" data-ramp-n="${n}" data-ramp-load="${cue.ramp.loadKg}" data-ramp-basis="${cue.ramp.record.basis}"`}>${esc(t("focus.cue.start_at",{load:fmtLoad(cue.ramp.loadKg),unit:unitLabel()}))}</button>`+
+      `<button type="button" class="text-link"${peek?dead():` data-ramp-skip="${esc(ex.id)}" data-ramp-n="${n}"`}>${esc(t("focus.cue.know_weight"))}</button>`+
+      (cue.ramp.record.basis==="floor"&&!cue.ramp.set.startingLoad?`<button type="button" class="text-link"${peek?dead():" data-ramp-bodyweight"}>${esc(t("session.sheet.bodyweight"))}</button>`:"")+`</div>`:"")+
+    (cue.kind!=="edit"&&cue.kind!=="maxset"?standingLine(r,n,"fx-cue__standing"):"")+
     (evidence||why?`<p class="fx-cue__evidence">${evidence}${evidence&&why?" ":""}${why}</p>`:"")+cancel+`</div>`}
 function focusSlotHtml(ex,n,r,cue,opts){
   return `<div class="fx-slot">${focusCueBlockHtml(ex,n,r,cue,opts)}</div>`}
 /** How a logged set reads back in the ledger. */
 function focusRowVals(ex,n,r,draft,prev){
-  const{kgVal,repsVal,rirVal,effortVal,stage,unsure}=setFieldVals(ex,n,r,draft,prev);
+  const{kgVal,repsVal,numericEffort,effortVal,stage,unsure}=setFieldVals(ex,n,r,draft,prev);
   const load=(()=>{const v=parseDec(kgVal);return Number.isFinite(v)?fmt(v):kgVal})();
   // A set reads back in the vocabulary it was logged in — a word as that word, never as the RIR it maps to.
-  const eff=unsure?effortLabel("unsure"):stage!=="c"?effortLabel(effortVal)
-    :(()=>{const v=parseDec(rirVal);return Number.isFinite(v)?fmt(v):rirVal})();
+  const eff=unsure?effortLabel("unsure"):stage==="a"?effortLabel(effortVal):numericEffort.text||"—";
   return{load,reps:String(repsVal),eff}}
 
 /** The effort window a set that has not been logged is aimed at. These are the
@@ -9762,8 +10337,8 @@ function focusTargetEffort(ex){
 function focusPrevLine(x){
   if(!x)return"";
   // The last session's effort in the stage's own words: a word, reps left, or RIR.
-  const stage=effortStage(),ending=x.rir==null||x.rir===""?"norir":stage==="a"?"effort":stage==="b"?"left":"rir";
-  const left=x.rir==null||x.rir===""?"":effortLabel(leftForRir(x.rir));
+  const stage=effortStage(),ending=x.rir==null||x.rir===""?"norir":stage==="a"?"effort":"rir";
+  const left=x.rir==null||x.rir===""?"":effortLabel(repsLeftChip(x.rir));
   const projection=readLogRow(x),definitions=Array.isArray(x.metricDefinitions)?x.metricDefinitions:[];
   const hasSideLoad=definitions.some(metric=>PER_SIDE_LOAD_SEMANTICS.has(metric?.semantic));
   const hasSideReps=definitions.some(metric=>metric?.semantic==="repsPerSide");
@@ -9812,7 +10387,7 @@ function focusLedgerExpanded(ex,peek){
 /** The sets the lifter has logged on this exercise, the one being corrected included. */
 function focusLoggedCount(ex){
   const editN=focusEdit&&focusEdit.exId===ex.id?focusEdit.n:0;
-  let count=0;for(let n=1;n<=ex.sets;n++)if(committed.has(`${ex.id}_${n}`)||n===editN)count++;
+  let count=0;for(let n=1;n<=sessionSetCount(ex);n++)if(committed.has(`${ex.id}_${n}`)||n===editN)count++;
   return count}
 /** The oldest logged rows the table folds: none while it is open, else what the last measurement left out. */
 function focusLedgerFoldCount(ex,peek){
@@ -9837,7 +10412,7 @@ function focusLedgerToggleHtml(ex,{peek=false}={}){
 /** The ledger's effort column is named for the app's stage; each row still reads in the vocabulary it was logged in. */
 function effortColumnHead(peek){
   const stage=effortStage();
-  return stage==="a"?(peek?esc(t("log.effort")):term("Effort")):stage==="b"?esc(t("focus.col.left")):(peek?"RIR":term("RIR"))}
+  return stage==="a"?(peek?esc(t("log.effort")):term("Effort")):esc(t("focus.col.left"))}
 function focusLedgerHtml(ex,r,draft,prev,{peek=false}){
   const head=`<div class="ledgerline__head"><span>${esc(t("log.set"))}</span><span class="ledgerline__vals">`+
     `<span class="fx-col">${esc(unitLabel())}</span><span class="fx-col">${esc(t("log.reps"))}</span>`+
@@ -9850,9 +10425,9 @@ function focusLedgerRowsHtml(ex,r,draft,prev,{peek=false}){
   const freshN=focusIsFresh(ex,peek)?focusLogged.n:0;
   const expanded=focusLedgerExpanded(ex,peek);
   let after=0,folded=focusLedgerFoldCount(ex,peek);
-  for(let n=active+1;n<=ex.sets&&!after;n++)if(!committed.has(`${ex.id}_${n}`))after=n;
+  for(let n=active+1;n<=sessionSetCount(ex)&&!after;n++)if(!committed.has(`${ex.id}_${n}`))after=n;
   const rows=[];
-  for(let n=1;n<=ex.sets;n++){
+  for(let n=1;n<=sessionSetCount(ex);n++){
     const key=`${ex.id}_${n}`;
     const done=committed.has(key)&&n!==editN;
     if(!expanded&&!done&&n!==active&&n!==after)continue;
@@ -9865,7 +10440,7 @@ function focusLedgerRowsHtml(ex,r,draft,prev,{peek=false}){
     // An unlogged row reads its target effort, unless it carries the set logged above it (#569): then its RIR is carried
     // with its load and reps, so every unlogged set shows the same values (owner report, 2026-11-03).
     const carry=!open&&!done?lastSetCarry(ex.id,n,r):null;
-    const rirText=!done&&!peek&&draftSetAt(ex.id,n)?.calibration?(isEffortMode()?effortLabel(state.settings.effortScale==="reps"?"r0":"max"):"0")
+    const rirText=!done&&!peek&&draftSetAt(ex.id,n)?.calibration?(isEffortMode()?effortLabel("max"):"0")
       :open||done||carry?.fields?.rir||carry?.fields?.effort?vals.eff:focusTargetEffort(ex);
     const idx=done?`<span class="fx-check" aria-hidden="true"></span>`
       :!peek&&ledgerSetIsWarmup(ex.id,n)?`<span aria-hidden="true">${esc(t("ledger.set.warmup"))}</span><span class="visually-hidden">${esc(t("ex.actions.role_warmup"))}</span>`:n;
@@ -9929,8 +10504,8 @@ function toggleFocusLedger(button){
 /** The line under the exercise name: sets and reps, the effort window, and the
  *  name of the strategy that sets the target. Read off the program's own
  *  envelope; a slot with none is the range it always was. */
-/** An effort window of one value reads as that value: "RIR 1", never "RIR 1–1". */
-const singleRir=line=>String(line).replace(/RIR (\S+)–\1(?![\d.,])/,"RIR $1");
+/** An effort window of one value reads as that value: "1 left", never "1–1 left". */
+const singleRir=line=>String(line).replace(/(· )(\d+(?:[.,]\d+)?)–\2(?= (?:left|sobrando))/g,"$1$2");
 function focusExMeta(ex){
   if(ex?.hasRepTarget===false)return programPrescriptionSummary(ex);
   // A canonical slot is adaptive or manual; its RIR comes from its own sets.
@@ -10107,31 +10682,31 @@ function shelfFieldHtml(ex,n,id,vals,{ui,touched,peek}){
     const cls=`shelf__field shelf__field--failure${sel?" is-sel":""}`,face=shelfFaceHtml(t("log.effort"),t("log.effort"),t("maxset.failure"),"");
     return peek?`<div class="${cls}"><span class="shelf__fieldbtn">${face}</span></div>`
       :`<div class="${cls}" data-field="rir" data-set="${esc(key)}"><button type="button" class="shelf__fieldbtn" data-shelf-field="rir" data-set="${esc(key)}" aria-pressed="${sel?"true":"false"}">${face}</button></div>`}
-  const stage=vals.stage,effortField=id==="rir"&&stage!=="c";
+  const stage=vals.stage,effortField=id==="rir";
   const live=sel&&ui.editing&&!effortField&&!peek;
   const label=id==="load"?t("focus.shelf.field_load",{unit:unitLabel()}):id==="reps"?t("stats.table.reps")
-    :stage==="a"?t("log.effort"):stage==="b"?t("focus.field.left"):t("stats.table.rir");
+    :stage==="a"?t("log.effort"):t("focus.field.left");
   const short=id==="load"?t("focus.metric.load_kg"):label;
   const name=`${label}, ${t("focus.set_label",{n})}`;
   const raw=id==="load"?vals.kgVal:id==="reps"?vals.repsVal:vals.unsure?"":vals.rirVal;
-  const shown=id==="rir"&&vals.unsure?effortLabel("unsure"):effortField?effortLabel(vals.effortVal)
+  const shown=id==="rir"&&vals.unsure?effortLabel("unsure"):effortField?(stage==="a"?effortLabel(vals.effortVal):vals.numericEffort.text)
     :id==="reps"?String(vals.repsVal??""):shelfText(raw);
   const soft=!(id==="load"?touched.load:id==="reps"?touched.reps:touched.effort);
-  const word=effortField||id==="rir"&&vals.unsure;
+  const word=effortField&&stage==="a"||id==="rir"&&vals.unsure;
   const cls=`shelf__field${sel?" is-sel":""}${soft?" is-untouched":""}${live?" is-editing":""}${word?" is-word":""}`;
   const face=shelfFaceHtml(short,label,shown,id==="load"?unitLabel():"");
   const chev=`<span class="icon-mask icon-mask--chev-down shelf__chev" aria-hidden="true"></span>`;
   if(peek)return `<div class="${cls}"><span class="shelf__fieldbtn">${face}</span>${id==="rir"?`<span class="shelf__menu">${chev}</span>`:""}</div>`;
-  // Stage A's word explains itself on a second tap ("≈1 left"); stage B's chips are the count already.
+  // Words explain themselves on a second tap; numeric chips already name the count.
   const explain=effortField&&stage==="a";
-  const hooks=effortField?` data-effspin="${esc(key)}" data-e="${esc(vals.effortVal)}" data-stage="${stage}"${explain?` aria-describedby="effpop_${esc(key)}"`:""}`:"";
+  const hooks=effortField?` data-effspin="${esc(key)}" data-e="${esc(stage==="a"?vals.effortVal:vals.numericEffort.chip||"")}" data-stage="${stage}"${explain?` aria-describedby="effpop_${esc(key)}"`:""}`:"";
   // A selected Load or Reps field's name gains the picker hint: a second tap opens the wheel (ADR 0023 choice 8).
   const pickerHint=sel&&(id==="load"||id==="reps")?` aria-label="${esc(`${label} ${shown||"—"}, ${t("focus.field.picker_hint")}`)}"`:"";
   const button=`<button type="button" class="shelf__fieldbtn" data-shelf-field="${id}" data-set="${esc(key)}" aria-pressed="${sel?"true":"false"}"${hooks}${pickerHint}>${face}</button>`;
   // The input is always in the document, so the draft handlers and validation
   // have one element to read and flag; it only takes the field's place on a
   // second tap, and stays out of the tab order and the accessibility tree until then.
-  const input=effortField?"":`<input class="shelf__input" data-k="${esc(key)}_${id}" type="text" inputmode="${id==="reps"?"numeric":"decimal"}" `+
+  const input=effortField&&stage==="a"?"":`<input class="shelf__input" data-k="${esc(key)}_${id}" type="text" inputmode="${id==="reps"?"numeric":"decimal"}" `+
     `enterkeyhint="${id==="rir"?"done":"next"}" aria-label="${esc(name)}" autocomplete="off" value="${esc(String(raw??""))}"`+
     `${live?"":' tabindex="-1" aria-hidden="true"'}>`;
   const caption=live?`<span class="shelf__lab shelf__lab--edit" aria-hidden="true">${esc(short)}</span>`:"";
@@ -10150,11 +10725,11 @@ function shelfPadsHtml(ex,n,ui,vals,{peek}){
     return `<button type="button" class="stepbtn shelf__pad shelf__pad--wide"${peek?dead():` data-maxset-cancel="${esc(key)}"`}>${esc(t("maxset.cancel"))}</button>`;
   const tokens=id==="rir"?stageTokens(vals.stage):null;
   if(tokens){
-    // Stages A and B: one tap on the choice (Plan 077, OD-4). The offered value is marked but not pressed until the
+    // Both stages set their value with one tap. The offered value is marked but not pressed until the
     // lifter confirms it.
     const confirmed=!!shelfTouched(ex.id,n).effort&&!vals.unsure;
-    return tokens.map(e=>{const on=e===vals.effortVal&&!vals.unsure;
-      return `<button type="button" class="shelf__pad shelf__chip${vals.stage==="b"?" shelf__chip--num":""}${on&&!confirmed?" is-offered":""}"`+
+    return tokens.map(e=>{const on=e===(vals.stage==="a"?vals.effortVal:vals.numericEffort.chip||"")&&!vals.unsure;
+      return `<button type="button" class="shelf__pad shelf__chip${vals.stage==="c"?" shelf__chip--num":""}${on&&!confirmed?" is-offered":""}"`+
         `${peek?dead():` data-effchip="${esc(key)}" data-e="${e}" aria-pressed="${on&&confirmed?"true":"false"}"`}>${esc(effortLabel(e))}</button>`}).join("")}
   const metricId=id.startsWith("metric_")?id.slice(7):null;
   const metric=metricId?focusMetricDefinitions(ex.id,n).find(item=>item.id===metricId):null;
@@ -10174,8 +10749,8 @@ function shelfPadsHtml(ex,n,ui,vals,{peek}){
 
 /** The pad row: the pads for the selected field. Rest controls live in the rest sheet behind the tab. */
 function focusPadsHtml(ex,n,ui,vals,{peek}){
-  const chips=ui.field==="rir"&&vals.stage!=="c";
-  return `<div class="shelf__pads${chips?" shelf__pads--chips":""}"${chips&&!peek?` role="group" aria-label="${esc(t(vals.stage==="b"?"focus.field.left":"log.effort"))}"`:""}>`+
+  const chips=ui.field==="rir";
+  return `<div class="shelf__pads${chips?" shelf__pads--chips":""}${chips&&vals.stage==="c"?" shelf__pads--numbers":""}"${chips&&!peek?` role="group" aria-label="${esc(t(vals.stage==="c"?"focus.field.left":"log.effort"))}"`:""}>`+
     shelfPadsHtml(ex,n,ui,vals,{peek})+`</div>`}
 
 /** The shelf: the fields of the active set, the pads for the selected one and
@@ -10426,7 +11001,7 @@ function refreshShelf({focus=null}={}){
   const base=prog.find(card.dataset.ex);if(!base)return false;
   const ex=sessionExercise(base),draft=hydrateWorkoutDraft(),fl=focusList();
   const at=Math.max(0,fl.findIndex(e=>e.id===ex.id));
-  const allDone=fl.every(e=>{for(let n=1;n<=e.sets;n++)if(!committed.has(`${e.id}_${n}`))return false;return true});
+  const allDone=fl.every(e=>{for(let n=1;n<=sessionSetCount(e);n++)if(!committed.has(`${e.id}_${n}`))return false;return true});
   const old=card.querySelector(".focus-shelf");if(!old)return false;
   // T1: where the selection outline is drawn now — or, if one is still in
   // flight, where it is on screen — so the next travel starts from there.
@@ -10527,10 +11102,11 @@ function syncShelfField(input,padDir=0){
   // A metric field writes the ledger column its metric fills (load or reps).
   const metricId=field.dataset.metric,metric=metricId?focusMetricDefinitions(...setKeyParts(field.dataset.set)).find(item=>item.id===metricId):null;
   const id=metric?(METRIC_FIELD_SEMANTICS.reps.includes(metric.semantic)?"reps":METRIC_FIELD_SEMANTICS.load.includes(metric.semantic)?"load":null):field.dataset.field;
-  const text=id==="reps"?String(input.value||""):shelfText(input.value);
+  const text=id==="rir"?repsLeftView(input.value,true).text:id==="reps"?String(input.value||""):shelfText(input.value);
   const val=field.querySelector(".shelf__val");
   if(val){const moved=val.textContent!==(text||"—");val.textContent=text||"—";if(moved)shelfValueMove(val,padDir)}
   field.classList.remove("is-untouched");
+  if(id==="rir")field.classList.remove("is-word");
   const cell=id?input.closest(".exercise")?.querySelector(`.ledgerline--open [data-lv="${id}"]`):null;
   if(cell){cell.textContent=text||"—";cell.classList.remove("is-soft")}}
 function setKeyParts(key){const text=String(key||""),at=text.lastIndexOf("_");return[text.slice(0,at),+text.slice(at+1)]}
@@ -10599,7 +11175,7 @@ function focusCardHtml(ex,r,draft,prev,opts){
  *  screen in its own slot. Dragging — or tapping through — moves all three
  *  together, the way a paged view does. */
 function focusDeckHtml(ex,r,draft,prev,{fl,at}){
-  const allDone=fl.every(e=>{for(let n=1;n<=e.sets;n++)if(!committed.has(`${e.id}_${n}`))return false;return true});
+  const allDone=fl.every(e=>{for(let n=1;n<=sessionSetCount(e);n++)if(!committed.has(`${e.id}_${n}`))return false;return true});
   const slot=(inner,side)=>`<div class="deck__slot${side?` deck__slot--${side}`:""}"${side?' aria-hidden="true"':""}>${inner}</div>`;
   const nameAt=i=>fl[i]?exerciseDisplayName(sessionExercise(fl[i])):"";
   // A neighbour is rendered exactly as it will be once it lands: same ledger,
@@ -10724,12 +11300,17 @@ async function performWorkoutAction(action){
 let nativeMenuClose=null;
 /** Opens the panel beside the lifted row: below it when it fits, above otherwise,
  *  always inside the dialog's safe-area padding. */
-function placeContextMenu(dialog,panel,rect){
+function placeContextMenu(dialog,panel,rect,preview=null){
   const view=window.visualViewport,inset=getComputedStyle(dialog),offset=view?.offsetTop||0;
   const top=offset+(parseFloat(inset.paddingTop)||0)+12;
   const bottom=offset+(view?.height||innerHeight)-(parseFloat(inset.paddingBottom)||0)-12;
   const left=(parseFloat(inset.paddingLeft)||0)+12,right=innerWidth-(parseFloat(inset.paddingRight)||0)-12;
-  const box=panel.getBoundingClientRect(),below=rect.bottom+8+box.height<bottom;
+  const box=panel.getBoundingClientRect();
+  if(preview&&rect.height+box.height+8<=bottom-top&&rect.top-box.height-8<top&&rect.bottom+8+box.height>bottom){
+    preview.style.top=`${parseFloat(preview.style.top)+top+box.height+8-rect.top}px`;
+    rect=preview.getBoundingClientRect();
+  }
+  const below=rect.bottom+8+box.height<bottom;
   const x=Math.max(left,Math.min(rect.left+8,right-box.width));
   // It grows from under the row's centre, as the prototype's menu does.
   const originX=Math.max(0,Math.min(box.width,rect.left+rect.width/2-x));
@@ -10768,6 +11349,9 @@ function openRowContextMenu({anchor,items,opener=anchor,title=""}){
       const cls=[item.destructive?"is-destructive":"",item.separatorBefore?"is-group":""].filter(Boolean).join(" ");
       const label=item.sub?`<span class="native-context__label"><span>${esc(item.label)}</span><span class="native-context__sub">${esc(item.sub)}</span></span>`:`<span>${esc(item.label)}</span>`;
       return `<button type="button" role="${radio?"menuitemradio":"menuitem"}"${radio?` aria-checked="${item.checked}"`:""} data-menu-value="${esc(item.value)}"${cls?` class="${cls}"`:""}${item.disabled?" disabled":""}>${label}${icon?`<span class="icon-mask icon-mask--${esc(icon)} native-context__icon" aria-hidden="true"></span>`:radio||item.sub?`<span class="native-context__icon" aria-hidden="true"></span>`:""}</button>`}).join("")}</div>`;
+    if(anchor.classList.contains("today-rx__row")){
+      preview.classList.add("today-rx__grid");preview.style.height="auto";
+    }
     dialog.prepend(preview);document.body.append(dialog);
     const panel=dialog.querySelector('[role="menu"]');
     let closing=false,untrack=null;
@@ -10791,22 +11375,43 @@ function openRowContextMenu({anchor,items,opener=anchor,title=""}){
       else if(!panel.contains(event.target))finish(null);
     });
     dialog.showModal();
-    placeContextMenu(dialog,panel,rect);
+    placeContextMenu(dialog,panel,anchor.classList.contains("today-rx__row")?preview.getBoundingClientRect():rect,anchor.classList.contains("today-rx__row")?preview:null);
     window.RepForgeMotion?.animateContextMenu?.(panel,preview);
     quietFocus(panel.querySelector("button:not(:disabled)"));
   });
 }
-/** The effort field's arrow (Plan 077, OD-2 and OD-4): the three ways to log effort, the app's checked, and "Not sure"
+/** The effort field's arrow (Plan 077, OD-2 and OD-4): the two ways to log effort, the app's checked, and "Not sure"
  *  for this set under them. A stage applies app-wide from the next set; "Not sure" is this set's value. */
 async function openEffortMenu(key,opener,pick){
   const field=opener.closest(".shelf__field");if(!field)return;
   const stage=effortStage();
   const value=await openRowContextMenu({anchor:field,opener,title:t("focus.effort_menu.title"),items:[
-    ...["a","b","c"].map(s=>({label:t(STAGE_LABEL[s]),sub:t(STAGE_SUB[s]),value:s,checked:s===stage})),
+    ...["a","c"].map(s=>({label:t(STAGE_LABEL[s]),sub:t(STAGE_SUB[s]),value:s,checked:s===stage})),
     {label:t("focus.effort_menu.unsure"),sub:t("focus.effort_menu.unsure_sub"),value:"unsure",separatorBefore:true}]});
   if(value==="unsure"){await pick(key,"unsure");return}
-  if(value!=="a"&&value!=="b"&&value!=="c"||value===stage)return;
+  if(value!=="a"&&value!=="c"||value===stage)return;
   if(await commitEffortStage(value))toast(t("toast.effort_stage",{stage:t(STAGE_LABEL[value])}),{quiet:true})}
+let skipReasonTarget=null;
+const SESSION_SKIP_REASONS=["time","recovery","pain","equipment","schedule","other"];
+function closeSkipReasonSheet(){skipReasonTarget=null;return closeModal($("#skipReasonSheet"))}
+function openSkipReasonSheet(exerciseInstanceId){
+  if(!activeWorkoutDraft?.exercises?.[exerciseInstanceId])return;
+  const target={exerciseInstanceId,draftId:activeWorkoutDraft.draftId};skipReasonTarget=target;
+  const sheet=$("#skipReasonSheet"),scrim=$("#skipReasonScrim"),choices=$("#skipReasonChoices");
+  choices.innerHTML=SESSION_SKIP_REASONS.map(reason=>`<button type="button" class="exactions__act" data-skip-reason="${reason}">${esc(t(`focus.skip_reason.${reason}`))}</button>`).join("");
+  choices.querySelectorAll("[data-skip-reason]").forEach(button=>button.onclick=async()=>{
+    if(skipReasonTarget!==target)return;
+    choices.querySelectorAll("button").forEach(control=>control.disabled=true);
+    const result=await WorkoutSession.dispatch("skipExercise",{exerciseInstanceId,reason:button.dataset.skipReason},{draftId:target.draftId});
+    if(result.status==="applied"){
+      if(workoutActive)renderWorkout();else renderToday();
+      if(skipReasonTarget===target)await closeSkipReasonSheet();
+      else if(!activeModal)quietFocus(workoutActive?$("#woOverflowBtn"):$("#startWorkout"));
+    }else if(skipReasonTarget===target)choices.querySelectorAll("button").forEach(control=>control.disabled=false);
+  });
+  openModal(sheet,{initialFocus:sheet,returnFocus:document.activeElement,onEscape:closeSkipReasonSheet,scrim});
+  requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim.classList.add("is-open")});
+}
 async function todayRowContext(row,opener=row){
   if(opener===row&&row.contains(document.activeElement))opener=document.activeElement;
   const focusAttribute=opener.matches("[data-row-menu]")?"data-row-menu":opener.matches("[data-exopen]")?"data-exopen":"data-context-row";
@@ -10822,7 +11427,8 @@ async function todayRowContext(row,opener=row){
   const prepared=await startWorkoutDraft(day);
   if(prepared.status!=="ready"){showDraftInitializationRecovery(prepared,{retryMode:"create",label:day});return}
   if(action==="swap"){openSubstitutePicker(ex.id);return}
-  const result=await WorkoutSession.dispatch(action==="restore"?"restoreExercise":"skipExercise",{exerciseInstanceId:ex.id});
+  if(action==="skip"){openSkipReasonSheet(ex.id);return}
+  const result=await WorkoutSession.dispatch("restoreExercise",{exerciseInstanceId:ex.id});
   if(result.status==="applied"){
     renderToday();
     quietFocus(document.querySelector(`#todayExList [${focusAttribute}="${CSS.escape(ex.id)}"]`));
@@ -10850,10 +11456,11 @@ function fitFocusLedger(card){
   const tab=card.querySelector(".resttab"),shelf=card.querySelector(".focus-shelf");
   const rise=tab&&tab.offsetParent===shelf?Math.max(0,Math.ceil(-tab.offsetTop)):0;
   // What this fit changes: a refit that changes nothing leaves the window where the lifter scrolled it.
-  const before=[card.style.getPropertyValue("--rest-tab-rise"),card.classList.contains("is-hero-compact"),
+  const before=[card.style.getPropertyValue("--rest-tab-rise"),card.classList.contains("is-hero-compact"),card.classList.contains("is-standing-compact"),
     [...rows.querySelectorAll(":scope > [data-ldone]")].filter(row=>row.hidden).length].join();
-  const changed=()=>before!==[card.style.getPropertyValue("--rest-tab-rise"),card.classList.contains("is-hero-compact"),
+  const changed=()=>before!==[card.style.getPropertyValue("--rest-tab-rise"),card.classList.contains("is-hero-compact"),card.classList.contains("is-standing-compact"),
     [...rows.querySelectorAll(":scope > [data-ldone]")].filter(row=>row.hidden).length].join();
+  card.classList.remove("is-standing-compact");
   if(card.style.getPropertyValue("--rest-tab-rise")!==`${rise}px`)card.style.setProperty("--rest-tab-rise",`${rise}px`);
   const open=rows.querySelector(".ledgerline--open"),hero=context.querySelector(".fx-cue__l1");
   // A finished exercise has no open set and no hero: its whole ledger shows, at the hero's own size.
@@ -10887,6 +11494,12 @@ function fitFocusLedger(card){
   if(folded===done.length&&over()>0)compact(true);
   if(card.classList.contains("is-hero-compact"))fold(done.length);
   else while(folded>0){fold(folded-1);if(over()<=-FOCUS_LEDGER_SPARE)continue;fold(folded+1);break}
+  // Standing participates in the whole window's budget, including a wrapped movement name above the hero.
+  // Tighten only when the normal compact treatment still leaves the open row under the shelf.
+  if(card.classList.contains("is-hero-compact")&&!card.classList.contains("is-text-scaled")&&context.querySelector(".fx-cue__standing")){
+    const box=context.getBoundingClientRect();
+    const bottom=tab&&tab.getClientRects().length?Math.min(box.bottom,tab.getBoundingClientRect().top):box.bottom;
+    card.classList.toggle("is-standing-compact",open.getBoundingClientRect().bottom+context.scrollTop>bottom)}
   focusLedgerFolded.set(exId,folded);
   return changed()}
 /** The window's foot moves without a render: the keyboard, the rest tab rising out of the shelf, a text-size change.
@@ -10965,14 +11578,17 @@ function sizeFocusCard(card){
   syncTextScale(card);
   // The context region scrolls as one: keep the row being worked on in view. At the first set nothing has been
   // logged and the shelf already shows the set, so the card opens at its top with the exercise's prescription and the
-  // hero; later the row scrolls into view. At large text (Plan 075 phase 5) the open set comes first, at every set.
+  // hero. An opening ramp brings its fitting standing and open row together; later rows scroll into view. At large
+  // text (Plan 075 phase 5) the open set comes first, at every set.
   const scaled=card.classList.contains("is-text-scaled");
   const context=card.querySelector(".fcard__context");
   const open=context?.querySelector(".ledgerline--open");if(!open)return;
   const box=context.getBoundingClientRect(),row=open.getBoundingClientRect();
   // The rest tab rises out of the shelf over the window's foot; the row is in view only above it.
   const tab=card.querySelector(".resttab"),bottom=tab?Math.min(box.bottom,tab.getBoundingClientRect().top-4):box.bottom;
-  if(!scaled&&+open.dataset.lrow<=1&&context.scrollTop===0)return;
+  if(!scaled&&+open.dataset.lrow<=1&&context.scrollTop===0){
+    const standing=context.querySelector(".fx-cue.is-ramp .fx-cue__standing");
+    if(!standing||row.bottom<=bottom||row.bottom-standing.getBoundingClientRect().top>bottom-box.top)return}
   // At large text the region is only as tall as the open set (#541): a margin, or moving back to show a cut line whole,
   // would push the set itself out, so it is aligned to the region's top whenever it is not wholly in view.
   // Floored: the region's top can sit on a fraction of a pixel and the scroll on a whole one, and a rounded scroll
@@ -10989,12 +11605,33 @@ function sizeFocusCard(card){
       :wholeLineScroll(context,context.scrollTop,1,context.scrollTop+Math.max(0,row.top-box.top))}
   // The hero's first line stays in view whenever the open set can stay whole below it (#523), at large text too: the
   // window scrolls only as far as the open set needs. Where both cannot fit, the open set comes first (#541) and the
-  // hero is the first thing scrolling up reaches.
-  const lead=context.querySelector(".fx-cue__l1");if(!lead)return;
+  // standing stays with the row when the whole hero cannot fit, and the hero is the first thing scrolling up reaches.
   const at=context.getBoundingClientRect(),origin=at.top-context.scrollTop;
   const foot=(tab?Math.min(at.bottom,tab.getBoundingClientRect().top):at.bottom)-at.top;
-  const leadTop=lead.getBoundingClientRect().top-origin,rowBottom=open.getBoundingClientRect().bottom-origin;
-  if(context.scrollTop>leadTop&&rowBottom-leadTop<=foot)context.scrollTop=Math.max(0,Math.ceil(rowBottom-foot))}
+  const rowBottom=open.getBoundingClientRect().bottom-origin;
+  for(const lead of context.querySelectorAll(".fx-cue__l1,.fx-cue__standing")){
+    const leadTop=lead.getBoundingClientRect().top-origin;
+    if(rowBottom-leadTop>foot)continue;
+    const target=context.scrollTop>leadTop?Math.max(0,Math.ceil(rowBottom-foot)):context.scrollTop;
+    // Preserve the established placement unless real context text is cut. A correction must leave both the hero
+    // and the open row whole; the hero's fractional top is an upper bound, never a boundary to round past.
+    context.scrollTop=scaled?target:uncutFocusContext(context,target,Math.max(0,Math.ceil(rowBottom-foot)),Math.floor(leadTop));
+    break}}
+/** Repair only a clipped text line, within the interval that keeps the current row and its lead visible. */
+function uncutFocusContext(context,target,least,most){
+  const origin=context.getBoundingClientRect().top-context.scrollTop,lines=[];
+  for(const block of context.querySelectorAll(".fx-head,.fx-cue__standing,.fx-cue__evidence")){
+    const walker=document.createTreeWalker(block,NodeFilter.SHOW_TEXT);
+    for(let node=walker.nextNode();node;node=walker.nextNode()){
+      if(!node.textContent.trim())continue;
+      const range=document.createRange();range.selectNodeContents(node);
+      for(const r of range.getClientRects())if(r.width>1&&r.height>1)lines.push({top:r.top-origin,bottom:r.bottom-origin})}}
+  const cut=at=>lines.filter(r=>r.top<at-0.5&&r.bottom>at+0.5);
+  if(!cut(target).length)return target;
+  const candidates=[Math.floor(most),Math.ceil(least),...lines.flatMap(r=>[Math.floor(r.top),Math.ceil(r.bottom)])]
+    .filter(at=>at>=least&&at<=most&&!cut(at).length);
+  candidates.sort((a,b)=>Math.abs(a-target)-Math.abs(b-target));
+  return candidates[0]??target}
 /** A scroll position for the context region that leaves no line cut at its top edge, under the segment bar: from
  *  `target`, `dir` 1 moves on past a cut line and -1 moves back to show it whole, never beyond `limit`. */
 function wholeLineScroll(context,target,dir,limit=Infinity){
@@ -11059,6 +11696,9 @@ function applyDraftIssue(issues){
  *  live one takes a handler. */
 const $w=sel=>$$(`#workout ${sel}`).filter(el=>!el.closest(".is-peek"));
 function bindWorkout(){
+  $$("#workout [data-ramp-bodyweight]").forEach(button=>button.onclick=()=>{openSessionSheet();$("#sessionBodyweight")?.focus()});
+  $$("#workout [data-ramp-start]").forEach(button=>button.onclick=()=>startFocusRamp(button.dataset.rampStart,+button.dataset.rampN,false,{loadKg:+button.dataset.rampLoad,basis:button.dataset.rampBasis}));
+  $$("#workout [data-ramp-skip]").forEach(button=>button.onclick=()=>startFocusRamp(button.dataset.rampSkip,+button.dataset.rampN,true));
   $w("input").forEach(i=>{i.oninput=async()=>{const row=i.closest(".shelf__field"),target=draftTargetFromKey(i.dataset.k);
     const padDir=padTap.get(i)||0;padTap.delete(i);
     if(!activeWorkoutDraft||!target?.field)return;
@@ -11089,7 +11729,10 @@ function bindWorkout(){
   $w("[data-why]").forEach(b=>b.onclick=e=>{e.stopPropagation();openWhySheet(b.dataset.why,b)});
   $w(".saveset").forEach(b=>b.onclick=async()=>{const key=b.dataset.save,target=draftTargetFromKey(key);
     if(!activeWorkoutDraft||!target)return;
+    await WorkoutSession.flush();
     const set=activeWorkoutDraft.exercises[target.exerciseInstanceId].sets[target.setId];
+    const base=prog.find(target.exerciseInstanceId),shown=base?sessionExercise(base):null;
+    if(shown&&set.completion==="pending"&&!focusEdit&&await saveRampEasy(shown,target.ordinal,recommendation(shown)))return;
     const editing=!!(focusEdit&&`${focusEdit.exId}_${focusEdit.n}`===key);
     const type=set.completion==="pending"?"completeSet":"uncommitSet";
     // A set showing values carried from the set above (lastSetCarry) logs those values, not what lies under them.
@@ -11112,12 +11755,16 @@ function bindWorkout(){
       const field=isEffortMode()?"effort":"rir";
       if(ex&&!activeWorkoutDraft.exercises[target.exerciseInstanceId].sets[target.setId].touched?.effort&&!hasPendingField(`${key}_${field}`)){
         const vals=setFieldVals(ex,target.ordinal,r,hydrateWorkoutDraft(),last(ex));
-        const shown=field==="effort"?vals.effortVal:String(vals.rirVal??"");
+        const shown=field==="effort"?vals.effortVal:vals.numericEffort.prefill;
         if(shown)prefill={field,value:shown}}}
     const refreshReservation=type==="completeSet"?reserveDraftRefresh():null;
     let refreshStarted=false;
     try{
-      const result=await WorkoutSession.dispatch(type,{exerciseInstanceId:target.exerciseInstanceId,setId:target.setId,...(prefill?{prefill}:{})});
+      const opening=type==="completeSet"&&shown?focusRamp(shown,target.ordinal,recommendation(shown)):null;
+      const startingLoad=opening&&(!set.startingLoad||set.startingLoad.basis==="typed")
+        ?{...opening.record,basis:"typed",openingKg:Number(metricFieldValue(set,"load"))}:null;
+      const result=await WorkoutSession.dispatch(type,{exerciseInstanceId:target.exerciseInstanceId,setId:target.setId,
+        ...(prefill?{prefill}:{}),...(startingLoad?{startingLoad}:{})});
       if(result.status==="domain-error"){applyDraftIssue(result.error?.issues);return}
       if(result.status!=="applied")return;
       const nowDone=activeWorkoutDraft.exercises[target.exerciseInstanceId].sets[target.setId].completion!=="pending";
@@ -11162,6 +11809,9 @@ function bindWorkout(){
    *  that changes how the field is drawn ("Not sure" on a stage C set, or back) redraws the card once it is stored. */
   const pickEffort=async(key,next,dir=0)=>{
     const target=draftTargetFromKey(key);if(!activeWorkoutDraft||!target)return;
+    if(REPS_LEFT.includes(next)){
+      const input=$(`[data-k="${key}_rir"]`);if(!input)return;
+      setEffortPick(key,next,dir);input.value=next;await input.oninput?.();return}
     const[exId,n]=setKeyParts(key),before=setStageOf(exId,n),wasUnsure=activeWorkoutDraft.exercises[exId]?.sets?.[target.setId]?.edited?.effort==="unsure";
     setEffortPick(key,next,dir);
     const pendingKey=`${key}_effort`,token=holdPendingField(pendingKey,next),recoveryField={key:pendingKey,
@@ -11180,12 +11830,17 @@ function bindWorkout(){
     const tokens=stageTokens(el.dataset.stage)||EFFORT_STEPS;
     const i=Math.max(0,tokens.indexOf(el.dataset.e));
     const next=tokens[Math.min(tokens.length-1,Math.max(0,i+dir))];
-    if(next===el.dataset.e)return;
+    if(next===el.dataset.e&&shelfTouched(...setKeyParts(key)).effort)return;
     return pickEffort(key,next,dir)};
   $w("[data-effchip]").forEach(b=>b.onclick=()=>{
     if(b.getAttribute("aria-pressed")==="true")return;
     const from=stageTokens(setStageOf(...setKeyParts(b.dataset.effchip)))||[],at=$(`[data-effspin="${b.dataset.effchip}"]`)?.dataset.e;
     pickEffort(b.dataset.effchip,b.dataset.e,Math.sign(from.indexOf(b.dataset.e)-from.indexOf(at)))});
+  $w("[data-effchip]").forEach(b=>b.onkeydown=e=>{
+    const step=e.key==="ArrowRight"||e.key==="ArrowUp"?1:e.key==="ArrowLeft"||e.key==="ArrowDown"?-1:0;
+    const jump=e.key==="Home"?-6:e.key==="End"?6:null;
+    if(!step&&jump==null)return;
+    e.preventDefault();stepEffort(b.dataset.effchip,jump??step)});
   $w("[data-effmenu]").forEach(b=>b.onclick=()=>openEffortMenu(b.dataset.effmenu,b,pickEffort));
   $w("[data-effspin]").forEach(el=>{
     // The tap belongs to the field handler (select, then explain); the arrow
@@ -11193,7 +11848,7 @@ function bindWorkout(){
     el.onkeydown=e=>{
       if(e.key==="Escape"){closeEffortPop();return}
       const step=e.key==="ArrowUp"||e.key==="ArrowRight"?1:e.key==="ArrowDown"||e.key==="ArrowLeft"?-1:0;
-      const jump=e.key==="Home"?-4:e.key==="End"?4:null;
+      const jump=e.key==="Home"?-6:e.key==="End"?6:null;
       if(!step&&jump==null)return;
       e.preventDefault();stepEffort(el.dataset.effspin,jump??step)}});
   $w("[data-shelf-field]").forEach(b=>b.onclick=()=>{
@@ -11391,17 +12046,11 @@ function sessionOutcomeGroups(rows,prs=[]){
       next:line?{glyph:rxVerdict(rec),line}:null}});
   return{evidence,showBaseline,liftGroups}}
 
-/* ---- The finish screen's numbers (owner decisions, 2026-11-05) ----
-   Four tiles: strength gained this block, records, weeks in a row and the load moved. A tile the session cannot
-   back (no gain, no record, a streak under two weeks) gives its place to the fallbacks, sets then total reps. */
-const SUMMARY_TILES=["strength","records","streak","volume"],SUMMARY_TILE_FALLBACKS=["sets","reps"];
+/* ---- The finish screen's numbers ----
+   Strength gained this block, records and load moved. Unsupported figures give
+   their place to the working-set and total-rep counts. */
+const SUMMARY_TILES=["strength","records","volume"],SUMMARY_TILE_FALLBACKS=["sets","reps"];
 const strengthKey=row=>`${liftKey(row)}\u0000${row.strengthConvention||"load"}`;
-/** Consecutive Monday–Sunday weeks with at least one logged session, counting back from the week of `date`. */
-function weeksInARow(log,date){
-  const weeks=new Set((log||[]).map(row=>weekStart(row.date)));
-  let count=0;
-  for(let week=weekStart(date);weeks.has(week);week=shiftDate(week,-7))count++;
-  return count}
 /** The day's first lift that can set a record, and how much heavier its top working set is than in the block's first
  *  session with that lift, in the same convention. Null outside a block, in week 1, or when it is not heavier. */
 function strengthGainedThisBlock(rows,prevLog){
@@ -11418,8 +12067,8 @@ function strengthGainedThisBlock(rows,prevLog){
   return now>then&&!sameLoad(now,then)?{name:displayName(mine[0]),liftKey:liftKey(mine[0]),delta:now-then}:null}
 /** The tiles in order: each default the session can back, else the next fallback. */
 function summaryTiles(facts){
-  // A tile says something the session achieved: no records, or a streak of one week, gives its place to a fallback.
-  const backed={strength:!!facts.strength,records:facts.records>0,streak:facts.streak>=2,volume:true,sets:true,reps:true};
+  // Only show a gain or record when the session supports it.
+  const backed={strength:!!facts.strength,records:facts.records>0,volume:true,sets:true,reps:true};
   const fallbacks=SUMMARY_TILE_FALLBACKS.filter(id=>backed[id]);
   return SUMMARY_TILES.map(id=>backed[id]?id:fallbacks.shift()).filter(Boolean)}
 /** The card the row opens on: the session's heaviest record, else its first improved lift; none otherwise. */
@@ -11429,6 +12078,18 @@ function summaryLeadCard(prs,liftGroups){
   if(!lift)return null;
   const top=lift.sets.reduce((a,b)=>b.load>a.load||(sameLoad(b.load,a.load)&&b.reps>a.reps)?b:a);
   return{kind:"improved",name:lift.name,liftKey:lift.liftKey,load:top.load,reps:top.reps,pr:null}}
+
+function sessionFinding(rows,prevLog,date){
+  const readings=findingReadings();
+  const derive=(log,asOf=date)=>RepForgeProgressModel.buildFindings(readLogRows(log),state.program,state.programMeta,asOf,readings);
+  const previous=prevLog||[];
+  // A calendar finding can become available between sessions, without a set on its release date.
+  const previousDate=previous.reduce((last,row)=>row.date<=date&&row.date>last?row.date:last,"")||date;
+  const before=new Set(derive(previous,previousDate).released.map(finding=>finding.id));
+  const after=derive([...(prevLog||[]),...rows]);
+  const finding=after.released.find(finding=>!before.has(finding.id));
+  const need=after.next?.need?t("finding.next",{need:findingNeedText(after.next)}):"";
+  return{finding:finding?{id:finding.id,text:[findingText(finding),need].filter(Boolean).join(" ")}:null,findingNeed:need}}
 
 /** Everything the finished session earns the right to say about itself. */
 function buildSessionSummary({rows,prevLog,session,date,day:sessDay,startedAt}){
@@ -11446,11 +12107,12 @@ function buildSessionSummary({rows,prevLog,session,date,day:sessDay,startedAt}){
   // A clock only earns a slot when it plausibly measured this session: a draft
   // resumed the next morning would otherwise report a nine-hour workout.
   const mins=startedAt?Math.round((Date.now()-startedAt)/60000):0;
-  const strength=strengthGainedThisBlock(rows,prevLog),streak=weeksInARow([...(prevLog||[]),...rows],date);
+  const strength=strengthGainedThisBlock(rows,prevLog);
   return{session,date,day:sessDay,
-    strength,streak,
+    ...sessionFinding(rows,prevLog,date),
+    strength,
     reps:sum(performedWorkingRows(rows).map(row=>+row.reps)),
-    tiles:summaryTiles({strength,streak,records:prs.length}),
+    tiles:summaryTiles({strength,records:prs.length}),
     lead:summaryLeadCard(prs,liftGroups),
     sets:rows.length,
     volume:movedTonnage(rows),
@@ -11466,7 +12128,7 @@ function buildSessionSummary({rows,prevLog,session,date,day:sessDay,startedAt}){
     meso:{current:meso.current,total:meso.total,isComplete:meso.isComplete},
     next:next?{day:next,exercises:exercises(next).length}:null}}
 
-function updateSaveMeta(){const exs=exercises(),planned=sum(exs.map(e=>e.sets));
+function updateSaveMeta(){const exs=exercises(),planned=sum(exs.map(sessionSetCount));
   const done=[...committed].length;
   const entered=activeWorkoutDraft?activeWorkoutDraft.exerciseOrder.reduce((count,exId)=>{
     const exercise=activeWorkoutDraft.exercises[exId];return count+exercise.setOrder.filter(setId=>{
@@ -11625,9 +12287,10 @@ async function finish(operation){
       move("editing");return{result:{localOk:false,idbOk:false,validation:true,issues:finishing.issues||[]}}}
     const issues=WorkoutDraft.validateForSave(finishing);
     if(issues.length){move("editing");return{result:{localOk:false,idbOk:false,validation:true,issues}}}
-    const rows=WorkoutDraft.toHistoryRows(finishing,operation.finishedAt);
-    if(WorkoutDraft.isDomainError(rows)){
-      move("editing");return{result:{localOk:false,idbOk:false,validation:true,issues:rows.issues}}}
+    const projection=WorkoutDraft.toHistoryRows(finishing,operation.finishedAt,{includeSessionEvents:true});
+    if(WorkoutDraft.isDomainError(projection)){
+      move("editing");return{result:{localOk:false,idbOk:false,validation:true,issues:projection.issues}}}
+    const {rows,sessionEvents}=projection;
     const session=capturedDraft.draftId,date=capturedDraft.program.scheduleDate,
       savedDay=capturedDraft.program.dayLabel,startedAt=Date.parse(capturedDraft.session.startedAt)||0,
       prevLog=state.log.slice(),savedDraft=capturedDraft;
@@ -11638,7 +12301,7 @@ async function finish(operation){
     const expectedBlockId=Object.prototype.hasOwnProperty.call(savedDraft.program||{},"blockId")
       ?savedDraft.program.blockId:null;
     prepared=operation.prepared={
-      draft:savedDraft,rawDraft:capturedRaw,effect,session,rows,timing,
+      draft:savedDraft,rawDraft:capturedRaw,effect,session,rows,timing,sessionEvents,
       expectedProgramId:savedDraft.program.programId,expectedBlockId,
       completed:{rows,prevLog,session,date,day:savedDay,startedAt,draftId:savedDraft.draftId}}}
   move("committing",{operation});
@@ -11648,6 +12311,7 @@ async function finish(operation){
   const proposal=cloneSnapshot(state);
   if(!(proposal.log||[]).some(row=>row.session===prepared.session))
     proposal.log=(proposal.log||[]).concat(cloneSnapshot(prepared.rows));
+  proposal.sessionEvents={...(proposal.sessionEvents||{}),[prepared.session]:cloneSnapshot(prepared.sessionEvents)};
   if(prepared.timing)proposal.sessionTiming={...(proposal.sessionTiming||{}),[prepared.session]:prepared.timing};
   const result=await commitProposedState(proposal,operation.io,
     {effect:prepared.effect,reconcileSessionIds:[prepared.session],expectedProgramId:prepared.expectedProgramId,
@@ -11790,7 +12454,6 @@ function summaryTileValues(s){
   return s.tiles.map(id=>id==="strength"?{id,label:t("summary.tile.strength"),text:`+${fmtLoad(s.strength.delta)}`,unit,accent:true,
       sub:liftDisplayName(s.strength.name,s.strength.liftKey)}
     :id==="records"?{id,label:t("summary.tile.records"),text:fmt(s.prs.length),ramp:s.prs.length,accent:s.prs.length>0}
-    :id==="streak"?{id,label:t("summary.tile.streak"),text:fmt(s.streak),ramp:s.streak}
     :id==="volume"?{id,label:t("summary.tile.moved"),text:kfmt(toDisplay(s.volume)),ramp:toDisplay(s.volume),kfmt:true,unit}
     :id==="sets"?{id,label:t("summary.tile.sets"),text:fmt(s.sets),ramp:s.sets}
     :{id,label:t("summary.tile.reps"),text:fmt(s.reps),ramp:s.reps})}
@@ -11807,13 +12470,23 @@ function summaryLiftHtml(lift,s){
       `<span class="sum-grp__next"${lift.exerciseId?` data-parity-target="${esc(lift.exerciseId)}"`:""}>`+
       `${verdictMarkHtml(lift.next.glyph)}<span>${esc(lift.next.line)}</span></span></p>`:"")+`</div>`}
 
+function summaryUnseenFinding(s){
+  const seen=loadUiPrefs().findingsSeen;
+  return s.finding&&!(Array.isArray(seen)&&seen.includes(s.finding.id))?s.finding:null}
+function summaryFindingHtml(s){
+  const finding=summaryUnseenFinding(s),line=finding?.text||s.findingNeed;
+  if(!line)return "";
+  return `<button type="button" class="sum-finding" id="sumFinding"${finding?` data-finding="${esc(finding.id)}"`:""}>`+
+    (finding?`<span class="sum-finding__label">${esc(t("summary.new_today"))}</span>`:"")+`${esc(line)}</button>`}
+
 function sessionSummaryHtml(s){
   const out=[];
   out.push(`<p class="sum-eyebrow">${esc(t("summary.eyebrow"))}</p>`);
   out.push(`<h2 class="sum-hero" id="sumTitle" tabindex="-1">${esc(dayLabel(s.day))}</h2>`);
   out.push(`<p class="sum-sub">${esc(summarySubLine(s))}</p>`);
   out.push(summaryCardsHtml(s));
-  // The four numbers. The counts ramp (motion amendment M2); a signed margin does not.
+  out.push(summaryFindingHtml(s));
+  // The session figures. The counts ramp (motion amendment M2); a signed margin does not.
   out.push(`<div class="sum-stats sum-tiles">${summaryTileValues(s).map(tile=>`<div class="sum-tile" data-tile="${tile.id}">`+
     `<p class="sum-tile__lab">${esc(tile.label)}</p><p class="sum-tile__val${tile.accent?" is-accent":""}">`+
     (tile.ramp!=null?`<span data-ramp="${esc(tile.ramp)}"${tile.kfmt?' data-kfmt="1"':""}>${esc(tile.text)}</span>`:`<span>${esc(tile.text)}</span>`)+
@@ -11880,11 +12553,30 @@ function rampSessionStats(root){
     run.raf=requestAnimationFrame(step)};
   run.raf=requestAnimationFrame(step)}
 
-let sessionSummaryCurrent=null;
+let sessionSummaryCurrent=null,sessionSummaryProfileReturn=null;
+function clearSummaryProfileReturn(){
+  if(sessionSummaryProfileReturn)sessionSummaryCurrent=null;
+  sessionSummaryProfileReturn=null;$("#summaryProfileBack")?.remove()}
+async function openSummaryProfile(summary){
+  const sheet=$("#sessionSummary");
+  const returning={summary,view:currentViewId(),scroll:sheet.scrollTop};
+  stopSummaryRamp();await closeModal(sheet);
+  sessionSummaryProfileReturn=returning;
+  navTo("stats");setStatsSeg("overview");syncRouteHistory();
+  const profile=$("#overviewProfile");
+  if(profile){profile.setAttribute("tabindex","-1");profile.scrollIntoView({block:"start"});profile.focus({preventScroll:true})}}
+function returnFromSummaryProfile(){
+  const returning=sessionSummaryProfileReturn;if(!returning)return;
+  clearSummaryProfileReturn();returnToTab(returning.view);render();syncRouteHistory();
+  openSessionSummary(returning.summary);
+  $("#sessionSummary").scrollTop=returning.scroll;
+  $("#sumFinding")?.focus({preventScroll:true})}
+
 function renderSessionSummary(s){
   const body=$("#sessionSummaryBody");if(!body)return;
   stopSummaryRamp();
   body.innerHTML=sessionSummaryHtml(s);
+  const finding=$("#sumFinding");if(finding)finding.onclick=()=>openSummaryProfile(s);
   paintSummaryCards(s);
   const done=$("#sumDone");if(done)done.onclick=()=>closeSessionSummary();
   const share=$("#sumShare");if(share)share.onclick=()=>openShareSheet(share);
@@ -11893,6 +12585,7 @@ function renderSessionSummary(s){
     closeSessionSummary({nav:"history"})}}
 
 function clearSessionSummaryView(){
+  clearSummaryProfileReturn();syncRouteHistory();
   sessionSummaryCurrent=null;
   stopSummaryRamp();
   const el=$("#sessionSummary");
@@ -11908,6 +12601,10 @@ function openSessionSummary(s){
   renderSessionSummary(s);
   const ok=openModal(el,{initialFocus:()=>$("#sumTitle"),onEscape:()=>closeSessionSummary()});
   if(!ok){sessionSummaryCurrent=null;return false}
+  const finding=summaryUnseenFinding(s);
+  if(finding){
+    updateUiPrefs(prefs=>({...prefs,findingsSeen:[...new Set([
+      ...(Array.isArray(prefs.findingsSeen)?prefs.findingsSeen:[]),finding.id])]}))}
   // The blocks are all present and opaque on the first frame; only the totals count up. The ramp starts
   // before the first paint, so the finished figures are never seen and then reset to zero.
   rampSessionStats(el.querySelector(".sum-stats"));
@@ -11916,6 +12613,7 @@ function openSessionSummary(s){
   return true}
 
 function closeSessionSummary(opts={}){
+  clearSummaryProfileReturn();
   const el=$("#sessionSummary");
   sessionSummaryCurrent=null;
   stopSummaryRamp();
@@ -12378,11 +13076,11 @@ function historyShareSummary(sid,{week=null}={}){
       sets:[...group.rows].sort((a,b)=>(+a.set||0)-(+b.set||0)).map(row=>({load:+row.load,reps:+row.reps})),
       state:outcome==="improved"?{kind:"outcome",outcome:"improved"}:{kind:"insufficient",reason:null},
       pr:prs.find(entry=>entry.liftKey===group.liftKey)||null,next:null}});
-  const date=first.date,strength=week>=2?strengthGainedThisBlock(rows,prevLog):null,streak=weeksInARow([...prevLog,...rows],date);
+  const date=first.date,strength=week>=2?strengthGainedThisBlock(rows,prevLog):null;
   const seconds=state.sessionTiming?.[id]?.durationSeconds,mins=Number.isFinite(seconds)?Math.round(seconds/60):null;
-  return{session:id,date,day:first.day,strength,streak,
+  return{session:id,date,day:first.day,strength,
     reps:sum(work.map(row=>+row.reps)),
-    tiles:summaryTiles({strength,streak,records:prs.length}),
+    tiles:summaryTiles({strength,records:prs.length}),
     lead:summaryLeadCard(prs,liftGroups),
     sets:rows.length,volume:movedTonnage(rows),prs,liftGroups,
     minutes:mins>=1&&mins<=480?mins:null,
@@ -12535,7 +13233,7 @@ function strengthDetailTable(k,projection=strengthProjection(strengthScope)){
     repsLabel=series?.perSideReps?t("focus.metric.reps_per_side"):t("stats.table.reps"),
     e1rmLabel=series?.perSideLoad?`${t("stats.table.e1rm_unit",{unit:u})} · ${t("focus.metric.load_per_side_kg")}`:t("stats.table.e1rm_unit",{unit:u});
   return reason+range+table(sess.map(s=>({[t("stats.table.date")]:shortDate(s.date),[topLabel]:fmtLoad(s.top),[repsLabel]:s.topReps,
-      [e1rmLabel]:fmt(Math.round(toDisplay(s.e1rm))),[t("stats.table.rir")]:fmt(s.rir)}))).replace("<table>",'<table class="evtable">')}
+      [e1rmLabel]:fmt(Math.round(toDisplay(s.e1rm))),[t("focus.col.left")]:fmt(s.rir)}))).replace("<table>",'<table class="evtable">')}
 function legacyStrengthTable(el){
   const rows=strengthDashboard();
   if(!rows.length){el.innerHTML=`<div class="empty">${esc(t("stats.empty.no_lifts"))}</div>`;return}
@@ -12622,7 +13320,7 @@ function renderStats(){
     for(const sel of["#thisWeek","#attention","#overviewStrength"]){const el=$(sel);if(el)el.classList.toggle("hidden",!hasLog)}
   }
   renderThisWeek();
-  renderAttention();renderOverviewStrength();renderOverviewCalibration();renderReview();
+  renderAttention();renderOverviewStrength();renderOverviewProfile();renderReview();
   if(statsSeg==="review")renderReview();
   renderEvidenceView();
   if($("#stats")?.classList.contains("active")&&!evidenceView)
@@ -13131,10 +13829,10 @@ async function applyParsedCommand(parsed,context){
   const current=context?.current??(()=>true);
   const dispatch=(type,payload)=>current()?WorkoutSession.dispatch(type,payload):{status:"stale"};
   if(!ex)return;
-  const pick=n=>{if(n<1||n>ex.sets)return null;const k=`${ex.id}_${n}`;return committed.has(k)?null:n};
+  const pick=n=>{if(n<1||n>sessionSetCount(ex))return null;const k=`${ex.id}_${n}`;return committed.has(k)?null:n};
   let setN=null;
-  if(parsed.set!=null){for(let n=parsed.set;n<=ex.sets;n++){setN=pick(n);if(setN)break}}
-  else{for(let n=1;n<=ex.sets;n++){setN=pick(n);if(setN)break}}
+  if(parsed.set!=null){for(let n=parsed.set;n<=sessionSetCount(ex);n++){setN=pick(n);if(setN)break}}
+  else{for(let n=1;n<=sessionSetCount(ex);n++){setN=pick(n);if(setN)break}}
   if(!setN){toast(t("toast.all_sets_saved"));return}
   const key=`${ex.id}_${setN}`;
   let loadDisp=parsed.load;
@@ -13156,7 +13854,7 @@ async function applyParsedCommand(parsed,context){
   }else fields.push({field:"load",value:canonicalDraftField("load",canonicalNumberText(loadDisp))},
     {field:"reps",value:String(parsed.reps)});
   if(isEffortMode())fields.push({field:"effort",value:tokenInStage(parsed.effort,effortStage())||stageEffortForRir(parsed.rir??1)});
-  else fields.push({field:"rir",value:parsed.rir!=null?canonicalNumberText(parsed.rir):""});
+  else fields.push({field:"rir",value:parsed.rir!=null?canonicalNumberText(Math.min(5,parsed.rir)):""});
   for(const field of fields){const result=await dispatch("editSetField",{exerciseInstanceId:target.exerciseInstanceId,
       setId:target.setId,field:field.field,value:field.value});if(result.status!=="applied")return}
   renderWorkout();return{ex,set:setN}}
@@ -13354,12 +14052,12 @@ function compareProgressStrengthSession(ex,currentRows,readerContext){
   const previousPoint=series.points[index-1],forPoint=selected=>rows.filter(row=>row.exerciseId===key&&row.sessionKey===selected.sessionKey&&
     row.strengthComparable!==false&&(row.strengthConvention||"load")===convention);
   return compareProjectedSessionOutcome(forPoint(point),forPoint(previousPoint),convention)}
-function strengthEvidenceRecords(scope="current-block"){
+function strengthEvidenceRecords(scope="current-block",log=state.log){
   const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;if(!Model)return[];
   const meta={started:state.programMeta?.started||null,
     mesocycleLengthWeeks:state.programMeta?.mesocycleLengthWeeks||6,
     blockId:snapshotBlockId(state)};
-  const rows=strengthEvidenceRows(),programKeys=new Set(prog.exercises.map(ex=>exerciseLiftKey(ex)||`slot:${ex.id}`));
+  const rows=strengthEvidenceRows(log),programKeys=new Set(prog.exercises.map(ex=>exerciseLiftKey(ex)||`slot:${ex.id}`));
   const keys=new Set([...programKeys,...rows.map(liftKey)]);
   const outcomeByStatus={improved:"improved",flat:"maintained",regressed:"declined"},records=[];
   const hasEffort=row=>row?.rir!=null&&row.rir!==""&&Number.isFinite(Number(row.rir));
@@ -13766,7 +14464,7 @@ function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
     `<img class="exdet-art__img" src="${esc(artSrc)}" alt="${esc(t("preview.art_alt",{name}))}" `+
     `decoding="async" width="768" height="768"></div></div>`:"";
 
-  const rec=tmpl?recommendation(tmpl):null;
+  const rec=tmpl?recommendation(tmpl,{savedHistoryOnly:true}):null;
   // With no weight to suggest (a Manual lift, one that needs setup, one with no usable history) the block says what
   // Focus says for the same lift, its cue and its one sentence of why, rather than a heading over nothing (refinement
   // audit A1, 2026-11-01).
@@ -13779,7 +14477,7 @@ function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
     const body=t(`focus.evidence.none_${key}`,{what:t(isWordMode()?"focus.evidence.what_effort":"focus.evidence.what_rir"),min:tmpl.min,max:tmpl.max});
     return{head,body}})():null;
   const recHtml=rec?`<div class="recblock is-${rec.status}"><div class="recblock__row"><div><div class="recblock__lab">${esc(t("today.recommendation"))}</div>`+
-    `<div class="recblock__head">${esc(recWords.head)}</div>`+
+    `<div class="recblock__head">${esc(recWords.head)}</div>`+standingLine(rec,1,"recblock__standing")+
     (recWords.body?`<p class="recblock__body">${esc(recWords.body)}</p>`:"")+`</div>`+
     `<button type="button" class="link-accent" data-term="RIR">${esc(t("exercise.understand"))}</button>`+
     // "Why this weight?" explains a weight, so it shows only when there is one; "Understand RIR" stays either way.
@@ -13805,14 +14503,15 @@ function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
     const cmp=exRef?compareExerciseSession(exRef,s.rows):null;
     const note=s.note?`<p class="exsess__note">${esc(s.note)}</p>`:"";
     return `<div class="exsess"><div class="exsess__head"><span class="exsess__date">${esc(shortDate(s.date))}</span>`+
-      (best?`<span class="exsess__set">${fmtLoad(best.load)} × ${best.reps}</span><span class="exsess__day">RIR ${fmt(best.rir)}</span>`:"")+
+      (best?`<span class="exsess__set">${fmtLoad(best.load)} × ${best.reps}</span><span class="exsess__day">${esc(t("stats.table.rir"))} ${fmt(best.rir)}</span>`:"")+
       (cmp&&cmp.status!=="not_comparable"?`<span class="exsess__delta">${esc(cmp.label)}</span>`:"")+`</div>${note}</div>`}).join("")
     :`<div class="empty">${esc(t("exercise.empty.no_sets"))}</div>`;
 
   el.innerHTML=`<p class="exdet__muscle">${esc(muscleListLabel(tmpl?.primary||""))}</p><h2 class="exdet__name">${esc(name)}</h2>`+
-    `<p class="exdet__meta">${tmpl?`${esc(dayLabel(tmpl.day))} · ${esc(tmpl.hasRepTarget===false?programPrescriptionSummary(tmpl):`${tmpl.sets} × ${tmpl.min}–${tmpl.max} ${t("log.reps")}`)}${tmpl.hasRepTarget===false?"":` · RIR 0–${fmt(state.settings.rirHigh)}`}`:esc(t("exercise.not_in_program"))}</p>`+
+    `<p class="exdet__meta">${tmpl?`${esc(dayLabel(tmpl.day))} · ${esc(tmpl.hasRepTarget===false?programPrescriptionSummary(tmpl):`${tmpl.sets} × ${tmpl.min}–${tmpl.max} ${t("log.reps")}`)}${tmpl.hasRepTarget===false?"":` · ${esc(t("stats.table.rir"))} 0–${fmt(state.settings.rirHigh)}`}`:esc(t("exercise.not_in_program"))}</p>`+
     artHtml+
     recHtml+
+    (tmpl?`<section class="exercise-profile" aria-label="${esc(t("profile.title"))}"><h3 class="section-label">${esc(t("profile.title"))}</h3><ul class="profile-lifts">${profileLiftHtml(tmpl,rec)}</ul></section>`:"")+
     `<div class="exdet__stats-wrap"><div class="statrow statrow--4 exdet__stats">${tiles.map(tile=>`<div class="statrow__cell"><div class="statrow__val">${tile.val}</div><div class="statrow__cap">${tile.label}</div></div>`).join("")}</div></div>`+
     `<p class="section-label section-label--row"><span>${esc(t("exercise.progression"))}</span><span class="range-static">${esc(t("exercise.range_12w"))}</span></p>`+
     // A trend needs two sessions: one is a statement (it is in the records below), not an axis stepped to fit it.
@@ -14166,7 +14865,7 @@ function editorDraftExerciseIds(draft){
     const exercise=draft.exercises?.[id];
     return exercise&&(exercise.status==="skipped"||exercise.substitution||exercise.setOrder.some(setId=>{
       const set=exercise.sets[setId];
-      return set&&(set.completion!=="pending"||set.role==="warmup"||draftSetTouched(set))}) )}));
+      return set&&(set.startingLoad||set.completion!=="pending"||set.role==="warmup"||draftSetTouched(set))}) )}));
   const ids=new Set(),addKey=key=>{
     const id=setKeyExerciseId(key);if(id&&id!==String(key))ids.add(id)};
   for(const key of ["__done","__touched","__warm"]){if(Array.isArray(draft?.[key]))draft[key].forEach(addKey)}
@@ -14450,7 +15149,7 @@ function dropPendingSuggestLoads(document,slotId){
   if(!list)return;
   const next=list.filter(id=>id!==slotId);
   if(next.length)meta.suggestLoadsPending=next;else delete meta.suggestLoadsPending}
-function syncEditorCanonicalIntent(document,baseDocument,edit,{cycleIndex=1}={}){
+function syncEditorCanonicalIntent(document,baseDocument,edit,{cycleIndex=1,importedRepRanges={}}={}){
   const meta=document.programMeta||(document.programMeta={});
   let definition=meta.programDefinition;
   const baseDefinition=baseDocument?.programMeta?.programDefinition;
@@ -14503,12 +15202,13 @@ function syncEditorCanonicalIntent(document,baseDocument,edit,{cycleIndex=1}={})
         set.provenance={source:"manual",policyVersion:"manual@1"}}
     }
     // A composition that counts repetitions needs a rep range to log against;
-    // a newly configured one starts from the row's range or Build's default.
+    // a newly configured one uses its pending imported range, row range or Build default.
     const repSemantic=edit.metricDefinitions.find(metric=>metric.semantic==="reps"||metric.semantic==="repsPerSide")?.semantic;
     const row=(document.program||[]).find(item=>String(item.slotId||item.id)===String(slotId));
     const rowMin=Number(row?.min),rowMax=Number(row?.max);
-    const defaultRange=Number.isSafeInteger(rowMin)&&rowMin>0&&Number.isSafeInteger(rowMax)&&rowMax>=rowMin
-      ?{min:rowMin,max:rowMax}:{min:6,max:10};
+    const defaultRange=Object.hasOwn(importedRepRanges,slotId)?importedRepRanges[slotId]:
+      Number.isSafeInteger(rowMin)&&rowMin>0&&Number.isSafeInteger(rowMax)&&rowMax>=rowMin
+        ?{min:rowMin,max:rowMax}:{min:6,max:10};
     for(const cycle of slot.prescriptionsByCycle||[])for(const set of cycle.sets||[]){
       set.status=edit.metricIds.length?"manual":"configuration_required";
       set.provenance={source:"manual",policyVersion:"manual@1"};
@@ -14729,7 +15429,9 @@ function createInstalledProgramEditorAdapter(){
       return{document:installedEditorDocument(),token:installedEditorToken()};
     },
     async commit({expectedToken,nextDocument,intent}){
-      if(intent?.kind!=="apply"&&intent?.kind!=="apply_discard_workout"){
+      const adaptation=intent?.kind==="adaptation_apply";
+      if(adaptation&&installedEditorSession)return{ok:false,conflict:true,editorConflict:true};
+      if(!adaptation&&intent?.kind!=="apply"&&intent?.kind!=="apply_discard_workout"){
         const baseline=installedEditorSession?.document||installedEditorDocument();
         const staged=cloneSnapshot(nextDocument);
         if(!syncEditorCanonicalIntent(staged,baseline,intent,{cycleIndex:Number(intent?.cycleIndex)||mesocycleLifecycle(state.programMeta).current||1}))
@@ -14746,6 +15448,18 @@ function createInstalledProgramEditorAdapter(){
       let document=cloneSnapshot(nextDocument),edits=session.edits||intent?.edits||[];
       if(expectedToken?.blockId!==headToken.blockId)
         return{ok:false,conflict:true,editorConflict:true,staleBlock:true};
+      if(adaptation){
+        if(!editorTokenEqual(expectedToken,headToken))return{ok:false,conflict:true,editorConflict:true};
+        const record=intent.record;
+        if(!RepForgeProgramTransition.validateAdaptations(document.programMeta?.adaptations)||
+          record?.decision!=="accepted"||!editorTokenEqual(record.appliedEdit?.expectedToken,expectedToken))
+          return{ok:false,invalid:true};
+        const pattern=weeklyPatterns().find(pattern=>pattern.pattern===record.pattern&&pattern.slotId===record.target.slotId&&pattern.exerciseId===record.target.exerciseId);
+        const expected=pattern&&weeklyProposal(pattern,record.cause,editorDocumentFromSnapshot(head));
+        if(!expected?.nextDocument||!changeValueEqualForEditor(expected.nextDocument.program,document.program)||
+          !changeValueEqualForEditor(expected.nextDocument.programMeta.programDefinition,document.programMeta.programDefinition)||
+          !RepForgeProgramTransition.adaptationEligible(head.programMeta.adaptations,pattern,headToken.blockId,record.week))return{ok:false,invalid:true};
+      }
       if(!editorTokenEqual(expectedToken,headToken)){
         const rebased=editorRebaseDocument({edits},head);
         if(rebased.conflict)return{ok:false,conflict:true,editorConflict:true,code:rebased.code};
@@ -14773,6 +15487,8 @@ function createInstalledProgramEditorAdapter(){
           const lockedToken=installedEditorToken(lockedHead);
           if(headToken.blockId!==lockedToken.blockId)
             return{reject:true,result:{ok:false,conflict:true,editorConflict:true,staleBlock:true}};
+          if(adaptation&&!editorTokenEqual(headToken,lockedToken))
+            return{reject:true,result:{ok:false,conflict:true,editorConflict:true}};
           if(!editorTokenEqual(headToken,lockedToken)){
             const rebased=editorRebaseDocument({edits},lockedHead);
             if(rebased.conflict)
@@ -14799,7 +15515,7 @@ function createInstalledProgramEditorAdapter(){
       if(result.committed===true&&result.settled===true){
         const discarded=effect?.status==="valid"&&effect.effect?.kind==="clear-draft";
         if(discarded)reportWorkoutDiscarded(activeWorkoutDraft||draftBefore,"program_edit");
-        captureEvent("active_program_edited",{outcome:discarded?"discarded_workout":"saved"});
+        if(!adaptation)captureEvent("active_program_edited",{outcome:discarded?"discarded_workout":"saved"});
         if(discarded)resetDraftSessionState();
         if(installedEditorSession===startedSession)installedEditorSession=null;return{...result,ok:true,document,token:installedEditorToken(state)}}
       return{...result,ok:false,conflict:!!(result.conflict||result.staleRevision)};
@@ -14863,7 +15579,8 @@ function createOnboardingProgramEditorAdapter(){
     read(){return{document:editorDocumentFromSnapshot(programEditorSnapshot()),token:{draftRevision:entryState?.revision||0}}},
     async commit({nextDocument,intent}){
       const baseline=editorDocumentFromSnapshot(programEditorSnapshot()),document=cloneSnapshot(nextDocument);
-      if(!syncEditorCanonicalIntent(document,baseline,intent,{cycleIndex:Number(intent?.cycleIndex)||1}))
+      if(!syncEditorCanonicalIntent(document,baseline,intent,{cycleIndex:Number(intent?.cycleIndex)||1,
+        importedRepRanges:readImportedRepRanges(entryState)}))
         return{ok:false,invalid:true,code:"invalid_canonical_editor_intent"};
       const proposal=programEditorSnapshot();proposal.program=cloneSnapshot(nextDocument.program||[]);
       proposal.program=cloneSnapshot(document.program||[]);
@@ -15596,13 +16313,13 @@ function renderProgramHeader(){
 }
 
 // Collapsed program days live in UI prefs so the state survives reloads without touching training data.
-function collapsedProgramDays(){const v=uiPrefs.collapsedProgramDays;return Array.isArray(v)?v.filter(x=>typeof x==="string"):[]}
-function setDayCollapsed(d,on){const cur=new Set(collapsedProgramDays());
-  on?cur.add(d):cur.delete(d);
-  setUiPref("collapsedProgramDays",[...cur].filter(x=>programEditorProgram().days().includes(x)))}
-function renameCollapsedDay(oldName,newName){const cur=collapsedProgramDays();
-  if(!cur.includes(oldName))return;
-  setUiPref("collapsedProgramDays",cur.map(x=>x===oldName?newName:x))}
+function collapsedProgramDays(prefs=uiPrefs){const v=prefs.collapsedProgramDays;return Array.isArray(v)?v.filter(x=>typeof x==="string"):[]}
+function setDayCollapsed(d,on){updateUiPrefs(prefs=>{
+  const cur=new Set(collapsedProgramDays(prefs));on?cur.add(d):cur.delete(d);
+  return {...prefs,collapsedProgramDays:[...cur].filter(x=>programEditorProgram().days().includes(x))}})}
+function renameCollapsedDay(oldName,newName){updateUiPrefs(prefs=>{
+  const cur=collapsedProgramDays(prefs);
+  return cur.includes(oldName)?{...prefs,collapsedProgramDays:cur.map(x=>x===oldName?newName:x)}:prefs})}
 
 /* The raw JSON box is the one field a lifter types a whole document into, so a
    render() firing mid-edit used to throw the draft away — every route into
@@ -16092,7 +16809,7 @@ function renderSettings(){
   const rirDisp=$("#rirModeDisplay");if(rirDisp)rirDisp.textContent=t(STAGE_LABEL[effortStage()]);
   // A word or chip stage's explanation stands under its row while that is the stage (it was the panel's lede).
   const effortLede=$("#rirEffortLede");
-  if(effortLede){effortLede.hidden=effortStage()==="c";effortLede.textContent=t(effortStage()==="b"?"settings.effort_lede_reps":"settings.effort_lede")}
+  if(effortLede){effortLede.hidden=effortStage()==="c";effortLede.textContent=t("settings.effort_lede")}
   const langDisp=$("#langDisplay");if(langDisp)langDisp.textContent=t("settings.lang."+(I18N?.normalizeLang(state.settings.lang)||"en"));
   const le=state.settings.lastExport,ago=le?t("settings.storage.last_backup",{lastBackup:le.slice(0,10)}):t("settings.storage.last_backup_never");
   paintStorageNote(ago);
@@ -16124,8 +16841,7 @@ async function commitSettings(silent){const editRevision=settingsEditRevision;co
   const oldUnit=state.settings.unit,newUnit=$("#unit").value==="lb"?"lb":"kg",oldLang=state.settings.lang,newLang=I18N?.normalizeLang($("#lang")?.value)||oldLang;
   const stagePick=stageSettings(stageForPick($('input[name="rirMode"]:checked')?.value));
   // A unit change commits on its own; the stage holds still under it.
-  const{rirMode:newRirMode,effortScale:newEffortScale}=oldUnit===newUnit?stagePick
-    :{rirMode:state.settings.rirMode,effortScale:state.settings.effortScale};
+  const{rirMode:newRirMode}=oldUnit===newUnit?stagePick:{rirMode:state.settings.rirMode};
   // No wait for draft writes here: Settings commits synchronously up to its enqueue, like every other setting. A draft
   // write still in flight changes the raw, and the effect's abort-if-changed precondition refuses the commit for a retry.
   const modeEffect=newRirMode===state.settings.rirMode?null:draftRirModeEffect(readDraftRaw(),newRirMode);
@@ -16143,7 +16859,7 @@ async function commitSettings(silent){const editRevision=settingsEditRevision;co
   const originalDraftRaw=oldUnit===newUnit?null:readDraftRaw();
   const unitEffect=draftUnitConversionEffect(originalDraftRaw,oldUnit,newUnit);
   const proposal=cloneSnapshot(state);
-  proposal.settings=normalizeSettings({jumpPct:num("#jumpPct",2.5,0),minJump:(()=>{const n=parseDec($("#minJump").value);return Number.isFinite(n)&&n>0?n:2.5})(),rirHigh:num("#rirHigh",2,0),hardRir:num("#hardRir",4,0),restSec,lastExport:state.settings.lastExport,unit:newUnit,lang:newLang,rirMode:newRirMode,effortScale:newEffortScale,voiceInputEnabled:!!$("#voiceInputEnabled")?.checked,maxSetPrompts:$("#maxSetPrompts")?$("#maxSetPrompts").checked:state.settings.maxSetPrompts!==false,slowRepTaps:$("#slowRepTaps")?$("#slowRepTaps").checked:state.settings.slowRepTaps!==false,notify:normalizeNotify({enabled:!!state.settings.notify?.enabled,timer:!!$("#notifyTimer")?.checked,session:!!$("#notifySession")?.checked,unfinished:!!$("#notifyUnfinished")?.checked,missed:!!$("#notifyMissed")?.checked})});
+  proposal.settings=normalizeSettings({jumpPct:num("#jumpPct",2.5,0),minJump:(()=>{const n=parseDec($("#minJump").value);return Number.isFinite(n)&&n>0?n:2.5})(),rirHigh:num("#rirHigh",2,0),hardRir:num("#hardRir",4,0),restSec,lastExport:state.settings.lastExport,unit:newUnit,lang:newLang,rirMode:newRirMode,voiceInputEnabled:!!$("#voiceInputEnabled")?.checked,maxSetPrompts:$("#maxSetPrompts")?$("#maxSetPrompts").checked:state.settings.maxSetPrompts!==false,slowRepTaps:$("#slowRepTaps")?$("#slowRepTaps").checked:state.settings.slowRepTaps!==false,notify:normalizeNotify({enabled:!!state.settings.notify?.enabled,timer:!!$("#notifyTimer")?.checked,session:!!$("#notifySession")?.checked,unfinished:!!$("#notifyUnfinished")?.checked,missed:!!$("#notifyMissed")?.checked})});
   const result=await commitProposedState(proposal,storageIO,{effect:unitEffect||modeEffect});
   if(!(result.localOk||result.idbOk)){if(editRevision===settingsEditRevision)renderSettings();return result}
   // Overlapping held steps can retain an earlier completion in live state.
@@ -16685,8 +17401,19 @@ function showPickerReasonStep(entry){
       pickerState.reasons.map(reason=>`<button type="button" class="pchip" data-pick-reason="${reason}">${esc(t(SUBSTITUTION_REASON_LABELS[reason]))}</button>`).join("")+
     `</div></div>`+
     `<button type="button" class="text-link pick__skip" id="exPickReasonSkip">${esc(t("picker.reason_skip"))}</button></div>`;
-  list.querySelectorAll("[data-pick-reason]").forEach(button=>button.onclick=()=>{
-    settleSubstitutionEvent(button.dataset.pickReason);closeExercisePicker()});
+  list.querySelectorAll("[data-pick-reason]").forEach(button=>button.onclick=async()=>{
+    if(pickerState?.reasonSaving)return;
+    const active=pickerState;active.reasonSaving=true;
+    list.querySelectorAll("[data-pick-reason],#exPickReasonSkip").forEach(control=>control.disabled=true);
+    const result=await settleSubstitutionEvent(button.dataset.pickReason);
+    active.reasonSaving=false;
+    if(pickerState!==active||sheet.hidden)return;
+    if(result.status==="applied")closeExercisePicker();
+    else{
+      list.querySelectorAll("[data-pick-reason],#exPickReasonSkip").forEach(control=>control.disabled=false);
+      const message=t("entry.review.save_failed");
+      list.querySelector(".pick__followup-done").textContent=message;
+      toast(message,{assertive:true})}});
   const skip=$("#exPickReasonSkip");if(skip)skip.onclick=()=>{settleSubstitutionEvent(null);closeExercisePicker()};
   list.querySelector("[data-pick-reason]")?.focus({preventScroll:true})}
 function renderPickerFilters(){
@@ -18198,9 +18925,16 @@ function importCandidate(draft){
   const programDefinition=kept?canonicalProgramDefinition(carriedDefinition,candidateCustomExercises)
     :manualProgramDefinitionFromRows(program,labels,candidateCustomExercises);
   const projected=programDefinition?flatProgramFromDefinition(programDefinition,candidateCustomExercises,1):program;
+  const pendingSlots=new Set((programDefinition?.days||[]).flatMap(day=>day.slots||[])
+    .filter(slot=>isCustomLibraryId(slot.exerciseId)&&
+      !slot.metricDefinitions.some(metric=>metric.semantic==="reps"||metric.semantic==="repsPerSide"))
+    .map(slot=>slot.id));
+  const importedRepRanges=Object.fromEntries(program.filter(row=>pendingSlots.has(row.slotId||row.id)&&
+    Number.isSafeInteger(row.min)&&row.min>=1&&Number.isSafeInteger(row.max)&&row.max>=row.min&&row.max<=1000)
+    .map(row=>[row.slotId||row.id,{min:row.min,max:row.max}]));
   const projectedDays=programDefinition?programDefinition.days.filter(day=>day.kind==="training").map((day,index)=>({
     dayId:day.id,label:day.name,order:index+1,exercises:projected.filter(row=>row.dayId===day.id).map(cloneSnapshot)})):days;
-  return{
+  return{importedRepRanges,preview:{
     program:projected,
     days:projectedDays,
     ...(programDefinition?{programDefinition}:{}),
@@ -18212,7 +18946,7 @@ function importCandidate(draft){
     customExercises:candidateCustomExercises,
     source:"import",
     format:draft.format,
-  }}
+  }}}
 
 /* Review decisions become an owned setup candidate. Durable active state moves
    only through the common explicit activation transaction on the next screen. */
@@ -18224,7 +18958,7 @@ async function commitImportReview(){
   const draft=importDraft;
   setStagedImportSource(draft.sourceType);
   ensureImportEntryFlow(draft);
-  const preview=importCandidate(draft);
+  const {preview,importedRepRanges}=importCandidate(draft);
   const name=typeof draft.meta?.name==="string"?draft.meta.name.trim():"";
   let next=ProgramEntry.setAnswers(entryState,{importReady:true});
   next={...next,versions:entryVersions()};
@@ -18239,7 +18973,7 @@ async function commitImportReview(){
   // including an unversioned first-run program file, remains a candidate until
   // the common preview's explicit activation action is chosen.
   entryState=next;
-  const saved=await persistSetupDraft(next);
+  const saved=await persistSetupDraft(next,storageIO,{importedRepRanges});
   if(!saved?.ok){toast(t("toast.program_import_failed"));return saved}
   closeImportReview({toProgram:false});
   entryUiNotice=null;
@@ -19192,6 +19926,46 @@ function mergeLog(s){return mergeImportedLog(s)}
 
 // @ci-domain global
 const SETUP_DRAFT_KEY="repforge_program_setup_draft_v1";
+const IMPORT_RANGES_KEY="repforge_import_ranges_v1";
+// Optional device-only hints stay outside the setup envelope: older releases
+// must be able to resume it, and activation receipts retain its exact bytes.
+function readImportedRepRanges(candidate){
+  if(candidate?.route!=="import")return{};
+  try{
+    const record=JSON.parse(localStorage.getItem(IMPORT_RANGES_KEY));
+    if(!isPlainStateObject(record)||record.schemaVersion!==1||record.draftId!==candidate.draftId||
+      Object.keys(record).some(key=>!["schemaVersion","draftId","ranges"].includes(key))||
+      !isPlainStateObject(record.ranges)||Object.keys(record.ranges).length>512)return{};
+    const slots=new Map((candidate.result?.preview?.programDefinition?.days||[])
+      .flatMap(day=>day.slots||[]).map(slot=>[slot.id,slot]));
+    const ranges=Object.create(null);
+    for(const [id,range] of Object.entries(record.ranges)){
+      if(!isPlainStateObject(range)||Object.keys(range).some(key=>!["exerciseId","min","max"].includes(key))||
+        typeof range.exerciseId!=="string"||!Number.isSafeInteger(range.min)||range.min<1||
+        !Number.isSafeInteger(range.max)||range.max<range.min||range.max>1000)return{};
+      const slot=slots.get(id);
+      if(slot&&isCustomLibraryId(slot.exerciseId)&&slot.exerciseId===range.exerciseId&&
+        !slot.metricDefinitions.some(metric=>metric.semantic==="reps"||metric.semantic==="repsPerSide"))
+        ranges[id]={min:range.min,max:range.max};
+    }
+    return ranges;
+  }catch{return{}}}
+function clearImportedRepRanges(draftId){
+  try{
+    if(JSON.parse(localStorage.getItem(IMPORT_RANGES_KEY))?.draftId===draftId)
+      localStorage.removeItem(IMPORT_RANGES_KEY);
+  }catch{}}
+function writeImportedRepRanges(candidate,ranges){
+  const slots=new Map((candidate.result?.preview?.programDefinition?.days||[])
+    .flatMap(day=>day.slots||[]).map(slot=>[slot.id,slot]));
+  const pending=Object.fromEntries(Object.entries(ranges).filter(([id])=>{
+    const slot=slots.get(id);
+    return candidate.route==="import"&&slot&&isCustomLibraryId(slot.exerciseId)&&
+      !slot.metricDefinitions.some(metric=>metric.semantic==="reps"||metric.semantic==="repsPerSide");
+  }).map(([id,range])=>[id,{exerciseId:slots.get(id).exerciseId,min:range.min,max:range.max}]));
+  if(!Object.keys(pending).length){clearImportedRepRanges(candidate.draftId);return}
+  try{localStorage.setItem(IMPORT_RANGES_KEY,JSON.stringify({schemaVersion:1,draftId:candidate.draftId,ranges:pending}))}
+  catch{clearImportedRepRanges(candidate.draftId)}}
 const ProgramEntry=typeof window!=="undefined"?window.RepForgeProgramEntry:null;
 const ProgramEntryAdapter=typeof window!=="undefined"?window.RepForgeProgramEntryAdapter:null;
 const ENTRY_MUSCLES=ProgramEntry.ENTRY_MUSCLES;
@@ -19289,6 +20063,8 @@ function removeObservedSetupDraft(handle){
   try{localStorage.removeItem(SETUP_DRAFT_KEY)}catch(error){
     reportSetupDraftWriteFailure("save_failed",error);
     return{ok:false,writeFailed:true}}
+  // Recovery can hold only the captured raw envelope, without its parsed handle.
+  try{clearImportedRepRanges(handle.envelope?.draftId||JSON.parse(handle.raw)?.draftId)}catch{}
   if(entryDraftHandle?.raw===handle.raw){entryDraftHandle=null;setupDraftConflicted=false;lastPersistedEntryState=null}
   return{ok:true}}
 function removeSetupDraftIfCurrent(handle=entryDraftHandle){
@@ -19321,7 +20097,11 @@ async function recoverCommittedSetupDraft(){
   const raw=readSetupDraftRaw();
   // A missing draft means the post-commit cleanup already won. A different
   // raw value belongs to a later owner/revision and must remain untouched.
-  if(raw===null||raw!==marker.raw)return{ok:true,absent:raw===null,conflict:raw!==null};
+  if(raw===null){
+    try{clearImportedRepRanges(JSON.parse(marker.raw)?.draftId)}catch{}
+    return{ok:true,absent:true};
+  }
+  if(raw!==marker.raw)return{ok:true,conflict:true};
   return withStorageLock(storageIO,()=>removeObservedSetupDraft({raw,envelope:null}));
 }
 function setupDraftPersistenceProjection(value){
@@ -19338,7 +20118,7 @@ function setupDraftPersistenceProjection(value){
   projectStructure(projected.result?.alternative?.preview?.programStructure);
   return projected;
 }
-function persistSetupDraft(next,io=storageIO){
+function persistSetupDraft(next,io=storageIO,{importedRepRanges}={}){
   // A received definition is a transient proposal until the recipient presses
   // Use this program. Keep the shared review editable in memory, but never put
   // its payload in the resumable setup-draft store before activation.
@@ -19394,6 +20174,7 @@ function persistSetupDraft(next,io=storageIO){
     try{await writeSetupDraft(raw)}catch(error){
       reportSetupDraftWriteFailure("save_failed",error);
       return{ok:false,writeFailed:true}}
+    writeImportedRepRanges(queuedState,importedRepRanges||readImportedRepRanges(queuedState));
     entryDraftHandle={raw,envelope};
     // Capture the value this call itself staged (via its closed-over
     // queuedState/stamped.result), not whatever the mutable entryState has
@@ -23139,9 +23920,46 @@ function onEntryPopState(){
   if(onInstalledEditorPopState())return;
   if(!$("#onboarding")?.classList.contains("active")||!entryState)return;
   try{history.pushState(entryHistoryState(true),"",location.href)}catch{}
+  if(effortChoiceCancel){effortChoiceCancel();return}
+  if(entryActivationPending)return;
   entryBack()}
+// @ci-domain entry
+let effortChoiceAsk=null,effortChoiceCancel=null,entryActivationPending=false;
+async function chooseActivationEffort(mode){
+  if(effortChoiceAsk)return null;
+  const sheet=$("#effortChoiceSheet"),scrim=$("#effortChoiceScrim");
+  const choices=Array.from(sheet.querySelectorAll("[data-effort-choice]"));
+  let selected=mode==="numeric"?"numeric":"effort";
+  const paint=()=>choices.forEach(button=>{
+    const on=button.dataset.effortChoice===selected;
+    button.classList.toggle("is-selected",on);button.setAttribute("aria-checked",String(on));
+    button.tabIndex=on?0:-1});
+  paint();
+  effortChoiceAsk=new Promise(resolve=>{
+    let settled=false;
+    const finish=async value=>{
+      if(settled)return;settled=true;
+      await closeModal(sheet);resolve(value)};
+    effortChoiceCancel=()=>finish(null);
+    choices.forEach(button=>{
+      button.onclick=()=>{selected=button.dataset.effortChoice;paint()};
+      button.onkeydown=event=>{
+        if(!["ArrowDown","ArrowUp","ArrowLeft","ArrowRight","Home","End"].includes(event.key))return;
+        event.preventDefault();
+        selected=event.key==="Home"?"effort":event.key==="End"?"numeric":selected==="effort"?"numeric":"effort";
+        paint();choices.find(item=>item.dataset.effortChoice===selected)?.focus()}});
+    $("#effortChoiceContinue").onclick=()=>finish(selected);
+    $("#effortChoiceClose").onclick=scrim.onclick=()=>finish(null);
+    if(openModal(sheet,{scrim,onEscape:()=>finish(null),initialFocus:choices.find(button=>button.dataset.effortChoice===selected),delayHide:280})===false){
+      resolve(null);return}
+    document.body.classList.add("is-sheet-open");
+    requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim.classList.add("is-open")})});
+  try{return await effortChoiceAsk}finally{effortChoiceAsk=null;effortChoiceCancel=null}}
 // @ci-domain global
 async function activateEntryPreview({destination="log",manualBuild=false,skipReplaceConfirm=false,io=storageIO}={}){
+  if(entryActivationPending)return{cancelled:true};
+  entryActivationPending=true;
+  try{
   if(!ProgramEntry||!entryState||entryAnswerRebuildPending())return;
   const review=entryAdjust,identity=review?.identity;
   await window.RepForgeProgramReview?.whenIdle(review);
@@ -23259,6 +24077,16 @@ async function activateEntryPreview({destination="log",manualBuild=false,skipRep
     ?(entryState.result?.compilerContext||null):null;
   if(compilerContext)baseProposal.programMeta.compilerContext=cloneSnapshot(compilerContext);
   const telemetryRoute=route==="recommend"||route==="custom"||route==="browse"||route==="build"||route==="import"||route==="shared"?route:"custom";
+  const activationRevision=readRevision(state);
+  const needsEffortChoice=!state.log.length&&loadUiPrefs().effortChosen!==true;
+  let chosenEffort=null;
+  if(needsEffortChoice){
+    const candidate=entryState;
+    chosenEffort=await chooseActivationEffort(route==="shared"?baseProposal.settings.rirMode:"effort");
+    if(chosenEffort===null||entryState!==candidate||entryDraftHandle!==activationDraftHandle)return{cancelled:true};
+    if(readRevision(state)!==activationRevision){
+      await surfaceEntryDurableConflict();return{staleRevision:true}}
+    baseProposal.settings={...baseProposal.settings,rirMode:chosenEffort}}
   const result=await finalizeProgramSetup({
     exercises,
     name,
@@ -23277,6 +24105,7 @@ async function activateEntryPreview({destination="log",manualBuild=false,skipRep
     replace:route==="shared",
     expectedFirstRunEmpty:route==="shared",
     reviewChanges:entryReviewChanges()});
+  if(result?.committed===true&&chosenEffort!==null)setUiPref("effortChosen",true);
   if(result?.setupDraftConflict){
     reportActivationFailed("setup_conflict");
     entryUiNotice="save_conflict";
@@ -23292,7 +24121,8 @@ async function activateEntryPreview({destination="log",manualBuild=false,skipRep
     entryDurableConflictNeedsReload=false;
     entryState=null;
     return result}
-  return result}
+  return result
+  }finally{entryActivationPending=false}}
 function telemetryGeneratedProgram(goal){
   if(goal==="beginner_consistency")return{goal:"muscle_growth",family:"foundation"};
   if(goal==="strength_hypertrophy")return{goal:"balanced",family:"legacy"};
@@ -23408,26 +24238,22 @@ window.closeOnboarding=closeOnboarding;window.startOnboarding=startOnboarding;
 const UIKEY=INSTALL_UI_KEY;
 function loadUiPrefs(){try{const o=JSON.parse(localStorage.getItem(UIKEY));return o&&typeof o==="object"?o:{}}catch{return{}}}
 let uiPrefs=loadUiPrefs();
-function setUiPref(k,v){
+function updateUiPrefs(update){
   if(installTransferMutationFrozen())return false;
-  uiPrefs[k]=v;try{localStorage.setItem(UIKEY,JSON.stringify(uiPrefs));return true}
+  const live=loadUiPrefs(),next=update(live);
+  try{
+    if(JSON.stringify(next)!==JSON.stringify(live))localStorage.setItem(UIKEY,JSON.stringify(next));
+    uiPrefs=next;return true}
   catch(e){console.warn("ui prefs save failed",e);return false}}
+function setUiPref(k,v){return updateUiPrefs(prefs=>({...prefs,[k]:v}))}
 const INSTALL_PREF_DEFAULTS=Object.freeze({installLastOfferedMilestone:null,installLastOfferedAt:null,
   installDismissedMilestone:null,installDismissedAt:null});
-function replaceUiPrefs(next){
-  if(installTransferMutationFrozen())return false;
-  try{localStorage.setItem(UIKEY,JSON.stringify(next));uiPrefs=next;return true}
-  catch(e){console.warn("ui prefs save failed",e);return false}}
 function ensureInstallPolicyPrefs(){
-  let changed=false;const next={...uiPrefs};
-  for(const[key,value]of Object.entries(INSTALL_PREF_DEFAULTS)){
-    if(!Object.prototype.hasOwnProperty.call(next,key)){next[key]=value;changed=true}}
-  if(changed)replaceUiPrefs(next)}
+  updateUiPrefs(prefs=>({...INSTALL_PREF_DEFAULTS,...prefs}))}
 function ensureGuidePrefs({persist=true}={}){
   if(!GuideRegistry?.migrateLegacyTourDone)return;
-  const next=GuideRegistry.migrateLegacyTourDone(uiPrefs);
-  if(JSON.stringify(next)===JSON.stringify(uiPrefs))return;
-  if(persist)replaceUiPrefs({...next});else uiPrefs={...next}}
+  if(persist)updateUiPrefs(prefs=>({...GuideRegistry.migrateLegacyTourDone(prefs)}));
+  else uiPrefs={...GuideRegistry.migrateLegacyTourDone(loadUiPrefs())}}
 
 /* ---- Appearance ----
    A UI pref, not a setting: which paper this device prefers says nothing about
@@ -23511,10 +24337,10 @@ function installPolicyDecision(source="automatic"){
     uiPrefs,nowMs:Date.now(),source,transferAvailable:installPolicyTransferAvailable()})}
 function recordInstallPolicyOffer(decision){
   if(!Number.isInteger(decision?.milestone))return;
-  replaceUiPrefs({...InstallPolicy.recordInstallOffer(uiPrefs,{milestone:decision.milestone,nowMs:Date.now()})})}
+  updateUiPrefs(prefs=>({...InstallPolicy.recordInstallOffer(prefs,{milestone:decision.milestone,nowMs:Date.now()})}))}
 function recordInstallPolicyDismissal(decision){
   if(!Number.isInteger(decision?.milestone))return;
-  replaceUiPrefs({...InstallPolicy.recordInstallDismissal(uiPrefs,{milestone:decision.milestone,nowMs:Date.now()})})}
+  updateUiPrefs(prefs=>({...InstallPolicy.recordInstallDismissal(prefs,{milestone:decision.milestone,nowMs:Date.now()})}))}
 let installPresentedDecision=null;
 function installInstructions(){
   if(isIOS())return t("install.ios_instructions",{icon:IOS_SHARE_SVG});
@@ -23815,11 +24641,12 @@ function closeFirstRunInstall(){
 /* ---- Landing page: engine-true numbers, filled copy and the proof ----
    Every number the page shows is produced here at render time and poured into an
    i18n template, never typed into markup or a catalog value. The proof's case goes
-   through the real progression engine with the app's default settings. The input
-   below is the only authored number set: what the example lifter logged. */
+   through the real progression engine with the app's default settings. The inputs
+   below are authored example sets: what the example lifter logged. */
 const LANDING_UNIT="kg";
 const LANDING_CASES={
-	add:{ex:"19f5c6f170d8808bb424e98de4472a7e",sets:3,repMin:8,repMax:10,logged:[[60,10,2],[60,10,2],[60,10,2]]}};
+	add:{ex:"1a05c6f170d88058a3a0c07e098a9605",sets:3,repMin:8,repMax:10,logged:[[60,10,2],[60,10,2],[60,10,2]]}};
+const LANDING_TEST_SETS=[[60,10,2],[60,10,2],[60,12,0]];
 /** The import-review capture: its size per language, the counts its screen shows
  *  (they differ by language: the sample's names classify differently) and the
  *  library movement its first row suggests. Written by tools/capture-landing-proof.mjs
@@ -23918,16 +24745,16 @@ function paintLandingTouch(set,node,touch,x,y,f){
   set(node.lastChild,"transform",`scale(${f(touch.scale)})`);
   set(node.firstChild,"opacity",f(touch.ringOpacity));set(node.firstChild,"transform",`scale(${f(touch.ringScale)})`)}
 /* ---- The proof: the workout screen, playing itself (owner, 2026-10-29: the landing-anim prototype's direction A) ----
-   One phone plays a set of the "add" case's bench press in four chapters: the target arrives, and the finger opens the
+   One phone plays a set of the "add" case's Smith machine bench press in five chapters: the target arrives, and the finger opens the
    Reps wheel and turns it one rep on (1, five seconds); Log set is tapped, the row checks and the rest tab rises out of
    the shelf with its light (2); the rest runs down, time compressed, to "Rest done" while set 2 waits prefilled (3); the
-   next session's target rises in a sheet over the session it came from (4). The screen is Focus's own markup, classes
+   last set becomes a test set, with a guess and a result (4); the next session's target rises in a sheet over the session it came from (5). The screen is Focus's own markup, classes
    and strings under `.theme-light` (the app's light tokens, whatever the visitor's appearance), so it changes when
    Focus does; the frame, the finger, the sheets' placement and the light's moving windows are the landing's. Every
    frame is a pure function of the timeline, so a chapter can be jumped to; a frame moves transforms and opacities
    only, and writes text only when the rest clock ticks over a second. `chapters` are the chapters' starts. */
-const LANDING_DEMO={loop:18,chapters:[0,6,10,14],stills:[5,9.2,13.6,16.6],rest:120,tap:6.95,restAt:7.3,fast:10,done:12.6,
-  sheet:14.05,wrap:16.9,reset:17.4,pull:17.6,rise:30,zoom:378,next:"1a05c6f170d8806b911acf558c5af4f6"};
+const LANDING_DEMO={loop:24,chapters:[0,6,10,14,20],stills:[5,9.2,13.6,19,22.6],rest:120,tap:6.95,restAt:7.3,fast:10,done:12.6,
+  sheet:20.05,wrap:22.9,reset:23.4,pull:23.6,rise:30,zoom:378,next:"1a05c6f170d8806b911acf558c5af4f6"};
 /** The chapter `time` (any finite number of seconds; the loop wraps it) falls in. */
 const landingChapterAt=time=>{const at=landingLoopTime(time);let i=0;while(i+1<LANDING_DEMO.chapters.length&&at>=LANDING_DEMO.chapters[i+1])i++;return i};
 /** `time` folded into one loop, so a negative, huge or non-finite clock still names a frame. */
@@ -23935,13 +24762,14 @@ const landingLoopTime=time=>{const L=LANDING_DEMO.loop;return Number.isFinite(ti
 /** Every catalog string the proof's screen shows; test/landing-demo-copy.mjs fails when one leaves a catalog or Focus
  *  stops saying it. */
 const LANDING_DEMO_KEYS=["focus.exmeta.range","program.progression.adaptive","focus.cue.up","focus.cue.reps",
-  "focus.evidence.history","focus.evidence.target","focus.evidence.why","log.set","log.reps","stats.table.rir",
+  "focus.evidence.history","focus.evidence.target","focus.evidence.why","log.set","log.reps","focus.col.left","focus.field.left",
   "focus.prev_line","focus.next_row","focus.metric.load_kg","focus.metric.reps","focus.shelf.pad_load","focus.shelf.log_set",
   "rest.inline.label","rest.inline.done","landing.outcomes.next_label","landing.outcomes.target","landing.outcomes.did_same",
+  "maxset.invite_title","maxset.invite_body","maxset.not_now","maxset.make_guess","maxset.guess_q","maxset.guess_from","maxset.fail_rule","maxset.safety","maxset.press_line","maxset.start","maxset.cue_head","maxset.cue_sub","maxset.tag","maxset.guessed","maxset.did","maxset.result_more","maxset.result_fewer","maxset.result_same","maxset.status_wait_one","maxset.status_wait",
   "dialog.done"];
 let landingDemo=null;
 /** The proof's screen, from the "add" case and the engine's answer for it (`add`). */
-function landingDemoHtml(add){
+function landingDemoHtml(add,testSet){
   const c=LANDING_CASES.add,[load0,reps0,rir0]=c.logged[0],target=add||{load:load0,reps:reps0},rir=1;
   const kg=landingNum(target.load),reps=landingNum(target.reps),unit=LANDING_UNIT;
   const button=(cls,inner,attrs="")=>`<button type="button" class="${cls}" tabindex="-1"${attrs}>${inner}</button>`;
@@ -23951,7 +24779,7 @@ function landingDemoHtml(add){
   const line=(index,values,soft,extra="",last=prev)=>`<div class="ledgerline${last?" ledgerline--two":""}${extra}"><span class="ledgerline__idx">${index}</span>${cells(values,soft)}${last}</div>`;
   const check=`<span class="fx-check" aria-hidden="true"></span>`;
   const head=`<div class="ledgerline__head"><span>${esc(t("log.set"))}</span><span class="ledgerline__vals">`+
-    `<span class="fx-col">${esc(unit)}</span><span class="fx-col">${esc(t("log.reps"))}</span><span class="fx-col">${esc(t("stats.table.rir"))}</span></span></div>`;
+    `<span class="fx-col">${esc(unit)}</span><span class="fx-col">${esc(t("log.reps"))}</span><span class="fx-col">${esc(t("focus.col.left"))}</span></span></div>`;
   // Set 1 is logged at one rep over the target: the finger turns the Reps wheel to it in chapter 1.
   const turned=landingNum(target.reps+1);
   const set=[kg,reps,landingNum(rir0)],did=[kg,turned,landingNum(rir0)],aim=[kg,reps,landingNum(rir)];
@@ -23996,6 +24824,27 @@ function landingDemoHtml(add){
   const nextRow=esc(t("focus.next_row",{name:"\u0000"})).replace("\u0000",`<b>${esc(landingExerciseName(LANDING_DEMO.next))}</b>`);
   // The session the target came from, as its ledger read: no "last" line under rows that are the last session.
   const lastSession=c.logged.map(([l,r,e])=>line(check,[landingNum(l),landingNum(r),landingNum(e)],false," firstrun-demo__last","")).join("");
+  const {before,test,guess,result,diff,status}=testSet;
+  const rule=`<p class="maxset__rule">${esc(t("maxset.fail_rule"))}</p><p class="maxset__safety">${esc(t("maxset.safety"))}</p>`+
+    `<p class="maxset__safety">${esc(t("maxset.press_line"))}</p>`;
+  const testLedger=(finished=false,armed=true)=>`<div class="fcard__ledger">${head}`+
+    LANDING_TEST_SETS.slice(0,-1).map(values=>line(check,values.map(landingNum),false,"","")).join("")+
+    line(finished?check:LANDING_TEST_SETS.length,[landingNum(test[0]),landingNum(finished?test[1]:armed?guess:before[1]),landingNum(armed?test[2]:before[2])],!finished,"",
+      armed?`<small class="ledgerline__tag">${esc(t("maxset.tag",{n:landingNum(guess)}))}</small>`:"")+`</div>`;
+  const testScenes=`<div class="firstrun-demo__test-backdrop"></div><div class="firstrun-demo__test-tip firstrun-demo__test-scene">${testLedger(false,false)}<section class="resttip">`+
+    `<p class="resttip__text"><b>${esc(t("maxset.invite_title"))}</b> ${esc(t("maxset.invite_body",{load:landingKg(test[0])}))}</p>`+
+    `<div class="resttip__acts">${button("resttip__no",esc(t("maxset.not_now")))}${button("resttip__yes",esc(t("maxset.make_guess")))}</div></section></div>`+
+    `<div class="firstrun-demo__test-guess firstrun-demo__test-scene"><div class="sheetband"><span class="sheetband__handle"></span>`+
+    `<h2 class="sheetband__title">${esc(t("maxset.guess_q",{load:landingKg(test[0])}))}</h2>`+
+    `<p class="sheetband__sub">${esc(t("maxset.guess_from",{n:landingNum(LANDING_TEST_SETS.length-1),reps:landingNum(before[1]),left:landingNum(before[2])}))}</p></div>`+
+    `<div class="sheetbody sheetbody--maxset"><div class="maxset__count">${button("stepbtn maxset__pad","−")}<output class="maxset__n">${esc(landingNum(guess))}</output>${button("stepbtn maxset__pad","+")}</div>${rule}</div>`+
+    `<div class="sheetfoot sheetfoot--pair">${button("",esc(t("maxset.not_now")))}${button("",esc(t("maxset.start")))}</div></div>`+
+    `<div class="firstrun-demo__test-cue firstrun-demo__test-scene"><div class="fx-cue is-now"><p class="fx-cue__l1">${esc(t("maxset.cue_head",{load:landingNum(test[0]),unit}))}</p>`+
+    `<p class="fx-cue__l2">${esc(t("maxset.cue_sub",{n:landingNum(guess)}))}</p></div>${rule}${testLedger()}</div>`+
+    `<div class="firstrun-demo__test-result firstrun-demo__test-scene">${testLedger(true)}`+
+    `<span class="ledgerline__result"><span class="ledgerline__pair"><span>${esc(t("maxset.guessed"))}<b>${esc(landingNum(result.guess))}</b></span>`+
+    `<span class="ledgerline__arrow">→</span><span>${esc(t("maxset.did"))}<b>${esc(landingNum(result.did))}</b></span></span>`+
+    `<span class="ledgerline__resline">${esc(diff+" "+status)}</span></span></div>`;
   return `<div class="firstrun-demo">`+filters+
     `<div class="wo-head firstrun-demo__head">`+button("icon-btn icon-btn--ghost",`<span class="icon-mask icon-mask--chev-down" aria-hidden="true"></span>`)+
       `<div class="wo-head__center"><div class="wo-head__title"><span class="wo-head__name">${esc(landingExerciseName(c.ex))}</span></div></div>`+
@@ -24020,12 +24869,12 @@ function landingDemoHtml(add){
       `<span class="resttab firstrun-demo__tab"><span class="resttab__label"></span><span class="resttab__end"><span class="resttab__time"></span>`+
       `<span class="resttab__chev icon-mask icon-mask--chev-up" aria-hidden="true"></span></span></span>`+
       `<div class="shelf__fields firstrun-demo__fields">${field(load,`${load}, ${unit}`,kg,unit)}${repsField}`+
-        `${field(t("stats.table.rir"),t("stats.table.rir"),landingNum(rir0),"")}<span class="firstrun-demo__sel"></span></div>`+
+        `${field(t("focus.field.left"),t("focus.field.left"),landingNum(rir0),"")}<span class="firstrun-demo__sel"></span></div>`+
       `<div class="shelf__pads">${pad("−")}${pad("+")}</div>`+
       button("btn btn--cta btn--noarrow saveset firstrun-demo__log",`<span class="firstrun-demo__log1">${esc(t("focus.shelf.log_set",{n:1}))}</span>`+
         `<span class="firstrun-demo__log2">${esc(t("focus.shelf.log_set",{n:2}))}</span>`)+
     `</div>`+
-    `<div class="firstrun-demo__scrim"></div>`+wheel+
+    `<div class="firstrun-demo__scrim"></div>`+wheel+testScenes+
     landingTouchHtml()+
     `<div class="firstrun-demo__sheet"><span class="firstrun-demo__grab"></span>`+
       `<p class="firstrun-demo__eyebrow">${esc(t("landing.outcomes.next_label"))}</p>`+
@@ -24138,17 +24987,30 @@ function layoutLandingDemo(d){
 function renderLandingProof(add){
   const root=$("#firstRun"),screen=root?.querySelector("#firstRunDemo");if(!screen)return;
   const c=LANDING_CASES.add,first=c.logged[0];
+  const before=LANDING_TEST_SETS.at(-2),test=LANDING_TEST_SETS.at(-1),guess=EffortCalibration.prefillGuess(before[1],before[2]).predictedReps;
+  const result=EffortCalibration.result(guess,test[1]),left=EffortCalibration.ESTIMATOR.minChecks-1;
+  const diff=result.error<0?t("maxset.result_more",{n:-result.error}):result.error>0?t("maxset.result_fewer",{n:result.error}):t("maxset.result_same");
+  const status=t(left===1?"maxset.status_wait_one":"maxset.status_wait",{n:left});
+  const summary=root.querySelector('[data-landing-fill="test-result"]');
+  if(summary)summary.textContent=`${t("maxset.guessed")} ${landingNum(result.guess)}. ${t("maxset.did")} ${landingNum(result.did)}. ${diff} ${status}`;
   const ch4=root.querySelector('[data-landing-fill="ch4"]');
   if(ch4&&add)ch4.textContent=t("landing.demo.s7.text",{done_reps:landingNum(first[1]),load:landingKg(first[0]),sets:landingNum(c.sets),
     min:landingNum(c.repMin),max:landingNum(c.repMax),next_load:landingKg(add.load),next_reps:landingNum(add.reps)});
-  screen.innerHTML=landingDemoHtml(add);
+  // The inert phone is an illustration, like the landing's captured images. Keep its authored screen scale;
+  // the accessible chapter controls and captions outside it follow the visitor's text size.
+  screen.style.fontSize="16px";
+  const tokens=getComputedStyle(document.documentElement);
+  for(const name of tokens)if(name.startsWith("--font-size-")){
+    const value=tokens.getPropertyValue(name).trim();
+    if(/^\d*\.?\d+rem$/.test(value))screen.style.setProperty(name,`${parseFloat(value)*16}px`)}
+  screen.innerHTML=landingDemoHtml(add,{before,test,guess,result,diff,status});
   const q=sel=>screen.querySelector(sel),qa=sel=>[...screen.querySelectorAll(sel)];
   landingDemo={root:q(".firstrun-demo"),ev:q(".firstrun-demo__ev"),
     done1:q(".firstrun-demo__done1"),open2:q(".firstrun-demo__open2"),ring:q(".firstrun-demo__ring"),rows:qa(".firstrun-demo__row"),
     fields:q(".firstrun-demo__fields"),log:q(".firstrun-demo__log"),log1:q(".firstrun-demo__log1"),log2:q(".firstrun-demo__log2"),
     tap:q(".landing-touch"),card:q(".firstrun-demo__card"),shelf:q(".firstrun-demo__shelf"),tab:q(".firstrun-demo__tab"),contour:q(".firstrun-demo__contour"),
     label:q(".resttab__label"),time:q(".resttab__time"),lightNodes:qa(".firstrun-demo__light"),scrim:q(".firstrun-demo__scrim"),
-    sheet:q(".firstrun-demo__sheet"),did:q(".firstrun-demo__did"),history:qa(".firstrun-demo__last"),
+    testBackdrop:q(".firstrun-demo__test-backdrop"),testScenes:qa(".firstrun-demo__test-scene"),sheet:q(".firstrun-demo__sheet"),did:q(".firstrun-demo__did"),history:qa(".firstrun-demo__last"),
     frame:screen.closest(".firstrun-proof__device"),rig:screen.closest(".firstrun-proof__rig"),glass:screen.closest(".firstrun-proof__glass"),
     wheel:q(".firstrun-demo__wheel"),band:q(".firstrun-demo__band"),wdone:q(".firstrun-demo__wdone"),items:qa(".firstrun-demo__wheel .wheel__item"),
     sel:q(".firstrun-demo__sel"),v0:q(".firstrun-demo__v0"),v1:q(".firstrun-demo__v1"),
@@ -24245,7 +25107,13 @@ function paintLandingDemo(now){
   if(d.label.textContent!==label)d.label.textContent=label;
   if(d.time.textContent!==time)d.time.textContent=time;
   d.tab.classList.toggle("is-done",done);
-  // 4 · the next session rises over the one it came from, and slides away to close the loop
+  // The last working set: the invitation, the prefilled guess, the failure cue, then the logged result.
+  set(d.testBackdrop,"opacity",f(out(seg(14,14.2))*(1-out(seg(19.7,19.9)))));
+  const beats=[[14,15.1],[15.1,16.8],[16.8,18.2],[18.2,19.9]];
+  d.testScenes.forEach((node,i)=>{
+    const [a,b]=beats[i],show=out(seg(a,a+.2))*(1-out(seg(b-.2,b)));
+    set(node,"opacity",f(show));set(node,"transform",`translateY(${f((1-show)*12)}px)`)});
+  // 5 · the next session rises over the one it came from, and slides away to close the loop
   const sheet=out(seg(D.sheet,D.sheet+.55))*(1-inOut(seg(D.wrap,D.wrap+.4)));
   set(d.scrim,"opacity",f(.55*Math.max(sheet,wheel)));set(d.sheet,"transform",`translateY(${f((1-sheet)*100)}%)`);
   set(d.did,"opacity",f(out(seg(D.sheet+.45,D.sheet+1.05))*stay));
@@ -24259,6 +25127,19 @@ function renderLandingWays(){
   fill("data.pointer",landingRich("landing.data.pointer",{},{settings:t("nav.settings"),privacy:t("privacy.open")}));
   fill("faq.coach.a1",landingRich("landing.faq.coach.a1",{},{control:t("program.share_setup")}));
   fill("faq.data.a2",landingRich("landing.faq.data.a2",{},{settings:t("nav.settings"),toggle:t("settings.analytics.title")}));
+  const calibration=RepForgeEffortCalibration;
+  const limits={perWorkout:landingNum(calibration.LIMITS.perWorkout),days:landingNum(calibration.LIMITS.perExerciseDays),
+    perWeek:landingNum(calibration.LIMITS.perWeek),minChecks:landingNum(calibration.ESTIMATOR.minChecks),
+    up:landingNum(RepForgeProgression.CALIBRATION_STEPS.up),down:landingNum(RepForgeProgression.CALIBRATION_STEPS.down)};
+  for(const [guess,did] of [[11,14],[10,9],[10,10]]){
+    const result=calibration.result(guess,did),kind=result.error<0?"more":result.error>0?"fewer":"equal";
+    fill(`check.${kind}`,esc(t(`landing.check.${kind}`,{guess:landingNum(result.guess),did:landingNum(result.did),
+      difference:landingNum(Math.abs(result.error))})))}
+  fill("check.limits",esc(t("landing.check.limits",limits)));
+  fill("faq.test.a",esc(t("landing.faq.test.a",limits)));
+  fill("faq.failure.limits",esc(t("landing.faq.failure.limits",limits)));
+  fill("faq.failure.choice",landingRich("landing.faq.failure.choice",{},
+    {settings:t("nav.settings"),toggle:t("settings.max_set_prompts")}));
   const lang=landingLang(),shot=LANDING_PASTE_SHOT,img=root.querySelector('[data-shot="paste-review"]');
   if(img){
     const dims=shot.dims[lang];img.setAttribute("width",dims[0]);img.setAttribute("height",dims[1]);
@@ -25190,7 +26071,7 @@ function recCueLoad(rec){
 /** The set the Focus cue speaks for: the first one not logged. The draft reopens a set while it is corrected, so that set
  *  is the one the headline and the "Set n target" in the same sheet both name. */
 function whyCueSet(ex){
-  for(let n=1;n<=ex.sets;n++)if(!committed.has(`${ex.id}_${n}`))return n;
+  for(let n=1;n<=sessionSetCount(ex);n++)if(!committed.has(`${ex.id}_${n}`))return n;
   return 0}
 /* The Why sheet for an adaptive recommendation says only what the engine
    reported: the set it is anchored on and the strength that set shows, the
@@ -25236,6 +26117,14 @@ function engineWhyRows(ex,rec,n=1){
     rows.push(whyRow("per_side",{text:t("why.engine.per_side",{
       load:fmtLoad(result.targets?.[loadMetric.semantic]),unit:u,multiplier:assumptions.externalLoadMultiplier})}));
   return rows}
+function addStandingBlock(model,standing){
+  if(!standing)return;
+  const e=standing.evidence,sets=Math.round(e.sets*10)/10;
+  const vars={sets:fmt(sets),setWord:tp(sets,"set"),sessions:e.sessions,sessionWord:tp(e.sessions,"session"),
+    weeks:Math.floor((e.gapDays||0)/7),checks:e.checks};
+  const lines=standing.reasons.map(reason=>({reason,text:t(`why.standing.${reason}`,vars)}));
+  if(standing.word==="solid")lines.push({text:t("why.standing.evidence",vars)});
+  model.blocks.push({leadKey:"engine-standing",lead:t("why.lead.standing"),text:standingWord(standing),lines})}
 function engineWhyModel(ex,rec,model,head){
   const n=head.inSession&&head.set?head.set.n:1,rows=engineWhyRows(ex,rec,n),take=kind=>rows.find(row=>row.kind===kind);
   const prev=last(ex).filter(x=>+x.load>0),u=unitLabel(),performed=whyPerformedText(prev,u);
@@ -25244,6 +26133,7 @@ function engineWhyModel(ex,rec,model,head){
   block("engine-target",t(n>1?"why.lead.set2":"why.lead.engine_target",{n}),take("target")?.text);
   block("engine-assumptions",t("why.lead.engine_assumptions"),
     [take("step")?.text,take("per_side")?.text,take("per_side_bodyweight")?.text,take("bodyweight")?.text].filter(Boolean).join(" "));
+  addStandingBlock(model,targetStanding(rec,n));
   // What the lift's test sets say (Plan 077, OD-22), in words and only once there is one: a tendency only when it moved
   // this suggestion.
   const cal=rec.calibration;
@@ -25263,17 +26153,17 @@ function whySheetModel(ex,surface="focus"){
     decision:head.inSession&&rec.label?t("why.decision_before",{label:rec.label}):rec.label,glyph,blocks:[],calc:[],evidence:""};
   const placed=new Set(),take=k=>{const r=pick(k);if(r)placed.add(r);return r};
   const block=(leadKey,lead,text,label)=>model.blocks.push({leadKey,lead,text,...(label?{label}:{})});
-  if(rec.status==="manual"){block("manual","",t("why.manual"));return model}
+  if(rec.status==="manual"){block("manual","",t("why.manual"));addStandingBlock(model,targetStanding(rec));return model}
   if(rec.status==="configuration_required"&&rec.reasonCodes?.includes("execution_context_required")){
     block("setup","",t("why.setup.execution_mode"));
-    return model}
+    addStandingBlock(model,targetStanding(rec));return model}
   if(rec.status==="configuration_required"&&rec.reasonCodes?.includes("per_side_convention_required")){
     const slotId=String(ex?.slotId||ex?.id||"");
     const slot=(state.programMeta?.programDefinition?.days||[]).flatMap(day=>day.slots||[]).find(item=>item?.id===slotId);
     const mode=slot?.executionMode;
     if(mode==="bilateral"||mode==="unilateral")
       block("setup","",t("why.setup.per_side",{mode:t(`why.setup.mode.${mode}`)}));
-    return model}
+    addStandingBlock(model,targetStanding(rec));return model}
   if(Array.isArray(rec.targetSets))return engineWhyModel(ex,rec,model,head);
   const draft=loadDraft(),prev=last(ex).filter(x=>+x.load>0),performed=whyPerformedText(prev,u);
   const calc=model.calc,setRows=sets=>sets.forEach((x,i)=>calc.push({k:t("why.calc.set",{n:i+1}),v:`${fmtLoad(x.load)} × ${x.reps}`,rir:effortOrRirLabel(x.rir)}));
@@ -25286,8 +26176,8 @@ function whySheetModel(ex,surface="focus"){
   // The first unlogged working set, as the in-session note names it.
   const done=new Set(draft.__done||[]),warm=new Set(draft.__warm||[]);
   let nextSet=null;
-  for(let n=1;n<=ex.sets&&nextSet==null;n++){const key=`${ex.id}_${n}`;if(!done.has(key)&&!warm.has(key))nextSet=n}
-  const session=completedCurrentSets(ex,ex.sets+1,draft);
+  for(let n=1;n<=sessionSetCount(ex)&&nextSet==null;n++){const key=`${ex.id}_${n}`;if(!done.has(key)&&!warm.has(key))nextSet=n}
+  const session=completedCurrentSets(ex,sessionSetCount(ex)+1,draft);
   if(isRange&&rec.status!=="new"&&session.length&&nextSet!=null){
     // In-session: the capacity the set showed comes before the prediction for the next one, never the reverse.
     const seen=session.at(-1),sg=setSuggestion(ex,nextSet,rec,draft,last(ex).find(x=>+x.set===nextSet)),note=take("session"),observed=Math.round(repsAtLoad(seen.cap,seen.load));
@@ -25341,7 +26231,8 @@ function renderWhySheet(model){
   if(body){
     body.innerHTML=model.blocks.map(b=>
       `<div class="whysheet__block" data-lead="${esc(b.leadKey)}">${b.label?`<p class="whysheet__lab">${esc(b.label)}</p>`:""}`+
-      `${b.lead?`<b class="whysheet__lead">${esc(b.lead)}</b>`:""}<p class="whysheet__text">${esc(b.text)}</p></div>`).join("")+
+      `${b.lead?`<b class="whysheet__lead">${esc(b.lead)}</b>`:""}<p class="whysheet__text">${esc(b.text)}</p>`+
+      (b.lines||[]).map(line=>`<p class="whysheet__text"${line.reason?` data-standing-reason="${esc(line.reason)}"`:""}>${esc(line.text)}</p>`).join("")+`</div>`).join("")+
       (model.calc.length
         ?`<button type="button" class="whysheet__disc" data-why-calc aria-expanded="false" aria-controls="whyCalc"><span>${esc(t("why.calc"))}</span><span class="chevron is-down" aria-hidden="true"></span></button>`+
          `<div class="whycalc" id="whyCalc" aria-hidden="true">${whyCalcHtml(model.calc)}</div>`:"");
@@ -25353,12 +26244,14 @@ function renderWhySheet(model){
       const chev=disc.querySelector(".chevron");if(chev)chev.classList.toggle("is-down",!open)}}
   const evidence=$("#whyEvidence");if(evidence){evidence.textContent=model.evidence;evidence.classList.toggle("hidden",!model.evidence)}}
 
-function openWhySheetFor(ex,opener){
+function openWhySheetFor(ex,opener,{surface=opener?.closest?.("#exDetail")?"exercise":"focus",measure=true}={}){
   const sheet=$("#whySheet"),scrim=$("#whyScrim");
   if(!sheet||!ex)return;
+  // A browser-revealed Why target can leave the underlying window between text blocks.
+  if(surface==="focus")sizeFocusCard(focusCard());
   // Focus is the only workout-logging surface; the exercise page is the other opener.
-  captureEvent("recommendation_explained",{surface:opener?.closest?.("#exDetail")?"exercise":"focus"});
-  renderWhySheet(whySheetModel(ex,opener?.closest?.("#exDetail")?"exercise":"focus"));
+  if(measure)captureEvent("recommendation_explained",{surface});
+  renderWhySheet(whySheetModel(ex,surface));
   document.body.classList.add("is-sheet-open");
   openModal(sheet,{initialFocus:$("#whyClose"),returnFocus:opener,onEscape:closeWhySheet,scrim,
     delayHide:reducedMotion()?0:280});
@@ -25519,9 +26412,8 @@ function guideAnchor(guide){
 function guideStored(id){return uiPrefs.guideState?.[id]||null}
 function saveGuideTransition(id,status){
   const guide=guideDefinition(id);if(!guide||!GuideRegistry?.recordGuideTransition)return false;
-  const live=GuideRegistry.migrateLegacyTourDone(loadUiPrefs());
-  const next=GuideRegistry.recordGuideTransition(live,id,status,{version:guide.version,nowMs:Date.now()});
-  return replaceUiPrefs({...next})}
+  return updateUiPrefs(prefs=>({...GuideRegistry.recordGuideTransition(
+    GuideRegistry.migrateLegacyTourDone(prefs),id,status,{version:guide.version,nowMs:Date.now()})}))}
 function guideDialogElement(){
   let el=$("#guideDialog");
   if(el)return el;
@@ -25599,10 +26491,8 @@ function maybeShowContextualGuides(ids=GuideRegistry?.PLAN_054_GUIDE_IDS||[]){
   return false}
 function replayContextualGuide(id){
   const guide=guideDefinition(id);if(!guide||!GuideRegistry?.replayGuideState)return false;
-  uiPrefs=loadUiPrefs();
   if(activeGuideId===id)removeContextualGuide();
-  const next=GuideRegistry.replayGuideState(uiPrefs,id,{version:guide.version,nowMs:Date.now()});
-  if(!replaceUiPrefs({...next}))return false;
+  if(!updateUiPrefs(prefs=>({...GuideRegistry.replayGuideState(prefs,id,{version:guide.version,nowMs:Date.now()})})))return false;
   captureEvent("guide_replay",{guideId:id});
   const returnFocus=document.activeElement;
   queueMicrotask(()=>showContextualGuide(id,{returnFocus,persistDeferred:true}));return true}
@@ -25633,6 +26523,7 @@ function renderBuildRelease(){
   ask(sw.controller);
   sw.addEventListener("controllerchange",()=>ask(sw.controller))}
 function showSettings(){
+  clearSummaryProfileReturn();
   $$("nav button").forEach(x=>{x.classList.remove("active");x.setAttribute("aria-current","false")});
   $$(".view").forEach(v=>v.classList.toggle("active",v.id==="settings"));
   document.body.classList.add("is-settings");document.body.classList.remove("is-exercise","is-onboarding","is-workout");
@@ -25930,7 +26821,6 @@ function init(){
   trackSheetViewport();
   // Sheet and card deck gestures are mounted via explicit gesture controller lifetime.
   const openSettingsBtn=$("#openSettings");if(openSettingsBtn)openSettingsBtn.onclick=()=>openSettingsView();
-  for(const id of ["#todayCalRing","#todayCalRingBar"]){const ring=$(id);if(ring)ring.onclick=()=>openCalibrationFromToday()}
   const settingsBack=$("#settingsBack");if(settingsBack)settingsBack.onclick=()=>{navTo("log");focusRoute("#openSettings")};
   const startWo=$("#startWorkout");if(startWo)startWo.onclick=()=>enterWorkout({});
   const otherDay=$("#chooseAnotherDay");if(otherDay)otherDay.onclick=()=>openDayPickSheet();
@@ -25977,7 +26867,10 @@ function init(){
 
   const sessBw=$("#sessionBodyweight");if(sessBw)sessBw.addEventListener("input",async()=>{
     contextTouched.bodyweight=true;syncSessionBodyweightUnit();
-    if(activeWorkoutDraft)await WorkoutSession.dispatch("setBodyweight",{value:canonicalDraftBodyweight(sessBw.value)},{pendingValue:sessBw.value});
+    if(activeWorkoutDraft){
+      const result=await WorkoutSession.dispatch("setBodyweight",{value:canonicalDraftBodyweight(sessBw.value)},{pendingValue:sessBw.value});
+      if(result.status==="applied"&&$("#workout [data-ramp-start]"))renderWorkout();
+    }
   });
 
   // The sheet's head takes its hairline once content is under it (UI kit §4).
@@ -26063,13 +26956,38 @@ function init(){
     }
   };
 
+  const discomfort=$("#exActionDiscomfortBtn");
+  if(discomfort)discomfort.onclick=async()=>{
+    const id=activeExActionsId,draftId=activeWorkoutDraft?.draftId;
+    if(!id||!draftId)return;
+    const type=discomfort.getAttribute("aria-pressed")==="true"?"clearDiscomfort":"markDiscomfort";
+    const sheet=$("#exActionsSheet");
+    discomfort.disabled=true;
+    let result;
+    try{result=await WorkoutSession.dispatch(type,{exerciseInstanceId:id,kind:"discomfort"},{draftId})}
+    finally{discomfort.disabled=false}
+    if(result.status!=="applied"||activeWorkoutDraft?.draftId!==draftId)return;
+    renderWorkout();
+    if(activeModal?.el!==sheet||activeExActionsId!==id)return;
+    renderExActionsSheet(id);
+    if(type!=="markDiscomfort")return;
+    const exercise=activeWorkoutDraft.exercises[id],movement=exercise.substitution?.replacement||exercise;
+    const movementId=movement.libraryId||movement.movementId||movement.programmed?.movementId||movement.sourceExerciseId;
+    if(!earlierPainOnMovement(exercise,movementId))return;
+    await closeExActionsSheet();
+    if(activeWorkoutDraft?.draftId===draftId&&activeWorkoutDraft.exercises[id]?.discomfort?.some(mark=>mark.exerciseId===movementId))
+      openSubstitutePicker(id,{painMovementId:movementId});
+  };
+  $("#skipReasonClose").onclick=closeSkipReasonSheet;
+  $("#skipReasonScrim").onclick=closeSkipReasonSheet;
+
   const exActionSkip=$("#exActionSkipBtn");
   if(exActionSkip)exActionSkip.onclick=async()=>{
     const id=activeExActionsId;
     if(id&&activeWorkoutDraft){
       const isSkipped=activeWorkoutDraft.exercises[id]?.status==="skipped";
-      const type=isSkipped?"restoreExercise":"skipExercise";
-      const res=await WorkoutSession.dispatch(type,{exerciseInstanceId:id});
+      if(!isSkipped){await closeExActionsSheet();openSkipReasonSheet(id);return}
+      const res=await WorkoutSession.dispatch("restoreExercise",{exerciseInstanceId:id});
       if(res.status==="applied"){
         renderWorkout();
         closeExActionsSheet();
@@ -26133,7 +27051,7 @@ function init(){
     const value=await openRowContextMenu({anchor:row,items:options.map(([v,label])=>({label,value:v,checked:v===current()}))});
     if(value!=null&&value!==current())apply(value)};
   const rirRow=$("#rirModeRow");if(rirRow)rirRow.onclick=()=>pullDown(rirRow,
-    ["a","b","c"].map(stage=>[STAGE_PICK[stage],t(STAGE_LABEL[stage])]),
+    ["a","c"].map(stage=>[STAGE_PICK[stage],t(STAGE_LABEL[stage])]),
     ()=>$('input[name="rirMode"]:checked')?.value||"numeric",
     value=>{const radio=$(`input[name="rirMode"][value="${value}"]`);if(radio){radio.checked=true;commitChangedSettings().then(renderSettings)}});
   const langRow=$("#langRow");if(langRow)langRow.onclick=()=>pullDown(langRow,
@@ -26234,6 +27152,7 @@ function init(){
     }
     if(programEditMode)finishInstalledEditor();
     if(dockRetap(b))return;
+    if(b.dataset.view!=="stats")clearSummaryProfileReturn();
     abandonVoiceOp();
     exView=null;cancelWorkoutEntry();workoutActive=false;workoutLeft=true;
     // Progress remembers its segment, so arriving there can itself open the review.
@@ -26392,9 +27311,17 @@ async function applyBootDecision(decision){
   day=defaultPlannedDay();
   applyGotoParam();
   const migrated=migrateLog();
+  const oldSettings=decision.snapshot?.settings;
+  const retiredScale=Object.prototype.hasOwnProperty.call(oldSettings||{},"effortScale");
+  const effortModeDrift=decision.snapshot&&oldSettings?.rirMode!==state.settings.rirMode;
+  // The old reps scale becomes numeric without rewriting any held set. A finishing
+  // draft refuses the reducer command; only this upgrade still migrates Settings.
+  const modeEffect=oldSettings?.rirMode==="effort"&&oldSettings.effortScale==="reps"
+    ?draftRirModeEffect(readDraftRaw(),"numeric"):null;
+  const migrationEffect=modeEffect?.status===DRAFT_EFFECT_INVALID?null:modeEffect;
   const metaDrift=decision.snapshot&&canonicalPayload({programMeta:decision.snapshot.programMeta})!==canonicalPayload({programMeta:state.programMeta});
   const revisionless=decision.snapshot&&!Object.prototype.hasOwnProperty.call(decision.snapshot,STORAGE_REV);
-  if(decision.kind==="first-run"||decision.migrate||revisionless||migrated||metaDrift||decision.recoveryChanged)await persist();
+  if(decision.kind==="first-run"||decision.migrate||revisionless||migrated||metaDrift||retiredScale||effortModeDrift||decision.recoveryChanged)await persist({effect:migrationEffect});
   if(I18N)I18N.setLang(resolveLang())}
 window.__repforgeSharedSetup={
   get status(){return sharedSetupDraft.status},

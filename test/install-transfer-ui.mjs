@@ -282,6 +282,9 @@ try {
 
     const reloader = await crashed.newPage();
     await reloader.goto(new URL("manifest.webmanifest", BASE).href);
+    // Page closure can precede the lock manager releasing its owner's lock.
+    await waitForAsyncCondition(reloader, async () =>
+      !(await navigator.locks.query()).held.some((lock) => lock.name === "install-transfer"));
     assert.equal(await reloader.evaluate(() => navigator.locks.request("install-transfer", { ifAvailable: true }, (lock) => !!lock)), true,
       "closing the owner released its Web Lock");
     assert.equal(await reloader.evaluate((key) => localStorage.getItem(key), FREEZE_KEY), signal, "the crash left an orphan freeze signal");

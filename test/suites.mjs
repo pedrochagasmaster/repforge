@@ -20,7 +20,7 @@ const TIER_VOCABULARY = new Set(["feedback", "packet", "candidate"]);
  */
 export const CI_SHARDS = 5;
 export const FULL_SHARDS = 12;
-export const UI_SYSTEM_SHARDS = 9;
+export const UI_SYSTEM_SHARDS = 10;
 /* The slowest measured cost of one UI-system render on ubuntu-latest: 6.42 s
  * across 42 green `--shard k/7` runs on 2026-10-29 (#456), rounded up.
  * test/ci.mjs holds every shard's states × this cost under 85% of its
@@ -86,7 +86,7 @@ export const SUITES = {
     s("test/exercise-library.mjs", [], {"domains": ["library"], "cost": "normal", "tier": "feedback"}),
     s("test/exercise-catalog.mjs", [], {"domains": ["global"], "cost": "normal", "tier": "feedback"}),
     s("test/review-pt-names.mjs", [], {"domains": ["library"], "cost": "tiny", "tier": "feedback", "nodeArgs": ["--test"]}),
-    s("test/progress-model.mjs", [], {"domains": ["progress"], "cost": "normal", "tier": "feedback"}),
+    s("test/progress-model.mjs", [], {"domains": ["progress", "today"], "cost": "normal", "tier": "feedback"}),
     s("test/progress-model-dst.mjs", [], {"domains": ["progress"], "cost": "normal", "tier": "feedback"}),
     s("test/vendor-runtimes.mjs", [], {"domains": ["global"], "cost": "normal", "tier": "feedback"}),
     s("test/motion-vocabulary.mjs", [], {"domains": ["global"], "cost": "normal", "tier": "feedback"}),
@@ -116,7 +116,7 @@ export const SUITES = {
     s("test/install-transfer-client-browser.mjs", [], {"domains": ["install"], "cost": "normal", "tier": "feedback", "seconds": 5}),
     s("test/install-transfer-import.mjs", [], {"domains": ["install"], "cost": "normal", "tier": "feedback", "seconds": 201}),
     s("test/install-transfer-ui.mjs", [], {"domains": ["install"], "cost": "normal", "tier": "feedback", "seconds": 27}),
-    s("test/workout-draft-storage.mjs", [], {"domains": ["workout"], "cost": "normal", "tier": "feedback", "seconds": 83}),
+    s("test/workout-draft-storage.mjs", [], {"domains": ["workout", "settings", "persistence"], "cost": "normal", "tier": "feedback", "seconds": 83}),
     s("test/draftv2-staged-cas.mjs", [], {"domains": ["persistence"], "cost": "normal", "tier": "feedback", "seconds": 26}),
     s("test/workout-draft-sw-upgrade.mjs", [], {"domains": ["workout"], "cost": "normal", "tier": "feedback", "seconds": 8}),
     s("test/adversarial-draft-transactions.mjs", [], {"domains": ["global"], "cost": "normal", "tier": "feedback", "seconds": 42}),
@@ -144,9 +144,9 @@ export const SUITES = {
     s("test/history-delete-replay.mjs", [], {"domains": ["history"], "cost": "normal", "tier": "feedback", "seconds": 13}),
     s("test/focus-pending-field.mjs", [], {"domains": ["global"], "cost": "normal", "tier": "feedback", "seconds": 67}),
     s("test/workout-draft-parity.mjs", [], {"domains": ["workout"], "cost": "normal", "tier": "feedback", "seconds": 53}),
-    s("test/workout-finish-boundary.mjs", [], {"domains": ["workout"], "cost": "normal", "tier": "feedback", "seconds": 8}),
+    s("test/workout-finish-boundary.mjs", [], {"domains": ["workout", "history", "persistence"], "cost": "normal", "tier": "feedback", "seconds": 70}),
     s("test/management-summary.mjs", [], {"domains": ["global"], "cost": "normal", "tier": "feedback", "seconds": 3}),
-    s("test/progress-lifecycle.mjs", [], {"domains": ["progress"], "cost": "long", "tier": "candidate", "env": {"REPFORGE_LIFECYCLE_BROWSER": "1"}, "timeoutMs": 900000, "seconds": 23}),
+    s("test/progress-lifecycle.mjs", [], {"domains": ["progress", "today", "workout", "persistence"], "cost": "long", "tier": "candidate", "env": {"REPFORGE_LIFECYCLE_BROWSER": "1"}, "timeoutMs": 900000, "seconds": 23}),
     s("test/progress-recovery.mjs", [], {"domains": ["progress"], "cost": "long", "tier": "candidate", "timeoutMs": 900000, "seconds": 7}),
   ],
   "privacy": [
@@ -268,7 +268,7 @@ export const FULL_SUITES = {
     s("test/import-matcher-pt.mjs", [], { domains: ["program"], seconds: 10 }),
     s("test/max-set-browser.mjs", [], { domains: ["workout", "settings", "history"], seconds: 25 }),
     s("test/effort-stages.mjs", [], { domains: ["workout", "settings", "persistence"], seconds: 60 }),
-    s("test/calibration-gauge-browser.mjs", [], { domains: ["workout", "progress", "today", "persistence"], seconds: 45 }),
+    s("test/profile-browser.mjs", [], { domains: ["workout", "progress", "today", "persistence", "library"], seconds: 45 }),
     s("test/release-skew.mjs", [], { domains: ["global"], seconds: 8 }),
     s("test/history-persistence-race.mjs", [], { seconds: 5 }),
     s("test/today-done.mjs", [], { seconds: 19 }),
@@ -316,6 +316,14 @@ export const FULL_SUITES = {
 };
 
 export const SUPPORT = {
+  "test/findings.mjs": "Plan 081 finding rules executed by test/progress-model.mjs in the PR lane.",
+  "test/session-zero-browser.mjs": "Session-zero browser journeys executed by workout-finish-boundary.mjs in the PR lane.",
+  "test/week-review-browser.mjs": "Plan 082 weekly facts journeys executed by test/progress-lifecycle.mjs in the PR lane.",
+  "test/week-review.mjs": "Plan 082 weekly-facts assertions executed by test/progress-model.mjs in the PR lane.",
+  "test/engine-standing.mjs": "Standing and frozen selection proofs executed by progression-engine-plan067.mjs in the PR lane.",
+  "test/effort-choice.mjs": "Plan 078 activation/default proof, composed into the PR program-entry-s4 owner.",
+  "test/effort-ladder-migration.mjs": "Plan 078 boot migration proof; every assertion runs from the PR workout-draft-storage owner.",
+  "test/starting-loads.mjs": "Opening-load and ramp arithmetic proofs executed by progression-engine-plan067.mjs in the PR lane; also runnable directly.",
   "test/entry-privacy.mjs": "Shared privacy characterization/oracles imported by the four scoped contracts.",
   "test/suites.mjs": "CI/local inventory, imported by tools/run-tests.mjs.",
   "test/browser.mjs": "Shared Playwright launcher and boot helpers.",

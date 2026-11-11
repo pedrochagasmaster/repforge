@@ -185,13 +185,48 @@ console.log("\nD-owned state list");
   // Direction D's five uses, plus the bar's text button the owner approved with the bar-actions mock (2026-10-23),
   // Today's live session card the owner approved with mock A (2026-10-23), the rest timer, and the Focus hero's Why?
   // action (direction A of focus-hero.html, 2026-10-28), and finish-share's poster and figures (owner, 2026-11-05),
-  // the calibration ring's fill and done dots (owner, 2026-11-06), and the hill-climb's chart trend, current item,
-  // backup action and on-switch (owner, 2026-11-10).
-  check(ORANGE_CATEGORIES.length === 15 && ORANGE_CATEGORIES.includes("calibration-ring") && ["chart-trend", "current-item", "backup-action", "switch-on"].every((c) => ORANGE_CATEGORIES.includes(c)) && ORANGE_CATEGORIES.includes("bar-text-button") && ORANGE_CATEGORIES.includes("live-session") && ORANGE_CATEGORIES.includes("rest-timer")
+  // The coach layer retires the ring; the hill-climb adds chart trend, current item, backup action and on-switch.
+  check(ORANGE_CATEGORIES.length === 14 && !ORANGE_CATEGORIES.includes("calibration-ring") && ["chart-trend", "current-item", "backup-action", "switch-on"].every((c) => ORANGE_CATEGORIES.includes(c)) && ORANGE_CATEGORIES.includes("bar-text-button") && ORANGE_CATEGORIES.includes("live-session") && ORANGE_CATEGORIES.includes("rest-timer")
     && ORANGE_CATEGORIES.includes("focus-hero-why") && ORANGE_CATEGORIES.includes("finish-share"),
-    "the orange budget names exactly fifteen categories", ORANGE_CATEGORIES.join(", "));
+    "the orange budget names exactly fourteen categories without the retired calibration ring", ORANGE_CATEGORIES.join(", "));
   check(GAPS.length > 0 && GAPS.every((gap) => typeof gap === "string" && gap.length > 40),
     "every rule no governing document provides is recorded as an explicit gap", `${GAPS.length} gaps`);
+}
+
+console.log("\nComposed catalog sentences");
+{
+  const catalog = loadCatalog("pt"), dictionary = catalog.dictionary;
+  const fill = (key, vars) => dictionary[key].replace(/\{(\w+)\}/g, (_, name) => vars[name]);
+  const first = fill("focus.evidence.history_effort", { load: "102,5 × 7", effort: dictionary["effort.hard"] });
+  const next = fill("focus.evidence.target_effort", { reps: "6", effort: dictionary["effort.hard"] });
+  const why = dictionary["focus.evidence.why"];
+  const evidence = text => ({ text: [{ text, locator: "#composedEvidence" }], requestedI18nKeys: [],
+    timerLabels: [], data: { strings: ["102,5 × 7"], dateWords: [] } });
+  const approved = checkStrings(evidence(`${first} ${next} ${why}`), catalog);
+  check(approved.length === 0, "composed approved PT sentences retain their commas and decimal data", show(approved));
+  const extra = checkStrings(evidence(`${first} ${next} Quantum flux capacitor engaged. ${why}`), catalog);
+  check(has(extra, "not a catalog"), "an unreviewed sentence between approved sentences is rejected", show(extra));
+  const raw = checkStrings(evidence(`${first} picker.equipment.band ${why}`), catalog);
+  check(has(raw, "picker.equipment.band"), "composition does not hide a raw translation key", show(raw));
+  const punctuation = checkStrings(evidence(`${first} ${next} ${why} —`), catalog);
+  check(has(punctuation, "banned"), "composition does not bypass the punctuation guard", show(punctuation));
+}
+for (const [lang, label] of [["en", "left"], ["pt", "sobrando"]]) {
+  const catalog = loadCatalog(lang);
+  const effort = value => ({ text: [{ text: `3 × 4–8 reps · ${value} ${label} · ${catalog.dictionary["program.progression.adaptive"]}`, locator: "#focusMeta" }],
+    requestedI18nKeys: [], timerLabels: [], data: { strings: [], dateWords: [] } });
+  for (const value of ["1", "1,5", "1–2"]) {
+    const failures = checkStrings(effort(value), catalog);
+    check(failures.length === 0, `${lang}: approved numeric effort survives range collapse and composition (${value})`, show(failures));
+  }
+  for (const value of ["Quantum", "1 invented"]) {
+    const failures = checkStrings(effort(value), catalog);
+    check(has(failures, "not a catalog"), `${lang}: an effort suffix cannot approve an invented word (${value})`, show(failures));
+  }
+}
+if (process.argv.includes("--catalog-composition-only")) {
+  console.log(`\n${results.passed} passed, ${results.failed} failed`);
+  process.exit(results.failed ? 1 : 0);
 }
 
 // ------------------------------------------------------------ the real app

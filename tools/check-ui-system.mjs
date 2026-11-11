@@ -252,7 +252,7 @@ export async function auditCatalog({ allowProgressDebt = false, flow = null, sta
       try {
         if (!scenarios[key]) throw new Error("missing production catalog scenario");
         const opened = await openPage(browser, manifest, capture,
-          isOnboarding ? onboardingState(key, capture.locale) : appState(key, capture.locale), { userAgent: APP_USER_AGENT[key], now: APP_CLOCK[key] });
+          isOnboarding ? onboardingState(key, capture.locale) : appState(key, capture.locale), { catalog: true, userAgent: APP_USER_AGENT[key], now: APP_CLOCK[key] });
         context = opened.context;
         if (!isOnboarding) await dismissChrome(opened.page);
         await scenarios[key](opened.page);

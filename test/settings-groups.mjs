@@ -68,6 +68,14 @@ try {
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
   await ready(page);
 
+  await page.evaluate(async () => {
+    const proposal = window.__repforgeWorkoutDraft.state();
+    proposal.settings.rirMode = "numeric";
+    await window.__repforgeCommitProposedState(proposal);
+  });
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await ready(page);
+
   console.log("Settings task groups");
   const groups = await page.evaluate(() => [...document.querySelectorAll("#settings > .settings-group")]
     .map((group) => ({
@@ -172,7 +180,7 @@ try {
   });
   check(rowLook.labelWeight === "400" && Number(rowLook.valueWeight) <= 400 && rowLook.valueColor !== rowLook.labelColor,
     "a row's label is regular and its value is grey, not bold", rowLook);
-  for (const [row, label, values, current] of [["#langRow", "Language", ["en", "pt"], "en"], ["#rirModeRow", "Effort logging", ["effort", "reps", "numeric"], "numeric"]]) {
+  for (const [row, label, values, current] of [["#langRow", "Language", ["en", "pt"], "en"], ["#rirModeRow", "Effort logging", ["effort", "numeric"], "numeric"]]) {
     const named = await page.evaluate((sel) => {
       const el = document.querySelector(sel);
       const ids = (el.getAttribute("aria-labelledby") || "").split(/\s+/).filter(Boolean);
@@ -204,6 +212,12 @@ try {
   await page.locator("#rirModeRow").click();
   await page.locator('#nativeContextMenu [data-menu-value="numeric"]').click();
   await page.waitForFunction((dataKey) => JSON.parse(localStorage.getItem(dataKey) || "{}").settings?.rirMode === "numeric", DATA_KEY, { timeout: 5000 });
+
+  await page.waitForFunction(() => document.querySelector("#rirModeDisplay")?.textContent.trim() === "Reps left (0 to 5+)",
+    undefined, { timeout: 5000 });
+  check(await page.locator("#rirModeDisplay").textContent() === "Reps left (0 to 5+)",
+    "numeric logging displays the reps-left range");
+  check(await page.locator('input[name="rirMode"]').count() === 2, "only two backing radios remain");
 
   console.log("\nAppearance boundary");
   const stateBefore = await page.evaluate((dataKey) => localStorage.getItem(dataKey), DATA_KEY);

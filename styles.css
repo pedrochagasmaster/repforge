@@ -1020,7 +1020,8 @@ input:is([type=date],[type=time])::-webkit-date-and-time-value{min-height:1.5em;
 }
 .recblock__lab::before,.chip::before{display:none!important;content:none!important}
 .recblock__head{font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);color:var(--ink);margin:0 0 2px}
-.recblock__body,.rec{font-size:var(--font-size-body-small);line-height:1.45;color:var(--ink-soft);margin:0}
+.recblock__body,.rec,.recblock__standing{font-size:var(--font-size-body-small);line-height:1.45;color:var(--ink-soft);margin:0}
+.recblock__standing{margin:var(--space-4) 0 0}
 
 /* ---- Choice rows (native UI kit §5, owner 2026-10-24) ----
    A choice is a plain row: no box, a 1px hairline between rows and above and below the run, and a trailing mark.
@@ -1112,6 +1113,8 @@ div.settings-row{cursor:default}
 .settings-row.is-danger .settings-row__label{color:var(--control-destructive-ink)}
 /* A choice row's pull-down mark: the kit's 16px chev-down after the value, in the value's ink. */
 .settings-row__pull{flex:none;width:16px;height:16px}
+.settings-row--pull .settings-row__label{min-width:min-content}
+.settings-row--pull .settings-row__value{flex-shrink:1;min-width:0}
 /* The one row that is still a box: a destructive action is not part of the
    list above it, and the outline is what says so. */
 .settings-row.is-danger,#reset.settings-row{
@@ -1236,6 +1239,7 @@ body:has(.exercise--focus.is-text-scaled) .wo-head__title{font-size:min(var(--fo
 .exercise--focus.is-text-scaled .fx-cue__l1{font-size:min(var(--font-size-focus-cue),var(--large-cap-title))}
 .exercise--focus.is-text-scaled .fx-cue__l2{font-size:min(var(--font-size-focus-cue-second),var(--large-cap-body))}
 .exercise--focus.is-text-scaled .fx-cue__evidence{font-size:min(var(--font-size-focus-evidence),var(--large-cap-body))}
+.exercise--focus.is-text-scaled .fx-cue__standing{font-size:min(var(--font-size-body-small),var(--large-cap-body))}
 /* A window too short for the hero, its evidence line and the open set together (owner review of #550): once the
    logged rows have all folded, the hero steps down to the feature-title size and its reps line to subtitle, the cue's
    spacing tightens, and the table's column heads give way. The shelf's own labels still name each value. */
@@ -1244,6 +1248,19 @@ body:has(.exercise--focus.is-text-scaled) .wo-head__title{font-size:min(var(--fo
 .exercise--focus.is-hero-compact .fx-cue__l2{margin-top:0;font-size:min(var(--font-size-subtitle),var(--large-cap-subtitle))}
 .exercise--focus.is-hero-compact .fx-cue__evidence{margin-top:var(--space-4);font-size:min(var(--font-size-body-small),var(--large-cap-body))}
 .exercise--focus.is-hero-compact .fcard__ledger{margin-top:0}
+/* The standing line uses the compact hero's whitespace before it takes room from the open row. Numeric column
+   labels have no control; a glossary term keeps its full target. Enlarged text retains its own fitting path. */
+.exercise--focus.is-hero-compact:not(.is-text-scaled):has(.fx-cue__standing) .fcard__context{padding-top:0}
+.exercise--focus.is-hero-compact:not(.is-text-scaled):has(.fx-cue__standing) .fx-head{margin-bottom:var(--space-12)}
+.exercise--focus.is-hero-compact:not(.is-text-scaled):has(.fx-cue__standing) .fx-cue{margin:0}
+.exercise--focus.is-hero-compact:not(.is-text-scaled):has(.fx-cue__standing) .fx-cue__standing,
+.exercise--focus.is-hero-compact:not(.is-text-scaled):has(.fx-cue__standing) .fx-cue__evidence{margin-top:0}
+.exercise--focus.is-hero-compact:not(.is-text-scaled):has(.fx-cue__standing) .ledgerline__head:not(:has(.term)){min-height:1lh}
+/* With standing present, compact evidence is caption-sized so a wrapped movement name and evidence still leave the
+   current set whole on the shortest phone. The full-size hero and the hill-climb's open-row spacing stay unchanged. */
+.exercise--focus.is-hero-compact.is-standing-compact:not(.is-text-scaled):has(.fx-cue__standing) .fx-head{margin-bottom:0}
+article.exercise--focus.is-hero-compact.is-standing-compact .fcard__context > .fx-slot > .fx-cue{margin:0}
+.exercise--focus.is-standing-compact .fx-cue__evidence{font-size:var(--font-size-caption)}
 /* The column heads give way only to the disclosure: while it folds rows it takes their place, and at the first set,
    with nothing to fold, the heads (RIR's is the glossary's way in from Focus) stay. */
 .exercise--focus.is-hero-compact .fcard__ledger:has(.ledger__more:not([hidden])) .ledgerline__head{display:none}
@@ -1469,6 +1486,10 @@ article.exercise--focus .fcard__context > .fx-next{margin-top:auto;min-height:52
 .fx-cue__l2{
   margin:var(--space-4) 0 0;font-family:var(--font-language);font-size:var(--font-size-focus-cue-second);
   line-height:var(--line-standard);letter-spacing:-.01em;color:var(--color-ink-secondary);
+}
+.fx-cue__standing{
+  margin:var(--space-4) 0 0;font-family:var(--font-language);font-size:var(--font-size-body-small);
+  line-height:var(--line-standard);color:var(--color-ink-secondary);overflow-wrap:anywhere;
 }
 .fx-cue__evidence{
   max-width:22rem;margin:var(--space-8) 0 0;font-family:var(--font-language);font-size:var(--font-size-focus-evidence);
@@ -1739,10 +1760,17 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
 .shelf__menu:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
 .shelf__chev{display:block;width:16px;height:16px;background:currentColor}
 .shelf__field[data-field="rir"] .shelf__lab{padding-right:var(--space-14)}
+/* Only the numeric caption needs later lines to use the whole tile. Words keep their existing geometry. */
+.shelf__field:has(>[data-stage="c"]) .shelf__menu{padding-top:var(--space-4)}
+.shelf__field:has(>[data-stage="c"]) .shelf__lab{align-self:stretch;padding-right:0;line-height:var(--line-tight)}
+.shelf__field:has(>[data-stage="c"]) .shelf__lab::before{content:"";float:right;width:var(--space-14);height:1lh}
 /* A word in the effort field keeps the numerals' line box, so the three fields share one baseline. */
 .shelf__field.is-word .shelf__val{font-family:var(--font-language);font-weight:var(--weight-semibold);font-size:min(var(--font-size-subtitle),var(--shelf-numeral-fit));
   line-height:calc(min(var(--font-size-metric),var(--shelf-numeral-fit)) * var(--line-tight))}
 .shelf__pads--chips{gap:6px}
+.shelf__pads--numbers{flex-wrap:wrap;gap:var(--space-4)}
+.shelf__pads--numbers .shelf__chip{flex:1 1 var(--control-target);min-width:max(var(--control-target),2.5em)}
+.exercise--focus.is-text-scaled .shelf__pads--numbers .shelf__chip{flex-basis:calc((100% - 2 * var(--space-4))/3)}
 .shelf__pads .shelf__chip{padding:0 var(--space-4);border:1px solid var(--control-selection-boundary);background:var(--control-selection-bg);color:var(--control-selection-ink);cursor:pointer;
   -webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .shelf__pads .shelf__chip.is-pressed{background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
@@ -2917,6 +2945,7 @@ textarea.sheetfield__input{
 .exactions__act:hover:not(:disabled){background:var(--well);color:var(--control-quiet-ink)}
 }
 .exactions__act.is-pressed:not(:disabled){background:var(--row-pressed-bg);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
+.exactions__act[aria-pressed="true"]{border-bottom-color:var(--boundary-selected-quiet)}
 .exactions__act:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
 .exactions__act:disabled{background:var(--control-quiet-bg);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
 .exactions__act:disabled .icon-mask,.exactions__act:disabled .exactions__act-text small{color:var(--color-disabled-reason)}
@@ -3043,13 +3072,14 @@ article.exercise--focus:has(.resttab) .fcard__context{margin-bottom:var(--rest-t
 /* Concentric with the approved shelf: the sheet's 28, the controls' 16 inside its 16 inset, the segments' 12. */
 #restSheet{border-radius:var(--shelf-radius) var(--shelf-radius) var(--radius-none) var(--radius-none)}
 
-/* Short screens trade padding, never a control: the ledger scrolls above the
+/* Short screens trade spacing, never a control: the ledger scrolls above the
    shelf, and the shelf keeps its three fields, its pads and its action. */
 @media (max-height:740px){
   .fx-head{margin-bottom:var(--space-12)}
   .focus-shelf{padding-top:var(--space-8);padding-bottom:calc(var(--space-12) + env(safe-area-inset-bottom,0px))}
 }
 @media (max-height:600px){
+  .workshelf.focus-shelf:has([data-stage="c"]){row-gap:var(--space-8);padding-top:var(--space-8);padding-bottom:calc(var(--space-12) + env(safe-area-inset-bottom,0px))}
   .shelf__fieldbtn,.shelf__input{min-height:56px}
   .shelf__pads .shelf__pad{height:48px;min-height:48px}
   .focus-shelf .btn--cta.saveset{min-height:48px}
@@ -3762,7 +3792,7 @@ body:has(#log.view.active #todayDash:not(.hidden) #startWorkout:not(.hidden))::a
     rgba(var(--bg-rgb),0) calc(100% - var(--nav) - env(safe-area-inset-bottom)));
 }
 body.is-settings::after,body.is-exercise::after,body.is-onboarding::after,body.is-library::after,body.is-preview::after,
-body.is-import::after,body.is-focus-wo::after,body:has(#history.view.active.is-session-edit)::after,
+body.is-import::after,body.is-focus-wo::after,body:has(#draftRecovery:not(.hidden))::after,body:has(#history.view.active.is-session-edit)::after,
 body:has(:is(#program,[data-copy-id="program"]).program-editor-installed)::after{display:none}
 body.is-settings,body.is-exercise,body.is-onboarding,
 body.is-library,body.is-preview,body.is-import{padding-bottom:env(safe-area-inset-bottom)}
@@ -3952,6 +3982,11 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
 .sum-cards .sharecard:only-child{width:calc(100% - var(--sum-pad-l) - var(--sum-pad-r))}
 .sharecard__img{display:block;width:100%;height:100%}
 /* The four numbers: Sans with tabular numerals (Mono's comma opens a gap in "6,453"), the unit once, small. */
+.sum-finding{display:block;width:100%;min-height:var(--control-target);margin-top:var(--space-18);padding:var(--space-14) 0;border:0;border-block:1px solid var(--boundary-decorative);background:var(--control-quiet-bg);color:var(--control-quiet-ink);text-align:left;font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-reading);overflow-wrap:anywhere}
+.sum-finding__label{font-weight:var(--weight-semibold);margin-right:var(--space-8)}
+.sum-finding:hover{background:var(--well)}
+.sum-finding.is-pressed{background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
+.sum-finding:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 #sessionSummary .sum-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,8.5rem),1fr));gap:var(--space-18) var(--space-14);margin-top:var(--space-26);padding:0;border:0}
 .sum-tile{min-width:0}
 .sum-tile p{margin:0}
@@ -4544,7 +4579,7 @@ body.is-focus-wo .toast:not(.toast--top){bottom:calc(var(--toast-clear,0px) + va
 /* The name keeps a fair share of the row (9rem, about three words, or all the
    other columns leave on a narrow phone) and breaks only between words; the
    figures give way first, the target wrapping under itself when it has to. */
-.today-rx__grid{display:grid;grid-template-columns:var(--rx-mark,1rem) minmax(min(9rem,100% - var(--rx-mark,1rem) - 9rem - 3 * var(--space-12)),1fr) minmax(4.125rem,auto) minmax(4.875rem,auto);column-gap:var(--space-12)}
+.today-rx__grid{--today-rx-columns:var(--rx-mark,1rem) minmax(min(9rem,100% - var(--rx-mark,1rem) - 9rem - 3 * var(--space-12)),1fr) minmax(4.125rem,auto) minmax(4.875rem,auto);display:grid;grid-template-columns:var(--today-rx-columns);column-gap:var(--space-12)}
 .today-rx__grid .rxrow .rxrow__name{overflow-wrap:break-word;-webkit-hyphens:auto;hyphens:auto;hyphenate-limit-chars:10 4 4;-webkit-hyphenate-limit-before:4;-webkit-hyphenate-limit-after:4}
 .today-rx__grid .rxrow .rxrow__target{white-space:normal}
 .today-rx__cols,.today-rx__grid .rxrow{grid-column:1 / -1;display:grid;grid-template-columns:subgrid}
@@ -4555,7 +4590,7 @@ body.is-focus-wo .toast:not(.toast--top){bottom:calc(var(--toast-clear,0px) + va
    as the drawing does, instead of squeezing the name into a sliver. */
 @container (max-width:18rem){
   .today-rx__cols{display:none}
-  .today-rx__grid{grid-template-columns:var(--rx-mark,1rem) minmax(0,1fr) auto}
+  .today-rx__grid{--today-rx-columns:var(--rx-mark,1rem) minmax(0,1fr) auto}
   .today-rx__grid .rxrow .rxrow__name{grid-column:2 / -1}
   .today-rx__grid .rxrow .rxrow__load{grid-column:2;text-align:left}
   .today-rx__grid .rxrow .rxrow__target{grid-column:3;white-space:normal}
@@ -5414,69 +5449,34 @@ body.is-focus-wo .toast:not(.toast--top){bottom:calc(var(--toast-clear,0px) + va
 }
 .attention{margin-bottom:0}
 
-/* Effort calibration (Plan 077, OD-20): one number, a bar, what it is, the six signals with their plain counts, and the
-   recent test sets. The bars are quiet ink on the well; the lead signal (test sets) is the one drawn darker. */
-.ovcal{margin-bottom:var(--space-8)}
-.ovcal .ovsec:first-child{margin-top:var(--space-12)}
-.calcard{padding-top:var(--space-12)}
-.calcard__big{display:flex;align-items:baseline;flex-wrap:wrap;gap:var(--space-4) var(--space-8);margin:0}
-.calcard__big b{font-family:var(--font-language);font-weight:var(--weight-semibold);letter-spacing:-.02em;font-variant-numeric:tabular-nums;font-size:var(--font-size-metric);line-height:var(--line-tight);color:var(--color-ink)}
-.calcard__big span{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
-.calbar{display:block;height:8px;margin-top:var(--space-8);border-radius:var(--radius-pill);background:var(--well);overflow:hidden}
-.calbar--thin{height:4px;margin-top:var(--space-4)}
-.calbar__fill{display:block;height:100%;border-radius:inherit;background:var(--ink)}
-.calcard__what,.calcard__fade{margin:var(--space-8) 0 0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
-.calsigs{list-style:none;margin:var(--space-12) 0 0;padding:0}
-/* The label and its reading share a line while they fit; at large text or a narrow screen the reading drops under the
-   label instead of overprinting it, and the bar always takes its own line. */
-.calsig{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;column-gap:var(--space-8);padding:6px 0;
-  font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink)}
-.calsig > span:first-child{flex:1 1 auto;min-width:0;overflow-wrap:anywhere}
-.calsig > span:nth-child(2){flex:0 1 auto;min-width:0;margin-left:auto;text-align:right;color:var(--color-ink-secondary);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
-.calsig .calbar{flex:1 0 100%}
-.calsig:not(.calsig--lead) .calbar__fill{background:var(--color-ink-secondary)}
-.calsig--lead > span:first-child{font-weight:var(--weight-semibold)}
+/* The profile reads the record in words and counts, with no progress scale. */
+.ovprofile{margin-bottom:var(--space-8)}
+.ovprofile .ovsec:first-child{margin-top:var(--space-12)}
+.profile-stage,.profile-effort,.profile-history-label{margin:var(--space-8) 0;font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
+.profile-findings{list-style:none;margin:0;padding:0}
+.profile-finding{padding:var(--space-12) 0;border-bottom:1px solid var(--boundary-decorative);overflow-wrap:anywhere}
+.profile-finding time{font-size:var(--font-size-caption);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+.profile-finding p,.profile-finding-empty,.profile-finding-need{margin:var(--space-8) 0;font-size:var(--font-size-body-small);line-height:var(--line-reading);overflow-wrap:anywhere}
+.profile-finding-empty,.profile-finding-need{color:var(--color-ink-secondary)}
+.profile-lifts,.profile-signals{list-style:none;margin:0;padding:0}
+.profile-lift{padding:var(--space-12) 0;border-bottom:1px solid var(--boundary-decorative);overflow-wrap:anywhere}
+.profile-lift__name{margin:0 0 var(--space-4);font-size:var(--font-size-body);font-weight:var(--weight-semibold)}
+.profile-lift p{margin:var(--space-4) 0 0;font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
+.profile-lift .profile-lift__standing{color:var(--color-ink)}
+.profile-signal{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:var(--space-4) var(--space-8);padding:var(--space-8) 0;font-size:var(--font-size-body-small);line-height:var(--line-standard)}
+.profile-signal>span{min-width:0;overflow-wrap:anywhere}
+.profile-signal>span:last-child{margin-left:auto;text-align:right;color:var(--color-ink-secondary);font-variant-numeric:tabular-nums}
+.exercise-profile{margin-top:var(--space-16)}
+.calcheck__result{display:block;max-width:20em;font-size:var(--font-size-caption);line-height:var(--line-reading);color:var(--color-ink-secondary)}
 .calchecks{list-style:none;margin:0;padding:0}
-.calcheck{display:flex;justify-content:space-between;align-items:baseline;gap:var(--space-12);padding:10px 0;border-bottom:1px solid var(--boundary-decorative);
+.calcheck{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:var(--space-12);padding:10px 0;border-bottom:1px solid var(--boundary-decorative);
   font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-standard);color:var(--color-ink)}
 .calcheck__name{min-width:0;overflow-wrap:anywhere}
 .calcheck__name small{display:block;font-size:var(--font-size-caption);color:var(--color-ink-secondary)}
-.calcheck__gd{flex:none;font-family:var(--font-training-data);font-size:var(--font-size-body-small);color:var(--color-ink-secondary);white-space:nowrap}
+.calcheck>span{min-width:0;overflow-wrap:anywhere}
+.calcheck__gd{flex:none;font-family:var(--font-training-data);font-size:var(--font-size-body-small);color:var(--color-ink-secondary)}
 .calcheck__gd b{font-weight:var(--weight-semibold);color:var(--color-ink)}
 .calcheck--empty{color:var(--color-ink-secondary);font-size:var(--font-size-body-small)}
-/* Today: the same number in one quiet row above the session's action. */
-/* The calibration ring (owner direction B, 2026-11-06): beside Today's large title, centred on the title and date,
-   46 px and up to 1.3× under large text; its twin sits in the bar beside the gear at 30 px once the title has gone
-   under the bar, fading in with the bar's title. The arc fills in the accent and each done test set is an accent dot
-   (orange category calibration-ring); the number is ink, with no % sign (the label says percent). */
-.calring{display:grid;place-items:center;flex:none;margin:0;padding:0;border:0;background:transparent;color:var(--ink);border-radius:50%}
-.calring svg{display:block;width:100%;height:100%;overflow:visible}
-.calring--title{width:clamp(46px,2.875rem,60px);height:clamp(46px,2.875rem,60px);align-self:center;margin-top:var(--space-4)}
-/* The ring names itself: the calibration title under it, small and quiet, so the number has a meaning before a tap.
-   The caption is the ring's sibling, so the button keeps its own box. */
-.calring-wrap{display:flex;flex-direction:column;align-items:center;gap:var(--space-4);align-self:center;flex:none}
-.calring-wrap:has(> .calring.hidden){display:none}
-/* Only where the head has room: on a narrow phone or at enlarged text the title keeps the width and the ring stands alone. */
-#todayDash > .pagehead{container:todayhead / inline-size}
-@container todayhead (max-width:20em){.calring-wrap__cap{display:none}}
-.calring-wrap__cap{
-  max-width:6.5rem;text-align:center;font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-regular);
-  line-height:var(--line-tight);color:var(--color-ink-secondary);
-}
-.calring--title.is-pressed{opacity:.4}
-.calring:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
-:is(#todayDash)>.pagehead>.pagehead__actions>.calring--bar{width:var(--control-target);height:var(--control-target);
-  visibility:hidden;opacity:0;transition:opacity .16s linear,visibility 0s linear .16s}
-:is(#todayDash)>.pagehead>.pagehead__actions>.calring--bar.is-shown{visibility:visible;opacity:1;transition-delay:0s}
-.calring--bar svg{width:30px;height:30px}
-.calring__track{fill:none;stroke:var(--rule-strong);stroke-width:3.7;stroke-linecap:round}
-.calring__fill{fill:none;stroke:var(--accent);stroke-width:3.7;stroke-linecap:round}
-.calring__dot{fill:var(--ink-faint)}
-.calring__dot.is-done{fill:var(--accent)}
-.calring__n{fill:var(--ink);font-family:var(--font-language);font-weight:var(--weight-semibold);font-variant-numeric:tabular-nums}
-.calring__n.is-empty{fill:var(--color-ink-secondary)}
-@media (prefers-reduced-motion:reduce){:is(#todayDash)>.pagehead>.pagehead__actions>.calring--bar{transition:none}}
-
 /* Needs attention: the mark, the lift and its figure share the first line; the
    verdict and its reason run the full width under them, the evidence kind in
    soft text below. The whole row is one button. */
@@ -5579,6 +5579,7 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
 #stats .evrow--d .evrow__detail,#stats .evrow__detail{padding:0 0 var(--space-8);border-bottom:1px solid var(--boundary-decorative);overflow-x:visible}
 .evrow__detail .lede{margin:0 0 var(--space-4)}
 .evtable{width:100%;min-width:0;table-layout:fixed;border-collapse:collapse;margin-top:var(--space-8)}
+.evtable th:last-child{white-space:nowrap;font-size:min(var(--font-size-label),var(--large-cap-caption));letter-spacing:normal;text-transform:none}
 .evtable th,.evtable td{
   padding:var(--space-8) 0;border-bottom:1px solid var(--boundary-decorative);text-align:right;white-space:normal;overflow-wrap:anywhere;
   font-family:var(--font-training-data);font-size:var(--font-size-body-small);font-weight:var(--weight-regular);line-height:var(--line-standard);color:var(--color-ink);
@@ -5588,7 +5589,7 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
   letter-spacing:var(--track-label);text-transform:uppercase;color:var(--color-ink-secondary);
 }
 .evtable th:first-child,.evtable td:first-child{width:26%;text-align:left;font-family:var(--font-language)}
-.evtable th + th,.evtable td + td{padding-left:var(--space-8)}
+.evtable th + th,.evtable td + td{padding-left:var(--space-2)}
 .evtable tbody tr:last-child td{border-bottom:0}
 
 /* A narrow screen or enlarged text: the rows stack instead of squeezing the words. */
@@ -6006,6 +6007,10 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 }
 .firstrun-faq{--firstrun-band-bg:var(--well)}
 
+/* ---- Test-set comparisons ---- */
+.firstrun-check__examples{list-style:none;padding:0;margin:0;font-size:var(--font-size-body);line-height:var(--line-reading)}
+.firstrun-check__examples li{padding-block:var(--firstrun-gap-2);border-bottom:1px solid var(--firstrun-rule)}
+
 /* ---- Type ---- */
 .firstrun-h1{
   margin:0;text-align:left;font-family:var(--font-language);font-size:var(--font-size-landing-headline);font-weight:var(--weight-medium);
@@ -6188,7 +6193,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   border-radius:var(--radius-landing-phone);background:var(--bg);
 }
 .firstrun-proof__screen{position:absolute;left:0;top:0;width:390px;height:844px;pointer-events:none}
-.firstrun-chapters{list-style:none;margin:0;padding:0;width:100%;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));column-gap:var(--space-8)}
+.firstrun-chapters{list-style:none;margin:0;padding:0;width:100%;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));column-gap:var(--space-8)}
 .firstrun-chapter{display:contents}
 .firstrun-chapter__go{
   grid-row:1;position:relative;display:flex;align-items:flex-start;min-width:0;min-height:var(--control-target);margin:0;
@@ -6206,6 +6211,16 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   color:var(--firstrun-ink-soft);text-wrap:pretty;opacity:0;visibility:hidden;transition:opacity .2s cubic-bezier(.2,.7,.2,1),visibility 0s .2s;
 }
 .firstrun-chapter.is-current .firstrun-chapter__text{opacity:1;visibility:visible;transition:opacity .2s cubic-bezier(.2,.7,.2,1)}
+.firstrun-chapter__result{display:block;margin-top:var(--space-12)}
+@container(max-width:25em){
+  .firstrun-chapters{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .firstrun-chapter__go{grid-row:auto}
+  .firstrun-chapter__text{grid-row:4;order:1}
+}
+@container(max-width:15em){
+  .firstrun-chapters{grid-template-columns:minmax(0,1fr)}
+  .firstrun-chapter__text{grid-row:6}
+}
 @media(max-width:340px){.firstrun-proof__device{border-radius:var(--radius-landing-stage-compact)}}
 @media(min-width:900px){
   .firstrun-proof{padding-bottom:var(--firstrun-gap-8)}
@@ -6232,12 +6247,14 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun-demo__progress{margin:var(--space-8) var(--space-16) 0;gap:var(--space-8)}
 .firstrun-demo__card{padding:0 var(--space-16)}
 .firstrun-demo__card .fx-head{margin:var(--space-16) 0 0}
-.firstrun-demo__ev,.firstrun-demo__over,.firstrun-demo__ring,.firstrun-demo__log,
+.firstrun-demo__ev,.firstrun-demo__ring,.firstrun-demo__log,
 .firstrun-demo__log1,.firstrun-demo__log2,.firstrun-demo__fields,.firstrun-demo__rise,.firstrun-demo__end,.firstrun-demo__run,.firstrun-demo__tab,.firstrun-demo__light,
 .firstrun-demo__lit,.firstrun-demo__scrim,.firstrun-demo__sheet,.firstrun-demo__did,.firstrun-demo__last,
 .firstrun-demo__wheel,.firstrun-demo__wheel .wheel__item,.firstrun-demo__sel,.firstrun-demo__v0,.firstrun-demo__v1{will-change:transform,opacity}
 .firstrun-demo__why{font-weight:var(--weight-semibold);color:var(--accent-deep)}
 .firstrun-demo__row{position:relative}
+/* Ledger text paints at the camera's current scale. A permanent will-change layer can retain a differently scaled
+   text bitmap from an earlier shot, making held catalog frames alternate between sharp and blurred glyphs. */
 .firstrun-demo__over{position:absolute;inset:0;opacity:0;background:var(--bg)}
 .firstrun-demo__ring{inset:0;border-radius:var(--radius-surface)}
 .firstrun-demo__next{pointer-events:none}
@@ -6282,6 +6299,15 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun-demo__target .fx-cue__mark{display:inline-block;width:.62em;height:.62em;margin-right:.14em}
 .firstrun-demo__did{margin:var(--space-8) 0 0;font-size:var(--font-size-focus-evidence);line-height:var(--line-standard);color:var(--color-ink-secondary)}
 .firstrun-demo__history{margin-top:var(--space-16)}
+
+/* The proof reuses Focus's test-set content inside its inert phone. */
+.firstrun-demo__test-scene{position:absolute;z-index:4;left:0;right:0;bottom:34px;background:var(--surface);border-radius:var(--radius-prominent);padding:var(--space-16);opacity:0;will-change:transform,opacity}
+.firstrun-demo__test-tip,.firstrun-demo__test-cue,.firstrun-demo__test-result{background:var(--bg);border-radius:var(--radius-none)}
+.firstrun-demo__test-backdrop{position:absolute;z-index:3;inset:80px 0 0;background:var(--bg);opacity:0}
+.firstrun-demo__test-tip .resttip{position:relative;inset:auto;margin:var(--space-16) 0 0}
+.firstrun-demo__test-guess{bottom:0;padding:0 0 34px;overflow:hidden;border-radius:var(--radius-prominent) var(--radius-prominent) var(--radius-none) var(--radius-none)}
+.firstrun-demo__test-cue .fx-cue{margin:0}
+.firstrun-demo__test-cue .fcard__ledger{margin-top:var(--space-16)}
 
 /* ---- The three ways ---- */
 .firstrun-ways{padding-bottom:0}
@@ -9399,7 +9425,10 @@ body.is-entry-editor #entryProgramName,
 .native-context{position:fixed;inset:0;width:100%;height:100%;max-width:none;max-height:none;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px);margin:0;border:0;background:transparent;color:var(--ink);overflow:hidden}
 .native-context::backdrop{background:var(--menu-backdrop);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
 .native-context__preview{position:fixed!important;display:flex;align-items:center;padding-inline:var(--space-12);pointer-events:none;background:var(--surface);border-radius:var(--radius-surface);box-shadow:var(--elevation-drag-shadow);transform:scale(1.03)}
-.native-context__preview.today-rx__row{background:var(--bg);display:grid;grid-template-columns:1rem minmax(0,1fr) auto auto;gap:var(--space-8)}
+.native-context__preview.today-rx__row{display:grid;grid-template-columns:var(--today-rx-columns);background:var(--bg);container-type:inline-size}
+@container (max-width:18rem){
+  .native-context__preview.today-rx__row .rxrow{grid-template-columns:var(--rx-mark,1rem) minmax(0,1fr) auto}
+}
 .native-context__preview .native-row-menu{display:none}
 .native-context__preview.shelf__field{padding:0;background:transparent;box-shadow:none}
 .native-context__preview.shelf__field .shelf__fieldbtn{box-shadow:var(--elevation-drag-shadow)}
@@ -9425,3 +9454,25 @@ body.is-entry-editor #entryProgramName,
 @media(prefers-reduced-motion:reduce){.native-context__preview{transform:none}}
 @media(prefers-reduced-transparency:reduce){.native-context__menu{background:var(--surface);backdrop-filter:none;-webkit-backdrop-filter:none}.native-context::backdrop{backdrop-filter:none;-webkit-backdrop-filter:none}}
 
+
+/* @ci-domain today,progress,workout */
+.week-card{padding:var(--space-16) 0;border-bottom:.5px solid var(--boundary-decorative);color:var(--color-ink)}
+.week-card p{margin:0 0 var(--space-8);line-height:var(--line-reading);overflow-wrap:anywhere}
+.week-card__actions{display:flex;flex-wrap:wrap;gap:var(--space-12);justify-content:space-between}
+.week-card__actions .text-link{color:var(--control-quiet-ink)}
+#stats #reviewPanel .review__week{padding:var(--space-16) 0;border-bottom:.5px solid var(--boundary-decorative)}
+#stats #reviewPanel .review__week p{line-height:var(--line-reading);overflow-wrap:anywhere}
+
+/* Session zero uses the same cue and shelf, with explicit start and skip actions. */
+.fx-ramp-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-block: 12px; }
+.fx-ramp-actions .text-link { min-height: 44px; }
+/* @ci-domain entry */
+.sheet--effort-choice{height:auto}
+.sheet--effort-choice .sheet__body{flex-direction:column;overflow:auto}
+#effortChoiceScrim{z-index:53}
+#effortChoiceSheet{z-index:54}
+.week-proposal__causes,.week-proposal__actions{display:flex;flex-wrap:wrap;gap:var(--space-8);align-items:center}
+.week-proposal__cause{min-height:44px;padding:var(--space-8) var(--space-12);border:1px solid var(--control-selection-boundary);border-radius:var(--radius-control);background:var(--control-selection-bg);color:var(--control-selection-ink);font:inherit;white-space:normal}
+.week-proposal__causes [aria-pressed="true"]{font-weight:var(--weight-semibold);box-shadow:var(--elevation-selected-shadow);border-color:var(--control-selection-boundary);background:var(--control-selection-active-bg);color:var(--control-selection-ink)}
+.week-proposal__actions{margin-top:var(--space-16);gap:var(--space-16)}
+.week-proposal__actions .text-link{min-height:44px}

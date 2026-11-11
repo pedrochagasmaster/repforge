@@ -469,7 +469,7 @@ assert.ok(importReviewActionContractErrors(asymmetricImportReview).length,
 
 const sameSet = (left, right) => JSON.stringify([...left].sort()) === JSON.stringify([...right].sort());
 // The final landing's catalog states (Plan 064 R2): the hero, and the scrolled bands below it.
-const landingScrolled = ["proof", "ways", "features", "data", "faq-open", "close"].map((name) => `onboarding-start/first-run-${name}`);
+const landingScrolled = ["proof", "proof-test", "check", "ways", "features", "data", "faq-open", "close"].map((name) => `onboarding-start/first-run-${name}`);
 const landingHero = ["onboarding-shared/invalid", "onboarding-start/first-run"];
 const landingStates = [...landingHero, ...landingScrolled];
 const landingEverywhere = ["onboarding-shared/gate", ...landingStates];

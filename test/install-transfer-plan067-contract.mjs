@@ -803,4 +803,65 @@ for (const bad of ["yes", 1, null]) {
   assert.equal(refused.ok, false, `the contract refuses a completed set's lastRepSlow ${JSON.stringify(bad)}`);
 }
 
+{
+  const withEvents = structuredClone(valid);
+  withEvents.durableState.sessionEvents = {session:{v:1,skips:[{exerciseId:"slot",slotId:"slot",name:"Hack squat",reason:"time"}],pain:[]}};
+  withEvents.integrity.canonicalPayloadHash = canonicalHash(withEvents);
+  assert.equal((await Contract.validateEnvelopeIntegrity(withEvents,webcrypto)).ok,true,"valid session events cross transfer");
+  withEvents.durableState.sessionEvents.session.skips[0].reason = "free text";
+  withEvents.integrity.canonicalPayloadHash = canonicalHash(withEvents);
+  assert.equal((await Contract.validateEnvelopeIntegrity(withEvents,webcrypto)).ok,false,"malformed session events are refused");
+}
+
+{
+  const envelope=structuredClone(valid),slot=envelope.durableState.programMeta.programDefinition.days.flatMap(day=>day.slots)[0];
+  const adaptation={id:"weekly-proof",v:1,blockId:envelope.durableState.programMeta.blockId||envelope.durableState.programMeta.id,
+    week:"2026-10-05",pattern:"recurring_skip",cause:"time",kind:"drop_exercise",target:{slotId:slot.id,exerciseId:slot.exerciseId},
+    proposedAt:"2026-10-05T12:00:00.000Z",decision:"declined",decidedAt:"2026-10-05T12:00:00.000Z"};
+  envelope.durableState.programMeta.adaptations=[adaptation];
+  envelope.integrity.canonicalPayloadHash=canonicalHash(envelope);
+  const result=await Contract.validateEnvelopeIntegrity(envelope,webcrypto);
+  assert.equal(result.ok,true,"versioned adaptation crosses the transfer boundary");
+  assert.deepEqual(JSON.parse(JSON.stringify(envelope)).durableState.programMeta.adaptations,[adaptation]);
+  for(const patch of [{v:2},{kind:"change_load"},{decision:"automatic"},{target:{slotId:slot.id,exerciseId:slot.exerciseId,load:80}},{evaluation:{week:"2026-10-12",outcome:"pattern_stopped"}}]){
+    const malformed=structuredClone(envelope);malformed.durableState.programMeta.adaptations=[{...adaptation,...patch}];
+    malformed.integrity.canonicalPayloadHash=canonicalHash(malformed);
+    assert.equal((await Contract.validateEnvelopeIntegrity(malformed,webcrypto)).ok,false,`malformed adaptation refused: ${JSON.stringify(patch)}`);
+  }
+}
+
 console.log("PASS Plan 067 install-transfer clone contract");
+
+// Plan 079: opening provenance is strict at both durable-row and draft boundaries.
+const opening079 = {v:1,openingKg:20,basis:"prior",ramps:2,version:"priors@079.1"};
+for (const location of ["row", "draft"]) {
+  for (const value of [opening079, {...opening079,extra:true}, {...opening079,openingKg:-20}, {...opening079,ramps:4}, {...opening079,basis:"unknown"}]) {
+    const envelope=structuredClone(valid);
+    const target=location==="row"?envelope.durableState.log[0]
+      :envelope.workoutDraft.exercises[activeSlot.id].sets[envelope.workoutDraft.exercises[activeSlot.id].setOrder[0]];
+    target.startingLoad=value;
+    envelope.integrity.canonicalPayloadHash=canonicalHash(envelope);
+    assert.equal((await Contract.validateEnvelopeIntegrity(envelope,webcrypto)).ok,value===opening079,`${location}: strict starting-load provenance ${JSON.stringify(value)}`);
+  }
+}
+{
+  const envelope=structuredClone(valid),logical=envelope.workoutDraft;
+  const draft={...logical,revision:0,writer:{installationId:"ramp-source",tabId:"ramp-tab",operationId:"ramp-create"},
+    program:{...logical.program,durableRevision:0}};
+  const ex=draft.exercises[activeSlot.id],first=ex.sets[ex.setOrder[0]];
+  const inserted=WorkoutDraft.reduce(draft,{type:"insertSet",operationId:"ramp-insert",expectedRevision:0,
+    writer:{installationId:"ramp-source",tabId:"ramp-tab"},updatedAt:"2026-10-06T09:00:00.000Z",
+    exerciseInstanceId:activeSlot.id,beforeSetId:first.setId,setId:"ramp-before-first",role:"warmup",origin:"ramp",
+    programmed:first.programmed,edited:first.edited,startingLoad:{...opening079,ramps:1},nextLoadKg:22.5});
+  assert.equal(WorkoutDraft.isDomainError(inserted),false,JSON.stringify(inserted));
+  envelope.workoutDraft=WorkoutDraft.logicalCloneSection(inserted);
+  envelope.integrity.canonicalPayloadHash=canonicalHash(envelope);
+  const accepted=await Contract.validateEnvelopeIntegrity(envelope,webcrypto);
+  assert.equal(accepted.ok,true,`an actual inserted ramp and its untouched working prefill cross transfer: ${JSON.stringify(accepted)}`);
+}
+for(const origin of ["ramp","manual",null]){
+  const envelope=structuredClone(valid);envelope.durableState.log[0].origin=origin;
+  envelope.integrity.canonicalPayloadHash=canonicalHash(envelope);
+  assert.equal((await Contract.validateEnvelopeIntegrity(envelope,webcrypto)).ok,true,`extensible saved-row provenance is retained: ${JSON.stringify(origin)}`);
+}
+console.log("PASS session-zero transfer: 10 strict provenance cases, 3 extensible row-marker cases and an inserted production draft");

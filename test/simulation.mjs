@@ -61,6 +61,21 @@ function assert(cond, name, detail, repro) {
   else fail(name, detail, repro);
 }
 
+async function assertEffortLegend(page) {
+  assert(
+    await page.locator("#rirEffortLede").isVisible(),
+    "the effort scale's legend stands under the RIR logging row in effort mode",
+    "the legend is hidden",
+    "Settings → RIR logging → legend under the row"
+  );
+  assert(
+    (await page.locator("#rirEffortLede").textContent()).trim() === await page.evaluate(() => window.RepForgeI18n.t("settings.effort_lede")),
+    "Settings shows the approved effort legend",
+    "Settings effort legend differs from the approved translation",
+    "Settings → RIR logging → legend line under the row"
+  );
+}
+
 function beginPhase(name) {
   if (PROFILE && lastPhase) {
     phaseTimings.push([lastPhase, Date.now() - phaseClock]);
@@ -320,7 +335,7 @@ async function resetWithSeedProgram(page) {
     }]));
     localStorage.setItem(k, JSON.stringify(prefs));
   });
-  await installSeedProgram(page, { key: KEY, waitFor: waitForApp });
+  await installSeedProgram(page, { key: KEY, waitFor: waitForApp, settings: { rirMode: "numeric" } });
 }
 
 /** Bulk-inject a year of training history (fast path for stats/history coverage). */
@@ -1277,7 +1292,9 @@ async function exerciseAction(page, exId, button) {
   await selectFocusExercise(page, exId);
   await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
   await page.locator("#exActionsSheet.is-open").waitFor({ state: "visible" });
+  const willSkip=button==="#exActionSkipBtn"&&await page.evaluate(id=>window.__repforgeWorkoutDraft.current()?.exercises?.[id]?.status!=="skipped",exId);
   await page.locator(button).click();
+  if(willSkip){await page.locator('[data-skip-reason="other"]').click();await page.locator("#skipReasonSheet").waitFor({state:"hidden"})}
   await page.locator("#exActionsSheet").waitFor({state: "hidden"});
   await flushDraftWork(page);
 }
@@ -1664,6 +1681,13 @@ async function main() {
     "settings view not active",
     "Today header profile → Settings"
   );
+  if (SMOKE) {
+    await page.click("#rirModeRow");
+    await page.click('#nativeContextMenu [data-menu-value="effort"]');
+    await page.evaluate(() => window.__repforgeStorage.flush());
+    await page.waitForFunction(() => !document.querySelector("#rirEffortLede").hidden);
+    await assertEffortLegend(page);
+  }
   const dimContrast = await page.evaluate(() => {
     const css = getComputedStyle(document.documentElement);
     const hex = (name) => css.getPropertyValue(name).trim();
@@ -3071,7 +3095,7 @@ async function main() {
   // The program import above replaced the seed program with an imported copy;
   // the substitution walk needs the seed's own slots back.
   await clearDraftFixture(page);
-  await installSeedProgram(page, { waitFor: (p) => waitForApp(p) });
+  await installSeedProgram(page, { waitFor: (p) => waitForApp(p), settings: { rirMode: "numeric" } });
   await nav(page, "program");
   let subState = await getState(page);
   const d1First = subState.program.filter((e) => e.name.includes("Hack squat") || e.name.includes("pendulum")).sort((a, b) => a.order - b.order)[0];
@@ -3555,22 +3579,22 @@ async function main() {
   await reloadApp(page);
 
   await nav(page, "settings");
-  assert(
-    await page.locator("#rirEffortLede").isVisible(),
-    "the effort scale's legend stands under the RIR logging row in effort mode",
-    "the legend is hidden",
-    "Settings → RIR logging → legend under the row"
-  );
-  assert(
-    /RIR 3/i.test((await page.locator("#settings").textContent()) || ""),
-    "Settings shows effort scale legend with RIR 3",
-    "Settings text missing RIR 3 legend",
-    "Settings → RIR logging → legend line under the row"
-  );
+  await assertEffortLegend(page);
   await page.click("#rirModeRow");
   await page.click('#nativeContextMenu [data-menu-value="numeric"]');
-  // Settle the RIR-mode write itself: the next step reads the storage revision, so a fixed wait can lose the race.
-  await page.evaluate(() => window.__repforgeStorage.flush());
+  // Replacement captures both state and draft preconditions; finish the ordinary preceding edits before capturing them.
+  const beginnerPublication = await page.evaluate(async () => {
+    const revision = () => ({ projected: window.__repforgeWorkoutDraft.current()?.revision ?? null,
+      canonical: JSON.parse(localStorage.getItem("repforge_draft_v1") || "null")?.revision ?? null });
+    const before = revision();
+    await window.__repforgeWorkoutDraft.flush();
+    await window.__repforgeStorage.flush();
+    return { before, after: revision() };
+  });
+  assert(beginnerPublication.after.projected === beginnerPublication.after.canonical,
+    "Beginner replacement starts after the preceding draft is published",
+    JSON.stringify(beginnerPublication), "Finish ordinary draft edits before confirming a replacement");
+  console.log(`  Beginner draft publication: ${JSON.stringify(beginnerPublication)}`);
 
   beginPhase("Phase: beginner program");
   const logBeforeBeginner = (await getState(page)).log.length;
@@ -3586,11 +3610,17 @@ async function main() {
     const definition = window.RepForgeProgramCompiler.generateProgram(request, catalog).value;
     const first = definition.days.find((day) => day.kind === "training").slots[0];
     first.setupNotes = "Use a stable machine setup and controlled range.";
-    await window.__repforgeFinalizeProgramSetup({
+    const checked = window.RepForgeProgramCompiler.validateProgramDefinition(definition, catalog, []);
+    if (!checked.ok) throw new Error(`Beginner definition rejected: ${JSON.stringify(checked.issues)}`);
+    const activation = await window.__repforgeFinalizeProgramSetup({
       programDefinition: definition, name: "Beginner program", answers: {}, destination: "log", origin: "settings",
       draftConfirmed: true, telemetryRoute: "recommend", entrySource: { route: "recommend", fingerprint: "simulation-beginner" },
     });
     await window.__repforgeStorage.flush();
+    if (!activation.committed || !activation.settled) {
+      const diagnostic = Object.fromEntries(["code", "reason", "committed", "settled", "invalid", "stale", "staleRevision", "draftConflict", "conflict", "closeFailed", "localOk", "idbOk"].map(key => [key, activation[key]]));
+      throw new Error(`Beginner activation was not acknowledged: ${JSON.stringify(diagnostic)}`);
+    }
     const entry = window.__repforgeExerciseLibrary.find((item) => item.id === first.exerciseId);
     return { day: definition.days.find((day) => day.kind === "training").name, names: [first.displayName, entry?.name].filter(Boolean) };
   });
@@ -3658,7 +3688,7 @@ async function main() {
   // generated beginner program has one-set jobs, so the Focus walk below runs
   // on the two-set seed program again.
   await clearDraftFixture(page);
-  await installSeedProgram(page, { waitFor: (p) => waitForApp(p) });
+  await installSeedProgram(page, { waitFor: (p) => waitForApp(p), settings: { rirMode: "numeric" } });
   await nav(page, "log");
   await selectDay(page, "Day 1");
 
@@ -4121,6 +4151,8 @@ async function main() {
   }));
   await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
   await page.locator("#exActionSkipBtn").click();
+  await page.locator('[data-skip-reason="other"]').click();
+  await page.locator("#skipReasonSheet").waitFor({state:"hidden"});
   await page.waitForTimeout(320);
   const afterSkip = await page.evaluate(() => ({
     ex: document.querySelector("#workout .exercise.is-current")?.dataset.ex,
@@ -5609,12 +5641,24 @@ async function main() {
     plainReview.summary?.slice(0, 120),
     "__repforgeBuildPlainSummary(__repforgeBlockSnapshot(...)) → string"
   );
-  const summaryInPanel = await page.locator(".review__readonly").textContent();
+  const summaryInPanel = await page.locator('[data-week-review="current"]').textContent();
   assert(
     summaryInPanel && summaryInPanel.length > 20,
-    "P16: active Review panel states its read-only checkpoint",
+    "P16: active Review panel states the current week's facts",
     summaryInPanel?.slice(0, 120),
-    "Stats → Review → active block exposes the read-only note"
+    "Stats → Review → active block exposes current-week facts"
+  );
+  assert(
+    await page.locator('#reviewPanel [data-review-action]').count() === 0,
+    "P16: active Review offers no structural action",
+    "A structural action was rendered in an active block",
+    "Stats → Review → active block remains read-only"
+  );
+  assert(
+    JSON.stringify((await getState(page)).programMeta) === JSON.stringify(state.programMeta),
+    "P16: reading active Review preserves the program metadata",
+    "Review changed programMeta",
+    "Stats → Review → reading weekly facts makes no program change"
   );
 
   beginPhase("Phase: strength dashboard (P12)");

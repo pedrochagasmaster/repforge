@@ -503,7 +503,14 @@
       "id": "first-run-proof",
       "flow": "onboarding-start",
       "label": "One-time landing — proof",
-      "scenario": "Scrolled to the proof: seven steps over the real workout screen with the pinned phone, lens and rail, and the persistent Build control.",
+      "scenario": "Scrolled to the five-chapter proof: Focus's Smith machine bench press, held with the first set logged and the rest tab risen.",
+      "variants": "standard"
+    },
+    {
+      "id": "first-run-proof-test",
+      "flow": "onboarding-start",
+      "label": "One-time landing — test set",
+      "scenario": "Scrolled to Test your guess: the last working set's computed guess, logged result and remaining checks.",
       "variants": "standard"
     },
     {
@@ -531,7 +538,7 @@
       "id": "first-run-faq-open",
       "flow": "onboarding-start",
       "label": "One-time landing — questions",
-      "scenario": "Scrolled to the questions with the RIR answer open.",
+      "scenario": "Scrolled to seven questions with the original third question, RIR, open and the two test-set questions closed below it.",
       "variants": "standard"
     },
     {
@@ -1046,6 +1053,13 @@
       "variants": "demandingText"
     },
     {
+      "id": "editor-empty-day",
+      "flow": "onboarding-import",
+      "label": "Import — empty training day",
+      "scenario": "An imported training day with its final exercise removed. Existing empty-day guidance blocks activation.",
+      "variants": "demandingText"
+    },
+    {
       "id": "gate",
       "flow": "onboarding-shared",
       "label": "Shared setup — adaptive landing",
@@ -1109,20 +1123,6 @@
       "variants": "demandingDockText"
     },
     {
-      "id": "calibration-mini",
-      "flow": "today",
-      "label": "Today — calibration ring",
-      "scenario": "The calibration ring beside Today's large title (owner direction B, 2026-11-06): the gauge's number in an accent arc, and one dot per test set across its foot, the done ones in the accent.",
-      "variants": "demandingText"
-    },
-    {
-      "id": "calibration-ring-bar",
-      "flow": "today",
-      "label": "Today — calibration ring in the bar",
-      "scenario": "Today scrolled: the large title has gone under the bar, and the calibration ring rides in the bar at 30 px beside the gear.",
-      "variants": "demandingText"
-    },
-    {
       "id": "dock-viewer",
       "flow": "today",
       "label": "Today — dock large-content viewer",
@@ -1168,7 +1168,7 @@
       "id": "focus",
       "flow": "workout",
       "label": "Workout — focus mode",
-      "scenario": "One exercise at a time.",
+      "scenario": "One exercise at a time. One prior session leaves the target still learning this lift.",
       "variants": "demandingText"
     },
     {
@@ -1273,7 +1273,7 @@
       "id": "max-set-prompt",
       "flow": "workout",
       "label": "Workout — test-set prompt",
-      "scenario": "During the rest before a lift's last set, the prompt above the shelf offers to make it a test set: guess the reps at the load, then go to failure. Not now and × close it.",
+      "scenario": "During the rest before a lift's last set, the prompt above the shelf offers to make it a test set: guess the reps at the load, then go to failure. Not now and × close it. The invite explains that the app is still learning this lift.",
       "variants": "demandingText"
     },
     {
@@ -1314,15 +1314,15 @@
     {
       "id": "effort-stage-b",
       "flow": "workout",
-      "label": "Workout — effort stage B, reps left",
-      "scenario": "Stage B: the field reads Reps left, the column Left, and the chips 0 · 1 · 2 · 3+ with 2 chosen (Plan 077, OD-4).",
+      "label": "Workout — reps left",
+      "scenario": "Numeric stage: the field reads Reps left, the column Left, and the chips 0 · 1 · 2 · 3 · 4 · 5+ with 2 chosen (Plan 077, OD-4).",
       "variants": "demandingText"
     },
     {
       "id": "effort-menu",
       "flow": "workout",
       "label": "Workout — effort menu",
-      "scenario": "The effort field's arrow opened: How you log effort, the three stages with the current one checked, and Not sure for this set under them (Plan 077, OD-2 and OD-4).",
+      "scenario": "The effort field's arrow opened: How you log effort, the two stages with the current one checked, and Not sure for this set under them (Plan 077, OD-2 and OD-4).",
       "variants": "demandingText"
     },
     {
@@ -1364,7 +1364,7 @@
       "id": "why-this-weight",
       "flow": "workout",
       "label": "Workout — why this weight",
-      "scenario": "The recommendation inspector for a range lift: sentences first, each under a bold lead, the working behind See the working, the evidence footer.",
+      "scenario": "The recommendation inspector for a range lift: sentences first, each under a bold lead, the working behind See the working, the evidence footer. Estimate basis explains the target’s standing before the effort estimate.",
       "variants": "demandingText"
     },
     {
@@ -1399,7 +1399,21 @@
       "id": "summary",
       "flow": "session",
       "label": "Session summary",
-      "scenario": "The Direction D lifter's Day 1 finish screen (owner decisions, 2026-11-05): the card row opening on the squat record poster, then the stats card; the four tiles (strength gained, records, weeks in a row, kg moved).",
+      "scenario": "The Direction D lifter's Day 1 finish screen (owner decisions, 2026-11-05): the card row opening on the squat record poster, then the stats card; the next finding's need above the three tiles (strength gained, records, kg moved).",
+      "variants": "demandingText"
+    },
+    {
+      "id": "summary-finding",
+      "flow": "session",
+      "label": "Session summary with a finding",
+      "scenario": "A first test set releases a finding on the finish screen, above three factual tiles. The line opens the profile.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "summary-profile",
+      "flow": "session",
+      "label": "Profile from session summary",
+      "scenario": "The finish-screen finding opens the profile with Back returning to the same finished session.",
       "variants": "demandingText"
     },
     {
@@ -1466,10 +1480,17 @@
       "variants": "demandingText"
     },
     {
-      "id": "overview-calibration",
+      "id": "overview-profile",
       "flow": "progress",
-      "label": "Progress — effort calibration",
-      "scenario": "Overview opens on the effort calibration gauge: the number with its test sets and lifts, what it measures, the six signals with plain counts, how evidence fades, and the recent test sets as guess and result (Plan 077, OD-20).",
+      "label": "Progress — profile",
+      "scenario": "Two dated findings, newest first, and what the next needs, followed by active-program standing and counts.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "overview-profile-first",
+      "flow": "progress",
+      "label": "Progress — profile after two sessions",
+      "scenario": "Two early sessions support one dated finding; the next need says which lifts still start from a guess.",
       "variants": "demandingText"
     },
     {
@@ -1595,7 +1616,7 @@
       "id": "review-active",
       "flow": "progress",
       "label": "Progress — active Review",
-      "scenario": "The active-block checkpoint is read-only.",
+      "scenario": "Last week and this week so far, with sessions, improved and stalled lifts, discomfort and a skip reason before block evidence.",
       "variants": "demandingText"
     },
     {
@@ -1784,7 +1805,7 @@
       "id": "exercise-detail-suggested",
       "flow": "library",
       "label": "Exercise library — detail with a suggestion",
-      "scenario": "Movement detail for an Adaptive lift: the suggested weight with Understand RIR and Why this weight?.",
+      "scenario": "An adaptive lift, scrolled to its recommendation and the profile section immediately below it: standing, first reason, test sets and opening load when recorded.",
       "variants": "standard"
     },
     {
@@ -2297,6 +2318,125 @@
       "label": "Today — skipped exercise",
       "scenario": "A context-menu skip acknowledged on Today, stored only in the workout draft: the skip opens today's session, so the live card leads and the row reads Skipped today.",
       "variants": "demandingText"
+    },
+    {
+      "id": "week-card",
+      "flow": "today",
+      "label": "Today — last week",
+      "scenario": "Two sentences about last week with Review and Dismiss.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "discomfort-mark",
+      "flow": "workout",
+      "label": "Workout — discomfort recorded",
+      "scenario": "Exercise actions acknowledge a discomfort mark for this session.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "skip-reason",
+      "flow": "workout",
+      "label": "Workout — skip reason",
+      "scenario": "Closed skip reasons, with no reason chosen before the tap.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "focus-ramp",
+      "flow": "workout",
+      "label": "Finding an opening load",
+      "scenario": "A fresh generated program with bodyweight 80 kg offers the declared opening and the skip.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "focus-ramp-easy",
+      "flow": "workout",
+      "label": "After an Easy ramp set",
+      "scenario": "A completed Easy set is a warm-up; the cue offers the next grid load before the working sets.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "ramp-rows",
+      "flow": "history",
+      "label": "Saved ramp rows",
+      "scenario": "Two warm-up ramp rows precede the first working row, whose opening provenance survives saving.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "focus-ramp-floor",
+      "flow": "workout",
+      "label": "Finding a weight without bodyweight",
+      "scenario": "Without bodyweight the opening uses the equipment floor and offers the existing Session bodyweight field.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "focus-ramp-ratio",
+      "flow": "workout",
+      "label": "Opening from a comparable movement",
+      "scenario": "A new lift opens at a logged working load from the same equipment class and table row.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "focus-ramp-substitution",
+      "flow": "workout",
+      "label": "Opening after a substitution",
+      "scenario": "A fresh substitution offers the original movement's working load within the same equipment class and table row.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "focus-ramp-changed-movement",
+      "flow": "workout",
+      "label": "New opening after a ramp and movement change",
+      "scenario": "After a machine squat ramp, a free-bar press opens from its own prior. The completed squat warm-up stays recorded.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "effort-choice",
+      "flow": "onboarding-start",
+      "label": "Effort choice at activation",
+      "scenario": "At durable activation on a fresh device, choose words or reps left. Words are selected.",
+      "variants": "accessibility"
+    },
+    {
+      "id": "why-standing",
+      "flow": "workout",
+      "label": "Workout — Why, standing",
+      "scenario": "The standing block for a learning lift after a 50-day break, with few sets and few sessions.",
+      "variants": "localized"
+    },
+    {
+      "id": "max-set-recheck",
+      "flow": "workout",
+      "label": "Workout — test-set re-check",
+      "scenario": "A solid calibrated lift, its last check 60 days ago with regular sessions since. The invite explains that it has been a while since the last check.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "review-proposal",
+      "flow": "progress",
+      "label": "Review with a proposed change",
+      "scenario": "Recurring skips, an equipment cause and an alternate, with four explicit actions.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "review-evaluated",
+      "flow": "progress",
+      "label": "Review of an accepted change",
+      "scenario": "An accepted removal and the following week’s observed outcome.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "pain-swap",
+      "flow": "workout",
+      "label": "Workout: immediate pain swap",
+      "scenario": "Second marked session on the same movement and slot opens the dismissible swap picker, with different equipment classes first.",
+      "variants": "localized"
+    },
+    {
+      "id": "first-run-check",
+      "flow": "onboarding-start",
+      "label": "One-time landing — test-set comparisons",
+      "scenario": "Scrolled to the surface band: computed guess/result comparisons, safety ceilings, correction limits and excluded barbell movements.",
+      "variants": "standard"
     }
   ]
 }

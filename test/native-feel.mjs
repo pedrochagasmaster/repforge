@@ -29,8 +29,7 @@
  * short sheet keeps one rest; under reduced motion a sheet cross-fades in place.
  *
  * Phase 2W, the wheel picker (owner amendment to choice 8): a second tap on the
- * selected Load or Reps shelf field opens a wheel in a fit sheet (RIR still
- * types); a keyboard step and a scroll each settle on a value that writes
+ * selected Load or Reps shelf field opens a wheel in a fit sheet (numeric effort keeps its chips); a keyboard step and a scroll each settle on a value that writes
  * through the field's own input, the way typing would, and the keyboard button
  * hands off to that same typed path.
  *
@@ -52,7 +51,7 @@
  *
  * Phase 5 addendum, the concentric shelf: a 28px sheet with 16px insets, every
  * field, pad and Log set at 12px (the sheet minus the inset), 8px between
- * siblings and 12px between rows, no field label wrapping, and a per-side
+ * siblings and 12px between rows, whole field labels, and a per-side
  * exercise's Load and Reps in one tile under exactly one "Per side" caption,
  * each field's name still saying per side.
  *
@@ -727,6 +726,7 @@ async function nativeControls(browser) {
     await page.waitForSelector('#nativeContextMenu:not([hidden])');
     const item = await center(page, '#nativeContextMenu [data-menu-value="skip"]');
     await touch('touchMove', [{ x: item.x, y: item.y }]); await touch('touchEnd');
+    await page.locator('[data-skip-reason="time"]').click();
     await page.waitForFunction(() => JSON.parse(localStorage.getItem('repforge_draft_v1'))?.exerciseOrder?.some(id => JSON.parse(localStorage.getItem('repforge_draft_v1')).exercises[id].status === 'skipped'));
     assert(await onToday(page), "long press and slide-to-select skips only in today's draft, without starting Focus");
     // The skip opens today's session, so Today reads it through the live card's rows (option A): "Skipped today".
@@ -1050,9 +1050,14 @@ async function pokeLoad(page, times = 1) {
 }
 
 async function wheelPicker(browser) {
-  phase("A second tap on Load opens the wheel; RIR's second tap still types");
+  phase("A second tap on Load opens the wheel; reps left keeps its chips");
   {
     const { context, page } = await todayPage(browser);
+    await page.evaluate(async () => {
+      const proposal = window.__repforgeWorkoutDraft.state();
+      proposal.settings.rirMode = "numeric";
+      await window.__repforgeCommitProposedState(proposal);
+    });
     await enterSeededFocus(page);
     const step = await loadStep(page);
     await pokeLoad(page, 1);
@@ -1079,7 +1084,8 @@ async function wheelPicker(browser) {
     const rirOpened = await page.waitForSelector("#wheelSheet.is-open", { timeout: 300 }).then(() => true, () => false);
     assert(!rirOpened, "RIR's second tap does not open the wheel");
     const rirFace = await fieldFace(page, WHEEL_RIR_SEL);
-    assert(rirFace.editing, "RIR's second tap still opens the typed input, as before", JSON.stringify(rirFace));
+    assert(!rirFace.editing && await page.locator(`${CURRENT} .shelf__chip`).count() === 6,
+      "the numeric effort field keeps six chips and no typed editor", JSON.stringify(rirFace));
     await context.close();
   }
 
@@ -1199,7 +1205,8 @@ async function wheelPicker(browser) {
     await enterSeededFocus(page);
     const ringOf = () => page.evaluate(() => {
       const el = document.activeElement, style = getComputedStyle(el);
-      return { field: el.dataset?.shelfField || null, tag: el.tagName, ring: style.outlineStyle !== "none" && parseFloat(style.outlineWidth) > 0,
+      return { field: el.dataset?.shelfField || null, tag: el.tagName, id: el.id, classes: el.className,
+        modal: el.closest('[aria-modal="true"]')?.id || null, ring: style.outlineStyle !== "none" && parseFloat(style.outlineWidth) > 0,
         visible: el.matches(":focus-visible"), quiet: el.hasAttribute("data-quiet-focus") };
     });
     // Touch: a second tap on Load opens the wheel, Done closes it, and focus comes back to Load.
@@ -1212,10 +1219,15 @@ async function wheelPicker(browser) {
     // Chromium hides a ring on script focus after touch by itself; iOS Safari does not, so the quiet mark is what keeps it off there.
     assert(wheelClosed.field === `metric_${WHEEL_WEIGHT}` && !wheelClosed.ring && wheelClosed.quiet,
       "after a touch on the wheel focus returns to Load with no ring", JSON.stringify(wheelClosed));
-    // A typed edit: RIR's second tap types. Whatever path then moves focus back onto a field by script (a rebuild's
+    // A typed edit through the Reps wheel's keyboard action. Whatever path then moves focus back onto a field by script (a rebuild's
     // restore, a sheet's return), the keys typed into the field are not keyboard navigation, so no ring is drawn.
-    await page.tap(WHEEL_RIR_SEL); await page.tap(WHEEL_RIR_SEL);
+    await page.tap(WHEEL_REPS_SEL); await page.tap(WHEEL_REPS_SEL);
+    await page.waitForSelector("#wheelSheet.is-open");
+    await page.tap("#wheelKeyboard");
     await page.waitForSelector(`${CURRENT} .focus-shelf .shelf__field.is-editing .shelf__input`);
+    // Typed entry is available inside the tap, while the modal is still closing.
+    // Its focus trap must be disposed before testing shelf keyboard navigation.
+    await page.waitForSelector("#wheelSheet", { state: "hidden" });
     await page.keyboard.press("Backspace"); await page.keyboard.type("2"); await page.keyboard.press("Enter");
     // Enter submits the log form, which is inert while its save runs.
     await page.waitForFunction(() => !document.querySelector("#logForm").inert && !document.querySelector("#logForm").hasAttribute("aria-busy"));
@@ -2481,7 +2493,10 @@ function measureShelf() {
       const range = document.createRange(); range.selectNodeContents(node); return [...range.getClientRects()];
     });
     const lines = new Set(rects.filter((r) => r.width > 1 && r.height > 1).map((r) => Math.round(r.top))).size;
-    return { text: el.textContent.trim(), lines };
+    const box = el.closest(".shelf__fieldbtn").getBoundingClientRect();
+    const value = el.closest(".shelf__fieldbtn").querySelector(".shelf__valrow").getBoundingClientRect();
+    return { text: el.textContent.trim(), lines, effort: el.closest(".shelf__field").dataset.field === "rir",
+      whole: rects.every(r => r.left >= box.left && r.right <= box.right && r.bottom <= value.top + 1) };
   });
   const s = css(shelf);
   const bg = css(document.documentElement).getPropertyValue("--bg").trim();
@@ -2520,7 +2535,10 @@ async function concentricShelf(browser) {
         `${label}: a 28px sheet with 16px insets`, JSON.stringify({ sheet: m.sheet, inset: m.inset }));
       assert(inner === 12 && m.radii.every((r) => r === inner), `${label}: every field, pad and Log set is 12px, the sheet minus its inset`, JSON.stringify(m.radii));
       assert(m.gaps.fields === 8 && m.gaps.pads === 8 && m.rowGap === 12, `${label}: 8px between siblings and 12px between rows`, JSON.stringify({ gaps: m.gaps, rowGap: m.rowGap }));
-      assert(m.labels.every((l) => l.lines === 1), `${label}: no field label wraps`, JSON.stringify(m.labels));
+      // D-15 names the count in full. The Portuguese effort caption can use two
+      // lines; the existing load/reps labels still stay on one and all remain whole.
+      assert(m.labels.every(l => l.lines >= 1 && l.lines <= (l.effort ? 2 : 1) && l.whole),
+        `${label}: field labels stay whole above their values, with at most two effort lines`, JSON.stringify(m.labels));
       const tileFill = m.dark ? m.tileColor : m.bgColor;
       assert(!m.outlined.length && m.fills.every((f) => f === tileFill) && m.ring !== "none",
         `${label}: quiet tiles share one fill with no outline (--bg in light, the raised shelf tile in dark), and the selected field keeps its ring`,
@@ -2537,11 +2555,44 @@ async function concentricShelf(browser) {
   }
 }
 
+async function refreshLayout(browser) {
+  for (const [state, lang, width = 390, text = "text200"] of [["settings/effort-menu", "pt"], ["today/context-menu", "en"], ["today/context-menu", "pt"], ["today/context-menu", "en", 320, "normal"], ["today/context-menu", "en", 390, "normal"], ["workout/invalid-draft", "pt"], ["onboarding-import/editor-empty-day", "en", 390, "normal"]]) {
+    const opened = await openCatalogState(browser, state, width, lang, text);
+    try {
+      const geometry = await opened.page.evaluate(() => {
+        const preview = document.querySelector(".native-context__preview");
+        if (preview) {
+          const box = preview.getBoundingClientRect();
+          const texts = [...preview.querySelectorAll(".settings-row__label,.settings-row__value,.rxrow__name,.rxrow__sub")].map(el => {
+            const range = document.createRange(); range.selectNodeContents(el);
+            return [...range.getClientRects()].map(r => ({left:r.left,right:r.right,top:r.top,bottom:r.bottom}));
+          }).flat();
+          const textBox = selector => {
+            const el = preview.querySelector(selector); if (!el) return null;
+            const range = document.createRange(); range.selectNodeContents(el); return range.getBoundingClientRect();
+          };
+          const label = textBox(".settings-row__label"), value = textBox(".settings-row__value");
+          const mark = preview.querySelector(".rxrow__mark")?.getBoundingClientRect(), name = textBox(".rxrow__name");
+          const gridAligned = !mark || !name || (mark.width > 0 && mark.right <= name.left + 1);
+          const menu = document.querySelector(".native-context__menu").getBoundingClientRect();
+          return { gridAligned, menuSeparated: menu.bottom <= box.top + 1 || menu.top >= box.bottom - 1, contained: texts.every(r => r.left >= box.left - 1 && r.right <= box.right + 1 && r.top >= box.top - 1 && r.bottom <= box.bottom + 1), separated: !label || !value || label.right <= value.left + 1 || label.bottom <= value.top + 1 };
+        }
+        return { toastHidden: document.querySelector("#toast")?.classList.contains("hidden"), fade: getComputedStyle(document.body, "::after").display };
+      });
+      if (process.env.REPFORGE_ARTIFACT_DIR) await opened.page.screenshot({ path: `${process.env.REPFORGE_ARTIFACT_DIR}/refresh-${state.replace("/", "-")}-${lang}-${width}.png` });
+      if (state === "onboarding-import/editor-empty-day") assert(geometry.toastHidden, "empty-day catalog waits until the acknowledged removal announcement ends");
+      else if (state === "workout/invalid-draft") assert(geometry.fade === "none", "recovery actions are not painted over by the Today fade", JSON.stringify(geometry));
+      else assert(geometry.contained && geometry.separated && geometry.menuSeparated && geometry.gridAligned, `${state} ${lang}: lifted preview contains its text without collisions`, JSON.stringify(geometry));
+    } finally { await opened.context.close(); }
+  }
+}
+
 // NATIVE_FEEL_ONLY=rest runs the ten-cycle held Settings probe, =large runs just phase 5, =shelf just its addendum, =wheel just the wheel picker and =swipe just the
-// history and back-swipe phases, for a local red/green; CI runs everything.
+// history and back-swipe phases, =refresh just the catalog layout regressions, for a local red/green; CI runs everything.
 const ONLY = process.env.NATIVE_FEEL_ONLY || "";
 const browser = await launchChromium();
 try {
+ if (!ONLY || ONLY === "refresh") await refreshLayout(browser);
  if (!ONLY) {
   phase("A primary action is pressed on touch-down");
   {
@@ -2764,7 +2815,7 @@ try {
     await autoSwipe(browser);
     await standaloneSwipe(browser);
   }
-  if (!["wheel", "swipe", "rest"].includes(ONLY)) await concentricShelf(browser);
+  if (!["wheel", "swipe", "rest", "refresh"].includes(ONLY)) await concentricShelf(browser);
 } finally {
   await browser.close();
 }

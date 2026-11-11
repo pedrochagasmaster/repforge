@@ -103,10 +103,22 @@ async function verifySeed(page, state) {
   );
 }
 
+// Ordinary catalog states show a device that has already read this week's card.
+// Behavioural journeys opt out by default; the dedicated card state stays unseen.
+function catalogUiPrefs(capture, now) {
+  if (`${capture.flow}/${capture.screen}` === "today/week-card") return {};
+  const thursday = new Date(now), day = thursday.getUTCDay() || 7;
+  thursday.setUTCDate(thursday.getUTCDate() + 4 - day);
+  const year = thursday.getUTCFullYear();
+  const week = Math.ceil(((thursday - Date.UTC(year, 0, 1)) / 86400000 + 1) / 7);
+  return { weekCardSeen: `${year}-W${String(week).padStart(2, "0")}` };
+}
+
 export async function openPage(browser, manifest, capture, state, options = {}) {
   const viewport = manifest.viewports[capture.viewport];
   const locale = manifest.locales[capture.locale];
   const context = await browser.newContext({
+    effortChoice: options.effortChoice,
     viewport: { width: viewport.width, height: viewport.height },
     deviceScaleFactor: manifest.deviceScaleFactor,
     locale: locale.browserLocale,
@@ -173,12 +185,16 @@ export async function openPage(browser, manifest, capture, state, options = {}) 
   await page.route(BASE, seedRoute);
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
   await seedStorage(page, state);
+  if (options.catalog) {
+    await page.evaluate(({ uiKey, prefs }) => localStorage.setItem(uiKey, JSON.stringify(prefs)),
+      { uiKey: UI_KEY, prefs: catalogUiPrefs(capture, options.now || CAPTURE_NOW) });
+  }
   await page.unroute(BASE, seedRoute);
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForApp(page);
   await verifySeed(page, state);
   await page.evaluate(({ theme, uiKey }) => {
-    localStorage.setItem(uiKey, JSON.stringify({ theme }));
+    localStorage.setItem(uiKey, JSON.stringify({ ...JSON.parse(localStorage.getItem(uiKey) || "{}"), theme }));
     window.__repforgeUi.setTheme(theme);
   }, { theme: capture.theme, uiKey: UI_KEY });
   await sleep(page, 180);

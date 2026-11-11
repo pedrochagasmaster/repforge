@@ -23,7 +23,7 @@
   const values = (...allowed) => Object.freeze({ kind: "enum", allowed: Object.freeze(allowed) });
   const boolean = Object.freeze({ kind: "boolean" });
   const integer = Object.freeze({ kind: "integer" });
-  /** A whole number inside a closed range: the landing proof's chapter is 1 to 4 and nothing else. */
+  /** A whole number inside a closed range: the landing proof's chapter is 1 to 5 and nothing else. */
   const integerIn = (min, max) => Object.freeze({ kind: "integer", min, max });
   const optional = validator => Object.freeze({ ...validator, optional: true });
 
@@ -157,7 +157,7 @@
   const EVENTS = Object.freeze({
     app_boot: event({ first_run: boolean, language: values("en", "pt"), platform_class: values("ios", "android", "desktop", "other"), display_mode: optional(values("standalone", "browser")) }, "Successful app boot", "once_per_boot"),
     landing_viewed: event({ landing: values("generic", "shared", "shared_invalid"), visit: values("first", "returning") }, "First-run landing shown", "repeatable"),
-    landing_action: event({ action: values("create", "import", "continue_browser", "shared_start", "install", "privacy", "proof_chapter"), chapter: optional(integerIn(1, 4)) }, "First-run landing action taken (a proof chapter tapped carries its number)", "repeatable"),
+    landing_action: event({ action: values("create", "import", "continue_browser", "shared_start", "install", "privacy", "proof_chapter"), chapter: optional(integerIn(1, 5)) }, "First-run landing action taken (a proof chapter tapped carries its number)", "repeatable"),
     install_prompt_outcome: event({ surface: values("landing", "banner", "header", "settings"), mode: values("native", "ios", "manual"), outcome: values("prompted", "accepted", "dismissed", "instructions_shown") }, "Install offer acted on", "repeatable"),
     app_installed: event({}, "Browser reported the app installed", "milestone"),
     onboarding_started: event({ origin: values("first_run", "settings", "block"), resumed: boolean }, "Program entry opened", "repeatable"),

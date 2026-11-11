@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /** Plan 069 S3: Focus reads both remaining supported per-side compositions. */
 import { readFileSync } from "node:fs";
-import { launchChromium, openShelfField, waitForAppBoot } from "./browser.mjs";
+import { chooseRepsLeft, launchChromium, openShelfField, waitForAppBoot } from "./browser.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const DATA = new URL("../plans/067/data/", import.meta.url);
@@ -30,8 +30,8 @@ const CASES = [
     exerciseId: "1a05c6f170d8805b9dd1f99907b00278", // 45° incline single arm dumbbell press
     mode: "unilateral", loadMetric: "loadKg", repsMetric: "repsPerSide", load: "30", reps: "8",
     expected: {
-      en: "last 30 kg × 8 reps per side · RIR 2",
-      pt: "antes 30 kg × 8 reps por lado · RIR 2",
+      en: "last 30 kg × 8 reps per side · 2 left",
+      pt: "antes 30 kg × 8 reps por lado · 2 sobrando",
     },
   },
   {
@@ -39,8 +39,8 @@ const CASES = [
     exerciseId: "1a35c6f170d880f3af82ce83d7aee474", // Dual kettlebell Romanian deadlift
     mode: "bilateral", loadMetric: "loadPerSideKg", repsMetric: "reps", load: "24", reps: "8",
     expected: {
-      en: "last 24 kg per side × 8 reps · RIR 2",
-      pt: "antes 24 kg por lado × 8 reps · RIR 2",
+      en: "last 24 kg per side × 8 reps · 2 left",
+      pt: "antes 24 kg por lado × 8 reps · 2 sobrando",
     },
   },
 ];
@@ -94,7 +94,10 @@ async function installProgram(page, item) {
     }
     const validation = window.RepForgeProgramCompiler.validateProgramDefinition(generated.value, catalog, []);
     if (!validation.ok) throw new Error("Compiler rejected the fixture program: " + JSON.stringify(validation.issues));
+    const baseProposal = window.__repforgeWorkoutDraft.state();
+    baseProposal.settings.rirMode = "numeric";
     await window.__repforgeFinalizeProgramSetup({
+      baseProposal,
       programDefinition: generated.value, name: "Per-side Focus cue proof", answers: {}, destination: "log",
       origin: "first-run", draftConfirmed: true, telemetryRoute: "recommend",
       entrySource: { route: "recommend", fingerprint: `p069-focus-${item.loadMetric}` },
@@ -157,7 +160,7 @@ async function runCase(browser, item, locale) {
     const rir = page.locator(`#workout .exercise.is-current .focus-shelf input[data-k="${rowId}_1_rir"]`);
     if (await rir.getAttribute("aria-hidden") === "true")
       await page.locator("#workout .exercise.is-current .focus-shelf [data-shelf-field=\"rir\"]").click();
-    await rir.fill("2");
+    await chooseRepsLeft(page, "2");
     await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
     await page.locator(`#workout .exercise.is-current [data-save="${rowId}_1"]`).click();
     await page.waitForFunction(id => {

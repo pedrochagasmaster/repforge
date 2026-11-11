@@ -11,9 +11,9 @@
  *
  * Run: node test/max-set-browser.mjs   (REPFORGE_URL points at a static server)
  */
-import { launchChromium, openShelfField } from "./browser.mjs";
+import { chooseRepsLeft, launchChromium, openShelfField } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
-import { finishEarly } from "./fixtures/focus-workout.mjs";
+import { finishEarly, openActions, selectExercise } from "./fixtures/focus-workout.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
@@ -76,6 +76,11 @@ const field = (id) => `${SHELF} [data-shelf-field="${FIELD_IDS[id] || id}"]`;
 const inputFor = (id, n) => `${SHELF} .shelf__input[data-k$="_${n}_${FIELD_IDS[id] || id}"]`;
 
 async function typeField(page, id, n, value) {
+  if (id === "rir") {
+    await chooseRepsLeft(page, String(value));
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    return;
+  }
   const input = page.locator(inputFor(id, n));
   for (let tap = 0; tap < 2 && await input.getAttribute("aria-hidden") === "true"; tap++) await openShelfField(page, field(id));
   await input.fill(value);
@@ -104,6 +109,12 @@ async function logSet(page, exId, n, { load = "50", reps = "10", rir = "2" } = {
     const ex = window.__repforgeWorkoutDraft.current()?.exercises?.[id];
     return ex && Object.values(ex.sets).find((set) => set.ordinal === n)?.completion !== "pending";
   }, { id: exId, n }, { timeout: 10000 });
+}
+
+async function dismissRepeatedPainPicker(page) {
+  await page.locator("#exPickSheet").waitFor({state:"visible"});
+  assert(!await page.locator("#exActionsSheet").isVisible(),"a repeated discomfort mark opens the picker instead of leaving actions open");
+  await page.locator("#exPickCancel").click(); await page.locator("#exPickSheet").waitFor({state:"hidden"});
 }
 
 const browser = await launchChromium();
@@ -142,7 +153,118 @@ try {
   phase("During the rest before the last set: the prompt, then the guess");
   await page.waitForSelector(`${TIP}`, { state: "visible", timeout: 5000 });
   const tipText = await page.locator(TIP).innerText();
+  assert(/still learning this lift/i.test(tipText), "the invite explains why the check is requested", tipText);
   assert(/test set/i.test(tipText) && /50 kg/.test(tipText), "the prompt names the test set and the load", tipText);
+  phase("A real discomfort mark suppresses the offer until cleared");
+  await openActions(page, exId);
+  await page.locator("#exActionDiscomfortBtn").click();
+  await page.waitForFunction(() => document.querySelector("#exActionDiscomfortBtn")?.getAttribute("aria-pressed") === "true");
+  const marked = await draftNow(page);
+  assert(marked.exercises[exId].discomfort?.some(item => item.kind === "discomfort"),
+    "the real control records discomfort on the active lift");
+  await page.locator("#exActionsClose").click();
+  await page.locator("#exActionsSheet").waitFor({state:"hidden"});
+  assert(await page.locator(`${TIP}[data-tip="max-set"]`).count() === 0,
+    "the real mark removes today's test-set offer on that lift");
+  await openActions(page, exId);
+  await page.locator("#exActionDiscomfortBtn").click();
+  await page.waitForFunction(() => document.querySelector("#exActionDiscomfortBtn")?.getAttribute("aria-pressed") === "false");
+  const cleared = await draftNow(page);
+  assert(!cleared.exercises[exId].discomfort?.length, "the real control clears the mark");
+  await page.locator("#exActionsClose").click();
+  await page.locator("#exActionsSheet").waitFor({state:"hidden"});
+  await page.locator(`${TIP}[data-tip="max-set"]`).waitFor({state:"visible"});
+  assert(await page.locator(`${TIP}[data-tip="max-set"]`).isVisible(),
+    "clearing the mark restores the otherwise eligible test-set offer");
+  phase("Estimator request and every safety ceiling");
+  const gates = await page.evaluate((id) => {
+    const originalDraft = activeWorkoutDraft, originalLog = state.log, originalSettings = state.settings, originalMeta = state.programMeta;
+    const engine = window.RepForgeProgression, originalGauge = calibrationGauge;
+    const draft = JSON.parse(JSON.stringify(originalDraft));
+    const ex = sessionExercise(prog.find(id)), de = draft.exercises[id];
+    const working = de.setOrder.map(key => de.sets[key]).filter(set => set.role === "working");
+    const final = working.at(-1), before = working.at(-2), date = draft.program.scheduleDate;
+    const key = maxSetDraftKey(de, final);
+    const ago = days => new Date(Date.parse(date + "T00:00:00Z") - days * 864e5).toISOString().slice(0, 10);
+    let word = "learning", sets = 2;
+    window.RepForgeProgression = { ...engine, recommendSets: (...args) => engine.recommendSets(...args).map(result => ({
+      ...result, standing: {version:"standing@078.1",word,reasons:[],evidence:{sets}} })) };
+    const offer = () => maxSetOffer(ex, final.ordinal);
+    const outcomes = {};
+    try {
+      activeWorkoutDraft = draft;
+      outcomes.learning = !!offer();
+      const signature = value => value ? {reason:value.reason,load:value.load,guess:value.guess,weightedSets:value.weightedSets} : null;
+      state.log = [...originalLog,{sourceLibraryId:"other-lift",date:ago(1),effortSource:"failure",
+        calibration:{v:1,predictedReps:10,predictionEdited:false,prefillBasis:"reps"}}];
+      calibrationGauge = () => ({percent:0}); const gaugeZero = signature(offer());
+      calibrationGauge = () => ({percent:100}); const gaugeFull = signature(offer());
+      outcomes.gaugePercentIndependent = !!gaugeZero && JSON.stringify(gaugeZero) === JSON.stringify(gaugeFull);
+      calibrationGauge = () => { throw new Error("global gauge is unavailable"); };
+      outcomes.gaugeUnavailable = !!offer();
+      state.log = originalLog;
+      const status = draft.session.status; draft.session.status = "completed"; outcomes.activeSession = !offer(); draft.session.status = status;
+      final.completion = JSON.parse(JSON.stringify(before.completion)); outcomes.pendingLast = !offer(); final.completion = "pending";
+      const edited = JSON.parse(JSON.stringify(before.edited));
+      for (const metric of before.programmed.metrics || []) if (metric.semantic === "reps") before.edited.metrics[metric.id] = "0";
+      before.edited.reps = "0"; outcomes.validGuess = !offer(); before.edited = edited;
+      const order = [...de.setOrder]; de.setOrder = [final.setId]; outcomes.minSets = !offer(); de.setOrder = order;
+      outcomes.highReps = !maxSetOffer({...ex,max:21,hasRepTarget:true}, final.ordinal);
+      const libraryId = final.programmed.sourceLibraryId;
+      final.programmed.sourceLibraryId = window.RepForgeExerciseCatalog.snapshot().exercises.find(item => item.name === "Barbell back squat").id;
+      outcomes.ineligible = !offer(); final.programmed.sourceLibraryId = libraryId;
+      state.programMeta = {...originalMeta,started:date,programDefinition:{...originalMeta.programDefinition,deloadCycles:[1]}};
+      outcomes.deload = !offer(); state.programMeta = originalMeta;
+      const completion = before.completion; before.completion = "pending"; outcomes.pending = !offer(); before.completion = completion;
+      maxSetDeclined.add(`${draft.draftId}:${id}`); outcomes.declined = !offer(); maxSetDeclined.delete(`${draft.draftId}:${id}`);
+      outcomes.notLast = !maxSetOffer(ex, before.ordinal);
+      state.settings = {...originalSettings, maxSetPrompts:false}; outcomes.off = !offer(); state.settings = originalSettings;
+      const oldEffort = before.edited.effort, oldRir = before.edited.rir;
+      before.edited.effort = "max"; before.edited.rir = "0"; outcomes.afterMax = !offer();
+      before.edited.effort = oldEffort; before.edited.rir = oldRir;
+      final.calibration = {v:1,predictedReps:10,predictionEdited:false,prefillBasis:"reps"}; outcomes.workout = !offer(); delete final.calibration;
+      const row = {calibration:{v:1,predictedReps:10,predictionEdited:false,prefillBasis:"reps"},effortSource:"failure",sourceLibraryId:key};
+      state.log = [...originalLog,{...row,date:ago(13)}]; outcomes.key13 = !offer();
+      state.log = [...originalLog,{...row,date:ago(14)}]; outcomes.key14 = !!offer();
+      state.log = [...originalLog,{...row,sourceLibraryId:"other1",date},{...row,sourceLibraryId:"other2",date}]; outcomes.week = !offer();
+      state.log = originalLog;
+      for (const kind of ["pain","discomfort"]) {
+        // Plan 082 owns this draft record and the commands that create it. Read its exact observation shape.
+        de.discomfort = [{exerciseId:key,name:de.displayName,kind,swapped:true,replacementId:"other"}];
+        outcomes[kind] = !offer();
+      }
+      de.discomfort = [{exerciseId:"unrelated",name:"Other lift",kind:"pain",swapped:false}];
+      outcomes.otherPain = !!offer(); delete de.discomfort;
+      // A solid calibrated lift reads its last check from the saved rows, independently of the global gauge.
+      const actualRecommendation = recommendation;
+      recommendation = current => {
+        const rec = actualRecommendation(current);
+        return {...rec, calibration:{state:"calibrated",n:3}, standing:{word,evidence:{sets}}};
+      };
+      try {
+        word = "solid";
+        state.log = [...originalLog,{...row,date:ago(59)}]; outcomes.day59 = !offer();
+        state.log = [...originalLog,{...row,date:ago(60)}]; outcomes.day60 = offer()?.reason === "recheck";
+        state.log = originalLog; word = "learning";
+        const secondId = draft.exerciseOrder.find(otherId => otherId !== id && prog.find(otherId));
+        const second = draft.exercises[secondId], secondEx = sessionExercise(prog.find(secondId));
+        const secondWorking = second.setOrder.map(key => second.sets[key]).filter(set => set.role === "working");
+        for (const set of secondWorking.slice(0,-1)) {
+          set.completion = JSON.parse(JSON.stringify(before.completion));
+          set.edited.rir = "2"; set.edited.effort = "hard";
+          for (const metric of set.programmed.metrics || []) set.edited.metrics[metric.id] = metric.semantic === "reps" ? "10" : "50";
+        }
+        recommendation = current => ({...actualRecommendation(current),calibration:{state:"uncalibrated",n:0},
+          standing:{word:"learning",evidence:{sets:current.id===id?10:1}}});
+        outcomes.lessEvidence = !offer() && !!maxSetOffer(secondEx,secondWorking.at(-1).ordinal);
+        recommendation = current => ({...actualRecommendation(current),calibration:{state:"uncalibrated",n:0},
+          standing:{word:"learning",evidence:{sets:1}}});
+        outcomes.tieOrder = !!offer() && !maxSetOffer(secondEx,secondWorking.at(-1).ordinal);
+      } finally { recommendation = actualRecommendation; }
+      return outcomes;
+    } finally { activeWorkoutDraft = originalDraft; state.log = originalLog; state.settings = originalSettings; state.programMeta = originalMeta; window.RepForgeProgression = engine; calibrationGauge = originalGauge; }
+  }, exId);
+  for (const [gate, passed] of Object.entries(gates)) assert(passed, `request gate: ${gate}`, gates);
   await page.locator(`${TIP} [data-maxset-guess]`).click();
   await page.waitForSelector("#maxSetSheet.is-open", { timeout: 5000 });
   const sheet = await page.evaluate(() => ({
@@ -234,7 +356,7 @@ try {
     } finally { window.RepForgeProgression = engine; }
   }, exId);
   assert(cal.n === 3 && cal.state === "under" && Math.abs(cal.delta + 1) < 1e-9, "three checks of −2 read as under-estimating, shift −1", cal);
-  assert(cal.given?.version === "calibration@077.1" && cal.given?.delta === -1, "the engine is given the lift's shift", cal);
+  assert(cal.given?.version === "calibration@077.1" && cal.given?.delta === -1 && cal.given?.n === 3 && cal.given?.state === "under" && Number.isFinite(cal.given?.spread), "the engine is given the lift's shift", cal);
   const line = await page.evaluate((id) => {
     // Today's max set on top of the three in the log: its result line says suggestions now allow for it.
     const ex = sessionExercise(prog.find(id)), de = window.__repforgeWorkoutDraft.current().exercises[id];
@@ -248,6 +370,136 @@ try {
   }, exId);
   assert(/2 more than you guessed\. Suggestions on this exercise now allow for this\./.test(line), "from the third check the result line says suggestions now allow for it", line);
   assert(cal.why === cal.moved, "the Why sheet names the tendency exactly when the shift moved the suggestion", cal);
+
+  phase("Saved pain protects the movement for the whole day");
+  const safetyContext = await browser.newContext({viewport:{width:390,height:844},locale:"en-US",timezoneId:"America/Sao_Paulo"});
+  const safety = await safetyContext.newPage();
+  safety.on("pageerror", error => errors.push(String(error)));
+  safety.on("dialog", dialog => dialog.accept());
+  await safety.clock.setFixedTime(new Date("2026-11-09T12:00:00Z"));
+  await safety.goto(BASE,{waitUntil:"domcontentloaded"}); await settle(safety);
+  await persist(safety, `
+    s.settings = {...s.settings,lang:"en",rirMode:"numeric",restSec:120};
+    s.program = ${JSON.stringify(seedProgram())}; s.programMeta = ${JSON.stringify(seedProgramMeta())};
+    s.log = []; delete s.sessionEvents;`);
+  await safety.reload({waitUntil:"domcontentloaded"}); await settle(safety);
+  const enterFirstDay = async () => {
+    await safety.evaluate(async () => { await window.__repforgeEnterWorkout({day:"Day 1"}); window.__repforgeFocus.to(0); });
+    await safety.locator(SHELF).waitFor({state:"visible"});
+  };
+  const finishSafety = async () => {
+    await finishEarly(safety);
+    await safety.locator("#sumDone").click();
+    await safety.locator("#sessionSummary").waitFor({state:"hidden"});
+  };
+  await enterFirstDay();
+  const safetyId = await safety.evaluate(() => window.__repforgeWorkoutDraft.current().session.selectedExerciseId);
+  const movementId = seedProgram().find(row => row.id === safetyId).libraryId;
+  await logSet(safety,safetyId,1);
+  await safety.locator(`${TIP}[data-tip="max-set"]`).waitFor({state:"visible"});
+  await openActions(safety,safetyId);
+  await safety.locator("#exActionSkipBtn").click();
+  await safety.locator('[data-skip-reason="pain"]').click();
+  await safety.locator("#skipReasonSheet").waitFor({state:"hidden"});
+  await safety.evaluate(async id => {
+    await WorkoutSession.dispatch("restoreExercise",{exerciseInstanceId:id}); renderWorkout(); window.__repforgeFocus.to(0);
+  },safetyId);
+  assert(await safety.locator(`${TIP}[data-tip="max-set"]`).count() === 0,"restoring a pain-skipped movement keeps the live protection");
+  await finishSafety();
+  const painful = await readReplicas(safety);
+  const painSession = painful.local.log.find(row => row.exerciseId === safetyId).session;
+  assert(painful.local.sessionEvents[painSession].pain.some(item => item.exerciseId === movementId && item.kind === "pain") &&
+    JSON.stringify(painful.local.sessionEvents) === JSON.stringify(painful.idb.sessionEvents),
+    "the real finish saves movement-specific pain in both replicas");
+  await enterFirstDay(); await logSet(safety,safetyId,1);
+  assert(await safety.locator(`${TIP}[data-tip="max-set"]`).count() === 0,"saved same-day pain blocks a new workout's offer");
+  await selectExercise(safety,"seed-ex-2"); await logSet(safety,"seed-ex-2",1);
+  await safety.locator(`${TIP}[data-tip="max-set"]`).waitFor({state:"visible"});
+  assert(await safety.locator(`${TIP}[data-tip="max-set"]`).isVisible(),"another movement remains eligible despite today's saved pain");
+  await safety.reload({waitUntil:"domcontentloaded"}); await settle(safety); await enterFirstDay();
+  assert(await safety.locator(`${TIP}[data-tip="max-set"]`).count() === 0,"saved same-day pain stays protective after reload");
+  await finishSafety();
+  await safety.clock.setFixedTime(new Date("2026-11-10T12:00:00Z"));
+  await safety.reload({waitUntil:"domcontentloaded"}); await settle(safety);
+  await enterFirstDay(); await logSet(safety,safetyId,1);
+  await safety.locator(`${TIP}[data-tip="max-set"]`).waitFor({state:"visible"});
+  assert(await safety.locator(`${TIP}[data-tip="max-set"]`).isVisible(),"yesterday's saved pain alone permits today's opportunity");
+  for (const pressed of ["true","false"]) {
+    await openActions(safety,safetyId); await safety.locator("#exActionDiscomfortBtn").click();
+    await safety.waitForFunction(value => document.querySelector("#exActionDiscomfortBtn")?.getAttribute("aria-pressed") === value,pressed);
+    if (pressed === "true") {
+      await dismissRepeatedPainPicker(safety);
+    } else {
+      await safety.locator("#exActionsClose").click(); await safety.locator("#exActionsSheet").waitFor({state:"hidden"});
+    }
+  }
+  const sessionsBeforeClear = new Set(Object.keys((await readReplicas(safety)).local.sessionEvents));
+  await finishSafety();
+  const clearSaved = (await readReplicas(safety)).local;
+  const clearedSession = Object.keys(clearSaved.sessionEvents).find(id => !sessionsBeforeClear.has(id));
+  assert(clearSaved.sessionEvents[clearedSession].pain.length === 0,"a mark cleared before finishing saves no pain observation");
+  await safety.reload({waitUntil:"domcontentloaded"}); await settle(safety);
+  await enterFirstDay(); await logSet(safety,safetyId,1);
+  await safety.locator(`${TIP}[data-tip="max-set"]`).waitFor({state:"visible"});
+  assert(await safety.locator(`${TIP}[data-tip="max-set"]`).isVisible(),"a saved cleared mark does not block a later same-day workout after reload");
+  phase("Pain reported after local midnight survives the session's earlier workout date");
+  await finishSafety();
+  await safety.clock.setFixedTime(new Date("2026-11-11T02:58:00Z"));
+  await safety.reload({waitUntil:"domcontentloaded"}); await settle(safety);
+  await enterFirstDay(); await logSet(safety,safetyId,1);
+  await safety.locator(`${TIP}[data-tip="max-set"]`).waitFor({state:"visible"});
+  await safety.clock.setFixedTime(new Date("2026-11-11T03:02:00Z"));
+  await openActions(safety,safetyId); await safety.locator("#exActionDiscomfortBtn").click();
+  await safety.waitForFunction(() => document.querySelector("#exActionDiscomfortBtn")?.getAttribute("aria-pressed") === "true");
+  await dismissRepeatedPainPicker(safety);
+  assert(await safety.locator(`${TIP}[data-tip="max-set"]`).count() === 0,"a real after-midnight mark blocks the live offer");
+  const spanningSessionIds = new Set(Object.keys((await readReplicas(safety)).local.sessionEvents));
+  await finishSafety();
+  const spanning = (await readReplicas(safety)).local;
+  const spanningId = Object.keys(spanning.sessionEvents).find(id => !spanningSessionIds.has(id));
+  const spanningRow = spanning.log.find(row => row.session === spanningId);
+  assert(spanningRow.date === "2026-11-10" && spanningRow.created === "2026-11-11T03:02:00.000Z" &&
+    spanning.sessionTiming[spanningId].completedAt === spanningRow.created &&
+    spanning.sessionEvents[spanningId].pain.some(item => item.exerciseId === movementId && item.kind === "discomfort"),
+    "the real finish retains yesterday's workout date and today's local completion with the discomfort observation");
+  await safety.reload({waitUntil:"domcontentloaded"}); await settle(safety);
+  await enterFirstDay(); await logSet(safety,safetyId,1);
+  assert(await safety.evaluate(() => today()) === "2026-11-11","the restarted workout is on the next local day in Sao Paulo");
+  assert(await safety.locator(`${TIP}[data-tip="max-set"]`).count() === 0,
+    "after-midnight saved discomfort blocks the same movement after finish, reload and restart");
+  const calendarCases = await safety.evaluate(({session,id}) => {
+    const original = {log:state.log,events:state.sessionEvents,timing:state.sessionTiming};
+    const rows = state.log.filter(row => row.session === session), events = {[session]:state.sessionEvents[session]};
+    const ex = sessionExercise(prog.find(id)), de = activeWorkoutDraft.exercises[id];
+    const n = de.setOrder.map(key => de.sets[key]).filter(set => set.role === "working").at(-1).ordinal;
+    const previous = "2026-11-11T02:58:00.000Z", current = "2026-11-11T03:02:00.000Z";
+    const scenarios = [
+      {name:"row completion protects today without sessionTiming",date:"2026-11-10",created:current,allowed:false},
+      {name:"sessionTiming protects today when row completion is yesterday",date:"2026-11-10",created:previous,
+        timing:{startedAt:"2026-11-11T03:00:00.000Z",completedAt:current,durationSeconds:120},allowed:false},
+      {name:"workout date protects today despite an earlier completion",date:"2026-11-11",created:previous,allowed:false},
+      {name:"a UTC-today completion confined to local yesterday permits today",date:"2026-11-10",created:previous,allowed:true},
+      {name:"a readable old workout date suffices without completion evidence",date:"2026-11-10",created:null,allowed:true},
+      {name:"a readable old completion suffices without a workout date",date:null,created:previous,allowed:true},
+      {name:"unreadable workout and completion dates refuse the offer",date:null,created:null,allowed:false},
+    ];
+    try {
+      state.sessionEvents = events;
+      return scenarios.map(scenario => {
+        state.log = rows.map(row => ({...row,date:scenario.date,created:scenario.created}));
+        state.sessionTiming = scenario.timing ? {[session]:scenario.timing} : {};
+        return {name:scenario.name,passed:!!maxSetOffer(ex,n) === scenario.allowed};
+      });
+    } finally {state.log=original.log;state.sessionEvents=original.events;state.sessionTiming=original.timing;}
+  }, {session:spanningId,id:safetyId});
+  for (const scenario of calendarCases) assert(scenario.passed,scenario.name);
+  await safety.evaluate(() => window.__repforgeStorage.flush());
+  await persist(safety, `s.sessionEvents[${JSON.stringify(painSession)}].pain = {unreadable:true};`);
+  await safety.reload({waitUntil:"domcontentloaded"});
+  await safety.locator("#storageRecovery").waitFor({state:"visible"});
+  const unreadable = await safety.evaluate(() => ({active:!!activeWorkoutDraft,tips:document.querySelectorAll('[data-tip="max-set"]').length}));
+  assert(!unreadable.active && unreadable.tips === 0,"unreadable saved pain evidence enters production recovery without an offer",unreadable);
+  await safetyContext.close();
 
   assert(errors.length === 0, "no page errors", errors.join(" | "));
 } finally {

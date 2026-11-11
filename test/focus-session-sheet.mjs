@@ -11,7 +11,7 @@
  * Run: node test/focus-session-sheet.mjs
  * Requires a static server on REPFORGE_URL (default http://localhost:8000/).
  */
-import { launchChromium, openShelfField } from "./browser.mjs";
+import { chooseRepsLeft, launchChromium, openShelfField } from "./browser.mjs";
 import { installSeedProgram } from "./fixtures/seed-program.mjs";
 import { SAFE_AREA, openCatalogState } from "./fixtures/catalog-state.mjs";
 
@@ -23,6 +23,11 @@ const REPS = "2555c6f170d88072bbf6d9ad3f16ea86";
 
 /** Tap a shelf field on the current card, then type into it, as a lifter does. */
 async function fillShelf(page, field, value) {
+  if (field === "rir") {
+    await chooseRepsLeft(page, String(value));
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    return;
+  }
   const shelf = "#workout .exercise.is-current:not(.is-peek) .focus-shelf";
   const metricId = field === "load" ? WEIGHT : field === "reps" ? REPS : null;
   const input = page.locator(metricId ? `${shelf} input[data-metric-id="${metricId}"]` : `${shelf} input[data-k$="_rir"]`);
@@ -93,7 +98,7 @@ async function freshPage(browser) {
   await clearState(page);
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForApp(page);
-  await installSeedProgram(page, { key: KEY, waitFor: waitForApp });
+  await installSeedProgram(page, { key: KEY, waitFor: waitForApp, settings: { rirMode: "numeric" } });
   return { context, page, errors };
 }
 

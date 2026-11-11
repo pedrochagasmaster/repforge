@@ -13,7 +13,7 @@
  */
 import assert from "node:assert/strict";
 import { encodeSetupLink } from "../../test/fixtures/setup-link-v4.mjs";
-import { answerRecommend } from "../../test/browser.mjs";
+import { answerRecommend, waitForAsyncCondition } from "../../test/browser.mjs";
 import { activeEntryState, emptyEntryState } from "./fixtures.mjs";
 import { BASE, SETUP_DRAFT, KEY, replayGuide, sleep, waitForApp } from "./session.mjs";
 
@@ -537,6 +537,15 @@ async function reviewWithEditor(page, chip) {
 }
 
 
+// Editor DOM changes precede the setup-draft acknowledgment and its announcement.
+async function editorAnnouncementSettled(page) {
+  await waitForAsyncCondition(page, async () => {
+    await window.__repforgeOnboarding.flushDraft();
+    return document.querySelector("#toast")?.classList.contains("hidden") === false;
+  });
+  await page.waitForFunction(() => document.querySelector("#toast")?.classList.contains("hidden") !== false);
+}
+
 async function buildTo(page, step) {
   await route(page, "build");
   await page.waitForSelector("#entryProgramName", { timeout: 20000 });
@@ -554,19 +563,11 @@ async function buildTo(page, step) {
     await add.click();
     await page.waitForSelector("#exPickList .pickrow", { timeout: 20000 });
     await page.locator("#exPickList .pickrow").first().click();
-    await page.waitForTimeout(220);
+    await editorAnnouncementSettled(page);
   };
-  // Each pick is announced ("Exercise added.", R7 J-08). The frame is the editor at rest, so the
-  // announcement's ordinary lifetime ends before capture rather than racing the settle pass.
-  const settleAnnouncement = () => page.waitForFunction(
-    () => document.querySelector("#toast")?.classList.contains("hidden") !== false,
-    undefined,
-    { timeout: 15000 }
-  );
   await addExercise(0);
-  if (step === "editor-partial") return settleAnnouncement();
+  if (step === "editor-partial") return;
   for (let day = 1; day < 3; day++) await addExercise(day);
-  await settleAnnouncement();
   await page.waitForFunction(
     () => !document.querySelector("#entryEditorActivate")?.disabled,
     undefined,
@@ -641,6 +642,9 @@ async function importTo(page, step) {
       progression: { schemaVersion: 1, strategy: { id: "manual", version: 1, params: { authored: true } }, modifiers: [] },
     }],
   };
+  if (step === "editor-empty-day") program.exercises.push({
+    ...program.exercises[0], id: "bench2", day: portuguese ? "Dia 2" : "Day 2",
+  });
   await page.setInputFiles("#importProgram", {
     name: "catalog-program.json",
     mimeType: "application/json",
@@ -974,6 +978,7 @@ async function activationConflict(page) {
 /** Bring the frame's subject into view for surfaces taller than the viewport. */
 const FOCUS_SELECTOR = {
   // The landing is one scrolling page inside #firstRun; each scrolled state brings its band to the middle of the frame.
+  "onboarding-start/first-run-check": ".firstrun-check",
   "onboarding-start/first-run-ways": ".firstrun-way--surface",
   "onboarding-start/first-run-features": ".firstrun-feat__panel",
   "onboarding-start/first-run-data": ".firstrun-rows",
@@ -1004,7 +1009,7 @@ const FOCUS_SELECTOR = {
 const PROOF_HOLD = 9.2;
 /** The feature tabs hold too: the Progress scene with the record landed and the week's hard sets risen. */
 const FEATURE_HOLD = [0, 4.8];
-const FOCUS_PROOF = new Set(["onboarding-start/first-run-proof"]);
+const FOCUS_PROOF = new Set(["onboarding-start/first-run-proof", "onboarding-start/first-run-proof-test"]);
 
 /**
  * The landing. A seeded empty device boots straight into it (it is the same page
@@ -1025,6 +1030,8 @@ async function openLandingQuestion(page) {
 export const ONBOARDING_SCENARIOS = {
   "onboarding-start/first-run": openLanding,
   "onboarding-start/first-run-proof": openLanding,
+  "onboarding-start/first-run-proof-test": openLanding,
+  "onboarding-start/first-run-check": openLanding,
   "onboarding-start/first-run-ways": openLanding,
   "onboarding-start/first-run-features": openLanding,
   "onboarding-start/first-run-data": openLanding,
@@ -1375,10 +1382,12 @@ export const ONBOARDING_SCENARIOS = {
       await exercise.locator('[data-role="add-alternate"]').click();
       await page.waitForSelector("#exPickSheet.is-open #exPickList .pickrow", { timeout: 20000 });
       await page.locator("#exPickList .pickrow").first().click();
-      await page.waitForFunction((n) => document.querySelectorAll('#onbProgramEditor [data-role="alternate"]').length === n,
-        count, { timeout: 20000 });
+      // Alternates save silently; their optimistic DOM still precedes the acknowledged draft.
+      await waitForAsyncCondition(page, async (n) => {
+        await window.__repforgeOnboarding.flushDraft();
+        return document.querySelectorAll('#onbProgramEditor [data-role="alternate"]').length === n;
+      }, count);
     }
-    await page.waitForFunction(() => document.querySelector("#toast")?.classList.contains("hidden") !== false, undefined, { timeout: 15000 });
     await page.locator('#onbProgramEditor [data-role="alternates"]').first().evaluate((node) => node.scrollIntoView({ block: "center" }));
   },
 
@@ -1399,7 +1408,25 @@ export const ONBOARDING_SCENARIOS = {
     await managedImportTo(page, "gaps");
   },
   "onboarding-import/preview": (page) => importTo(page, "preview"),
+  "onboarding-import/editor-empty-day": async (page) => {
+    await importTo(page, "editor-empty-day");
+    await page.click("#entryEdit");
+    const day = page.locator('#onbProgramEditor [data-role="day"]').nth(1);
+    if (!await day.locator('[data-role="remove-exercise"]').isVisible()) {
+      await day.locator('[data-role="toggle-day"]').click();
+    }
+    await day.locator('[data-role="remove-exercise"]').click();
+    await page.waitForFunction(() => !!document.querySelector('#onbProgramEditor [data-role="day-empty"]') &&
+      document.querySelector("#entryEditorActivate")?.disabled === true);
+    await editorAnnouncementSettled(page);
+  },
 
+  "onboarding-start/effort-choice": async (page) => {
+    await buildTo(page, "editor-ready");
+    await page.evaluate(() => window.__repforgeUi.setPref("effortChosen", false));
+    await page.click("#entryEditorActivate");
+    await page.waitForSelector("#effortChoiceSheet.is-open");
+  },
   "onboarding-shared/gate": (page) => sharedTo(page, "gate"),
   "onboarding-shared/invalid": sharedInvalidTo,
   "onboarding-shared/preview": (page) => sharedTo(page, "preview"),
@@ -1449,7 +1476,7 @@ export async function focusOnboardingSubject(page, key) {
     await sleep(page, 400);
   }
   if (await page.evaluate(() => typeof window.__repforgeLandingSeek === "function" && !document.querySelector("#firstRun")?.classList.contains("hidden"))) {
-    await page.evaluate((time) => window.__repforgeLandingSeek(time), PROOF_HOLD);
+    await page.evaluate((time) => window.__repforgeLandingSeek(time), key === "onboarding-start/first-run-proof-test" ? 19 : PROOF_HOLD);
     await page.evaluate(([scene, at]) => window.__repforgeLandingFeatureSeek?.(scene, at), FEATURE_HOLD);
     await sleep(page, 450);
   }

@@ -56,7 +56,7 @@ console.log("\nThe supporting components");
   const half = [{ date: daysAgo(90), q: 1, agree: true }, { date: daysAgo(0), q: 0.5, agree: true }];
   assert(Math.abs(Gauge.supporting(half, 2, NOW) - 0.5) < 1e-9, "a 90-day-old item and a coarse item each weigh a half");
   assert(Gauge.rowQuality({ effortSource: "rir" }) === 1 && Gauge.rowQuality({ effortSource: "reps_left" }) === 1 &&
-    Gauge.rowQuality({ effortSource: "effort" }) === 0.5 && Gauge.rowQuality({ effortSource: "reps_left_3plus" }) === 0.5 &&
+    Gauge.rowQuality({ effortSource: "effort" }) === 0.5 && Gauge.rowQuality({ effortSource: "reps_left_3plus" }) === 0.5 && Gauge.rowQuality({ effortSource: "reps_left_5plus" }) === 0.5 &&
     Gauge.rowQuality({}) === 0.5 && Gauge.rowQuality({ effortSource: "prefilled" }) === 0 && Gauge.rowQuality({ effortSource: "unsure" }) === 0 &&
     Gauge.rowQuality({ effortSource: "failure" }) === 0 && Gauge.rowQuality({ effortSource: "rir", warmup: true }) === 0,
   "row quality: numbers 1, words and unknown ½, prefilled, Not sure, failure and warm-ups 0");
@@ -128,15 +128,15 @@ console.log("\nThe H replay");
   assert(offLoad.length === 0, "a set done at another load than suggested does not count");
 }
 
-console.log("\nMax sets at a full gauge (OD-12)");
+console.log("\nTest-set frequency is independent of the retired gauge (Plan 080)");
 {
   const Calibration = require("../effort-calibration.js");
   const history = [{ exerciseKey: "other", date: daysAgo(20) }];
   const open = Calibration.frequencyAllows({ history, today: NOW, exerciseKey: "lift" });
   const full = Calibration.frequencyAllows({ history, today: NOW, exerciseKey: "lift", gaugeFull: true });
   const later = Calibration.frequencyAllows({ history: [{ exerciseKey: "other", date: daysAgo(30) }], today: NOW, exerciseKey: "lift", gaugeFull: true });
-  assert(open.ok && !full.ok && full.reason === "monthly" && later.ok,
-    "at 100 % a check 20 days ago on another exercise holds the next one back; one 30 days ago does not", { open, full, later });
+  assert(open.ok && full.ok && later.ok && JSON.stringify(open) === JSON.stringify(full),
+    "a full gauge adds no monthly ceiling to the unchanged test-set frequency limits", { open, full, later });
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

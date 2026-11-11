@@ -28,6 +28,18 @@ by a managed, adult-only, PT-BR-first Taurifer AI design sequenced after paid-
 beta economics, with product-owned providers, explicit proposals, inspectable
 evidence, strict research separation, and no transcript data in PostHog.
 
+**v1.4 amendments (owner decisions of 2026-11-08, recorded in
+[`coach-layer-strategy-2026-11-08.md`](coach-layer-strategy-2026-11-08.md)):**
+the hired coach becomes the internal engineering yardstick, never the
+proposition or the selling point, and Taurifer never claims to coach or to
+supervise (§3.5); effort calibration moves to the first session and the engine
+becomes a per-lift estimator, all Free; within-block adaptation (Pro job 3)
+gains a weekly review as its visible surface and the lifter's profile across
+programs is named as a continuity surface (§8.3), both on for every alpha
+participant with the Free/Pro line drawn after the alpha; the point where Pro is
+first presented and the trial's shape are likewise decided after the alpha; a
+dedicated ADR records the entitlement lifecycle before any funnel work.
+
 ---
 
 ## Executive summary
@@ -521,7 +533,13 @@ Avoid claims such as:
 - "the only progressive-overload app in Brazil";
 - "AI that automatically builds the perfect workout";
 - "science proves this is the optimal program";
-- "the definitive strength app."
+- "the definitive strength app";
+- "your coach", "your personal trainer", or any claim of professional
+  supervision or prescription. Prescribing training is a regulated profession
+  in Brazil. The coach is Taurifer's internal engineering yardstick (the
+  2026-11-08 decisions, D-1), and the comparison stays subtle in marketing. A
+  CREF-registered physical education professional is on board before
+  commercialization.
 
 Competitors already occupy much of the functional territory.
 
@@ -1165,6 +1183,23 @@ Later Pro territory includes full cross-program dashboards, multi-block
 planning, longer-horizon career analysis, optional synchronization, and
 managed Taurifer AI after paid-beta economics and the §16 gates. These are not
 part of the initial paid gate.
+
+**Alpha configuration and the surfaces of jobs 2 and 3 (owner, 2026-11-08).**
+Job 3 is surfaced as a **weekly review**: the week's facts (sessions done,
+lifts that moved, lifts that stalled, pain reported) and a bounded,
+cause-matched proposal with approval. The lifter's **profile**, "what Taurifer
+knows about you", is the continuity surface behind job 2: per lift, the
+estimate's standing, its test sets and what the next finding needs. Both run
+in full for every alpha participant, together with every Pro capability,
+exactly as §8.4 sequences the noncommercial alpha. The proposed commercial
+target is facts Free and proposals Pro, and the current program's profile Free
+with the profile across programs Pro, but **no Free/Pro line on either is drawn
+before the alpha's evidence**, and a Free lifter is never shown what Pro would
+have proposed. Whether any calibration surface becomes a Pro lever (Plan 077
+OD-21), where Pro is first presented, and the trial's shape are decided after
+the alpha on the same evidence. The entitlement lifecycle is recorded in a
+dedicated ADR before any of that work starts. Details:
+[`coach-layer-strategy-2026-11-08.md`](coach-layer-strategy-2026-11-08.md).
 
 The distinction:
 

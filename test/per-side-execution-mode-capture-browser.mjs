@@ -11,7 +11,7 @@
  */
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { answerRecommend, launchChromium, openShelfField, waitForAppBoot } from "./browser.mjs";
+import { chooseRepsLeft, answerRecommend, launchChromium, openShelfField, waitForAppBoot } from "./browser.mjs";
 import { openInstalledEditor } from "./adaptive-build-fixture.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
@@ -63,6 +63,11 @@ try {
   await page.clock.setFixedTime(new Date("2026-10-05T12:00:00.000Z"));
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
   await waitForAppBoot(page, { base: BASE });
+  await page.evaluate(async () => {
+    const proposal = window.__repforgeWorkoutDraft.state();
+    proposal.settings.rirMode = "numeric";
+    await window.__repforgeCommitProposedState(proposal);
+  });
 
   // Recommend → Review: pick the ambiguous movement and answer its mode.
   await page.click("#firstRunCreate");
@@ -129,7 +134,7 @@ try {
   const rir = page.locator(`#workout .exercise.is-current .focus-shelf input[data-k="${rowId}_1_rir"]`);
   if (await rir.getAttribute("aria-hidden") === "true")
     await page.locator('#workout .exercise.is-current .focus-shelf [data-shelf-field="rir"]').click();
-  await rir.fill("2");
+  await chooseRepsLeft(page, "2");
   await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
   await page.locator(`#workout .exercise.is-current [data-save="${rowId}_1"]`).click();
   await page.waitForFunction((id) => {

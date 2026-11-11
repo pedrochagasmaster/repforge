@@ -19,7 +19,7 @@
  * Run: REPFORGE_URL=http://localhost:8000/ node test/focus-hero.mjs
  */
 import { readFileSync } from "node:fs";
-import { launchChromium, openShelfField, waitForAppBoot } from "./browser.mjs";
+import { chooseRepsLeft, launchChromium, openShelfField, waitForAppBoot } from "./browser.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const DATA = new URL("../plans/067/data/", import.meta.url);
@@ -59,7 +59,10 @@ async function seed(page) {
       .filter(({ slot }) => JSON.stringify(slot.metricIds) === JSON.stringify([weight, reps]) &&
         slot.prescriptionsByCycle[0].sets.length >= 3)
       .sort((a, b) => b.slot.prescriptionsByCycle[0].sets.length - a.slot.prescriptionsByCycle[0].sets.length)[0];
+    const baseProposal = window.__repforgeWorkoutDraft.state();
+    baseProposal.settings.rirMode = "numeric";
     return window.__repforgeFinalizeProgramSetup({
+      baseProposal,
       programDefinition: definition, name: "Focus hero proof", answers: {}, destination: "log", origin: "first-run",
       draftConfirmed: true, telemetryRoute: "recommend", entrySource: { route: "recommend", fingerprint: "focus-hero-523" },
     }).then(() => window.__repforgeStorage.flush()).then(() => {
@@ -105,7 +108,7 @@ async function logSet(page, slotId, ordinal, { load, reps, rir }, { stopRest = t
   const rirInput = page.locator(`#workout .exercise.is-current .focus-shelf input[data-k="${slotId}_${ordinal}_rir"]`);
   if (await rirInput.getAttribute("aria-hidden") === "true")
     await page.locator('#workout .exercise.is-current .focus-shelf [data-shelf-field="rir"]').click();
-  await rirInput.fill(String(rir));
+  await chooseRepsLeft(page, String(rir));
   await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
   await page.locator(`#workout .exercise.is-current [data-save="${slotId}_${ordinal}"]`).click();
   await page.waitForFunction(({ slotId, ordinal }) => {
@@ -142,6 +145,9 @@ function readCard() {
   const sizes = [...card.querySelectorAll(".fcard__context *")].filter((el) => el.childElementCount === 0 && el.textContent.trim() && el.getClientRects().length)
     .map((el) => parseFloat(getComputedStyle(el).fontSize));
   return {
+    layout: { context: box(context), shelf: box(shelf), header: box(document.querySelector(".wo-head")),
+      fields: [...shelf.querySelectorAll(".shelf__field")].map(el => ({ text: el.textContent.trim(), height: el.getBoundingClientRect().height,
+        label: getComputedStyle(el.querySelector(".shelf__lab")).fontSize, line: getComputedStyle(el.querySelector(".shelf__lab")).lineHeight })) },
     l1: l1?.textContent.replace(/\s+/g, " ").trim() || "",
     l1Size: l1 ? parseFloat(getComputedStyle(l1).fontSize) : 0,
     largest: Math.max(...sizes),
@@ -221,14 +227,18 @@ try {
     ok(engine.status === "new" && engine.reasonCodes.includes("no_comparable_history") && engine.load == null,
       "the fixture's first set has no comparable history", engine);
     const now = await card(page);
-    const expected = await t(page, "focus.evidence.none_history");
-    ok(now.l1 === await t(page, "focus.cue.pick_load", { min: (await page.evaluate((id) => window.__repforgeProgression.programSlot(id).min, target.rowId)),
-      max: (await page.evaluate((id) => window.__repforgeProgression.programSlot(id).max, target.rowId)) }), "the hero asks for a load", now.l1);
+    const expected = await t(page, "focus.evidence.floor");
+    ok(now.l1 === await t(page, "focus.cue.find_weight"), "the hero finds an opening load", now.l1);
     ok(now.evidenceText === expected, "the evidence line gives the no-history reason from the catalog", now);
     ok(!now.figs.length, "with nothing performed, nothing in the line rides in Mono", now.figs);
     ok(!/\d+(?:[.,]\d+)?\s*kg/.test(now.evidenceText), "the no-suggestion line names no weight", now.evidenceText);
     ok(!now.marks.length && !now.markColumn, "a cue without a verdict has no mark and no reserved column", now);
     ok(now.l1Size === 34 && now.largest === 34, "the hero is 34px and the largest text on the card", now);
+    await page.locator("#workout .exercise.is-current [data-ramp-bodyweight]").click();
+    await page.locator("#sessionSheet.is-open").waitFor();
+    ok(await page.locator("#sessionBodyweight").isVisible(), "the floor cue opens the existing Session bodyweight field");
+    await page.locator("#sessionSheetClose").click();
+    await page.locator("#sessionSheet").waitFor({state:"hidden"});
   }
 
   console.log("Set 2 after set 1: the engine's target, and the evidence the Why sheet names");
@@ -337,6 +347,20 @@ try {
     ok(seen.has("hold") && seen.has("up") && seen.has("down"), "the three logged sets produce hold, up and down", [...seen]);
   }
 
+  console.log("Portuguese short-phone geometry survives restoring the running workout");
+  {
+    const run = await open(browser, { width: 320, height: 568, lang: "pt" });
+    await logSet(run.page, run.target.slotId, 1, { load: 60, reps: 8, rir: 2 }, { stopRest: false });
+    await run.page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(run.page, { base: BASE });
+    await run.page.evaluate(id => window.__repforgeGoToLogExercise(id), run.target.rowId);
+    await settle(run.page);
+    const restored = await card(run.page);
+    ok(restored.hero?.inView && restored.open?.inView && restored.heroBox.bottom <= restored.open.top && !restored.underTab.length,
+      "after reload the full Portuguese numeric caption leaves the hero and open set whole above rest", restored);
+    await run.context.close();
+  }
+
   console.log("320×568 with the rest running: the hero stays above the open set, the logged row folds first");
   for (const lang of ["en", "pt"]) {
     const run = await open(browser, { width: 320, height: 568, lang });
@@ -396,7 +420,7 @@ try {
         status: kind === "setup" ? "configuration_required" : kind === "manual" ? "manual" : "new", reasonCodes,
         targetSets: [{ prescription: { setIndex: 1 }, status: kind === "setup" ? "configuration_required" : "manual", result: { reasonCodes } }],
         progressionInputs: inputs || { history: [], currentSession: [] } }, 1, kind), { id: target.rowId, kind, reasonCodes, inputs });
-      const expected = await t(page, `focus.evidence.none_${key}`, { what: "RIR", min: await page.evaluate((id) => window.__repforgeProgression.programSlot(id).min, target.rowId),
+      const expected = await t(page, `focus.evidence.none_${key}`, { what: await t(page, "focus.evidence.what_rir"), min: await page.evaluate((id) => window.__repforgeProgression.programSlot(id).min, target.rowId),
         max: await page.evaluate((id) => window.__repforgeProgression.programSlot(id).max, target.rowId) });
       ok(said?.key === key && said.text === expected && !/\d+(?:[.,]\d+)?\s*kg/.test(said.text), `${reasonCodes.join(" + ")} (${kind}) says ${key}`, said);
     }
@@ -417,7 +441,7 @@ try {
         targetSets: [{ prescription: { setIndex: 1 }, status: "manual", result: { reasonCodes: ["no_comparable_history"] } },
           { prescription: { setIndex: 2 }, status: "manual", result: { reasonCodes: ownCodes } }],
         progressionInputs: inputs }, 2, "start"), { id: target.rowId, ownCodes, inputs });
-      const expected = await t(page, `focus.evidence.none_${key}`, { what: "RIR", min: await page.evaluate((id) => window.__repforgeProgression.programSlot(id).min, target.rowId),
+      const expected = await t(page, `focus.evidence.none_${key}`, { what: await t(page, "focus.evidence.what_rir"), min: await page.evaluate((id) => window.__repforgeProgression.programSlot(id).min, target.rowId),
         max: await page.evaluate((id) => window.__repforgeProgression.programSlot(id).max, target.rowId) });
       ok(said?.key === key && said.text === expected, `set 2, ${why}: says ${key}`, said);
     }
@@ -428,7 +452,7 @@ try {
   {
     const run = await open(browser, { width: 320, height: 568, lang: "pt", text: "text200" });
     const { page, target } = run;
-    ok((await card(page)).evidenceText === await t(page, "focus.evidence.none_history"), "the Portuguese no-history reason comes from the Portuguese catalog");
+    ok((await card(page)).evidenceText === await t(page, "focus.evidence.floor"), "the Portuguese no-history reason comes from the Portuguese catalog");
     for (let n = 1; n < target.sets; n++) await logSet(page, target.slotId, n, { load: 60, reps: 8, rir: 1 }, { stopRest: n < target.sets - 1 });
     const engine = await engineSet(page, target.rowId, target.sets);
     const now = await card(page);

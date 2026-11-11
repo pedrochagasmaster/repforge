@@ -20,7 +20,7 @@
  * Run: node tools/run-tests.mjs workout --suite why-verb-locale
  */
 import { readFileSync } from "node:fs";
-import { launchChromium, openShelfField, waitForAppBoot } from "./browser.mjs";
+import { chooseRepsLeft, launchChromium, openShelfField, waitForAppBoot } from "./browser.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const DATA = new URL("../plans/067/data/", import.meta.url);
@@ -61,7 +61,10 @@ async function seed(page) {
       return index === 0 && JSON.stringify(slot.metricIds) === JSON.stringify([weight, reps]) && sets.length === 3;
     });
     if (!target) return null;
+    const baseProposal = window.__repforgeWorkoutDraft.state();
+    baseProposal.settings.rirMode = "numeric";
     return window.__repforgeFinalizeProgramSetup({
+      baseProposal,
       programDefinition: definition, name: "Why verb proof", answers: {}, destination: "log", origin: "first-run",
       draftConfirmed: true, telemetryRoute: "recommend", entrySource: { route: "recommend", fingerprint: "why-verb-locale" },
     }).then(() => window.__repforgeStorage.flush()).then(() => {
@@ -91,7 +94,7 @@ async function logSet(page, slotId, ordinal, { load, reps, rir }) {
   await fillShelf(page, REPS, reps);
   const rirInput = page.locator(`${current} .focus-shelf input[data-k="${slotId}_${ordinal}_rir"]`);
   if (await rirInput.getAttribute("aria-hidden") === "true") await revealField(page, "rir");
-  await rirInput.fill(String(rir));
+  await chooseRepsLeft(page, String(rir));
   await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
   await page.locator(`${current} [data-save="${slotId}_${ordinal}"]`).click();
   await page.waitForFunction(({ slotId, ordinal }) => {

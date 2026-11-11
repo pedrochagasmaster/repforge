@@ -14,7 +14,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { clonePayloadHashOf } from "../tools/canonical-clone-hash.mjs";
-import { launchChromium, assertServingApp, openShelfField, waitForAppBoot } from "./browser.mjs";
+import { chooseRepsLeft, launchChromium, assertServingApp, openShelfField, waitForAppBoot } from "./browser.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
@@ -259,7 +259,7 @@ async function enterAndEditDraft(page) {
   if (await rir.count()) {
     if (await rir.getAttribute("aria-hidden") === "true")
       await current.locator('.focus-shelf [data-shelf-field="rir"]').click();
-    await rir.fill("2");
+    await chooseRepsLeft(page, "2");
   }
   await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
   await current.locator(`[data-save="${exerciseId}_1"]`).click();

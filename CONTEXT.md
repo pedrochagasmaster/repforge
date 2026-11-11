@@ -104,6 +104,60 @@ _Avoid_: Block (unless the lifter uses that word), training phase, macro cycle
 A summary generated at the end of a mesocycle from adherence, progression, hard-set volume, PRs, and fatigue signals.
 _Avoid_: Report card, grade, score
 
+**Reps left**:
+The lifter's effort report on a set, as a count of the clean reps they still had: the one numeric effort stage, chips 0 · 1 · 2 · 3 · 4 · 5+, with 5+ stored as 5 (the engine's credit cap). The other stage is words (Easy / Hard / Max), the default for a new install. *RIR* is the glossary word for the same quantity, used in explanations, never as a mode label (owner, 2026-11-08, D-15).
+_PT (user-facing)_: reps sobrando.
+_Avoid_: RIR as a control label, RPE, intensity, "reps in the tank"
+
+**Test set**:
+A working set the lifter first guesses the reps for, then takes to technical failure at the same load; the guess against the result is how Taurifer learns how this lifter judges effort on that lift (Plan 077). It replaces the exercise's last working set, never adds one, and is offered under the plan's safety rules, never on a barbell squat, bench press or deadlift.
+_PT (user-facing)_: série-teste.
+_Avoid_: Max set (internal name only), AMRAP, failure test, challenge
+
+**Session zero**:
+A guided first session for a program whose loads are unknown: each exercise is ramped, the lifter answers in words whether they had more left, and the starting loads are set from the reps and the answers. Skippable, and skipped by default when loads are known. It replaces the "pick a load" prompt, not the first program day (owner, 2026-11-08, D-2).
+_Avoid_: Assessment, test day, calibration session, onboarding workout
+
+**Ramp set**:
+A trial set used to find an exercise's working load. An Easy trial becomes a warm-up before the programmed working sets; Hard or Max makes it the first working set. There are at most three warm-up ramp sets.
+_PT (user-facing)_: série de aproximação.
+_Avoid_: Test set, extra working set
+
+**Opening load**:
+The starting point offered for an exercise with no known working load, from a declared bodyweight prior, a comparable movement's working load, or the equipment minimum. The lifter can enter their own load, and their first working set replaces the opening guess.
+_PT (user-facing)_: carga inicial.
+_Avoid_: Target load, predicted strength
+
+**Standing**:
+How well-founded a lift's estimate is, said in words on the target and explained in Why: solid, still learning this lift, first time at this load. Derived from the row count, set-to-set agreement and the lifter's test-set reliability on that lift. Never a percentage, never a grade.
+_Avoid_: Confidence score, accuracy, certainty %, reliability rating
+
+**Finding**:
+One true thing the record now shows about the lifter, released when the evidence is sufficient and ending with what the next one needs ("two more sessions on leg press before…"). Findings are information, never rewards.
+_Avoid_: Milestone, achievement, unlock, badge, insight (marketing register)
+
+**Profile**:
+What Taurifer knows about you: per lift, the standing, the test sets and their results, and what the next finding needs; program-wide, the effort stage, the findings so far, and the calibration signals as counts. It replaces the 0–100 calibration gauge. Free for the current program in the alpha; the Free/Pro line is decided after it.
+_Avoid_: Dashboard, score, calibration %, training profile (the excluded Plan 077 concept), athlete model
+
+**Weekly review**:
+The surface for bounded within-block adaptation: the week's facts (sessions done, lifts that moved, lifts that stalled, pain reported) and, where one applies, a cause-matched proposal the lifter approves or declines. A lifter who gets facts only is never shown what a proposal would have been.
+_Avoid_: Weekly report, check-in (the coach register), recap, summary email
+
+**Pattern**:
+A recurring observation in the lifter's sessions that can justify asking why or proposing a bounded change. A pain pattern belongs to the same movement in the same exercise template; a replacement does not inherit it.
+_PT (user-facing)_: padrão.
+_Avoid_: Diagnosis, problem, warning score
+
+**Adaptation**:
+A bounded change to one main variable within the current mesocycle, proposed from a recurring pattern, approved by the lifter, and evaluated against later sessions. A session swap remains separate from a program change.
+_PT (user-facing)_: ajuste.
+_Avoid_: Automatic adjustment, transition, new program
+
+**Coach**:
+The human comparison only: hired coaches are a competitor and the internal yardstick for what the first month must do. Never a name for Taurifer, Taurifer AI, or any surface, and never a claim in copy; prescribing training is a regulated profession in Brazil.
+_Avoid_: "Your coach", "AI coach", "virtual trainer", treinador (as a product name), personal
+
 **Generated program**:
 A program created from onboarding answers; the user can edit it before saving.
 _Avoid_: Auto-plan, AI workout, recommended routine

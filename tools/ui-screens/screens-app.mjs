@@ -15,6 +15,7 @@ import { maybeStartLocalPreview } from "../local-preview.mjs";
 import { catalogState, directionDState, emptyEntryState, localeState } from "./fixtures.mjs";
 import { CAPTURE_NOW, dismissChrome, LOG_DRAFT, replayGuide, seed, sleep } from "./session.mjs";
 import { definitionSlot, installGeneratedProgram, isWeightRepsSlot, metricLogRow } from "../../test/fixtures/history-metric-rows.mjs";
+import { finishEarly } from "../../test/fixtures/focus-workout.mjs";
 import { openShelfField } from "../../test/browser.mjs";
 import { DIRECTION_D_CANONICAL_ID_BY_LEGACY_ID } from "./direction-d-canonical-fixture.generated.mjs";
 
@@ -295,7 +296,7 @@ const D_FIXTURE_STATES = new Set([
   "workout/deload-week", // Plan 072 S4: the deload cue in Focus
   "workout/session", "workout/early-finish", "workout/rest-overrun-finish", "workout/exercise-note", "workout/warmup-actions", // R3d
   "workout/exercise-note-line", // the exercise note on the card (owner, 2026-11-05)
-  "workout/max-set-prompt", "workout/max-set-guess", "workout/max-set-active", "workout/max-set-result", // Plan 077 PR 3
+  "workout/max-set-prompt", "workout/max-set-recheck", "workout/max-set-guess", "workout/max-set-active", "workout/max-set-result", // Plan 077 PR 3
   "workout/effort-stage-a", "workout/effort-stage-b", "workout/effort-menu", "workout/stage-tip", // Plan 077 PR 2
   "workout/reorder", "workout/skipped-actions", "workout/substituted-actions", // R3d
   "workout/actions", "workout/exercise-actions", // R3x: the redrawn sheet, on the lifter the drawing shows
@@ -338,6 +339,8 @@ function directionDBeforeSession() {
  */
 export const DIRECTION_D_SUMMARY_SESSION = Object.freeze({
   "session/summary": "dd-2026-08-31-day1",
+  "session/summary-finding": "dd-2026-08-31-day1",
+  "session/summary-profile": "dd-2026-08-31-day1",
   "session/summary-maintained": "dd-2026-08-26-day2",
   "session/summary-declined": "dd-2026-08-28-day3",
   "session/summary-first": "dd-2026-08-12-day2-mixed",
@@ -379,14 +382,14 @@ const APP_ASOF = {
 /** Plan 077 PR 2: the effort stage each state is drawn in (OD-4), and for the stage tip a lifter whose last workouts
  *  were logged with words they chose (OD-6). */
 const EFFORT_STAGE_STATES = Object.freeze({
-  "workout/effort-stage-a": { rirMode: "effort", effortScale: "feel" },
-  "workout/effort-stage-b": { rirMode: "effort", effortScale: "reps" },
-  "workout/effort-menu": { rirMode: "effort", effortScale: "feel" },
-  "workout/stage-tip": { rirMode: "effort", effortScale: "feel" },
-  // Plan 077 PR 4: the gauge and the last-rep question, on a lifter who logged RIR and took two test sets.
-  "progress/overview-calibration": { rirMode: "numeric" },
-  "today/calibration-mini": { rirMode: "numeric" },
-  "today/calibration-ring-bar": { rirMode: "numeric" },
+  "workout/focus-glossary": { rirMode: "effort" },
+  "workout/effort-stage-a": { rirMode: "effort" },
+  "workout/effort-stage-b": { rirMode: "numeric" },
+  "workout/effort-menu": { rirMode: "effort" },
+  "workout/stage-tip": { rirMode: "effort" },
+  // Profile and last-rep question on a lifter who logged numbers and took test sets.
+  "progress/overview-profile": { rirMode: "numeric" },
+  "progress/overview-profile-first": { rirMode: "numeric" },
   "workout/last-rep-slow": { rirMode: "numeric" },
 });
 /** Two test sets on the lifter's newest session, on its first two exercises: the guess beside a set to failure. */
@@ -410,7 +413,17 @@ function effortStageState(key, lang) {
   const drawn = localeState(key.startsWith("today/") ? directionDBeforeSession() : directionDState(), lang);
   drawn.settings = { ...drawn.settings, ...EFFORT_STAGE_STATES[key] };
   if (key === "workout/stage-tip") drawn.log = drawn.log.map((row) => row.warmup ? row : { ...row, effortSource: "effort" });
-  if (key === "progress/overview-calibration" || key === "today/calibration-mini" || key === "today/calibration-ring-bar" || key === "workout/last-rep-slow") drawn.log = withTestSets(drawn.log);
+  if (key === "workout/last-rep-slow") drawn.log = withTestSets(drawn.log);
+  if (key === "progress/overview-profile" || key === "progress/overview-profile-first") {
+    // Two exposures in one ISO week: a real history-backed target, before a
+    // week pair or a month exists. The full profile also has an opening record.
+    const sessions = [...new Set(drawn.log.map(row => row.session))].slice(0, 2);
+    drawn.log = drawn.log.filter(row => sessions.includes(row.session)).map(row => {
+      const date=sessions.indexOf(row.session)===0?"2026-08-10":"2026-08-13";
+      return {...row,date,created:`${date}T12:00:00.000Z`};
+    });
+    if(key === "progress/overview-profile")drawn.log[0].startingLoad={v:1,openingKg:80,basis:"typed",ramps:0,version:"priors@079.1"};
+  }
   return drawn;
 }
 
@@ -420,8 +433,14 @@ export function appState(key, lang) {
     return emptyEntryState(lang);
   }
   if (key === "history/per-side-session" || key === "workout/focus-per-side") return emptyEntryState(lang);
+  if (["workout/focus-ramp","workout/focus-ramp-ratio","workout/focus-ramp-substitution","workout/focus-ramp-changed-movement","workout/focus-ramp-floor","workout/focus-ramp-easy","history/ramp-rows"].includes(key)) return emptyEntryState(lang);
   if (key === "workout/why-setup") return emptyEntryState(lang);
   if (DIRECTION_D_BEFORE_SESSION.has(key)) return localeState(directionDBeforeSession(), lang);
+  if (["session/summary-finding", "session/summary-profile"].includes(key)) {
+    const state = directionDThroughSession(DIRECTION_D_SUMMARY_SESSION[key]);
+    state.log = withTestSets(state.log);
+    return localeState(state, lang);
+  }
   if (DIRECTION_D_SUMMARY_SESSION[key]) return localeState(directionDThroughSession(DIRECTION_D_SUMMARY_SESSION[key]), lang);
   if (key.startsWith("progress/sibling-") || key === "progress/volume-reduction-preview" ||
       ["progress/recovery-ineligible","progress/recovery-questions","progress/recovery-preview","progress/recovery-active","progress/recovery-reassessment"].includes(key)) {
@@ -457,6 +476,48 @@ export function appState(key, lang) {
   // movements (tools/build-seed-program-fixture.mjs), so program/share-*
   // no longer needs to fabricate varied libraryIds onto a flat-row fixture.
   const state = catalogState();
+  if (key === "workout/pain-swap") {
+    const exercise=state.program[0],date=isoDaysAgo(3),session="pain-path-prior";
+    const slot=state.programMeta.programDefinition.days.flatMap(day=>day.slots).find(slot=>slot.id===exercise.id);
+    slot.alternates=["1a25c6f170d88079a926dde776766181","1a25c6f170d880708256e9a8bf6337bf"];
+    state.log=[metricLogRow(state.programMeta,exercise,{session,date,day:exercise.day,set:1,load:40,reps:8,rir:2,created:`${date}T12:00:00.000Z`})];
+    state.sessionEvents={[session]:{v:1,skips:[],pain:[{exerciseId:exercise.libraryId,slotId:exercise.id,name:exercise.name,kind:"pain",swapped:false}]}};
+  }
+  if (["progress/review-active","progress/review-proposal","progress/review-evaluated","today/week-card"].includes(key)) {
+    const [up,stall,skipped]=state.program.filter(exercise=>exercise.day==="Day 1");
+    const dates=[isoDaysAgo(19),isoDaysAgo(12),isoDaysAgo(5)];
+    state.log=dates.flatMap((date,index)=>[up,stall].map((exercise,i)=>metricLogRow(state.programMeta,exercise,{
+      session:`weekly-${index}`,date,day:index===2?"Day 2":"Day 1",set:1,load:i===0?50+index*2.5:40,reps:10,rir:2,created:`${date}T12:00:00.000Z`
+    })));
+    const date=isoDaysAgo(4);
+    state.log.push(metricLogRow(state.programMeta,up,{session:"weekly-second",date,day:"Day 1",set:1,load:55,reps:11,rir:2,created:`${date}T12:00:00.000Z`}));
+    state.sessionEvents={"weekly-2":{v:1,skips:[{exerciseId:skipped.libraryId,name:skipped.name,slotId:skipped.id,reason:"time"}],pain:[{exerciseId:stall.libraryId,name:stall.name,slotId:stall.id,kind:"discomfort",swapped:false}]}};
+  }
+
+  if (["progress/review-proposal","progress/review-evaluated"].includes(key)) {
+    state.programMeta.blockId="catalog-weekly-adaptation-block";
+    state.log=state.log.map(row=>({...row,blockId:state.programMeta.blockId}));
+    const stalled=state.program.filter(exercise=>exercise.day==="Day 1")[1];
+    for(const row of state.log)if(row.exerciseId===stalled.id)row.rir=1;
+    const stallDate=isoDaysAgo(10);
+    state.log.push(metricLogRow(state.programMeta,stalled,{session:"weekly-stall",date:stallDate,day:"Day 1",set:1,load:40,reps:10,rir:1,created:`${stallDate}T12:00:00.000Z`}));
+    const skipped=state.program.filter(exercise=>exercise.day==="Day 1")[2];
+    const slot=state.programMeta.programDefinition.days.flatMap(day=>day.slots).find(slot=>slot.id===skipped.id);
+    slot.alternates=[state.program[0].libraryId];
+    state.sessionEvents["weekly-1"]={v:1,skips:[{exerciseId:skipped.libraryId,slotId:slot.id,name:skipped.name,reason:"equipment"}],pain:[]};
+    if(key==="progress/review-evaluated"){
+      const monday=isoDaysAgo(7),instant=`${monday}T12:00:00.000Z`;
+      state.programMeta.adaptations=[{id:"adaptation-catalog",v:1,blockId:state.programMeta.blockId||state.programMeta.id,
+        week:monday,pattern:"recurring_skip",cause:"equipment",kind:"drop_exercise",target:{slotId:slot.id,exerciseId:slot.exerciseId},
+        proposedAt:instant,decision:"accepted",decidedAt:instant,
+        appliedEdit:{expectedToken:{revision:1,programId:state.programMeta.id,blockId:state.programMeta.blockId||state.programMeta.id,fingerprint:"catalog-before-change"},intent:"adaptation_apply"},
+        evaluation:{week:isoDaysAgo(0),outcome:"pattern_stopped"}}];
+      state.program=state.program.filter(row=>row.id!==slot.id);
+      for(const day of new Set(state.program.map(row=>row.day)))state.program.filter(row=>row.day===day).forEach((row,index)=>{row.order=index+1});
+      for(const day of state.programMeta.programDefinition.days)day.slots=day.slots.filter(item=>item.id!==slot.id).map((slot,index)=>({...slot,order:index+1}));
+    }
+  }
+
   if (key === "progress/overview-baseline" || key === "progress/review-insufficient") {
     const seen = new Set();
     state.log = state.log.filter((row) => {
@@ -466,7 +527,7 @@ export function appState(key, lang) {
       return true;
     });
   }
-  if ((key.startsWith("progress/review-") && key !== "progress/review-active") || key.startsWith("progress/schedule-") ||
+  if ((key.startsWith("progress/review-") && !["progress/review-active","progress/review-proposal","progress/review-evaluated"].includes(key)) || key.startsWith("progress/schedule-") ||
       key.startsWith("progress/sibling-") || key.startsWith("progress/guided-") ||
       key.startsWith("progress/volume-reduction") || key.startsWith("progress/recovery-")) {
     state.programMeta.mesocycleStatus = "completed";
@@ -591,6 +652,17 @@ async function enterWorkout(page, options = {}) {
 
 /** Focus on the program's first day. Boot now defaults to the day after the last one trained (#528), so a state that
  *  depicts the first lift of a session names its day instead of inheriting whichever day the fixture's history implies. */
+async function focusLearning(page){
+  const state=await page.evaluate(()=>JSON.parse(localStorage.getItem("repforge_v1")));
+  const row=state.program[0],slot=definitionSlot(state.programMeta,row);
+  const rows=state.log.filter(item=>item.performedLibraryId===slot.exerciseId||item.exerciseId===row.id);
+  const latest=rows.at(-1)?.session;
+  if(!latest)throw new Error("standing Focus fixture needs a prior session");
+  state.log=state.log.filter(item=>!rows.includes(item)||item.session===latest);
+  await seed(page,state);
+  await focusMode(page);
+  await page.waitForSelector("#workout .exercise.is-current .fx-cue__standing");
+}
 async function focusMode(page) {
   const first = await page.evaluate(() => JSON.parse(localStorage.getItem("repforge_v1") || "{}").program?.[0]?.day || null);
   await enterWorkout(page, first ? { day: first } : {});
@@ -1282,17 +1354,18 @@ async function startInlineRest(page) {
 
 /** Plan 077 PR 3: Focus on the first lift that can take a max set, every working set but its last logged at 45 × 12 with
  *  2 left, and the rest running, so the prompt is up. */
-async function maxSetRest(page) {
+async function maxSetRest(page, { exerciseId = null } = {}) {
   await focusMode(page);
   await page.evaluate(() => { state.settings.maxSetPrompts = true; });
-  const at = await page.evaluate(() => {
+  const at = await page.evaluate((exerciseId) => {
     const draft = window.__repforgeWorkoutDraft.current();
     return focusList().findIndex((ex) => {
+      if (exerciseId && ex.id !== exerciseId) return false;
       const de = draft.exercises[ex.id];
       const working = de ? de.setOrder.map((id) => de.sets[id]).filter((set) => set.role === "working") : [];
       return working.length >= 2 && maxSetEligibility(de, working.at(-1)).eligible;
     });
-  });
+  }, exerciseId);
   if (at < 0) throw new Error("No lift in the fixture can take a max set");
   await page.evaluate((i) => window.__repforgeFocus.to(i), at);
   await page.waitForFunction((i) => focusIndex === i, at, { timeout: 20000 });
@@ -1372,7 +1445,7 @@ async function logAdaptiveSet(page, slotId, ordinal, { load, reps, rir }) {
   if (await rirInput.getAttribute("aria-hidden") === "true") {
     await page.locator('#workout .exercise.is-current .focus-shelf [data-shelf-field="rir"]').click();
   }
-  await rirInput.fill(String(rir));
+  await page.locator('#workout .exercise.is-current .focus-shelf [data-effchip][data-e="' + rir + '"]').click();
   await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
   await page.locator(`#workout .exercise.is-current [data-save="${slotId}_${ordinal}"]`).click();
   await sleep(page, 500);
@@ -1386,13 +1459,13 @@ async function logAdaptiveSet(page, slotId, ordinal, { load, reps, rir }) {
  * generated program the sheet is built by engineWhyModel/engineWhyRows and
  * always leads with "engine-anchor", "engine-target" and "engine-assumptions".
  */
-async function adaptiveWhyFixture(page) {
+async function adaptiveWhyFixture(page,{daysAgo=7}={}) {
   const state = await installGeneratedProgram(page, { name: "Why sheet proof" });
   const day = state.program[0]?.day;
   const row = state.program.find((candidate) => candidate.day === day && isWeightRepsSlot(definitionSlot(state.programMeta, candidate)));
   if (!row) throw new Error("adaptive Why fixture: no Weight+Reps slot on the generated program's first day");
   const past = new Date(Date.parse(CAPTURE_NOW));
-  past.setUTCDate(past.getUTCDate() - 7);
+  past.setUTCDate(past.getUTCDate() - daysAgo);
   const pastDate = past.toISOString().slice(0, 10);
   state.log = [
     metricLogRow(state.programMeta, row, { session: "why-history", date: pastDate, set: 1, load: 40, reps: 8, rir: 2 }),
@@ -1652,7 +1725,7 @@ async function whyOnBuildRange(page) {
   const row = catalogState().program[0];
   await navigateToWhy(page, { exerciseId: row.id, day: row.day });
   await expectWhyLeads(page, ["manual"]);
-  const text = await page.locator("#whyBody .whysheet__text").textContent();
+  const text = await page.locator('#whyBody [data-lead="manual"] .whysheet__text').textContent();
   const expected = await page.evaluate(() => window.RepForgeI18n.t("why.manual"));
   if (text?.trim() !== expected) throw new Error(`The Build-backed manual Why sentence was ${JSON.stringify(text)}`);
 }
@@ -1717,7 +1790,7 @@ async function whyOnGeneratedPerSide(page) {
   if (truth.status !== "configuration_required" || !truth.reasonCodes?.includes("execution_context_required") || truth.load != null)
     throw new Error(`The ambiguous generated slot lost its execution-mode requirement or acquired a load: ${JSON.stringify(truth)}`);
   await expectWhyLeads(page, ["setup"]);
-  const text = await page.locator("#whyBody .whysheet__text").textContent();
+  const text = await page.locator('#whyBody [data-lead="setup"] .whysheet__text').textContent();
   const expected = await page.evaluate(() => window.RepForgeI18n.t("why.setup.execution_mode"));
   if (text?.trim() !== expected) throw new Error(`The generated per-side Why sentence was ${JSON.stringify(text)}`);
 }
@@ -1868,7 +1941,7 @@ async function whyPerSideAssumption(page) {
     || (lang.toLowerCase().startsWith("pt") ? text.includes("peso corporal") : /bodyweight/i.test(text))) {
     throw new Error(`The rendered Why sheet omits the approved per-side anchor or multiplier, or counts bodyweight: ${JSON.stringify({ text, lang })}`);
   }
-  await expectWhyLeads(page, ["engine-anchor", "engine-target", "engine-assumptions"]);
+  await expectWhyLeads(page, ["engine-anchor", "engine-target", "engine-assumptions", "engine-standing"]);
 }
 
 let programLabPreview;
@@ -1903,6 +1976,58 @@ async function captureProgramLab(page, result = false) {
     await page.locator('#scenarioHeading').evaluate(element => element.scrollIntoView({ block: 'start' }));
   }
 }
+async function rampFixture(page,{bodyweight=true,ratio=false,substitute=false}={}){
+  const state=await installGeneratedProgram(page,{name:"Session zero"});
+  state.profile=bodyweight?{weightKg:80}:{};state.programMeta.experience="beginner";state.settings.rirMode="effort";
+  delete state.settings.effortScale;
+  const target=state.program.find(row=>isWeightRepsSlot(definitionSlot(state.programMeta,row))&&row.sets>=3);
+  if(!target)throw new Error("ramp fixture requires a generated Weight+Reps slot");
+  if(ratio){
+    const source=await page.evaluate(()=>window.RepForgeExerciseCatalog.snapshot().exercises.find(ex=>ex.name==="Pendulum squat"));
+    const squats=await page.evaluate(()=>window.RepForgeExerciseCatalog.snapshot().exercises.filter(ex=>ex.movementPattern?.some(id=>window.RepForgeExerciseCatalog.getObject(id)?.name==="Squat")).map(ex=>ex.id));
+    const squat=state.program.find(row=>squats.includes(row.libraryId)&&isWeightRepsSlot(definitionSlot(state.programMeta,row))&&row.sets>=3);
+    if(!squat)throw new Error("ratio fixture requires a weighted squat");
+    state.log=[metricLogRow(state.programMeta,squat,{session:"opening-anchor",date:"2026-08-30",set:1,load:35,reps:8,
+      extra:{performedLibraryId:substitute?squat.libraryId:source.id,sourceLibraryId:substitute?squat.libraryId:source.id,performedName:substitute?squat.name:source.name,
+        loadingModel:substitute?definitionSlot(state.programMeta,squat).loadingModel:{bodyweightCoefficient:source.bodyweight??null}}})];
+    state.log[0].loadingContext.bodyweightCoefficient=state.log[0].loadingModel.bodyweightCoefficient;
+    await seed(page,state);
+    await page.evaluate(id=>window.__repforgeGoToLogExercise(id),squat.id);
+    if(substitute){
+      await page.locator("#woOverflowBtn").click();await page.locator('[data-workout-action="exercise"]').click();
+      await page.locator("#exActionSubstBtn").click();await page.locator("#exPickSearch").fill("Pendulum squat");
+      await page.locator(`#exPickList [data-pick="${source.id}"]`).click();
+      await page.locator('[data-pick-reason="equipment"]').click();
+      await page.waitForFunction(id=>!!window.__repforgeWorkoutDraft.current()?.exercises[id]?.substitution,squat.id);
+    }
+  }else{
+    await seed(page,state);
+    await page.evaluate(id=>window.__repforgeGoToLogExercise(id),target.id);
+  }
+  await page.locator("#workout .exercise.is-current [data-ramp-start]").waitFor();
+  return target;
+}
+async function rampAnswer(page,word,count){
+  const card="#workout .exercise.is-current";
+  await page.locator(`${card} [data-shelf-field="rir"]`).click();
+  await page.locator(`${card} [data-effchip][data-e="${word}"]`).click();
+  await page.evaluate(()=>window.__repforgeWorkoutDraft.flush());
+  await page.locator(`${card} .saveset`).click();
+  if(word==="easy"){
+    await page.locator(`${card} .saveset[data-save$="_${count+1}"]`).waitFor();
+    await page.waitForFunction(()=>window.__repforgeRest.state().active);
+    await page.evaluate(()=>window.stopRest());
+    await page.waitForFunction(()=>!window.__repforgeRest.state().active);
+    await page.locator(`${card} [data-ramp-start][data-ramp-n="${count+1}"]`).waitFor();
+  }
+  else {
+    await page.waitForFunction(()=>window.__repforgeRest.state().active);
+    await page.evaluate(()=>window.stopRest());
+    await page.waitForFunction(()=>!window.__repforgeRest.state().active);
+    await page.locator(`${card} .fx-cue.is-now`).waitFor();
+  }
+}
+
 /** The share sheet with the Photo background under a drawn stand-in for a gym photo (bright window, warm wall, dark
  *  racks), chosen through the system picker and made in the page so the frame is the same on every run. */
 async function shareOverPhoto(page, key) {
@@ -1940,6 +2065,32 @@ async function showShareTemplate(page, template) {
   await page.waitForFunction((name) => { const s = window.__repforgeShareSheet.state(); return s?.template === name && s.fileTemplate === name; }, template, { timeout: 20000 });
 }
 export const APP_SCENARIOS = {
+  "workout/focus-ramp": async page=>{await rampFixture(page)},
+  "workout/focus-ramp-ratio": async page=>{await rampFixture(page,{ratio:true})},
+  "workout/focus-ramp-substitution": async page=>{await rampFixture(page,{ratio:true,substitute:true})},
+  "workout/focus-ramp-changed-movement": async page=>{
+    await rampFixture(page,{ratio:true});
+    await page.locator("#workout .exercise.is-current [data-ramp-start]").click();await rampAnswer(page,"easy",1);
+    const id=await page.evaluate(()=>window.RepForgeExerciseCatalog.snapshot().exercises.find(ex=>ex.name==="Barbell bench press").id);
+    await page.locator("#woOverflowBtn").click();await page.locator('[data-workout-action="exercise"]').click();
+    await page.locator("#exActionSubstBtn").click();await page.locator("#exPickSearch").fill("Barbell bench press");
+    await page.locator(`#exPickList [data-pick="${id}"]`).click();await page.locator('[data-pick-reason="equipment"]').click();
+    await page.locator('#workout .exercise.is-current [data-ramp-start][data-ramp-load="22.5"][data-ramp-basis="prior"]').waitFor();
+  },
+  "workout/focus-ramp-floor": async page=>{await rampFixture(page,{bodyweight:false})},
+  "workout/focus-ramp-easy": async page=>{
+    await rampFixture(page);await page.locator("#workout .exercise.is-current [data-ramp-start]").click();
+    await rampAnswer(page,"easy",1);
+  },
+  "history/ramp-rows": async page=>{
+    await rampFixture(page);await page.locator("#workout .exercise.is-current [data-ramp-start]").click();
+    await rampAnswer(page,"easy",1);await rampAnswer(page,"easy",2);await rampAnswer(page,"hard",2);
+    await finishEarly(page);await page.locator("#sumDone").click();
+    await view(page,"history");await page.locator("#sessions .session__open").first().click();
+    await page.locator(".session--read").waitFor();
+    await page.waitForFunction(()=>!document.body.classList.contains("is-pushing"));
+    await page.evaluate(async()=>{await document.fonts.ready;window.scrollTo({top:document.documentElement.scrollHeight,behavior:"instant"})});
+  },
   "programlab/editor": page => captureProgramLab(page),
   "programlab/comparison": page => captureProgramLab(page, true),
   "catalog-recovery/unavailable": reloadWithUnavailableExerciseCatalog,
@@ -1964,21 +2115,6 @@ export const APP_SCENARIOS = {
     await note.waitFor({ state: "visible", timeout: 20000 });
     const copy = await page.evaluate(() => window.RepForgeI18n.t("today.deload_week"));
     if ((await note.innerText()).trim() !== copy) throw new Error("Today shows the wrong deload recovery note");
-  },
-  // The calibration ring (owner direction B, 2026-11-06) beside Today's large title.
-  "today/calibration-mini": async (page) => {
-    await dismissChrome(page);
-    await page.waitForSelector("#todayCalRing:not(.hidden) svg", { timeout: 20000 });
-    await page.evaluate(() => window.scrollTo(0, 0));
-    await sleep(page, 300);
-  },
-  // Scrolled: the title under the bar, and the ring at 30 px in the bar beside the gear.
-  "today/calibration-ring-bar": async (page) => {
-    await dismissChrome(page);
-    await page.waitForSelector("#todayCalRing:not(.hidden) svg", { timeout: 20000 });
-    await page.evaluate(() => window.scrollTo(0, 320));
-    await page.waitForSelector("#todayCalRingBar.is-shown", { timeout: 20000 });
-    await sleep(page, 400);
   },
   "today/ready": async (page) => {
     await dismissChrome(page);
@@ -2157,7 +2293,7 @@ export const APP_SCENARIOS = {
     }
   },
 
-  "workout/focus": focusMode,
+  "workout/focus": focusLearning,
   "workout/first-set-guide": async (page) => {
     // Replayed away from Focus, the guide waits for its anchor; in Focus it waits for the first tap on the shelf.
     await page.evaluate(() => window.__repforgeUi.replayGuide("first-set"));
@@ -2189,7 +2325,7 @@ export const APP_SCENARIOS = {
   },
   "workout/focus-glossary": async (page) => {
     await focusMode(page);
-    const term = page.locator("#workout [data-term]").first();
+    const term = page.locator('#workout .exercise.is-current [data-term="Effort"]');
     await term.waitFor({ state: "visible", timeout: 20000 });
     // The popover's top is read from the term's position at the click and then held. A click while
     // Focus is still moving into place pinned it a few pixels off (#707 CI), so click once it rests.
@@ -2227,17 +2363,19 @@ export const APP_SCENARIOS = {
     await page.locator('#sessionAbandonReasons [data-abandon-reason="time"]').click();
     await pinSheetScrollToEnd(page, ".session-sheet__body");
   },
-  "workout/exercise-actions": async page => { await focusMode(page); await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click(); await resetSheetScroll(page, ".exactions-sheet__body"); },
+  "workout/exercise-actions": async page => { await focusMode(page); await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click(); await resetSheetScroll(page, "#exActionsSheet .exactions-sheet__body"); },
   "workout/skipped-actions": async page => {
     await focusMode(page);
     const id=await page.locator("#workout .exercise.is-current").getAttribute("data-ex");
     await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
     await page.locator("#exActionSkipBtn").click();
+    await page.locator('[data-skip-reason="other"]').click();
+    await page.locator("#skipReasonSheet").waitFor({state:"hidden"});
     await page.locator("#exActionsSheet").waitFor({state:"hidden"});
     await page.locator("#sessionSheetBtn").click();
     await page.locator(`[data-session-map-jump="${id}"]`).click();
     await page.locator("#exActionsSheet.is-open").waitFor();
-    await resetSheetScroll(page, ".exactions-sheet__body");
+    await resetSheetScroll(page, "#exActionsSheet .exactions-sheet__body");
   },
   "workout/substituted-actions": async page => {
     await focusMode(page);
@@ -2253,7 +2391,7 @@ export const APP_SCENARIOS = {
     await page.locator("#exActionsSheet.is-open").waitFor();
     await page.evaluate(() => Promise.all(document.getAnimations()
       .filter((a) => a.effect?.getComputedTiming().iterations !== Infinity).map((a) => a.finished.catch(() => {}))));
-    await resetSheetScroll(page, ".exactions-sheet__body");
+    await resetSheetScroll(page, "#exActionsSheet .exactions-sheet__body");
   },
   "workout/swap-alternates": async page => {
     await focusMode(page);
@@ -2272,7 +2410,7 @@ export const APP_SCENARIOS = {
     await page.locator("#exPickSheet.is-reason-step .pick__followup").waitFor();
     await sleep(page, 400);
   },
-  "workout/warmup-actions": async page => { await focusMode(page); await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click(); await page.locator("#exActionsWarmupList [data-warm-toggle-set]").first().click(); await page.evaluate(() => window.__repforgeWorkoutDraft.flush()); await resetSheetScroll(page, ".exactions-sheet__body"); },
+  "workout/warmup-actions": async page => { await focusMode(page); await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click(); await page.locator("#exActionsWarmupList [data-warm-toggle-set]").first().click(); await page.evaluate(() => window.__repforgeWorkoutDraft.flush()); await resetSheetScroll(page, "#exActionsSheet .exactions-sheet__body"); },
   // The session map reorders as the editor does: the row's menu (long-press, or its button for the keyboard) moves it.
   "workout/reorder": async page => {
     await focusMode(page);
@@ -2510,6 +2648,27 @@ export const APP_SCENARIOS = {
     await maxSetRest(page);
     await sleep(page, 400);
   },
+  "workout/max-set-recheck": async (page) => {
+    const state = await installGeneratedProgram(page, {name:"Test set re-check"});
+    const eligibleIds = await page.evaluate(rows => rows.filter(row =>
+      RepForgeEffortCalibration.eligibility({exercise:rawExercise(row.libraryId),lookup:rawCatalogObject}).eligible
+    ).map(row => row.id), state.program);
+    const row = state.program.find(row => row.day === state.program[0].day && eligibleIds.includes(row.id) &&
+      isWeightRepsSlot(definitionSlot(state.programMeta,row)));
+    if (!row) throw new Error("No eligible generated Weight+Reps lift for re-check");
+    state.log = [];
+    for (const days of [88,74,60,35,28,21,14,7]) {
+      const date = new Date(Date.parse(CAPTURE_NOW)-days*864e5).toISOString().slice(0,10);
+      for (let set = 1; set <= 3; set++) state.log.push(metricLogRow(state.programMeta,row,{
+        session:`recheck-${days}`,date,set,load:40,reps:12-set,rir:days>=60&&set===3?0:2,
+        extra:{effortSource:days>=60&&set===3?"failure":"reps_left",
+          ...(days>=60&&set===3?{calibration:{v:1,predictedReps:9,predictionEdited:false,prefillBasis:"reps"}}:{})}}));
+    }
+    await seed(page,state);
+    await maxSetRest(page,{exerciseId:row.id});
+    await page.waitForFunction(() => document.querySelector('.exercise.is-current [data-tip="max-set"]')?.textContent.includes(
+      t("maxset.invite_reason_recheck")));
+  },
   "workout/max-set-guess": async (page) => {
     await maxSetRest(page);
     await page.locator("#workout .exercise.is-current [data-maxset-guess]").click({ timeout: 20000 });
@@ -2532,16 +2691,16 @@ export const APP_SCENARIOS = {
     await page.locator("#workout .exercise.is-current .focus-shelf [data-shelf-field='rir']").click({ timeout: 20000 });
     await sleep(page, 400);
   },
-  // Stage B asks how many more clean reps: 0 · 1 · 2 · 3+, here with 2 chosen.
+  // Numeric reps left: 0 · 1 · 2 · 3 · 4 · 5+, here with 2 chosen.
   "workout/effort-stage-b": async (page) => {
     await focusMode(page);
     const shelf = "#workout .exercise.is-current .focus-shelf";
     await page.locator(`${shelf} [data-shelf-field='rir']`).click({ timeout: 20000 });
-    await page.locator(`${shelf} [data-effchip][data-e='r2']`).click({ timeout: 20000 });
+    await page.locator(`${shelf} [data-effchip][data-e='2']`).click({ timeout: 20000 });
     await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
     await sleep(page, 400);
   },
-  // The effort field's arrow: the three ways to log effort, the current one checked, and Not sure for this set.
+  // The effort field's arrow: the two ways to log effort, the current one checked, and Not sure for this set.
   "workout/effort-menu": async (page) => {
     await focusMode(page);
     await page.locator("#workout .exercise.is-current .focus-shelf [data-effmenu]").click({ timeout: 20000 });
@@ -2590,9 +2749,17 @@ export const APP_SCENARIOS = {
     await clickWhy(page, "#workout .exercise.is-current [data-why]");
     await page.waitForSelector("#whySheet.is-open", { timeout: 20000 });
     await sleep(page, 400);
-    await expectWhyLeads(page, ["engine-anchor", "engine-target", "engine-assumptions"]);
+    await expectWhyLeads(page, ["engine-anchor", "engine-target", "engine-assumptions", "engine-standing"]);
   },
   // Plan 077 PR 5: a lift with three on-target test sets: the Why sheet's effort-estimate line says so.
+  "workout/why-standing": async (page) => {
+    await adaptiveWhyFixture(page,{daysAgo:50});
+    await clickWhy(page,"#workout .exercise.is-current [data-why]");
+    await page.waitForSelector("#whySheet.is-open");
+    await expectWhyLeads(page,["engine-standing"]);
+    await page.evaluate(()=>{document.querySelector("#whySheet").dataset.detent="large"});
+    await page.locator('[data-lead="engine-standing"]').scrollIntoViewIfNeeded();
+  },
   "workout/why-calibration": async (page) => {
     const state = await installGeneratedProgram(page, { name: "Why sheet proof" });
     const day = state.program[0]?.day;
@@ -2610,7 +2777,7 @@ export const APP_SCENARIOS = {
     await clickWhy(page, "#workout .exercise.is-current [data-why]");
     await page.waitForSelector("#whySheet.is-open", { timeout: 20000 });
     await sleep(page, 400);
-    await expectWhyLeads(page, ["engine-anchor", "engine-target", "engine-calibration"]);
+    await expectWhyLeads(page, ["engine-anchor", "engine-target", "engine-standing", "engine-calibration"]);
     // The line is the sheet's last block: the sheet raised to its large detent and read to its end, as the lifter would.
     await page.evaluate(() => { document.querySelector("#whySheet").dataset.detent = "large"; });
     await sleep(page, 400);
@@ -2623,11 +2790,25 @@ export const APP_SCENARIOS = {
     await clickWhy(page, "#workout .exercise.is-current [data-why]");
     await page.waitForSelector("#whySheet.is-open", { timeout: 20000 });
     await sleep(page, 400);
-    await expectWhyLeads(page, ["engine-anchor", "engine-target", "engine-assumptions"]);
+    await expectWhyLeads(page, ["engine-anchor", "engine-target", "engine-assumptions", "engine-standing"]);
   },
   "workout/why-manual": whyOnBuildRange,
   "workout/why-setup": whyOnGeneratedPerSide,
 
+  "session/summary-finding": async (page) => {
+    await openFixtureSummary(page, DIRECTION_D_SUMMARY_SESSION["session/summary-finding"]);
+    await page.waitForSelector('#sumFinding[data-finding="first_check"]');
+    await page.evaluate(() => {
+      const sheet = document.querySelector("#sessionSummary"), finding = document.querySelector("#sumFinding");
+      sheet.scrollTop = Math.max(0, finding.getBoundingClientRect().top - sheet.getBoundingClientRect().top + sheet.scrollTop - 24);
+    });
+  },
+  "session/summary-profile": async (page) => {
+    await openFixtureSummary(page, DIRECTION_D_SUMMARY_SESSION["session/summary-profile"]);
+    await page.click("#sumFinding");
+    await page.waitForSelector("#summaryProfileBack");
+    await page.waitForFunction(() => document.activeElement === document.querySelector("#overviewProfile"));
+  },
   "session/summary": async (page) => {
     await openFixtureSummary(page, DIRECTION_D_SUMMARY_SESSION["session/summary"]);
     await page.waitForSelector('.sum-outcome[data-outcome="improved"]', { timeout: 20000 });
@@ -2692,11 +2873,27 @@ export const APP_SCENARIOS = {
   },
 
   "progress/overview": (page) => view(page, "stats"),
-  // Plan 077 PR 4: the calibration gauge with its six signals and the recent test sets.
-  "progress/overview-calibration": async (page) => {
+  // The profile is the subject here; the generic Overview state stays at its page title.
+  "progress/overview-profile": async (page) => {
     await view(page, "stats");
-    await page.waitForSelector("#overviewCalibration:not(.hidden) .calcard", { timeout: 20000 });
-    await sleep(page, 300);
+    await page.waitForSelector("#overviewProfile [data-finding=weights_found]");
+    await page.waitForFunction(()=>document.querySelectorAll("#overviewProfile [data-finding]").length===2);
+    await page.evaluate(() => {
+      const profile=document.querySelector("#overviewProfile"),bar=document.querySelector("#statsTopbar");
+      window.scrollBy(0,profile.getBoundingClientRect().top-bar.getBoundingClientRect().bottom-16);
+    });
+  },
+  "progress/overview-profile-first": async page => {
+    await view(page, "stats");
+    await page.waitForSelector("#overviewProfile [data-finding=first_target]");
+    await page.waitForFunction(()=>document.querySelectorAll("#overviewProfile [data-finding]").length===1);
+    await page.evaluate(async () => {
+      await document.fonts.ready;
+      await Promise.all(document.getAnimations().filter(animation=>animation.effect?.getTiming().iterations!==Infinity)
+        .map(animation=>animation.finished.catch(()=>{})));
+      const profile=document.querySelector("#overviewProfile"),bar=document.querySelector("#statsTopbar");
+      window.scrollTo({top:window.scrollY+profile.getBoundingClientRect().top-bar.offsetHeight-16,behavior:"instant"});
+    });
   },
   "progress/overview-guide": async (page) => { await view(page, "stats"); await replayGuide(page, "progress"); },
   "progress/overview-baseline": (page) => view(page, "stats"),
@@ -2763,6 +2960,35 @@ export const APP_SCENARIOS = {
   "progress/review": (page) => progressSegment(page, "review"),
   "progress/review-guide": async (page) => { await progressSegment(page, "review"); await replayGuide(page, "block-transition"); },
   "progress/review-active": (page) => progressSegment(page, "review"),
+  "progress/review-proposal": async page => {
+    await progressSegment(page,"review");
+    await page.locator('[data-adaptation-cause="equipment"]').click();
+    await page.locator('.week-proposal__actions').evaluate(element=>element.scrollIntoView({block:"center",behavior:"instant"}));
+  },
+  "progress/review-evaluated": async page => {
+    await progressSegment(page,"review");
+    await page.locator('[data-adaptation-evaluation]').evaluate(element=>element.scrollIntoView({block:"center",behavior:"instant"}));
+  },
+  "today/week-card": async page => {await page.locator("#todayWeekCard:not(.hidden)").waitFor();},
+  "workout/pain-swap": async page => {
+    await focusMode(page);await page.locator("#woOverflowBtn").click();
+    await page.locator('[data-workout-action="exercise"]').click();
+    await page.locator("#exActionDiscomfortBtn").click();
+    await page.locator("#exPickSheet.is-open .pick__section").first().waitFor();
+  },
+  "workout/discomfort-mark": async page => {
+    await focusMode(page);await page.locator("#woOverflowBtn").click();
+    await page.locator('[data-workout-action="exercise"]').click();
+    await page.locator("#exActionDiscomfortBtn").click();
+    await page.locator("#exActionDiscomfortStatus:not(.hidden)").waitFor();
+    await page.locator("#exActionDiscomfortStatus").scrollIntoViewIfNeeded();
+  },
+  "workout/skip-reason": async page => {
+    await focusMode(page);await page.locator("#woOverflowBtn").click();
+    await page.locator('[data-workout-action="exercise"]').click();
+    await page.locator("#exActionSkipBtn").click();
+    await page.locator("#skipReasonSheet:not([hidden])").waitFor();
+  },
   "progress/review-complete": openCompletedReview,
   "progress/review-insufficient": openCompletedReview,
   "progress/schedule-diagnosis": openScheduleDiagnosis,
@@ -2955,7 +3181,11 @@ export const APP_SCENARIOS = {
     await row.scrollIntoViewIfNeeded({ timeout: 20000 });
     await row.click({ timeout: 20000 });
     await page.waitForSelector("#exDetail .recblock .recblock__why", { timeout: 20000 });
-    await sleep(page, 800);
+    await page.waitForSelector("#exDetail .exercise-profile");
+    await page.evaluate(() => {
+      const rec=document.querySelector("#exDetail .recblock"),head=document.querySelector("#exercise .exview-head");
+      window.scrollBy(0,rec.getBoundingClientRect().top-head.getBoundingClientRect().bottom-16);
+    });
   },
   "library/exercise-detail-glossary": async (page) => {
     // Day 3 opens on Leg extension, a movement with a licensed illustration.
@@ -3216,6 +3446,8 @@ export const APP_SCENARIOS = {
   "today/skipped": async page => {
     await dismissChrome(page); await page.locator('#todayExList [data-context-row]').first().click({ button: 'right' });
     await page.locator('#nativeContextMenu [data-menu-value="skip"]').click();
+    await page.locator('[data-skip-reason="other"]').click();
+    await page.locator("#skipReasonSheet").waitFor({state:"hidden"});
     await page.waitForSelector('#todayExList .is-skipped');
   },
   "today/context-menu": async page => {
@@ -3257,7 +3489,7 @@ export const APP_SCENARIOS = {
     await page.waitForSelector('#nativeContextMenu[open] [role="menuitemradio"][aria-checked="true"]');
     await sleep(page, 400);
   },
-  // Plan 077 PR 2: Effort logging as a pull-down, the three stages, the current one checked.
+  // Plan 077 PR 2: Effort logging as a pull-down, the two stages, the current one checked.
   "settings/effort-menu": async (page) => {
     await openSettings(page, "#rirModeRow");
     await page.click("#rirModeRow");

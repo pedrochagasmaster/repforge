@@ -100,6 +100,16 @@ function fresh(options) {
   });
 }
 
+{
+  const context = programContext();
+  context.exercises[0].programmedSets[0].targetRir = null;
+  const draft = Draft.create(context, sessionSelection(), {
+    "slot-squat": { exerciseInstanceId: "slot-squat", sets: [{ ordinal: 1, rir: 5 }] },
+  });
+  assert(!Draft.isDomainError(draft) && draft.exercises["slot-squat"].sets["squat-set-1"].programmed.targetRir === null,
+    "an explicit absent set target remains absent ahead of exercise defaults and history", JSON.stringify(draft));
+}
+
 let operation = 0;
 function command(draft, type, values = {}) {
   const id = `operation-${++operation}`;
@@ -401,8 +411,8 @@ assert(JSON.stringify(draft.exercises["slot-curl"]) === beforeSkip,
   assert(!Object.prototype.hasOwnProperty.call(retrimmedManual.exercises["slot-curl"], "skipReason"), "skipping by hand replaces a trim reason");
   const restored = apply(trimmed, "restoreExercise", { exerciseInstanceId: "slot-curl" });
   assert(JSON.stringify(restored.exercises["slot-curl"]) === beforeSkip, "restoring a trimmed lift clears its reason and returns the subtree whole");
-  const bad = structuredClone(trimmed); bad.exercises["slot-curl"].skipReason = "other";
-  assert(!Draft.validate(bad).ok, "only trim is a skip reason");
+  const bad = structuredClone(trimmed); bad.exercises["slot-curl"].skipReason = "unknown";
+  assert(!Draft.validate(bad).ok, "unknown skip reasons are refused");
   const activeWithReason = structuredClone(trimmed); activeWithReason.exercises["slot-curl"].status = "active";
   assert(!Draft.validate(activeWithReason).ok, "an active lift carries no skip reason");
 }
@@ -559,7 +569,7 @@ console.log("\nEffort provenance (Plan 077 PR 1, OD-1)");
   const pset = prefilled.exercises["slot-squat"].sets["squat-set-1"];
   assert(pset.edited.effort === "hard" && pset.completion.effortSource === "prefilled",
     "completing an untouched effort-mode set materialises the shown effort and records effortSource prefilled", JSON.stringify(pset));
-  // A label the lifter chose is effort; a typed number is rir.
+  // A label the lifter chose is effort; a chosen number is reps_left.
   let label = fresh({ rirMode: "effort" });
   label = apply(label, "editSetField", { exerciseInstanceId: "slot-squat", setId: "squat-set-1", field: "effort", value: "max" });
   label = apply(label, "completeSet", { ...at, prefill: { field: "effort", value: "hard" } });
@@ -568,7 +578,11 @@ console.log("\nEffort provenance (Plan 077 PR 1, OD-1)");
   let typed = fresh();
   typed = apply(typed, "editSetField", { exerciseInstanceId: "slot-squat", setId: "squat-set-1", field: "rir", value: "1" });
   typed = apply(typed, "completeSet", at);
-  assert(typed.exercises["slot-squat"].sets["squat-set-1"].completion.effortSource === "rir", "a typed RIR records effortSource rir");
+  assert(typed.exercises["slot-squat"].sets["squat-set-1"].completion.effortSource === "reps_left", "a numeric chip records effortSource reps_left");
+  let floor = fresh();
+  floor = apply(floor, "editSetField", { ...at, field: "rir", value: "5" });
+  floor = apply(floor, "completeSet", at);
+  assert(floor.exercises["slot-squat"].sets["squat-set-1"].completion.effortSource === "reps_left_5plus", "5+ records its floor provenance");
   // Untouched in numeric mode with no prefill passed: the programmed target is what the field showed.
   let target = fresh();
   target = apply(target, "completeSet", at);
@@ -584,7 +598,7 @@ console.log("\nEffort provenance (Plan 077 PR 1, OD-1)");
   const provRows = Draft.toHistoryRows(finished, "2026-08-15T11:00:00.000Z");
   assert(!Draft.isDomainError(provRows) && provRows[0].effortSource === "prefilled" && provRows[0].rir === 1, "toHistoryRows emits effortSource beside the mapped RIR", JSON.stringify(provRows[0]));
   const typedRows = Draft.toHistoryRows(apply(typed, "beginFinish"), "2026-08-15T11:00:00.000Z");
-  assert(!Draft.isDomainError(typedRows) && typedRows[0].effortSource === "rir", "a typed RIR row says rir");
+  assert(!Draft.isDomainError(typedRows) && typedRows[0].effortSource === "reps_left", "a numeric row says reps_left");
   // A draft from before PR 1: its completed set has no source, it still validates and finishes, and its row has no key.
   const legacy = JSON.parse(JSON.stringify(typed));
   delete legacy.exercises["slot-squat"].sets["squat-set-1"].completion.effortSource;
@@ -593,7 +607,7 @@ console.log("\nEffort provenance (Plan 077 PR 1, OD-1)");
   const legacyRows = Draft.toHistoryRows(apply(legacyParsed.draft, "beginFinish"), "2026-08-15T11:00:00.000Z");
   assert(!Draft.isDomainError(legacyRows) && !Object.hasOwn(legacyRows[0], "effortSource"), "a pre-PR completed set saves without effortSource: nothing is fabricated", JSON.stringify(legacyRows[0]));
   // Validation: only the enum.
-  for (const value of ["rir", "effort", "reps_left", "reps_left_3plus", "unsure", "prefilled", "failure"]) {
+  for (const value of ["rir", "effort", "reps_left", "reps_left_3plus", "reps_left_5plus", "unsure", "prefilled", "failure"]) {
     const withSource = JSON.parse(JSON.stringify(typed));
     withSource.exercises["slot-squat"].sets["squat-set-1"].completion.effortSource = value;
     assert(Draft.validate(withSource).ok, `completion.effortSource ${value} validates`);
@@ -601,7 +615,7 @@ console.log("\nEffort provenance (Plan 077 PR 1, OD-1)");
   const unknown = JSON.parse(JSON.stringify(typed));
   unknown.exercises["slot-squat"].sets["squat-set-1"].completion.effortSource = "x";
   assert(!Draft.validate(unknown).ok, "an unknown completion.effortSource is refused");
-  assert(Array.isArray(Draft.EFFORT_SOURCES) && Draft.EFFORT_SOURCES.length === 7, "the enum is exported for the app and the contract", String(Draft.EFFORT_SOURCES));
+  assert(Array.isArray(Draft.EFFORT_SOURCES) && Draft.EFFORT_SOURCES.length === 8, "the enum is exported for the app and the contract", String(Draft.EFFORT_SOURCES));
 }
 
 console.log("\nMax sets (Plan 077 PR 3, OD-7 and OD-17)");
@@ -701,11 +715,11 @@ console.log("\nEffort stages (Plan 077 PR 2, OD-2 to OD-5)");
   mid = apply(mid, "setRirMode", { value: "effort" });
   assert(mid.program.rirMode === "effort", "setRirMode switches the workout's mode");
   const done = mid.exercises["slot-squat"].sets["squat-set-1"];
-  assert(done.edited.rir === "1" && done.completion.effortSource === "rir", "a completed set keeps its value and source across the switch", JSON.stringify(done));
+  assert(done.edited.rir === "1" && done.completion.effortSource === "reps_left", "a completed set keeps its value and source across the switch", JSON.stringify(done));
   const curlId = mid.exercises["slot-curl"].setOrder[0];
   mid = apply(mid, "completeSet", { exerciseInstanceId: "slot-curl", setId: curlId, completedAt: "2026-08-15T10:10:00.000Z" });
   const curl = mid.exercises["slot-curl"].sets[curlId];
-  assert(curl.edited.rir === "3" && curl.completion.effortSource === "rir", "a pending set edited before the switch keeps its edit and logs as rir", JSON.stringify(curl));
+  assert(curl.edited.rir === "3" && curl.completion.effortSource === "reps_left", "a pending set edited before the switch keeps its edit and logs as reps_left", JSON.stringify(curl));
   mid = apply(mid, "completeSet", { exerciseInstanceId: "slot-squat", setId: "squat-set-2", completedAt: "2026-08-15T10:12:00.000Z", prefill: { field: "effort", value: "r2" } });
   const second = mid.exercises["slot-squat"].sets["squat-set-2"];
   assert(second.edited.effort === "r2" && second.completion.effortSource === "prefilled", "an untouched pending set takes the new mode's prefill", JSON.stringify(second));
@@ -1103,6 +1117,221 @@ console.log("\nIssue #320: create() clamps a target RIR that falls back to the l
     assert(set.programmed.targetRirClamped === true, "the clamp on creation is recorded as programmed.targetRirClamped");
     assert(Draft.validate(created).ok, "the freshly created draft with the clamped target still validates");
   }
+}
+
+// Session facts remain separate from set rows, including a skipped lift.
+{
+  for (const reason of ["time", "recovery", "pain", "equipment", "schedule", "trim", "other"]) {
+    const skipped = apply(fresh(), "skipExercise", { exerciseInstanceId: "slot-curl", reason });
+    assert(skipped.exercises["slot-curl"].skipReason === reason, `skip retains closed reason ${reason}`);
+  }
+  const invalid = command(fresh(), "skipExercise", { exerciseInstanceId: "slot-curl", reason: "free text" }).result;
+  assert(Draft.isDomainError(invalid), "skip rejects an unknown reason before changing the draft");
+  const marked = command(fresh(), "markDiscomfort", { exerciseInstanceId: "slot-squat", kind: "discomfort" }).result;
+  assert(!Draft.isDomainError(marked), "discomfort can be recorded on the draft");
+  if (!Draft.isDomainError(marked)) {
+    assert(marked.exercises["slot-squat"].discomfort[0].kind === "discomfort", "the discomfort kind survives as a structured mark");
+    assert(Draft.validate(JSON.parse(JSON.stringify(marked))).ok, "a serialized discomfort mark remains valid");
+    const falseSwap=JSON.parse(JSON.stringify(marked));falseSwap.exercises["slot-squat"].discomfort[0].swapped=true;
+    assert(!Draft.validate(falseSwap).ok,"a swap observation must match an actual substitution relation");
+
+  }
+}
+
+// A reason answered after the swap is bound to that exact substitution.
+{
+  const selectedAt = "2026-08-15T11:00:00.000Z";
+  const swapped = apply(fresh(), "substituteExercise", {exerciseInstanceId:"slot-squat",replacement,selectedAt});
+  const binding = {draftId:swapped.draftId,exerciseInstanceId:"slot-squat",selectedAt,replacementId:replacement.exerciseInstanceId,reason:"pain"};
+  const reasoned = command(swapped,"recordSubstitutionReason",binding).result;
+  assert(!Draft.isDomainError(reasoned),"post-swap reason accepts the exact substitution");
+  if (!Draft.isDomainError(reasoned)) {
+    assert(reasoned.exercises["slot-squat"].swapReason === "pain", "post-swap reason is durable");
+    assert(reasoned.exercises["slot-squat"].discomfort[0].kind === "pain" && reasoned.exercises["slot-squat"].discomfort[0].swapped === true,"pain swap records its discomfort fact");
+  }
+  for (const wrong of [{draftId:"different-draft"},{selectedAt:"2026-08-15T12:00:00.000Z"},{replacementId:"different-movement"},{exerciseInstanceId:"slot-curl"},{reason:"free text"}]) {
+    assert(Draft.isDomainError(command(swapped,"recordSubstitutionReason",{...binding,...wrong}).result),"stale or malformed post-swap answer is refused");
+  }
+  const restored = apply(swapped,"restoreOriginalExercise",{exerciseInstanceId:"slot-squat"});
+  assert(Draft.isDomainError(command(restored,"recordSubstitutionReason",binding).result),"answer after undoing the swap is refused");
+  const second = apply(swapped,"substituteExercise",{exerciseInstanceId:"slot-squat",replacement,selectedAt:"2026-08-15T12:00:00.000Z"});
+  assert(Draft.isDomainError(command(second,"recordSubstitutionReason",binding).result),"answer for an earlier swap to the same movement is refused");
+}
+
+{
+  let eventDraft = fresh();
+  eventDraft = apply(eventDraft,"editSetField",{exerciseInstanceId:"slot-squat",setId:"squat-set-1",field:"load",value:"50"});
+  eventDraft = apply(eventDraft,"editSetField",{exerciseInstanceId:"slot-squat",setId:"squat-set-1",field:"reps",value:"8"});
+  eventDraft = apply(eventDraft,"completeSet",{exerciseInstanceId:"slot-squat",setId:"squat-set-1",completedAt:"2026-08-15T11:00:00.000Z"});
+  eventDraft = apply(eventDraft,"skipExercise",{exerciseInstanceId:"slot-curl",reason:"time"});
+  eventDraft = apply(eventDraft,"markDiscomfort",{exerciseInstanceId:"slot-squat",kind:"discomfort"});
+  const result = Draft.toHistoryRows(apply(eventDraft,"beginFinish"),"2026-08-15T11:01:00.000Z",{includeSessionEvents:true});
+  assert(Array.isArray(result.rows),"session compilation exposes rows beside events");
+  assert(same(result.sessionEvents,{v:1,skips:[{exerciseId:"slot:slot-curl",name:"Seated leg curl",slotId:"source-curl",reason:"time"}],pain:[{exerciseId:"sq_hs",name:"Hack squat",kind:"discomfort",swapped:false,slotId:"source-squat"}]}),"session compilation includes skipped lifts and discomfort without inventing set rows");
+  assert(typeof Draft.validateSessionEvents === "function","session event validation is shared by persistence and transfer");
+  if (typeof Draft.validateSessionEvents === "function") {
+    const record = {"draft-051":result.sessionEvents};
+    assert(Draft.validateSessionEvents(record),"compiled events validate");
+    for (const mutate of [r=>r["draft-051"].v=2,r=>r["draft-051"].skips[0].reason="free text",r=>r["draft-051"].pain[0].swapped="yes",r=>r["draft-051"].pain[0].text="private"]) {
+      const bad = structuredClone(record);mutate(bad);
+      assert(!Draft.validateSessionEvents(bad),"malformed session events fail closed");
+    }
+  }
+}
+
+// Review B2/B3: observations retain movement identity and independent swap facts.
+{
+  let d=apply(fresh(),"substituteExercise",{exerciseInstanceId:"slot-squat",replacement,selectedAt:"2026-08-15T11:00:00.000Z"});
+  d=apply(d,"recordSubstitutionReason",{draftId:d.draftId,exerciseInstanceId:"slot-squat",selectedAt:d.exercises["slot-squat"].substitution.selectedAt,replacementId:replacement.exerciseInstanceId,reason:"pain"});
+  const project=draft=>{
+    let value=apply(draft,"editSetField",{exerciseInstanceId:"slot-squat",setId:"squat-set-1",field:"load",value:"50"});
+    value=apply(value,"editSetField",{exerciseInstanceId:"slot-squat",setId:"squat-set-1",field:"reps",value:"8"});
+    value=apply(value,"completeSet",{exerciseInstanceId:"slot-squat",setId:"squat-set-1",completedAt:"2026-08-15T11:30:00.000Z"});
+    return Draft.toHistoryRows(apply(value,"beginFinish"),"2026-08-15T12:00:00.000Z",{includeSessionEvents:true}).sessionEvents;
+  };
+  const original=project(d).pain[0];
+  const unspecified=project(apply(d,"skipExercise",{exerciseInstanceId:"slot-curl"}));
+  assert(!Object.prototype.hasOwnProperty.call(unspecified.skips[0],"reason"),"an unspecified re-hide never fabricates an Other answer");
+  assert(Draft.validateSessionEvents({saved:unspecified}),"an unspecified skip remains a valid session fact");
+  assert(original.exerciseId==="sq_hs"&&original.name==="Hack squat","B2: pain swap records the original movement identity and name");
+  const added=apply(d,"markDiscomfort",{exerciseInstanceId:"slot-squat",kind:"discomfort"});
+  const marks=project(added).pain;
+  assert(marks.length===2&&marks.some(mark=>mark.kind==="pain"&&mark.swapped)&&marks.some(mark=>mark.exerciseId===replacement.libraryId&&mark.name===replacement.displayName),"B3: replacement discomfort preserves original pain and swap");
+  const restored=apply(d,"restoreOriginalExercise",{exerciseInstanceId:"slot-squat"});
+  assert(project(restored).pain[0]?.swapped===false,"B3: restoring the original removes the completed swap fact, not the observation");
+  const cleared=command(restored,"clearDiscomfort",{exerciseInstanceId:"slot-squat"}).result;
+  assert(!Draft.isDomainError(cleared)&&project(cleared).pain.length===0,"explicit clear retracts the mark");
+}
+
+// Every rendered opening basis needs a localized evidence sentence, including restored ratio records.
+for(const basis of ["prior","ratio","floor"]){
+  const key=`focus.evidence.${basis}`;
+  assert(typeof require("../i18n-en.json")[key]==="string"&&typeof require("../i18n-pt.json")[key]==="string",
+    `${basis} opening evidence exists in both catalogs`);
+}
+
+// Plan 079: insert a warm-up without consuming any programmed working set.
+{
+  let d=fresh();
+  const first=d.exercises["slot-squat"].sets["squat-set-1"];
+  const opening={v:1,openingKg:20,basis:"prior",ramps:1,version:"priors@079.1"};
+  const payload={exerciseInstanceId:"slot-squat",beforeSetId:"squat-set-1",setId:"ramp-1",role:"warmup",origin:"ramp",
+    programmed:first.programmed,edited:{...first.edited,load:"20",reps:"6",rir:"3"},startingLoad:opening};
+  const inserted=command(d,"insertSet",payload).result;
+  assert(!Draft.isDomainError(inserted),"ramp insertion is a supported draft command",JSON.stringify(inserted));
+  if(!Draft.isDomainError(inserted)){
+    d=inserted;
+    assert(d.exercises["slot-squat"].programmed.sets===fresh().exercises["slot-squat"].programmed.sets,
+      "ramp insertion keeps the authored set count so older readers reject expanded coverage safely");
+    assert(Draft.isDomainError(command(d,"insertSet",{...payload,setId:"duplicate-easy"}).result),"two callers cannot consume the same Easy answer twice");
+    assert(same(d.exercises["slot-squat"].setOrder,["ramp-1","squat-set-1","squat-set-2"]),"ramp precedes the first working set");
+    assert(d.exercises["slot-squat"].setOrder.every((id,i)=>d.exercises["slot-squat"].sets[id].ordinal===i+1),"insertion renumbers every ordinal");
+    const reset=command(fresh(),"insertSet",{...payload,nextLoadKg:22.5}).result;
+    assert(!Draft.isDomainError(reset)&&reset.exercises["slot-squat"].sets["squat-set-1"].edited.load==="22.5"&&
+      Object.values(reset.exercises["slot-squat"].sets["squat-set-1"].touched).every(value=>value===false),
+      "the next ramp load is an untouched prefill, never a performed working set");
+    const mid=apply(fresh(),"completeSet",{exerciseInstanceId:"slot-squat",setId:"squat-set-1",completedAt:"2026-08-15T11:00:00.000Z"});
+    assert(Draft.isDomainError(command(mid,"insertSet",payload).result),"a working set blocks insertion even before the ramp limit");
+    const undone=apply(mid,"uncommitSet",{exerciseInstanceId:"slot-squat",setId:"squat-set-1"});
+    assert(Draft.isDomainError(command(undone,"insertSet",payload).result),"undoing a working set cannot start a mid-exercise ramp");
+    assert(!Draft.isPristine(reset),"an accepted opening remains recoverable before any working set is completed");
+    assert(Draft.validate(d).ok&&Draft.parse(JSON.stringify(d)).draft.exercises["slot-squat"].sets["ramp-1"].origin==="ramp","ramp and opening provenance survive production parse");
+    d=apply(d,"completeSet",{exerciseInstanceId:"slot-squat",setId:"ramp-1",completedAt:"2026-08-15T11:00:00.000Z"});
+    for(let i=2;i<=3;i++)d=apply(d,"insertSet",{...payload,setId:`ramp-${i}`,startingLoad:{...opening,ramps:i}});
+    assert(Draft.isDomainError(command(d,"insertSet",{...payload,setId:"ramp-4"}).result),"a fourth ramp is refused");
+    d=apply(d,"editSetField",{exerciseInstanceId:"slot-squat",setId:"squat-set-1",field:"load",value:"30"});
+    d=apply(d,"editSetField",{exerciseInstanceId:"slot-squat",setId:"squat-set-1",field:"reps",value:"6"});
+    d=apply(d,"completeSet",{exerciseInstanceId:"slot-squat",setId:"squat-set-1",completedAt:"2026-08-15T11:01:00.000Z"});
+    assert(Draft.isDomainError(command(d,"insertSet",{...payload,setId:"late-ramp"}).result),"completed working set prevents mid-exercise insertion");
+    const rows=Draft.toHistoryRows(apply(d,"beginFinish"),"2026-08-15T11:02:00.000Z");
+    assert(rows[0]?.warmup===true&&!rows[0]?.startingLoad,"ramp saves as an ordinary warm-up without first-working provenance");
+    assert(rows[0]?.origin==="ramp","a saved ramp has an explicit marker that cannot be confused with a manual warm-up");
+    assert(rows.find(row=>!row.warmup)?.startingLoad?.ramps===3,"only first working row carries the opening and ramp count");
+    assert(rows.find(row=>!row.warmup)?.setIndex===0,"only inserted ramps are removed from the saved engine index");
+    const bad=structuredClone(d);bad.exercises["slot-squat"].sets["squat-set-1"].startingLoad.extra=true;
+    assert(!Draft.validate(bad).ok,"opening provenance rejects unknown fields");
+  }
+}
+
+// #730: substitution snapshots predate inserted trial ordinals. Restoring the
+// original keeps performed work and restores every still-pending prescription.
+for(const ramps of [0,1,2,3])for(const workingLogged of [false,true]){
+  let d=makeMetricDraft();
+  const original=d.exercises[metricSlotId];
+  d=apply(d,"substituteExercise",{exerciseInstanceId:metricSlotId,replacement:replacementSnapshot,
+    replacementProgram,selectedAt:"2026-08-15T10:00:00.000Z"});
+  for(let n=1;n<=ramps;n++){
+    const first=d.exercises[metricSlotId].sets[`${metricSlotId}-set-1`];
+    const edited={...first.edited,rir:"3",metrics:Object.fromEntries(first.programmed.metrics.map(metric=>[metric.id,
+      metric.semantic==="reps"?"8":"20"]))};
+    d=apply(d,"insertSet",{exerciseInstanceId:metricSlotId,beforeSetId:first.setId,setId:`restore-ramp-${n}`,
+      role:"warmup",origin:"ramp",programmed:first.programmed,edited});
+    d=apply(d,"completeSet",{exerciseInstanceId:metricSlotId,setId:`restore-ramp-${n}`,completedAt:"2026-08-15T10:01:00.000Z"});
+  }
+  if(workingLogged){
+    for(const metricId of replacementMetricIds)d=apply(d,"editMetricValue",{exerciseInstanceId:metricSlotId,
+      setId:`${metricSlotId}-set-1`,metricId,value:metricId===replacementMetricIds[0]?"20":"8"});
+    d=apply(d,"completeSet",{exerciseInstanceId:metricSlotId,setId:`${metricSlotId}-set-1`,completedAt:"2026-08-15T10:02:00.000Z"});
+  }
+  // Exercise the exact stored shape before issuing the command, as a reload does.
+  d=Draft.parse(JSON.stringify(Draft.serialize(d))).draft;
+  const before=d.exercises[metricSlotId],outcome=command(d,"restoreOriginalExercise",{exerciseInstanceId:metricSlotId}).result;
+  const label=`restore with ${ramps} ramps, working logged=${workingLogged}`;
+  assert(!Draft.isDomainError(outcome),`${label}: command applies`,JSON.stringify(outcome));
+  if(Draft.isDomainError(outcome))continue;
+  const restored=outcome.exercises[metricSlotId];
+  assert(restored.substitution===null&&same(restored.setOrder,before.setOrder)&&restored.programmed.sets===original.programmed.sets,
+    `${label}: original returns with all authored and ramp identities retained`);
+  assert(restored.setOrder.every((id,index)=>restored.sets[id].ordinal===index+1),`${label}: every set has its live ordered ordinal`);
+  assert(restored.setOrder.every(id=>before.sets[id].completion!=="pending"?same(restored.sets[id],before.sets[id]):
+    same(restored.sets[id].programmed,original.sets[id].programmed)&&same(restored.sets[id].edited,original.sets[id].edited)),
+    `${label}: performed replacement work is unchanged and pending original prescriptions return`);
+  assert(Draft.parse(JSON.stringify(Draft.serialize(outcome))).kind==="valid",`${label}: the restored aggregate survives reload`);
+}
+
+// #733 B2: a movement identity no-op must preserve explicit pending input.
+{
+  const source=rawExerciseCatalog.exercises.find(ex=>ex.name==="Hack squat");
+  const slot="opening-noop",setId=`${slot}-set-1`;
+  const original={exerciseInstanceId:slot,sourceExerciseId:source.id,libraryId:source.id,displayName:source.name,primary:"Quads",secondary:""};
+  const loadId=ExerciseMetrics.definitionsForIds(source.exerciseMetrics).value.find(metric=>metric.semantic==="loadKg").id;
+  const freshOpening=()=>Draft.create(metricProgramContext(source.id,slot),{...sessionSelection(),selectedExerciseId:slot},{});
+  const typedOpening=d=>apply(apply(d,"refreshUntouchedSuggestions",{sourceRevision:d.revision,updates:[{exerciseInstanceId:slot,setId,
+    fields:{metrics:{[loadId]:"62.5"}},startingLoad:{v:1,openingKg:62.5,basis:"prior",ramps:0,version:"priors@079.1"}}]}),
+    "editMetricValue",{exerciseInstanceId:slot,setId,metricId:loadId,value:"72.5"});
+  const typed=typedOpening(freshOpening()),before=typed.exercises[slot].sets;
+  const restored=apply(typed,"restoreOriginalExercise",{exerciseInstanceId:slot});
+  assert(same(restored.exercises[slot].sets,before),"B2: unsubstituted restore preserves every typed value, touched flag and opening");
+  assert(same(Draft.parse(JSON.stringify(Draft.serialize(restored))).draft.exercises[slot].sets,before),"B2: no-op restore preserves typed input through reload");
+  const samePick=apply(typed,"substituteExercise",{exerciseInstanceId:slot,replacement:{...original,exerciseInstanceId:"same-library-different-slot"},
+    replacementProgram:metricReplacementProgram(source.id),selectedAt:"2026-08-15T11:00:00.000Z"});
+  assert(same(samePick.exercises[slot].sets,typed.exercises[slot].sets),"B2: same catalog movement is a no-op despite a different instance id");
+  const rejected=command(typed,"substituteExercise",{exerciseInstanceId:slot,replacement:replacementSnapshot,replacementProgram,
+    selectedAt:"2026-08-15T11:00:00.000Z"}).result;
+  assert(Draft.isDomainError(rejected)&&rejected.code==="substitution-touched-pending-set"&&same(typed.exercises[slot].sets,before),
+    "B2: an actual reprogramming refuses the typed old load and leaves its source intact");
+  const changed=apply(typed,"substituteExercise",{exerciseInstanceId:slot,replacement:replacementSnapshot,selectedAt:"2026-08-15T11:00:00.000Z"});
+  const changedSet=changed.exercises[slot].sets[setId];
+  assert(!changedSet.startingLoad&&changedSet.edited.metrics[loadId]===null&&changedSet.touched.metrics[loadId]===false,
+    "B2: a legacy movement change cannot carry a typed accepted opening to another lift");
+  const back=apply(changed,"substituteExercise",{exerciseInstanceId:slot,replacement:original,selectedAt:"2026-08-15T11:01:00.000Z"});
+  const typedBack=typedOpening(back),sameRestore=apply(typedBack,"restoreOriginalExercise",{exerciseInstanceId:slot});
+  assert(sameRestore.exercises[slot].substitution===null&&same(sameRestore.exercises[slot].sets,typedBack.exercises[slot].sets),
+    "B2: restoring an already-original movement preserves all pending values and touched flags");
+  const typedReplacement=typedOpening(changed);
+  const replacementNoop=apply(typedReplacement,"substituteExercise",{exerciseInstanceId:slot,replacement:replacementSnapshot,replacementProgram,
+    selectedAt:"2026-08-15T11:02:00.000Z"});
+  assert(same(replacementNoop.exercises[slot].sets,typedReplacement.exercises[slot].sets),"B2: picking the current replacement preserves typed input too");
+  assert(same(apply(restored,"restoreOriginalExercise",{exerciseInstanceId:slot}).exercises[slot].sets,before),
+    "B2: repeating a no-op restore leaves all input unchanged");
+  let programmedSwap=apply(freshOpening(),"substituteExercise",{exerciseInstanceId:slot,replacement:replacementSnapshot,replacementProgram,
+    selectedAt:"2026-08-15T11:03:00.000Z"});
+  const captured=programmedSwap.exercises[slot].substitution.originalPendingSets;
+  programmedSwap=apply(programmedSwap,"substituteExercise",{exerciseInstanceId:slot,replacement:replacementSnapshot,replacementProgram,
+    selectedAt:"2026-08-15T11:04:00.000Z"});
+  assert(same(programmedSwap.exercises[slot].substitution.originalPendingSets,captured)&&
+    same(apply(programmedSwap,"restoreOriginalExercise",{exerciseInstanceId:slot}).exercises[slot].sets,freshOpening().exercises[slot].sets),
+    "B2: picking a replacement again retains the original prescriptions for a later real restore");
 }
 
 console.log(`\n${results.passed} passed, ${results.failed} failed`);

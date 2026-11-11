@@ -15,6 +15,7 @@
  * mirrored marker validation, settings-only destination refusal, and
  * post-commit divergence recovery remain independently observable gaps.
  */
+import { importInto } from "./fixtures/install-transfer-import.mjs";
 import { finishEarly } from "./fixtures/focus-workout.mjs";
 import { webcrypto } from "node:crypto";
 import { createRequire } from "node:module";
@@ -436,6 +437,9 @@ async function setDeviceSections(page) {
   return page.evaluate(() => {
     const before = localStorage.getItem("repforge_telemetry_identity_v1");
     window.__repforgeUi?.setTheme?.("dark");
+    window.__repforgeUi?.setPref?.("effortChosen", true);
+    const prefs = window.__repforgeUi.loadUiPrefs();
+    localStorage.setItem("repforge_ui_v1", JSON.stringify({ ...prefs, findingsSeen: ["first_check", "first_target"] }));
     const consent = window.RepForgeTelemetry?.setEnabled?.(false);
     return {
       consent,
@@ -499,6 +503,7 @@ async function buildEnvelope(observation) {
 }
 
 function assertEnvelopeSourceFields(envelope) {
+  check(envelope.uiPreferences?.effortChosen === true, "source envelope retains the explicit effort choice");
   const state = envelope?.durableState;
   check(sameValue(state?.profile, {
     sex: "female", birthDate: "1990-03-10", heightCm: 180, heightUnit: "cm", weightKg: 83, cardioExperience: "1_to_4y",
@@ -547,100 +552,6 @@ function assertImportedLogical(actual, idbState, expected, label) {
   `${label}: UI preferences, consent, and telemetry identity read back exactly`);
 }
 
-async function importInto(page, envelope, { retainCredentials = false } = {}) {
-  const cookie = transferCookieFixture();
-  return page.evaluate(async ({ value, token, expiresAt, inboundKey, retainCredentials: keepCredentials }) => {
-    const transfer = window.RepForgeInstallTransfer;
-    const contract = window.RepForgeInstallTransferContract;
-    const credentials = transfer?.createCredentialVault?.({ crypto: window.crypto, indexedDB: window.indexedDB });
-    const cookieValues = new Map();
-    const cookieDocument = {
-      get cookie() { return [...cookieValues].map(([name, cookieValue]) => `${name}=${cookieValue}`).join("; "); },
-      set cookie(serialized) {
-        const [pair, ...attributes] = String(serialized).split(";");
-        const separator = pair.indexOf("=");
-        if (separator < 0) return;
-        const name = pair.slice(0, separator).trim();
-        const cookieValue = pair.slice(separator + 1).trim();
-        const maxAge = attributes.find((attribute) => /^\s*Max-Age=/i.test(attribute));
-        if (maxAge && /Max-Age=0(?:\s|$)/i.test(maxAge)) cookieValues.delete(name);
-        else cookieValues.set(name, cookieValue);
-      },
-    };
-    const cookieLocation = { href: `${location.origin}/index.html`, origin: location.origin, pathname: "/index.html" };
-    const inbound = {
-      async read() {
-        const raw = localStorage.getItem(inboundKey);
-        try { return raw === null ? null : JSON.parse(raw); } catch { return { invalid: true, raw }; }
-      },
-      async write(marker) { localStorage.setItem(inboundKey, JSON.stringify(marker)); },
-      async clear() { localStorage.removeItem(inboundKey); },
-    };
-    const operationLock = {
-      withLock(name, work) {
-        if (navigator.locks?.request) return navigator.locks.request(name, work);
-        return work();
-      },
-    };
-    const cleanupCredentials = async (marker) => {
-      if (keepCredentials) return;
-      await inbound.clear();
-      try { await credentials?.forget?.("standalone-inbound", marker?.sealedCredentials); } catch {}
-    };
-    const transport = {
-      async request({ path }) {
-        if (path !== "/v1/transfers/claims") throw new Error(`unexpected-test-transfer-request:${path}`);
-        return {
-          status: 200,
-          bytes: new TextEncoder().encode(JSON.stringify({ envelope: value, expiresAt })),
-        };
-      },
-    };
-    if (!transfer || !contract || !credentials ||
-      !transfer.writeTransferCookie({ token, expiresAt }, { document: cookieDocument, location: cookieLocation })) {
-      return { ok: false, code: "test-claim-setup-failed" };
-    }
-    const client = transfer.createClient({
-      contract,
-      crypto: window.crypto,
-      transport,
-      context: "standalone",
-      document: cookieDocument,
-      location: cookieLocation,
-      storage: { inbound, credentials, operationLock },
-    });
-    const claimed = await client.claim();
-    if (!claimed?.ok || claimed.state !== "validating") {
-      await cleanupCredentials(await inbound.read());
-      return { ok: false, code: claimed?.code || "test-claim-failed", claim: claimed };
-    }
-    const marker = await inbound.read();
-    let pair;
-    try { pair = await credentials.unseal("standalone-inbound", marker?.sealedCredentials); }
-    catch {
-      await cleanupCredentials(marker);
-      return { ok: false, code: "test-claim-credential-unavailable" };
-    }
-    if (typeof pair?.claimId !== "string") {
-      await cleanupCredentials(marker);
-      return { ok: false, code: "test-claim-id-unavailable" };
-    }
-    const digestBytes = new Uint8Array(await window.crypto.subtle.digest(
-      "SHA-256", new TextEncoder().encode(pair.claimId)));
-    const claimIdDigest = [...digestBytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
-    const result = await window.__repforgeInstallTransferImport(value, {
-      claimId: pair.claimId,
-      claimIdDigest,
-      credentials,
-    });
-    await cleanupCredentials(marker);
-    await window.__repforgeStorage?.flush?.();
-    await window.__repforgeWorkoutDraft?.flush?.();
-    await window.__repforgeOnboarding?.flushDraft?.();
-    return result ?? null;
-  }, { value: envelope, token: cookie.token, expiresAt: cookie.expiresAt, inboundKey: INBOUND_MARKER_KEY,
-    retainCredentials });
-}
 
 async function captureObservedLogical(observation) {
   const captured = await Transfer.captureLogicalSnapshot(sourceSections(observation));
@@ -998,6 +909,17 @@ async function seedMeaningfulDestination(page, kind, envelope) {
     const parse = (value) => {
       try { return JSON.parse(value); } catch { return null; }
     };
+    if (["effort-choice", "effort-choice-malformed"].includes(kind)) {
+      const value = kind === "effort-choice" ? true : "yes";
+      window.__repforgeUi.setPref("effortChosen", value);
+      return { ok: window.__repforgeUi.loadUiPrefs().effortChosen === value };
+    }
+    if (["findings-seen", "findings-unknown", "findings-malformed"].includes(kind)) {
+      const prefs = parse(localStorage.getItem(uiKey)) || {};
+      prefs.findingsSeen = kind === "findings-seen" ? ["first_check"] : kind === "findings-unknown" ? ["future-finding"] : "first_check";
+      localStorage.setItem(uiKey, JSON.stringify(prefs));
+      return { ok: true };
+    }
     if (kind === "prefs-only") {
       window.__repforgeUi?.setTheme?.("dark");
       return { ok: window.__repforgeUi?.loadUiPrefs?.()?.theme === "dark" };
@@ -1137,6 +1059,11 @@ async function runMeaningfulDestinationMatrix(browser, envelope) {
   console.log("\nPlan 053-P4b meaningful-destination refusal matrix");
   const cases = [
     ["prefs-only", "prefs-only"],
+    ["effort choice", "effort-choice"],
+    ["malformed effort choice", "effort-choice-malformed"],
+    ["seen findings only", "findings-seen"],
+    ["unknown finding preference", "findings-unknown"],
+    ["malformed finding preference", "findings-malformed"],
     ["unknown-guide-only", "unknown-guide"],
     ["wrong-version-guide-only", "wrong-version-guide"],
     ["missing-version-guide-only", "missing-version-guide"],
@@ -2351,7 +2278,7 @@ async function main() {
       "source persists a current program-entry candidate through __repforgePersistSetupDraft", candidate);
     if (!candidate.ok) throw new Error(JSON.stringify(candidate));
     const device = await setDeviceSections(source);
-    check(device.consent === false && device.identityBefore === device.identityAfter && device.prefs?.theme === "dark",
+    check(device.consent === false && device.identityBefore === device.identityAfter && device.prefs?.theme === "dark" && sameValue(device.prefs?.findingsSeen, ["first_check", "first_target"]),
       "source sets non-default UI preference, disabled consent, and preserves stable identity", device);
     await flush(source);
 
@@ -2386,7 +2313,7 @@ async function main() {
     const automaticGuideState = freshGuideRecords.length > 0 && freshGuideRecords.every(([id, record]) =>
       record?.status === "unseen" || id === "privacy" && record?.status === "shown");
     check(freshDestinationPrefs?.entryLandingSeen === true &&
-      freshDestinationPrefs?.theme === undefined && automaticGuideState &&
+      freshDestinationPrefs?.theme === undefined && freshDestinationPrefs?.effortChosen === undefined && freshDestinationPrefs?.findingsSeen === undefined && automaticGuideState &&
       freshDestinationPrefs?.installLastOfferedMilestone === null &&
       freshDestinationPrefs?.installLastOfferedAt === null &&
       freshDestinationPrefs?.installDismissedMilestone === null &&
@@ -2433,6 +2360,18 @@ async function main() {
       check(sameValue(refusalAfter.local, refusalBefore.local) && sameValue(refusalAfter.idb, refusalBefore.idb),
         "meaningful-destination refusal leaves storage bytes/logical state unchanged");
       await refusal.close();
+      const bootDestination = await browser.newContext({ guides: "live" });
+      try {
+        const bootPage = await bootDestination.newPage();
+        bootPage.on("dialog", dialog => dialog.dismiss().catch(() => {}));
+        await bootPage.goto(BASE, { waitUntil: "domcontentloaded" });
+        await waitForAppBoot(bootPage, { base: BASE });
+        const importedAtBoot = await importInto(bootPage, envelope);
+        check(importedAtBoot?.ok === true, "ordinary first boot stays eligible without initializing findingsSeen", importedAtBoot);
+        const bootLogical = await readLogical(bootPage);
+        check(sameValue(bootLogical.uiPreferences.findingsSeen, envelope.uiPreferences.findingsSeen),
+          "install transfer carries seen finding ids to the fresh device");
+      } finally { await bootDestination.close(); }
       await runFaultMatrix(browser, envelope);
       await runProfileDestinationProtection(browser, envelope);
       await runMalformedProfileSettings(browser);

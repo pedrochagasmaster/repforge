@@ -8,7 +8,7 @@
  */
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { launchChromium, openShelfField, waitForAppBoot } from "./browser.mjs";
+import { chooseRepsLeft, launchChromium, openShelfField, waitForAppBoot } from "./browser.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const STATE_KEY = "repforge_v1";
@@ -427,8 +427,16 @@ async function addMetricSet(page, movement, { actualRir = null } = {}) {
     const rir = page.locator(`#workout .exercise.is-current .focus-shelf input[data-k="${active.id}_1_rir"]`);
     const rirButton = page.locator(`#workout .exercise.is-current .focus-shelf [data-shelf-field="rir"]`);
     if (await rir.getAttribute("aria-hidden") === "true") await rirButton.click();
-    await rir.waitFor({ state: "visible", timeout: 5000 });
-    await rir.fill(String(actualRir));
+
+    if (actualRir > 5) {
+      // A retained pre-chip writer can have authored this value. Exercise that
+      // shipped draft boundary; today's six-chip control never offers 6.
+      await page.evaluate(async ({ id, setId, value }) => {
+        await window.__repforgeWorkoutDraft.dispatch("editSetField", {
+          exerciseInstanceId: id, setId, field: "rir", value: String(value)
+        });
+      }, { id: active.id, setId: active.setId, value: actualRir });
+    } else await chooseRepsLeft(page, String(actualRir));
     await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
   }
   await page.locator(`#workout .exercise.is-current [data-save="${active.id}_1"]`).click();
@@ -564,6 +572,11 @@ async function main() {
     stage = "source first boot";
     await source.goto(BASE);
     await waitForBootWithDiagnostics(source, sourceErrors);
+    await source.evaluate(async () => {
+      const proposal = window.__repforgeWorkoutDraft.state();
+      proposal.settings.rirMode = "numeric";
+      await window.__repforgeCommitProposedState(proposal);
+    });
     stage = "manual Build journey";
     await buildProgram(source);
 

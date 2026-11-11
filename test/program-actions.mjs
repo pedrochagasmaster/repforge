@@ -3,7 +3,7 @@
  *  next-load column, and editor dock clearance. */
 import assert from "node:assert/strict";
 import { cancelInstalledEditor, closeEditorSheet, editorSettled, openExerciseSheet, openInstalledEditor } from "./fixtures/installed-editor.mjs";
-import { launchChromium, openShelfField } from "./browser.mjs";
+import { chooseRepsLeft, launchChromium, openShelfField } from "./browser.mjs";
 import { installSeedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
@@ -54,7 +54,7 @@ async function persist(page, state) {
 }
 
 async function install(page, log) {
-  await installSeedProgram(page, { key: KEY, waitFor: waitForApp });
+  await installSeedProgram(page, { key: KEY, waitFor: waitForApp, settings: { rirMode: "numeric" } });
   const state = await page.evaluate((key) => JSON.parse(localStorage.getItem(key) || "{}"), KEY);
   await persist(page, {
     ...state,
@@ -114,7 +114,7 @@ async function performSession(page, target, { load, reps, rir }) {
     const rirInput = page.locator(`#workout .exercise.is-current .focus-shelf input[data-k="${target.slotId}_${ordinal}_rir"]`);
     if (await rirInput.getAttribute("aria-hidden") === "true")
       await page.locator('#workout .exercise.is-current .focus-shelf [data-shelf-field="rir"]').click();
-    await rirInput.fill(String(rir));
+    await chooseRepsLeft(page, String(rir));
     await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
     await page.locator(`#workout .exercise.is-current [data-save="${target.slotId}_${ordinal}"]`).click();
     await page.waitForFunction(({ slotId, ordinal }) => {

@@ -17,7 +17,7 @@
  */
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { answerRecommend, launchChromium, openShelfField, waitForAppBoot } from "./browser.mjs";
+import { chooseRepsLeft, answerRecommend, launchChromium, openShelfField, waitForAppBoot } from "./browser.mjs";
 import { exerciseAction } from "./fixtures/focus-workout.mjs";
 import { openInstalledEditor } from "./adaptive-build-fixture.mjs";
 
@@ -57,7 +57,10 @@ async function installProgram(page) {
     if (!mapped.ok) throw new Error("Could not prepare the catalog request: " + JSON.stringify(mapped.conflicts));
     const generated = window.RepForgeProgramCompiler.generateProgram(mapped.value, catalog);
     if (!generated.ok) throw new Error("Could not generate the production program: " + JSON.stringify(generated.conflicts));
+    const baseProposal = window.__repforgeWorkoutDraft.state();
+    baseProposal.settings.rirMode = "numeric";
     await window.__repforgeFinalizeProgramSetup({
+      baseProposal,
       programDefinition: generated.value,
       name: "Per-side completion summary proof",
       answers: {},
@@ -76,6 +79,11 @@ async function installProgram(page) {
 /** Recommend → Review: swap the B-stance RDL into the hip-extension slot,
  *  answer "One side at a time", and activate (the #382 capture journey). */
 async function installAmbiguousProgram(page) {
+  await page.evaluate(async () => {
+    const proposal = window.__repforgeWorkoutDraft.state();
+    proposal.settings.rirMode = "numeric";
+    await window.__repforgeCommitProposedState(proposal);
+  });
   await page.click("#firstRunCreate");
   await page.waitForSelector("#onboarding.active #entryHeading", { timeout: 10000 });
   await answerRecommend(page, { days: 2, minutes: 90, skipBasics: true, deload: false });
@@ -156,7 +164,7 @@ async function logSet(page, programRowId, metrics, values) {
   const rir = page.locator(`#workout .exercise.is-current .focus-shelf input[data-k="${programRowId}_1_rir"]`);
   if (await rir.getAttribute("aria-hidden") === "true")
     await page.locator('#workout .exercise.is-current .focus-shelf [data-shelf-field="rir"]').click();
-  await rir.fill("2");
+  await chooseRepsLeft(page, "2");
   await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
   await page.locator(`#workout .exercise.is-current [data-save="${programRowId}_1"]`).click();
   await page.waitForFunction((id) => {

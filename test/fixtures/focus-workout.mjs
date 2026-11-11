@@ -12,9 +12,14 @@ export async function openActions(page, id) {
   }
 }
 
-export async function exerciseAction(page, id, selector) {
+export async function exerciseAction(page, id, selector, {skipReason="other"}={}) {
   await openActions(page, id);
+  const willSkip=selector==="#exActionSkipBtn" && await page.evaluate(id=>window.__repforgeWorkoutDraft.current()?.exercises?.[id]?.status!=="skipped",id);
   await page.locator(selector).click();
+  if(willSkip){
+    await page.locator(`[data-skip-reason="${skipReason}"]`).click();
+    await page.locator("#skipReasonSheet").waitFor({state:"hidden"});
+  }
   await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
   await page.locator("#exActionsSheet").waitFor({ state: "hidden" });
 }

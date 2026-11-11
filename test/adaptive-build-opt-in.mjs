@@ -15,7 +15,7 @@
  *
  * Run: node tools/run-tests.mjs entry --suite-id test-adaptive-build-opt-in-mjs
  */
-import { launchChromium, openShelfField, waitForAppBoot } from "./browser.mjs";
+import { chooseRepsLeft, launchChromium, openShelfField, waitForAppBoot } from "./browser.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const EXERCISE_ID = "19f5c6f170d8808bb424e98de4472a7e";
@@ -94,7 +94,7 @@ async function logSet(page, rowId, ordinal, metricIds, { load, reps, rir }) {
   const rirInput = page.locator(`#workout .exercise.is-current .focus-shelf input[data-k="${rowId}_${ordinal}_rir"]`);
   if (await rirInput.getAttribute("aria-hidden") === "true")
     await page.locator('#workout .exercise.is-current .focus-shelf [data-shelf-field="rir"]').click();
-  await rirInput.fill(String(rir));
+  await chooseRepsLeft(page, String(rir));
   await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
   await page.locator(`#workout .exercise.is-current [data-save="${rowId}_${ordinal}"]`).click();
   await page.waitForFunction(({ rowId, ordinal }) => {
@@ -140,6 +140,12 @@ try {
   await page.clock.setFixedTime(new Date("2026-10-05T12:00:00.000Z"));
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
   await waitForAppBoot(page, { base: BASE });
+
+  await page.evaluate(async () => {
+    const proposal = window.__repforgeWorkoutDraft.state();
+    proposal.settings.rirMode = "numeric";
+    await window.__repforgeCommitProposedState(proposal);
+  });
 
   await page.click("#firstRunCreate");
   await page.waitForSelector("#onboarding.active #entryHeading", { timeout: 10000 });
@@ -290,8 +296,8 @@ try {
     return { status: rec?.status, engineStatus: rec?.engineStatus, load: rec?.load ?? null,
       cue: document.querySelector("#workout .exercise.is-current .fx-cue__l1")?.textContent || "" };
   }, rowId);
-  check(first.load == null && first.cue.includes("Pick a load for 6–10 reps"),
-    "the first opted-in session is a new lift: Focus asks for a load and invents none", first);
+  check(first.load == null && first.cue === "Find your weight",
+    "the first opted-in session is a new lift: Focus offers its opening ramp without accepting a load", first);
   for (const ordinal of [1, 2, 3]) await logSet(page, rowId, ordinal, durable.metricIds, { load: 60, reps: 10, rir: 2 });
   await finishEarly(page);
 

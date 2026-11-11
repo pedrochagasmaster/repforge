@@ -146,13 +146,13 @@ function htmlI18nKeys(html) {
   return keys;
 }
 
-function extractJsKeys(src) {
+export function extractJsKeys(src) {
   const literals = new Set();
   const dyn = [];
   const litRe = /\bt\(\s*(["'])((?:\\.|(?!\1).)*)\1\s*[,)]/g;
   let m;
   while ((m = litRe.exec(src))) literals.add(m[2].replace(/\\"/g, '"').replace(/\\'/g, "'"));
-  const ternRe = /\bt\(\s*[^)"']{0,80}?(["'])([a-zA-Z][\w.]+)\1\s*:\s*(["'])([a-zA-Z][\w.]+)\3/g;
+  const ternRe = /\bt\(\s*[^)"'`]{0,80}?(["'])([a-zA-Z][\w.]+)\1\s*:\s*(["'])([a-zA-Z][\w.]+)\3/g;
   while ((m = ternRe.exec(src))) {
     literals.add(m[2]);
     literals.add(m[4]);
@@ -176,6 +176,22 @@ const FOCUS_PREV_LINE_FAMILIES = Object.freeze([
 const FOCUS_PREV_LINE_ENDINGS = Object.freeze(["rir", "norir", "effort"]);
 
 const DYNAMIC_FAMILIES = [
+  { test: (s) => s.includes("finding.need.${next.id}${suffix}"), keys: () => ["finding.need.weights_found", "finding.need.weights_found_one", "finding.need.first_target", "finding.need.first_check", "finding.need.effort_read", "finding.need.effort_read_one", "finding.need.effort_read_agreement", "finding.need.first_solid", "finding.need.first_solid_one", "finding.need.first_solid_sessions", "finding.need.first_solid_agreement", "finding.need.first_trend", "finding.need.month_one", "finding.need.month_one_one"] },
+  { test: (s) => s.includes("review.proposal.applied.${record.kind}"), keys: () => ["review.proposal.applied.swap_exercise", "review.proposal.applied.drop_exercise", "review.proposal.applied.reduce_sets"] },
+  { test: (s) => s.includes("review.proposal.evaluation.${record.evaluation.outcome}"), keys: () => ["review.proposal.evaluation.pattern_stopped", "review.proposal.evaluation.pattern_continued", "review.proposal.evaluation.insufficient"] },
+  { test: (s) => s.includes("review.proposal.${proposal.kind}"), keys: () => ["review.proposal.swap_exercise", "review.proposal.drop_exercise", "review.proposal.reduce_sets"] },
+  { test: (s) => s.includes("review.why.${cause}"), keys: () => ["review.why.time", "review.why.equipment", "review.why.pain", "review.why.preference", "review.why.other", "review.why.recovery", "review.why.schedule"] },
+  { test: (s) => s.includes("review.pattern.${pattern.pattern}"), keys: () => ["review.pattern.recurring_skip", "review.pattern.recurring_pain", "review.pattern.recurring_fatigue", "review.pattern.stall_hard"] },
+  { test: (s) => s.includes("review.proposal.${action}"), keys: () => ["review.proposal.accept", "review.proposal.change", "review.proposal.later", "review.proposal.decline"] },
+  { test: (s) => s.includes("maxset.invite_reason_${offer.reason}"), keys: () => ["maxset.invite_reason_learning", "maxset.invite_reason_recheck"] },
+  { test: (s) => s.includes("focus.evidence.${cue.ramp.record.basis}"), keys: () => ["focus.evidence.prior", "focus.evidence.floor", "focus.evidence.ratio"] },
+  { test: (s) => s.includes("landing.check.${kind}"), keys: () => ["landing.check.more", "landing.check.fewer", "landing.check.equal"] },
+  { test: (s) => s.includes("why.standing.${reason}") || s.includes("why.standing.${standing.reasons[0]||\"evidence\"}"), keys: () => ["why.standing.no_history", "why.standing.live_only", "why.standing.few_sets", "why.standing.few_sessions", "why.standing.disagreement", "why.standing.inconsistent_checks", "why.standing.break", "why.standing.evidence"] },
+  { test: (s) => s.includes("review.week.sessions_only.${"), keys: () => ["one", "other"].map((form) => `review.week.sessions_only.${form}`) },
+  { test: (s) => s.includes("review.week.${event.kind}"), keys: () => ["pain", "discomfort"].flatMap((kind) => ["", "_swapped"].map((ending) => `review.week.${kind}${ending}`)) },
+  { test: (s) => s.includes("focus.skip_reason.${"), keys: () => ["time", "recovery", "pain", "equipment", "schedule", "trim", "other"].map((reason) => `focus.skip_reason.${reason}`) },
+  { test: (s) => s.includes("review.week.${outcome}"), keys: () => ["improved", "maintained", "declined"].map((outcome) => `review.week.${outcome}`) },
+  { test: (s) => s.includes("review.week.card_facts.${"), keys: () => ["improved", "stalled", "pain"].map((fact) => `review.week.card_facts.${fact}`) },
   // The landing's feature tabs: the conversation's menu and the Home Screen's app labels (2026-10-31).
   { test: (s) => s === '"landing.features.chat."+', keys: () => ["reply", "forward", "copy"].map((key) => `landing.features.chat.${key}`) },
   { test: (s) => s === '"landing.features.home."+', keys: () => ["calendar", "clock", "notes", "maps", "reminders", "files", "stocks", "home", "fitness", "settings"].map((key) => `landing.features.home.${key}`) },
@@ -326,6 +342,13 @@ async function runBrowserParity(en, pt) {
 
 async function main() {
   console.log("\ni18n parity");
+  const template=extractJsKeys('t(`review.week.sessions_only.${facts.completedSessions===1?"one":"other"}`,{done:1})');
+  assert(template.dyn.length===1&&!template.literals.has("one")&&!template.literals.has("other"),
+    "A conditional inside a template key does not invent standalone translation keys",JSON.stringify({...template,literals:[...template.literals]}));
+  const conditional=extractJsKeys('t(last?"review.week.last":"review.week.current")');
+  assert(conditional.literals.has("review.week.last")&&conditional.literals.has("review.week.current"),
+    "A literal conditional still enumerates both translation keys");
+
   const enSrc = readFileSync(join(ROOT, "i18n-en.json"), "utf8");
   const ptSrc = readFileSync(join(ROOT, "i18n-pt.json"), "utf8");
   const enDups = findDuplicateKeys(enSrc, "i18n-en.json");
@@ -349,6 +372,19 @@ async function main() {
   assert(!ptRtMiss.length, "PT JSON matches PT runtime dictionary", ptRtMiss.slice(0, 8).join(", "));
   assert(Object.keys(runtime.en).length === enKeys.length, "EN runtime has the same key count as EN JSON", `${Object.keys(runtime.en).length} vs ${enKeys.length}`);
   assert(Object.keys(runtime.pt).length === ptKeys.length, "PT runtime has the same key count as PT JSON", `${Object.keys(runtime.pt).length} vs ${ptKeys.length}`);
+  // Plan 078 D-15: these working surfaces use reps left; RIR belongs in the glossary.
+  const workingEffortKeys = enKeys.filter(key => key.startsWith("focus.prev_line") ||
+    key.startsWith("focus.exmeta.") || ["focus.evidence.session", "focus.evidence.history",
+      "focus.evidence.target", "focus.evidence.target_fatigue", "focus.evidence.what_rir",
+      "focus.shelf.pad_rir", "today.target", "stats.table.rir", "stats.outcome_short.missing_effort",
+      "validation.rir", "exercise.understand", "settings.rir_logging"].includes(key));
+  for (const lang of ["en", "pt"]) {
+    const technicalLabels = workingEffortKeys.filter(key => /\bRIR\b/i.test(runtime[lang][key].replace(/\{\w+\}/g, "")));
+    assert(!technicalLabels.length, `${lang.toUpperCase()} working effort copy uses reps left`, technicalLabels.join(", "));
+    assert((runtime[lang]["glossary.RIR"].match(/\bRIR\b/g) || []).length === 1 &&
+      runtime[lang]["glossary.RIR"].includes(lang === "pt" ? "reps sobrando" : "reps left"),
+      `${lang.toUpperCase()} glossary names RIR once as reps left`);
+  }
   // #418: the result's "How it was built" line names the chosen place, so every
   // place the entry flow offers needs that sentence in both languages.
   const entrySource = readFileSync(join(ROOT, "program-entry.js"), "utf8");

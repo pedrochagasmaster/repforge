@@ -4,7 +4,7 @@
  * Requires the repository root at REPFORGE_URL (default http://localhost:8000/).
  */
 import { finishEarly } from "./fixtures/focus-workout.mjs";
-import { launchChromium } from "./browser.mjs";
+import { chooseRepsLeft, launchChromium } from "./browser.mjs";
 import {
   clearPersistenceArtifacts,
   inventoryPersistenceArtifacts,
@@ -140,7 +140,7 @@ async function writeFixture(page, state) {
 async function fillSet(page, exerciseId, load) {
   await page.locator(`[data-k="${exerciseId}_1_load"]`).fill(String(load));
   await page.locator(`[data-k="${exerciseId}_1_reps"]`).fill("8");
-  await page.locator(`[data-k="${exerciseId}_1_rir"]`).fill("1");
+  await chooseRepsLeft(page, "1");
 }
 
 async function contextSnapshot(page) {

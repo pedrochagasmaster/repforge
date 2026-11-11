@@ -16,7 +16,7 @@
     "onboarding-start/first-run-proof": {
       "owner": "plan-064/r2",
       "content": "flat",
-      "scenario": "The landing scrolled to the proof band: the phone playing Focus's own screen, held mid-chapter 2 (the set logged, the rest tab risen with its light), its four chapters, and the persistent Build control."
+      "scenario": "Scrolled to the five-chapter proof: Focus's Smith machine bench press, held with the first set logged and the rest tab risen."
     },
     "onboarding-start/first-run-ways": {
       "owner": "plan-064/r2",
@@ -36,7 +36,7 @@
     "onboarding-start/first-run-faq-open": {
       "owner": "plan-064/r2",
       "content": "flat",
-      "scenario": "The landing scrolled to the questions with the RIR answer open."
+      "scenario": "Seven questions, with the original third RIR answer open and the two new test-set questions closed."
     },
     "onboarding-start/first-run-close": {
       "owner": "plan-064/r2",
@@ -213,16 +213,6 @@
       "content": "flat",
       "scenario": "Unreadable reply recovery block with Copy repair prompt and Try another assistant actions."
     },
-    "onboarding-import/freeform-managed": {
-      "owner": "adr-0025",
-      "content": "flat",
-      "scenario": "Managed import available: a pasted program, one note that the text goes to Anthropic, the verification widget, Import with Taurifer, and the ChatGPT or Claude hand-off as a quiet alternative."
-    },
-    "onboarding-import/freeform-managed-limit": {
-      "owner": "adr-0025",
-      "content": "flat",
-      "scenario": "Managed import after the daily limit: the alert under Import, the pasted source kept, and the ChatGPT or Claude hand-off still available."
-    },
     "onboarding-import/freeform-managed-gaps": {
       "owner": "import-quality-2026-11",
       "content": "flat",
@@ -287,16 +277,6 @@
       "owner": "plan-064/r3b",
       "content": "flat",
       "scenario": "The Direction D lifter before Day 1 starts: the prescription table reads recommendation() for every exercise, with the verdict tally above it."
-    },
-    "today/calibration-mini": {
-      "owner": "plan-077",
-      "content": "flat",
-      "scenario": "The calibration ring beside Today's large title."
-    },
-    "today/calibration-ring-bar": {
-      "owner": "plan-077",
-      "content": "flat",
-      "scenario": "Today scrolled, the calibration ring in the bar beside the gear."
     },
     "today/dock-viewer": {
       "owner": "plan-075-phase-5",
@@ -393,6 +373,11 @@
       "content": "flat",
       "scenario": "During the rest before a lift's last set, the test-set prompt above the shelf: the ink tip with Not now, × and Make a guess."
     },
+    "workout/max-set-recheck": {
+      "owner": "plan-080",
+      "content": "flat",
+      "scenario": "A solid calibrated lift, its last check 60 days ago with regular sessions since. The invite explains that it has been a while since the last check."
+    },
     "workout/max-set-guess": {
       "owner": "plan-077",
       "content": "flat",
@@ -421,12 +406,12 @@
     "workout/effort-stage-b": {
       "owner": "plan-077",
       "content": "flat",
-      "scenario": "Stage B: Reps left with the chips 0 · 1 · 2 · 3+, 2 chosen."
+      "scenario": "Numeric stage: Reps left with the chips 0 · 1 · 2 · 3 · 4 · 5+, 2 chosen."
     },
     "workout/effort-menu": {
       "owner": "plan-077",
       "content": "flat",
-      "scenario": "The effort field's arrow opened: the three stages, the current one checked, and Not sure for this set."
+      "scenario": "The effort field's arrow opened: the two stages, the current one checked, and Not sure for this set."
     },
     "workout/stage-tip": {
       "owner": "plan-077",
@@ -481,7 +466,7 @@
     "session/summary": {
       "owner": "plan-064/r3h",
       "content": "flat",
-      "scenario": "The Direction D lifter's Day 1 finish screen: the card row (record poster, then the stats card) and the four tiles."
+      "scenario": "The Direction D lifter's Day 1 finish screen: the card row (record poster, then the stats card) the next finding's need, and the three tiles."
     },
     "session/summary-lifts": {
       "owner": "plan-064/r3h",
@@ -527,11 +512,6 @@
       "owner": "plan-056",
       "content": "flat",
       "scenario": "The Progress landing tab."
-    },
-    "progress/overview-calibration": {
-      "owner": "plan-077",
-      "content": "flat",
-      "scenario": "The effort calibration gauge, its six signals with plain counts, and the recent test sets."
     },
     "progress/overview-guide": {
       "owner": "tip-modal-2026-10-17",
@@ -616,7 +596,7 @@
     "progress/review-active": {
       "owner": "plan-056",
       "content": "flat",
-      "scenario": "The active-block checkpoint is read-only."
+      "scenario": "Calendar-week facts before block-to-date evidence; no proposals or active structural actions."
     },
     "progress/review-complete": {
       "owner": "plan-056",
@@ -866,7 +846,7 @@
     "settings/effort-menu": {
       "owner": "plan-077",
       "content": "flat",
-      "scenario": "Effort logging opened as a native pull-down: the three stages, the current one checked."
+      "scenario": "Effort logging opened as a native pull-down: the two stages, the current one checked."
     },
     "settings/guides": {
       "owner": "plan-057",
@@ -1297,6 +1277,126 @@
       "owner": "plan-055",
       "content": "flat",
       "scenario": "A logged set, then a rest carried past the one-hour cap by the live count-up: the Early finish question opens with its reason line."
+    },
+    "workout/why-standing": {
+      "owner": "plan-080",
+      "content": "flat",
+      "scenario": "A learning lift’s footing, few sets and sessions, after a 50-day break."
+    },
+    "today/week-card": {
+      "owner": "plan-082",
+      "content": "flat",
+      "scenario": "Last week facts and Review/Dismiss actions."
+    },
+    "workout/discomfort-mark": {
+      "owner": "plan-082",
+      "content": "flat",
+      "scenario": "Discomfort recorded in exercise actions."
+    },
+    "workout/skip-reason": {
+      "owner": "plan-082",
+      "content": "flat",
+      "scenario": "Closed reason sheet before skipping an exercise."
+    },
+    "workout/focus-ramp": {
+      "owner": "plan-079",
+      "content": "flat",
+      "scenario": "A fresh generated program with bodyweight 80 kg offers the declared opening and the skip."
+    },
+    "workout/focus-ramp-easy": {
+      "owner": "plan-079",
+      "content": "flat",
+      "scenario": "A completed Easy set is a warm-up; the cue offers the next grid load before the working sets."
+    },
+    "history/ramp-rows": {
+      "owner": "plan-079",
+      "content": "flat",
+      "scenario": "Two warm-up ramp rows precede the first working row, whose opening provenance survives saving."
+    },
+    "workout/focus-ramp-ratio": {
+      "owner": "plan-079",
+      "content": "flat",
+      "scenario": "A new lift opens at a logged working load from the same equipment class and table row."
+    },
+    "workout/focus-ramp-changed-movement": {
+      "owner": "plan-079",
+      "content": "flat",
+      "scenario": "A changed movement recomputes its own opening after a completed ramp warm-up."
+    },
+    "workout/focus-ramp-substitution": {
+      "owner": "plan-079",
+      "content": "flat",
+      "scenario": "A fresh substitution offers the original movement's working load within the same equipment class and table row."
+    },
+    "workout/focus-ramp-floor": {
+      "owner": "plan-079",
+      "content": "flat",
+      "scenario": "Without bodyweight the opening uses the equipment floor and offers the existing Session bodyweight field."
+    },
+    "onboarding-start/effort-choice": {
+      "owner": "plan-078/pr2",
+      "content": "flat",
+      "scenario": "The once-per-device effort choice at program activation, with words selected."
+    },
+    "onboarding-start/first-run-proof-test": {
+      "owner": "plan-083/pr1",
+      "content": "flat",
+      "scenario": "Scrolled to Test your guess: the last working set's computed guess, logged result and remaining checks."
+    },
+    "progress/review-proposal": {
+      "owner": "plan-082",
+      "content": "flat",
+      "scenario": "Recurring skips, an equipment cause and an alternate, with four explicit actions."
+    },
+    "progress/review-evaluated": {
+      "owner": "plan-082",
+      "content": "flat",
+      "scenario": "An accepted removal and the following week’s observed outcome."
+    },
+    "workout/pain-swap": {
+      "owner": "plan-082",
+      "content": "flat",
+      "scenario": "The second marked session opens the ordinary swap picker, with different equipment classes first and no selection made."
+    },
+    "onboarding-start/first-run-check": {
+      "owner": "plan-083/pr2",
+      "content": "flat",
+      "scenario": "The surface band with computed test-set comparisons, safety ceilings, correction limits and barbell exclusions."
+    },
+    "progress/overview-profile": {
+      "owner": "plan-081",
+      "content": "flat",
+      "scenario": "Dated findings and the next evidence needed, followed by standing and counts."
+    },
+    "progress/overview-profile-first": {
+      "owner": "plan-081",
+      "content": "flat",
+      "scenario": "Dated findings and the next evidence needed, followed by standing and counts."
+    },
+    "onboarding-import/freeform-managed": {
+      "owner": "adr-0025",
+      "content": "flat",
+      "scenario": "Managed import available: a pasted program, one note that the text goes to Anthropic, the verification widget, Import with Taurifer, and the ChatGPT or Claude hand-off as a quiet alternative."
+    },
+    "onboarding-import/freeform-managed-limit": {
+      "owner": "adr-0025",
+      "content": "flat",
+      "scenario": "Managed import after the daily limit: the alert under Import, the pasted source kept, and the ChatGPT or Claude hand-off still available."
+    },
+    "session/summary-finding": {
+      "owner": "plan-081",
+      "content": "flat",
+      "scenario": "The finish screen with the first test-set finding and the profile link above its factual tiles."
+    },
+    "session/summary-profile": {
+      "owner": "plan-081",
+      "content": "flat",
+      "scenario": "The profile opened from the finish screen, with Back restoring that session."
+    },
+    "onboarding-import/editor-empty-day": {
+      "owner": "issue-691",
+      "content": "flat",
+      "scenario": "An imported training day with its final exercise removed. Existing empty-day guidance blocks activation."
     }
   },
   "components": [
@@ -1380,8 +1480,7 @@
         "today/deload-week",
         "today/ready-scrolled",
         "today/in-progress",
-        "today/calibration-mini",
-        "today/calibration-ring-bar"
+        "today/week-card"
       ]
     },
     {
@@ -1690,7 +1789,8 @@
         "onboarding-build/editor-empty",
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
-        "onboarding-build/editor-alternates"
+        "onboarding-build/editor-alternates",
+        "onboarding-import/editor-empty-day"
       ]
     },
     {
@@ -1715,7 +1815,8 @@
         "onboarding-build/editor-empty",
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
-        "onboarding-build/editor-alternates"
+        "onboarding-build/editor-alternates",
+        "onboarding-import/editor-empty-day"
       ]
     },
     {
@@ -1787,53 +1888,6 @@
       "catalogStates": [
         "onboarding-import/freeform-empty",
         "onboarding-import/freeform-filled"
-      ]
-    },
-    {
-      "id": "entrymanagedfallback",
-      "selector": "#entryFreeformContinue.btn--ghost",
-      "roles": {
-        "control": "quiet-navigation"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled"
-      ],
-      "rationale": "With managed import available, the ChatGPT or Claude hand-off steps back to the same quiet treatment as the file switch below it; it keeps its id, its behaviour and the manual path.",
-      "owner": "adr-0025",
-      "catalogStates": [
-        "onboarding-import/freeform-managed",
-        "onboarding-import/freeform-managed-limit"
-      ]
-    },
-    {
-      "id": "entrymanagedconvert",
-      "selector": "#entryManagedConvert",
-      "roles": {
-        "control": "primary"
-      },
-      "variant": null,
-      "facets": [
-        "disabled"
-      ],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled",
-        "loading"
-      ],
-      "rationale": "Sends the pasted program, once verified, to the managed import service. It is disabled until there is a program and a fresh challenge token, and busy while the request runs; the reply still goes through review and explicit activation.",
-      "owner": "adr-0025",
-      "catalogStates": [
-        "onboarding-import/freeform-managed",
-        "onboarding-import/freeform-managed-limit"
       ]
     },
     {
@@ -2386,6 +2440,7 @@
         "workout/swap-reason",
         "workout/actions",
         "workout/max-set-prompt",
+        "workout/max-set-recheck",
         "workout/max-set-guess",
         "workout/max-set-active",
         "workout/max-set-result",
@@ -2394,7 +2449,15 @@
         "workout/stage-tip",
         "workout/why-calibration",
         "workout/last-rep-slow",
-        "workout/rest-overrun-finish"
+        "workout/rest-overrun-finish",
+        "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor",
+        "workout/why-standing",
+        "workout/pain-swap"
       ],
       "neverDisabledReason": "A note can always be written for the exercise in progress."
     },
@@ -2440,7 +2503,8 @@
         "workout/exercise-actions",
         "workout/skipped-actions",
         "workout/substituted-actions",
-        "workout/warmup-actions"
+        "workout/warmup-actions",
+        "workout/discomfort-mark"
       ]
     },
     {
@@ -2486,7 +2550,8 @@
         "workout/exercise-actions",
         "workout/skipped-actions",
         "workout/substituted-actions",
-        "workout/warmup-actions"
+        "workout/warmup-actions",
+        "workout/discomfort-mark"
       ]
     },
     {
@@ -2511,7 +2576,8 @@
         "workout/exercise-actions",
         "workout/skipped-actions",
         "workout/substituted-actions",
-        "workout/warmup-actions"
+        "workout/warmup-actions",
+        "workout/discomfort-mark"
       ]
     },
     {
@@ -2537,7 +2603,8 @@
         "workout/exercise-actions",
         "workout/skipped-actions",
         "workout/substituted-actions",
-        "workout/warmup-actions"
+        "workout/warmup-actions",
+        "workout/discomfort-mark"
       ]
     },
     {
@@ -2557,7 +2624,8 @@
         "workout/exercise-actions",
         "workout/skipped-actions",
         "workout/substituted-actions",
-        "workout/warmup-actions"
+        "workout/warmup-actions",
+        "workout/discomfort-mark"
       ]
     },
     {
@@ -2577,7 +2645,8 @@
         "workout/exercise-actions",
         "workout/skipped-actions",
         "workout/substituted-actions",
-        "workout/warmup-actions"
+        "workout/warmup-actions",
+        "workout/discomfort-mark"
       ]
     },
     {
@@ -2956,7 +3025,8 @@
       "catalogStates": [
         "program/exercise-picker",
         "workout/swap-alternates",
-        "workout/swap-reason"
+        "workout/swap-reason",
+        "workout/pain-swap"
       ]
     },
     {
@@ -2980,7 +3050,8 @@
       "catalogStates": [
         "program/exercise-picker",
         "workout/swap-alternates",
-        "workout/swap-reason"
+        "workout/swap-reason",
+        "workout/pain-swap"
       ]
     },
     {
@@ -3004,7 +3075,8 @@
       "catalogStates": [
         "program/exercise-picker",
         "workout/swap-alternates",
-        "workout/swap-reason"
+        "workout/swap-reason",
+        "workout/pain-swap"
       ]
     },
     {
@@ -3023,7 +3095,8 @@
       "catalogStates": [
         "program/exercise-picker",
         "workout/swap-alternates",
-        "workout/swap-reason"
+        "workout/swap-reason",
+        "workout/pain-swap"
       ]
     },
     {
@@ -3048,7 +3121,8 @@
       "catalogStates": [
         "program/exercise-picker",
         "workout/swap-alternates",
-        "workout/swap-reason"
+        "workout/swap-reason",
+        "workout/pain-swap"
       ]
     },
     {
@@ -3067,7 +3141,8 @@
       "catalogStates": [
         "program/exercise-picker",
         "workout/swap-alternates",
-        "workout/swap-reason"
+        "workout/swap-reason",
+        "workout/pain-swap"
       ]
     },
     {
@@ -3163,7 +3238,9 @@
         "onboarding-start/first-run-data",
         "onboarding-start/first-run-faq-open",
         "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-proof-test",
         "onboarding-start/first-run-features",
+        "onboarding-start/first-run-check",
         "onboarding-start/first-run-ways"
       ]
     },
@@ -3193,7 +3270,9 @@
         "onboarding-start/first-run-data",
         "onboarding-start/first-run-faq-open",
         "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-proof-test",
         "onboarding-start/first-run-features",
+        "onboarding-start/first-run-check",
         "onboarding-start/first-run-ways"
       ]
     },
@@ -3223,7 +3302,9 @@
         "onboarding-start/first-run-data",
         "onboarding-start/first-run-faq-open",
         "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-proof-test",
         "onboarding-start/first-run-features",
+        "onboarding-start/first-run-check",
         "onboarding-start/first-run-ways"
       ]
     },
@@ -3251,7 +3332,9 @@
         "onboarding-start/first-run-data",
         "onboarding-start/first-run-faq-open",
         "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-proof-test",
         "onboarding-start/first-run-features",
+        "onboarding-start/first-run-check",
         "onboarding-start/first-run-ways"
       ]
     },
@@ -3279,7 +3362,9 @@
         "onboarding-start/first-run-data",
         "onboarding-start/first-run-faq-open",
         "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-proof-test",
         "onboarding-start/first-run-features",
+        "onboarding-start/first-run-check",
         "onboarding-start/first-run-ways"
       ]
     },
@@ -3308,7 +3393,9 @@
         "onboarding-start/first-run-data",
         "onboarding-start/first-run-faq-open",
         "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-proof-test",
         "onboarding-start/first-run-features",
+        "onboarding-start/first-run-check",
         "onboarding-start/first-run-ways"
       ]
     },
@@ -3377,6 +3464,8 @@
       "owner": "plan-064/r2",
       "catalogStates": [
         "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-proof-test",
+        "onboarding-start/first-run-check",
         "onboarding-start/first-run-ways",
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
@@ -3399,13 +3488,15 @@
         "focus-visible",
         "disabled"
       ],
-      "rationale": "One of the proof's four chapters: it moves the playing phone to its chapter without committing any state. Its progress line is the button's own bottom edge (a left rule from 900px) and the current chapter is marked by aria-current.",
+      "rationale": "One of the proof's five chapters: it moves the playing phone to its chapter without committing any state. Its progress line is the button's own bottom edge (a left rule from 900px) and the current chapter is marked by aria-current.",
       "owner": "plan-064/r2",
       "catalogStates": [
         "onboarding-shared/gate",
         "onboarding-shared/invalid",
         "onboarding-start/first-run",
         "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-proof-test",
+        "onboarding-start/first-run-check",
         "onboarding-start/first-run-ways",
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
@@ -3436,6 +3527,8 @@
         "onboarding-shared/invalid",
         "onboarding-start/first-run",
         "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-proof-test",
+        "onboarding-start/first-run-check",
         "onboarding-start/first-run-ways",
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
@@ -3466,6 +3559,8 @@
         "onboarding-shared/invalid",
         "onboarding-start/first-run",
         "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-proof-test",
+        "onboarding-start/first-run-check",
         "onboarding-start/first-run-ways",
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
@@ -3495,6 +3590,8 @@
         "onboarding-shared/invalid",
         "onboarding-start/first-run",
         "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-proof-test",
+        "onboarding-start/first-run-check",
         "onboarding-start/first-run-ways",
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
@@ -4048,13 +4145,21 @@
         "workout/logged-sets-folded",
         "workout/exercise-note-line",
         "workout/max-set-prompt",
+        "workout/max-set-recheck",
         "workout/max-set-guess",
         "workout/max-set-active",
         "workout/max-set-result",
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor",
+        "workout/pain-swap"
       ]
     },
     {
@@ -4451,6 +4556,7 @@
         "onboarding-recommend/deload-start",
         "onboarding-import/freeform-managed",
         "onboarding-import/freeform-managed-limit",
+        "onboarding-import/editor-empty-day",
         "onboarding-import/freeform-managed-gaps"
       ]
     },
@@ -4576,6 +4682,7 @@
         "onboarding-recommend/deload-start",
         "onboarding-import/freeform-managed",
         "onboarding-import/freeform-managed-limit",
+        "onboarding-import/editor-empty-day",
         "onboarding-import/freeform-managed-gaps",
         "onboarding-import/review-suggestions"
       ],
@@ -4617,8 +4724,7 @@
         "today/deload-week",
         "today/ready-scrolled",
         "today/in-progress",
-        "today/calibration-mini",
-        "today/calibration-ring-bar"
+        "today/week-card"
       ]
     },
     {
@@ -4646,83 +4752,6 @@
         "settings/language-menu",
         "settings/effort-menu"
       ]
-    },
-    {
-      "id": "calring-title",
-      "selector": "#todayCalRing",
-      "roles": {
-        "control": "quiet-navigation"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "pressed",
-        "focus-visible"
-      ],
-      "rationale": "The calibration ring beside Today's large title: the gauge's number and test-set dots; opens Progress › Overview at the calibration card.",
-      "owner": "plan-077",
-      "catalogStates": [
-        "catalog-recovery/retry-failed",
-        "catalog-recovery/unavailable",
-        "install/banner",
-        "today/done",
-        "today/draft-resume",
-        "today/no-program",
-        "today/ready",
-        "today/dock-viewer",
-        "today/skipped",
-        "today/rest-bar",
-        "workout/invalid-draft",
-        "today/deload-week",
-        "today/ready-scrolled",
-        "today/in-progress",
-        "today/calibration-mini",
-        "today/calibration-ring-bar",
-        "install/transfer-destination",
-        "program/custom-exercise-recovery",
-        "install/ios-sheet",
-        "install/transfer-claimed-expired",
-        "install/transfer-claiming",
-        "install/transfer-cleanup",
-        "install/transfer-creating",
-        "install/transfer-eligible",
-        "install/transfer-importing",
-        "install/transfer-interrupted",
-        "install/transfer-ready",
-        "install/transfer-retryable",
-        "install/transfer-success",
-        "install/transfer-terminal",
-        "install/transfer-unknown",
-        "program/custom-exercise",
-        "program/custom-exercise-archiving",
-        "program/custom-exercise-saving",
-        "today/context-menu",
-        "today/day-picker"
-      ],
-      "neverDisabledReason": "The ring is shown only when there is a gauge to open; with none it is hidden, not disabled."
-    },
-    {
-      "id": "calring-bar",
-      "selector": "#todayCalRingBar",
-      "roles": {
-        "control": "quiet-navigation"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "pressed",
-        "focus-visible"
-      ],
-      "rationale": "The calibration ring's twin in the bar beside the gear once Today's title has scrolled under the bar; a pointer shortcut (the title ring is the one keyboard and VoiceOver reach).",
-      "owner": "plan-077",
-      "catalogStates": [
-        "today/ready-scrolled",
-        "workout/invalid-draft",
-        "today/calibration-ring-bar"
-      ],
-      "neverDisabledReason": "Shown only with the gauge; hidden otherwise."
     },
     {
       "id": "previewadd",
@@ -4970,7 +4999,8 @@
         "program/share-setup",
         "program/text-export",
         "workout/swap-alternates",
-        "program/minibar-rest-done"
+        "program/minibar-rest-done",
+        "workout/pain-swap"
       ],
       "progressScopes": {
         "active-program-week": "block"
@@ -5267,6 +5297,7 @@
         "workout/correction",
         "workout/logged-sets-folded",
         "workout/max-set-prompt",
+        "workout/max-set-recheck",
         "workout/max-set-guess",
         "workout/max-set-active",
         "workout/max-set-result",
@@ -5487,7 +5518,8 @@
         "onboarding-build/editor-ready",
         "program/editor-alternates",
         "program/editor-suggest-loads",
-        "program/editor-issue-field"
+        "program/editor-issue-field",
+        "onboarding-import/editor-empty-day"
       ]
     },
     {
@@ -6065,13 +6097,21 @@
         "workout/logged-sets-folded",
         "workout/exercise-note-line",
         "workout/max-set-prompt",
+        "workout/max-set-recheck",
         "workout/max-set-guess",
         "workout/max-set-active",
         "workout/max-set-result",
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor",
+        "workout/pain-swap"
       ]
     },
     {
@@ -6137,6 +6177,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "session/summary",
+        "session/summary-finding",
         "session/summary-lifts",
         "session/summary-declined",
         "session/summary-maintained",
@@ -6161,6 +6202,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "session/summary",
+        "session/summary-finding",
         "session/summary-lifts",
         "session/summary-declined",
         "session/summary-maintained",
@@ -6377,13 +6419,12 @@
         "workout/invalid-draft",
         "today/deload-week",
         "today/ready-scrolled",
-        "today/calibration-mini",
-        "today/calibration-ring-bar"
+        "today/week-card"
       ]
     },
     {
       "id": "stats-button-aria-pressed",
-      "selector": "#stats button[aria-pressed]:not(.tabrow__tab):not(#strengthScopeSeg > button)",
+      "selector": "#stats button[aria-pressed]:not(.tabrow__tab):not(#strengthScopeSeg > button):not([data-adaptation-cause])",
       "roles": {
         "control": "selection",
         "elevation": [
@@ -6434,7 +6475,11 @@
         "progress/volume-drill-in",
         "progress/volume-reduction-preview",
         "progress/minibar",
-        "progress/overview-calibration"
+        "progress/review-proposal",
+        "progress/review-evaluated",
+        "progress/overview-profile",
+        "progress/overview-profile-first",
+        "session/summary-profile"
       ]
     },
     {
@@ -6488,6 +6533,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "session/summary",
+        "session/summary-finding",
         "session/summary-lifts",
         "session/summary-declined",
         "session/summary-maintained",
@@ -6513,6 +6559,7 @@
       "owner": "finish-share",
       "catalogStates": [
         "session/summary",
+        "session/summary-finding",
         "session/summary-lifts",
         "session/summary-declined",
         "session/summary-maintained",
@@ -6897,6 +6944,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "session/summary",
+        "session/summary-finding",
         "session/summary-lifts",
         "session/summary-declined",
         "session/summary-maintained",
@@ -7047,8 +7095,7 @@
         "today/deload-week",
         "today/ready-scrolled",
         "today/in-progress",
-        "today/calibration-mini",
-        "today/calibration-ring-bar"
+        "today/week-card"
       ],
       "progressScopes": {
         "active-program-week": "block"
@@ -7105,8 +7152,7 @@
         "today/deload-week",
         "today/ready-scrolled",
         "today/in-progress",
-        "today/calibration-mini",
-        "today/calibration-ring-bar"
+        "today/week-card"
       ],
       "progressScopes": {
         "current-week-trained-days": "week"
@@ -7172,8 +7218,7 @@
         "today/deload-week",
         "today/ready-scrolled",
         "today/in-progress",
-        "today/calibration-mini",
-        "today/calibration-ring-bar"
+        "today/week-card"
       ]
     },
     {
@@ -7263,7 +7308,8 @@
         "workout/why-in-session",
         "workout/why-manual",
         "workout/why-setup",
-        "workout/why-calibration"
+        "workout/why-calibration",
+        "workout/why-standing"
       ]
     },
     {
@@ -7285,7 +7331,8 @@
         "workout/why-in-session",
         "workout/why-manual",
         "workout/why-setup",
-        "workout/why-calibration"
+        "workout/why-calibration",
+        "workout/why-standing"
       ]
     },
     {
@@ -7307,7 +7354,8 @@
         "workout/why-in-session",
         "workout/why-manual",
         "workout/why-setup",
-        "workout/why-calibration"
+        "workout/why-calibration",
+        "workout/why-standing"
       ]
     },
     {
@@ -7346,13 +7394,21 @@
         "workout/logged-sets-folded",
         "workout/exercise-note-line",
         "workout/max-set-prompt",
+        "workout/max-set-recheck",
         "workout/max-set-guess",
         "workout/max-set-active",
         "workout/max-set-result",
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor",
+        "workout/pain-swap"
       ]
     },
     {
@@ -7402,6 +7458,7 @@
         "workout/logged-sets-folded",
         "workout/exercise-note-line",
         "workout/max-set-prompt",
+        "workout/max-set-recheck",
         "workout/max-set-guess",
         "workout/max-set-active",
         "workout/max-set-result",
@@ -7410,7 +7467,15 @@
         "workout/stage-tip",
         "workout/why-calibration",
         "workout/last-rep-slow",
-        "workout/rest-overrun-finish"
+        "workout/rest-overrun-finish",
+        "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor",
+        "workout/why-standing",
+        "workout/pain-swap"
       ],
       "progressScopes": {
         "workout-exercise-order": "exercise-set"
@@ -7437,7 +7502,9 @@
         "progress/overview",
         "progress/overview-action",
         "progress/minibar",
-        "progress/overview-calibration"
+        "progress/overview-profile",
+        "progress/overview-profile-first",
+        "session/summary-profile"
       ]
     },
     {
@@ -7463,7 +7530,8 @@
         "history/edit-dirty",
         "history/edit-invalid",
         "history/session",
-        "history/per-side-session"
+        "history/per-side-session",
+        "history/ramp-rows"
       ]
     },
     {
@@ -7487,7 +7555,9 @@
         "progress/review",
         "progress/review-active",
         "progress/review-complete",
-        "progress/review-insufficient"
+        "progress/review-insufficient",
+        "progress/review-proposal",
+        "progress/review-evaluated"
       ],
       "progressScopes": {
         "block-review-evidence": "block"
@@ -7555,13 +7625,22 @@
         "workout/logged-sets-folded",
         "workout/exercise-note-line",
         "workout/max-set-prompt",
+        "workout/max-set-recheck",
         "workout/max-set-guess",
         "workout/max-set-active",
         "workout/max-set-result",
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
+        "workout/focus-ramp-easy",
+        "history/ramp-rows",
+        "workout/focus-ramp-floor",
+        "workout/pain-swap"
       ]
     },
     {
@@ -7643,7 +7722,8 @@
         "onboarding-recommend/chip-editor-open",
         "onboarding-recommend/result-corrected",
         "onboarding-recommend/result-existing",
-        "program/editor-issues"
+        "program/editor-issues",
+        "history/ramp-rows"
       ]
     },
     {
@@ -7803,13 +7883,21 @@
         "workout/logged-sets-folded",
         "workout/exercise-note-line",
         "workout/max-set-prompt",
+        "workout/max-set-recheck",
         "workout/max-set-guess",
         "workout/max-set-active",
         "workout/max-set-result",
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor",
+        "workout/pain-swap"
       ],
       "neverDisabledReason": "The header draws the name only while the workout has an exercise to open, and opening it is always available."
     },
@@ -7838,6 +7926,7 @@
         "workout/rest-done",
         "workout/logged-sets-folded",
         "workout/max-set-prompt",
+        "workout/max-set-recheck",
         "workout/max-set-guess",
         "workout/max-set-active",
         "workout/max-set-result",
@@ -7875,13 +7964,21 @@
         "workout/logged-sets-folded",
         "workout/exercise-note-line",
         "workout/max-set-prompt",
+        "workout/max-set-recheck",
         "workout/max-set-guess",
         "workout/max-set-active",
         "workout/max-set-result",
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor",
+        "workout/pain-swap"
       ]
     },
     {
@@ -8084,7 +8181,8 @@
         "program/exercise-picker",
         "workout/abandon",
         "workout/swap-alternates",
-        "workout/swap-reason"
+        "workout/swap-reason",
+        "workout/pain-swap"
       ]
     },
     {
@@ -8113,7 +8211,8 @@
       "catalogStates": [
         "program/exercise-picker",
         "workout/swap-alternates",
-        "workout/swap-reason"
+        "workout/swap-reason",
+        "workout/pain-swap"
       ]
     },
     {
@@ -8199,7 +8298,8 @@
         "program/editor-issue-field",
         "program/editor-day-name-refused",
         "program/progression-editor",
-        "onboarding-build/editor-alternates"
+        "onboarding-build/editor-alternates",
+        "onboarding-import/editor-empty-day"
       ]
     },
     {
@@ -8229,7 +8329,8 @@
         "program/editor-issue-field",
         "program/editor-day-name-refused",
         "program/progression-editor",
-        "onboarding-build/editor-alternates"
+        "onboarding-build/editor-alternates",
+        "onboarding-import/editor-empty-day"
       ]
     },
     {
@@ -8259,7 +8360,8 @@
         "program/editor-issue-field",
         "program/editor-day-name-refused",
         "program/progression-editor",
-        "onboarding-build/editor-alternates"
+        "onboarding-build/editor-alternates",
+        "onboarding-import/editor-empty-day"
       ]
     },
     {
@@ -8290,7 +8392,8 @@
         "program/editor-issue-field",
         "program/editor-day-name-refused",
         "program/progression-editor",
-        "onboarding-build/editor-alternates"
+        "onboarding-build/editor-alternates",
+        "onboarding-import/editor-empty-day"
       ]
     },
     {
@@ -8319,7 +8422,8 @@
         "program/editor-issue-field",
         "program/editor-day-name-refused",
         "program/progression-editor",
-        "onboarding-build/editor-alternates"
+        "onboarding-build/editor-alternates",
+        "onboarding-import/editor-empty-day"
       ]
     },
     {
@@ -8350,7 +8454,8 @@
         "program/editor-issue-field",
         "program/editor-day-name-refused",
         "program/progression-editor",
-        "onboarding-build/editor-alternates"
+        "onboarding-build/editor-alternates",
+        "onboarding-import/editor-empty-day"
       ]
     },
     {
@@ -8378,7 +8483,8 @@
         "program/editor-issue-field",
         "program/editor-day-name-refused",
         "program/progression-editor",
-        "onboarding-build/editor-alternates"
+        "onboarding-build/editor-alternates",
+        "onboarding-import/editor-empty-day"
       ]
     },
     {
@@ -8407,7 +8513,8 @@
         "program/editor-issue-field",
         "program/editor-day-name-refused",
         "program/progression-editor",
-        "onboarding-build/editor-alternates"
+        "onboarding-build/editor-alternates",
+        "onboarding-import/editor-empty-day"
       ]
     },
     {
@@ -8481,7 +8588,8 @@
         "program/editor-suggest-loads",
         "program/editor-issue-field",
         "onboarding-recommend/deload",
-        "onboarding-recommend/deload-start"
+        "onboarding-recommend/deload-start",
+        "onboarding-start/effort-choice"
       ]
     },
     {
@@ -8523,7 +8631,8 @@
         "program/editor-suggest-loads",
         "program/editor-issue-field",
         "onboarding-recommend/deload",
-        "onboarding-recommend/deload-start"
+        "onboarding-recommend/deload-start",
+        "onboarding-start/effort-choice"
       ]
     },
     {
@@ -8598,7 +8707,8 @@
         "history/edit-dirty",
         "history/edit-invalid",
         "history/session",
-        "history/per-side-session"
+        "history/per-side-session",
+        "history/ramp-rows"
       ]
     },
     {
@@ -8682,13 +8792,21 @@
         "workout/logged-sets-folded",
         "workout/exercise-note-line",
         "workout/max-set-prompt",
+        "workout/max-set-recheck",
         "workout/max-set-guess",
         "workout/max-set-active",
         "workout/max-set-result",
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor",
+        "workout/pain-swap"
       ]
     },
     {
@@ -8706,6 +8824,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "session/summary",
+        "session/summary-finding",
         "session/summary-lifts",
         "session/summary-declined",
         "session/summary-maintained",
@@ -8747,13 +8866,21 @@
         "workout/logged-sets-folded",
         "workout/exercise-note-line",
         "workout/max-set-prompt",
+        "workout/max-set-recheck",
         "workout/max-set-guess",
         "workout/max-set-active",
         "workout/max-set-result",
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor",
+        "workout/pain-swap"
       ]
     },
     {
@@ -8790,13 +8917,21 @@
         "workout/logged-sets-folded",
         "workout/exercise-note-line",
         "workout/max-set-prompt",
+        "workout/max-set-recheck",
         "workout/max-set-guess",
         "workout/max-set-active",
         "workout/max-set-result",
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor",
+        "workout/pain-swap"
       ]
     },
     {
@@ -8821,6 +8956,7 @@
         "workout/logged-sets",
         "workout/logged-sets-folded",
         "workout/max-set-prompt",
+        "workout/max-set-recheck",
         "workout/max-set-guess",
         "workout/max-set-active",
         "workout/max-set-result"
@@ -8898,7 +9034,8 @@
         "program/editor-issue-field",
         "program/editor-day-name-refused",
         "program/progression-editor",
-        "onboarding-build/editor-alternates"
+        "onboarding-build/editor-alternates",
+        "onboarding-import/editor-empty-day"
       ]
     },
     {
@@ -8949,7 +9086,8 @@
         "program/editor-day-name-refused",
         "program/progression-editor",
         "progress/schedule-diagnosis",
-        "onboarding-build/editor-alternates"
+        "onboarding-build/editor-alternates",
+        "onboarding-import/editor-empty-day"
       ]
     },
     {
@@ -9026,9 +9164,13 @@
         "progress/minibar",
         "history/minibar-rest",
         "program/minibar-rest-done",
-        "progress/overview-calibration",
-        "today/calibration-mini",
-        "today/calibration-ring-bar"
+        "today/week-card",
+        "history/ramp-rows",
+        "progress/review-proposal",
+        "progress/review-evaluated",
+        "progress/overview-profile",
+        "progress/overview-profile-first",
+        "session/summary-profile"
       ]
     },
     {
@@ -9105,9 +9247,13 @@
         "progress/minibar",
         "history/minibar-rest",
         "program/minibar-rest-done",
-        "progress/overview-calibration",
-        "today/calibration-mini",
-        "today/calibration-ring-bar"
+        "today/week-card",
+        "history/ramp-rows",
+        "progress/review-proposal",
+        "progress/review-evaluated",
+        "progress/overview-profile",
+        "progress/overview-profile-first",
+        "session/summary-profile"
       ]
     },
     {
@@ -9193,9 +9339,13 @@
         "progress/minibar",
         "history/minibar-rest",
         "program/minibar-rest-done",
-        "progress/overview-calibration",
-        "today/calibration-mini",
-        "today/calibration-ring-bar"
+        "today/week-card",
+        "history/ramp-rows",
+        "progress/review-proposal",
+        "progress/review-evaluated",
+        "progress/overview-profile",
+        "progress/overview-profile-first",
+        "session/summary-profile"
       ]
     },
     {
@@ -9254,7 +9404,9 @@
         "onboarding-start/first-run-data",
         "onboarding-start/first-run-faq-open",
         "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-proof-test",
         "onboarding-start/first-run-features",
+        "onboarding-start/first-run-check",
         "onboarding-start/first-run-ways",
         "program/editor-day-name-refused",
         "program/progression-editor",
@@ -9272,6 +9424,7 @@
         "history/list-scrolled",
         "history/minibar-rest",
         "program/volume-audit",
+        "onboarding-import/editor-empty-day",
         "onboarding-import/review-suggestions"
       ]
     },
@@ -9339,6 +9492,7 @@
         "workout/logged-sets-folded",
         "workout/exercise-note-line",
         "workout/max-set-prompt",
+        "workout/max-set-recheck",
         "workout/max-set-guess",
         "workout/max-set-active",
         "workout/max-set-result",
@@ -9347,10 +9501,20 @@
         "workout/stage-tip",
         "workout/why-calibration",
         "workout/last-rep-slow",
-        "progress/overview-calibration",
-        "today/calibration-mini",
-        "today/calibration-ring-bar",
-        "workout/rest-overrun-finish"
+        "workout/rest-overrun-finish",
+        "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
+        "workout/focus-ramp-easy",
+        "history/ramp-rows",
+        "workout/focus-ramp-floor",
+        "workout/why-standing",
+        "workout/pain-swap",
+        "progress/overview-profile",
+        "progress/overview-profile-first",
+        "session/summary-finding",
+        "session/summary-profile"
       ]
     },
     {
@@ -9428,6 +9592,11 @@
         "workout/why-calibration",
         "history/session-share",
         "workout/rest-overrun-finish",
+        "workout/why-standing",
+        "workout/skip-reason",
+        "workout/discomfort-mark",
+        "onboarding-start/effort-choice",
+        "workout/pain-swap",
         "session/summary-share-edit",
         "session/summary-share-line"
       ]
@@ -9469,7 +9638,8 @@
         "program/editor-suggest-loads",
         "program/editor-issue-field",
         "program/editor-day-name-refused",
-        "workout/why-calibration"
+        "workout/why-calibration",
+        "workout/why-standing"
       ]
     },
     {
@@ -9506,13 +9676,22 @@
         "workout/logged-sets-folded",
         "workout/exercise-note-line",
         "workout/max-set-prompt",
+        "workout/max-set-recheck",
         "workout/max-set-guess",
         "workout/max-set-active",
         "workout/max-set-result",
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
+        "workout/focus-ramp-easy",
+        "history/ramp-rows",
+        "workout/focus-ramp-floor",
+        "workout/pain-swap"
       ]
     },
     {
@@ -9546,8 +9725,7 @@
         "today/ready-scrolled",
         "today/in-progress",
         "program/minibar-rest-done",
-        "today/calibration-mini",
-        "today/calibration-ring-bar"
+        "today/week-card"
       ]
     },
     {
@@ -9581,13 +9759,21 @@
         "workout/logged-sets-folded",
         "workout/exercise-note-line",
         "workout/max-set-prompt",
+        "workout/max-set-recheck",
         "workout/max-set-guess",
         "workout/max-set-active",
         "workout/max-set-result",
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor",
+        "workout/pain-swap"
       ]
     },
     {
@@ -9633,7 +9819,11 @@
         "progress/volume-drill-in",
         "progress/volume-reduction-preview",
         "progress/minibar",
-        "progress/overview-calibration"
+        "progress/review-proposal",
+        "progress/review-evaluated",
+        "progress/overview-profile",
+        "progress/overview-profile-first",
+        "session/summary-profile"
       ]
     },
     {
@@ -9688,7 +9878,11 @@
         "progress/volume-drill-in",
         "progress/volume-reduction-preview",
         "progress/minibar",
-        "progress/overview-calibration"
+        "progress/review-proposal",
+        "progress/review-evaluated",
+        "progress/overview-profile",
+        "progress/overview-profile-first",
+        "session/summary-profile"
       ]
     },
     {
@@ -9745,13 +9939,21 @@
         "workout/logged-sets-folded",
         "workout/exercise-note-line",
         "workout/max-set-prompt",
+        "workout/max-set-recheck",
         "workout/max-set-guess",
         "workout/max-set-active",
         "workout/max-set-result",
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor",
+        "workout/pain-swap"
       ]
     },
     {
@@ -9794,13 +9996,21 @@
         "workout/logged-sets-folded",
         "workout/exercise-note-line",
         "workout/max-set-prompt",
+        "workout/max-set-recheck",
         "workout/max-set-guess",
         "workout/max-set-active",
         "workout/max-set-result",
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor",
+        "workout/pain-swap"
       ]
     },
     {
@@ -9842,10 +10052,18 @@
         "workout/stage-tip",
         "workout/effort-menu",
         "workout/max-set-prompt",
+        "workout/max-set-recheck",
         "workout/max-set-guess",
         "workout/max-set-active",
         "workout/max-set-result",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor",
+        "workout/pain-swap"
       ],
       "neverDisabledReason": "The way to change how effort is logged stays reachable whenever the shelf is."
     },
@@ -9865,7 +10083,7 @@
         "focus-visible",
         "selected"
       ],
-      "rationale": "Stages A and B set the set's effort with one tap (Plan 077, OD-4): the chosen chip is pressed in ink, the offered one carries a quiet boundary until the lifter confirms it.",
+      "rationale": "Words and numeric reps left set the set's effort with one tap (Plan 078, D-15): the chosen chip is pressed in ink, the offered one carries a quiet boundary until the lifter confirms it.",
       "owner": "plan-077",
       "catalogStates": [
         "workout/effort-stage-a",
@@ -9889,6 +10107,7 @@
       "catalogStates": [
         "workout/stage-tip",
         "workout/max-set-prompt",
+        "workout/max-set-recheck",
         "workout/max-set-guess"
       ],
       "neverDisabledReason": "A card, not a control."
@@ -9911,6 +10130,7 @@
       "catalogStates": [
         "workout/stage-tip",
         "workout/max-set-prompt",
+        "workout/max-set-recheck",
         "workout/max-set-guess"
       ],
       "neverDisabledReason": "A tip shows only while both answers apply."
@@ -9935,6 +10155,7 @@
       "catalogStates": [
         "workout/stage-tip",
         "workout/max-set-prompt",
+        "workout/max-set-recheck",
         "workout/max-set-guess"
       ],
       "neverDisabledReason": "A tip can always be dismissed."
@@ -9993,12 +10214,20 @@
         "workout/logged-sets-folded",
         "workout/exercise-note-line",
         "workout/max-set-prompt",
+        "workout/max-set-recheck",
         "workout/max-set-guess",
         "workout/max-set-active",
         "workout/max-set-result",
         "workout/effort-stage-a",
         "workout/effort-stage-b",
-        "workout/stage-tip"
+        "workout/stage-tip",
+        "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor",
+        "workout/pain-swap"
       ]
     },
     {
@@ -10035,13 +10264,21 @@
         "workout/logged-sets-folded",
         "workout/exercise-note-line",
         "workout/max-set-prompt",
+        "workout/max-set-recheck",
         "workout/max-set-guess",
         "workout/max-set-active",
         "workout/max-set-result",
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor",
+        "workout/pain-swap"
       ]
     },
     {
@@ -10078,13 +10315,21 @@
         "workout/logged-sets-folded",
         "workout/exercise-note-line",
         "workout/max-set-prompt",
+        "workout/max-set-recheck",
         "workout/max-set-guess",
         "workout/max-set-active",
         "workout/max-set-result",
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor",
+        "workout/pain-swap"
       ]
     },
     {
@@ -10121,13 +10366,21 @@
         "workout/logged-sets-folded",
         "workout/exercise-note-line",
         "workout/max-set-prompt",
+        "workout/max-set-recheck",
         "workout/max-set-guess",
         "workout/max-set-active",
         "workout/max-set-result",
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor",
+        "workout/pain-swap"
       ]
     },
     {
@@ -10650,7 +10903,8 @@
         "workout/why-this-weight",
         "workout/why-per-side",
         "workout/why-in-session",
-        "workout/why-calibration"
+        "workout/why-calibration",
+        "workout/why-standing"
       ]
     },
     {
@@ -10674,7 +10928,9 @@
         "progress/overview",
         "progress/overview-action",
         "progress/minibar",
-        "progress/overview-calibration"
+        "progress/overview-profile",
+        "progress/overview-profile-first",
+        "session/summary-profile"
       ]
     },
     {
@@ -10975,7 +11231,8 @@
         "program/editor-issue-field",
         "program/editor-day-name-refused",
         "program/progression-editor",
-        "onboarding-build/editor-alternates"
+        "onboarding-build/editor-alternates",
+        "onboarding-import/editor-empty-day"
       ]
     },
     {
@@ -11769,7 +12026,8 @@
         "program/editor-suggest-loads",
         "program/editor-issue-field",
         "program/editor-day-name-refused",
-        "onboarding-build/editor-alternates"
+        "onboarding-build/editor-alternates",
+        "onboarding-import/editor-empty-day"
       ]
     },
     {
@@ -11793,7 +12051,8 @@
         "workout/exercise-actions",
         "workout/warmup-actions",
         "workout/skipped-actions",
-        "workout/substituted-actions"
+        "workout/substituted-actions",
+        "workout/discomfort-mark"
       ]
     },
     {
@@ -12325,9 +12584,8 @@
         "workout/invalid-draft",
         "workout/reorder",
         "workout/session",
-        "today/calibration-mini",
-        "today/calibration-ring-bar",
-        "workout/rest-overrun-finish"
+        "workout/rest-overrun-finish",
+        "onboarding-import/editor-empty-day"
       ],
       "neverDisabledReason": "The menu or choice stays reachable whenever its owning row is present."
     },
@@ -12364,7 +12622,8 @@
         "settings/privacy",
         "settings/rest-controls",
         "settings/language-menu",
-        "settings/effort-menu"
+        "settings/effort-menu",
+        "onboarding-import/editor-empty-day"
       ]
     },
     {
@@ -12771,8 +13030,10 @@
         "workout/invalid-draft",
         "progress/strength-comparison",
         "progress/strength-sparse",
-        "today/calibration-mini",
-        "today/calibration-ring-bar"
+        "progress/review-proposal",
+        "progress/review-evaluated",
+        "progress/overview-profile",
+        "progress/overview-profile-first"
       ]
     },
     {
@@ -13235,6 +13496,725 @@
         "settings/rest-controls",
         "settings/language-menu"
       ]
+    },
+    {
+      "id": "target-standing",
+      "selector": ".fx-cue__standing, .recblock__standing",
+      "roles": {
+        "typography": "body-small"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Quiet evidence under a target, without a badge or numerical grade.",
+      "owner": "plan-080",
+      "catalogStates": [
+        "workout/focus",
+        "library/exercise-detail-suggested",
+        "workout/focus-glossary",
+        "workout/correction",
+        "workout/logged-sets",
+        "workout/deload-week",
+        "workout/fatigue",
+        "workout/focus-per-side",
+        "workout/rest-running",
+        "workout/rest-done",
+        "workout/exercise-note",
+        "workout/stale-draft",
+        "workout/persist-retry",
+        "workout/logged-sets-folded",
+        "workout/exercise-note-line",
+        "workout/max-set-prompt",
+        "workout/max-set-recheck",
+        "workout/max-set-guess",
+        "workout/max-set-active",
+        "workout/max-set-result",
+        "workout/effort-stage-a",
+        "workout/effort-stage-b",
+        "workout/stage-tip",
+        "workout/last-rep-slow",
+        "workout/focus-ramp",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-changed-movement"
+      ]
+    },
+    {
+      "id": "week-card-review",
+      "selector": "#weekCardReview",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Opens last week in Review.",
+      "owner": "plan-082",
+      "catalogStates": [
+        "today/ready",
+        "today/dock-viewer",
+        "today/ready-scrolled",
+        "today/rest-bar",
+        "today/day-picker",
+        "today/done",
+        "today/deload-week",
+        "today/draft-resume",
+        "today/in-progress",
+        "today/context-menu",
+        "today/skipped",
+        "today/week-card"
+      ]
+    },
+    {
+      "id": "week-card-dismiss",
+      "selector": "#weekCardDismiss",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Dismisses the current ISO week on this device.",
+      "owner": "plan-082",
+      "catalogStates": [
+        "today/ready",
+        "today/dock-viewer",
+        "today/ready-scrolled",
+        "today/rest-bar",
+        "today/day-picker",
+        "today/done",
+        "today/deload-week",
+        "today/draft-resume",
+        "today/in-progress",
+        "today/context-menu",
+        "today/skipped",
+        "today/week-card"
+      ]
+    },
+    {
+      "id": "discomfort-mark",
+      "selector": "#exActionDiscomfortBtn",
+      "roles": {
+        "control": "selection"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "selected"
+      ],
+      "rationale": "Records discomfort in this session.",
+      "owner": "plan-082",
+      "catalogStates": [
+        "workout/discomfort-mark",
+        "workout/warmup-actions",
+        "workout/skipped-actions",
+        "workout/exercise-actions",
+        "workout/substituted-actions"
+      ]
+    },
+    {
+      "id": "skip-reason-choice",
+      "selector": "[data-skip-reason]",
+      "roles": {
+        "control": "selection"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Chooses a closed reason and skips the exercise.",
+      "owner": "plan-082",
+      "catalogStates": [
+        "workout/skip-reason"
+      ]
+    },
+    {
+      "id": "skip-reason-close",
+      "selector": "#skipReasonClose",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [
+        "icon-only"
+      ],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Dismisses without skipping.",
+      "owner": "plan-082",
+      "catalogStates": [
+        "workout/skip-reason"
+      ]
+    },
+    {
+      "id": "skip-reason-sheet",
+      "selector": "#skipReasonSheet",
+      "roles": {
+        "elevation": "modal"
+      },
+      "variant": "bottom-sheet",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Collects a reason with the underlying workout inert.",
+      "owner": "plan-082",
+      "catalogStates": [
+        "workout/skip-reason"
+      ]
+    },
+    {
+      "id": "skip-reason-scrim",
+      "selector": "#skipReasonScrim",
+      "roles": {
+        "elevation": "modal"
+      },
+      "variant": "scrim",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Dims the underlying workout.",
+      "owner": "plan-082",
+      "catalogStates": [
+        "workout/skip-reason"
+      ]
+    },
+    {
+      "id": "ramp-start",
+      "selector": "[data-ramp-start]",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Accepts the declared opening load for the pending set.",
+      "owner": "plan-079",
+      "catalogStates": [
+        "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor"
+      ]
+    },
+    {
+      "id": "ramp-skip",
+      "selector": "[data-ramp-skip]",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Opens the load wheel and records a typed starting load.",
+      "owner": "plan-079",
+      "catalogStates": [
+        "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor"
+      ]
+    },
+    {
+      "id": "ramp-bodyweight",
+      "selector": "[data-ramp-bodyweight]",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Opens the existing Session bodyweight field when the opening uses the equipment floor.",
+      "owner": "plan-079",
+      "catalogStates": [
+        "workout/focus-ramp-floor"
+      ]
+    },
+    {
+      "id": "effort-choice-sheet",
+      "selector": "#effortChoiceSheet",
+      "roles": {
+        "elevation": "modal"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "One device-only question before the first activation writes its program.",
+      "owner": "plan-078/pr2",
+      "catalogStates": [
+        "onboarding-start/effort-choice"
+      ]
+    },
+    {
+      "id": "effort-choice-continue",
+      "selector": "#effortChoiceContinue",
+      "roles": {
+        "control": "primary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "Commits the selected effort stage with program activation.",
+      "owner": "plan-078/pr2",
+      "catalogStates": [
+        "onboarding-start/effort-choice"
+      ],
+      "neverDisabledReason": "The question remains answerable or dismissible until its choice is submitted."
+    },
+    {
+      "id": "effort-choice-close",
+      "selector": "#effortChoiceClose",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [
+        "icon-only"
+      ],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "Returns to the unchanged candidate without acknowledging a choice.",
+      "owner": "plan-078/pr2",
+      "catalogStates": [
+        "onboarding-start/effort-choice"
+      ],
+      "neverDisabledReason": "The question remains answerable or dismissible until its choice is submitted."
+    },
+    {
+      "id": "effort-choice-scrim",
+      "selector": "#effortChoiceScrim",
+      "roles": {
+        "elevation": "modal"
+      },
+      "variant": "scrim",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Dims the program activation behind the effort choice.",
+      "owner": "plan-078/pr2",
+      "catalogStates": [
+        "onboarding-start/effort-choice"
+      ]
+    },
+    {
+      "id": "weekly-adaptation-cause",
+      "selector": "[data-adaptation-cause]",
+      "roles": {
+        "control": "selection",
+        "elevation": [
+          "flat",
+          "selected"
+        ],
+        "boundary": "required"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "selected",
+        "disabled"
+      ],
+      "rationale": "Chooses a closed cause without changing the program.",
+      "owner": "plan-082",
+      "catalogStates": [
+        "progress/review-proposal"
+      ]
+    },
+    {
+      "id": "weekly-adaptation-accept",
+      "selector": "[data-adaptation-action=\"accept\"]",
+      "roles": {
+        "control": "primary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Explicitly approves the bounded change through the installed editor.",
+      "owner": "plan-082",
+      "catalogStates": [
+        "progress/review-proposal"
+      ]
+    },
+    {
+      "id": "weekly-adaptation-change",
+      "selector": "[data-adaptation-action=\"change\"]",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Opens the affected slot in the installed editor.",
+      "owner": "plan-082",
+      "catalogStates": [
+        "progress/review-proposal"
+      ]
+    },
+    {
+      "id": "weekly-adaptation-later",
+      "selector": "[data-adaptation-action=\"later\"]",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Snoozes this pattern for two weeks.",
+      "owner": "plan-082",
+      "catalogStates": [
+        "progress/review-proposal"
+      ]
+    },
+    {
+      "id": "weekly-adaptation-decline",
+      "selector": "[data-adaptation-action=\"decline\"]",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Declines this pattern for the current block.",
+      "owner": "plan-082",
+      "catalogStates": [
+        "progress/review-proposal"
+      ]
+    },
+    {
+      "id": "weekly-adaptation-why-reader",
+      "selector": "[data-adaptation-why]",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Opens the existing Why reader for a stalled lift with hard sets.",
+      "owner": "plan-082",
+      "neverDisabledReason": "The observed pattern always permits reading its explanation.",
+      "catalogStates": [
+        "progress/review-proposal",
+        "progress/review-evaluated"
+      ]
+    },
+    {
+      "id": "profile-lift-name",
+      "selector": ".profile-lift__name",
+      "roles": {
+        "typography": "section-title"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Names the lift whose standing and evidence follow.",
+      "owner": "plan-081",
+      "catalogStates": [
+        "progress/overview-profile",
+        "progress/overview-profile-first",
+        "session/summary-profile",
+        "library/exercise-detail-suggested",
+        "progress/overview",
+        "progress/overview-action",
+        "progress/minibar",
+        "progress/overview-baseline",
+        "library/exercise-detail",
+        "library/exercise-detail-glossary"
+      ]
+    },
+    {
+      "id": "profile-lift-standing",
+      "selector": ".profile-lift__standing",
+      "roles": {
+        "typography": "body"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Reads the engine standing in words.",
+      "owner": "plan-081",
+      "catalogStates": [
+        "progress/overview-profile",
+        "progress/overview-profile-first",
+        "session/summary-profile",
+        "library/exercise-detail-suggested",
+        "progress/overview",
+        "progress/overview-action",
+        "progress/minibar",
+        "progress/overview-baseline",
+        "library/exercise-detail",
+        "library/exercise-detail-glossary"
+      ]
+    },
+    {
+      "id": "entrymanagedfallback",
+      "selector": "#entryFreeformContinue.btn--ghost",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "With managed import available, the ChatGPT or Claude hand-off steps back to the same quiet treatment as the file switch below it; it keeps its id, its behaviour and the manual path.",
+      "owner": "adr-0025",
+      "catalogStates": [
+        "onboarding-import/freeform-managed",
+        "onboarding-import/freeform-managed-limit"
+      ]
+    },
+    {
+      "id": "entrymanagedconvert",
+      "selector": "#entryManagedConvert",
+      "roles": {
+        "control": "primary"
+      },
+      "variant": null,
+      "facets": [
+        "disabled"
+      ],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "loading"
+      ],
+      "rationale": "Sends the pasted program, once verified, to the managed import service. It is disabled until there is a program and a fresh challenge token, and busy while the request runs; the reply still goes through review and explicit activation.",
+      "owner": "adr-0025",
+      "catalogStates": [
+        "onboarding-import/freeform-managed",
+        "onboarding-import/freeform-managed-limit"
+      ]
+    },
+    {
+      "id": "profile-finding-copy",
+      "selector": ".profile-finding p",
+      "roles": {
+        "typography": "body-small"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "A sentence supported by the saved sessions.",
+      "owner": "plan-081",
+      "catalogStates": [
+        "progress/overview-profile",
+        "progress/overview-profile-first",
+        "session/summary-profile",
+        "progress/overview",
+        "progress/minibar",
+        "progress/overview-guide",
+        "progress/overview-baseline",
+        "progress/overview-action"
+      ]
+    },
+    {
+      "id": "profile-finding-date",
+      "selector": ".profile-finding time",
+      "roles": {
+        "typography": "caption"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "The first date the record supports the finding.",
+      "owner": "plan-081",
+      "catalogStates": [
+        "progress/overview-profile",
+        "progress/overview-profile-first",
+        "session/summary-profile",
+        "progress/overview",
+        "progress/minibar",
+        "progress/overview-guide",
+        "progress/overview-baseline",
+        "progress/overview-action"
+      ]
+    },
+    {
+      "id": "profile-finding-need",
+      "selector": ".profile-finding-need",
+      "roles": {
+        "typography": "body-small"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "The next finding and the evidence it still needs.",
+      "owner": "plan-081",
+      "catalogStates": [
+        "progress/overview-profile",
+        "progress/overview-profile-first",
+        "session/summary-profile",
+        "progress/overview",
+        "progress/minibar",
+        "progress/overview-guide",
+        "progress/overview-baseline",
+        "progress/overview-action"
+      ]
+    },
+    {
+      "id": "summary-profile-back",
+      "selector": "#summaryProfileBack",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": "back",
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Returns from the profile to the finished session that opened it.",
+      "owner": "plan-081",
+      "catalogStates": [
+        "session/summary-profile"
+      ],
+      "neverDisabledReason": "The return session stays available for this profile visit."
+    },
+    {
+      "id": "sumfinding",
+      "selector": "#sumFinding",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": "profile-link",
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Opens the profile from a finding or its next need after the session.",
+      "owner": "plan-081",
+      "catalogStates": [
+        "session/summary",
+        "session/summary-finding",
+        "session/summary-first",
+        "session/summary-maintained",
+        "session/summary-declined",
+        "session/summary-lifts"
+      ],
+      "neverDisabledReason": "The profile is available whenever the finish screen has a finding or a next need."
     }
   ],
   "contextualVariants": [
@@ -13249,6 +14229,8 @@
         "onboarding-shared/invalid",
         "onboarding-start/first-run",
         "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-proof-test",
+        "onboarding-start/first-run-check",
         "onboarding-start/first-run-ways",
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
@@ -13267,6 +14249,8 @@
         "onboarding-shared/invalid",
         "onboarding-start/first-run",
         "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-proof-test",
+        "onboarding-start/first-run-check",
         "onboarding-start/first-run-ways",
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
@@ -13282,6 +14266,8 @@
       "owner": "plan-064/r2",
       "catalogStates": [
         "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-proof-test",
+        "onboarding-start/first-run-check",
         "onboarding-start/first-run-ways",
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
@@ -13300,6 +14286,8 @@
         "onboarding-shared/invalid",
         "onboarding-start/first-run",
         "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-proof-test",
+        "onboarding-start/first-run-check",
         "onboarding-start/first-run-ways",
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
@@ -13349,6 +14337,7 @@
         "workout/logged-sets-folded",
         "workout/exercise-note-line",
         "workout/max-set-prompt",
+        "workout/max-set-recheck",
         "workout/max-set-guess",
         "workout/max-set-active",
         "workout/max-set-result",
@@ -13357,7 +14346,14 @@
         "workout/stage-tip",
         "workout/why-calibration",
         "workout/last-rep-slow",
-        "workout/rest-overrun-finish"
+        "workout/rest-overrun-finish",
+        "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor",
+        "workout/why-standing"
       ]
     },
     {
@@ -13370,7 +14366,8 @@
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
         "program/editor-day-name-refused",
-        "program/progression-editor"
+        "program/progression-editor",
+        "onboarding-import/editor-empty-day"
       ]
     },
     {
@@ -13427,8 +14424,10 @@
         "program/progression-editor",
         "install/banner",
         "today/draft-resume",
-        "progress/overview-calibration",
-        "today/calibration-mini"
+        "history/ramp-rows",
+        "progress/overview-profile",
+        "progress/overview-profile-first",
+        "session/summary-profile"
       ]
     },
     {
@@ -13465,6 +14464,8 @@
         "onboarding-shared/gate",
         "onboarding-shared/invalid",
         "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-proof-test",
+        "onboarding-start/first-run-check",
         "onboarding-start/first-run-ways",
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
@@ -13480,6 +14481,7 @@
       "owner": "plan-057/058",
       "catalogStates": [
         "session/summary",
+        "session/summary-finding",
         "session/summary-maintained",
         "session/summary-declined",
         "session/summary-first"
@@ -13509,6 +14511,8 @@
         "onboarding-shared/invalid",
         "onboarding-start/first-run",
         "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-proof-test",
+        "onboarding-start/first-run-check",
         "onboarding-start/first-run-ways",
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
@@ -13549,13 +14553,20 @@
         "workout/logged-sets-folded",
         "workout/exercise-note-line",
         "workout/max-set-prompt",
+        "workout/max-set-recheck",
         "workout/max-set-guess",
         "workout/max-set-active",
         "workout/max-set-result",
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor"
       ]
     },
     {
@@ -13574,7 +14585,13 @@
         "workout/exercise-note-line",
         "workout/effort-stage-a",
         "workout/effort-stage-b",
-        "workout/stage-tip"
+        "workout/stage-tip",
+        "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor"
       ]
     }
   ],
@@ -13620,7 +14637,9 @@
         "onboarding-start/first-run-data",
         "onboarding-start/first-run-faq-open",
         "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-proof-test",
         "onboarding-start/first-run-features",
+        "onboarding-start/first-run-check",
         "onboarding-start/first-run-ways"
       ],
       "cssLiterals": [
@@ -13683,6 +14702,7 @@
         "workout/correction",
         "workout/logged-sets-folded",
         "workout/max-set-prompt",
+        "workout/max-set-recheck",
         "workout/max-set-guess",
         "workout/max-set-active",
         "workout/max-set-result",
@@ -13714,6 +14734,7 @@
         "workout/correction",
         "workout/logged-sets-folded",
         "workout/max-set-prompt",
+        "workout/max-set-recheck",
         "workout/max-set-guess",
         "workout/max-set-active",
         "workout/max-set-result",
@@ -13742,13 +14763,20 @@
         "workout/logged-sets-folded",
         "workout/exercise-note-line",
         "workout/max-set-prompt",
+        "workout/max-set-recheck",
         "workout/max-set-guess",
         "workout/max-set-active",
         "workout/max-set-result",
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor"
       ],
       "cssLiterals": [
         {
@@ -13792,7 +14820,13 @@
         "workout/logged-sets-folded",
         "workout/effort-stage-a",
         "workout/effort-stage-b",
-        "workout/stage-tip"
+        "workout/stage-tip",
+        "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor"
       ],
       "sourceOnly": true,
       "sourceOnlyReason": "Focus and library glossary popovers have rendered states; the workout overflow menu remains on-demand."
@@ -13815,7 +14849,13 @@
         "workout/logged-sets-folded",
         "workout/effort-stage-a",
         "workout/effort-stage-b",
-        "workout/stage-tip"
+        "workout/stage-tip",
+        "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor"
       ],
       "sourceOnly": true,
       "sourceOnlyReason": "The effort explanation opens after tapping the current-set value; canonical Focus frames keep it closed."
@@ -13869,7 +14909,8 @@
         "workout/why-setup",
         "workout/max-set-guess",
         "workout/why-calibration",
-        "workout/rest-overrun-finish"
+        "workout/rest-overrun-finish",
+        "workout/why-standing"
       ]
     },
     {
@@ -13885,7 +14926,8 @@
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
         "program/editor-day-name-refused",
-        "program/progression-editor"
+        "program/progression-editor",
+        "onboarding-import/editor-empty-day"
       ],
       "sourceOnly": true,
       "sourceOnlyReason": "Canonical editor frames show the reorder owner with no row actively dragged."
@@ -13947,8 +14989,10 @@
         "program/progression-editor",
         "install/banner",
         "today/draft-resume",
-        "progress/overview-calibration",
-        "today/calibration-mini"
+        "history/ramp-rows",
+        "progress/overview-profile",
+        "progress/overview-profile-first",
+        "session/summary-profile"
       ]
     },
     {
@@ -14008,8 +15052,10 @@
         "program/progression-editor",
         "install/banner",
         "today/draft-resume",
-        "progress/overview-calibration",
-        "today/calibration-mini"
+        "history/ramp-rows",
+        "progress/overview-profile",
+        "progress/overview-profile-first",
+        "session/summary-profile"
       ]
     },
     {
@@ -14030,7 +15076,13 @@
         "workout/logged-sets-folded",
         "workout/effort-stage-a",
         "workout/effort-stage-b",
-        "workout/stage-tip"
+        "workout/stage-tip",
+        "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor"
       ]
     },
     {

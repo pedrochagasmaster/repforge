@@ -5,6 +5,8 @@
 // progress-model.js once 056-P2 lands; until then those sections are recorded
 // as planned, never passed.
 import assert from "node:assert/strict";
+import "./week-review.mjs";
+import "./findings.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";

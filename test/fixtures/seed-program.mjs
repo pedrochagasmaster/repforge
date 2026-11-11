@@ -34,10 +34,11 @@ export function seedProgramMeta(overrides = {}) {
  * Write the program into both replicas over whatever the page currently holds,
  * then reload onto it. `waitFor` is the suite's own post-reload boot wait.
  */
-export async function installSeedProgram(page, { key = "repforge_v1", waitFor } = {}) {
+export async function installSeedProgram(page, { key = "repforge_v1", waitFor, settings } = {}) {
   const base = await page.evaluate((k) => JSON.parse(localStorage.getItem(k) || "{}"), key);
   const blob = {
     ...base,
+    ...(settings ? { settings: { ...base.settings, ...settings } } : {}),
     program: seedProgram(),
     programMeta: seedProgramMeta(),
     log: Array.isArray(base.log) ? base.log : [],

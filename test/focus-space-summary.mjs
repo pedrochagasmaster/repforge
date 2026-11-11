@@ -160,8 +160,8 @@ try {
 
   console.log("\n3–4. Shelf field order and labels");
   const expected = {
-    en: { "workout/focus": ["Load, kg", "Reps", "RIR"], "workout/focus-per-side": ["Load per side, kg", "Reps per side", "RIR"] },
-    pt: { "workout/focus": ["Carga, kg", "Reps", "RIR"], "workout/focus-per-side": ["Carga por lado, kg", "Reps por lado", "RIR"] },
+    en: { "workout/focus": ["Load, kg", "Reps", "Reps left"], "workout/focus-per-side": ["Load per side, kg", "Reps per side", "Reps left"] },
+    pt: { "workout/focus": ["Carga, kg", "Reps", "Reps sobrando"], "workout/focus-per-side": ["Carga por lado, kg", "Reps por lado", "Reps sobrando"] },
   };
   for (const lang of ["en", "pt"]) for (const key of ["workout/focus", "workout/focus-per-side"]) {
     const { context, page } = await openCatalogState(browser, key, 390, lang, "normal");

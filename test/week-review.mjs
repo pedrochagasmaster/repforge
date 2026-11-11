@@ -1,0 +1,119 @@
+import assert from "node:assert/strict";
+import {createRequire} from "node:module";
+const require=createRequire(import.meta.url);
+const Model=require("../progress-model.js");
+const program=[{id:"a",day:"Monday",sets:3},{id:"b",day:"Thursday",sets:3}];
+const log=[{session:"old",date:"2026-10-25",day:"Monday",blockId:"block"},{session:"one",date:"2026-10-26",day:"Monday",blockId:"block"},{session:"one",date:"2026-10-26",day:"Monday",blockId:"block"},{session:"next",date:"2026-11-02",day:"Thursday",blockId:"block"},{session:"foreign",date:"2026-10-29",day:"Thursday",blockId:"other"}];
+const sessionEvents={one:{v:1,skips:[{exerciseId:"b",slotId:"b",reason:"trim"}],pain:[{exerciseId:"a",slotId:"a",kind:"pain",swapped:true}]},old:{v:1,skips:[{exerciseId:"a",slotId:"a",reason:"time"}],pain:[]}};
+const meta={started:"2026-10-01",blockId:"block",weekFacts:{start:"2026-10-26",end:"2026-11-01",outcomes:[{exerciseId:"a",outcome:"improved"}],stalled:["b"],fatigue:["a"]}};
+const before=JSON.stringify({log,sessionEvents,program,meta});
+const facts=Model.buildWeekReview(log,sessionEvents,program,meta,"2026-10-29");
+assert.equal(facts.start,"2026-10-26");assert.equal(facts.end,"2026-11-01");
+assert.equal(facts.completedSessions,2);assert.equal(facts.plannedSessions,2);
+assert.deepEqual(facts.missedDays,[]);
+assert.deepEqual(facts.skips,sessionEvents.one.skips);assert.deepEqual(facts.pain,sessionEvents.one.pain);
+assert.equal(facts.trimUsed,true);assert.deepEqual(facts.outcomes,meta.weekFacts.outcomes);
+assert.deepEqual(facts.stalled,["b"]);assert.deepEqual(facts.fatigue,["a"]);
+assert.equal(JSON.stringify({log,sessionEvents,program,meta}),before);
+const empty=Model.buildWeekReview(log,sessionEvents,program,meta,"2026-11-09");
+assert.equal(empty.completedSessions,0);assert.deepEqual(empty.skips,[]);assert.deepEqual(empty.pain,[]);
+assert.deepEqual(empty.outcomes,[]);assert.deepEqual(empty.stalled,[]);assert.deepEqual(empty.fatigue,[]);
+assert.equal(Object.hasOwn(facts,"status"),false);assert.equal(Object.hasOwn(facts,"percent"),false);
+console.log("PASS weekly facts: calendar bounds, session deduplication, block-scoped performance, events, authoritative outcomes and purity");
+
+const later={...meta,started:"2026-11-09",completedWeek:true};
+assert.equal(Model.buildWeekReview(log,sessionEvents,program,later,"2026-10-29").programExisted,true,"retained sessions establish a real historical week");
+assert.equal(Model.buildWeekReview([],{},program,later,"2026-10-29").programExisted,false,"no-history pre-activation week stays absent");
+assert.equal(Model.buildWeekReview([],{},program,{...later,completedWeek:false},"2026-10-29").plannedSessions,2,"current calendar denominator always follows authored days");
+
+for(const started of ["2026-10-28","2026-11-09"]){
+  const historical=Model.buildWeekReview(log,sessionEvents,program,{...meta,started,completedWeek:true},"2026-10-29");
+  assert.equal(historical.completedSessions,2);
+  assert.equal(historical.plannedSessions,null,"a partial or unestablished historical week has no target");
+  assert.deepEqual(historical.missedDays,[]);
+  assert.deepEqual(historical.pain,sessionEvents.one.pain);
+}
+const full=Model.buildWeekReview(log.filter(row=>row.session!=="foreign"),sessionEvents,program,{...meta,started:"2026-10-26",completedWeek:true},"2026-10-29");
+assert.equal(full.plannedSessions,2,"Monday start establishes the full-week target");
+assert.deepEqual(full.missedDays,["Thursday"]);
+assert.equal(Model.buildWeekReview([],{},program,{completedWeek:true},"2026-10-29").plannedSessions,2,"missing start preserves existing target behavior");
+assert.equal(Model.buildWeekReview([],{},program,{...later,completedWeek:true},"2026-10-29").programExisted,false);
+
+const Transition=require('../program-transition.js');
+const patternProgram=[{id:'slot',slotId:'slot',libraryId:'lift',day:'A',sets:3}];
+const patternLog=['2026-10-20','2026-10-27'].map((date,i)=>({date,session:`p${i}`,blockId:'block',day:'A'}));
+const patternEvents=Object.fromEntries(patternLog.map(row=>[row.session,{v:1,skips:[{exerciseId:'lift',slotId:'slot',name:'Lift',reason:'time'}],pain:[]}]));
+const detected=Model.detectPatterns(patternLog,patternEvents,patternProgram,{blockId:'block'},'2026-11-02');
+assert.equal(detected[0].pattern,'recurring_skip');
+assert.equal(Model.detectPatterns(patternLog.slice(1),patternEvents,patternProgram,{blockId:'block'},'2026-11-02').length,0,'one observation is not recurring');
+assert.equal(Model.detectPatterns(patternLog.map(row=>({...row,blockId:'old'})),patternEvents,patternProgram,{blockId:'block'},'2026-11-02').length,0,'previous blocks cannot trigger adaptations');
+assert.equal(Model.detectPatterns(patternLog,patternEvents,patternProgram,{blockId:'block'},'2026-10-26').length,0,'current and future sessions cannot trigger a proposal');
+const duplicateEvents=structuredClone(patternEvents);duplicateEvents.p0.skips.push(duplicateEvents.p0.skips[0]);
+assert.equal(Model.detectPatterns(patternLog.slice(0,1),duplicateEvents,patternProgram,{blockId:'block'},'2026-11-02').length,0,'count sessions, not marks');
+const trimmed=structuredClone(patternEvents);for(const record of Object.values(trimmed))record.skips[0].reason='trim';
+assert.equal(Model.detectPatterns(patternLog,trimmed,patternProgram,{blockId:'block'},'2026-11-02').some(p=>p.pattern==='recurring_skip'),false);
+const painEvents=structuredClone(patternEvents);for(const record of Object.values(painEvents)){record.skips=[];record.pain=[{exerciseId:'lift',slotId:'slot',name:'Lift',kind:'discomfort',swapped:false}]}
+assert.equal(Model.detectPatterns(patternLog,painEvents,patternProgram,{blockId:'block'},'2026-11-02')[0].pattern,'recurring_pain');
+const definition={cycles:6,days:[{id:'day',name:'A',kind:'training',slots:[{id:'first',exerciseId:'compound',order:1,role:'hypertrophyPrimaryCompound',prescriptionsByCycle:[1,2,3,4,5,6].map(cycleIndex=>({cycleIndex,sets:[1,2,3].map(i=>({id:`c${cycleIndex}-${i}`,targets:{load:80,reps:6}}))}))},{id:'slot',exerciseId:'lift',role:'hypertrophyAccessory',order:2,alternates:['alternate'],prescriptionsByCycle:[1,2,3,4,5,6].map(cycleIndex=>({cycleIndex,sets:[1,2,3].map(i=>({id:`s${cycleIndex}-${i}`,targets:{load:40,reps:8}}))}))}]}]};
+const document={program:[{id:'first',slotId:'first',libraryId:'compound',day:'A',sets:3},...patternProgram],programMeta:{blockId:'block',programDefinition:definition}};
+const props={week:'2026-11-02',cycleIndex:4};
+const swap=Transition.proposeAdaptation(detected[0],document,{...props,cause:'equipment'});
+assert.equal(swap.kind,'swap_exercise');assert.equal(swap.target.replacementId,'alternate');
+// Swaps use the editor's canonical replacement builder, never copy another movement's load targets.
+assert.equal(swap.nextDocument,null);
+const dropDoc=structuredClone(document);delete dropDoc.programMeta.programDefinition.days[0].slots[1].alternates;
+const drop=Transition.proposeAdaptation(detected[0],dropDoc,{...props,cause:'time'});
+assert.equal(drop.kind,'drop_exercise');assert.deepEqual(drop.nextDocument.program.map(row=>row.id),['first']);
+assert.equal(drop.nextDocument.programMeta.programDefinition.days[0].slots.length,1);
+assert.equal(document.program.length,2,'proposal never mutates the input');
+const reduce=Transition.proposeAdaptation({pattern:'recurring_fatigue',day:'A',slotId:'slot',exerciseId:'lift'},document,{...props,cause:'recovery'});
+assert.equal(reduce.kind,'reduce_sets');
+const cycles=reduce.nextDocument.programMeta.programDefinition.days[0].slots[1].prescriptionsByCycle;
+assert.equal(cycles[2].sets.length,3,'past cycles are immutable');assert.equal(cycles[3].sets.length,2);
+assert.deepEqual(cycles[3].sets[0].targets,{load:40,reps:8},'preserved sets retain all targets');
+assert.deepEqual(reduce.nextDocument.programMeta.programDefinition.days[0].slots[0],definition.days[0].slots[0],'first compound is untouched');
+assert.equal(Transition.proposeAdaptation({pattern:'stall_hard',slotId:'slot',exerciseId:'lift'},document,props),null);
+const record={id:'adaptation:1',v:1,blockId:'block',week:'2026-11-02',pattern:'recurring_skip',cause:'time',kind:'drop_exercise',target:{slotId:'slot',exerciseId:'lift'},proposedAt:'2026-11-02T12:00:00.000Z',decision:'accepted',decidedAt:'2026-11-02T12:00:00.000Z',appliedEdit:{expectedToken:{blockId:'block',programId:'p',revision:1},intent:'adaptation_apply'}};
+assert.equal(Transition.validateAdaptations([record]),true);
+for(const patch of [{kind:'change_load'},{decision:'automatic'},{target:{slotId:'slot',exerciseId:'lift',setsDelta:-9}},{evaluation:{week:'2026-11-09',outcome:'better'}},{extra:'unsafe'}])assert.equal(Transition.validateAdaptations([{...record,...patch}]),false,JSON.stringify(patch));
+assert.equal(Transition.adaptationEligible([record],detected[0],'block','2026-11-02'),false,'one proposal per week');
+assert.equal(Transition.adaptationEligible([{...record,decision:'declined',appliedEdit:undefined}],detected[0],'block','2026-11-23'),false,'decline suppresses for this block');
+assert.equal(Transition.adaptationEligible([{...record,decision:'snoozed',appliedEdit:undefined}],detected[0],'block','2026-11-09'),false,'snooze lasts two weeks');
+assert.equal(Transition.adaptationEligible([{...record,decision:'snoozed',appliedEdit:undefined}],detected[0],'block','2026-11-16'),true);
+assert.equal(Transition.evaluateAdaptation(record,[],{week:'2026-11-09',observed:true}).outcome,'pattern_stopped');
+assert.equal(Transition.evaluateAdaptation(record,detected,{week:'2026-11-09',observed:true}).outcome,'pattern_continued');
+assert.equal(Transition.evaluateAdaptation(record,[],{week:'2026-11-09',observed:false}).outcome,'insufficient');
+console.log('PASS adaptations: bounded patterns, proposal purity, three kinds, immutable past prescriptions, decision and evaluation policy, strict stored records');
+const swappedRecord={...record,kind:'swap_exercise',target:{slotId:'slot',exerciseId:'lift',replacementId:'alternate'}};
+assert.equal(Transition.evaluateAdaptation(swappedRecord,[{pattern:'recurring_skip',slotId:'slot',exerciseId:'alternate'}],{week:'2026-11-09',observed:true}).outcome,'pattern_continued','a recurring skip on the replacement is still the same affected slot pattern');
+const editorReceipt=structuredClone(record);editorReceipt.appliedEdit.expectedToken.fingerprint=JSON.stringify({program:Array.from({length:30},(_,i)=>({id:`slot-${i}`,sets:3,libraryId:'lift'}))});
+assert.equal(Transition.validateAdaptations([editorReceipt]),true,'the installed editor token carries its canonical serialized program, not a short digest');
+
+const manualCompound=structuredClone(document);manualCompound.programMeta.programDefinition.days[0].slots[1].role='manual';
+assert.equal(Transition.proposeAdaptation({pattern:'recurring_fatigue',day:'A',slotId:'slot',exerciseId:'lift'},manualCompound,{...props,cause:'recovery'}),null,'an unclassified manual compound is not treated as an accessory');
+const unansweredDecline={...record,cause:null,decision:'declined'};delete unansweredDecline.appliedEdit;
+assert.equal(Transition.validateAdaptations([unansweredDecline]),true,'declining does not invent an Other answer');
+assert.equal(Transition.validateAdaptations([{...record,cause:null}]),false,'accepting a cause-matched change requires its cause');
+assert.equal(Transition.adaptationEligible([{...record,evaluation:{week:'2026-11-09',outcome:'insufficient'}}],detected[0],'block','2026-11-16'),false,'an unevaluated effect cannot trigger another change to the same pattern');
+const fatigueProgram=[...patternProgram,{id:'a2',slotId:'a2',libraryId:'lift2',day:'A',sets:3},{id:'b1',slotId:'b1',libraryId:'lift3',day:'B',sets:3},{id:'b2',slotId:'b2',libraryId:'lift4',day:'B',sets:3}];
+const fatiguePatterns=flags=>Model.detectPatterns(patternLog,{},fatigueProgram,{blockId:'block',fatigueSessions:flags},'2026-11-02').filter(pattern=>pattern.pattern==='recurring_fatigue');
+assert.equal(fatiguePatterns({p0:['slot','a2'],p1:['slot','a2']}).length,1,'two flagged lifts on two day sessions establish recurring fatigue');
+assert.equal(fatiguePatterns({p1:['slot','a2']}).length,0,'one flagged session is insufficient');
+assert.equal(fatiguePatterns({p0:['slot','slot'],p1:['slot','slot']}).length,0,'duplicate flags are not two lifts');
+assert.equal(Model.detectPatterns(patternLog,trimmed,patternProgram,{blockId:'block'},'2026-11-02').filter(pattern=>pattern.pattern==='recurring_fatigue').length,1,'two trimmed sessions establish recurring fatigue');
+assert.equal(Model.detectPatterns(patternLog,{},patternProgram,{blockId:'block',hardStalls:[{slotId:'slot',exerciseId:'lift'}]},'2026-11-02')[0].pattern,'stall_hard','the authoritative existing stall owner supplies the read-only fourth pattern');
+assert.equal(fatiguePatterns({p0:['b1','b2'],p1:['b1','b2']}).length,0,'lifts moved to another day cannot trigger a change to the old day');
+assert.equal(Model.detectPatterns(patternLog,patternEvents,[],{blockId:'block',observationTargets:[{slotId:'slot',exerciseId:'lift',day:'A'}]},'2026-11-02').filter(pattern=>pattern.pattern==='recurring_skip').length,1,'evaluation can follow a removed slot through its captured identity');
+assert.equal(Transition.evaluateAdaptation(swappedRecord,[{pattern:'recurring_skip',slotId:'slot',exerciseId:'lift'}],{week:'2026-11-09',observed:true}).outcome,'pattern_continued','recurrence on the original movement after an accepted swap is not a stopped pattern');
+const followupRows=[
+  {session:'before',date:'2026-11-02',created:'2026-11-02T09:00:00.000Z',blockId:'block'},
+  {session:'after',date:'2026-11-03',created:'2026-11-03T09:00:00Z',blockId:'block'},
+  {session:'next-week',date:'2026-11-09',created:'2026-11-09T09:00:00.000Z',blockId:'block'},
+  {session:'unknown-time',date:'2026-11-04',blockId:'block'},
+  {session:'other-block',date:'2026-11-04',created:'2026-11-04T09:00:00.000Z',blockId:'other'},
+];
+assert.deepEqual(Transition.adaptationFollowupRows(record,followupRows).map(row=>row.session),['after'],'effect evaluation excludes sessions before the approval, unknown timing, later weeks and other blocks');
+
+const retainedRecords=Array.from({length:512},(_,index)=>({...record,id:`retained-${index}`,blockId:`block-${index}`,appliedEdit:{...record.appliedEdit,expectedToken:{...record.appliedEdit.expectedToken,blockId:`block-${index}`}}}));
+assert.equal(Transition.validateAdaptations(retainedRecords),true,'retained receipts remain bounded to the existing 512-record contract');
+assert.equal(Transition.validateAdaptations([...retainedRecords,{...record,id:'overflow',blockId:'overflow',appliedEdit:{...record.appliedEdit,expectedToken:{...record.appliedEdit.expectedToken,blockId:'overflow'}}}]),false);
