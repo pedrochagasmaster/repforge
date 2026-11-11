@@ -2269,6 +2269,9 @@ body.is-sheet-open{overflow:hidden}
 .impreview__file{margin:14px 0 0;color:var(--color-ink-secondary);font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard)}
 .impreview__head{margin:6px 0 4px;color:var(--color-ink);font-family:var(--font-language);font-size:var(--font-size-title);font-weight:var(--weight-semibold);line-height:var(--line-tight);letter-spacing:-.01em}
 .impcounts{display:flex;gap:0;margin:16px 0 6px;border-top:1px solid var(--boundary-decorative);border-bottom:1px solid var(--boundary-decorative)}
+/* One tap accepts every Likely top match; each row then keeps its own Change. */
+.impreview__useall{width:100%;margin:var(--space-12) 0 var(--space-4)}
+.impreview__useall[hidden]{display:none}
 .impcount{
   flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;
   padding:12px 4px;color:var(--color-ink-secondary);font-family:var(--font-language);
@@ -4833,6 +4836,11 @@ body.is-focus-wo .toast:not(.toast--top){bottom:calc(var(--toast-clear,0px) + va
   color:var(--ink-soft);font-size:var(--font-size-body-small);text-align:center}
 .entry__divider::before,.entry__divider::after{content:"";flex:1 1 auto;height:1px;background:var(--rule)}
 .entry__gaps-list{display:flex;flex-direction:column;gap:12px;margin:16px 0}
+/* Missing values are grouped under their training day, so each label names only the exercise. */
+.entry__gap-day{border:0;margin:0;padding:0;min-width:0;display:flex;flex-direction:column;gap:var(--space-8)}
+.entry__gap-day+.entry__gap-day{margin-top:var(--space-18)}
+/* The day reads as the group label every entry screen uses: caption size, tracked capitals. */
+.entry__gap-day-title{padding:0;margin:0 0 var(--space-4);font-family:var(--font-language);font-size:var(--font-size-caption);font-weight:var(--weight-semibold);letter-spacing:.04em;text-transform:uppercase;line-height:var(--line-standard);color:var(--color-ink-secondary);overflow-wrap:anywhere}
 /* The gap step tells the lifter which fields are highlighted, so they have to
    actually be highlighted; aria-invalid carries the same state to a reader. */
 .entry__field-input.is-invalid{border-color:var(--control-error-boundary);box-shadow:none}
@@ -8962,7 +8970,7 @@ body.is-entry-editor #entryProgramName,
 .entry__carried-k{
   font-size:var(--font-size-label);font-weight:var(--weight-semibold);letter-spacing:var(--track-label);text-transform:uppercase;color:var(--ink-faint)
 }
-.entry__carried-v{font-size:var(--font-size-body);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--ink);overflow-wrap:anywhere}
+.entry__carried-v{font-size:var(--font-size-body);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink);overflow-wrap:anywhere}
 .entry__carried-change,.entry__restore{flex:none;min-height:var(--control-target);padding:var(--space-8) var(--space-14);width:auto}
 
 /* Numbers set as numbers: a Mono value over its unit, three to a row. */
