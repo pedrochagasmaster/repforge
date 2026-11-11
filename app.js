@@ -12222,7 +12222,8 @@ function shareCardShare(){
 function openShareEditor(){
   const st=shareSheet;if(!st||st.editor)return;
   const template=shareTemplate(st),ground=shareGroundFor(st,template),hit=st.drawn[template]?.hit||null;
-  st.editor={template,edits:structuredClone(shareEditsFor(st,template)),hit,shade:ground==="photo"&&template!=="badge",pointers:new Map(),gesture:null,raf:0};
+  // Over a photo every card offers Darken photo: the full-bleed cards' scrim, the stickers' light dim.
+  st.editor={template,edits:structuredClone(shareEditsFor(st,template)),hit,shade:ground==="photo",pointers:new Map(),gesture:null,raf:0};
   const ed=$("#shareEditor"),frame=$("#shareEditFrame");
   frame.classList.toggle("is-clear",ground==="clear");frame.classList.toggle("is-fixed",!hit);
   frame.dataset.ratio=st.size;

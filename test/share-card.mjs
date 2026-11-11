@@ -313,6 +313,14 @@ try {
       await page.waitForFunction(() => { const s = window.__repforgeShareSheet.state(); return s.fileTemplate === s.template && !s.shareDisabled; });
       check((await pixel(page, 8, 1900)).hex === "#FFFFFF", "with Darken photo off the photo is left as it is", await pixel(page, 8, 1900));
 
+      // The sticker too: over a photo its light dim is the shade the switch turns off.
+      await showTemplate(page, "badge");
+      await page.click("#shareCardEdit");
+      await page.waitForFunction(() => document.querySelector("#shareEditor.is-open"));
+      check(await page.evaluate(() => !document.querySelector("#shareEditShadeRow").hidden), "every card over a photo offers Darken photo, the sticker included");
+      await page.click("#shareEditCancel");
+      await page.waitForFunction(() => document.querySelector("#shareEditor").hidden);
+
       await showTemplate(page, "stats");
       await page.locator('#shareSizeSegments [data-value="square"]').click();
       await page.waitForFunction(() => window.__repforgeShareSheet.state()?.size === "square" && window.__repforgeShareSheet.state().drawn?.photo);
