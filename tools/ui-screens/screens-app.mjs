@@ -2671,6 +2671,9 @@ export const APP_SCENARIOS = {
     await showShareTemplate(page, "sticker");
     await page.locator('#shareGrounds [data-ground="clear"]').click();
     await page.waitForFunction(() => { const s = window.__repforgeShareSheet.state(); return s.ground === "clear" && s.fileTemplate === "sticker" && !s.shareDisabled; }, undefined, { timeout: 20000 });
+    // At 200% text Clear sits below the fold and the click scrolls the sheet to it; the frame is the sheet at rest, from
+    // its top, so it is the same on every machine.
+    await page.evaluate(() => { const body = document.querySelector("#shareCardSheet .sharesheet"); if (body) body.scrollTop = 0; });
     await sleep(page, 700);
   },
   "session/summary-maintained": async (page) => {
