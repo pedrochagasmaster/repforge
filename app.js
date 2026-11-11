@@ -11612,13 +11612,20 @@ function sizeFocusCard(card){
   for(const lead of context.querySelectorAll(".fx-cue__l1,.fx-cue__standing")){
     const leadTop=lead.getBoundingClientRect().top-origin;
     if(rowBottom-leadTop>foot)continue;
-    if(context.scrollTop>leadTop)context.scrollTop=Math.max(0,Math.ceil(rowBottom-foot));
+    if(context.scrollTop>leadTop){
+      // Restoring the hero must respect the same complete text blocks as the row placement.
+      const target=Math.max(0,Math.ceil(rowBottom-foot)),back=Math.floor(wholeLineScroll(context,target,-1));
+      context.scrollTop=rowBottom-back<=foot?back:Math.ceil(wholeLineScroll(context,target,1,Math.ceil(leadTop)))}
     break}}
 /** A scroll position for the context region that leaves no line cut at its top edge, under the segment bar: from
  *  `target`, `dir` 1 moves on past a cut line and -1 moves back to show it whole, never beyond `limit`. */
 function wholeLineScroll(context,target,dir,limit=Infinity){
   const origin=context.getBoundingClientRect().top-context.scrollTop;
-  const lines=[...context.querySelectorAll("*")].filter(el=>!el.children.length&&el.getClientRects().length).map(el=>{
+  // Inline figures can have font boxes taller than their line, and Note's target extends above its text.
+  // Fit their containing text blocks rather than chaining those overlapping inline boxes into one giant line.
+  const blocks=".fx-head,.fx-cue__l1,.fx-cue__l2,.fx-cue__standing,.fx-cue__evidence";
+  const lines=[...context.querySelectorAll("*")].filter(el=>el.getClientRects().length&&
+    (el.matches(blocks)||!el.children.length&&!el.closest(blocks))).map(el=>{
     const r=el.getBoundingClientRect();return{top:r.top-origin,bottom:r.bottom-origin}}).filter(r=>r.bottom-r.top>=1);
   const most=Math.min(limit,context.scrollHeight-context.clientHeight);
   let at=Math.max(0,Math.min(target,most));
@@ -11627,7 +11634,7 @@ function wholeLineScroll(context,target,dir,limit=Infinity){
     const next=dir>0?Math.max(...cut.map(r=>r.bottom)):Math.min(...cut.map(r=>r.top));
     if(next>most||next<0)break;
     at=next}
-  return at}
+  return dir>0?Math.ceil(at):Math.floor(at)}
 
 async function refreshAfterCommittedEdit(row){
   if(!row?.dataset.set||!committed.has(row.dataset.set))return{status:"unchanged"};
@@ -25996,6 +26003,8 @@ function renderWhySheet(model){
 function openWhySheetFor(ex,opener,{surface=opener?.closest?.("#exDetail")?"exercise":"focus",measure=true}={}){
   const sheet=$("#whySheet"),scrim=$("#whyScrim");
   if(!sheet||!ex)return;
+  // A browser-revealed Why target can leave the underlying window between text blocks.
+  if(surface==="focus")sizeFocusCard(focusCard());
   // Focus is the only workout-logging surface; the exercise page is the other opener.
   if(measure)captureEvent("recommendation_explained",{surface});
   renderWhySheet(whySheetModel(ex,surface));

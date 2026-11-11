@@ -29,7 +29,7 @@ import { CATALOG_PHONES, SAFE_AREA, inPool, openCatalogState } from "./fixtures/
 const BASE_URL = process.env.REPFORGE_URL || "http://localhost:8000/";
 const STATE_KEY = "repforge_v1";
 
-// FOCUS_GEOMETRY_ONLY=large,smallest runs just those sections (stability, large, smallest, standing, gestures); the default is all.
+// FOCUS_GEOMETRY_ONLY=large,smallest runs just those sections (stability, large, smallest, standing, context, gestures); the default is all.
 const only = (process.env.FOCUS_GEOMETRY_ONLY || "").split(",").filter(Boolean);
 const wants = (section) => !only.length || only.includes(section);
 
@@ -243,6 +243,43 @@ async function checkOpeningStandingLedger(browser) {
   }
 }
 
+async function checkContextText(browser) {
+  const failures = [];
+  for (const key of ["workout/max-set-guess", "workout/max-set-prompt", "workout/why-in-session"]) {
+    const opened = await openCatalogState(browser, key, 320, "en", "normal", { safe: { top: 0, bottom: 0 } });
+    try {
+      const measured = await opened.page.evaluate(() => {
+        const context = document.querySelector(".exercise.is-current .fcard__context");
+        const window = context.getBoundingClientRect(), cut = [];
+        const walker = document.createTreeWalker(context, NodeFilter.SHOW_TEXT);
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+          if (!node.textContent.trim() || !node.parentElement.closest(".fx-head,.fx-cue__standing,.fx-cue__evidence")) continue;
+          const range = document.createRange();
+          range.selectNodeContents(node);
+          for (const rect of range.getClientRects()) {
+            if (rect.width > 1 && rect.height > 1 && rect.top < window.top - 0.5 && rect.bottom > window.top + 0.5)
+              cut.push({ text: node.textContent.trim(), top: rect.top, bottom: rect.bottom });
+          }
+        }
+        const row = context.querySelector(".ledgerline--open").getBoundingClientRect();
+        const tab = document.querySelector(".exercise.is-current .resttab");
+        const bottom = Math.min(window.bottom, tab ? tab.getBoundingClientRect().top : Infinity);
+        return { cut, top: window.top, scrollTop: context.scrollTop, row: { top: row.top, bottom: row.bottom }, bottom };
+      });
+      console.log(`  ${key}: ${JSON.stringify(measured)}`);
+      if (measured.cut.length) failures.push(`${key}: ${JSON.stringify(measured)}`);
+      assert(measured.row.top >= measured.top - 1 && measured.row.bottom <= measured.bottom + 1,
+        `${key}: current row remains above the shelf`, JSON.stringify(measured));
+      if (process.env.REPFORGE_ARTIFACT_DIR) await opened.page.screenshot({
+        path: `${process.env.REPFORGE_ARTIFACT_DIR}/${key.split("/")[1]}-context.png`,
+      });
+    } finally {
+      await opened.context.close();
+    }
+  }
+  assert(!failures.length, "Focus context text is never clipped below the progress bars", failures.join(" | "));
+}
+
 async function main() {
   const browser = await launchChromium();
 
@@ -359,6 +396,7 @@ async function main() {
     /* ======================================================================
      * 2. The shelf's action stays whole at large text (R7 V-02)
      * ====================================================================== */
+    if (wants("context")) await checkContextText(browser);
     if (wants("large")) await checkFocusStatesAtLargeText(browser);
     if (only.includes("standing")) { await checkStandingLedger(browser); await checkOpeningStandingLedger(browser); }
     if (wants("smallest")) {
