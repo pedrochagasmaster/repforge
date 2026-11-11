@@ -1240,6 +1240,11 @@ body:has(.exercise--focus.is-text-scaled) .wo-head__title{font-size:min(var(--fo
 .exercise--focus.is-hero-compact:not(.is-text-scaled):has(.fx-cue__standing) .fx-cue__standing,
 .exercise--focus.is-hero-compact:not(.is-text-scaled):has(.fx-cue__standing) .fx-cue__evidence{margin-top:0}
 .exercise--focus.is-hero-compact:not(.is-text-scaled):has(.fx-cue__standing) .ledgerline__head:not(:has(.term)){min-height:1lh}
+/* With standing present, compact evidence is caption-sized so a wrapped movement name and evidence still leave the
+   current set whole on the shortest phone. The full-size hero and the hill-climb's open-row spacing stay unchanged. */
+.exercise--focus.is-hero-compact.is-standing-compact:not(.is-text-scaled):has(.fx-cue__standing) .fx-head{margin-bottom:0}
+article.exercise--focus.is-hero-compact.is-standing-compact .fcard__context > .fx-slot > .fx-cue{margin:0}
+.exercise--focus.is-standing-compact .fx-cue__evidence{font-size:var(--font-size-caption)}
 /* The column heads give way only to the disclosure: while it folds rows it takes their place, and at the first set,
    with nothing to fold, the heads (RIR's is the glossary's way in from Focus) stay. */
 .exercise--focus.is-hero-compact .fcard__ledger:has(.ledger__more:not([hidden])) .ledgerline__head{display:none}
@@ -4511,7 +4516,7 @@ body.is-focus-wo .toast:not(.toast--top){bottom:calc(var(--toast-clear,0px) + va
 /* The name keeps a fair share of the row (9rem, about three words, or all the
    other columns leave on a narrow phone) and breaks only between words; the
    figures give way first, the target wrapping under itself when it has to. */
-.today-rx__grid{display:grid;grid-template-columns:var(--rx-mark,1rem) minmax(min(9rem,100% - var(--rx-mark,1rem) - 9rem - 3 * var(--space-12)),1fr) minmax(4.125rem,auto) minmax(4.875rem,auto);column-gap:var(--space-12)}
+.today-rx__grid{--today-rx-columns:var(--rx-mark,1rem) minmax(min(9rem,100% - var(--rx-mark,1rem) - 9rem - 3 * var(--space-12)),1fr) minmax(4.125rem,auto) minmax(4.875rem,auto);display:grid;grid-template-columns:var(--today-rx-columns);column-gap:var(--space-12)}
 .today-rx__grid .rxrow .rxrow__name{overflow-wrap:break-word;-webkit-hyphens:auto;hyphens:auto;hyphenate-limit-chars:10 4 4;-webkit-hyphenate-limit-before:4;-webkit-hyphenate-limit-after:4}
 .today-rx__grid .rxrow .rxrow__target{white-space:normal}
 .today-rx__cols,.today-rx__grid .rxrow{grid-column:1 / -1;display:grid;grid-template-columns:subgrid}
@@ -4522,7 +4527,7 @@ body.is-focus-wo .toast:not(.toast--top){bottom:calc(var(--toast-clear,0px) + va
    as the drawing does, instead of squeezing the name into a sliver. */
 @container (max-width:18rem){
   .today-rx__cols{display:none}
-  .today-rx__grid{grid-template-columns:var(--rx-mark,1rem) minmax(0,1fr) auto}
+  .today-rx__grid{--today-rx-columns:var(--rx-mark,1rem) minmax(0,1fr) auto}
   .today-rx__grid .rxrow .rxrow__name{grid-column:2 / -1}
   .today-rx__grid .rxrow .rxrow__load{grid-column:2;text-align:left}
   .today-rx__grid .rxrow .rxrow__target{grid-column:3;white-space:normal}
@@ -6178,12 +6183,14 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun-demo__progress{margin:var(--space-8) var(--space-16) 0;gap:var(--space-8)}
 .firstrun-demo__card{padding:0 var(--space-16)}
 .firstrun-demo__card .fx-head{margin:var(--space-16) 0 0}
-.firstrun-demo__ev,.firstrun-demo__over,.firstrun-demo__ring,.firstrun-demo__log,
+.firstrun-demo__ev,.firstrun-demo__ring,.firstrun-demo__log,
 .firstrun-demo__log1,.firstrun-demo__log2,.firstrun-demo__fields,.firstrun-demo__rise,.firstrun-demo__end,.firstrun-demo__run,.firstrun-demo__tab,.firstrun-demo__light,
 .firstrun-demo__lit,.firstrun-demo__scrim,.firstrun-demo__sheet,.firstrun-demo__did,.firstrun-demo__last,
 .firstrun-demo__wheel,.firstrun-demo__wheel .wheel__item,.firstrun-demo__sel,.firstrun-demo__v0,.firstrun-demo__v1{will-change:transform,opacity}
 .firstrun-demo__why{font-weight:var(--weight-semibold);color:var(--accent-deep)}
 .firstrun-demo__row{position:relative}
+/* Ledger text paints at the camera's current scale. A permanent will-change layer can retain a differently scaled
+   text bitmap from an earlier shot, making held catalog frames alternate between sharp and blurred glyphs. */
 .firstrun-demo__over{position:absolute;inset:0;opacity:0;background:var(--bg)}
 .firstrun-demo__ring{inset:0;border-radius:var(--radius-surface)}
 .firstrun-demo__next{pointer-events:none}
@@ -9354,7 +9361,7 @@ body.is-entry-editor #entryProgramName,
 .native-context{position:fixed;inset:0;width:100%;height:100%;max-width:none;max-height:none;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px);margin:0;border:0;background:transparent;color:var(--ink);overflow:hidden}
 .native-context::backdrop{background:var(--menu-backdrop);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
 .native-context__preview{position:fixed!important;display:flex;align-items:center;padding-inline:var(--space-12);pointer-events:none;background:var(--surface);border-radius:var(--radius-surface);box-shadow:var(--elevation-drag-shadow);transform:scale(1.03)}
-.native-context__preview.today-rx__row{background:var(--bg);container-type:inline-size}
+.native-context__preview.today-rx__row{display:grid;grid-template-columns:var(--today-rx-columns);background:var(--bg);container-type:inline-size}
 @container (max-width:18rem){
   .native-context__preview.today-rx__row .rxrow{grid-template-columns:var(--rx-mark,1rem) minmax(0,1fr) auto}
 }

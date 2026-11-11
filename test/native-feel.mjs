@@ -2556,7 +2556,7 @@ async function concentricShelf(browser) {
 }
 
 async function refreshLayout(browser) {
-  for (const [state, lang, width = 390, text = "text200"] of [["settings/effort-menu", "pt"], ["today/context-menu", "en"], ["today/context-menu", "pt"], ["today/context-menu", "en", 320, "normal"], ["workout/invalid-draft", "pt"]]) {
+  for (const [state, lang, width = 390, text = "text200"] of [["settings/effort-menu", "pt"], ["today/context-menu", "en"], ["today/context-menu", "pt"], ["today/context-menu", "en", 320, "normal"], ["today/context-menu", "en", 390, "normal"], ["workout/invalid-draft", "pt"], ["onboarding-import/editor-empty-day", "en", 390, "normal"]]) {
     const opened = await openCatalogState(browser, state, width, lang, text);
     try {
       const geometry = await opened.page.evaluate(() => {
@@ -2572,14 +2572,17 @@ async function refreshLayout(browser) {
             const range = document.createRange(); range.selectNodeContents(el); return range.getBoundingClientRect();
           };
           const label = textBox(".settings-row__label"), value = textBox(".settings-row__value");
+          const mark = preview.querySelector(".rxrow__mark")?.getBoundingClientRect(), name = textBox(".rxrow__name");
+          const gridAligned = !mark || !name || (mark.width > 0 && mark.right <= name.left + 1);
           const menu = document.querySelector(".native-context__menu").getBoundingClientRect();
-          return { menuSeparated: menu.bottom <= box.top + 1 || menu.top >= box.bottom - 1, contained: texts.every(r => r.left >= box.left - 1 && r.right <= box.right + 1 && r.top >= box.top - 1 && r.bottom <= box.bottom + 1), separated: !label || !value || label.right <= value.left + 1 || label.bottom <= value.top + 1 };
+          return { gridAligned, menuSeparated: menu.bottom <= box.top + 1 || menu.top >= box.bottom - 1, contained: texts.every(r => r.left >= box.left - 1 && r.right <= box.right + 1 && r.top >= box.top - 1 && r.bottom <= box.bottom + 1), separated: !label || !value || label.right <= value.left + 1 || label.bottom <= value.top + 1 };
         }
-        return { fade: getComputedStyle(document.body, "::after").display };
+        return { toastHidden: document.querySelector("#toast")?.classList.contains("hidden"), fade: getComputedStyle(document.body, "::after").display };
       });
       if (process.env.REPFORGE_ARTIFACT_DIR) await opened.page.screenshot({ path: `${process.env.REPFORGE_ARTIFACT_DIR}/refresh-${state.replace("/", "-")}-${lang}-${width}.png` });
-      if (state === "workout/invalid-draft") assert(geometry.fade === "none", "recovery actions are not painted over by the Today fade", JSON.stringify(geometry));
-      else assert(geometry.contained && geometry.separated && geometry.menuSeparated, `${state} ${lang}: lifted preview contains its text without collisions`, JSON.stringify(geometry));
+      if (state === "onboarding-import/editor-empty-day") assert(geometry.toastHidden, "empty-day catalog waits until the acknowledged removal announcement ends");
+      else if (state === "workout/invalid-draft") assert(geometry.fade === "none", "recovery actions are not painted over by the Today fade", JSON.stringify(geometry));
+      else assert(geometry.contained && geometry.separated && geometry.menuSeparated && geometry.gridAligned, `${state} ${lang}: lifted preview contains its text without collisions`, JSON.stringify(geometry));
     } finally { await opened.context.close(); }
   }
 }

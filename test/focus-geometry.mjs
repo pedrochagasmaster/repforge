@@ -29,7 +29,7 @@ import { CATALOG_PHONES, SAFE_AREA, inPool, openCatalogState } from "./fixtures/
 const BASE_URL = process.env.REPFORGE_URL || "http://localhost:8000/";
 const STATE_KEY = "repforge_v1";
 
-// FOCUS_GEOMETRY_ONLY=large,smallest runs just those sections (stability, large, smallest, gestures); the default is all.
+// FOCUS_GEOMETRY_ONLY=large,smallest runs just those sections (stability, large, smallest, standing, gestures); the default is all.
 const only = (process.env.FOCUS_GEOMETRY_ONLY || "").split(",").filter(Boolean);
 const wants = (section) => !only.length || only.includes(section);
 
@@ -213,6 +213,9 @@ async function checkStandingLedger(browser) {
       }
       if (width === 320 && m.window.scrollTop !== 0)
         failures.push(`${width}px ${lang}: initial context scrolled ${m.window.scrollTop}px`);
+      if (process.env.REPFORGE_ARTIFACT_DIR) await opened.page.screenshot({
+        path: `${process.env.REPFORGE_ARTIFACT_DIR}/standing-${width}-${lang}.png`,
+      });
       console.log(`  ${width}px ${lang} ${text}: ${JSON.stringify({ row, window: m.window, standing })}`);
     } finally {
       await opened.context.close();
@@ -357,6 +360,7 @@ async function main() {
      * 2. The shelf's action stays whole at large text (R7 V-02)
      * ====================================================================== */
     if (wants("large")) await checkFocusStatesAtLargeText(browser);
+    if (only.includes("standing")) { await checkStandingLedger(browser); await checkOpeningStandingLedger(browser); }
     if (wants("smallest")) {
       await checkFocusAtSmallestPhone(browser);
       await checkStandingLedger(browser);

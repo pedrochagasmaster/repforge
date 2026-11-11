@@ -23,6 +23,10 @@
  * writes a setup draft before the oracle runs; the suite must then FAIL, proving
  * the oracle bites (same idea as REPFORGE_ENTRY_LANDING_FAULT in entry-landing.mjs).
  *
+ * LANDING_RASTER_FAULT=1 restores the demo ledger's old permanent layer hint.
+ * LANDING_VARIANTS_ONLY=capture isolates the full-viewport camera-history proof;
+ * with the fault it must fail on the ledger glyphs, without it the held frames must be identical.
+ *
  * Also always on, and Node-only: the engine-truth oracle. The proof's case is
  * evaluated here with the adaptive engine (progression-engine.js recommendSets)
  * and the app's default load step, and the load must move the way chapter 5 says.
@@ -62,6 +66,9 @@ import {
   sharedGateSnapshot,
   waitForFirstRun,
 } from "./shared-setup-flow.mjs";
+import { loadManifest } from "../tools/ui-screens/manifest.mjs";
+import { openPage, settle } from "../tools/ui-screens/session.mjs";
+import { ONBOARDING_SCENARIOS, onboardingState, focusOnboardingSubject } from "../tools/ui-screens/screens-onboarding.mjs";
 import { webpSize } from "../tools/capture-landing-proof.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
@@ -1446,6 +1453,42 @@ async function dockFocusRing(browser) {
   }
 }
 
+// A held catalog proof must not depend on the camera path Chromium rasterized before it.
+async function heldCatalogProof(browser) {
+  const manifest = loadManifest();
+  const key = "onboarding-start/first-run";
+  const job = { flow: "onboarding-start", screen: "first-run", viewport: "phone-430", theme: "light", locale: "en", text: "normal", motion: "normal" };
+  const { context, page } = await openPage(browser, manifest, job, onboardingState(key, "en"), { catalog: true });
+  try {
+    await ONBOARDING_SCENARIOS[key](page);
+    await focusOnboardingSubject(page, key);
+    await settle(page);
+    // A clipped screenshot changes Chromium's raster choice and hides the old layer-cache defect.
+    const capture = () => page.screenshot({ fullPage: false });
+    if (process.env.LANDING_RASTER_FAULT) await page.addStyleTag({ content: ".firstrun-demo__over{will-change:transform,opacity}" });
+    const before = await capture();
+    await page.evaluate(() => {
+      document.querySelector(".firstrun-proof__device").scrollIntoView({ block: "center" });
+      window.__repforgeLandingSeek(0);
+      window.__repforgeLandingSeek(null);
+    });
+    await page.waitForFunction(() => window.__repforgeLandingProof().time >= 9.2, undefined, { timeout: 20000 });
+    await page.evaluate(() => {
+      window.__repforgeLandingSeek(9.2);
+      document.querySelector("#firstRun").scrollTop = 0;
+    });
+    const after = await capture();
+    if (process.env.REPFORGE_ARTIFACT_DIR) {
+      const { writeFileSync } = await import("node:fs");
+      writeFileSync(`${process.env.REPFORGE_ARTIFACT_DIR}/held-before.png`, before);
+      writeFileSync(`${process.env.REPFORGE_ARTIFACT_DIR}/held-after.png`, after);
+    }
+    assert(before.equals(after), "held first-run pixels are independent of earlier camera shots");
+  } finally {
+    await context.close();
+  }
+}
+
 // ---------------------------------------------------------------------------
 async function main() {
   console.log(`Landing variants\nTarget: ${BASE}${FAULT ? `\nFault: ${FAULT}` : ""}`);
@@ -1453,6 +1496,11 @@ async function main() {
   copyPins();
   const browser = await launchChromium();
   try {
+    await heldCatalogProof(browser);
+    if (process.env.LANDING_VARIANTS_ONLY === "capture") {
+      if (results.failed) throw new Error("held catalog proof failed");
+      return;
+    }
     await accessibleProofResult(browser);
     await characterize(browser);
     await finalPage(browser);

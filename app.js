@@ -11456,10 +11456,11 @@ function fitFocusLedger(card){
   const tab=card.querySelector(".resttab"),shelf=card.querySelector(".focus-shelf");
   const rise=tab&&tab.offsetParent===shelf?Math.max(0,Math.ceil(-tab.offsetTop)):0;
   // What this fit changes: a refit that changes nothing leaves the window where the lifter scrolled it.
-  const before=[card.style.getPropertyValue("--rest-tab-rise"),card.classList.contains("is-hero-compact"),
+  const before=[card.style.getPropertyValue("--rest-tab-rise"),card.classList.contains("is-hero-compact"),card.classList.contains("is-standing-compact"),
     [...rows.querySelectorAll(":scope > [data-ldone]")].filter(row=>row.hidden).length].join();
-  const changed=()=>before!==[card.style.getPropertyValue("--rest-tab-rise"),card.classList.contains("is-hero-compact"),
+  const changed=()=>before!==[card.style.getPropertyValue("--rest-tab-rise"),card.classList.contains("is-hero-compact"),card.classList.contains("is-standing-compact"),
     [...rows.querySelectorAll(":scope > [data-ldone]")].filter(row=>row.hidden).length].join();
+  card.classList.remove("is-standing-compact");
   if(card.style.getPropertyValue("--rest-tab-rise")!==`${rise}px`)card.style.setProperty("--rest-tab-rise",`${rise}px`);
   const open=rows.querySelector(".ledgerline--open"),hero=context.querySelector(".fx-cue__l1");
   // A finished exercise has no open set and no hero: its whole ledger shows, at the hero's own size.
@@ -11493,6 +11494,12 @@ function fitFocusLedger(card){
   if(folded===done.length&&over()>0)compact(true);
   if(card.classList.contains("is-hero-compact"))fold(done.length);
   else while(folded>0){fold(folded-1);if(over()<=-FOCUS_LEDGER_SPARE)continue;fold(folded+1);break}
+  // Standing participates in the whole window's budget, including a wrapped movement name above the hero.
+  // Tighten only when the normal compact treatment still leaves the open row under the shelf.
+  if(card.classList.contains("is-hero-compact")&&!card.classList.contains("is-text-scaled")&&context.querySelector(".fx-cue__standing")){
+    const box=context.getBoundingClientRect();
+    const bottom=tab&&tab.getClientRects().length?Math.min(box.bottom,tab.getBoundingClientRect().top):box.bottom;
+    card.classList.toggle("is-standing-compact",open.getBoundingClientRect().bottom+context.scrollTop>bottom)}
   focusLedgerFolded.set(exId,folded);
   return changed()}
 /** The window's foot moves without a render: the keyboard, the rest tab rising out of the shelf, a text-size change.

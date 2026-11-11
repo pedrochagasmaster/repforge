@@ -13,7 +13,7 @@
  */
 import assert from "node:assert/strict";
 import { encodeSetupLink } from "../../test/fixtures/setup-link-v4.mjs";
-import { answerRecommend } from "../../test/browser.mjs";
+import { answerRecommend, waitForAsyncCondition } from "../../test/browser.mjs";
 import { activeEntryState, emptyEntryState } from "./fixtures.mjs";
 import { BASE, SETUP_DRAFT, KEY, replayGuide, sleep, waitForApp } from "./session.mjs";
 
@@ -537,6 +537,15 @@ async function reviewWithEditor(page, chip) {
 }
 
 
+// Editor DOM changes precede the setup-draft acknowledgment and its announcement.
+async function editorAnnouncementSettled(page) {
+  await waitForAsyncCondition(page, async () => {
+    await window.__repforgeOnboarding.flushDraft();
+    return document.querySelector("#toast")?.classList.contains("hidden") === false;
+  });
+  await page.waitForFunction(() => document.querySelector("#toast")?.classList.contains("hidden") !== false);
+}
+
 async function buildTo(page, step) {
   await route(page, "build");
   await page.waitForSelector("#entryProgramName", { timeout: 20000 });
@@ -554,19 +563,11 @@ async function buildTo(page, step) {
     await add.click();
     await page.waitForSelector("#exPickList .pickrow", { timeout: 20000 });
     await page.locator("#exPickList .pickrow").first().click();
-    await page.waitForTimeout(220);
+    await editorAnnouncementSettled(page);
   };
-  // Each pick is announced ("Exercise added.", R7 J-08). The frame is the editor at rest, so the
-  // announcement's ordinary lifetime ends before capture rather than racing the settle pass.
-  const settleAnnouncement = () => page.waitForFunction(
-    () => document.querySelector("#toast")?.classList.contains("hidden") !== false,
-    undefined,
-    { timeout: 15000 }
-  );
   await addExercise(0);
-  if (step === "editor-partial") return settleAnnouncement();
+  if (step === "editor-partial") return;
   for (let day = 1; day < 3; day++) await addExercise(day);
-  await settleAnnouncement();
   await page.waitForFunction(
     () => !document.querySelector("#entryEditorActivate")?.disabled,
     undefined,
@@ -1381,10 +1382,12 @@ export const ONBOARDING_SCENARIOS = {
       await exercise.locator('[data-role="add-alternate"]').click();
       await page.waitForSelector("#exPickSheet.is-open #exPickList .pickrow", { timeout: 20000 });
       await page.locator("#exPickList .pickrow").first().click();
-      await page.waitForFunction((n) => document.querySelectorAll('#onbProgramEditor [data-role="alternate"]').length === n,
-        count, { timeout: 20000 });
+      // Alternates save silently; their optimistic DOM still precedes the acknowledged draft.
+      await waitForAsyncCondition(page, async (n) => {
+        await window.__repforgeOnboarding.flushDraft();
+        return document.querySelectorAll('#onbProgramEditor [data-role="alternate"]').length === n;
+      }, count);
     }
-    await page.waitForFunction(() => document.querySelector("#toast")?.classList.contains("hidden") !== false, undefined, { timeout: 15000 });
     await page.locator('#onbProgramEditor [data-role="alternates"]').first().evaluate((node) => node.scrollIntoView({ block: "center" }));
   },
 
@@ -1415,7 +1418,7 @@ export const ONBOARDING_SCENARIOS = {
     await day.locator('[data-role="remove-exercise"]').click();
     await page.waitForFunction(() => !!document.querySelector('#onbProgramEditor [data-role="day-empty"]') &&
       document.querySelector("#entryEditorActivate")?.disabled === true);
-    await page.waitForFunction(() => document.querySelector("#toast")?.classList.contains("hidden") !== false);
+    await editorAnnouncementSettled(page);
   },
 
   "onboarding-start/effort-choice": async (page) => {
