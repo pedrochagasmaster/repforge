@@ -140,6 +140,7 @@
   --elevation-nav-indicator-shadow:inset 0 1px 0 var(--dock-pill-sheen),0 1px 3px rgba(var(--shadow-rgb),.09);
   --control-focus-halo-shadow:0 0 0 3px rgba(var(--accent-rgb),.12);
   --switch-off-track:rgba(var(--ink-rgb),.10);
+  --switch-on-track:var(--accent-deep);
   /* The wheel picker's selection band: ink at 7%, as the prototype draws it, in either theme. */
   --wheel-band:rgba(var(--ink-rgb),.07);
   --switch-off-ring:inset 0 0 0 1.5px var(--boundary-required);
@@ -408,6 +409,8 @@
 :root[data-theme="dark"]{
   --rest-light-core:#FFB48A;--rest-light-bloom:var(--accent);--rest-light-gain:1;
   --switch-off-track:rgba(255,255,255,.10);
+  /* The light theme's deep accent: the light knob on the dark theme's brighter orange measured 2.56:1. */
+  --switch-on-track:#B8410E;
   --segment-thumb-bg:#45423D;
   --segment-thumb-shadow:0 1px 3px rgba(0,0,0,.35);
   --menu-destructive-ink:var(--color-destructive);
@@ -912,12 +915,12 @@ input:is([type=date],[type=time])::-webkit-date-and-time-value{min-height:1.5em;
   transition:transform .28s cubic-bezier(.32,.72,0,1),width .28s cubic-bezier(.32,.72,0,1);
 }
 .toggle[aria-checked="true"]::before,.toggle[aria-pressed="true"]::before,.toggle.is-on::before{
-  background:var(--accent);box-shadow:none;
+  background:var(--switch-on-track);box-shadow:none;
 }
 .toggle[aria-checked="true"]::after,.toggle[aria-pressed="true"]::after,.toggle.is-on::after{transform:translateX(20px)}
 /* On the accent track the knob is the light one in both themes. */
 :root[data-theme="dark"] :is(.toggle[aria-checked="true"],.toggle[aria-pressed="true"],.toggle.is-on)::after{background:var(--ink)}
-:root[data-theme="dark"] :is(.toggle[aria-checked="true"],.toggle[aria-pressed="true"],.toggle.is-on)::before{background:var(--accent)}
+:root[data-theme="dark"] :is(.toggle[aria-checked="true"],.toggle[aria-pressed="true"],.toggle.is-on)::before{background:var(--switch-on-track)}
 /* Held down, the knob stretches towards the side it is about to travel to. */
 .toggle.is-pressed::after{width:31px}
 .toggle[aria-checked="true"].is-pressed::after,.toggle[aria-pressed="true"].is-pressed::after,.toggle.is-on.is-pressed::after{
@@ -1405,12 +1408,23 @@ article.exercise--focus input,article.exercise--focus textarea{-webkit-user-sele
 article.exercise--focus .fcard__context{min-height:var(--focus-context-floor)}
 /* The task reads top-down from the prescription; the set rows take a roomier height so the list, not empty paper,
    fills the screen above the shelf. */
-.fcard__ledger .ledgerline:not(.ledgerline__head){min-height:68px;align-content:center}
+/* The open set is the tall row (owner hill-climb); logged and upcoming rows keep their natural height so the window
+   still holds the earlier sets above the open one on the last set (focus-space-summary, focus-hero). */
+.fcard__ledger .ledgerline--open{min-height:68px}
+.fcard__ledger .ledgerline:not(.ledgerline__head){align-content:center}
 .fcard__ledger + .fx-next{margin-top:var(--space-26)}
 /* Next is a quiet navigation row resting on the shelf: the context is a column, the free space sits between the set
    list and Next, and Next reads as the shelf's lead-in rather than a card of its own. */
 article.exercise--focus .fcard__context{display:flex;flex-direction:column}
 article.exercise--focus .fcard__context > *{flex-shrink:0}
+/* A flex column does not collapse margins: the cue's own margins would stack on the head's and the ledger's (30px
+   above, 26px below, where block flow gave 18 and 12) and cost the window the earlier set on the last set. The cue
+   adds only what collapsing would have added. */
+article.exercise--focus .fcard__context > .fx-slot > .fx-cue{margin:0 0 var(--space-12)}
+/* A short window (is-hero-compact) keeps the hero above the open set: the cue adds no margin of its own and the open
+   row takes its natural height rather than the climb's roomier 68px. */
+article.exercise--focus.is-hero-compact .fcard__context > .fx-slot > .fx-cue{margin:0 0 var(--space-4)}
+.exercise--focus.is-hero-compact .fcard__ledger .ledgerline--open{min-height:0}
 article.exercise--focus .fcard__context > .fx-next{margin-top:auto;min-height:52px;padding:0 var(--space-12);border-radius:var(--radius-none);border-top:1px solid var(--boundary-decorative);background:transparent;color:var(--color-ink)}
 /* The previous set reads as the row's caption, from the row's leading edge, not as a figure spread over two columns. */
 .fcard__ledger .ledgerline__prev{grid-column:1 / -1;text-align:left;font-size:var(--font-size-caption)}
@@ -3719,7 +3733,11 @@ body.is-library nav,body.is-preview nav,body.is-import nav{display:none}
 body::after{
   content:"";position:fixed;left:0;right:0;bottom:0;z-index:4;pointer-events:none;
   height:calc(var(--nav) + env(safe-area-inset-bottom) + var(--space-12) + 2 * var(--space-32) + var(--space-26));
-  background:linear-gradient(to bottom,rgba(var(--bg-rgb),0),var(--bg) var(--space-26));
+  /* Paper behind Start workout and the row it clips (owner hill-climb), clear again under the dock itself, which stays
+     glass (#301): the band ends where the capsule begins. */
+  background:linear-gradient(to bottom,rgba(var(--bg-rgb),0),var(--bg) var(--space-26),
+    var(--bg) calc(100% - var(--nav) - env(safe-area-inset-bottom) - var(--space-12)),
+    rgba(var(--bg-rgb),0) calc(100% - var(--nav) - env(safe-area-inset-bottom)));
 }
 body.is-settings::after,body.is-exercise::after,body.is-onboarding::after,body.is-library::after,body.is-preview::after,
 body.is-import::after,body.is-focus-wo::after,body:has(#history.view.active.is-session-edit)::after,

@@ -346,9 +346,10 @@ nothing to it.
    which stays `--accent` on the CTA ground in both themes.
 5. **The active dock item.** The shipped active item's icon, label and selection
    edge (owner build decision on #295, 2026-10-01), travelling with the lens.
-6. **A switch that is on.** The on-track of `.toggle`, `--accent-deep` in both
-   themes, including Settings (owner, 2026-11-10: the ink track read as off in
-   dark).
+6. **A switch that is on.** The on-track of `.toggle` (`--switch-on-track`), the
+   light theme's deep accent #B8410E in both themes, including Settings (owner,
+   2026-11-10: the ink track read as off in dark). Dark keeps that darker orange
+   so its light knob holds 3:1.
 
 Two further paints are real and are not budget uses. The focused control's
 indicator is painted from `--color-focus`, the contract's focus-visible role, and
