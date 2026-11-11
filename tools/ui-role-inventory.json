@@ -12667,7 +12667,9 @@
         "progress/strength-comparison",
         "progress/strength-sparse",
         "progress/review-proposal",
-        "progress/review-evaluated"
+        "progress/review-evaluated",
+        "progress/overview-profile",
+        "progress/overview-profile-first"
       ]
     },
     {
@@ -13171,7 +13173,8 @@
         "workout/last-rep-slow",
         "workout/focus-ramp",
         "workout/focus-ramp-easy",
-        "workout/focus-ramp-floor"
+        "workout/focus-ramp-floor",
+        "workout/focus-ramp-substitution"
       ]
     },
     {
@@ -13643,7 +13646,11 @@
       "catalogStates": [
         "progress/overview-profile",
         "progress/overview-profile-first",
-        "library/exercise-detail-suggested"
+        "library/exercise-detail-suggested",
+        "progress/overview",
+        "progress/overview-action",
+        "progress/minibar",
+        "progress/overview-baseline"
       ]
     },
     {
@@ -13662,7 +13669,11 @@
       "catalogStates": [
         "progress/overview-profile",
         "progress/overview-profile-first",
-        "library/exercise-detail-suggested"
+        "library/exercise-detail-suggested",
+        "progress/overview",
+        "progress/overview-action",
+        "progress/minibar",
+        "progress/overview-baseline"
       ]
     },
     {
