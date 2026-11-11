@@ -13174,7 +13174,9 @@
         "workout/focus-ramp",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
-        "workout/focus-ramp-substitution"
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-changed-movement"
       ]
     },
     {
@@ -13650,7 +13652,9 @@
         "progress/overview",
         "progress/overview-action",
         "progress/minibar",
-        "progress/overview-baseline"
+        "progress/overview-baseline",
+        "library/exercise-detail",
+        "library/exercise-detail-glossary"
       ]
     },
     {
@@ -13673,7 +13677,9 @@
         "progress/overview",
         "progress/overview-action",
         "progress/minibar",
-        "progress/overview-baseline"
+        "progress/overview-baseline",
+        "library/exercise-detail",
+        "library/exercise-detail-glossary"
       ]
     },
     {
