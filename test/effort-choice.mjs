@@ -1,5 +1,6 @@
 /** Activation-boundary effort choice, composed into the program-entry browser owner. */
 import assert from "node:assert/strict";
+import { waitForAsyncCondition } from "./browser.mjs";
 import { openCatalogState } from "./fixtures/catalog-state.mjs";
 import { collectProgramEntrySemantics } from "../tools/ui-screens/semantics.mjs";
 import { emptyEntryState } from "../tools/ui-screens/fixtures.mjs";
@@ -18,6 +19,25 @@ export async function verifyEffortChoice(browser) {
     await page.waitForFunction(() => window.__repforgeBooted === true);
   };
   const stored = page => page.evaluate(() => JSON.parse(localStorage.getItem("repforge_v1")));
+  const trackActivation = (page, selector) =>
+    page.locator(selector).evaluate(button => {
+      const handler = button.onclick;
+      button.onclick = function (event) {
+        this.onclick = handler;
+        window.__effortActivation = Promise.resolve(handler.call(this, event));
+        return window.__effortActivation;
+      };
+    });
+  const activate = async (page, selector) => {
+    await trackActivation(page, selector);
+    await page.click(selector);
+  };
+  // Storage publication precedes activation's choice acknowledgement and setup-draft cleanup.
+  // Await the actual outcome, including cancellation/refusal, before inspecting those effects.
+  const activationOutcome = page => waitForAsyncCondition(page, async () => {
+    if (!window.__effortActivation) throw new Error("No activation outcome was captured");
+    return { result: await window.__effortActivation };
+  });
   const fresh = await browser.newContext({ effortChoice: "live" });
   try {
     const page = await fresh.newPage();
@@ -59,9 +79,9 @@ export async function verifyEffortChoice(browser) {
     snapshot.settings.rirMode = "effort";
     const { context, page } = await openCatalogState(browser, key, 390, "pt", "normal", { effortChoice: "live", snapshot });
     try {
-      const activate = route === "build" ? "#entryEditorActivate" : "#entryActivate";
+      const activationButton = route === "build" ? "#entryEditorActivate" : "#entryActivate";
       const before = await stored(page);
-      await page.click(activate);
+      await activate(page, activationButton);
       await page.waitForSelector("#effortChoiceSheet.is-open");
       check(await page.locator(`#effortChoiceSheet [data-effort-choice='${route === "shared" ? "numeric" : "effort"}']`).getAttribute("aria-checked") === "true",
         `${route} preselects ${route === "shared" ? "the shared stage" : "words"}`);
@@ -75,16 +95,15 @@ export async function verifyEffortChoice(browser) {
       check(duplicate?.cancelled === true && await page.locator("#effortChoiceSheet").isVisible(), "a repeated activation keeps one unanswered question");
       await page.keyboard.press("Escape");
       await page.waitForSelector("#effortChoiceSheet", { state: "hidden" });
+      await activationOutcome(page);
       check(!await page.evaluate(() => JSON.parse(localStorage.getItem("repforge_ui_v1"))?.effortChosen), "cancelling does not acknowledge a choice");
-      await page.click(activate);
+      await activate(page, activationButton);
       await page.waitForSelector("#effortChoiceSheet.is-open");
       const selected = route === "build" ? "numeric" : "effort";
       await page.click(`[data-effort-choice='${selected}']`);
       await page.click("#effortChoiceContinue");
-      await page.waitForFunction(mode => {
-        const s = JSON.parse(localStorage.getItem("repforge_v1"));
-        return s?.programMeta?.onboarded && s.settings.rirMode === mode;
-      }, selected);
+      const { result } = await activationOutcome(page);
+      check(result?.committed === true && result?.settled === true, `${route} activation acknowledges completion`);
       check((await stored(page)).settings.rirMode === selected, `${route} commits the chosen mode with activation`);
       check(await page.evaluate(() => JSON.parse(localStorage.getItem("repforge_ui_v1"))?.effortChosen === true), "successful activation acknowledges the device choice");
       await boot(page);
@@ -100,8 +119,10 @@ export async function verifyEffortChoice(browser) {
     const { context, page } = await openCatalogState(browser, "onboarding-build/editor-ready", 390, "en", "normal", { effortChoice: "live", snapshot });
     try {
       if (skip === "chosen") await page.evaluate(() => window.__repforgeUi.setPref("effortChosen", true));
-      await page.click("#entryEditorActivate");
-      await page.waitForFunction(() => JSON.parse(localStorage.getItem("repforge_v1"))?.programMeta?.onboarded === true);
+      await activate(page, "#entryEditorActivate");
+      const { result } = await activationOutcome(page);
+      check(result?.committed === true && result?.settled === true && (await stored(page)).programMeta.onboarded === true,
+        `activation with ${skip} acknowledges completion`);
       check(!await page.locator("#effortChoiceSheet").isVisible(), `activation skips the question with ${skip}`);
       check((await stored(page)).settings.rirMode === snapshot.settings.rirMode, "skipping preserves the existing effort stage");
     } finally { await context.close(); }
@@ -120,7 +141,7 @@ export async function verifyEffortChoice(browser) {
       });
       check((await stored(page)).settings.restSec === 180, "the newer setting is durably committed while the question waits");
       await page.click("#effortChoiceContinue");
-      const result = await page.evaluate(() => window.__effortActivation);
+      const { result } = await activationOutcome(page);
       const after = await stored(page);
       check((result?.staleRevision || result?.conflict || result?.cancelled) && after.program.length === 0 && after.settings.restSec === 180,
         "a state change while the question is open refuses the stale activation and preserves the newer setting");
@@ -133,7 +154,7 @@ export async function verifyEffortChoice(browser) {
     const { context, page } = await openCatalogState(browser, "onboarding-build/editor-ready", 390, "en", "normal",
       { effortChoice: "live", snapshot: emptyEntryState("en") });
     try {
-      await page.click("#entryEditorActivate");
+      await activate(page, "#entryEditorActivate");
       await page.waitForSelector("#effortChoiceSheet.is-open");
       const peer = await context.newPage();
       await boot(peer);
@@ -141,17 +162,19 @@ export async function verifyEffortChoice(browser) {
         window.__effortHeldWrite = navigator.locks.request("repforge:state-write", () =>
           new Promise(resolve => { window.__effortReleaseWrite = resolve; }));
       });
-      await peer.waitForFunction(() => !!window.__effortReleaseWrite);
+      await waitForAsyncCondition(peer, () => !!window.__effortReleaseWrite);
       await page.click('[data-effort-choice="numeric"]');
       await page.click("#effortChoiceContinue");
       await page.waitForSelector("#effortChoiceSheet", { state: "hidden" });
+      await waitForAsyncCondition(page, async () =>
+        (await navigator.locks.query()).pending.some(lock => lock.name === "repforge:state-write"));
       check((await stored(page)).program.length === 0, "the held lock keeps activation pending after the answer");
       await page.locator("#entryEditorActivate").evaluate(button => button.click());
       const repeated = await page.evaluate(() => window.__repforgeActivateEntryPreview());
       check(repeated?.cancelled === true && !await page.locator("#effortChoiceSheet").isVisible(),
         "repeated activation during the pending write accepts no second answer");
       await peer.evaluate(() => window.__effortReleaseWrite());
-      await page.waitForFunction(() => window.__repforgeEntryState() === null);
+      await activationOutcome(page);
       const after = await stored(page);
       check(after.programMeta.onboarded && after.settings.rirMode === "numeric" &&
         await page.evaluate(() => JSON.parse(localStorage.getItem("repforge_ui_v1"))?.effortChosen === true),
@@ -166,10 +189,11 @@ export async function verifyEffortChoice(browser) {
     const { context, page } = await openCatalogState(browser, "onboarding-build/editor-ready", 390, "en", "normal",
       { effortChoice: "live", snapshot: emptyEntryState("en") });
     try {
-      await page.click("#entryEditorActivate");
+      await activate(page, "#entryEditorActivate");
       await page.waitForSelector("#effortChoiceSheet.is-open");
       await page.evaluate(() => history.back());
       await page.waitForFunction(() => document.querySelector("#effortChoiceSheet").hidden || document.querySelector("#entryDialog")?.open);
+      await activationOutcome(page);
       const cancelled = await page.evaluate(() => document.querySelector("#effortChoiceSheet").hidden && !document.querySelector("#entryDialog")?.open);
       check(cancelled, "browser Back cancels the question without opening a competing Leave dialog");
       if (!cancelled) {
@@ -177,10 +201,11 @@ export async function verifyEffortChoice(browser) {
         await page.waitForSelector("#effortChoiceSheet", { state: "hidden" });
         if (await page.locator("#entryDialog").isVisible()) await page.click("#entryCancelContinue");
       }
-      await page.waitForFunction(() => document.activeElement.id === "entryEditorActivate");
+      await waitForAsyncCondition(page, () => document.activeElement.id === "entryEditorActivate");
       check(await page.evaluate(() => !!localStorage.getItem("repforge_program_setup_draft_v1") &&
         JSON.parse(localStorage.getItem("repforge_ui_v1"))?.effortChosen !== true),
         "Back retains the setup draft without acknowledging a choice and restores activation focus");
+      await trackActivation(page, "#entryEditorActivate");
       await page.keyboard.press("Enter");
       await page.waitForSelector("#effortChoiceSheet.is-open");
       const focused = await page.evaluate(() => document.activeElement.dataset.effortChoice);
@@ -196,6 +221,7 @@ export async function verifyEffortChoice(browser) {
         "Shift+Tab returns to the selected answer in the sole modal");
       await page.keyboard.press("Escape");
       await page.waitForSelector("#effortChoiceSheet", { state: "hidden" });
+      await activationOutcome(page);
       check(await page.evaluate(() => document.activeElement.id === "entryEditorActivate" && !document.querySelector("#entryDialog")?.open),
         "Escape dismisses the visible question and returns focus to activation");
     } finally { await context.close(); }
