@@ -1168,7 +1168,10 @@ div.settings-row{cursor:default}
 /* ---- Active workout ---- */
 .wo-head{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-8);margin-bottom:0;min-height:var(--control-target)}
 /* Equal leading and trailing slots, so the title sits on the screen's centre line. */
-.wo-head{display:grid;grid-template-columns:minmax(max-content,1fr) minmax(0,auto) minmax(max-content,1fr)}
+/* The climb's centred title (owner hill-climb, 2026-11-10): equal content-sized side slots around a centre that shrinks
+   first. Where the title takes its own row (the narrowest phones, large text) the head stays the wrapping flex row
+   below, or a long title widens the centre past the screen and the slots overlap, Back under the menu. */
+.wo-head{display:grid;grid-template-columns:minmax(max-content,1fr) minmax(0,max-content) minmax(max-content,1fr)}
 .wo-head > :first-child{justify-self:start}
 .wo-head > .wo-head__end{justify-self:end}
 /* The title wraps rather than truncates, so it hangs from the top of the bar: when the timer chip widens and
@@ -1191,11 +1194,11 @@ div.settings-row{cursor:default}
    (the narrowest phones, and any phone at large text) it takes the row under the controls, so a running timer's
    wider pill neither squeezes it nor moves it. */
 @media (max-width:340px){
-  .wo-head{flex-wrap:wrap;row-gap:0}
+  .wo-head{display:flex;flex-wrap:wrap;row-gap:0}
   .wo-head__center{order:3;flex:1 0 100%;padding-top:0}
 }
 body:has(.exercise--focus.is-text-scaled){--focus-context-floor:0px}
-body:has(.exercise--focus.is-text-scaled) .wo-head{flex-wrap:wrap;row-gap:0}
+body:has(.exercise--focus.is-text-scaled) .wo-head{display:flex;flex-wrap:wrap;row-gap:0}
 body:has(.exercise--focus.is-text-scaled) .fcard__context{padding-block:0}
 body:has(.exercise--focus.is-text-scaled) #log > :not(#workoutShell){margin-bottom:0}
 /* The shelf's labels are one or two short words that wrap in a third of the screen; tight leading keeps their two lines
