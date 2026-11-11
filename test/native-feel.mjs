@@ -2501,13 +2501,16 @@ function measureShelf() {
   const s = css(shelf);
   const bg = css(document.documentElement).getPropertyValue("--bg").trim();
   const probe = document.createElement("i"); probe.style.color = bg; document.body.append(probe);
-  const bgColor = css(probe).color; probe.remove();
+  const bgColor = css(probe).color;
+  // Dark raises the tiles one step off the page (owner hill-climb, 2026-11-10, DESIGN.md shelf-field / shelf-pad).
+  probe.style.color = css(shelf).getPropertyValue("--shelf-field-bg").trim();
+  const tileColor = css(probe).color; probe.remove();
   const outlined = [...tiles, ...pads].filter((el) => ["Top", "Right", "Bottom", "Left"].some((side) =>
     px(css(el)[`border${side}Width`]) > 0 && !/rgba\(.*,\s*0\)$|transparent/.test(css(el)[`border${side}Color`])));
   const selected = shelf.querySelector('.shelf__fieldbtn[aria-pressed="true"]');
   return {
     outlined: outlined.map((el) => el.className), fills: [...tiles.filter((el) => !el.closest(".shelf__group") || el.matches(".shelf__group")), ...pads]
-      .map((el) => css(el).backgroundColor), bgColor, ring: selected ? css(selected).boxShadow : "none",
+      .map((el) => css(el).backgroundColor), bgColor, tileColor, dark: document.documentElement.dataset.theme === "dark", ring: selected ? css(selected).boxShadow : "none",
     sheet: radius(shelf), inset: { top: px(s.paddingTop), left: px(s.paddingLeft), right: px(s.paddingRight) }, rowGap: px(s.rowGap),
     radii: [...tiles, ...pads, action].map(radius),
     gaps: { fields: px(css(fields).columnGap), pads: px(css(padRow).columnGap) },
@@ -2536,8 +2539,10 @@ async function concentricShelf(browser) {
       // lines; the existing load/reps labels still stay on one and all remain whole.
       assert(m.labels.every(l => l.lines >= 1 && l.lines <= (l.effort ? 2 : 1) && l.whole),
         `${label}: field labels stay whole above their values, with at most two effort lines`, JSON.stringify(m.labels));
-      assert(!m.outlined.length && m.fills.every((f) => f === m.bgColor) && m.ring !== "none",
-        `${label}: quiet tiles on --bg with no outline, and the selected field keeps its ring`, JSON.stringify({ outlined: m.outlined, fills: m.fills, bg: m.bgColor, ring: m.ring }));
+      const tileFill = m.dark ? m.tileColor : m.bgColor;
+      assert(!m.outlined.length && m.fills.every((f) => f === tileFill) && m.ring !== "none",
+        `${label}: quiet tiles share one fill with no outline (--bg in light, the raised shelf tile in dark), and the selected field keeps its ring`,
+        JSON.stringify({ outlined: m.outlined, fills: m.fills, bg: m.bgColor, tile: m.tileColor, ring: m.ring }));
       if (key === "workout/focus-per-side") {
         assert(m.caps.length === 1 && m.caps[0].text === m.perSide && m.caps[0].upper === "uppercase", `${label}: exactly one "Per side" caption`, JSON.stringify(m.caps));
         assert(m.groupNames.length >= 1 && m.groupNames.every((n) => n.includes(m.perSide)), `${label}: each grouped field's name says per side`, JSON.stringify(m.groupNames));

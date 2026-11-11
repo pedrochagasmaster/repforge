@@ -128,6 +128,10 @@ export const ORANGE_CATEGORIES = Object.freeze([
   // Finish and share (owner decisions, 2026-11-05, prototype v2): the record poster's ground, the stats card's accent
   // figure and improvement mark, and the finish screen's gain and record figures.
   "finish-share",
+  // The owner's hill-climb amendments (2026-11-10, DESIGN.md "Owner decisions"): the exercise chart's trend, points
+  // and marker; the current item (Focus's open set row, the chart's selected session); Settings' Back up now while a
+  // backup is due; and a switch that is on.
+  "chart-trend", "current-item", "backup-action", "switch-on",
 ]);
 /**
  * [{ category, selector, pseudo?: "::before" | "::after" }]. Each R3 sub-slice adds the entries its
@@ -136,6 +140,15 @@ export const ORANGE_CATEGORIES = Object.freeze([
 export const ORANGE_ALLOWLIST = [
   // R3c: the current exercise's segment in Focus's exercise bar (the bar inside the segment button).
   { category: "current-exercise-segment", selector: "#woProgress .segbar__seg.is-current .segbar__bar" },
+  // Today's week track marks the current week the same way (owner-approved hill-climb, 2026-11-10).
+  { category: "current-exercise-segment", selector: "#todayProgram .segbar__seg.is-current" },
+  { category: "chart-trend", selector: ".exchart__svg .ch-line" },
+  { category: "chart-trend", selector: ".exchart__svg .ex-pt--sel" },
+  { category: "chart-trend", selector: ".exchart__marker" },
+  { category: "backup-action", selector: ".settings-identity .settings-identity__backup" },
+  { category: "current-item", selector: ".fcard__ledger .ledgerline--open" },
+  { category: "current-item", selector: ".exrow.is-sel" },
+  { category: "chart-trend", selector: ".exchart__svg .ex-pt" },
   // Session details as a hub (#522, owner direction A, 2026-10-28): the map marks the current lift with the accent ring
   // round a dot beside a semibold name and the word Now, the same marker as the current segment.
   { category: "current-exercise-segment", selector: ".session-map__row.is-current .session-map__mark" },
@@ -163,6 +176,9 @@ export const ORANGE_ALLOWLIST = [
   { category: "rest-timer", selector: ".restlink--end" },
   // R3j: the dock's active item. Direction D leaves the dock as shipped (spec section 7), so the
   // active tab keeps painting its icon, its label and its selection edge in the accent.
+  // The sixth use (owner, 2026-11-10, DESIGN.md): a switch that is on, Settings included.
+  { category: "switch-on", selector: ".toggle[aria-pressed=\"true\"]", pseudo: "::before" },
+  { category: "switch-on", selector: ".toggle[aria-checked=\"true\"]", pseudo: "::before" },
   { category: "active-dock-icon", selector: "nav button.active .nav__icon" },
   { category: "active-dock-icon", selector: "nav button.active > [data-i18n]" },
   { category: "active-dock-icon", selector: "nav button.active" },

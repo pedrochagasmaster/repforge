@@ -57,17 +57,17 @@ colors-dark:
   forge-orange: "#F2703B"                # token: --accent
   forge-orange-deep: "#FF8A3D"           # token: --accent-deep
   accent-ink: "#231A14"                  # token: --accent-ink
-  cta-black: "#DED7CC"                   # token: --cta
+  cta-black: "#F2EFE9"                   # token: --cta
   cta-ink: "#161513"                     # token: --cta-ink
   positive: "#63C267"                    # token: --positive
   danger: "#FF6670"                      # token: --danger
   scrim: "rgba(0,0,0,.62)"               # token: --scrim
   quiet-selected: "#F2EFE9"              # token: --boundary-selected-quiet
   rule-on-surface: "#4A453D"             # token: --rule-on-surface
-  shelf-field: "#191713"                 # token: --shelf-field-bg
-  shelf-pad: "#141310"                   # token: --shelf-pad-bg
+  shelf-field: "#2A2722"                 # token: --shelf-field-bg
+  shelf-pad: "#2A2722"                   # token: --shelf-pad-bg
   dock-glass: "rgba(30,28,24,.66)"       # token: --dock-glass
-  dock-lens: "rgba(255,255,255,.07)"     # token: --dock-pill
+  dock-lens: "rgba(255,255,255,.13)"     # token: --dock-pill
   band-night: "#141310"                  # token: --band-night-bg
   band-night-raised: "#1E1C18"           # token: --band-night-raised
   band-night-ink: "#F2EFE9"              # token: --band-night-ink
@@ -168,7 +168,7 @@ elevation:
   persistent: "0 -4px 16px rgba(27,26,23,.09)"  # token: --elevation-persistent-shadow
   sheet: "0 -8px 40px rgba(27,26,23,.18)"  # token: --elevation-sheet-shadow
   dialog: "0 16px 40px rgba(27,26,23,.12)"  # token: --elevation-dialog-shadow
-  nav: "inset 0 1px 0 rgba(255,255,255,.7), inset 0 -1px 0 rgba(27,26,23,.05), 0 10px 30px rgba(27,26,23,.13), 0 2px 8px rgba(27,26,23,.07)"  # token: --elevation-nav-shadow
+  nav: "inset 0 1px 0 rgba(255,255,255,.7), inset 0 -1px 0 rgba(27,26,23,.05), 0 4px 14px rgba(27,26,23,.10), 0 1px 3px rgba(27,26,23,.06)"  # token: --elevation-nav-shadow
   focus-halo: "0 0 0 3px rgba(224,78,20,.12)"  # token: --control-focus-halo-shadow
 components:
   touch-target:
@@ -321,7 +321,7 @@ both.
 
 ### The orange budget
 
-Plan 064 section 8.8 allows the accent in exactly five places, and
+Plan 064 section 8.8 allows the accent in exactly five places (a sixth added below by the owner), and
 `ORANGE_ALLOWLIST` in `tools/check-direction-d.mjs` binds each to a selector. The
 rules-only gate (`tools/check-rules-only.mjs`) reads the same list and adds
 nothing to it.
@@ -331,12 +331,25 @@ nothing to it.
    green. Orange on a verdict means the engine asked for more.
 2. **The current-exercise segment.** The current segment of the Focus exercise
    bar (`#woProgress .segbar__seg.is-current`). Done segments are ink.
+   Today's week track marks the current week the same way
+   (`#todayProgram .segbar__seg.is-current`, owner, 2026-11-10).
+   The exercise chart's trend line, its points (the selected one filled) and the
+   marker carry the accent too (`.ch-line`, `.ex-pt`, `.ex-pt--sel`,
+   `.exchart__marker`, owner hill-climb,
+   2026-11-10). The current item is the accent everywhere: Focus's open set row
+   and the chart's selected session take a 3px accent bar on a 5% accent tint.
+   While a backup is due, Settings' Back up now is `--accent-deep` on an accent
+   tint inside a quiet status card.
 3. **A running timer's drain bar.** `.restinline__fill`, a `scaleX` transform on
    a 4px track while a rest runs. It stops being orange the moment the rest ends.
 4. **The CTA arrow.** The drawn arrow mask at the right edge of `.btn--cta`,
    which stays `--accent` on the CTA ground in both themes.
 5. **The active dock item.** The shipped active item's icon, label and selection
    edge (owner build decision on #295, 2026-10-01), travelling with the lens.
+6. **A switch that is on.** The on-track of `.toggle` (`--switch-on-track`), the
+   light theme's deep accent #B8410E in both themes, including Settings (owner,
+   2026-11-10: the ink track read as off in dark). Dark keeps that darker orange
+   so its light knob holds 3:1.
 
 Two further paints are real and are not budget uses. The focused control's
 indicator is painted from `--color-focus`, the contract's focus-visible role, and
@@ -369,7 +382,7 @@ orange band is a ground, not a mark, and is described under Landing bands.
 - **Rule on Surface** (`--rule-on-surface`, `--rule` in light and `--rule-strong`
   in dark): the decorative separator drawn on `--surface`, inside sheets and the
   shelf.
-- **CTA Black** (`--cta`, #161513 light / #DED7CC dark): the single primary
+- **CTA Black** (`--cta`, #161513 light / #F2EFE9 dark): the single primary
   action. It inverts between themes while the orange does not.
 - **Quiet Selected** (`--boundary-selected-quiet`, an alias of `--ink`): the
   selected boundary wherever the orange is rationed.
@@ -442,6 +455,16 @@ way that suits a product that does not want to perform. The two families are one
 voice in two registers. The contract's rule is to choose by value, not ancestry:
 Mono for loads, reps, RIR, time, counts and visible technical IDs; Sans for
 everything that is language.
+
+**Amendment (owner, 2026-11-10).** On Today, Focus and the exercise chart,
+figures that sit beside or inside language take Plex Sans with tabular digits:
+Today's load and target columns, the Focus ledger and shelf values, numbers in
+the Focus evidence line, and the chart's readout, ledger and axis. A Mono
+figure next to Sans text read as a second, wider number style. Mono stays in
+History and the other ledgers. On Focus a prefilled value the lifter has not
+touched is ink at the regular weight rather than grey, and the open ledger row
+is a 5% accent tint with a 3px accent leading bar rather than a 2px ring, so the selected
+shelf field keeps the only ring on screen.
 
 ### Hierarchy
 

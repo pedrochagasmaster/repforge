@@ -185,10 +185,10 @@ console.log("\nD-owned state list");
   // Direction D's five uses, plus the bar's text button the owner approved with the bar-actions mock (2026-10-23),
   // Today's live session card the owner approved with mock A (2026-10-23), the rest timer, and the Focus hero's Why?
   // action (direction A of focus-hero.html, 2026-10-28), and finish-share's poster and figures (owner, 2026-11-05),
-  // Plan 081 retired the calibration ring and its accent category.
-  check(ORANGE_CATEGORIES.length === 10 && !ORANGE_CATEGORIES.includes("calibration-ring") && ORANGE_CATEGORIES.includes("bar-text-button") && ORANGE_CATEGORIES.includes("live-session") && ORANGE_CATEGORIES.includes("rest-timer")
+  // The coach layer retires the ring; the hill-climb adds chart trend, current item, backup action and on-switch.
+  check(ORANGE_CATEGORIES.length === 14 && !ORANGE_CATEGORIES.includes("calibration-ring") && ["chart-trend", "current-item", "backup-action", "switch-on"].every((c) => ORANGE_CATEGORIES.includes(c)) && ORANGE_CATEGORIES.includes("bar-text-button") && ORANGE_CATEGORIES.includes("live-session") && ORANGE_CATEGORIES.includes("rest-timer")
     && ORANGE_CATEGORIES.includes("focus-hero-why") && ORANGE_CATEGORIES.includes("finish-share"),
-    "the orange budget names exactly ten categories without the retired calibration ring", ORANGE_CATEGORIES.join(", "));
+    "the orange budget names exactly fourteen categories without the retired calibration ring", ORANGE_CATEGORIES.join(", "));
   check(GAPS.length > 0 && GAPS.every((gap) => typeof gap === "string" && gap.length > 40),
     "every rule no governing document provides is recorded as an explicit gap", `${GAPS.length} gaps`);
 }

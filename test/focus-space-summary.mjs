@@ -132,8 +132,9 @@ try {
 
   console.log("\n2. Nothing is left cut under the segment bar after the card scrolls");
   {
-    // A short phone, so the third set's row is below the window: the inline first-set guide used to take that room.
-    const { context, page } = await openCatalogState(browser, "workout/rest-running", 390, "en", "normal", { height: 667 });
+    // A short phone, so the third set's row is below the window (620 tall since the open row's 68px from the owner
+    // hill-climb; 667 now fits it whole): the inline first-set guide used to take that room.
+    const { context, page } = await openCatalogState(browser, "workout/rest-running", 390, "en", "normal", { height: 620 });
     try {
       const before = await page.evaluate(contextCuts);
       check(before.top >= before.barBottom - 0.5 && !before.cuts.length, "rest running: the context opens whole under the segments", before);

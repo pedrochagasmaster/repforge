@@ -9071,7 +9071,7 @@ function rxSetsLine(sets,withUnit){
   const rows=sets.filter(x=>+x.reps>0);if(!rows.length)return"";
   const same=rows.every(x=>sameLoad(+x.load,+rows[0].load));
   return same?`${fmtLoad(rows[0].load)}${withUnit?` ${unitLabel()}`:""} × ${rows.map(x=>x.reps).join(", ")}`
-    :rows.map(x=>`${fmtLoad(x.load)} × ${x.reps}`).join(", ")}
+    :rows.map(x=>`${fmtLoad(x.load)}\u00a0×\u00a0${x.reps}`).join(", ")}
 // @ci-domain today
 function rxTargetText(ex,rec){
   if(ex?.hasRepTarget===false)return programPrescriptionSummary(ex);
@@ -11148,7 +11148,7 @@ function focusCardHtml(ex,r,draft,prev,opts){
   const noteVal=String(draft.__exnotes?.[ex.id]??lastExerciseNote(ex)).trim();
   const noteAct=peek?dead():` data-fnote="${esc(ex.id)}"`;
   const noteAdd=noteVal?"":`<button type="button" class="fx-note-add"${noteAct} aria-label="${esc(t("focus.note.add_aria"))}">`+
-    `<span class="icon-mask icon-mask--note" aria-hidden="true"></span></button>`;
+    `<span class="icon-mask icon-mask--note" aria-hidden="true"></span><span class="fx-note-add__label" aria-hidden="true">${esc(t("log.note"))}</span></button>`;
   const note=noteVal?`<button type="button" class="fx-note"${noteAct} aria-label="${esc(t("focus.note.open_aria",{note:noteVal}))}">`+
     `<span class="icon-mask icon-mask--sm icon-mask--note" aria-hidden="true"></span><span class="fx-note__text">${esc(noteVal)}</span></button>`:"";
   const editing=!!(focusEdit&&focusEdit.exId===ex.id&&n);
@@ -14488,11 +14488,11 @@ function chartScopeTravel(el,host,svg,prev,live,ghost){
     live.drawn=rest;
     series.innerHTML=chartSeriesSvg(chartItems(live.model,live.geo),live.metric)})}
 function chartTogglesHtml(scope,metric){
-  const seg=(attr,label,options)=>`<div class="segpill" role="group" aria-label="${esc(label)}">`+
+  const seg=(attr,label,options,cls="")=>`<div class="segpill${cls}" role="group" aria-label="${esc(label)}">`+
     options.map(([value,text,on])=>`<button type="button" ${attr}="${value}" aria-pressed="${on}">${esc(text)}</button>`).join("")+`</div>`;
   return `<div class="exchart__toggles">`+
     seg("data-scope",t("stats.scope_aria"),[["current-block",t("stats.scope.current_block"),scope==="current-block"],["all-history",t("stats.scope.all_history"),scope==="all-history"]])+
-    seg("data-metric",t("stats.metric.top_load"),[["top",t("stats.metric.top_load"),metric==="top"],["e1rm",t("stats.metric.best_e1rm"),metric==="e1rm"]])+`</div>`}
+    seg("data-metric",t("stats.metric.top_load"),[["top",t("stats.metric.top_load"),metric==="top"],["e1rm",t("stats.metric.best_e1rm"),metric==="e1rm"]]," segpill--tabs")+`</div>`}
 function bindChartToggles(){
   // The page is rebuilt for every choice, so the pressed toggle is a new node: focus goes back to its equivalent by key (R7 J-10).
   const keep=(attr,value)=>{const el=$(`#exDetail [${attr}="${CSS.escape(value)}"]`);if(el)focusRoute(el)};

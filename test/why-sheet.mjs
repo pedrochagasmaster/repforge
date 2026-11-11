@@ -414,9 +414,9 @@ try {
   const perSideLargeText = await measureLargeTextTodayTarget(perSidePage, perSideProgram.perSide.rowId);
   assert(perSideLargeText?.language === "en" && perSideLargeText.text === perSideToday.target &&
     perSideLargeText.document <= perSideLargeText.viewport && perSideLargeText.left >= 0 &&
-    perSideLargeText.right <= perSideLargeText.viewport + 1 && perSideLargeText.scrollWidth <= perSideLargeText.width + 1 &&
-    perSideLargeText.height > perSideLargeText.lineHeight * 1.5,
-    "P069-S3-CUE: the English setup-required Today target wraps at 200% text without horizontal overflow", perSideLargeText);
+    perSideLargeText.right <= perSideLargeText.viewport + 1 && perSideLargeText.scrollWidth <= perSideLargeText.width + 1,
+    // Since the owner hill-climb's wider target column (2026-11-10) it can fit on one line; it must never overflow.
+    "P069-S3-CUE: the English setup-required Today target fits or wraps at 200% text without horizontal overflow", perSideLargeText);
   console.log(`  EN setup-required 200% target geometry: ${JSON.stringify(perSideLargeText)}`);
   await perSideContext.close();
 
