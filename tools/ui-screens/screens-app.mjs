@@ -1927,6 +1927,8 @@ async function shareOverPhoto(page, key) {
   await page.waitForFunction(() => window.__repforgeShareSheet?.state()?.drawn?.photo, undefined, { timeout: 20000 });
   await page.waitForFunction(() => { const s = window.__repforgeShareSheet.state(); return s.fileTemplate === s.template && !s.shareDisabled; }, undefined, { timeout: 20000 });
   await page.waitForFunction(() => document.querySelectorAll("#shareRail .sharesheet__slide canvas").length >= 5, undefined, { timeout: 20000 });
+  // A scripted click scrolls the chosen swatch into view and a tap does not: the frame is the sheet from its top.
+  await page.evaluate(() => { const body = document.querySelector("#shareCardSheet .sharesheet"); if (body) body.scrollTop = 0; });
 }
 /** Brings a template's card into view in the sheet's row and waits until its file is the one Share would send. */
 async function showShareTemplate(page, template) {
