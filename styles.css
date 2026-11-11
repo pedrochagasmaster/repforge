@@ -5271,58 +5271,29 @@ body.is-focus-wo .toast:not(.toast--top){bottom:calc(var(--toast-clear,0px) + va
 }
 .attention{margin-bottom:0}
 
-/* Effort calibration (Plan 077, OD-20): one number, a bar, what it is, the six signals with their plain counts, and the
-   recent test sets. The bars are quiet ink on the well; the lead signal (test sets) is the one drawn darker. */
-.ovcal{margin-bottom:var(--space-8)}
-.ovcal .ovsec:first-child{margin-top:var(--space-12)}
-.calcard{padding-top:var(--space-12)}
-.calcard__big{display:flex;align-items:baseline;flex-wrap:wrap;gap:var(--space-4) var(--space-8);margin:0}
-.calcard__big b{font-family:var(--font-language);font-weight:var(--weight-semibold);letter-spacing:-.02em;font-variant-numeric:tabular-nums;font-size:var(--font-size-metric);line-height:var(--line-tight);color:var(--color-ink)}
-.calcard__big span{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
-.calbar{display:block;height:8px;margin-top:var(--space-8);border-radius:var(--radius-pill);background:var(--well);overflow:hidden}
-.calbar--thin{height:4px;margin-top:var(--space-4)}
-.calbar__fill{display:block;height:100%;border-radius:inherit;background:var(--ink)}
-.calcard__what,.calcard__fade{margin:var(--space-8) 0 0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
-.calsigs{list-style:none;margin:var(--space-12) 0 0;padding:0}
-/* The label and its reading share a line while they fit; at large text or a narrow screen the reading drops under the
-   label instead of overprinting it, and the bar always takes its own line. */
-.calsig{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;column-gap:var(--space-8);padding:6px 0;
-  font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink)}
-.calsig > span:first-child{flex:1 1 auto;min-width:0;overflow-wrap:anywhere}
-.calsig > span:nth-child(2){flex:0 1 auto;min-width:0;margin-left:auto;text-align:right;color:var(--color-ink-secondary);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
-.calsig .calbar{flex:1 0 100%}
-.calsig:not(.calsig--lead) .calbar__fill{background:var(--color-ink-secondary)}
-.calsig--lead > span:first-child{font-weight:var(--weight-semibold)}
+/* The profile reads the record in words and counts, with no progress scale. */
+.ovprofile{margin-bottom:var(--space-8)}
+.ovprofile .ovsec:first-child{margin-top:var(--space-12)}
+.profile-stage,.profile-effort,.profile-history-label{margin:var(--space-8) 0;font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
+.profile-lifts,.profile-signals{list-style:none;margin:0;padding:0}
+.profile-lift{padding:var(--space-12) 0;border-bottom:1px solid var(--boundary-decorative);overflow-wrap:anywhere}
+.profile-lift__name{margin:0 0 var(--space-4);font-size:var(--font-size-body);font-weight:var(--weight-semibold)}
+.profile-lift p{margin:var(--space-4) 0 0;font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
+.profile-lift .profile-lift__standing{color:var(--color-ink)}
+.profile-signal{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:var(--space-4) var(--space-8);padding:var(--space-8) 0;font-size:var(--font-size-body-small);line-height:var(--line-standard)}
+.profile-signal>span{min-width:0;overflow-wrap:anywhere}
+.profile-signal>span:last-child{margin-left:auto;text-align:right;color:var(--color-ink-secondary);font-variant-numeric:tabular-nums}
+.exercise-profile{margin-top:var(--space-16)}
+.calcheck__result{display:block;max-width:20em;font-size:var(--font-size-caption);line-height:var(--line-reading);color:var(--color-ink-secondary)}
 .calchecks{list-style:none;margin:0;padding:0}
-.calcheck{display:flex;justify-content:space-between;align-items:baseline;gap:var(--space-12);padding:10px 0;border-bottom:1px solid var(--boundary-decorative);
+.calcheck{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:var(--space-12);padding:10px 0;border-bottom:1px solid var(--boundary-decorative);
   font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-standard);color:var(--color-ink)}
 .calcheck__name{min-width:0;overflow-wrap:anywhere}
 .calcheck__name small{display:block;font-size:var(--font-size-caption);color:var(--color-ink-secondary)}
-.calcheck__gd{flex:none;font-family:var(--font-training-data);font-size:var(--font-size-body-small);color:var(--color-ink-secondary);white-space:nowrap}
+.calcheck>span{min-width:0;overflow-wrap:anywhere}
+.calcheck__gd{flex:none;font-family:var(--font-training-data);font-size:var(--font-size-body-small);color:var(--color-ink-secondary)}
 .calcheck__gd b{font-weight:var(--weight-semibold);color:var(--color-ink)}
 .calcheck--empty{color:var(--color-ink-secondary);font-size:var(--font-size-body-small)}
-/* Today: the same number in one quiet row above the session's action. */
-/* The calibration ring (owner direction B, 2026-11-06): beside Today's large title, centred on the title and date,
-   46 px and up to 1.3× under large text; its twin sits in the bar beside the gear at 30 px once the title has gone
-   under the bar, fading in with the bar's title. The arc fills in the accent and each done test set is an accent dot
-   (orange category calibration-ring); the number is ink, with no % sign (the label says percent). */
-.calring{display:grid;place-items:center;flex:none;margin:0;padding:0;border:0;background:transparent;color:var(--ink);border-radius:50%}
-.calring svg{display:block;width:100%;height:100%;overflow:visible}
-.calring--title{width:clamp(46px,2.875rem,60px);height:clamp(46px,2.875rem,60px);align-self:center;margin-top:var(--space-4)}
-.calring--title.is-pressed{opacity:.4}
-.calring:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
-:is(#todayDash)>.pagehead>.pagehead__actions>.calring--bar{width:var(--control-target);height:var(--control-target);
-  visibility:hidden;opacity:0;transition:opacity .16s linear,visibility 0s linear .16s}
-:is(#todayDash)>.pagehead>.pagehead__actions>.calring--bar.is-shown{visibility:visible;opacity:1;transition-delay:0s}
-.calring--bar svg{width:30px;height:30px}
-.calring__track{fill:none;stroke:var(--rule-strong);stroke-width:3.7;stroke-linecap:round}
-.calring__fill{fill:none;stroke:var(--accent);stroke-width:3.7;stroke-linecap:round}
-.calring__dot{fill:var(--ink-faint)}
-.calring__dot.is-done{fill:var(--accent)}
-.calring__n{fill:var(--ink);font-family:var(--font-language);font-weight:var(--weight-semibold);font-variant-numeric:tabular-nums}
-.calring__n.is-empty{fill:var(--color-ink-secondary)}
-@media (prefers-reduced-motion:reduce){:is(#todayDash)>.pagehead>.pagehead__actions>.calring--bar{transition:none}}
-
 /* Needs attention: the mark, the lift and its figure share the first line; the
    verdict and its reason run the full width under them, the evidence kind in
    soft text below. The whole row is one button. */

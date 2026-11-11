@@ -251,8 +251,15 @@ async function focusCue(page) {
   return handle.jsonValue();
 }
 
-async function openWhy(page) {
-  await page.locator("#workout .exercise.is-current [data-why]").first().click();
+async function openWhy(page, { todayExerciseId = null } = {}) {
+  if (todayExerciseId) {
+    await page.locator("#leaveWorkout").click();
+    await page.locator(`#todayExList [data-row-menu="${todayExerciseId}"]`).focus();
+    await page.keyboard.press("Enter");
+    await page.locator('[data-menu-value="why"]').click();
+  } else {
+    await page.locator("#workout .exercise.is-current [data-why]").first().click();
+  }
   await page.waitForSelector("#whySheet.is-open");
   await settle(page, 200);
   return page.evaluate(() => ({
@@ -839,11 +846,12 @@ try {
     "B1: Pendulum squat has no saved or live completed sets");
   assert(await swapPage.locator(`${focus} .fx-cue__standing`).textContent() === "First time on this lift",
     "B1: Focus does not inherit Hack squat standing");
-  const swapped = await openWhy(swapPage);
+  const swapped = await openWhy(swapPage, { todayExerciseId: hack.id });
   const swappedStanding = swapped.blocks.find(block => block.lead === "engine-standing")?.text;
   assert(swappedStanding === "First time on this lift No comparable sessions recorded yet.", "B1: Why makes no claim to another movement's sets or sessions", swappedStanding);
-  assert(swapped.target === original.target, "B1: substitution keeps the inherited selected load unchanged", { original: original.target, swapped: swapped.target });
+  assert(swapped.target === "", "B1: a substitution opening does not invent an inherited engine target", swapped.target);
   await closeWhy(swapPage);
+  await swapPage.evaluate(id => window.__repforgeGoToLogExercise(id), hack.id);
   await swapPage.locator("#woDayTitle [data-exopen]").click();
   await swapPage.waitForSelector("#exDetail .recblock");
   assert(await swapPage.locator("#exDetail .recblock__standing").textContent() === "First time on this lift",

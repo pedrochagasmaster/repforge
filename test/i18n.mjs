@@ -185,7 +185,7 @@ const DYNAMIC_FAMILIES = [
   { test: (s) => s.includes("maxset.invite_reason_${offer.reason}"), keys: () => ["maxset.invite_reason_learning", "maxset.invite_reason_recheck"] },
   { test: (s) => s.includes("focus.evidence.${cue.ramp.record.basis}"), keys: () => ["focus.evidence.prior", "focus.evidence.floor", "focus.evidence.ratio"] },
   { test: (s) => s.includes("landing.check.${kind}"), keys: () => ["landing.check.more", "landing.check.fewer", "landing.check.equal"] },
-  { test: (s) => s.includes("why.standing.${reason}"), keys: () => ["why.standing.no_history", "why.standing.live_only", "why.standing.few_sets", "why.standing.few_sessions", "why.standing.disagreement", "why.standing.inconsistent_checks", "why.standing.break", "why.standing.evidence"] },
+  { test: (s) => s.includes("why.standing.${reason}") || s.includes("why.standing.${standing.reasons[0]||\"evidence\"}"), keys: () => ["why.standing.no_history", "why.standing.live_only", "why.standing.few_sets", "why.standing.few_sessions", "why.standing.disagreement", "why.standing.inconsistent_checks", "why.standing.break", "why.standing.evidence"] },
   { test: (s) => s.includes("review.week.sessions_only.${"), keys: () => ["one", "other"].map((form) => `review.week.sessions_only.${form}`) },
   { test: (s) => s.includes("review.week.${event.kind}"), keys: () => ["pain", "discomfort"].flatMap((kind) => ["", "_swapped"].map((ending) => `review.week.${kind}${ending}`)) },
   { test: (s) => s.includes("focus.skip_reason.${"), keys: () => ["time", "recovery", "pain", "equipment", "schedule", "trim", "other"].map((reason) => `focus.skip_reason.${reason}`) },

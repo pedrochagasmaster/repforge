@@ -128,8 +128,6 @@ export const ORANGE_CATEGORIES = Object.freeze([
   // Finish and share (owner decisions, 2026-11-05, prototype v2): the record poster's ground, the stats card's accent
   // figure and improvement mark, and the finish screen's gain and record figures.
   "finish-share",
-  // The calibration ring on Today (owner decision, 2026-11-06, direction B): the arc's fill and the done test-set dots.
-  "calibration-ring",
 ]);
 /**
  * [{ category, selector, pseudo?: "::before" | "::after" }]. Each R3 sub-slice adds the entries its
@@ -175,8 +173,6 @@ export const ORANGE_ALLOWLIST = [
   { category: "finish-share", selector: "#sessionSummary .sharecard__mark.is-up" },
   { category: "finish-share", selector: "#sessionSummary .sum-tile__val.is-accent" },
   { category: "finish-share", selector: "#sessionSummary .sum-tile__val.is-accent > span" },
-  { category: "calibration-ring", selector: "#todayDash .calring__fill" },
-  { category: "calibration-ring", selector: "#todayDash .calring__dot.is-done" },
   // Today's live card (owner-approved mock A, 2026-10-23): the live dot and its pulse, the tag, the sets bar's fill, and
   // the current lift's status ring.
   { category: "live-session", selector: "#todayLive .today-live__dot" },

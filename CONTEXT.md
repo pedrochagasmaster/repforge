@@ -118,6 +118,16 @@ _Avoid_: Max set (internal name only), AMRAP, failure test, challenge
 A guided first session for a program whose loads are unknown: each exercise is ramped, the lifter answers in words whether they had more left, and the starting loads are set from the reps and the answers. Skippable, and skipped by default when loads are known. It replaces the "pick a load" prompt, not the first program day (owner, 2026-11-08, D-2).
 _Avoid_: Assessment, test day, calibration session, onboarding workout
 
+**Ramp set**:
+A trial set used to find an exercise's working load. An Easy trial becomes a warm-up before the programmed working sets; Hard or Max makes it the first working set. There are at most three warm-up ramp sets.
+_PT (user-facing)_: série de aproximação.
+_Avoid_: Test set, extra working set
+
+**Opening load**:
+The starting point offered for an exercise with no known working load, from a declared bodyweight prior, a comparable movement's working load, or the equipment minimum. The lifter can enter their own load, and their first working set replaces the opening guess.
+_PT (user-facing)_: carga inicial.
+_Avoid_: Target load, predicted strength
+
 **Standing**:
 How well-founded a lift's estimate is, said in words on the target and explained in Why: solid, still learning this lift, first time at this load. Derived from the row count, set-to-set agreement and the lifter's test-set reliability on that lift. Never a percentage, never a grade.
 _Avoid_: Confidence score, accuracy, certainty %, reliability rating

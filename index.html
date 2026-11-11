@@ -33,7 +33,7 @@
   <link rel="apple-touch-startup-image" href="icons/splash-1640x2360.png" media="screen and (device-width: 820px) and (device-height: 1180px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
   <link rel="apple-touch-startup-image" href="icons/splash-1668x2224.png" media="screen and (device-width: 834px) and (device-height: 1112px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
   <link rel="apple-touch-startup-image" href="icons/splash-1536x2048.png" media="screen and (device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
-  <link rel="stylesheet" href="styles.css?v=722">
+  <link rel="stylesheet" href="styles.css?v=723">
   <link rel="stylesheet" href="motion-polish.css?v=643">
   <!-- Runs before the first paint, and only reads.
        Theme: app.js owns the Appearance setting, but it is the last script on the
@@ -150,9 +150,7 @@
           <!-- The calibration ring (owner direction B, 2026-11-06): the gauge's number in the large title's white
                space, and its eight test sets as the dots across its foot. Its twin rides in the bar beside the gear
                once the title has scrolled under it. Both open Progress › Overview at the calibration card. -->
-          <button type="button" class="calring calring--title hidden" id="todayCalRing"></button>
           <div class="pagehead__actions">
-            <button type="button" class="calring calring--bar hidden" id="todayCalRingBar" tabindex="-1" aria-hidden="true"></button>
             <button type="button" class="settings-btn" id="openSettings" data-telemetry-action="settings_open" data-i18n-aria="nav.settings" aria-label="Settings">
               <span class="icon-mask icon-mask--gear" aria-hidden="true"></span>
             </button>
@@ -248,7 +246,7 @@
       </div>
       <div id="segOverview" role="tabpanel" class="stats-seg active">
         <div id="statsIntro" class="emptystate hidden"></div>
-        <div id="overviewCalibration" class="ovcal hidden"></div>
+        <div id="overviewProfile" class="ovprofile hidden"></div>
         <div id="thisWeek" class="ovweek"></div>
         <div id="attention" class="attention"></div>
         <div id="overviewStrength" class="ovstrength"></div>
@@ -1572,7 +1570,7 @@ Triceps pushdown 3x12-15</pre>
   <script src="posthog-init.js"></script>
   <script src="schedule.js"></script>
   <script src="notify.js"></script>
-  <script src="i18n.js?v=722"></script>
+  <script src="i18n.js?v=723"></script>
   <script src="exercises.js?v=067"></script>
   <script src="generation-identity.js?v=459"></script>
   <script src="exercise-catalog.js?v=459"></script>
@@ -1596,10 +1594,10 @@ Triceps pushdown 3x12-15</pre>
   <script src="program-editor.js?v=722"></script>
   <script src="program-review.js?v=692"></script>
   <script src="shared-setup.js?v=574"></script>
-  <script src="starting-loads.js?v=722"></script>
-  <script src="workout-draft.js?v=722"></script>
+  <script src="starting-loads.js?v=723"></script>
+  <script src="workout-draft.js?v=723"></script>
   <script src="effort-calibration.js?v=722"></script>
-  <script src="calibration-gauge.js?v=722"></script>
+  <script src="calibration-gauge.js?v=723"></script>
   <script src="program-transition.js?v=722"></script>
   <script src="program-engine.js?v=669"></script>
   <script src="install-transfer-contract.js?v=722"></script>
@@ -1611,6 +1609,6 @@ Triceps pushdown 3x12-15</pre>
   <script src="progress-model.js?v=722"></script>
   <script src="history-ui.js?v=722"></script>
   <script src="share-cards.js?v=639"></script>
-  <script src="app.js?v=722"></script>
+  <script src="app.js?v=723"></script>
 </body>
 </html>

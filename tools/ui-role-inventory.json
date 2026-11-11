@@ -213,16 +213,6 @@
       "content": "flat",
       "scenario": "Unreadable reply recovery block with Copy repair prompt and Try another assistant actions."
     },
-    "onboarding-import/freeform-managed": {
-      "owner": "adr-0025",
-      "content": "flat",
-      "scenario": "Managed import available: a pasted program, one note that the text goes to Anthropic, the verification widget, Import with Taurifer, and the ChatGPT or Claude hand-off as a quiet alternative."
-    },
-    "onboarding-import/freeform-managed-limit": {
-      "owner": "adr-0025",
-      "content": "flat",
-      "scenario": "Managed import after the daily limit: the alert under Import, the pasted source kept, and the ChatGPT or Claude hand-off still available."
-    },
     "onboarding-import/review": {
       "owner": "plan-054",
       "content": "flat",
@@ -277,16 +267,6 @@
       "owner": "plan-064/r3b",
       "content": "flat",
       "scenario": "The Direction D lifter before Day 1 starts: the prescription table reads recommendation() for every exercise, with the verdict tally above it."
-    },
-    "today/calibration-mini": {
-      "owner": "plan-077",
-      "content": "flat",
-      "scenario": "The calibration ring beside Today's large title."
-    },
-    "today/calibration-ring-bar": {
-      "owner": "plan-077",
-      "content": "flat",
-      "scenario": "Today scrolled, the calibration ring in the bar beside the gear."
     },
     "today/dock-viewer": {
       "owner": "plan-075-phase-5",
@@ -512,11 +492,6 @@
       "owner": "plan-056",
       "content": "flat",
       "scenario": "The Progress landing tab."
-    },
-    "progress/overview-calibration": {
-      "owner": "plan-077",
-      "content": "flat",
-      "scenario": "The effort calibration gauge, its six signals with plain counts, and the recent test sets."
     },
     "progress/overview-guide": {
       "owner": "tip-modal-2026-10-17",
@@ -1318,6 +1293,21 @@
       "content": "flat",
       "scenario": "Two warm-up ramp rows precede the first working row, whose opening provenance survives saving."
     },
+    "workout/focus-ramp-ratio": {
+      "owner": "plan-079",
+      "content": "flat",
+      "scenario": "A new lift opens at a logged working load from the same equipment class and table row."
+    },
+    "workout/focus-ramp-changed-movement": {
+      "owner": "plan-079",
+      "content": "flat",
+      "scenario": "A changed movement recomputes its own opening after a completed ramp warm-up."
+    },
+    "workout/focus-ramp-substitution": {
+      "owner": "plan-079",
+      "content": "flat",
+      "scenario": "A fresh substitution offers the original movement's working load within the same equipment class and table row."
+    },
     "workout/focus-ramp-floor": {
       "owner": "plan-079",
       "content": "flat",
@@ -1352,6 +1342,26 @@
       "owner": "plan-083/pr2",
       "content": "flat",
       "scenario": "The surface band with computed test-set comparisons, safety ceilings, correction limits and barbell exclusions."
+    },
+    "progress/overview-profile": {
+      "owner": "plan-081",
+      "content": "flat",
+      "scenario": "Active program standing, counts and recent test sets."
+    },
+    "progress/overview-profile-first": {
+      "owner": "plan-081",
+      "content": "flat",
+      "scenario": "Early standing and counts after two recorded sessions."
+    },
+    "onboarding-import/freeform-managed": {
+      "owner": "adr-0025",
+      "content": "flat",
+      "scenario": "Managed import available: a pasted program, one note that the text goes to Anthropic, the verification widget, Import with Taurifer, and the ChatGPT or Claude hand-off as a quiet alternative."
+    },
+    "onboarding-import/freeform-managed-limit": {
+      "owner": "adr-0025",
+      "content": "flat",
+      "scenario": "Managed import after the daily limit: the alert under Import, the pasted source kept, and the ChatGPT or Claude hand-off still available."
     }
   },
   "components": [
@@ -1435,8 +1445,6 @@
         "today/deload-week",
         "today/ready-scrolled",
         "today/in-progress",
-        "today/calibration-mini",
-        "today/calibration-ring-bar",
         "today/week-card"
       ]
     },
@@ -1842,53 +1850,6 @@
       "catalogStates": [
         "onboarding-import/freeform-empty",
         "onboarding-import/freeform-filled"
-      ]
-    },
-    {
-      "id": "entrymanagedfallback",
-      "selector": "#entryFreeformContinue.btn--ghost",
-      "roles": {
-        "control": "quiet-navigation"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled"
-      ],
-      "rationale": "With managed import available, the ChatGPT or Claude hand-off steps back to the same quiet treatment as the file switch below it; it keeps its id, its behaviour and the manual path.",
-      "owner": "adr-0025",
-      "catalogStates": [
-        "onboarding-import/freeform-managed",
-        "onboarding-import/freeform-managed-limit"
-      ]
-    },
-    {
-      "id": "entrymanagedconvert",
-      "selector": "#entryManagedConvert",
-      "roles": {
-        "control": "primary"
-      },
-      "variant": null,
-      "facets": [
-        "disabled"
-      ],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled",
-        "loading"
-      ],
-      "rationale": "Sends the pasted program, once verified, to the managed import service. It is disabled until there is a program and a fresh challenge token, and busy while the request runs; the reply still goes through review and explicit activation.",
-      "owner": "adr-0025",
-      "catalogStates": [
-        "onboarding-import/freeform-managed",
-        "onboarding-import/freeform-managed-limit"
       ]
     },
     {
@@ -2451,6 +2412,9 @@
         "workout/last-rep-slow",
         "workout/rest-overrun-finish",
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
         "workout/why-standing",
@@ -4127,6 +4091,9 @@
         "workout/stage-tip",
         "workout/last-rep-slow",
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
         "workout/pain-swap"
@@ -4688,88 +4655,8 @@
         "today/deload-week",
         "today/ready-scrolled",
         "today/in-progress",
-        "today/calibration-mini",
-        "today/calibration-ring-bar",
         "today/week-card"
       ]
-    },
-    {
-      "id": "calring-title",
-      "selector": "#todayCalRing",
-      "roles": {
-        "control": "quiet-navigation"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "pressed",
-        "focus-visible"
-      ],
-      "rationale": "The calibration ring beside Today's large title: the gauge's number and test-set dots; opens Progress › Overview at the calibration card.",
-      "owner": "plan-077",
-      "catalogStates": [
-        "catalog-recovery/retry-failed",
-        "catalog-recovery/unavailable",
-        "install/banner",
-        "today/done",
-        "today/draft-resume",
-        "today/no-program",
-        "today/ready",
-        "today/dock-viewer",
-        "today/skipped",
-        "today/rest-bar",
-        "workout/invalid-draft",
-        "today/deload-week",
-        "today/ready-scrolled",
-        "today/in-progress",
-        "today/calibration-mini",
-        "today/calibration-ring-bar",
-        "install/transfer-destination",
-        "program/custom-exercise-recovery",
-        "install/ios-sheet",
-        "install/transfer-claimed-expired",
-        "install/transfer-claiming",
-        "install/transfer-cleanup",
-        "install/transfer-creating",
-        "install/transfer-eligible",
-        "install/transfer-importing",
-        "install/transfer-interrupted",
-        "install/transfer-ready",
-        "install/transfer-retryable",
-        "install/transfer-success",
-        "install/transfer-terminal",
-        "install/transfer-unknown",
-        "program/custom-exercise",
-        "program/custom-exercise-archiving",
-        "program/custom-exercise-saving",
-        "today/context-menu",
-        "today/day-picker",
-        "today/week-card"
-      ],
-      "neverDisabledReason": "The ring is shown only when there is a gauge to open; with none it is hidden, not disabled."
-    },
-    {
-      "id": "calring-bar",
-      "selector": "#todayCalRingBar",
-      "roles": {
-        "control": "quiet-navigation"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "pressed",
-        "focus-visible"
-      ],
-      "rationale": "The calibration ring's twin in the bar beside the gear once Today's title has scrolled under the bar; a pointer shortcut (the title ring is the one keyboard and VoiceOver reach).",
-      "owner": "plan-077",
-      "catalogStates": [
-        "today/ready-scrolled",
-        "workout/invalid-draft",
-        "today/calibration-ring-bar"
-      ],
-      "neverDisabledReason": "Shown only with the gauge; hidden otherwise."
     },
     {
       "id": "previewadd",
@@ -6123,6 +6010,9 @@
         "workout/stage-tip",
         "workout/last-rep-slow",
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
         "workout/pain-swap"
@@ -6431,8 +6321,6 @@
         "workout/invalid-draft",
         "today/deload-week",
         "today/ready-scrolled",
-        "today/calibration-mini",
-        "today/calibration-ring-bar",
         "today/week-card"
       ]
     },
@@ -6489,9 +6377,10 @@
         "progress/volume-drill-in",
         "progress/volume-reduction-preview",
         "progress/minibar",
-        "progress/overview-calibration",
         "progress/review-proposal",
-        "progress/review-evaluated"
+        "progress/review-evaluated",
+        "progress/overview-profile",
+        "progress/overview-profile-first"
       ]
     },
     {
@@ -6903,8 +6792,6 @@
         "today/deload-week",
         "today/ready-scrolled",
         "today/in-progress",
-        "today/calibration-mini",
-        "today/calibration-ring-bar",
         "today/week-card"
       ],
       "progressScopes": {
@@ -6962,8 +6849,6 @@
         "today/deload-week",
         "today/ready-scrolled",
         "today/in-progress",
-        "today/calibration-mini",
-        "today/calibration-ring-bar",
         "today/week-card"
       ],
       "progressScopes": {
@@ -7030,8 +6915,6 @@
         "today/deload-week",
         "today/ready-scrolled",
         "today/in-progress",
-        "today/calibration-mini",
-        "today/calibration-ring-bar",
         "today/week-card"
       ]
     },
@@ -7217,6 +7100,9 @@
         "workout/stage-tip",
         "workout/last-rep-slow",
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
         "workout/pain-swap"
@@ -7280,6 +7166,9 @@
         "workout/last-rep-slow",
         "workout/rest-overrun-finish",
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
         "workout/why-standing",
@@ -7310,7 +7199,8 @@
         "progress/overview",
         "progress/overview-action",
         "progress/minibar",
-        "progress/overview-calibration"
+        "progress/overview-profile",
+        "progress/overview-profile-first"
       ]
     },
     {
@@ -7440,6 +7330,9 @@
         "workout/stage-tip",
         "workout/last-rep-slow",
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "history/ramp-rows",
         "workout/focus-ramp-floor",
@@ -7694,6 +7587,9 @@
         "workout/stage-tip",
         "workout/last-rep-slow",
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
         "workout/pain-swap"
@@ -7772,6 +7668,9 @@
         "workout/stage-tip",
         "workout/last-rep-slow",
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
         "workout/pain-swap"
@@ -8588,6 +8487,9 @@
         "workout/stage-tip",
         "workout/last-rep-slow",
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
         "workout/pain-swap"
@@ -8658,6 +8560,9 @@
         "workout/stage-tip",
         "workout/last-rep-slow",
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
         "workout/pain-swap"
@@ -8706,6 +8611,9 @@
         "workout/stage-tip",
         "workout/last-rep-slow",
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
         "workout/pain-swap"
@@ -8939,13 +8847,12 @@
         "progress/minibar",
         "history/minibar-rest",
         "program/minibar-rest-done",
-        "progress/overview-calibration",
-        "today/calibration-mini",
-        "today/calibration-ring-bar",
         "today/week-card",
         "history/ramp-rows",
         "progress/review-proposal",
-        "progress/review-evaluated"
+        "progress/review-evaluated",
+        "progress/overview-profile",
+        "progress/overview-profile-first"
       ]
     },
     {
@@ -9022,13 +8929,12 @@
         "progress/minibar",
         "history/minibar-rest",
         "program/minibar-rest-done",
-        "progress/overview-calibration",
-        "today/calibration-mini",
-        "today/calibration-ring-bar",
         "today/week-card",
         "history/ramp-rows",
         "progress/review-proposal",
-        "progress/review-evaluated"
+        "progress/review-evaluated",
+        "progress/overview-profile",
+        "progress/overview-profile-first"
       ]
     },
     {
@@ -9114,13 +9020,12 @@
         "progress/minibar",
         "history/minibar-rest",
         "program/minibar-rest-done",
-        "progress/overview-calibration",
-        "today/calibration-mini",
-        "today/calibration-ring-bar",
         "today/week-card",
         "history/ramp-rows",
         "progress/review-proposal",
-        "progress/review-evaluated"
+        "progress/review-evaluated",
+        "progress/overview-profile",
+        "progress/overview-profile-first"
       ]
     },
     {
@@ -9274,16 +9179,18 @@
         "workout/stage-tip",
         "workout/why-calibration",
         "workout/last-rep-slow",
-        "progress/overview-calibration",
-        "today/calibration-mini",
-        "today/calibration-ring-bar",
         "workout/rest-overrun-finish",
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "history/ramp-rows",
         "workout/focus-ramp-floor",
         "workout/why-standing",
-        "workout/pain-swap"
+        "workout/pain-swap",
+        "progress/overview-profile",
+        "progress/overview-profile-first"
       ]
     },
     {
@@ -9452,6 +9359,9 @@
         "workout/stage-tip",
         "workout/last-rep-slow",
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "history/ramp-rows",
         "workout/focus-ramp-floor",
@@ -9489,8 +9399,6 @@
         "today/ready-scrolled",
         "today/in-progress",
         "program/minibar-rest-done",
-        "today/calibration-mini",
-        "today/calibration-ring-bar",
         "today/week-card"
       ]
     },
@@ -9534,6 +9442,9 @@
         "workout/stage-tip",
         "workout/last-rep-slow",
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
         "workout/pain-swap"
@@ -9582,9 +9493,10 @@
         "progress/volume-drill-in",
         "progress/volume-reduction-preview",
         "progress/minibar",
-        "progress/overview-calibration",
         "progress/review-proposal",
-        "progress/review-evaluated"
+        "progress/review-evaluated",
+        "progress/overview-profile",
+        "progress/overview-profile-first"
       ]
     },
     {
@@ -9639,9 +9551,10 @@
         "progress/volume-drill-in",
         "progress/volume-reduction-preview",
         "progress/minibar",
-        "progress/overview-calibration",
         "progress/review-proposal",
-        "progress/review-evaluated"
+        "progress/review-evaluated",
+        "progress/overview-profile",
+        "progress/overview-profile-first"
       ]
     },
     {
@@ -9707,6 +9620,9 @@
         "workout/stage-tip",
         "workout/last-rep-slow",
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
         "workout/pain-swap"
@@ -9761,6 +9677,9 @@
         "workout/stage-tip",
         "workout/last-rep-slow",
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
         "workout/pain-swap"
@@ -9811,6 +9730,9 @@
         "workout/max-set-result",
         "workout/last-rep-slow",
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
         "workout/pain-swap"
@@ -9972,6 +9894,9 @@
         "workout/effort-stage-b",
         "workout/stage-tip",
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
         "workout/pain-swap"
@@ -10020,6 +9945,9 @@
         "workout/stage-tip",
         "workout/last-rep-slow",
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
         "workout/pain-swap"
@@ -10068,6 +9996,9 @@
         "workout/stage-tip",
         "workout/last-rep-slow",
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
         "workout/pain-swap"
@@ -10116,6 +10047,9 @@
         "workout/stage-tip",
         "workout/last-rep-slow",
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
         "workout/pain-swap"
@@ -10666,7 +10600,8 @@
         "progress/overview",
         "progress/overview-action",
         "progress/minibar",
-        "progress/overview-calibration"
+        "progress/overview-profile",
+        "progress/overview-profile-first"
       ]
     },
     {
@@ -12291,8 +12226,6 @@
         "workout/invalid-draft",
         "workout/reorder",
         "workout/session",
-        "today/calibration-mini",
-        "today/calibration-ring-bar",
         "workout/rest-overrun-finish"
       ],
       "neverDisabledReason": "The menu or choice stays reachable whenever its owning row is present."
@@ -12733,10 +12666,10 @@
         "workout/invalid-draft",
         "progress/strength-comparison",
         "progress/strength-sparse",
-        "today/calibration-mini",
-        "today/calibration-ring-bar",
         "progress/review-proposal",
-        "progress/review-evaluated"
+        "progress/review-evaluated",
+        "progress/overview-profile",
+        "progress/overview-profile-first"
       ]
     },
     {
@@ -13240,7 +13173,10 @@
         "workout/last-rep-slow",
         "workout/focus-ramp",
         "workout/focus-ramp-easy",
-        "workout/focus-ramp-floor"
+        "workout/focus-ramp-floor",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-changed-movement"
       ]
     },
     {
@@ -13262,8 +13198,6 @@
       "owner": "plan-082",
       "catalogStates": [
         "today/ready",
-        "today/calibration-mini",
-        "today/calibration-ring-bar",
         "today/dock-viewer",
         "today/ready-scrolled",
         "today/rest-bar",
@@ -13296,8 +13230,6 @@
       "owner": "plan-082",
       "catalogStates": [
         "today/ready",
-        "today/calibration-mini",
-        "today/calibration-ring-bar",
         "today/dock-viewer",
         "today/ready-scrolled",
         "today/rest-bar",
@@ -13434,6 +13366,9 @@
       "owner": "plan-079",
       "catalogStates": [
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor"
       ]
@@ -13457,6 +13392,9 @@
       "owner": "plan-079",
       "catalogStates": [
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor"
       ]
@@ -13693,6 +13631,103 @@
         "progress/review-proposal",
         "progress/review-evaluated"
       ]
+    },
+    {
+      "id": "profile-lift-name",
+      "selector": ".profile-lift__name",
+      "roles": {
+        "typography": "section-title"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Names the lift whose standing and evidence follow.",
+      "owner": "plan-081",
+      "catalogStates": [
+        "progress/overview-profile",
+        "progress/overview-profile-first",
+        "library/exercise-detail-suggested",
+        "progress/overview",
+        "progress/overview-action",
+        "progress/minibar",
+        "progress/overview-baseline",
+        "library/exercise-detail",
+        "library/exercise-detail-glossary"
+      ]
+    },
+    {
+      "id": "profile-lift-standing",
+      "selector": ".profile-lift__standing",
+      "roles": {
+        "typography": "body"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Reads the engine standing in words.",
+      "owner": "plan-081",
+      "catalogStates": [
+        "progress/overview-profile",
+        "progress/overview-profile-first",
+        "library/exercise-detail-suggested",
+        "progress/overview",
+        "progress/overview-action",
+        "progress/minibar",
+        "progress/overview-baseline",
+        "library/exercise-detail",
+        "library/exercise-detail-glossary"
+      ]
+    },
+    {
+      "id": "entrymanagedfallback",
+      "selector": "#entryFreeformContinue.btn--ghost",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "With managed import available, the ChatGPT or Claude hand-off steps back to the same quiet treatment as the file switch below it; it keeps its id, its behaviour and the manual path.",
+      "owner": "adr-0025",
+      "catalogStates": [
+        "onboarding-import/freeform-managed",
+        "onboarding-import/freeform-managed-limit"
+      ]
+    },
+    {
+      "id": "entrymanagedconvert",
+      "selector": "#entryManagedConvert",
+      "roles": {
+        "control": "primary"
+      },
+      "variant": null,
+      "facets": [
+        "disabled"
+      ],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "loading"
+      ],
+      "rationale": "Sends the pasted program, once verified, to the managed import service. It is disabled until there is a program and a fresh challenge token, and busy while the request runs; the reply still goes through review and explicit activation.",
+      "owner": "adr-0025",
+      "catalogStates": [
+        "onboarding-import/freeform-managed",
+        "onboarding-import/freeform-managed-limit"
+      ]
     }
   ],
   "contextualVariants": [
@@ -13826,6 +13861,9 @@
         "workout/last-rep-slow",
         "workout/rest-overrun-finish",
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
         "workout/why-standing"
@@ -13898,9 +13936,9 @@
         "program/progression-editor",
         "install/banner",
         "today/draft-resume",
-        "progress/overview-calibration",
-        "today/calibration-mini",
-        "history/ramp-rows"
+        "history/ramp-rows",
+        "progress/overview-profile",
+        "progress/overview-profile-first"
       ]
     },
     {
@@ -14034,6 +14072,9 @@
         "workout/stage-tip",
         "workout/last-rep-slow",
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor"
       ]
@@ -14056,6 +14097,9 @@
         "workout/effort-stage-b",
         "workout/stage-tip",
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor"
       ]
@@ -14238,6 +14282,9 @@
         "workout/stage-tip",
         "workout/last-rep-slow",
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor"
       ],
@@ -14273,6 +14320,9 @@
         "workout/effort-stage-b",
         "workout/stage-tip",
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor"
       ],
@@ -14299,6 +14349,9 @@
         "workout/effort-stage-b",
         "workout/stage-tip",
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor"
       ],
@@ -14433,9 +14486,9 @@
         "program/progression-editor",
         "install/banner",
         "today/draft-resume",
-        "progress/overview-calibration",
-        "today/calibration-mini",
-        "history/ramp-rows"
+        "history/ramp-rows",
+        "progress/overview-profile",
+        "progress/overview-profile-first"
       ]
     },
     {
@@ -14495,9 +14548,9 @@
         "program/progression-editor",
         "install/banner",
         "today/draft-resume",
-        "progress/overview-calibration",
-        "today/calibration-mini",
-        "history/ramp-rows"
+        "history/ramp-rows",
+        "progress/overview-profile",
+        "progress/overview-profile-first"
       ]
     },
     {
@@ -14520,6 +14573,9 @@
         "workout/effort-stage-b",
         "workout/stage-tip",
         "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor"
       ]

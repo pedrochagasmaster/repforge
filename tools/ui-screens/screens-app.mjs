@@ -383,10 +383,9 @@ const EFFORT_STAGE_STATES = Object.freeze({
   "workout/effort-stage-b": { rirMode: "numeric" },
   "workout/effort-menu": { rirMode: "effort" },
   "workout/stage-tip": { rirMode: "effort" },
-  // Plan 077 PR 4: the gauge and the last-rep question, on a lifter who logged RIR and took two test sets.
-  "progress/overview-calibration": { rirMode: "numeric" },
-  "today/calibration-mini": { rirMode: "numeric" },
-  "today/calibration-ring-bar": { rirMode: "numeric" },
+  // Profile and last-rep question on a lifter who logged numbers and took test sets.
+  "progress/overview-profile": { rirMode: "numeric" },
+  "progress/overview-profile-first": { rirMode: "numeric" },
   "workout/last-rep-slow": { rirMode: "numeric" },
 });
 /** Two test sets on the lifter's newest session, on its first two exercises: the guess beside a set to failure. */
@@ -410,7 +409,11 @@ function effortStageState(key, lang) {
   const drawn = localeState(key.startsWith("today/") ? directionDBeforeSession() : directionDState(), lang);
   drawn.settings = { ...drawn.settings, ...EFFORT_STAGE_STATES[key] };
   if (key === "workout/stage-tip") drawn.log = drawn.log.map((row) => row.warmup ? row : { ...row, effortSource: "effort" });
-  if (key === "progress/overview-calibration" || key === "today/calibration-mini" || key === "today/calibration-ring-bar" || key === "workout/last-rep-slow") drawn.log = withTestSets(drawn.log);
+  if (key === "progress/overview-profile" || key === "workout/last-rep-slow") drawn.log = withTestSets(drawn.log);
+  if (key === "progress/overview-profile-first") {
+    const sessions = [...new Set(drawn.log.map(row => row.session))].slice(0, 2);
+    drawn.log = drawn.log.filter(row => sessions.includes(row.session));
+  }
   return drawn;
 }
 
@@ -420,7 +423,7 @@ export function appState(key, lang) {
     return emptyEntryState(lang);
   }
   if (key === "history/per-side-session" || key === "workout/focus-per-side") return emptyEntryState(lang);
-  if (["workout/focus-ramp","workout/focus-ramp-floor","workout/focus-ramp-easy","history/ramp-rows"].includes(key)) return emptyEntryState(lang);
+  if (["workout/focus-ramp","workout/focus-ramp-ratio","workout/focus-ramp-substitution","workout/focus-ramp-changed-movement","workout/focus-ramp-floor","workout/focus-ramp-easy","history/ramp-rows"].includes(key)) return emptyEntryState(lang);
   if (key === "workout/why-setup") return emptyEntryState(lang);
   if (DIRECTION_D_BEFORE_SESSION.has(key)) return localeState(directionDBeforeSession(), lang);
   if (DIRECTION_D_SUMMARY_SESSION[key]) return localeState(directionDThroughSession(DIRECTION_D_SUMMARY_SESSION[key]), lang);
@@ -1958,14 +1961,34 @@ async function captureProgramLab(page, result = false) {
     await page.locator('#scenarioHeading').evaluate(element => element.scrollIntoView({ block: 'start' }));
   }
 }
-async function rampFixture(page,{bodyweight=true}={}){
+async function rampFixture(page,{bodyweight=true,ratio=false,substitute=false}={}){
   const state=await installGeneratedProgram(page,{name:"Session zero"});
   state.profile=bodyweight?{weightKg:80}:{};state.programMeta.experience="beginner";state.settings.rirMode="effort";
   delete state.settings.effortScale;
   const target=state.program.find(row=>isWeightRepsSlot(definitionSlot(state.programMeta,row))&&row.sets>=3);
   if(!target)throw new Error("ramp fixture requires a generated Weight+Reps slot");
-  await seed(page,state);
-  await page.evaluate(id=>window.__repforgeGoToLogExercise(id),target.id);
+  if(ratio){
+    const source=await page.evaluate(()=>window.RepForgeExerciseCatalog.snapshot().exercises.find(ex=>ex.name==="Pendulum squat"));
+    const squats=await page.evaluate(()=>window.RepForgeExerciseCatalog.snapshot().exercises.filter(ex=>ex.movementPattern?.some(id=>window.RepForgeExerciseCatalog.getObject(id)?.name==="Squat")).map(ex=>ex.id));
+    const squat=state.program.find(row=>squats.includes(row.libraryId)&&isWeightRepsSlot(definitionSlot(state.programMeta,row))&&row.sets>=3);
+    if(!squat)throw new Error("ratio fixture requires a weighted squat");
+    state.log=[metricLogRow(state.programMeta,squat,{session:"opening-anchor",date:"2026-08-30",set:1,load:35,reps:8,
+      extra:{performedLibraryId:substitute?squat.libraryId:source.id,sourceLibraryId:substitute?squat.libraryId:source.id,performedName:substitute?squat.name:source.name,
+        loadingModel:substitute?definitionSlot(state.programMeta,squat).loadingModel:{bodyweightCoefficient:source.bodyweight??null}}})];
+    state.log[0].loadingContext.bodyweightCoefficient=state.log[0].loadingModel.bodyweightCoefficient;
+    await seed(page,state);
+    await page.evaluate(id=>window.__repforgeGoToLogExercise(id),squat.id);
+    if(substitute){
+      await page.locator("#woOverflowBtn").click();await page.locator('[data-workout-action="exercise"]').click();
+      await page.locator("#exActionSubstBtn").click();await page.locator("#exPickSearch").fill("Pendulum squat");
+      await page.locator(`#exPickList [data-pick="${source.id}"]`).click();
+      await page.locator('[data-pick-reason="equipment"]').click();
+      await page.waitForFunction(id=>!!window.__repforgeWorkoutDraft.current()?.exercises[id]?.substitution,squat.id);
+    }
+  }else{
+    await seed(page,state);
+    await page.evaluate(id=>window.__repforgeGoToLogExercise(id),target.id);
+  }
   await page.locator("#workout .exercise.is-current [data-ramp-start]").waitFor();
   return target;
 }
@@ -1992,6 +2015,17 @@ async function rampAnswer(page,word,count){
 
 export const APP_SCENARIOS = {
   "workout/focus-ramp": async page=>{await rampFixture(page)},
+  "workout/focus-ramp-ratio": async page=>{await rampFixture(page,{ratio:true})},
+  "workout/focus-ramp-substitution": async page=>{await rampFixture(page,{ratio:true,substitute:true})},
+  "workout/focus-ramp-changed-movement": async page=>{
+    await rampFixture(page,{ratio:true});
+    await page.locator("#workout .exercise.is-current [data-ramp-start]").click();await rampAnswer(page,"easy",1);
+    const id=await page.evaluate(()=>window.RepForgeExerciseCatalog.snapshot().exercises.find(ex=>ex.name==="Barbell bench press").id);
+    await page.locator("#woOverflowBtn").click();await page.locator('[data-workout-action="exercise"]').click();
+    await page.locator("#exActionSubstBtn").click();await page.locator("#exPickSearch").fill("Barbell bench press");
+    await page.locator(`#exPickList [data-pick="${id}"]`).click();await page.locator('[data-pick-reason="equipment"]').click();
+    await page.locator('#workout .exercise.is-current [data-ramp-start][data-ramp-load="22.5"][data-ramp-basis="prior"]').waitFor();
+  },
   "workout/focus-ramp-floor": async page=>{await rampFixture(page,{bodyweight:false})},
   "workout/focus-ramp-easy": async page=>{
     await rampFixture(page);await page.locator("#workout .exercise.is-current [data-ramp-start]").click();
@@ -2030,21 +2064,6 @@ export const APP_SCENARIOS = {
     await note.waitFor({ state: "visible", timeout: 20000 });
     const copy = await page.evaluate(() => window.RepForgeI18n.t("today.deload_week"));
     if ((await note.innerText()).trim() !== copy) throw new Error("Today shows the wrong deload recovery note");
-  },
-  // The calibration ring (owner direction B, 2026-11-06) beside Today's large title.
-  "today/calibration-mini": async (page) => {
-    await dismissChrome(page);
-    await page.waitForSelector("#todayCalRing:not(.hidden) svg", { timeout: 20000 });
-    await page.evaluate(() => window.scrollTo(0, 0));
-    await sleep(page, 300);
-  },
-  // Scrolled: the title under the bar, and the ring at 30 px in the bar beside the gear.
-  "today/calibration-ring-bar": async (page) => {
-    await dismissChrome(page);
-    await page.waitForSelector("#todayCalRing:not(.hidden) svg", { timeout: 20000 });
-    await page.evaluate(() => window.scrollTo(0, 320));
-    await page.waitForSelector("#todayCalRingBar.is-shown", { timeout: 20000 });
-    await sleep(page, 400);
   },
   "today/ready": async (page) => {
     await dismissChrome(page);
@@ -2786,11 +2805,22 @@ export const APP_SCENARIOS = {
   },
 
   "progress/overview": (page) => view(page, "stats"),
-  // Plan 077 PR 4: the calibration gauge with its six signals and the recent test sets.
-  "progress/overview-calibration": async (page) => {
+  // The profile is the subject here; the generic Overview state stays at its page title.
+  "progress/overview-profile": async (page) => {
     await view(page, "stats");
-    await page.waitForSelector("#overviewCalibration:not(.hidden) .calcard", { timeout: 20000 });
-    await sleep(page, 300);
+    await page.waitForSelector("#overviewProfile:not(.hidden) .profile-lift", { timeout: 20000 });
+    await page.evaluate(() => {
+      const profile=document.querySelector("#overviewProfile"),bar=document.querySelector("#statsTopbar");
+      window.scrollBy(0,profile.getBoundingClientRect().top-bar.getBoundingClientRect().bottom-16);
+    });
+  },
+  "progress/overview-profile-first": async page => {
+    await view(page, "stats");
+    await page.waitForSelector("#overviewProfile .profile-lift");
+    await page.evaluate(() => {
+      const profile=document.querySelector("#overviewProfile"),bar=document.querySelector("#statsTopbar");
+      window.scrollBy(0,profile.getBoundingClientRect().top-bar.getBoundingClientRect().bottom-16);
+    });
   },
   "progress/overview-guide": async (page) => { await view(page, "stats"); await replayGuide(page, "progress"); },
   "progress/overview-baseline": (page) => view(page, "stats"),
@@ -3078,7 +3108,11 @@ export const APP_SCENARIOS = {
     await row.scrollIntoViewIfNeeded({ timeout: 20000 });
     await row.click({ timeout: 20000 });
     await page.waitForSelector("#exDetail .recblock .recblock__why", { timeout: 20000 });
-    await sleep(page, 800);
+    await page.waitForSelector("#exDetail .exercise-profile");
+    await page.evaluate(() => {
+      const rec=document.querySelector("#exDetail .recblock"),head=document.querySelector("#exercise .exview-head");
+      window.scrollBy(0,rec.getBoundingClientRect().top-head.getBoundingClientRect().bottom-16);
+    });
   },
   "library/exercise-detail-glossary": async (page) => {
     // Day 3 opens on Leg extension, a movement with a licensed illustration.
