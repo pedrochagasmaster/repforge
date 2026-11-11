@@ -106,9 +106,58 @@ try {
   });
   await waitForWorkerTakeover(page, { cache: oldCache, timeout: 10000 });
   await page.reload({ waitUntil: "domcontentloaded" });
-  await page.waitForFunction(() => !!navigator.serviceWorker.controller, { timeout: 10000 });
-  assert.equal(await page.evaluate(() => navigator.serviceWorker.controller?.scriptURL.endsWith("/sw.js")), true, "released worker controls the first launch");
-  assert.equal(await page.evaluate((cache) => caches.has(cache), oldCache), true, `released cache ${oldCache} is installed`);
+  // Keep release-skew coverage: the current app must boot through the released worker, before its successor installs.
+  const releasedWorker = context.serviceWorkers().find(worker => worker.url() === `${base}sw.js`);
+  assert(releasedWorker, "the released worker is observable for the fetch drain");
+  await releasedWorker.evaluate(() => {
+    const pending = self.__upgradeFetches = new Map(), completed = self.__upgradeCompletedFetches = [];
+    const respondWith = FetchEvent.prototype.respondWith;
+    let sequence = 0;
+    FetchEvent.prototype.respondWith = function(response) {
+      const id = ++sequence, record = { url: this.request.url, clientId: this.clientId, started: performance.now() };
+      pending.set(id, record);
+      // v120 resolves respondWith only after its network response and awaited cache.put finish.
+      // Observe that real promise, without adding a message handler or changing its cache/fetch policy.
+      const finish = () => {
+        pending.delete(id);
+        completed.push({ ...record, durationMs: Math.round(performance.now() - record.started) });
+      };
+      return respondWith.call(this, Promise.resolve(response).then(value => { finish(); return value; },
+        error => { finish(); throw error; }));
+    };
+  });
+  const bootPage = await context.newPage();
+  let bootClientId;
+  try {
+    await bootPage.goto(base);
+    await waitForAppBoot(bootPage, { base });
+    await bootPage.waitForFunction(() => !!navigator.serviceWorker.controller, { timeout: 10000 });
+    assert.equal(await bootPage.evaluate(() => navigator.serviceWorker.controller?.scriptURL.endsWith("/sw.js")), true, "released worker controls the first launch");
+    assert.equal(await bootPage.evaluate((cache) => caches.has(cache), oldCache), true, `released cache ${oldCache} is installed`);
+    bootClientId = await releasedWorker.evaluate(async url => {
+      const clients = await self.clients.matchAll({ type: "window" });
+      return clients.find(client => client.url === url)?.id;
+    }, base);
+    assert(bootClientId, "the real-app client belongs to the released worker");
+    const pending = await releasedWorker.evaluate(() => [...self.__upgradeFetches.values()]
+      .map(record => ({ url: record.url, elapsedMs: Math.round(performance.now() - record.started) })));
+    console.log(`released-app fetches pending at close: ${JSON.stringify(pending)}`);
+  } finally {
+    await bootPage.close();
+  }
+  await waitForAsyncCondition(releasedWorker, async clientId =>
+    !self.__upgradeFetches.size && !(await self.clients.get(clientId)), bootClientId, { timeout: 20000 }).catch(async error => {
+      const pending = await releasedWorker.evaluate(() => [...self.__upgradeFetches.values()]
+        .map(record => ({ url: record.url, elapsedMs: Math.round(performance.now() - record.started) })))
+        .catch(reason => ({ unavailable: String(reason) }));
+      error.message += `\nreleased-app fetches still pending after close: ${JSON.stringify(pending)}`;
+      throw error;
+    });
+  const completed = await releasedWorker.evaluate(() => self.__upgradeCompletedFetches);
+  const durations = completed.map(({ url, durationMs }) => ({ url, durationMs }));
+  console.log(`released-app fetch drain acknowledged: ${JSON.stringify({ completed: completed.length,
+    longest: durations.sort((a, b) => b.durationMs - a.durationMs)[0], slow: durations.filter(record => record.durationMs >= 20000) })}`);
+  assert(completed.length > 0, "the released worker served the real app before the fetch drain");
 
   await page.evaluate(() => {
     window.__oldWorkerFetch = fetch("./__old-worker-fetch__").then(response => response.text());
