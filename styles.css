@@ -3730,7 +3730,9 @@ body.is-settings nav,body.is-exercise nav,body.is-onboarding nav,
 body.is-library nav,body.is-preview nav,body.is-import nav{display:none}
 /* Paper under the dock: rows that scroll beneath the floating dock (and the gap a sticky action leaves above it) fade
    into the page instead of showing through as ghosted text. Below the sticky action (z-index 5), above the page. */
-body::after{
+/* Only on Today while Start workout rides above the dock: elsewhere there is no row to clip, and the band would hide
+   content and the dock's glass (#301). */
+body:has(#log.view.active #todayDash:not(.hidden) #startWorkout:not(.hidden))::after{
   content:"";position:fixed;left:0;right:0;bottom:0;z-index:4;pointer-events:none;
   height:calc(var(--nav) + env(safe-area-inset-bottom) + var(--space-12) + 2 * var(--space-32) + var(--space-26));
   /* Paper behind Start workout and the row it clips (owner hill-climb), clear again under the dock itself, which stays
@@ -5547,9 +5549,12 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
 /* The chart's one statement of a per-side convention (refinement audit A6), under the toggles it qualifies. */
 .exchart__per-side{margin:var(--space-4) 0 0;font-family:var(--font-language);font-size:var(--font-size-caption);line-height:var(--line-standard);color:var(--color-ink-secondary)}
 .exchart__figs{
-  display:grid;grid-template-columns:repeat(auto-fit,minmax(5.25rem,1fr));gap:var(--space-12);align-items:last baseline;
+  /* Wrapping items rather than equal columns: the display-size best figure (owner hill-climb) needs more than a third
+     at 320 and at 200% text, and an equal column let it run into its neighbour. */
+  display:flex;flex-wrap:wrap;gap:var(--space-12);align-items:last baseline;
   margin-top:var(--space-12);padding:var(--space-8) 0;border-top:1px solid var(--boundary-decorative);border-bottom:1px solid var(--boundary-decorative);
 }
+.exchart__figs > *{flex:1 1 5.25rem;min-width:min-content}
 .exchart__figs > :first-child b{font-size:var(--font-size-display)}
 .exchart__figs b{
   display:block;font-family:var(--font-language);font-weight:var(--weight-semibold);letter-spacing:-.02em;font-variant-numeric:tabular-nums;font-size:var(--font-size-metric);
