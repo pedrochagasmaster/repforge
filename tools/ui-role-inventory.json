@@ -456,7 +456,7 @@
     "session/summary": {
       "owner": "plan-064/r3h",
       "content": "flat",
-      "scenario": "The Direction D lifter's Day 1 finish screen: the card row (record poster, then the stats card) and the four tiles."
+      "scenario": "The Direction D lifter's Day 1 finish screen: the card row (record poster, then the stats card) the next finding's need, and the three tiles."
     },
     "session/summary-lifts": {
       "owner": "plan-064/r3h",
@@ -1346,12 +1346,12 @@
     "progress/overview-profile": {
       "owner": "plan-081",
       "content": "flat",
-      "scenario": "Active program standing, counts and recent test sets."
+      "scenario": "Dated findings and the next evidence needed, followed by standing and counts."
     },
     "progress/overview-profile-first": {
       "owner": "plan-081",
       "content": "flat",
-      "scenario": "Early standing and counts after two recorded sessions."
+      "scenario": "Dated findings and the next evidence needed, followed by standing and counts."
     },
     "onboarding-import/freeform-managed": {
       "owner": "adr-0025",
@@ -1362,6 +1362,21 @@
       "owner": "adr-0025",
       "content": "flat",
       "scenario": "Managed import after the daily limit: the alert under Import, the pasted source kept, and the ChatGPT or Claude hand-off still available."
+    },
+    "session/summary-finding": {
+      "owner": "plan-081",
+      "content": "flat",
+      "scenario": "The finish screen with the first test-set finding and the profile link above its factual tiles."
+    },
+    "session/summary-profile": {
+      "owner": "plan-081",
+      "content": "flat",
+      "scenario": "The profile opened from the finish screen, with Back restoring that session."
+    },
+    "onboarding-import/editor-empty-day": {
+      "owner": "issue-691",
+      "content": "flat",
+      "scenario": "An imported training day with its final exercise removed. Existing empty-day guidance blocks activation."
     }
   },
   "components": [
@@ -1754,7 +1769,8 @@
         "onboarding-build/editor-empty",
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
-        "onboarding-build/editor-alternates"
+        "onboarding-build/editor-alternates",
+        "onboarding-import/editor-empty-day"
       ]
     },
     {
@@ -1779,7 +1795,8 @@
         "onboarding-build/editor-empty",
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
-        "onboarding-build/editor-alternates"
+        "onboarding-build/editor-alternates",
+        "onboarding-import/editor-empty-day"
       ]
     },
     {
@@ -4491,7 +4508,8 @@
         "onboarding-recommend/muscle-priorities-skip",
         "onboarding-recommend/deload-start",
         "onboarding-import/freeform-managed",
-        "onboarding-import/freeform-managed-limit"
+        "onboarding-import/freeform-managed-limit",
+        "onboarding-import/editor-empty-day"
       ]
     },
     {
@@ -4615,7 +4633,8 @@
         "onboarding-recommend/muscle-priorities-skip",
         "onboarding-recommend/deload-start",
         "onboarding-import/freeform-managed",
-        "onboarding-import/freeform-managed-limit"
+        "onboarding-import/freeform-managed-limit",
+        "onboarding-import/editor-empty-day"
       ],
       "progressScopes": {
         "entry-route-step": "task"
@@ -5423,7 +5442,8 @@
         "onboarding-build/editor-ready",
         "program/editor-alternates",
         "program/editor-suggest-loads",
-        "program/editor-issue-field"
+        "program/editor-issue-field",
+        "onboarding-import/editor-empty-day"
       ]
     },
     {
@@ -6081,6 +6101,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "session/summary",
+        "session/summary-finding",
         "session/summary-lifts",
         "session/summary-declined",
         "session/summary-maintained",
@@ -6105,6 +6126,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "session/summary",
+        "session/summary-finding",
         "session/summary-lifts",
         "session/summary-declined",
         "session/summary-maintained",
@@ -6380,7 +6402,8 @@
         "progress/review-proposal",
         "progress/review-evaluated",
         "progress/overview-profile",
-        "progress/overview-profile-first"
+        "progress/overview-profile-first",
+        "session/summary-profile"
       ]
     },
     {
@@ -6434,6 +6457,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "session/summary",
+        "session/summary-finding",
         "session/summary-lifts",
         "session/summary-declined",
         "session/summary-maintained",
@@ -6459,6 +6483,7 @@
       "owner": "finish-share",
       "catalogStates": [
         "session/summary",
+        "session/summary-finding",
         "session/summary-lifts",
         "session/summary-declined",
         "session/summary-maintained",
@@ -6642,6 +6667,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "session/summary",
+        "session/summary-finding",
         "session/summary-lifts",
         "session/summary-declined",
         "session/summary-maintained",
@@ -7200,7 +7226,8 @@
         "progress/overview-action",
         "progress/minibar",
         "progress/overview-profile",
-        "progress/overview-profile-first"
+        "progress/overview-profile-first",
+        "session/summary-profile"
       ]
     },
     {
@@ -7992,7 +8019,8 @@
         "program/editor-issue-field",
         "program/editor-day-name-refused",
         "program/progression-editor",
-        "onboarding-build/editor-alternates"
+        "onboarding-build/editor-alternates",
+        "onboarding-import/editor-empty-day"
       ]
     },
     {
@@ -8022,7 +8050,8 @@
         "program/editor-issue-field",
         "program/editor-day-name-refused",
         "program/progression-editor",
-        "onboarding-build/editor-alternates"
+        "onboarding-build/editor-alternates",
+        "onboarding-import/editor-empty-day"
       ]
     },
     {
@@ -8052,7 +8081,8 @@
         "program/editor-issue-field",
         "program/editor-day-name-refused",
         "program/progression-editor",
-        "onboarding-build/editor-alternates"
+        "onboarding-build/editor-alternates",
+        "onboarding-import/editor-empty-day"
       ]
     },
     {
@@ -8083,7 +8113,8 @@
         "program/editor-issue-field",
         "program/editor-day-name-refused",
         "program/progression-editor",
-        "onboarding-build/editor-alternates"
+        "onboarding-build/editor-alternates",
+        "onboarding-import/editor-empty-day"
       ]
     },
     {
@@ -8112,7 +8143,8 @@
         "program/editor-issue-field",
         "program/editor-day-name-refused",
         "program/progression-editor",
-        "onboarding-build/editor-alternates"
+        "onboarding-build/editor-alternates",
+        "onboarding-import/editor-empty-day"
       ]
     },
     {
@@ -8143,7 +8175,8 @@
         "program/editor-issue-field",
         "program/editor-day-name-refused",
         "program/progression-editor",
-        "onboarding-build/editor-alternates"
+        "onboarding-build/editor-alternates",
+        "onboarding-import/editor-empty-day"
       ]
     },
     {
@@ -8171,7 +8204,8 @@
         "program/editor-issue-field",
         "program/editor-day-name-refused",
         "program/progression-editor",
-        "onboarding-build/editor-alternates"
+        "onboarding-build/editor-alternates",
+        "onboarding-import/editor-empty-day"
       ]
     },
     {
@@ -8200,7 +8234,8 @@
         "program/editor-issue-field",
         "program/editor-day-name-refused",
         "program/progression-editor",
-        "onboarding-build/editor-alternates"
+        "onboarding-build/editor-alternates",
+        "onboarding-import/editor-empty-day"
       ]
     },
     {
@@ -8510,6 +8545,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "session/summary",
+        "session/summary-finding",
         "session/summary-lifts",
         "session/summary-declined",
         "session/summary-maintained",
@@ -8719,7 +8755,8 @@
         "program/editor-issue-field",
         "program/editor-day-name-refused",
         "program/progression-editor",
-        "onboarding-build/editor-alternates"
+        "onboarding-build/editor-alternates",
+        "onboarding-import/editor-empty-day"
       ]
     },
     {
@@ -8770,7 +8807,8 @@
         "program/editor-day-name-refused",
         "program/progression-editor",
         "progress/schedule-diagnosis",
-        "onboarding-build/editor-alternates"
+        "onboarding-build/editor-alternates",
+        "onboarding-import/editor-empty-day"
       ]
     },
     {
@@ -8852,7 +8890,8 @@
         "progress/review-proposal",
         "progress/review-evaluated",
         "progress/overview-profile",
-        "progress/overview-profile-first"
+        "progress/overview-profile-first",
+        "session/summary-profile"
       ]
     },
     {
@@ -8934,7 +8973,8 @@
         "progress/review-proposal",
         "progress/review-evaluated",
         "progress/overview-profile",
-        "progress/overview-profile-first"
+        "progress/overview-profile-first",
+        "session/summary-profile"
       ]
     },
     {
@@ -9025,7 +9065,8 @@
         "progress/review-proposal",
         "progress/review-evaluated",
         "progress/overview-profile",
-        "progress/overview-profile-first"
+        "progress/overview-profile-first",
+        "session/summary-profile"
       ]
     },
     {
@@ -9103,7 +9144,8 @@
         "programlab/comparison",
         "history/list-scrolled",
         "history/minibar-rest",
-        "program/volume-audit"
+        "program/volume-audit",
+        "onboarding-import/editor-empty-day"
       ]
     },
     {
@@ -9190,7 +9232,9 @@
         "workout/why-standing",
         "workout/pain-swap",
         "progress/overview-profile",
-        "progress/overview-profile-first"
+        "progress/overview-profile-first",
+        "session/summary-finding",
+        "session/summary-profile"
       ]
     },
     {
@@ -9496,7 +9540,8 @@
         "progress/review-proposal",
         "progress/review-evaluated",
         "progress/overview-profile",
-        "progress/overview-profile-first"
+        "progress/overview-profile-first",
+        "session/summary-profile"
       ]
     },
     {
@@ -9554,7 +9599,8 @@
         "progress/review-proposal",
         "progress/review-evaluated",
         "progress/overview-profile",
-        "progress/overview-profile-first"
+        "progress/overview-profile-first",
+        "session/summary-profile"
       ]
     },
     {
@@ -10601,7 +10647,8 @@
         "progress/overview-action",
         "progress/minibar",
         "progress/overview-profile",
-        "progress/overview-profile-first"
+        "progress/overview-profile-first",
+        "session/summary-profile"
       ]
     },
     {
@@ -10875,7 +10922,8 @@
         "program/editor-issue-field",
         "program/editor-day-name-refused",
         "program/progression-editor",
-        "onboarding-build/editor-alternates"
+        "onboarding-build/editor-alternates",
+        "onboarding-import/editor-empty-day"
       ]
     },
     {
@@ -11669,7 +11717,8 @@
         "program/editor-suggest-loads",
         "program/editor-issue-field",
         "program/editor-day-name-refused",
-        "onboarding-build/editor-alternates"
+        "onboarding-build/editor-alternates",
+        "onboarding-import/editor-empty-day"
       ]
     },
     {
@@ -12226,7 +12275,8 @@
         "workout/invalid-draft",
         "workout/reorder",
         "workout/session",
-        "workout/rest-overrun-finish"
+        "workout/rest-overrun-finish",
+        "onboarding-import/editor-empty-day"
       ],
       "neverDisabledReason": "The menu or choice stays reachable whenever its owning row is present."
     },
@@ -12263,7 +12313,8 @@
         "settings/privacy",
         "settings/rest-controls",
         "settings/language-menu",
-        "settings/effort-menu"
+        "settings/effort-menu",
+        "onboarding-import/editor-empty-day"
       ]
     },
     {
@@ -13648,6 +13699,7 @@
       "catalogStates": [
         "progress/overview-profile",
         "progress/overview-profile-first",
+        "session/summary-profile",
         "library/exercise-detail-suggested",
         "progress/overview",
         "progress/overview-action",
@@ -13673,6 +13725,7 @@
       "catalogStates": [
         "progress/overview-profile",
         "progress/overview-profile-first",
+        "session/summary-profile",
         "library/exercise-detail-suggested",
         "progress/overview",
         "progress/overview-action",
@@ -13728,6 +13781,127 @@
         "onboarding-import/freeform-managed",
         "onboarding-import/freeform-managed-limit"
       ]
+    },
+    {
+      "id": "profile-finding-copy",
+      "selector": ".profile-finding p",
+      "roles": {
+        "typography": "body-small"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "A sentence supported by the saved sessions.",
+      "owner": "plan-081",
+      "catalogStates": [
+        "progress/overview-profile",
+        "progress/overview-profile-first",
+        "session/summary-profile",
+        "progress/overview",
+        "progress/minibar",
+        "progress/overview-guide",
+        "progress/overview-baseline",
+        "progress/overview-action"
+      ]
+    },
+    {
+      "id": "profile-finding-date",
+      "selector": ".profile-finding time",
+      "roles": {
+        "typography": "caption"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "The first date the record supports the finding.",
+      "owner": "plan-081",
+      "catalogStates": [
+        "progress/overview-profile",
+        "progress/overview-profile-first",
+        "session/summary-profile",
+        "progress/overview",
+        "progress/minibar",
+        "progress/overview-guide",
+        "progress/overview-baseline",
+        "progress/overview-action"
+      ]
+    },
+    {
+      "id": "profile-finding-need",
+      "selector": ".profile-finding-need",
+      "roles": {
+        "typography": "body-small"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "The next finding and the evidence it still needs.",
+      "owner": "plan-081",
+      "catalogStates": [
+        "progress/overview-profile",
+        "progress/overview-profile-first",
+        "session/summary-profile",
+        "progress/overview",
+        "progress/minibar",
+        "progress/overview-guide",
+        "progress/overview-baseline",
+        "progress/overview-action"
+      ]
+    },
+    {
+      "id": "summary-profile-back",
+      "selector": "#summaryProfileBack",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": "back",
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Returns from the profile to the finished session that opened it.",
+      "owner": "plan-081",
+      "catalogStates": [
+        "session/summary-profile"
+      ],
+      "neverDisabledReason": "The return session stays available for this profile visit."
+    },
+    {
+      "id": "sumfinding",
+      "selector": "#sumFinding",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": "profile-link",
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Opens the profile from a finding or its next need after the session.",
+      "owner": "plan-081",
+      "catalogStates": [
+        "session/summary",
+        "session/summary-finding",
+        "session/summary-first",
+        "session/summary-maintained",
+        "session/summary-declined",
+        "session/summary-lifts"
+      ],
+      "neverDisabledReason": "The profile is available whenever the finish screen has a finding or a next need."
     }
   ],
   "contextualVariants": [
@@ -13879,7 +14053,8 @@
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
         "program/editor-day-name-refused",
-        "program/progression-editor"
+        "program/progression-editor",
+        "onboarding-import/editor-empty-day"
       ]
     },
     {
@@ -13938,7 +14113,8 @@
         "today/draft-resume",
         "history/ramp-rows",
         "progress/overview-profile",
-        "progress/overview-profile-first"
+        "progress/overview-profile-first",
+        "session/summary-profile"
       ]
     },
     {
@@ -13992,6 +14168,7 @@
       "owner": "plan-057/058",
       "catalogStates": [
         "session/summary",
+        "session/summary-finding",
         "session/summary-maintained",
         "session/summary-declined",
         "session/summary-first"
@@ -14424,7 +14601,8 @@
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
         "program/editor-day-name-refused",
-        "program/progression-editor"
+        "program/progression-editor",
+        "onboarding-import/editor-empty-day"
       ],
       "sourceOnly": true,
       "sourceOnlyReason": "Canonical editor frames show the reorder owner with no row actively dragged."
@@ -14488,7 +14666,8 @@
         "today/draft-resume",
         "history/ramp-rows",
         "progress/overview-profile",
-        "progress/overview-profile-first"
+        "progress/overview-profile-first",
+        "session/summary-profile"
       ]
     },
     {
@@ -14550,7 +14729,8 @@
         "today/draft-resume",
         "history/ramp-rows",
         "progress/overview-profile",
-        "progress/overview-profile-first"
+        "progress/overview-profile-first",
+        "session/summary-profile"
       ]
     },
     {

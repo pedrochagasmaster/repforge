@@ -339,6 +339,8 @@ function directionDBeforeSession() {
  */
 export const DIRECTION_D_SUMMARY_SESSION = Object.freeze({
   "session/summary": "dd-2026-08-31-day1",
+  "session/summary-finding": "dd-2026-08-31-day1",
+  "session/summary-profile": "dd-2026-08-31-day1",
   "session/summary-maintained": "dd-2026-08-26-day2",
   "session/summary-declined": "dd-2026-08-28-day3",
   "session/summary-first": "dd-2026-08-12-day2-mixed",
@@ -409,10 +411,16 @@ function effortStageState(key, lang) {
   const drawn = localeState(key.startsWith("today/") ? directionDBeforeSession() : directionDState(), lang);
   drawn.settings = { ...drawn.settings, ...EFFORT_STAGE_STATES[key] };
   if (key === "workout/stage-tip") drawn.log = drawn.log.map((row) => row.warmup ? row : { ...row, effortSource: "effort" });
-  if (key === "progress/overview-profile" || key === "workout/last-rep-slow") drawn.log = withTestSets(drawn.log);
-  if (key === "progress/overview-profile-first") {
+  if (key === "workout/last-rep-slow") drawn.log = withTestSets(drawn.log);
+  if (key === "progress/overview-profile" || key === "progress/overview-profile-first") {
+    // Two exposures in one ISO week: a real history-backed target, before a
+    // week pair or a month exists. The full profile also has an opening record.
     const sessions = [...new Set(drawn.log.map(row => row.session))].slice(0, 2);
-    drawn.log = drawn.log.filter(row => sessions.includes(row.session));
+    drawn.log = drawn.log.filter(row => sessions.includes(row.session)).map(row => {
+      const date=sessions.indexOf(row.session)===0?"2026-08-10":"2026-08-13";
+      return {...row,date,created:`${date}T12:00:00.000Z`};
+    });
+    if(key === "progress/overview-profile")drawn.log[0].startingLoad={v:1,openingKg:80,basis:"typed",ramps:0,version:"priors@079.1"};
   }
   return drawn;
 }
@@ -426,6 +434,11 @@ export function appState(key, lang) {
   if (["workout/focus-ramp","workout/focus-ramp-ratio","workout/focus-ramp-substitution","workout/focus-ramp-changed-movement","workout/focus-ramp-floor","workout/focus-ramp-easy","history/ramp-rows"].includes(key)) return emptyEntryState(lang);
   if (key === "workout/why-setup") return emptyEntryState(lang);
   if (DIRECTION_D_BEFORE_SESSION.has(key)) return localeState(directionDBeforeSession(), lang);
+  if (["session/summary-finding", "session/summary-profile"].includes(key)) {
+    const state = directionDThroughSession(DIRECTION_D_SUMMARY_SESSION[key]);
+    state.log = withTestSets(state.log);
+    return localeState(state, lang);
+  }
   if (DIRECTION_D_SUMMARY_SESSION[key]) return localeState(directionDThroughSession(DIRECTION_D_SUMMARY_SESSION[key]), lang);
   if (key.startsWith("progress/sibling-") || key === "progress/volume-reduction-preview" ||
       ["progress/recovery-ineligible","progress/recovery-questions","progress/recovery-preview","progress/recovery-active","progress/recovery-reassessment"].includes(key)) {
@@ -2744,6 +2757,20 @@ export const APP_SCENARIOS = {
   "workout/why-manual": whyOnBuildRange,
   "workout/why-setup": whyOnGeneratedPerSide,
 
+  "session/summary-finding": async (page) => {
+    await openFixtureSummary(page, DIRECTION_D_SUMMARY_SESSION["session/summary-finding"]);
+    await page.waitForSelector('#sumFinding[data-finding="first_check"]');
+    await page.evaluate(() => {
+      const sheet = document.querySelector("#sessionSummary"), finding = document.querySelector("#sumFinding");
+      sheet.scrollTop = Math.max(0, finding.getBoundingClientRect().top - sheet.getBoundingClientRect().top + sheet.scrollTop - 24);
+    });
+  },
+  "session/summary-profile": async (page) => {
+    await openFixtureSummary(page, DIRECTION_D_SUMMARY_SESSION["session/summary-profile"]);
+    await page.click("#sumFinding");
+    await page.waitForSelector("#summaryProfileBack");
+    await page.waitForFunction(() => document.activeElement === document.querySelector("#overviewProfile"));
+  },
   "session/summary": async (page) => {
     await openFixtureSummary(page, DIRECTION_D_SUMMARY_SESSION["session/summary"]);
     await page.waitForSelector('.sum-outcome[data-outcome="improved"]', { timeout: 20000 });
@@ -2808,7 +2835,8 @@ export const APP_SCENARIOS = {
   // The profile is the subject here; the generic Overview state stays at its page title.
   "progress/overview-profile": async (page) => {
     await view(page, "stats");
-    await page.waitForSelector("#overviewProfile:not(.hidden) .profile-lift", { timeout: 20000 });
+    await page.waitForSelector("#overviewProfile [data-finding=weights_found]");
+    await page.waitForFunction(()=>document.querySelectorAll("#overviewProfile [data-finding]").length===2);
     await page.evaluate(() => {
       const profile=document.querySelector("#overviewProfile"),bar=document.querySelector("#statsTopbar");
       window.scrollBy(0,profile.getBoundingClientRect().top-bar.getBoundingClientRect().bottom-16);
@@ -2816,10 +2844,14 @@ export const APP_SCENARIOS = {
   },
   "progress/overview-profile-first": async page => {
     await view(page, "stats");
-    await page.waitForSelector("#overviewProfile .profile-lift");
-    await page.evaluate(() => {
+    await page.waitForSelector("#overviewProfile [data-finding=first_target]");
+    await page.waitForFunction(()=>document.querySelectorAll("#overviewProfile [data-finding]").length===1);
+    await page.evaluate(async () => {
+      await document.fonts.ready;
+      await Promise.all(document.getAnimations().filter(animation=>animation.effect?.getTiming().iterations!==Infinity)
+        .map(animation=>animation.finished.catch(()=>{})));
       const profile=document.querySelector("#overviewProfile"),bar=document.querySelector("#statsTopbar");
-      window.scrollBy(0,profile.getBoundingClientRect().top-bar.getBoundingClientRect().bottom-16);
+      window.scrollTo({top:window.scrollY+profile.getBoundingClientRect().top-bar.offsetHeight-16,behavior:"instant"});
     });
   },
   "progress/overview-guide": async (page) => { await view(page, "stats"); await replayGuide(page, "progress"); },

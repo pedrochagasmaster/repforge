@@ -126,7 +126,7 @@
         const [w0, a] = weeks[i - 1], [w1, b] = weeks[i];
         if (w1 - w0 > WEEK_GAP) continue;
         const before = median(a.caps), after = median(b.caps);
-        out.push({ date: b.date, q: Math.min(Math.min(...a.q), Math.min(...b.q)),
+        out.push({ date: b.date, before, after, q: Math.min(Math.min(...a.q), Math.min(...b.q)),
           agree: Math.abs(after / before - 1) <= WEEK_DRIFT + 1e-12 });
       }
     }
