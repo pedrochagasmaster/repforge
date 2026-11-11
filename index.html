@@ -33,7 +33,7 @@
   <link rel="apple-touch-startup-image" href="icons/splash-1640x2360.png" media="screen and (device-width: 820px) and (device-height: 1180px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
   <link rel="apple-touch-startup-image" href="icons/splash-1668x2224.png" media="screen and (device-width: 834px) and (device-height: 1112px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
   <link rel="apple-touch-startup-image" href="icons/splash-1536x2048.png" media="screen and (device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
-  <link rel="stylesheet" href="styles.css?v=725">
+  <link rel="stylesheet" href="styles.css?v=727">
   <link rel="stylesheet" href="motion-polish.css?v=643">
   <!-- Runs before the first paint, and only reads.
        Theme: app.js owns the Appearance setting, but it is the last script on the
@@ -978,33 +978,50 @@ Triceps pushdown 3x12-15</pre>
       </div>
     </div>
   </div>
-  <!-- Share (finish-share PR 2; owner decisions, 2026-11-05): the card the finish screen previews, drawn on the
-       device and handed to the system share sheet. Only the image leaves the phone. -->
+  <!-- Share (share templates, owner decisions 2026-11-11): every card the session can fill, drawn on the device, in a
+       swiping row; the format, the background and Save/Share below it. Edit opens the card in view in the editor inside
+       the sheet. Only the image leaves the phone. -->
   <div id="shareCardScrim" class="sheet-scrim hidden"></div>
   <div id="shareCardSheet" class="sheet sheet--sharecard hidden" role="dialog" aria-modal="true" aria-labelledby="shareCardTitle" hidden>
-    <div class="sheetband">
+    <div class="sheetband sharesheet__band">
       <span class="sheetband__handle" aria-hidden="true"></span>
+      <button type="button" class="link-accent sharesheet__edit" id="shareCardEdit"><span class="icon-mask icon-mask--sliders" aria-hidden="true"></span><span data-i18n="share.edit">Edit</span></button>
       <h2 class="sheetband__title" id="shareCardTitle" data-i18n="share.title">Share</h2>
       <button type="button" class="sheetband__close" id="shareCardClose" data-i18n-aria="dialog.close" aria-label="Close"><span class="icon-mask icon-mask--close" aria-hidden="true"></span></button>
     </div>
-    <div class="sharesheet" data-sheet-scroll>
-      <figure class="sharesheet__preview"><img id="shareCardPreview" alt="" width="1080" height="1920"></figure>
-      <span class="visually-hidden" id="shareKindLabel" data-i18n="share.group_card">Card</span>
-      <select id="shareCardKind" hidden tabindex="-1" aria-hidden="true"><option value="record">record</option><option value="stats">stats</option></select>
-      <div class="native-segments sharesheet__segments" id="shareKindSegments" data-segment-input="shareCardKind" role="radiogroup" aria-labelledby="shareKindLabel"><span class="native-segments__thumb" data-state-indicator aria-hidden="true"></span><button type="button" role="radio" data-value="record" aria-checked="false" tabindex="-1" data-i18n="share.card_record">Record</button><button type="button" role="radio" data-value="stats" aria-checked="false" tabindex="-1" data-i18n="share.card_stats">Stats</button></div>
+    <div class="sharesheet">
+      <div class="sharesheet__stage">
+        <div class="sharesheet__rail" id="shareRail" tabindex="0" aria-labelledby="shareCardTitle" aria-describedby="shareTemplateName"></div>
+        <p class="sharesheet__name" id="shareTemplateName" aria-live="polite"></p>
+        <div class="sharesheet__dots" id="shareDots" aria-hidden="true"></div>
+      </div>
       <span class="visually-hidden" id="shareSizeLabel" data-i18n="share.group_format">Format</span>
       <select id="shareCardSize" hidden tabindex="-1" aria-hidden="true"><option value="story">story</option><option value="square">square</option></select>
-      <div class="native-segments sharesheet__segments" id="shareSizeSegments" data-segment-input="shareCardSize" role="radiogroup" aria-labelledby="shareSizeLabel"><span class="native-segments__thumb" data-state-indicator aria-hidden="true"></span><button type="button" role="radio" data-value="story" aria-checked="false" tabindex="-1" data-i18n="share.story">Story</button><button type="button" role="radio" data-value="square" aria-checked="false" tabindex="-1" data-i18n="share.square">Square</button></div>
-      <span class="visually-hidden" id="shareStyleLabel" data-i18n="share.group_style">Style</span>
-      <select id="shareCardStyle" hidden tabindex="-1" aria-hidden="true"><option value="primary">primary</option><option value="alternate">alternate</option><option value="photo">photo</option></select>
-      <div class="native-segments sharesheet__segments" id="shareStyleSegments" data-segment-input="shareCardStyle" role="radiogroup" aria-labelledby="shareStyleLabel"><span class="native-segments__thumb" data-state-indicator aria-hidden="true"></span><button type="button" role="radio" data-value="primary" aria-checked="false" tabindex="-1" data-i18n="share.style_orange">Orange</button><button type="button" role="radio" data-value="alternate" aria-checked="false" tabindex="-1" data-i18n="share.style_dark">Dark</button><button type="button" role="radio" data-value="photo" aria-checked="false" tabindex="-1" data-i18n="share.style_photo">Photo</button></div>
-      <p class="sharesheet__photo hidden" id="sharePhotoRow" hidden><button type="button" id="sharePhotoPick" data-i18n="share.choose_photo">Choose photo</button></p>
+      <div class="native-segments sharesheet__segments" id="shareSizeSegments" data-segment-input="shareCardSize" role="radiogroup" aria-labelledby="shareSizeLabel"><span class="native-segments__thumb" data-state-indicator aria-hidden="true"></span><button type="button" role="radio" data-value="story" aria-checked="false" tabindex="-1"><span class="sharesheet__shape is-story" aria-hidden="true"></span><span data-i18n="share.story">Story</span></button><button type="button" role="radio" data-value="square" aria-checked="false" tabindex="-1"><span class="sharesheet__shape is-square" aria-hidden="true"></span><span data-i18n="share.square">Square</span></button></div>
+      <span class="visually-hidden" id="shareGroundLabel" data-i18n="share.group_ground">Background</span>
+      <div class="sharesheet__grounds" id="shareGrounds" role="radiogroup" aria-labelledby="shareGroundLabel"></div>
       <input type="file" id="sharePhotoInput" accept="image/*" hidden tabindex="-1" aria-hidden="true">
-      <p class="sharesheet__note" data-i18n="share.note">Only this image leaves your phone, with the Taurifer name and taurifer.com.</p>
+      <p class="sharesheet__note" data-i18n="share.note">Only this image leaves your phone.</p>
     </div>
     <div class="sharesheet__actions">
-      <button type="button" class="btn btn--cta btn--noarrow" id="shareCardShare" data-i18n="share.share">Share…</button>
-      <button type="button" class="btn btn--steel" id="shareCardSave" data-i18n="share.save">Save image</button>
+      <button type="button" class="btn btn--steel btn--noarrow" id="shareCardSave"><span class="icon-mask icon-mask--download" aria-hidden="true"></span><span data-i18n="share.save">Save</span></button>
+      <button type="button" class="btn btn--cta btn--noarrow" id="shareCardShare"><span class="icon-mask icon-mask--share" aria-hidden="true"></span><span data-i18n="share.share">Share</span></button>
+    </div>
+    <div class="sharedit hidden" id="shareEditor" role="group" aria-labelledby="shareEditTitle" hidden>
+      <div class="sharedit__bar">
+        <button type="button" class="sharedit__cancel" id="shareEditCancel" data-i18n="share.cancel">Cancel</button>
+        <h3 class="sharedit__title" id="shareEditTitle" data-i18n="share.edit">Edit</h3>
+        <button type="button" class="sharedit__done" id="shareEditDone" data-i18n="share.done">Done</button>
+      </div>
+      <div class="sharedit__stage">
+        <div class="sharedit__frame" id="shareEditFrame"></div>
+        <p class="sharedit__hint" id="shareEditHint"></p>
+      </div>
+      <div class="sharedit__tools">
+        <label class="sharedit__size" id="shareEditSizeRow"><span class="visually-hidden" data-i18n="share.size">Size</span><span class="sharedit__a is-small" aria-hidden="true">A</span><input type="range" id="shareEditSize" min="0.6" max="1.3" step="0.01" value="1"><span class="sharedit__a" aria-hidden="true">A</span></label>
+        <div class="sharedit__shade" id="shareEditShadeRow"><span id="shareEditShadeLabel" data-i18n="share.shade">Darken photo</span><button type="button" class="toggle" id="shareEditShade" role="switch" aria-checked="true" aria-labelledby="shareEditShadeLabel"></button></div>
+        <button type="button" class="btn btn--steel btn--noarrow sharedit__reset" id="shareEditReset" data-i18n="share.reset">Reset</button>
+      </div>
     </div>
   </div>
   <!-- "Why this weight?" — the sanctioned place the engine may show its
@@ -1516,7 +1533,7 @@ Triceps pushdown 3x12-15</pre>
   <script src="posthog-init.js"></script>
   <script src="schedule.js"></script>
   <script src="notify.js"></script>
-  <script src="i18n.js?v=724"></script>
+  <script src="i18n.js?v=727"></script>
   <script src="exercises.js?v=723"></script>
   <script src="generation-identity.js?v=459"></script>
   <script src="exercise-catalog.js?v=459"></script>
@@ -1553,7 +1570,7 @@ Triceps pushdown 3x12-15</pre>
   <script src="durable-state.js?v=682"></script>
   <script src="progress-model.js?v=309"></script>
   <script src="history-ui.js?v=694"></script>
-  <script src="share-cards.js?v=639"></script>
-  <script src="app.js?v=725"></script>
+  <script src="share-cards.js?v=727"></script>
+  <script src="app.js?v=727"></script>
 </body>
 </html>

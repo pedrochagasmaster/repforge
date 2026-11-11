@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 256 screens,
-1506 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 258 screens,
+1522 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -250,6 +250,8 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Session summary — records and every lift](screens/session/summary-lifts__phone-390-light-en.png) | 8 | The Day 1 finish screen scrolled past its card row and tiles: the record tiles, then every lift with its outcome word, sets, record and next target. |
 | [Session summary — share sheet](screens/session/summary-share__phone-390-light-en.png) | 8 | Share on the Day 1 finish screen: the record poster drawn on the device as the image to send (Story, orange), its card, format and style choices, the line on what leaves the phone, and Share and Save. |
 | [Session summary — share over a photo](screens/session/summary-share-photo__phone-390-light-en.png) | 8 | The share sheet's Photo style after a picture is chosen: the record poster drawn over the dimmed photo, Change photo, the line that the photo isn't kept, and Share and Save. |
+| [Session summary — share editor](screens/session/summary-share-edit__phone-390-light-en.png) | 8 | The share sheet's editor open on the Sticker over the chosen photo: the card in its frame with the drag and pinch hint, the size slider, Darken photo, Reset, and Cancel and Done. |
+| [Session summary — Line sticker on clear](screens/session/summary-share-line__phone-390-light-en.png) | 8 | The share sheet on the Line sticker with the clear background: the transparent card over the preview's check, its formats and grounds, and Save and Share. |
 | [Session summary — first session](screens/session/summary-first__phone-390-light-en.png) | 8 | Every lift is a first exposure: only the stats card, the fallback tiles (sets, total reps, kg moved), the baseline sentence, no outcome words, and the next targets from the engine. |
 
 ### Progress
