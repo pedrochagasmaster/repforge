@@ -423,7 +423,11 @@ assert.ok(importModeSwitchContractErrors(asymmetricImportModeSwitch).some((error
 const importReviewSelectionSelector = ".improw__btn:not(.improw__btn--change):not([id])";
 const importReviewChangeSelector = ".improw__btn.improw__btn--change:not([id])";
 const importReviewStates = ["default", "hover", "pressed", "focus-visible", "disabled"];
-const importReviewCatalog = ["onboarding-import/review"];
+// Mapping choices also render on the Use all suggestions state; Change appears only once a row is decided.
+const importReviewCatalog = {
+  [importReviewSelectionSelector]: ["onboarding-import/review", "onboarding-import/review-suggestions"],
+  [importReviewChangeSelector]: ["onboarding-import/review"],
+};
 function importReviewActionContractErrors(candidate) {
   const errors = [];
   const expected = [
@@ -435,7 +439,7 @@ function importReviewActionContractErrors(candidate) {
     const item = members[0];
     if (members.length !== 1 || item.roles.control !== role || item.variant !== null || item.facets.length !== 0 ||
         JSON.stringify(item.states) !== JSON.stringify(importReviewStates) ||
-        JSON.stringify(item.catalogStates) !== JSON.stringify(importReviewCatalog)) {
+        JSON.stringify(item.catalogStates) !== JSON.stringify(importReviewCatalog[selector])) {
       errors.push(`${selector} must use the exact Import review ${role} contract without selected state`);
     }
   }

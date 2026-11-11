@@ -265,6 +265,7 @@ export const FULL_SUITES = {
     s("test/per-side-completion-summary-browser.mjs", [], { domains: ["workout", "history", "progress"], seconds: 79 }),
     s("test/history-edit.mjs", [], { seconds: 42 }),
     s("test/effort-provenance.mjs", [], { domains: ["workout", "history", "persistence"], seconds: 20 }),
+    s("test/import-matcher-pt.mjs", [], { domains: ["program"], seconds: 10 }),
     s("test/max-set-browser.mjs", [], { domains: ["workout", "settings", "history"], seconds: 25 }),
     s("test/effort-stages.mjs", [], { domains: ["workout", "settings", "persistence"], seconds: 60 }),
     s("test/profile-browser.mjs", [], { domains: ["workout", "progress", "today", "persistence", "library"], seconds: 45 }),

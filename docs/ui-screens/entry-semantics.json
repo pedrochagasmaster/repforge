@@ -73291,21 +73291,29 @@
           "name": "Not imported: rest times, RIR/RPE targets. Taurifer tracks working sets and reps."
         },
         {
+          "tag": "legend",
+          "text": "Push"
+        },
+        {
           "tag": "span",
-          "text": "Push · Cable flyes reps (e.g. 8-12 or 10)"
+          "text": "Cable flyes reps (e.g. 8-12 or 10)"
         },
         {
           "tag": "input",
-          "name": "Push · Cable flyes reps (e.g. 8-12 or 10)",
+          "name": "Cable flyes reps (e.g. 8-12 or 10)",
           "type": "text"
         },
         {
+          "tag": "legend",
+          "text": "Pull"
+        },
+        {
           "tag": "span",
-          "text": "Pull · Lat pulldown sets"
+          "text": "Lat pulldown sets"
         },
         {
           "tag": "input",
-          "name": "Pull · Lat pulldown sets",
+          "name": "Lat pulldown sets",
           "type": "text"
         },
         {
@@ -73366,21 +73374,29 @@
           "name": "Not imported: rest times, RIR/RPE targets. Taurifer tracks working sets and reps."
         },
         {
+          "tag": "legend",
+          "text": "Push"
+        },
+        {
           "tag": "span",
-          "text": "Push · Cable flyes reps (e.g. 8-12 or 10)"
+          "text": "Cable flyes reps (e.g. 8-12 or 10)"
         },
         {
           "tag": "input",
-          "name": "Push · Cable flyes reps (e.g. 8-12 or 10)",
+          "name": "Cable flyes reps (e.g. 8-12 or 10)",
           "type": "text"
         },
         {
+          "tag": "legend",
+          "text": "Pull"
+        },
+        {
           "tag": "span",
-          "text": "Pull · Lat pulldown sets"
+          "text": "Lat pulldown sets"
         },
         {
           "tag": "input",
-          "name": "Pull · Lat pulldown sets",
+          "name": "Lat pulldown sets",
           "type": "text"
         },
         {
@@ -73441,21 +73457,29 @@
           "name": "Not imported: rest times, RIR/RPE targets. Taurifer tracks working sets and reps."
         },
         {
+          "tag": "legend",
+          "text": "Push"
+        },
+        {
           "tag": "span",
-          "text": "Push · Cable flyes reps (e.g. 8-12 or 10)"
+          "text": "Cable flyes reps (e.g. 8-12 or 10)"
         },
         {
           "tag": "input",
-          "name": "Push · Cable flyes reps (e.g. 8-12 or 10)",
+          "name": "Cable flyes reps (e.g. 8-12 or 10)",
           "type": "text"
         },
         {
+          "tag": "legend",
+          "text": "Pull"
+        },
+        {
           "tag": "span",
-          "text": "Pull · Lat pulldown sets"
+          "text": "Lat pulldown sets"
         },
         {
           "tag": "input",
-          "name": "Pull · Lat pulldown sets",
+          "name": "Lat pulldown sets",
           "type": "text"
         },
         {
@@ -73516,21 +73540,29 @@
           "name": "Not imported: rest times, RIR/RPE targets. Taurifer tracks working sets and reps."
         },
         {
+          "tag": "legend",
+          "text": "Push"
+        },
+        {
           "tag": "span",
-          "text": "Push · Cable flyes reps (e.g. 8-12 or 10)"
+          "text": "Cable flyes reps (e.g. 8-12 or 10)"
         },
         {
           "tag": "input",
-          "name": "Push · Cable flyes reps (e.g. 8-12 or 10)",
+          "name": "Cable flyes reps (e.g. 8-12 or 10)",
           "type": "text"
         },
         {
+          "tag": "legend",
+          "text": "Pull"
+        },
+        {
           "tag": "span",
-          "text": "Pull · Lat pulldown sets"
+          "text": "Lat pulldown sets"
         },
         {
           "tag": "input",
-          "name": "Pull · Lat pulldown sets",
+          "name": "Lat pulldown sets",
           "type": "text"
         },
         {
@@ -73591,21 +73623,29 @@
           "name": "Not imported: rest times, RIR/RPE targets. Taurifer tracks working sets and reps."
         },
         {
+          "tag": "legend",
+          "text": "Push"
+        },
+        {
           "tag": "span",
-          "text": "Push · Cable flyes reps (e.g. 8-12 or 10)"
+          "text": "Cable flyes reps (e.g. 8-12 or 10)"
         },
         {
           "tag": "input",
-          "name": "Push · Cable flyes reps (e.g. 8-12 or 10)",
+          "name": "Cable flyes reps (e.g. 8-12 or 10)",
           "type": "text"
         },
         {
+          "tag": "legend",
+          "text": "Pull"
+        },
+        {
           "tag": "span",
-          "text": "Pull · Lat pulldown sets"
+          "text": "Lat pulldown sets"
         },
         {
           "tag": "input",
-          "name": "Pull · Lat pulldown sets",
+          "name": "Lat pulldown sets",
           "type": "text"
         },
         {
@@ -73666,21 +73706,29 @@
           "name": "Não importado: tempos de descanso, metas de RIR/RPE. O Taurifer registra séries de trabalho e repetições."
         },
         {
+          "tag": "legend",
+          "text": "Push"
+        },
+        {
           "tag": "span",
-          "text": "Repetições de Push · Cable flyes (ex: 8-12 ou 10)"
+          "text": "Repetições de Cable flyes (ex: 8-12 ou 10)"
         },
         {
           "tag": "input",
-          "name": "Repetições de Push · Cable flyes (ex: 8-12 ou 10)",
+          "name": "Repetições de Cable flyes (ex: 8-12 ou 10)",
           "type": "text"
         },
         {
+          "tag": "legend",
+          "text": "Pull"
+        },
+        {
           "tag": "span",
-          "text": "Séries de Pull · Lat pulldown"
+          "text": "Séries de Lat pulldown"
         },
         {
           "tag": "input",
-          "name": "Séries de Pull · Lat pulldown",
+          "name": "Séries de Lat pulldown",
           "type": "text"
         },
         {
@@ -73741,21 +73789,29 @@
           "name": "Not imported: rest times, RIR/RPE targets. Taurifer tracks working sets and reps."
         },
         {
+          "tag": "legend",
+          "text": "Push"
+        },
+        {
           "tag": "span",
-          "text": "Push · Cable flyes reps (e.g. 8-12 or 10)"
+          "text": "Cable flyes reps (e.g. 8-12 or 10)"
         },
         {
           "tag": "input",
-          "name": "Push · Cable flyes reps (e.g. 8-12 or 10)",
+          "name": "Cable flyes reps (e.g. 8-12 or 10)",
           "type": "text"
         },
         {
+          "tag": "legend",
+          "text": "Pull"
+        },
+        {
           "tag": "span",
-          "text": "Pull · Lat pulldown sets"
+          "text": "Lat pulldown sets"
         },
         {
           "tag": "input",
-          "name": "Pull · Lat pulldown sets",
+          "name": "Lat pulldown sets",
           "type": "text"
         },
         {
@@ -73822,21 +73878,29 @@
           "name": "Please enter valid numbers for the highlighted fields."
         },
         {
+          "tag": "legend",
+          "text": "Push"
+        },
+        {
           "tag": "span",
-          "text": "Push · Cable flyes reps (e.g. 8-12 or 10)"
+          "text": "Cable flyes reps (e.g. 8-12 or 10)"
         },
         {
           "tag": "input",
-          "name": "Push · Cable flyes reps (e.g. 8-12 or 10)",
+          "name": "Cable flyes reps (e.g. 8-12 or 10)",
           "type": "text"
         },
         {
+          "tag": "legend",
+          "text": "Pull"
+        },
+        {
           "tag": "span",
-          "text": "Pull · Lat pulldown sets"
+          "text": "Lat pulldown sets"
         },
         {
           "tag": "input",
-          "name": "Pull · Lat pulldown sets",
+          "name": "Lat pulldown sets",
           "type": "text"
         },
         {
@@ -73903,21 +73967,29 @@
           "name": "Please enter valid numbers for the highlighted fields."
         },
         {
+          "tag": "legend",
+          "text": "Push"
+        },
+        {
           "tag": "span",
-          "text": "Push · Cable flyes reps (e.g. 8-12 or 10)"
+          "text": "Cable flyes reps (e.g. 8-12 or 10)"
         },
         {
           "tag": "input",
-          "name": "Push · Cable flyes reps (e.g. 8-12 or 10)",
+          "name": "Cable flyes reps (e.g. 8-12 or 10)",
           "type": "text"
         },
         {
+          "tag": "legend",
+          "text": "Pull"
+        },
+        {
           "tag": "span",
-          "text": "Pull · Lat pulldown sets"
+          "text": "Lat pulldown sets"
         },
         {
           "tag": "input",
-          "name": "Pull · Lat pulldown sets",
+          "name": "Lat pulldown sets",
           "type": "text"
         },
         {
@@ -73984,21 +74056,29 @@
           "name": "Informe valores válidos nos campos destacados."
         },
         {
+          "tag": "legend",
+          "text": "Push"
+        },
+        {
           "tag": "span",
-          "text": "Repetições de Push · Cable flyes (ex: 8-12 ou 10)"
+          "text": "Repetições de Cable flyes (ex: 8-12 ou 10)"
         },
         {
           "tag": "input",
-          "name": "Repetições de Push · Cable flyes (ex: 8-12 ou 10)",
+          "name": "Repetições de Cable flyes (ex: 8-12 ou 10)",
           "type": "text"
         },
         {
+          "tag": "legend",
+          "text": "Pull"
+        },
+        {
           "tag": "span",
-          "text": "Séries de Pull · Lat pulldown"
+          "text": "Séries de Lat pulldown"
         },
         {
           "tag": "input",
-          "name": "Séries de Pull · Lat pulldown",
+          "name": "Séries de Lat pulldown",
           "type": "text"
         },
         {
@@ -74832,6 +74912,742 @@
       ]
     },
     {
+      "key": "onboarding-import/freeform-managed-gaps__phone-320-light-en",
+      "flow": "onboarding-import",
+      "screen": "freeform-managed-gaps",
+      "label": "Import — values Taurifer could not find",
+      "viewport": "phone-320",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Fill in missing details",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Taurifer converted the program, but some sets or rep ranges were not specified. Enter them below to continue."
+        },
+        {
+          "tag": "p",
+          "role": "status",
+          "text": "Not imported: supersets, rest times. Taurifer tracks working sets and reps.",
+          "name": "Not imported: supersets, rest times. Taurifer tracks working sets and reps."
+        },
+        {
+          "tag": "legend",
+          "text": "DAY A – Chest/Shoulders/Triceps (Monday)"
+        },
+        {
+          "tag": "span",
+          "text": "Bench dip reps (e.g. 8-12 or 10)"
+        },
+        {
+          "tag": "input",
+          "name": "Bench dip reps (e.g. 8-12 or 10)",
+          "type": "text"
+        },
+        {
+          "tag": "legend",
+          "text": "DAY B – Back/Biceps (Tuesday)"
+        },
+        {
+          "tag": "span",
+          "text": "Pull-up reps (e.g. 8-12 or 10)"
+        },
+        {
+          "tag": "input",
+          "name": "Pull-up reps (e.g. 8-12 or 10)",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Barbell row sets"
+        },
+        {
+          "tag": "input",
+          "name": "Barbell row sets",
+          "type": "text"
+        },
+        {
+          "tag": "button",
+          "text": "Review the program",
+          "name": "Review the program",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Back to reply",
+          "name": "Back to reply",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-managed-gaps__phone-390-dark-en",
+      "flow": "onboarding-import",
+      "screen": "freeform-managed-gaps",
+      "label": "Import — values Taurifer could not find",
+      "viewport": "phone-390",
+      "theme": "dark",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Fill in missing details",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Taurifer converted the program, but some sets or rep ranges were not specified. Enter them below to continue."
+        },
+        {
+          "tag": "p",
+          "role": "status",
+          "text": "Not imported: supersets, rest times. Taurifer tracks working sets and reps.",
+          "name": "Not imported: supersets, rest times. Taurifer tracks working sets and reps."
+        },
+        {
+          "tag": "legend",
+          "text": "DAY A – Chest/Shoulders/Triceps (Monday)"
+        },
+        {
+          "tag": "span",
+          "text": "Bench dip reps (e.g. 8-12 or 10)"
+        },
+        {
+          "tag": "input",
+          "name": "Bench dip reps (e.g. 8-12 or 10)",
+          "type": "text"
+        },
+        {
+          "tag": "legend",
+          "text": "DAY B – Back/Biceps (Tuesday)"
+        },
+        {
+          "tag": "span",
+          "text": "Pull-up reps (e.g. 8-12 or 10)"
+        },
+        {
+          "tag": "input",
+          "name": "Pull-up reps (e.g. 8-12 or 10)",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Barbell row sets"
+        },
+        {
+          "tag": "input",
+          "name": "Barbell row sets",
+          "type": "text"
+        },
+        {
+          "tag": "button",
+          "text": "Review the program",
+          "name": "Review the program",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Back to reply",
+          "name": "Back to reply",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-managed-gaps__phone-390-light-en",
+      "flow": "onboarding-import",
+      "screen": "freeform-managed-gaps",
+      "label": "Import — values Taurifer could not find",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Fill in missing details",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Taurifer converted the program, but some sets or rep ranges were not specified. Enter them below to continue."
+        },
+        {
+          "tag": "p",
+          "role": "status",
+          "text": "Not imported: supersets, rest times. Taurifer tracks working sets and reps.",
+          "name": "Not imported: supersets, rest times. Taurifer tracks working sets and reps."
+        },
+        {
+          "tag": "legend",
+          "text": "DAY A – Chest/Shoulders/Triceps (Monday)"
+        },
+        {
+          "tag": "span",
+          "text": "Bench dip reps (e.g. 8-12 or 10)"
+        },
+        {
+          "tag": "input",
+          "name": "Bench dip reps (e.g. 8-12 or 10)",
+          "type": "text"
+        },
+        {
+          "tag": "legend",
+          "text": "DAY B – Back/Biceps (Tuesday)"
+        },
+        {
+          "tag": "span",
+          "text": "Pull-up reps (e.g. 8-12 or 10)"
+        },
+        {
+          "tag": "input",
+          "name": "Pull-up reps (e.g. 8-12 or 10)",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Barbell row sets"
+        },
+        {
+          "tag": "input",
+          "name": "Barbell row sets",
+          "type": "text"
+        },
+        {
+          "tag": "button",
+          "text": "Review the program",
+          "name": "Review the program",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Back to reply",
+          "name": "Back to reply",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-managed-gaps__phone-390-light-en-reduced",
+      "flow": "onboarding-import",
+      "screen": "freeform-managed-gaps",
+      "label": "Import — values Taurifer could not find",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "reduced",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Fill in missing details",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Taurifer converted the program, but some sets or rep ranges were not specified. Enter them below to continue."
+        },
+        {
+          "tag": "p",
+          "role": "status",
+          "text": "Not imported: supersets, rest times. Taurifer tracks working sets and reps.",
+          "name": "Not imported: supersets, rest times. Taurifer tracks working sets and reps."
+        },
+        {
+          "tag": "legend",
+          "text": "DAY A – Chest/Shoulders/Triceps (Monday)"
+        },
+        {
+          "tag": "span",
+          "text": "Bench dip reps (e.g. 8-12 or 10)"
+        },
+        {
+          "tag": "input",
+          "name": "Bench dip reps (e.g. 8-12 or 10)",
+          "type": "text"
+        },
+        {
+          "tag": "legend",
+          "text": "DAY B – Back/Biceps (Tuesday)"
+        },
+        {
+          "tag": "span",
+          "text": "Pull-up reps (e.g. 8-12 or 10)"
+        },
+        {
+          "tag": "input",
+          "name": "Pull-up reps (e.g. 8-12 or 10)",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Barbell row sets"
+        },
+        {
+          "tag": "input",
+          "name": "Barbell row sets",
+          "type": "text"
+        },
+        {
+          "tag": "button",
+          "text": "Review the program",
+          "name": "Review the program",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Back to reply",
+          "name": "Back to reply",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-managed-gaps__phone-390-light-en-text200",
+      "flow": "onboarding-import",
+      "screen": "freeform-managed-gaps",
+      "label": "Import — values Taurifer could not find",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "text200",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Fill in missing details",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Taurifer converted the program, but some sets or rep ranges were not specified. Enter them below to continue."
+        },
+        {
+          "tag": "p",
+          "role": "status",
+          "text": "Not imported: supersets, rest times. Taurifer tracks working sets and reps.",
+          "name": "Not imported: supersets, rest times. Taurifer tracks working sets and reps."
+        },
+        {
+          "tag": "legend",
+          "text": "DAY A – Chest/Shoulders/Triceps (Monday)"
+        },
+        {
+          "tag": "span",
+          "text": "Bench dip reps (e.g. 8-12 or 10)"
+        },
+        {
+          "tag": "input",
+          "name": "Bench dip reps (e.g. 8-12 or 10)",
+          "type": "text"
+        },
+        {
+          "tag": "legend",
+          "text": "DAY B – Back/Biceps (Tuesday)"
+        },
+        {
+          "tag": "span",
+          "text": "Pull-up reps (e.g. 8-12 or 10)"
+        },
+        {
+          "tag": "input",
+          "name": "Pull-up reps (e.g. 8-12 or 10)",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Barbell row sets"
+        },
+        {
+          "tag": "input",
+          "name": "Barbell row sets",
+          "type": "text"
+        },
+        {
+          "tag": "button",
+          "text": "Review the program",
+          "name": "Review the program",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Back to reply",
+          "name": "Back to reply",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-managed-gaps__phone-390-light-pt",
+      "flow": "onboarding-import",
+      "screen": "freeform-managed-gaps",
+      "label": "Import — values Taurifer could not find",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "pt",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Criar um treino"
+        },
+        {
+          "tag": "button",
+          "text": "Voltar",
+          "name": "Voltar",
+          "label": "Voltar",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancelar",
+          "name": "Cancelar",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Completar detalhes que faltam",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "O Taurifer converteu o treino, mas faltam algumas séries ou repetições. Preencha abaixo para continuar."
+        },
+        {
+          "tag": "p",
+          "role": "status",
+          "text": "Não importado: superséries, tempos de descanso. O Taurifer registra séries de trabalho e repetições.",
+          "name": "Não importado: superséries, tempos de descanso. O Taurifer registra séries de trabalho e repetições."
+        },
+        {
+          "tag": "legend",
+          "text": "TREINO A – Peito/Ombro/Tríceps (segunda)"
+        },
+        {
+          "tag": "span",
+          "text": "Repetições de Mergulho no banco (ex: 8-12 ou 10)"
+        },
+        {
+          "tag": "input",
+          "name": "Repetições de Mergulho no banco (ex: 8-12 ou 10)",
+          "type": "text"
+        },
+        {
+          "tag": "legend",
+          "text": "TREINO B – Costas/Bíceps (terça)"
+        },
+        {
+          "tag": "span",
+          "text": "Repetições de Barra fixa (ex: 8-12 ou 10)"
+        },
+        {
+          "tag": "input",
+          "name": "Repetições de Barra fixa (ex: 8-12 ou 10)",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Séries de Remada curvada"
+        },
+        {
+          "tag": "input",
+          "name": "Séries de Remada curvada",
+          "type": "text"
+        },
+        {
+          "tag": "button",
+          "text": "Revisar o treino",
+          "name": "Revisar o treino",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Voltar à resposta",
+          "name": "Voltar à resposta",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-managed-gaps__phone-390-light-pt-text200",
+      "flow": "onboarding-import",
+      "screen": "freeform-managed-gaps",
+      "label": "Import — values Taurifer could not find",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "pt",
+      "text": "text200",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Criar um treino"
+        },
+        {
+          "tag": "button",
+          "text": "Voltar",
+          "name": "Voltar",
+          "label": "Voltar",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancelar",
+          "name": "Cancelar",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Completar detalhes que faltam",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "O Taurifer converteu o treino, mas faltam algumas séries ou repetições. Preencha abaixo para continuar."
+        },
+        {
+          "tag": "p",
+          "role": "status",
+          "text": "Não importado: superséries, tempos de descanso. O Taurifer registra séries de trabalho e repetições.",
+          "name": "Não importado: superséries, tempos de descanso. O Taurifer registra séries de trabalho e repetições."
+        },
+        {
+          "tag": "legend",
+          "text": "TREINO A – Peito/Ombro/Tríceps (segunda)"
+        },
+        {
+          "tag": "span",
+          "text": "Repetições de Mergulho no banco (ex: 8-12 ou 10)"
+        },
+        {
+          "tag": "input",
+          "name": "Repetições de Mergulho no banco (ex: 8-12 ou 10)",
+          "type": "text"
+        },
+        {
+          "tag": "legend",
+          "text": "TREINO B – Costas/Bíceps (terça)"
+        },
+        {
+          "tag": "span",
+          "text": "Repetições de Barra fixa (ex: 8-12 ou 10)"
+        },
+        {
+          "tag": "input",
+          "name": "Repetições de Barra fixa (ex: 8-12 ou 10)",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Séries de Remada curvada"
+        },
+        {
+          "tag": "input",
+          "name": "Séries de Remada curvada",
+          "type": "text"
+        },
+        {
+          "tag": "button",
+          "text": "Revisar o treino",
+          "name": "Revisar o treino",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Voltar à resposta",
+          "name": "Voltar à resposta",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-managed-gaps__phone-430-light-en",
+      "flow": "onboarding-import",
+      "screen": "freeform-managed-gaps",
+      "label": "Import — values Taurifer could not find",
+      "viewport": "phone-430",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Fill in missing details",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Taurifer converted the program, but some sets or rep ranges were not specified. Enter them below to continue."
+        },
+        {
+          "tag": "p",
+          "role": "status",
+          "text": "Not imported: supersets, rest times. Taurifer tracks working sets and reps.",
+          "name": "Not imported: supersets, rest times. Taurifer tracks working sets and reps."
+        },
+        {
+          "tag": "legend",
+          "text": "DAY A – Chest/Shoulders/Triceps (Monday)"
+        },
+        {
+          "tag": "span",
+          "text": "Bench dip reps (e.g. 8-12 or 10)"
+        },
+        {
+          "tag": "input",
+          "name": "Bench dip reps (e.g. 8-12 or 10)",
+          "type": "text"
+        },
+        {
+          "tag": "legend",
+          "text": "DAY B – Back/Biceps (Tuesday)"
+        },
+        {
+          "tag": "span",
+          "text": "Pull-up reps (e.g. 8-12 or 10)"
+        },
+        {
+          "tag": "input",
+          "name": "Pull-up reps (e.g. 8-12 or 10)",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Barbell row sets"
+        },
+        {
+          "tag": "input",
+          "name": "Barbell row sets",
+          "type": "text"
+        },
+        {
+          "tag": "button",
+          "text": "Review the program",
+          "name": "Review the program",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Back to reply",
+          "name": "Back to reply",
+          "type": "button"
+        }
+      ]
+    },
+    {
       "key": "onboarding-import/freeform-managed-limit__phone-390-dark-en",
       "flow": "onboarding-import",
       "screen": "freeform-managed-limit",
@@ -75227,7 +76043,7 @@
         },
         {
           "tag": "pre",
-          "text": "Rewrite this training program as JSON for the Taurifer app. Reply in exactly one Markdown code block labeled json (opening ```json and closing ```). No text outside the block. Inside it, write valid JSON without backslashes before brackets or braces outside quoted strings. Use exactly this shape: {\"version\":3,\"meta\":{\"name\":\"Program name\"},\"exercises\":[{\"day\":\"Day label\",\"order\":1,\"name\":\"Exercise name\",\"sets\":3,\"min\":6,\"max\":10}],\"missing\":[],\"notImported\":[]} Rules: - Preserve exercise selection, order, day grouping and names exactly as the source writes them, in the source's language. - One entry per exercise per training day. Repeat \"day\" on every exercise in that day, and number \"order\" from 1 within each day. - \"sets\" is the number of working sets, a whole number from 1 to 100. - \"min\" and \"max\" are the rep range as whole numbers. Where the source gives one rep number, use it for both bounds. - Never substitute an exercise, never redesign, never invent a day, an exercise, a set count or a rep range. - Where a required value is genuinely absent, omit the field and name it in \"missing\": [{\"day\":\"Day label\",\"order\":1,\"field\":\"sets\"|\"reps\"}]. Do not guess it, and do not ask a question; return the structure. - Name anything the source carried that this shape cannot hold in \"notImported\", using only these categories: \"rest_times\", \"rir_rpe\", \"tempo\", \"supersets\", \"warmups\", \"cardio\", \"progression_rules\", \"deload\", \"other_notes\". - Leave out warm-ups, cardio and anything that is not a working exercise. The program: Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
+          "text": "Rewrite this training program as JSON for the Taurifer app. Reply in exactly one Markdown code block labeled json (opening ```json and closing ```). No text outside the block. Inside it, write valid JSON without backslashes before brackets or braces outside quoted strings. Use exactly this shape: {\"version\":3,\"meta\":{\"name\":\"Program name\"},\"exercises\":[{\"day\":\"Day label\",\"order\":1,\"name\":\"Exercise name\",\"sets\":3,\"min\":6,\"max\":10}],\"missing\":[],\"notImported\":[]} Rules: - Preserve exercise selection, order, day grouping and names exactly as the source writes them, in the source's language. - One entry per exercise per training day. Repeat \"day\" on every exercise in that day, and number \"order\" from 1 within each day. - \"sets\" is the number of working sets, a whole number from 1 to 100. - \"min\" and \"max\" are the rep range as whole numbers. Where the source gives one rep number, use it for both bounds. - Never substitute an exercise, never redesign, never invent a day, an exercise, a set count or a rep range. - Where a required value is genuinely absent, omit the field and name it in \"missing\": [{\"day\":\"Day label\",\"order\":1,\"field\":\"sets\"|\"reps\"}]. Do not guess it, and do not ask a question; return the structure. - Leave out warm-ups, cardio and anything that is not a working exercise. - Also leave out timed holds (for example a plank for 45 seconds) and carries or walks set by distance or time (for example a farmer walk for 30 m). Name them in \"notImported\" as \"other_notes\". - In a superset or bi-set, give every exercise in it the set count written for the group (for example, \"Bi-set: A 3x12 + B to failure\" gives B 3 sets too), and add \"supersets\" to \"notImported\". - Where an exercise is prescribed as the same as another (\"same as X\"), copy X's sets and rep range. - Last, check the whole source again and name in \"notImported\" every kind of information it carried that this shape cannot hold, each category once, using only these categories: \"rest_times\", \"rir_rpe\", \"tempo\", \"supersets\", \"warmups\", \"cardio\", \"progression_rules\", \"deload\", \"other_notes\". The program: Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
         },
         {
           "tag": "button",
@@ -75321,7 +76137,7 @@
         },
         {
           "tag": "pre",
-          "text": "Rewrite this training program as JSON for the Taurifer app. Reply in exactly one Markdown code block labeled json (opening ```json and closing ```). No text outside the block. Inside it, write valid JSON without backslashes before brackets or braces outside quoted strings. Use exactly this shape: {\"version\":3,\"meta\":{\"name\":\"Program name\"},\"exercises\":[{\"day\":\"Day label\",\"order\":1,\"name\":\"Exercise name\",\"sets\":3,\"min\":6,\"max\":10}],\"missing\":[],\"notImported\":[]} Rules: - Preserve exercise selection, order, day grouping and names exactly as the source writes them, in the source's language. - One entry per exercise per training day. Repeat \"day\" on every exercise in that day, and number \"order\" from 1 within each day. - \"sets\" is the number of working sets, a whole number from 1 to 100. - \"min\" and \"max\" are the rep range as whole numbers. Where the source gives one rep number, use it for both bounds. - Never substitute an exercise, never redesign, never invent a day, an exercise, a set count or a rep range. - Where a required value is genuinely absent, omit the field and name it in \"missing\": [{\"day\":\"Day label\",\"order\":1,\"field\":\"sets\"|\"reps\"}]. Do not guess it, and do not ask a question; return the structure. - Name anything the source carried that this shape cannot hold in \"notImported\", using only these categories: \"rest_times\", \"rir_rpe\", \"tempo\", \"supersets\", \"warmups\", \"cardio\", \"progression_rules\", \"deload\", \"other_notes\". - Leave out warm-ups, cardio and anything that is not a working exercise. The program: Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
+          "text": "Rewrite this training program as JSON for the Taurifer app. Reply in exactly one Markdown code block labeled json (opening ```json and closing ```). No text outside the block. Inside it, write valid JSON without backslashes before brackets or braces outside quoted strings. Use exactly this shape: {\"version\":3,\"meta\":{\"name\":\"Program name\"},\"exercises\":[{\"day\":\"Day label\",\"order\":1,\"name\":\"Exercise name\",\"sets\":3,\"min\":6,\"max\":10}],\"missing\":[],\"notImported\":[]} Rules: - Preserve exercise selection, order, day grouping and names exactly as the source writes them, in the source's language. - One entry per exercise per training day. Repeat \"day\" on every exercise in that day, and number \"order\" from 1 within each day. - \"sets\" is the number of working sets, a whole number from 1 to 100. - \"min\" and \"max\" are the rep range as whole numbers. Where the source gives one rep number, use it for both bounds. - Never substitute an exercise, never redesign, never invent a day, an exercise, a set count or a rep range. - Where a required value is genuinely absent, omit the field and name it in \"missing\": [{\"day\":\"Day label\",\"order\":1,\"field\":\"sets\"|\"reps\"}]. Do not guess it, and do not ask a question; return the structure. - Leave out warm-ups, cardio and anything that is not a working exercise. - Also leave out timed holds (for example a plank for 45 seconds) and carries or walks set by distance or time (for example a farmer walk for 30 m). Name them in \"notImported\" as \"other_notes\". - In a superset or bi-set, give every exercise in it the set count written for the group (for example, \"Bi-set: A 3x12 + B to failure\" gives B 3 sets too), and add \"supersets\" to \"notImported\". - Where an exercise is prescribed as the same as another (\"same as X\"), copy X's sets and rep range. - Last, check the whole source again and name in \"notImported\" every kind of information it carried that this shape cannot hold, each category once, using only these categories: \"rest_times\", \"rir_rpe\", \"tempo\", \"supersets\", \"warmups\", \"cardio\", \"progression_rules\", \"deload\", \"other_notes\". The program: Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
         },
         {
           "tag": "button",
@@ -75415,7 +76231,7 @@
         },
         {
           "tag": "pre",
-          "text": "Rewrite this training program as JSON for the Taurifer app. Reply in exactly one Markdown code block labeled json (opening ```json and closing ```). No text outside the block. Inside it, write valid JSON without backslashes before brackets or braces outside quoted strings. Use exactly this shape: {\"version\":3,\"meta\":{\"name\":\"Program name\"},\"exercises\":[{\"day\":\"Day label\",\"order\":1,\"name\":\"Exercise name\",\"sets\":3,\"min\":6,\"max\":10}],\"missing\":[],\"notImported\":[]} Rules: - Preserve exercise selection, order, day grouping and names exactly as the source writes them, in the source's language. - One entry per exercise per training day. Repeat \"day\" on every exercise in that day, and number \"order\" from 1 within each day. - \"sets\" is the number of working sets, a whole number from 1 to 100. - \"min\" and \"max\" are the rep range as whole numbers. Where the source gives one rep number, use it for both bounds. - Never substitute an exercise, never redesign, never invent a day, an exercise, a set count or a rep range. - Where a required value is genuinely absent, omit the field and name it in \"missing\": [{\"day\":\"Day label\",\"order\":1,\"field\":\"sets\"|\"reps\"}]. Do not guess it, and do not ask a question; return the structure. - Name anything the source carried that this shape cannot hold in \"notImported\", using only these categories: \"rest_times\", \"rir_rpe\", \"tempo\", \"supersets\", \"warmups\", \"cardio\", \"progression_rules\", \"deload\", \"other_notes\". - Leave out warm-ups, cardio and anything that is not a working exercise. The program: Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
+          "text": "Rewrite this training program as JSON for the Taurifer app. Reply in exactly one Markdown code block labeled json (opening ```json and closing ```). No text outside the block. Inside it, write valid JSON without backslashes before brackets or braces outside quoted strings. Use exactly this shape: {\"version\":3,\"meta\":{\"name\":\"Program name\"},\"exercises\":[{\"day\":\"Day label\",\"order\":1,\"name\":\"Exercise name\",\"sets\":3,\"min\":6,\"max\":10}],\"missing\":[],\"notImported\":[]} Rules: - Preserve exercise selection, order, day grouping and names exactly as the source writes them, in the source's language. - One entry per exercise per training day. Repeat \"day\" on every exercise in that day, and number \"order\" from 1 within each day. - \"sets\" is the number of working sets, a whole number from 1 to 100. - \"min\" and \"max\" are the rep range as whole numbers. Where the source gives one rep number, use it for both bounds. - Never substitute an exercise, never redesign, never invent a day, an exercise, a set count or a rep range. - Where a required value is genuinely absent, omit the field and name it in \"missing\": [{\"day\":\"Day label\",\"order\":1,\"field\":\"sets\"|\"reps\"}]. Do not guess it, and do not ask a question; return the structure. - Leave out warm-ups, cardio and anything that is not a working exercise. - Also leave out timed holds (for example a plank for 45 seconds) and carries or walks set by distance or time (for example a farmer walk for 30 m). Name them in \"notImported\" as \"other_notes\". - In a superset or bi-set, give every exercise in it the set count written for the group (for example, \"Bi-set: A 3x12 + B to failure\" gives B 3 sets too), and add \"supersets\" to \"notImported\". - Where an exercise is prescribed as the same as another (\"same as X\"), copy X's sets and rep range. - Last, check the whole source again and name in \"notImported\" every kind of information it carried that this shape cannot hold, each category once, using only these categories: \"rest_times\", \"rir_rpe\", \"tempo\", \"supersets\", \"warmups\", \"cardio\", \"progression_rules\", \"deload\", \"other_notes\". The program: Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
         },
         {
           "tag": "button",
@@ -75509,7 +76325,7 @@
         },
         {
           "tag": "pre",
-          "text": "Rewrite this training program as JSON for the Taurifer app. Reply in exactly one Markdown code block labeled json (opening ```json and closing ```). No text outside the block. Inside it, write valid JSON without backslashes before brackets or braces outside quoted strings. Use exactly this shape: {\"version\":3,\"meta\":{\"name\":\"Program name\"},\"exercises\":[{\"day\":\"Day label\",\"order\":1,\"name\":\"Exercise name\",\"sets\":3,\"min\":6,\"max\":10}],\"missing\":[],\"notImported\":[]} Rules: - Preserve exercise selection, order, day grouping and names exactly as the source writes them, in the source's language. - One entry per exercise per training day. Repeat \"day\" on every exercise in that day, and number \"order\" from 1 within each day. - \"sets\" is the number of working sets, a whole number from 1 to 100. - \"min\" and \"max\" are the rep range as whole numbers. Where the source gives one rep number, use it for both bounds. - Never substitute an exercise, never redesign, never invent a day, an exercise, a set count or a rep range. - Where a required value is genuinely absent, omit the field and name it in \"missing\": [{\"day\":\"Day label\",\"order\":1,\"field\":\"sets\"|\"reps\"}]. Do not guess it, and do not ask a question; return the structure. - Name anything the source carried that this shape cannot hold in \"notImported\", using only these categories: \"rest_times\", \"rir_rpe\", \"tempo\", \"supersets\", \"warmups\", \"cardio\", \"progression_rules\", \"deload\", \"other_notes\". - Leave out warm-ups, cardio and anything that is not a working exercise. The program: Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
+          "text": "Rewrite this training program as JSON for the Taurifer app. Reply in exactly one Markdown code block labeled json (opening ```json and closing ```). No text outside the block. Inside it, write valid JSON without backslashes before brackets or braces outside quoted strings. Use exactly this shape: {\"version\":3,\"meta\":{\"name\":\"Program name\"},\"exercises\":[{\"day\":\"Day label\",\"order\":1,\"name\":\"Exercise name\",\"sets\":3,\"min\":6,\"max\":10}],\"missing\":[],\"notImported\":[]} Rules: - Preserve exercise selection, order, day grouping and names exactly as the source writes them, in the source's language. - One entry per exercise per training day. Repeat \"day\" on every exercise in that day, and number \"order\" from 1 within each day. - \"sets\" is the number of working sets, a whole number from 1 to 100. - \"min\" and \"max\" are the rep range as whole numbers. Where the source gives one rep number, use it for both bounds. - Never substitute an exercise, never redesign, never invent a day, an exercise, a set count or a rep range. - Where a required value is genuinely absent, omit the field and name it in \"missing\": [{\"day\":\"Day label\",\"order\":1,\"field\":\"sets\"|\"reps\"}]. Do not guess it, and do not ask a question; return the structure. - Leave out warm-ups, cardio and anything that is not a working exercise. - Also leave out timed holds (for example a plank for 45 seconds) and carries or walks set by distance or time (for example a farmer walk for 30 m). Name them in \"notImported\" as \"other_notes\". - In a superset or bi-set, give every exercise in it the set count written for the group (for example, \"Bi-set: A 3x12 + B to failure\" gives B 3 sets too), and add \"supersets\" to \"notImported\". - Where an exercise is prescribed as the same as another (\"same as X\"), copy X's sets and rep range. - Last, check the whole source again and name in \"notImported\" every kind of information it carried that this shape cannot hold, each category once, using only these categories: \"rest_times\", \"rir_rpe\", \"tempo\", \"supersets\", \"warmups\", \"cardio\", \"progression_rules\", \"deload\", \"other_notes\". The program: Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
         },
         {
           "tag": "button",
@@ -75603,7 +76419,7 @@
         },
         {
           "tag": "pre",
-          "text": "Rewrite this training program as JSON for the Taurifer app. Reply in exactly one Markdown code block labeled json (opening ```json and closing ```). No text outside the block. Inside it, write valid JSON without backslashes before brackets or braces outside quoted strings. Use exactly this shape: {\"version\":3,\"meta\":{\"name\":\"Program name\"},\"exercises\":[{\"day\":\"Day label\",\"order\":1,\"name\":\"Exercise name\",\"sets\":3,\"min\":6,\"max\":10}],\"missing\":[],\"notImported\":[]} Rules: - Preserve exercise selection, order, day grouping and names exactly as the source writes them, in the source's language. - One entry per exercise per training day. Repeat \"day\" on every exercise in that day, and number \"order\" from 1 within each day. - \"sets\" is the number of working sets, a whole number from 1 to 100. - \"min\" and \"max\" are the rep range as whole numbers. Where the source gives one rep number, use it for both bounds. - Never substitute an exercise, never redesign, never invent a day, an exercise, a set count or a rep range. - Where a required value is genuinely absent, omit the field and name it in \"missing\": [{\"day\":\"Day label\",\"order\":1,\"field\":\"sets\"|\"reps\"}]. Do not guess it, and do not ask a question; return the structure. - Name anything the source carried that this shape cannot hold in \"notImported\", using only these categories: \"rest_times\", \"rir_rpe\", \"tempo\", \"supersets\", \"warmups\", \"cardio\", \"progression_rules\", \"deload\", \"other_notes\". - Leave out warm-ups, cardio and anything that is not a working exercise. The program: Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
+          "text": "Rewrite this training program as JSON for the Taurifer app. Reply in exactly one Markdown code block labeled json (opening ```json and closing ```). No text outside the block. Inside it, write valid JSON without backslashes before brackets or braces outside quoted strings. Use exactly this shape: {\"version\":3,\"meta\":{\"name\":\"Program name\"},\"exercises\":[{\"day\":\"Day label\",\"order\":1,\"name\":\"Exercise name\",\"sets\":3,\"min\":6,\"max\":10}],\"missing\":[],\"notImported\":[]} Rules: - Preserve exercise selection, order, day grouping and names exactly as the source writes them, in the source's language. - One entry per exercise per training day. Repeat \"day\" on every exercise in that day, and number \"order\" from 1 within each day. - \"sets\" is the number of working sets, a whole number from 1 to 100. - \"min\" and \"max\" are the rep range as whole numbers. Where the source gives one rep number, use it for both bounds. - Never substitute an exercise, never redesign, never invent a day, an exercise, a set count or a rep range. - Where a required value is genuinely absent, omit the field and name it in \"missing\": [{\"day\":\"Day label\",\"order\":1,\"field\":\"sets\"|\"reps\"}]. Do not guess it, and do not ask a question; return the structure. - Leave out warm-ups, cardio and anything that is not a working exercise. - Also leave out timed holds (for example a plank for 45 seconds) and carries or walks set by distance or time (for example a farmer walk for 30 m). Name them in \"notImported\" as \"other_notes\". - In a superset or bi-set, give every exercise in it the set count written for the group (for example, \"Bi-set: A 3x12 + B to failure\" gives B 3 sets too), and add \"supersets\" to \"notImported\". - Where an exercise is prescribed as the same as another (\"same as X\"), copy X's sets and rep range. - Last, check the whole source again and name in \"notImported\" every kind of information it carried that this shape cannot hold, each category once, using only these categories: \"rest_times\", \"rir_rpe\", \"tempo\", \"supersets\", \"warmups\", \"cardio\", \"progression_rules\", \"deload\", \"other_notes\". The program: Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
         },
         {
           "tag": "button",
@@ -75697,7 +76513,7 @@
         },
         {
           "tag": "pre",
-          "text": "Reescreva este treino como JSON para o app Taurifer. Responda em um único bloco de código Markdown identificado como json (começando com ```json e terminando com ```). Não escreva nada fora do bloco. Dentro dele, use JSON válido, sem barras invertidas antes de colchetes ou chaves fora de strings. Use exatamente este formato: {\"version\":3,\"meta\":{\"name\":\"Nome do treino\"},\"exercises\":[{\"day\":\"Nome do dia\",\"order\":1,\"name\":\"Nome do exercício\",\"sets\":3,\"min\":6,\"max\":10}],\"missing\":[],\"notImported\":[]} Regras: - Preserve a seleção de exercícios, ordem, agrupamento por dia e nomes exatamente como estão no texto de origem, no mesmo idioma. - Uma entrada por exercício de cada dia de treino. Repita \"day\" em todos os exercícios do dia e numere \"order\" a partir de 1 dentro de cada dia. - \"sets\" é o número de séries de trabalho, um inteiro de 1 a 100. - \"min\" e \"max\" são a faixa de repetições em números inteiros. Se houver só um número, use-o nos dois limites. - Nunca substitua um exercício, nunca redesenhe e nunca invente dias, exercícios, contagem de séries ou repetições. - Se um valor obrigatório estiver ausente, omita o campo e aponte-o em \"missing\": [{\"day\":\"Nome do dia\",\"order\":1,\"field\":\"sets\"|\"reps\"}]. Não adivinhe e não faça perguntas; retorne a estrutura. - Aponte tudo o que a fonte continha e este formato não suporta em \"notImported\", usando apenas estas categorias: \"rest_times\", \"rir_rpe\", \"tempo\", \"supersets\", \"warmups\", \"cardio\", \"progression_rules\", \"deload\", \"other_notes\". - Deixe de fora aquecimentos, cardio e tudo que não for série de trabalho. O treino: Empurrar A Supino reto 4x6-8 Desenvolvimento militar 3x8-10 Puxar A Remada curvada 4x6-10"
+          "text": "Reescreva este treino como JSON para o app Taurifer. Responda em um único bloco de código Markdown identificado como json (começando com ```json e terminando com ```). Não escreva nada fora do bloco. Dentro dele, use JSON válido, sem barras invertidas antes de colchetes ou chaves fora de strings. Use exatamente este formato: {\"version\":3,\"meta\":{\"name\":\"Nome do treino\"},\"exercises\":[{\"day\":\"Nome do dia\",\"order\":1,\"name\":\"Nome do exercício\",\"sets\":3,\"min\":6,\"max\":10}],\"missing\":[],\"notImported\":[]} Regras: - Preserve a seleção de exercícios, ordem, agrupamento por dia e nomes exatamente como estão no texto de origem, no mesmo idioma. - Uma entrada por exercício de cada dia de treino. Repita \"day\" em todos os exercícios do dia e numere \"order\" a partir de 1 dentro de cada dia. - \"sets\" é o número de séries de trabalho, um inteiro de 1 a 100. - \"min\" e \"max\" são a faixa de repetições em números inteiros. Se houver só um número, use-o nos dois limites. - Nunca substitua um exercício, nunca redesenhe e nunca invente dias, exercícios, contagem de séries ou repetições. - Se um valor obrigatório estiver ausente, omita o campo e aponte-o em \"missing\": [{\"day\":\"Nome do dia\",\"order\":1,\"field\":\"sets\"|\"reps\"}]. Não adivinhe e não faça perguntas; retorne a estrutura. - Deixe de fora aquecimentos, cardio e tudo que não for série de trabalho. - Deixe de fora também isometrias por tempo (por exemplo, prancha de 45 segundos) e carregamentos ou caminhadas por distância ou tempo (por exemplo, farmer walk de 30 m). Aponte-os em \"notImported\" como \"other_notes\". - Em um bi-set ou superset, dê a cada exercício o número de séries escrito para o grupo (por exemplo, \"Bi-set: A 3x12 + B até a falha\" dá 3 séries também a B) e inclua \"supersets\" em \"notImported\". - Quando um exercício for prescrito como igual a outro (\"mesma coisa do X\"), copie as séries e a faixa de repetições de X. - Por fim, releia toda a fonte e aponte em \"notImported\" cada tipo de informação que ela continha e este formato não suporta, cada categoria uma vez, usando apenas estas categorias: \"rest_times\", \"rir_rpe\", \"tempo\", \"supersets\", \"warmups\", \"cardio\", \"progression_rules\", \"deload\", \"other_notes\". O treino: Empurrar A Supino reto 4x6-8 Desenvolvimento militar 3x8-10 Puxar A Remada curvada 4x6-10"
         },
         {
           "tag": "button",
@@ -75791,7 +76607,7 @@
         },
         {
           "tag": "pre",
-          "text": "Rewrite this training program as JSON for the Taurifer app. Reply in exactly one Markdown code block labeled json (opening ```json and closing ```). No text outside the block. Inside it, write valid JSON without backslashes before brackets or braces outside quoted strings. Use exactly this shape: {\"version\":3,\"meta\":{\"name\":\"Program name\"},\"exercises\":[{\"day\":\"Day label\",\"order\":1,\"name\":\"Exercise name\",\"sets\":3,\"min\":6,\"max\":10}],\"missing\":[],\"notImported\":[]} Rules: - Preserve exercise selection, order, day grouping and names exactly as the source writes them, in the source's language. - One entry per exercise per training day. Repeat \"day\" on every exercise in that day, and number \"order\" from 1 within each day. - \"sets\" is the number of working sets, a whole number from 1 to 100. - \"min\" and \"max\" are the rep range as whole numbers. Where the source gives one rep number, use it for both bounds. - Never substitute an exercise, never redesign, never invent a day, an exercise, a set count or a rep range. - Where a required value is genuinely absent, omit the field and name it in \"missing\": [{\"day\":\"Day label\",\"order\":1,\"field\":\"sets\"|\"reps\"}]. Do not guess it, and do not ask a question; return the structure. - Name anything the source carried that this shape cannot hold in \"notImported\", using only these categories: \"rest_times\", \"rir_rpe\", \"tempo\", \"supersets\", \"warmups\", \"cardio\", \"progression_rules\", \"deload\", \"other_notes\". - Leave out warm-ups, cardio and anything that is not a working exercise. The program: Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
+          "text": "Rewrite this training program as JSON for the Taurifer app. Reply in exactly one Markdown code block labeled json (opening ```json and closing ```). No text outside the block. Inside it, write valid JSON without backslashes before brackets or braces outside quoted strings. Use exactly this shape: {\"version\":3,\"meta\":{\"name\":\"Program name\"},\"exercises\":[{\"day\":\"Day label\",\"order\":1,\"name\":\"Exercise name\",\"sets\":3,\"min\":6,\"max\":10}],\"missing\":[],\"notImported\":[]} Rules: - Preserve exercise selection, order, day grouping and names exactly as the source writes them, in the source's language. - One entry per exercise per training day. Repeat \"day\" on every exercise in that day, and number \"order\" from 1 within each day. - \"sets\" is the number of working sets, a whole number from 1 to 100. - \"min\" and \"max\" are the rep range as whole numbers. Where the source gives one rep number, use it for both bounds. - Never substitute an exercise, never redesign, never invent a day, an exercise, a set count or a rep range. - Where a required value is genuinely absent, omit the field and name it in \"missing\": [{\"day\":\"Day label\",\"order\":1,\"field\":\"sets\"|\"reps\"}]. Do not guess it, and do not ask a question; return the structure. - Leave out warm-ups, cardio and anything that is not a working exercise. - Also leave out timed holds (for example a plank for 45 seconds) and carries or walks set by distance or time (for example a farmer walk for 30 m). Name them in \"notImported\" as \"other_notes\". - In a superset or bi-set, give every exercise in it the set count written for the group (for example, \"Bi-set: A 3x12 + B to failure\" gives B 3 sets too), and add \"supersets\" to \"notImported\". - Where an exercise is prescribed as the same as another (\"same as X\"), copy X's sets and rep range. - Last, check the whole source again and name in \"notImported\" every kind of information it carried that this shape cannot hold, each category once, using only these categories: \"rest_times\", \"rir_rpe\", \"tempo\", \"supersets\", \"warmups\", \"cardio\", \"progression_rules\", \"deload\", \"other_notes\". The program: Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
         },
         {
           "tag": "button",
@@ -79131,6 +79947,2182 @@
           "text": "Review draft",
           "name": "Review draft",
           "describedBy": "1 still to review",
+          "disabled": true,
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/review-suggestions__phone-320-light-en",
+      "flow": "onboarding-import",
+      "screen": "review-suggestions",
+      "label": "Import — use all suggestions",
+      "viewport": "phone-320",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Review imported program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Import a program"
+        },
+        {
+          "tag": "h1",
+          "text": "Review the exercises",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Link each name to a library movement or create it as a custom one."
+        },
+        {
+          "tag": "p",
+          "text": "Converted by Taurifer · 4 lifts"
+        },
+        {
+          "tag": "div",
+          "role": "status",
+          "name": "0linked4to review0custom",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "span",
+          "text": "linked"
+        },
+        {
+          "tag": "b",
+          "text": "0"
+        },
+        {
+          "tag": "span",
+          "text": "to review"
+        },
+        {
+          "tag": "b",
+          "text": "4"
+        },
+        {
+          "tag": "span",
+          "text": "custom"
+        },
+        {
+          "tag": "b",
+          "text": "0"
+        },
+        {
+          "tag": "button",
+          "text": "Use all suggestions (3)",
+          "name": "Use all suggestions (3)",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Supino reto c/ barra"
+        },
+        {
+          "tag": "p",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Likely"
+        },
+        {
+          "tag": "button",
+          "text": "Use Barbell bench press",
+          "name": "Use Barbell bench press",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use Dumbbell bench press",
+          "name": "Use Dumbbell bench press",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use Smith machine bench press",
+          "name": "Use Smith machine bench press",
+          "type": "button"
+        },
+        {
+          "tag": "summary",
+          "text": "More options",
+          "name": "More options"
+        },
+        {
+          "tag": "button",
+          "text": "Choose…",
+          "name": "Choose…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Create custom",
+          "name": "Create custom",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Abdominal prancha"
+        },
+        {
+          "tag": "p",
+          "text": "Forearm plank"
+        },
+        {
+          "tag": "span",
+          "text": "Likely"
+        },
+        {
+          "tag": "button",
+          "text": "Use Forearm plank",
+          "name": "Use Forearm plank",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use V sit-up",
+          "name": "Use V sit-up",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use Ab wheel rollout",
+          "name": "Use Ab wheel rollout",
+          "type": "button"
+        },
+        {
+          "tag": "summary",
+          "text": "More options",
+          "name": "More options"
+        },
+        {
+          "tag": "button",
+          "text": "Choose…",
+          "name": "Choose…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Create custom",
+          "name": "Create custom",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Farmer walk"
+        },
+        {
+          "tag": "p",
+          "text": "Dumbbell farmer’s carry"
+        },
+        {
+          "tag": "span",
+          "text": "Likely"
+        },
+        {
+          "tag": "button",
+          "text": "Use Dumbbell farmer’s carry",
+          "name": "Use Dumbbell farmer’s carry",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use Kettlebell farmer’s carry",
+          "name": "Use Kettlebell farmer’s carry",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use Farmer’s handles farmer’s carry",
+          "name": "Use Farmer’s handles farmer’s carry",
+          "type": "button"
+        },
+        {
+          "tag": "summary",
+          "text": "More options",
+          "name": "More options"
+        },
+        {
+          "tag": "button",
+          "text": "Choose…",
+          "name": "Choose…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Create custom",
+          "name": "Create custom",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Zorblex machine wiggle"
+        },
+        {
+          "tag": "p",
+          "text": "Needs a movement"
+        },
+        {
+          "tag": "span",
+          "text": "No match"
+        },
+        {
+          "tag": "button",
+          "text": "Choose…",
+          "name": "Choose…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Create custom",
+          "name": "Create custom",
+          "type": "button"
+        },
+        {
+          "tag": "summary",
+          "text": "View original pasted text",
+          "name": "View original pasted text"
+        },
+        {
+          "tag": "pre",
+          "text": "Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
+        },
+        {
+          "tag": "p",
+          "text": "Your history will not be changed."
+        },
+        {
+          "tag": "p",
+          "text": "4 still to review"
+        },
+        {
+          "tag": "button",
+          "text": "Review draft",
+          "name": "Review draft",
+          "describedBy": "4 still to review",
+          "disabled": true,
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/review-suggestions__phone-390-dark-en",
+      "flow": "onboarding-import",
+      "screen": "review-suggestions",
+      "label": "Import — use all suggestions",
+      "viewport": "phone-390",
+      "theme": "dark",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Review imported program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Import a program"
+        },
+        {
+          "tag": "h1",
+          "text": "Review the exercises",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Link each name to a library movement or create it as a custom one."
+        },
+        {
+          "tag": "p",
+          "text": "Converted by Taurifer · 4 lifts"
+        },
+        {
+          "tag": "div",
+          "role": "status",
+          "name": "0linked4to review0custom",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "span",
+          "text": "linked"
+        },
+        {
+          "tag": "b",
+          "text": "0"
+        },
+        {
+          "tag": "span",
+          "text": "to review"
+        },
+        {
+          "tag": "b",
+          "text": "4"
+        },
+        {
+          "tag": "span",
+          "text": "custom"
+        },
+        {
+          "tag": "b",
+          "text": "0"
+        },
+        {
+          "tag": "button",
+          "text": "Use all suggestions (3)",
+          "name": "Use all suggestions (3)",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Supino reto c/ barra"
+        },
+        {
+          "tag": "p",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Likely"
+        },
+        {
+          "tag": "button",
+          "text": "Use Barbell bench press",
+          "name": "Use Barbell bench press",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use Dumbbell bench press",
+          "name": "Use Dumbbell bench press",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use Smith machine bench press",
+          "name": "Use Smith machine bench press",
+          "type": "button"
+        },
+        {
+          "tag": "summary",
+          "text": "More options",
+          "name": "More options"
+        },
+        {
+          "tag": "button",
+          "text": "Choose…",
+          "name": "Choose…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Create custom",
+          "name": "Create custom",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Abdominal prancha"
+        },
+        {
+          "tag": "p",
+          "text": "Forearm plank"
+        },
+        {
+          "tag": "span",
+          "text": "Likely"
+        },
+        {
+          "tag": "button",
+          "text": "Use Forearm plank",
+          "name": "Use Forearm plank",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use V sit-up",
+          "name": "Use V sit-up",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use Ab wheel rollout",
+          "name": "Use Ab wheel rollout",
+          "type": "button"
+        },
+        {
+          "tag": "summary",
+          "text": "More options",
+          "name": "More options"
+        },
+        {
+          "tag": "button",
+          "text": "Choose…",
+          "name": "Choose…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Create custom",
+          "name": "Create custom",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Farmer walk"
+        },
+        {
+          "tag": "p",
+          "text": "Dumbbell farmer’s carry"
+        },
+        {
+          "tag": "span",
+          "text": "Likely"
+        },
+        {
+          "tag": "button",
+          "text": "Use Dumbbell farmer’s carry",
+          "name": "Use Dumbbell farmer’s carry",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use Kettlebell farmer’s carry",
+          "name": "Use Kettlebell farmer’s carry",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use Farmer’s handles farmer’s carry",
+          "name": "Use Farmer’s handles farmer’s carry",
+          "type": "button"
+        },
+        {
+          "tag": "summary",
+          "text": "More options",
+          "name": "More options"
+        },
+        {
+          "tag": "button",
+          "text": "Choose…",
+          "name": "Choose…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Create custom",
+          "name": "Create custom",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Zorblex machine wiggle"
+        },
+        {
+          "tag": "p",
+          "text": "Needs a movement"
+        },
+        {
+          "tag": "span",
+          "text": "No match"
+        },
+        {
+          "tag": "button",
+          "text": "Choose…",
+          "name": "Choose…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Create custom",
+          "name": "Create custom",
+          "type": "button"
+        },
+        {
+          "tag": "summary",
+          "text": "View original pasted text",
+          "name": "View original pasted text"
+        },
+        {
+          "tag": "pre",
+          "text": "Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
+        },
+        {
+          "tag": "p",
+          "text": "Your history will not be changed."
+        },
+        {
+          "tag": "p",
+          "text": "4 still to review"
+        },
+        {
+          "tag": "button",
+          "text": "Review draft",
+          "name": "Review draft",
+          "describedBy": "4 still to review",
+          "disabled": true,
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/review-suggestions__phone-390-light-en",
+      "flow": "onboarding-import",
+      "screen": "review-suggestions",
+      "label": "Import — use all suggestions",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Review imported program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Import a program"
+        },
+        {
+          "tag": "h1",
+          "text": "Review the exercises",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Link each name to a library movement or create it as a custom one."
+        },
+        {
+          "tag": "p",
+          "text": "Converted by Taurifer · 4 lifts"
+        },
+        {
+          "tag": "div",
+          "role": "status",
+          "name": "0linked4to review0custom",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "span",
+          "text": "linked"
+        },
+        {
+          "tag": "b",
+          "text": "0"
+        },
+        {
+          "tag": "span",
+          "text": "to review"
+        },
+        {
+          "tag": "b",
+          "text": "4"
+        },
+        {
+          "tag": "span",
+          "text": "custom"
+        },
+        {
+          "tag": "b",
+          "text": "0"
+        },
+        {
+          "tag": "button",
+          "text": "Use all suggestions (3)",
+          "name": "Use all suggestions (3)",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Supino reto c/ barra"
+        },
+        {
+          "tag": "p",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Likely"
+        },
+        {
+          "tag": "button",
+          "text": "Use Barbell bench press",
+          "name": "Use Barbell bench press",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use Dumbbell bench press",
+          "name": "Use Dumbbell bench press",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use Smith machine bench press",
+          "name": "Use Smith machine bench press",
+          "type": "button"
+        },
+        {
+          "tag": "summary",
+          "text": "More options",
+          "name": "More options"
+        },
+        {
+          "tag": "button",
+          "text": "Choose…",
+          "name": "Choose…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Create custom",
+          "name": "Create custom",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Abdominal prancha"
+        },
+        {
+          "tag": "p",
+          "text": "Forearm plank"
+        },
+        {
+          "tag": "span",
+          "text": "Likely"
+        },
+        {
+          "tag": "button",
+          "text": "Use Forearm plank",
+          "name": "Use Forearm plank",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use V sit-up",
+          "name": "Use V sit-up",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use Ab wheel rollout",
+          "name": "Use Ab wheel rollout",
+          "type": "button"
+        },
+        {
+          "tag": "summary",
+          "text": "More options",
+          "name": "More options"
+        },
+        {
+          "tag": "button",
+          "text": "Choose…",
+          "name": "Choose…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Create custom",
+          "name": "Create custom",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Farmer walk"
+        },
+        {
+          "tag": "p",
+          "text": "Dumbbell farmer’s carry"
+        },
+        {
+          "tag": "span",
+          "text": "Likely"
+        },
+        {
+          "tag": "button",
+          "text": "Use Dumbbell farmer’s carry",
+          "name": "Use Dumbbell farmer’s carry",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use Kettlebell farmer’s carry",
+          "name": "Use Kettlebell farmer’s carry",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use Farmer’s handles farmer’s carry",
+          "name": "Use Farmer’s handles farmer’s carry",
+          "type": "button"
+        },
+        {
+          "tag": "summary",
+          "text": "More options",
+          "name": "More options"
+        },
+        {
+          "tag": "button",
+          "text": "Choose…",
+          "name": "Choose…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Create custom",
+          "name": "Create custom",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Zorblex machine wiggle"
+        },
+        {
+          "tag": "p",
+          "text": "Needs a movement"
+        },
+        {
+          "tag": "span",
+          "text": "No match"
+        },
+        {
+          "tag": "button",
+          "text": "Choose…",
+          "name": "Choose…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Create custom",
+          "name": "Create custom",
+          "type": "button"
+        },
+        {
+          "tag": "summary",
+          "text": "View original pasted text",
+          "name": "View original pasted text"
+        },
+        {
+          "tag": "pre",
+          "text": "Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
+        },
+        {
+          "tag": "p",
+          "text": "Your history will not be changed."
+        },
+        {
+          "tag": "p",
+          "text": "4 still to review"
+        },
+        {
+          "tag": "button",
+          "text": "Review draft",
+          "name": "Review draft",
+          "describedBy": "4 still to review",
+          "disabled": true,
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/review-suggestions__phone-390-light-en-reduced",
+      "flow": "onboarding-import",
+      "screen": "review-suggestions",
+      "label": "Import — use all suggestions",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "reduced",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Review imported program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Import a program"
+        },
+        {
+          "tag": "h1",
+          "text": "Review the exercises",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Link each name to a library movement or create it as a custom one."
+        },
+        {
+          "tag": "p",
+          "text": "Converted by Taurifer · 4 lifts"
+        },
+        {
+          "tag": "div",
+          "role": "status",
+          "name": "0linked4to review0custom",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "span",
+          "text": "linked"
+        },
+        {
+          "tag": "b",
+          "text": "0"
+        },
+        {
+          "tag": "span",
+          "text": "to review"
+        },
+        {
+          "tag": "b",
+          "text": "4"
+        },
+        {
+          "tag": "span",
+          "text": "custom"
+        },
+        {
+          "tag": "b",
+          "text": "0"
+        },
+        {
+          "tag": "button",
+          "text": "Use all suggestions (3)",
+          "name": "Use all suggestions (3)",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Supino reto c/ barra"
+        },
+        {
+          "tag": "p",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Likely"
+        },
+        {
+          "tag": "button",
+          "text": "Use Barbell bench press",
+          "name": "Use Barbell bench press",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use Dumbbell bench press",
+          "name": "Use Dumbbell bench press",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use Smith machine bench press",
+          "name": "Use Smith machine bench press",
+          "type": "button"
+        },
+        {
+          "tag": "summary",
+          "text": "More options",
+          "name": "More options"
+        },
+        {
+          "tag": "button",
+          "text": "Choose…",
+          "name": "Choose…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Create custom",
+          "name": "Create custom",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Abdominal prancha"
+        },
+        {
+          "tag": "p",
+          "text": "Forearm plank"
+        },
+        {
+          "tag": "span",
+          "text": "Likely"
+        },
+        {
+          "tag": "button",
+          "text": "Use Forearm plank",
+          "name": "Use Forearm plank",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use V sit-up",
+          "name": "Use V sit-up",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use Ab wheel rollout",
+          "name": "Use Ab wheel rollout",
+          "type": "button"
+        },
+        {
+          "tag": "summary",
+          "text": "More options",
+          "name": "More options"
+        },
+        {
+          "tag": "button",
+          "text": "Choose…",
+          "name": "Choose…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Create custom",
+          "name": "Create custom",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Farmer walk"
+        },
+        {
+          "tag": "p",
+          "text": "Dumbbell farmer’s carry"
+        },
+        {
+          "tag": "span",
+          "text": "Likely"
+        },
+        {
+          "tag": "button",
+          "text": "Use Dumbbell farmer’s carry",
+          "name": "Use Dumbbell farmer’s carry",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use Kettlebell farmer’s carry",
+          "name": "Use Kettlebell farmer’s carry",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use Farmer’s handles farmer’s carry",
+          "name": "Use Farmer’s handles farmer’s carry",
+          "type": "button"
+        },
+        {
+          "tag": "summary",
+          "text": "More options",
+          "name": "More options"
+        },
+        {
+          "tag": "button",
+          "text": "Choose…",
+          "name": "Choose…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Create custom",
+          "name": "Create custom",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Zorblex machine wiggle"
+        },
+        {
+          "tag": "p",
+          "text": "Needs a movement"
+        },
+        {
+          "tag": "span",
+          "text": "No match"
+        },
+        {
+          "tag": "button",
+          "text": "Choose…",
+          "name": "Choose…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Create custom",
+          "name": "Create custom",
+          "type": "button"
+        },
+        {
+          "tag": "summary",
+          "text": "View original pasted text",
+          "name": "View original pasted text"
+        },
+        {
+          "tag": "pre",
+          "text": "Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
+        },
+        {
+          "tag": "p",
+          "text": "Your history will not be changed."
+        },
+        {
+          "tag": "p",
+          "text": "4 still to review"
+        },
+        {
+          "tag": "button",
+          "text": "Review draft",
+          "name": "Review draft",
+          "describedBy": "4 still to review",
+          "disabled": true,
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/review-suggestions__phone-390-light-en-text200",
+      "flow": "onboarding-import",
+      "screen": "review-suggestions",
+      "label": "Import — use all suggestions",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "text200",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Review imported program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Import a program"
+        },
+        {
+          "tag": "h1",
+          "text": "Review the exercises",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Link each name to a library movement or create it as a custom one."
+        },
+        {
+          "tag": "p",
+          "text": "Converted by Taurifer · 4 lifts"
+        },
+        {
+          "tag": "div",
+          "role": "status",
+          "name": "0linked4to review0custom",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "span",
+          "text": "linked"
+        },
+        {
+          "tag": "b",
+          "text": "0"
+        },
+        {
+          "tag": "span",
+          "text": "to review"
+        },
+        {
+          "tag": "b",
+          "text": "4"
+        },
+        {
+          "tag": "span",
+          "text": "custom"
+        },
+        {
+          "tag": "b",
+          "text": "0"
+        },
+        {
+          "tag": "button",
+          "text": "Use all suggestions (3)",
+          "name": "Use all suggestions (3)",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Supino reto c/ barra"
+        },
+        {
+          "tag": "p",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Likely"
+        },
+        {
+          "tag": "button",
+          "text": "Use Barbell bench press",
+          "name": "Use Barbell bench press",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use Dumbbell bench press",
+          "name": "Use Dumbbell bench press",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use Smith machine bench press",
+          "name": "Use Smith machine bench press",
+          "type": "button"
+        },
+        {
+          "tag": "summary",
+          "text": "More options",
+          "name": "More options"
+        },
+        {
+          "tag": "button",
+          "text": "Choose…",
+          "name": "Choose…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Create custom",
+          "name": "Create custom",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Abdominal prancha"
+        },
+        {
+          "tag": "p",
+          "text": "Forearm plank"
+        },
+        {
+          "tag": "span",
+          "text": "Likely"
+        },
+        {
+          "tag": "button",
+          "text": "Use Forearm plank",
+          "name": "Use Forearm plank",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use V sit-up",
+          "name": "Use V sit-up",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use Ab wheel rollout",
+          "name": "Use Ab wheel rollout",
+          "type": "button"
+        },
+        {
+          "tag": "summary",
+          "text": "More options",
+          "name": "More options"
+        },
+        {
+          "tag": "button",
+          "text": "Choose…",
+          "name": "Choose…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Create custom",
+          "name": "Create custom",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Farmer walk"
+        },
+        {
+          "tag": "p",
+          "text": "Dumbbell farmer’s carry"
+        },
+        {
+          "tag": "span",
+          "text": "Likely"
+        },
+        {
+          "tag": "button",
+          "text": "Use Dumbbell farmer’s carry",
+          "name": "Use Dumbbell farmer’s carry",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use Kettlebell farmer’s carry",
+          "name": "Use Kettlebell farmer’s carry",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use Farmer’s handles farmer’s carry",
+          "name": "Use Farmer’s handles farmer’s carry",
+          "type": "button"
+        },
+        {
+          "tag": "summary",
+          "text": "More options",
+          "name": "More options"
+        },
+        {
+          "tag": "button",
+          "text": "Choose…",
+          "name": "Choose…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Create custom",
+          "name": "Create custom",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Zorblex machine wiggle"
+        },
+        {
+          "tag": "p",
+          "text": "Needs a movement"
+        },
+        {
+          "tag": "span",
+          "text": "No match"
+        },
+        {
+          "tag": "button",
+          "text": "Choose…",
+          "name": "Choose…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Create custom",
+          "name": "Create custom",
+          "type": "button"
+        },
+        {
+          "tag": "summary",
+          "text": "View original pasted text",
+          "name": "View original pasted text"
+        },
+        {
+          "tag": "pre",
+          "text": "Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
+        },
+        {
+          "tag": "p",
+          "text": "Your history will not be changed."
+        },
+        {
+          "tag": "p",
+          "text": "4 still to review"
+        },
+        {
+          "tag": "button",
+          "text": "Review draft",
+          "name": "Review draft",
+          "describedBy": "4 still to review",
+          "disabled": true,
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/review-suggestions__phone-390-light-pt",
+      "flow": "onboarding-import",
+      "screen": "review-suggestions",
+      "label": "Import — use all suggestions",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "pt",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Revisar treino importado"
+        },
+        {
+          "tag": "button",
+          "text": "Voltar",
+          "name": "Voltar",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancelar",
+          "name": "Cancelar",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Importar um treino"
+        },
+        {
+          "tag": "h1",
+          "text": "Revise os exercícios",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Vincule cada nome a um movimento da biblioteca ou crie-o como personalizado."
+        },
+        {
+          "tag": "p",
+          "text": "Convertido pelo Taurifer · 4 exercícios"
+        },
+        {
+          "tag": "div",
+          "role": "status",
+          "name": "0vinculados4para revisar0personalizados",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "span",
+          "text": "vinculados"
+        },
+        {
+          "tag": "b",
+          "text": "0"
+        },
+        {
+          "tag": "span",
+          "text": "para revisar"
+        },
+        {
+          "tag": "b",
+          "text": "4"
+        },
+        {
+          "tag": "span",
+          "text": "personalizados"
+        },
+        {
+          "tag": "b",
+          "text": "0"
+        },
+        {
+          "tag": "button",
+          "text": "Usar todas as sugestões (3)",
+          "name": "Usar todas as sugestões (3)",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Supino reto c/ barra"
+        },
+        {
+          "tag": "p",
+          "text": "Supino reto com barra"
+        },
+        {
+          "tag": "span",
+          "text": "Provável"
+        },
+        {
+          "tag": "button",
+          "text": "Usar Supino reto com barra",
+          "name": "Usar Supino reto com barra",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Usar Supino reto com halteres",
+          "name": "Usar Supino reto com halteres",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Usar Supino reto no Smith",
+          "name": "Usar Supino reto no Smith",
+          "type": "button"
+        },
+        {
+          "tag": "summary",
+          "text": "Mais opções",
+          "name": "Mais opções"
+        },
+        {
+          "tag": "button",
+          "text": "Escolher…",
+          "name": "Escolher…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Criar personalizado",
+          "name": "Criar personalizado",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Abdominal prancha"
+        },
+        {
+          "tag": "p",
+          "text": "Prancha"
+        },
+        {
+          "tag": "span",
+          "text": "Provável"
+        },
+        {
+          "tag": "button",
+          "text": "Usar Prancha",
+          "name": "Usar Prancha",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Usar Abdominal canivete",
+          "name": "Usar Abdominal canivete",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Usar Roda abdominal",
+          "name": "Usar Roda abdominal",
+          "type": "button"
+        },
+        {
+          "tag": "summary",
+          "text": "Mais opções",
+          "name": "Mais opções"
+        },
+        {
+          "tag": "button",
+          "text": "Escolher…",
+          "name": "Escolher…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Criar personalizado",
+          "name": "Criar personalizado",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Farmer walk"
+        },
+        {
+          "tag": "p",
+          "text": "Caminhada do fazendeiro com halteres"
+        },
+        {
+          "tag": "span",
+          "text": "Provável"
+        },
+        {
+          "tag": "button",
+          "text": "Usar Caminhada do fazendeiro com halteres",
+          "name": "Usar Caminhada do fazendeiro com halteres",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Usar Caminhada do fazendeiro com kettlebell",
+          "name": "Usar Caminhada do fazendeiro com kettlebell",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Usar Caminhada do fazendeiro com pegadores",
+          "name": "Usar Caminhada do fazendeiro com pegadores",
+          "type": "button"
+        },
+        {
+          "tag": "summary",
+          "text": "Mais opções",
+          "name": "Mais opções"
+        },
+        {
+          "tag": "button",
+          "text": "Escolher…",
+          "name": "Escolher…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Criar personalizado",
+          "name": "Criar personalizado",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Zorblex machine wiggle"
+        },
+        {
+          "tag": "p",
+          "text": "Precisa de um movimento"
+        },
+        {
+          "tag": "span",
+          "text": "Sem correspondência"
+        },
+        {
+          "tag": "button",
+          "text": "Escolher…",
+          "name": "Escolher…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Criar personalizado",
+          "name": "Criar personalizado",
+          "type": "button"
+        },
+        {
+          "tag": "summary",
+          "text": "Ver texto original colado",
+          "name": "Ver texto original colado"
+        },
+        {
+          "tag": "pre",
+          "text": "Empurrar A Supino reto 4x6-8 Desenvolvimento militar 3x8-10 Puxar A Remada curvada 4x6-10"
+        },
+        {
+          "tag": "p",
+          "text": "Seu histórico não será alterado."
+        },
+        {
+          "tag": "p",
+          "text": "4 ainda por revisar"
+        },
+        {
+          "tag": "button",
+          "text": "Revisar rascunho",
+          "name": "Revisar rascunho",
+          "describedBy": "4 ainda por revisar",
+          "disabled": true,
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/review-suggestions__phone-390-light-pt-text200",
+      "flow": "onboarding-import",
+      "screen": "review-suggestions",
+      "label": "Import — use all suggestions",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "pt",
+      "text": "text200",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Revisar treino importado"
+        },
+        {
+          "tag": "button",
+          "text": "Voltar",
+          "name": "Voltar",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancelar",
+          "name": "Cancelar",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Importar um treino"
+        },
+        {
+          "tag": "h1",
+          "text": "Revise os exercícios",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Vincule cada nome a um movimento da biblioteca ou crie-o como personalizado."
+        },
+        {
+          "tag": "p",
+          "text": "Convertido pelo Taurifer · 4 exercícios"
+        },
+        {
+          "tag": "div",
+          "role": "status",
+          "name": "0vinculados4para revisar0personalizados",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "span",
+          "text": "vinculados"
+        },
+        {
+          "tag": "b",
+          "text": "0"
+        },
+        {
+          "tag": "span",
+          "text": "para revisar"
+        },
+        {
+          "tag": "b",
+          "text": "4"
+        },
+        {
+          "tag": "span",
+          "text": "personalizados"
+        },
+        {
+          "tag": "b",
+          "text": "0"
+        },
+        {
+          "tag": "button",
+          "text": "Usar todas as sugestões (3)",
+          "name": "Usar todas as sugestões (3)",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Supino reto c/ barra"
+        },
+        {
+          "tag": "p",
+          "text": "Supino reto com barra"
+        },
+        {
+          "tag": "span",
+          "text": "Provável"
+        },
+        {
+          "tag": "button",
+          "text": "Usar Supino reto com barra",
+          "name": "Usar Supino reto com barra",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Usar Supino reto com halteres",
+          "name": "Usar Supino reto com halteres",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Usar Supino reto no Smith",
+          "name": "Usar Supino reto no Smith",
+          "type": "button"
+        },
+        {
+          "tag": "summary",
+          "text": "Mais opções",
+          "name": "Mais opções"
+        },
+        {
+          "tag": "button",
+          "text": "Escolher…",
+          "name": "Escolher…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Criar personalizado",
+          "name": "Criar personalizado",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Abdominal prancha"
+        },
+        {
+          "tag": "p",
+          "text": "Prancha"
+        },
+        {
+          "tag": "span",
+          "text": "Provável"
+        },
+        {
+          "tag": "button",
+          "text": "Usar Prancha",
+          "name": "Usar Prancha",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Usar Abdominal canivete",
+          "name": "Usar Abdominal canivete",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Usar Roda abdominal",
+          "name": "Usar Roda abdominal",
+          "type": "button"
+        },
+        {
+          "tag": "summary",
+          "text": "Mais opções",
+          "name": "Mais opções"
+        },
+        {
+          "tag": "button",
+          "text": "Escolher…",
+          "name": "Escolher…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Criar personalizado",
+          "name": "Criar personalizado",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Farmer walk"
+        },
+        {
+          "tag": "p",
+          "text": "Caminhada do fazendeiro com halteres"
+        },
+        {
+          "tag": "span",
+          "text": "Provável"
+        },
+        {
+          "tag": "button",
+          "text": "Usar Caminhada do fazendeiro com halteres",
+          "name": "Usar Caminhada do fazendeiro com halteres",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Usar Caminhada do fazendeiro com kettlebell",
+          "name": "Usar Caminhada do fazendeiro com kettlebell",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Usar Caminhada do fazendeiro com pegadores",
+          "name": "Usar Caminhada do fazendeiro com pegadores",
+          "type": "button"
+        },
+        {
+          "tag": "summary",
+          "text": "Mais opções",
+          "name": "Mais opções"
+        },
+        {
+          "tag": "button",
+          "text": "Escolher…",
+          "name": "Escolher…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Criar personalizado",
+          "name": "Criar personalizado",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Zorblex machine wiggle"
+        },
+        {
+          "tag": "p",
+          "text": "Precisa de um movimento"
+        },
+        {
+          "tag": "span",
+          "text": "Sem correspondência"
+        },
+        {
+          "tag": "button",
+          "text": "Escolher…",
+          "name": "Escolher…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Criar personalizado",
+          "name": "Criar personalizado",
+          "type": "button"
+        },
+        {
+          "tag": "summary",
+          "text": "Ver texto original colado",
+          "name": "Ver texto original colado"
+        },
+        {
+          "tag": "pre",
+          "text": "Empurrar A Supino reto 4x6-8 Desenvolvimento militar 3x8-10 Puxar A Remada curvada 4x6-10"
+        },
+        {
+          "tag": "p",
+          "text": "Seu histórico não será alterado."
+        },
+        {
+          "tag": "p",
+          "text": "4 ainda por revisar"
+        },
+        {
+          "tag": "button",
+          "text": "Revisar rascunho",
+          "name": "Revisar rascunho",
+          "describedBy": "4 ainda por revisar",
+          "disabled": true,
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/review-suggestions__phone-430-light-en",
+      "flow": "onboarding-import",
+      "screen": "review-suggestions",
+      "label": "Import — use all suggestions",
+      "viewport": "phone-430",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Review imported program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Import a program"
+        },
+        {
+          "tag": "h1",
+          "text": "Review the exercises",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Link each name to a library movement or create it as a custom one."
+        },
+        {
+          "tag": "p",
+          "text": "Converted by Taurifer · 4 lifts"
+        },
+        {
+          "tag": "div",
+          "role": "status",
+          "name": "0linked4to review0custom",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "span",
+          "text": "linked"
+        },
+        {
+          "tag": "b",
+          "text": "0"
+        },
+        {
+          "tag": "span",
+          "text": "to review"
+        },
+        {
+          "tag": "b",
+          "text": "4"
+        },
+        {
+          "tag": "span",
+          "text": "custom"
+        },
+        {
+          "tag": "b",
+          "text": "0"
+        },
+        {
+          "tag": "button",
+          "text": "Use all suggestions (3)",
+          "name": "Use all suggestions (3)",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Supino reto c/ barra"
+        },
+        {
+          "tag": "p",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Likely"
+        },
+        {
+          "tag": "button",
+          "text": "Use Barbell bench press",
+          "name": "Use Barbell bench press",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use Dumbbell bench press",
+          "name": "Use Dumbbell bench press",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use Smith machine bench press",
+          "name": "Use Smith machine bench press",
+          "type": "button"
+        },
+        {
+          "tag": "summary",
+          "text": "More options",
+          "name": "More options"
+        },
+        {
+          "tag": "button",
+          "text": "Choose…",
+          "name": "Choose…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Create custom",
+          "name": "Create custom",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Abdominal prancha"
+        },
+        {
+          "tag": "p",
+          "text": "Forearm plank"
+        },
+        {
+          "tag": "span",
+          "text": "Likely"
+        },
+        {
+          "tag": "button",
+          "text": "Use Forearm plank",
+          "name": "Use Forearm plank",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use V sit-up",
+          "name": "Use V sit-up",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use Ab wheel rollout",
+          "name": "Use Ab wheel rollout",
+          "type": "button"
+        },
+        {
+          "tag": "summary",
+          "text": "More options",
+          "name": "More options"
+        },
+        {
+          "tag": "button",
+          "text": "Choose…",
+          "name": "Choose…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Create custom",
+          "name": "Create custom",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Farmer walk"
+        },
+        {
+          "tag": "p",
+          "text": "Dumbbell farmer’s carry"
+        },
+        {
+          "tag": "span",
+          "text": "Likely"
+        },
+        {
+          "tag": "button",
+          "text": "Use Dumbbell farmer’s carry",
+          "name": "Use Dumbbell farmer’s carry",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use Kettlebell farmer’s carry",
+          "name": "Use Kettlebell farmer’s carry",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use Farmer’s handles farmer’s carry",
+          "name": "Use Farmer’s handles farmer’s carry",
+          "type": "button"
+        },
+        {
+          "tag": "summary",
+          "text": "More options",
+          "name": "More options"
+        },
+        {
+          "tag": "button",
+          "text": "Choose…",
+          "name": "Choose…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Create custom",
+          "name": "Create custom",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Zorblex machine wiggle"
+        },
+        {
+          "tag": "p",
+          "text": "Needs a movement"
+        },
+        {
+          "tag": "span",
+          "text": "No match"
+        },
+        {
+          "tag": "button",
+          "text": "Choose…",
+          "name": "Choose…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Create custom",
+          "name": "Create custom",
+          "type": "button"
+        },
+        {
+          "tag": "summary",
+          "text": "View original pasted text",
+          "name": "View original pasted text"
+        },
+        {
+          "tag": "pre",
+          "text": "Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
+        },
+        {
+          "tag": "p",
+          "text": "Your history will not be changed."
+        },
+        {
+          "tag": "p",
+          "text": "4 still to review"
+        },
+        {
+          "tag": "button",
+          "text": "Review draft",
+          "name": "Review draft",
+          "describedBy": "4 still to review",
           "disabled": true,
           "type": "button"
         }

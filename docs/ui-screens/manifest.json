@@ -1025,11 +1025,25 @@
       "variants": "localized"
     },
     {
+      "id": "freeform-managed-gaps",
+      "flow": "onboarding-import",
+      "label": "Import — values Taurifer could not find",
+      "scenario": "Managed import that left values open: the gaps screen says Taurifer converted the program, and the missing sets and reps sit under one heading per training day.",
+      "variants": "demandingText"
+    },
+    {
       "id": "review",
       "flow": "onboarding-import",
       "label": "Import — exercise review",
       "scenario": "Reviewing candidate matches: collapsed candidate chips, disclosure expanded, and unmatched flat escape hatches.",
       "variants": "accessibility"
+    },
+    {
+      "id": "review-suggestions",
+      "flow": "onboarding-import",
+      "label": "Import — use all suggestions",
+      "scenario": "Review after a managed import: Converted by Taurifer, three Likely rows with their suggestions, one name with no match, and Use all suggestions above the rows.",
+      "variants": "demandingText"
     },
     {
       "id": "preview",

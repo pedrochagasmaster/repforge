@@ -12,6 +12,28 @@ const programReply=()=>JSON.stringify({
     {day:"Push A",order:2,name:"Lat pulldown",sets:3,min:10,max:10}
   ],missing:[],notImported:[]
 });
+const twoDayGapReply=JSON.stringify({
+  version:3,meta:{name:"Coach plan"},exercises:[
+    {day:"TREINO A – Peito (segunda)",order:1,name:"Supino reto",sets:4,min:6,max:8},
+    {day:"TREINO A – Peito (segunda)",order:2,name:"Mergulho no banco",sets:3},
+    {day:"TREINO A – Peito (segunda)",order:3,name:"Elevação lateral",min:12,max:15},
+    {day:"TREINO B – Costas (terça)",order:1,name:"Barra fixa",sets:4}
+  ],missing:[
+    {day:"TREINO A – Peito (segunda)",order:2,field:"reps"},
+    {day:"TREINO A – Peito (segunda)",order:3,field:"sets"},
+    {day:"TREINO B – Costas (terça)",order:1,field:"reps"}
+  ],notImported:[]
+});
+/* Names from the owner's sample that the matcher only suggests ("Likely"), on main and with the
+   PT alias work in #744; the test still reads the statuses the screen shows. */
+const vagueReply=JSON.stringify({
+  version:3,meta:{name:"Coach plan"},exercises:[
+    {day:"Day 1",order:1,name:"Supino reto c/ barra",sets:4,min:6,max:8},
+    {day:"Day 1",order:2,name:"Abdominal prancha",sets:3,min:10,max:12},
+    {day:"Day 1",order:3,name:"Farmer walk",sets:3,min:10,max:12},
+    {day:"Day 1",order:4,name:"Zorblex machine wiggle",sets:3,min:10,max:12}
+  ],missing:[],notImported:[]
+});
 const gapReply=JSON.stringify({
   version:3,meta:{name:"Coach plan"},exercises:[
     {day:"Push A",order:1,name:"Dumbbell bench press",sets:3,min:8,max:12},
@@ -142,6 +164,8 @@ try{
     await page.locator("#entryManagedConvert").click();
     await page.waitForSelector("#importReview.active");
     assert.deepEqual(sent.items,[{source,locale:"en",token:"synthetic-token-1"}]);
+    assert.match(await page.locator("#importFile").textContent(),/^Converted by Taurifer\b/,
+      "the review names Taurifer, not a pasted assistant reply, as the source");
     assert.equal(await page.locator("[data-imp-row]").count(),2);
     assert.equal((await savedProgram(page)).length,0,"no program activated without explicit review");
   });
@@ -179,6 +203,58 @@ try{
     await page.waitForSelector("#importReview.active");
     assert.equal(await page.locator("[data-imp-row]").count(),2);
     assert.equal((await savedProgram(page)).length,0);
+  });
+
+  await scenario("gaps are grouped under one heading per day, and the lede says Taurifer converted it",{
+    worker:()=>({body:{ok:true,reply:twoDayGapReply}})
+  },async({page})=>{
+    await readyToImport(page);
+    await page.locator("#entryManagedConvert").click();
+    await page.waitForSelector("#entryFreeformSubmitGaps");
+    const groups=await page.evaluate(()=>[...document.querySelectorAll(".entry__gap-day")].map(group=>({
+      day:group.querySelector("legend")?.textContent,
+      labels:[...group.querySelectorAll(".entry__field > span")].map(span=>span.textContent),
+      keys:[...group.querySelectorAll("[data-gap-key]")].map(input=>input.dataset.gapKey)
+    })));
+    assert.deepEqual(groups,[
+      {day:"TREINO A – Peito (segunda)",labels:["Mergulho no banco reps (e.g. 8-12 or 10)","Elevação lateral sets"],keys:["1::reps","2::sets"]},
+      {day:"TREINO B – Costas (terça)",labels:["Barra fixa reps (e.g. 8-12 or 10)"],keys:["3::reps"]}
+    ],"one day heading each; labels name only the exercise");
+    assert.match(await page.locator("#onbBody .onb__explain").first().textContent(),/^Taurifer converted the program/);
+  });
+
+  await scenario("Use all suggestions accepts every Likely top match in one tap; rows stay changeable",{
+    worker:()=>({body:{ok:true,reply:vagueReply}})
+  },async({page})=>{
+    await readyToImport(page);
+    await page.locator("#entryManagedConvert").click();
+    await page.waitForSelector("#importReview.active");
+    const before=await page.evaluate(()=>[...document.querySelectorAll("[data-imp-row]")].map(row=>({
+      key:row.dataset.impRow,open:row.classList.contains("is-open"),
+      badge:row.querySelector(".impbadge")?.textContent,
+      top:row.querySelector('[data-imp-act="pick"][data-imp-idx="0"]')?.textContent.replace(/^Use /,"")||null
+    })));
+    const likely=before.filter(row=>row.open&&row.badge==="Likely"&&row.top);
+    const otherOpen=before.filter(row=>row.open&&!likely.includes(row));
+    assert.ok(likely.length>=2,"the fixture opens at least two Likely rows: "+JSON.stringify(before));
+    assert.ok(otherOpen.length>=1,"and at least one row that is not Likely: "+JSON.stringify(before));
+    const useAll=page.locator("#importUseAll");
+    assert.equal(await useAll.isVisible(),true);
+    assert.equal(await useAll.textContent(),`Use all suggestions (${likely.length})`);
+    await useAll.click();
+    await waitForAsyncCondition(page,()=>document.querySelector("#importUseAll")?.hidden!==false);
+    const after=await page.evaluate(()=>Object.fromEntries([...document.querySelectorAll("[data-imp-row]")].map(row=>[row.dataset.impRow,{
+      open:row.classList.contains("is-open"),name:row.querySelector(".improw__name")?.textContent,
+      badge:row.querySelector(".impbadge")?.textContent,
+      change:!!row.querySelector('[data-imp-act="expand"]')
+    }])));
+    for(const row of likely)
+      assert.deepEqual(after[row.key],{open:false,name:row.top,badge:"Confirmed",change:true},"Likely row takes its top match: "+row.key);
+    for(const row of otherOpen)assert.equal(after[row.key].open,true,"a row that was not Likely stays open: "+row.key);
+    assert.equal((await savedProgram(page)).length,0,"accepting suggestions activates nothing");
+    // A settled row still reopens to its alternatives.
+    await page.locator(`[data-imp-row="${likely[0].key}"] [data-imp-act="expand"]`).click();
+    await page.waitForSelector(`[data-imp-row="${likely[0].key}"] [data-imp-act="pick"]`);
   });
 
   for(const [label,reply] of [
