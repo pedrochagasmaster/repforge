@@ -70,6 +70,17 @@ export async function profileRingProofs(browser, assert, base) {
     await page.evaluate(()=>window.__repforgeSessionSummary.close());
 
     state.program=lifts.slice(0,3);await commit(state);
+    await page.click('[data-view="stats"]');
+    const tabsVisible=await page.locator('#statsSeg').isVisible();
+    assert(tabsVisible,'pending scope growth keeps Progress tabs reachable',await page.evaluate(()=>({active:[...document.querySelectorAll('.view.active')].map(view=>view.id),scopePage:!!document.querySelector('#profilePage.active .profile-scope-rings')})));
+    if(!tabsVisible)return;
+    await page.click('#statsSeg [data-seg="strength"]');
+    assert(await page.locator('#segStrength').isVisible(),'Strength stays reachable without acknowledging scope growth');
+    await page.click('#statsSeg [data-seg="review"]');
+    assert(await page.locator('#segReview').isVisible(),'Review stays reachable without acknowledging scope growth');
+    assert((await page.evaluate(()=>window.__repforgeUi.loadUiPrefs().profileScope)).scope.length===2,'switching Progress tabs never acknowledges an unseen scope');
+    await page.click('#statsSeg [data-seg="overview"]');
+    assert(await page.locator('#overviewProfile .profile-scope-inline').isVisible(),'first Overview visit shows the pending before/now comparison within its panel');
     await page.click('[data-view="log"]');
     assert((await page.locator('#todayProfileNeed').innerText()).includes('1 new lift'),'Today explains actual scope growth');
     const expandedFill=Number(await page.locator('#todayProfile svg').getAttribute('data-profile-fill'));
