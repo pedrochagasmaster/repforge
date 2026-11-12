@@ -1,4 +1,4 @@
-# Plan 084, round 2: Your profile / Seu perfil
+# Plan 084, round 3: Your profile / Seu perfil
 
 [Plan, model, simulation and remaining decisions](../../../plans/084-gauge-return.md).
 [One contact sheet](contact-sheet.png).
@@ -11,7 +11,9 @@ in Git at `a02c7a567`.
 Open `index.html` directly. Use the prototype controls to switch screens,
 fresh/mid/well-tailored evidence, language and theme. Selections live in the
 URL, not storage. Gauge tap opens Overview; each lift opens its stage reader;
-Back returns to Overview. The finish can replay its saved stage step. The
+Back returns to Overview. The finish can replay its saved stage step. The Finish step control also
+shows Solid and the first saved test set, at the same 8-unit stage weight.
+Use `screen=finish&event=solid` or `screen=finish&event=checked`. The
 Start session link skips to a synthetic saved finish, not a real Focus flow.
 History and Program dock links are context-only links back to Overview.
 
@@ -25,14 +27,14 @@ History and Program dock links are context-only links back to Overview.
 
 The single sheet contains 32 whole 390 × 844 browser captures. Columns:
 
-1. Today, fresh, 0/272 internal steps.
-2. Today, mid-way, 74/272, beginner week 5.
-3. Today, well-tailored, 208/272, beginner week 16. Still room to grow.
+1. Today, fresh, 0/320 internal steps.
+2. Today, mid-way, 157/320, beginner week 5.
+3. Today, well-tailored, 272/320, beginner week 16. Still room to grow.
 4. Overview, with Your profile as the heading and the existing sentence below.
 5. Cable row's attained stages, current standing, depth and next condition.
-6. Finish with the previous ring reading, 74/272.
-7. The same finish with its updated reading, 76/272.
-8. A week-8 scope expansion, 112/272 → 112/408, with all learned steps retained.
+6. Finish with the previous ring reading, 157/320.
+7. The same finish with its updated reading, 168/320.
+8. A week-8 scope expansion, 200/320 → 200/480, with all learned steps retained.
 
 Rows are PT light, PT dark, EN light, EN dark. Fractions above are design
 arithmetic, never percentages printed in the product. Only the evidence
@@ -45,7 +47,8 @@ pending owner approval.
 `simulate.mjs` constructs its own synthetic completed sessions and calls the
 shipped `progression-engine.js` and `effort-calibration.js` public interfaces.
 `simulation.json` retains every week's per-lift standing evidence, calibration
-count/bias/spread, attained transitions, depth and total. `simulation-table.md`
+count/bias/spread, attained transitions, depth and total. `simulation-shares.md`
+and its JSON companion separate stage and date contributions at week 16. `simulation-table.md`
 and `simulation-chart.html` are generated from it. The latter uses the small
 `render-simulation.py` helper. Run the simulation without launching a browser:
 
@@ -59,8 +62,9 @@ The beginner's agreeing test sets deliberately model a fast calibration path;
 the ring still has months of saved-session depth left. The intermediate has
 no test sets and continues gaining evidence through all 16 weeks.
 
-The proposed 64-date budget and alternate long-history stage path are new
-presentation choices for owner review. Existing standing and calibration
+The history path at 32/64 dates is approved. The recommended weighting is
+8 units per attained transition and ¾ per saved lift-date, retaining the
+64-date runway and an 80-unit per-lift budget. The plan is approved in substance. Existing standing and calibration
 thresholds are read from production modules, not changed. Findings and opening
 loads explain evidence; they do not add duplicate steps. The UI fixtures use
 the generated week-5/week-16 totals, with a separate explicit three-check
@@ -83,6 +87,26 @@ NODE_PATH=/home/ubuntu/repforge/test/node_modules \
   flock /tmp/taurifer-browser.lock \
   node docs/design/plan-084-gauge/capture.mjs
 ```
+
+For this round, only the 24 frames with changed fill or numbers were rendered:
+
+```bash
+NODE_PATH=/home/ubuntu/repforge/test/node_modules \
+  flock /tmp/taurifer-browser.lock \
+  node docs/design/plan-084-gauge/capture.mjs \
+  --reuse /tmp/gauge-084-lAuVOg/cells.json
+```
+
+That retained manifest holds round-2 source images. The eight unchanged Today
+fresh and per-lift-reader cells are used directly, not re-rendered or edited.
+The new manifest labels each retained/rendered cell. The contact-sheet layout
+remains eight columns by four rows. If the temporary source archive is gone,
+the first command rebuilds the full sheet; it is not the command run for this
+round. The finish now counts four new lift-date observations and one stage,
+157 → 168 weighted units, with no percentage or weighted total printed in-app.
+
+The approved before/now scope explanation is shown once per actual growth,
+with acknowledgment surviving reload. It is not a screen on every visit.
 
 If dependencies are already available under this worktree's `test/`, omit
 `NODE_PATH`. One browser captures only the eight requested/complementary scenes

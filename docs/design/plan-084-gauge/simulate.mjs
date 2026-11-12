@@ -9,6 +9,8 @@ const Engine = require('../../../progression-engine.js');
 const Calibration = require('../../../effort-calibration.js');
 const Metrics = require('../../../exercise-metrics.js');
 const defs = ['loadKg', 'reps'].map(semantic => Metrics.DEFINITIONS.find(d => d.semantic === semantic));
+const DATE_WEIGHT=0.75, STAGE_WEIGHT=8, DATE_LIMIT=64;
+const LIFT_BUDGET=DATE_LIMIT*DATE_WEIGHT+4*STAGE_WEIGHT;
 const start = Date.parse('2026-01-05T12:00:00Z');
 const dateAt = day => new Date(start + day * 86400000).toISOString().slice(0,10);
 function prescription(key) {
@@ -66,20 +68,30 @@ function run(kind) {
     const expansion=kind==='change' && week===8;
     if(expansion) lifts.push(lift('lift-5'),lift('lift-6'));
     const details=lifts.map(item=>({key:item.key,exposures:item.exposures,
-      attained:item.reached,steps:Math.min(64,item.exposures)+item.reached.filter(Boolean).length,
+      attained:item.reached,dateUnits:Math.min(DATE_LIMIT,item.exposures)*DATE_WEIGHT,stageUnits:item.reached.filter(Boolean).length*STAGE_WEIGHT,
+      steps:Math.min(DATE_LIMIT,item.exposures)*DATE_WEIGHT+item.reached.filter(Boolean).length*STAGE_WEIGHT,
       ...item.current}));
-    const earned=details.reduce((n,item)=>n+item.steps,0), budget=68*lifts.length;
-    weeks.push({week,earned,budget,expansion,lifts:details});
+    const earned=details.reduce((n,item)=>n+item.steps,0), budget=LIFT_BUDGET*lifts.length;
+    const dateUnits=details.reduce((n,item)=>n+item.dateUnits,0), stageUnits=details.reduce((n,item)=>n+item.stageUnits,0);
+    weeks.push({week,earned,budget,dateUnits,stageUnits,expansion,lifts:details});
   }
   return weeks;
 }
 const scenarios={beginner:run('beginner'),intermediate:run('intermediate'),change:run('change')};
 const rows=Array.from({length:16},(_,i)=>`| ${i+1} | ${scenarios.beginner[i].earned}/${scenarios.beginner[i].budget} | ${scenarios.intermediate[i].earned}/${scenarios.intermediate[i].budget} | ${scenarios.change[i].earned}/${scenarios.change[i].budget}${i===7?' *':''} |`);
 const markdown=['| Week | Beginner, 3/week | Intermediate, 4/week, no tests | New program at week 8 |','| --- | --- | --- | --- |',...rows].join('\n');
-await writeFile(new URL('simulation.json',import.meta.url),JSON.stringify({model:'profile-depth-proposal@084.2',standing:Engine.STANDING_VERSION,calibration:Calibration.CALIBRATION_VERSION,scenarios},null,2)+'\n');
+await writeFile(new URL('simulation.json',import.meta.url),JSON.stringify({model:'profile-depth-proposal@084.3',weights:{date:DATE_WEIGHT,stage:STAGE_WEIGHT,dateLimit:DATE_LIMIT,liftBudget:LIFT_BUDGET},standing:Engine.STANDING_VERSION,calibration:Calibration.CALIBRATION_VERSION,scenarios},null,2)+'\n');
 await writeFile(new URL('simulation-table.md',import.meta.url),markdown+'\n');
 const planUrl=new URL('../../../plans/084-gauge-return.md',import.meta.url);
 const plan=await readFile(planUrl,'utf8');
 await writeFile(planUrl,plan.replace(/(<!-- simulation-table:start -->\n)[\s\S]*?(\n<!-- simulation-table:end -->)/,`$1${markdown}$2`));
 execFileSync('python3',[fileURLToPath(new URL('render-simulation.py',import.meta.url))]);
+const shares=Object.entries(scenarios).map(([name,weeks])=>{const w=weeks.at(-1);return {scenario:name,week:16,dateUnits:w.dateUnits,stageUnits:w.stageUnits,earned:w.earned,budget:w.budget,stageShareOfEarned:100*w.stageUnits/w.earned,stageShareOfCapacity:100*w.stageUnits/w.budget,dateShareOfCapacity:100*w.dateUnits/w.budget};});
+await writeFile(new URL('simulation-shares.json',import.meta.url),JSON.stringify(shares,null,2)+'\n');
+const shareRows=shares.map(w=>`| ${w.scenario} | ${w.stageUnits} | ${w.dateUnits} | ${w.stageShareOfEarned.toFixed(1)}% / ${(100-w.stageShareOfEarned).toFixed(1)}% | ${w.stageShareOfCapacity.toFixed(1)}% / ${w.dateShareOfCapacity.toFixed(1)}% |`);
+const shareTable=['| Scenario | Stage units | Date units | Stage / date share of earned fill | Stage / date share of full capacity |','| --- | --- | --- | --- | --- |',...shareRows].join('\n');
+await writeFile(new URL('simulation-shares.md',import.meta.url),shareTable+'\n');
+const updatedPlan=await readFile(planUrl,'utf8');
+await writeFile(planUrl,updatedPlan.replace(/(<!-- simulation-shares:start -->\n)[\s\S]*?(<!-- simulation-shares:end -->)/,`$1${shareTable}\n$2`));
 console.log(markdown);
+console.log(shareTable);

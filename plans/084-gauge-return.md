@@ -1,8 +1,10 @@
-# Plan 084: Your profile / Seu perfil, round 2
+# Plan 084: Your profile / Seu perfil, round 3
 
-Status: owner-directed second design round on draft PR #753, 2026-11-12.
+Status: **approved in substance**, owner decisions recorded in round 3 of
+draft PR #753, 2026-11-12. Exact weighting below is the recommended execution
+parameter; candidate EN/PT copy still follows owner copy review.
 Design only. Base remains `991163048b9e0da288e20924660e1b285c9ac4ca`;
-round 1 is preserved in commit `a02c7a567`. No app code, tests or CI.
+round 1 is preserved at `a02c7a567`, round 2 at `dac9c6c73`. No app code, tests or CI.
 
 ## 1. Decisions and problem
 
@@ -24,7 +26,19 @@ saved comparable-session steps within the attained stage as well as the four
 stage transitions. The 16-week simulation below exposes this choice rather
 than hiding an early plateau behind slower animation.
 
-## 2. Proposed per-lift model
+### Round-3 owner decisions
+
+1. Stage transitions must carry about a month of a lift's training, rather than
+   one date's worth. The exact recommendation is 8 units per transition and
+   ¾ unit per saved depth date. Four transitions contribute up to 32 units;
+   64 dates contribute up to 48. The per-lift budget is 80.
+2. The 32/64-date history path is approved and earns the same stage weight as
+   the test-set route. It is never called calibrated without check evidence.
+3. The before/now scope screen is approved, shown once for each actual scope
+   growth, with no backward fill animation. A dismissal acknowledges that
+   expansion, not all future expansions.
+
+## 2. Per-lift model
 
 A lift is an engine-comparable identity: performed movement, equipment,
 loading convention and metric semantics. Duplicate slots and display aliases
@@ -76,9 +90,9 @@ remain unchanged.
 
 Do not give that lifter imaginary calibration. After historical Solid:
 
-- At **32 depth dates**, the third transition can instead read **Long record /
+- At **32 depth dates**, the third transition reads **Long record /
   Histórico amplo**. It is evidence depth, not a check result.
-- At **64 depth dates**, the fourth can read **Established from history /
+- At **64 depth dates**, the fourth reads **Established from history /
   Base consolidada pelo histórico**. Effort calibration still says **Not
   checked / Sem série-teste**. No claim about effort-report accuracy follows.
 
@@ -89,21 +103,34 @@ not grant anything. Barbell-ineligible lifts have the same history path.
 
 ### Fill, depth and duration
 
-For each comparable lift:
+For each comparable lift, recommend these exact presentation weights:
 
 ```text
-steps = min(64, qualifying saved depth dates) + attained transitions, at most 4
-budget = 68
-program fill = sum(lift steps) / (68 × distinct comparable lifts in this program)
+date units = 0.75 × min(64, qualifying saved depth dates)
+stage units = 8 × attained transitions, at most 4
+lift budget = 48 + 32 = 80
+program fill = sum(date units + stage units) / (80 × distinct comparable lifts)
 ```
 
-No percentage is printed. Today shows only the ink ring and its name. Overview
-explains the saved-date and stage counts separately; the per-lift reader names
-every next condition. The 64-date budget is a proposed presentation threshold,
-not a discovered physiological constant or an engine setting. It is the main
-remaining product choice. One date and one transition each contribute one
-visible step; their counts stay distinguishable in the reader. No invented
-points, daily bonus, time-in-app credit, finding-open credit or acceptance reward.
+Each transition is worth 10⅔ comparable dates: about 3½ weeks at three
+exposures per lift per week, or 5⅓ weeks at two. That is roughly a month in
+the two simulated schedules. Date credit is reduced by a quarter, but its
+64-date runway stays intact. Reducing the date cap instead would make the
+no-test path stall before its approved 64-date final stage.
+
+A first Solid, first valid test set after Solid, or newly confirmed agreeing
+pattern each adds the same 8 stage units. Long record at 32 dates and
+Established from history at 64 dates also add 8 each. If both routes qualify
+for one transition, count it once. Existing standing/calibration thresholds,
+checks, prompts and safety rules are unchanged.
+
+No percentage or weighted-unit total is printed in the product. Today shows
+the ink ring and its name; Overview shows actual observations and attained
+stages separately. The reader names the evidence behind each. Fractional units
+are presentation arithmetic, never fractional workouts or an engine setting.
+No daily bonus, time-in-app credit, finding-open credit or acceptance reward.
+The full ring allocates 40% of capacity to stage transitions and 60% to dates;
+the share of the **earned fill** depends on the lifter and is shown below.
 
 A full ring needs at least 64 trained dates **per lift** as well as the stage
 path, even if test sets agree early. At three exposures per lift per week that
@@ -159,7 +186,16 @@ changed / O perfil agora cobre mais exercícios** explanation:
 
 - A small static previous-scope ring, labelled **4 lifts, before**.
 - The current A ring, labelled **6 lifts, now**.
-- **112 saved steps retained. Two new lifts start at First time.**
+- **All saved evidence retained: 96 lift observations and 16 attained stages.
+  Two new lifts start at First time.**
+
+The screen is shown once per expansion, not on every visit or reload.
+Its acknowledgment must survive reload and remain device-only; it never enters
+a setup link, a backup programming proposal or telemetry. Before implementation,
+define that UI-preference record and cover install-transfer clone fidelity and
+destination eligibility, including normal boot and reload. Automatic presentation
+metadata must not disqualify a fresh destination. Explicit, unknown and malformed
+records keep their existing protection.
 
 The new ring appears at its new reading without a backward tween. Today uses
 that same new scope immediately, with a temporary factual line **2 new lifts
@@ -192,8 +228,8 @@ Assumptions are deliberately explicit:
 - Program change: the beginner's schedule, retaining its four lifts and adding
   two new machine identities **after** the last session of week 8. Six lifts
   thereafter. New lifts have no invented earlier history and no scheduled
-  checks in this example. At week 8, 112 earned steps are retained while the
-  budget grows from 272 to 408. This tests expansion rather than erasing old
+  checks in this example. At week 8, 200 earned units are retained while the
+  budget grows from 320 to 480. This tests expansion rather than erasing old
   evidence or conveniently substituting already-known lifts.
 
 The fractions below are design arithmetic for review, never percentage numbers
@@ -203,30 +239,49 @@ the scope change is explicitly marked. The generator produces this table and the
 <!-- simulation-table:start -->
 | Week | Beginner, 3/week | Intermediate, 4/week, no tests | New program at week 8 |
 | --- | --- | --- | --- |
-| 1 | 16/272 | 24/544 | 16/272 |
-| 2 | 36/272 | 48/544 | 36/272 |
-| 3 | 48/272 | 64/544 | 48/272 |
-| 4 | 60/272 | 80/544 | 60/272 |
-| 5 | 74/272 | 96/544 | 74/272 |
-| 6 | 88/272 | 112/544 | 88/272 |
-| 7 | 100/272 | 128/544 | 100/272 |
-| 8 | 112/272 | 144/544 | 112/408 * |
-| 9 | 124/272 | 160/544 | 132/408 |
-| 10 | 136/272 | 176/544 | 152/408 |
-| 11 | 148/272 | 192/544 | 170/408 |
-| 12 | 160/272 | 208/544 | 188/408 |
-| 13 | 172/272 | 224/544 | 206/408 |
-| 14 | 184/272 | 240/544 | 224/408 |
-| 15 | 196/272 | 256/544 | 242/408 |
-| 16 | 208/272 | 280/544 | 260/408 |
+| 1 | 41/320 | 76/640 | 41/320 |
+| 2 | 114/320 | 152/640 | 114/320 |
+| 3 | 123/320 | 164/640 | 123/320 |
+| 4 | 132/320 | 176/640 | 132/320 |
+| 5 | 157/320 | 188/640 | 157/320 |
+| 6 | 182/320 | 200/640 | 182/320 |
+| 7 | 191/320 | 212/640 | 191/320 |
+| 8 | 200/320 | 224/640 | 200/480 * |
+| 9 | 209/320 | 236/640 | 229.5/480 |
+| 10 | 218/320 | 248/640 | 259/480 |
+| 11 | 227/320 | 260/640 | 272.5/480 |
+| 12 | 236/320 | 272/640 | 286/480 |
+| 13 | 245/320 | 284/640 | 299.5/480 |
+| 14 | 254/320 | 296/640 | 313/480 |
+| 15 | 263/320 | 308/640 | 326.5/480 |
+| 16 | 272/320 | 384/640 | 340/480 |
 <!-- simulation-table:end -->
 
-`*` At week 8, 112/272 becomes 112/408 because two new lifts enter the program.
+`*` At week 8, 200/320 becomes 200/480 because two new lifts enter the program.
 No earned step is removed. The before/now scope view makes this explicit.
 Results demonstrate these stated scenarios, not all schedules or noisy records.
 Early stage labels finish sooner than the ring: that is why depth within the
 stage is necessary. The simulation uses clean synthetic engine inputs and
 machine identities, not a claim of catalog integration or physical validation.
+
+### Week-16 composition
+
+These percentages explain the design arithmetic to the owner; they are not
+product labels. "Earned share" divides by the filled portion, while "capacity"
+divides by the entire ring, including the still-empty part.
+
+<!-- simulation-shares:start -->
+| Scenario | Stage units | Date units | Stage / date share of earned fill | Stage / date share of full capacity |
+| --- | --- | --- | --- | --- |
+| beginner | 128 | 144 | 47.1% / 52.9% | 40.0% / 45.0% |
+| intermediate | 192 | 192 | 50.0% / 50.0% | 30.0% / 30.0% |
+| change | 160 | 180 | 47.1% / 52.9% | 33.3% / 37.5% |
+<!-- simulation-shares:end -->
+
+At full capacity each lift has 32 stage units and 48 date units. At week 16,
+roughly half of the earned fill is stages in all three scenarios. The remaining
+empty capacity still requires real evidence. The no-test path's transition at
+32 dates has exactly the same 8-unit effect as its test-set counterpart.
 
 ## 6. Name and the selected prototype
 
@@ -237,7 +292,7 @@ fix shown in the prototype: **Your profile** is the section heading, and the
 existing explanatory sentence becomes its subtitle. The words of that sentence
 stay intact. This hierarchy change is flagged for owner approval, not a rename.
 
-[Single round-2 contact sheet](../docs/design/plan-084-gauge/contact-sheet.png).
+[Single round-3 contact sheet](../docs/design/plan-084-gauge/contact-sheet.png).
 Eight columns: Today fresh, mid-way and well-tailored, Overview, one lift's
 stage reader, finish before and after a saved stage step, and scope expansion.
 Rows: PT light, PT dark, EN light, EN dark. Every source frame is 390 × 844.
@@ -248,14 +303,31 @@ attained stage, current standing, saved depth, check results and the next exact
 condition. Current prescriptions and Start session stay dominant on Today.
 Fresh means an onboarded program before saved sets; no-program stays outside.
 
-Prototype fixtures: fresh 0/272; mid-way 74/272, based on beginner week 5;
-well-tailored 208/272, beginner week 16. It is deliberately not full. The finish
-illustrates a third agreeing row check: 74 → 76 steps, comprising one saved
-depth date and one new stage transition. That row has checks 11→11, 10→11,
-12→12. Errors 0, -1, 0 give bias -0.2 and spread about 0.577, so the production
-estimator says calibrated. Its pre-save errors 0, -1 give `n=2`, no correction.
-The whole program's other evidence stays fixed. A concurrent finding comes
-from the existing rule if supported, never a duplicate reward.
+Prototype fixtures: fresh 0/320; mid-way 157/320, beginner week 5;
+well-tailored 272/320, beginner week 16. It is deliberately not full. The
+finish illustrates a third agreeing row check: 157 → 168 units. Four new
+lift-date observations contribute 3 units and the one stage transition adds 8.
+All four exercises now have 16 saved sessions, rather than pretending that
+only the featured exercise trained during a four-exercise session.
+
+The row checks remain 11→11, 10→11, 12→12. Errors 0, -1, 0 give bias -0.2 and
+spread about 0.577, so the producer says calibrated. Before the third check,
+`n=2` means no correction. A finding is reused only when its own rule supports
+it; the finding adds no duplicate credit.
+
+The full saved-session change moves the program arc 12.375 degrees; its stage
+alone moves it 9 degrees. At the prototype's 86px ring, the stage accounts for
+about 5.7px of ink along the arc, versus about 0.53px for one ordinary date.
+The prototype also has selectable finish examples for Solid, 149 → 160 units,
+and the first valid test set, 157 → 168, using that same stage weight.
+Use `screen=finish&event=solid` or `event=checked`; the sheet retains its
+agreed eight-column layout and its agreeing-check example. This is a visible
+factual step, with no overshoot, colour reward, sound or celebration.
+
+Only the 24 frames with changed fill/numbers are recaptured. Today fresh and
+the per-lift stage reader are unchanged and reuse their eight round-2 source
+frames byte for byte. The contact sheet keeps the same eight-column/four-row
+layout. The capture manifest records retained versus rendered sources.
 
 An unchanged-stage finish can still gain a depth date. An unchanged-depth and
 unchanged-stage save leaves the ring unchanged. Failed/cancelled saves add
@@ -272,17 +344,21 @@ updates the D-6/OD-20/PRODUCT/CONTEXT references to the selected model without
 erasing their rationale. No orange category, Settings tuning, scoring system,
 telemetry event/property, account or new transfer field is authorized.
 
-1. Freeze the remaining depth/alternate-path rules and exact EN/PT labels.
-   Build a pure, versioned saved-evidence projection using the existing standing,
-   calibration, opening-load and findings owners. Prove actual identity,
-   deduplication, historical support, rest, edits/deletions, scope carry-forward
-   and unknown historical contexts in that future implementation packet.
-2. Today and Overview, including scope explanation and per-lift stage reader.
-   Keep diagnostic signals and findings; no percentages. Approved copy, semantic
-   controls, focus/return, asset revisions and targeted catalog artifacts belong
-   to that implementation, not this design round.
-3. Finish integration against the final #736 slot, stage and depth changes from
-   the same successful save, unchanged state, navigation and reduced motion.
+The implementation is three dependent PRs. Tests listed here are future
+implementation evidence, not commands run during this design phase.
+
+| PR | Scope and owners | Required boundary proof in that future PR |
+| --- | --- | --- |
+| 1. Saved-evidence model | A pure versioned profile projection, using the shipped standing/calibration producers, canonical performed identity, opening-load and findings owners. One authoritative weight table: date ¾, transition 8, date cap 64. Update the D-6/OD-20, PRODUCT and CONTEXT records to the approved direction. Do not restore the retired percent. | Historical stage replay; exact weight arithmetic; a Solid and a valid-check transition; equal weight on both history thresholds; no duplicate credit across paths; date/identity deduplication; no rest decay; edits/deletion/backup replacement; scope carry-forward; unsupported legacy context. Keep the 16-week design scenarios as illustrative data, not production oracles. |
+| 2. Today, Overview and per-lift reader | Render the selected ring and candidate copy through the real profile. Implement current versus attained standing, scope rescaling and the once-per-expansion acknowledgment. Keep findings and signal counts. Update only necessary roles, asset/cache revisions and catalog frames. | Real navigation/focus return; fresh/no-program/changed-equipment cases; before/now appears once for a growth and survives reload; a later growth appears again; no backward tween; preference clone fidelity, normal-boot/reload eligibility and production-path refusals for protected records. No new telemetry. |
+| 3. Finish integration | Use the final #736 finish/finding implementation and the same projection before/after one successful save. One restrained fill transition and its stated evidence reason. | A first Solid and a first valid check each visibly add 8 stage units, plus the real new date observations; an agreeing-check transition; unchanged-stage and unchanged-evidence saves; failed/cancelled save; finding co-presence without duplicate credit; Overview/per-lift return path; reduced-motion final state. |
+
+PR 1 lands before PR 2, then PR 3. Each implementation PR follows the repo's
+then-current focused evidence, copy, revision and fidelity requirements. No new
+row/draft schema or transfer validator is assumed. If replay needs a durable
+contract change, design that explicitly and satisfy its Worker/clone gates
+before widening this split. A device-only acknowledgment is not permission to
+change the canonical training record.
 
 This PR remains docs and a static prototype. The simulation is scenario
 arithmetic requested by the owner, not an application test or completion gate.
@@ -298,19 +374,13 @@ program or bounded adaptation may use the record under the thesis's evidence
 gates and entitlement ADR. This plan defines no paid boundary, offer, trial,
 price, checkout or trigger. Paying, lapsing and declining never move the ring.
 
-## 9. Remaining owner questions
+## 9. What remains for the owner
 
-1. **Recommend the 64-date depth budget with four attained transitions per
-   comparable lift.** Approve depth within stages so calibrated lifts still
-   move for months, and the 32/64-date history path so skipping tests never
-   creates an artificial ceiling? These are proposed presentation rules, not
-   existing estimator thresholds. Labels alone cannot deliver the requested
-   duration without suppressing what the app already knows.
-2. **Recommend the alternate labels in §2.** Approve Long record / Histórico
-   amplo and Established from history / Base consolidada pelo histórico for
-   the no-test route, and Consistent bias understood / Tendência consistente
-   identificada for stable biased checks? They avoid claiming calibration
-   without supporting evidence.
-3. **Recommend Your profile as the heading with the existing sentence as its
-   subtitle.** Approve that minimal hierarchy change and the before/now scope
-   explanation, with no backwards fill animation or concealment of re-scaling?
+The plan is approved in substance. Recommend **8 units per attained stage and
+¾ per comparable date, retaining the 64-date limit** as the exact weighting
+for implementation. No further decision on the approved no-test route or the
+once-per-growth scope screen is needed.
+
+The existing candidate EN/PT labels and heading/subtitle hierarchy still pass
+through normal copy review in their implementation PR. Do not reopen the name,
+ink fill, no-percent/no-celebration rule, alpha boundary or approved history path.

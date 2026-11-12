@@ -1,13 +1,21 @@
 {
-  "model": "profile-depth-proposal@084.2",
+  "model": "profile-depth-proposal@084.3",
+  "weights": {
+    "date": 0.75,
+    "stage": 8,
+    "dateLimit": 64,
+    "liftBudget": 80
+  },
   "standing": "standing@078.1",
   "calibration": "calibration@077.1",
   "scenarios": {
     "beginner": [
       {
         "week": 1,
-        "earned": 16,
-        "budget": 272,
+        "earned": 41,
+        "budget": 320,
+        "dateUnits": 9,
+        "stageUnits": 32,
         "expansion": false,
         "lifts": [
           {
@@ -19,7 +27,9 @@
               true,
               true
             ],
-            "steps": 4,
+            "dateUnits": 2.25,
+            "stageUnits": 8,
+            "steps": 10.25,
             "date": "2026-01-09",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -53,7 +63,9 @@
               true,
               true
             ],
-            "steps": 4,
+            "dateUnits": 2.25,
+            "stageUnits": 8,
+            "steps": 10.25,
             "date": "2026-01-09",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -87,7 +99,9 @@
               true,
               true
             ],
-            "steps": 4,
+            "dateUnits": 2.25,
+            "stageUnits": 8,
+            "steps": 10.25,
             "date": "2026-01-09",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -121,7 +135,9 @@
               true,
               true
             ],
-            "steps": 4,
+            "dateUnits": 2.25,
+            "stageUnits": 8,
+            "steps": 10.25,
             "date": "2026-01-09",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -150,8 +166,10 @@
       },
       {
         "week": 2,
-        "earned": 36,
-        "budget": 272,
+        "earned": 114,
+        "budget": 320,
+        "dateUnits": 18,
+        "stageUnits": 96,
         "expansion": false,
         "lifts": [
           {
@@ -163,7 +181,9 @@
               true,
               true
             ],
-            "steps": 9,
+            "dateUnits": 4.5,
+            "stageUnits": 24,
+            "steps": 28.5,
             "date": "2026-01-16",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -197,7 +217,9 @@
               true,
               true
             ],
-            "steps": 9,
+            "dateUnits": 4.5,
+            "stageUnits": 24,
+            "steps": 28.5,
             "date": "2026-01-16",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -231,7 +253,9 @@
               true,
               true
             ],
-            "steps": 9,
+            "dateUnits": 4.5,
+            "stageUnits": 24,
+            "steps": 28.5,
             "date": "2026-01-16",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -265,7 +289,9 @@
               true,
               true
             ],
-            "steps": 9,
+            "dateUnits": 4.5,
+            "stageUnits": 24,
+            "steps": 28.5,
             "date": "2026-01-16",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -294,8 +320,10 @@
       },
       {
         "week": 3,
-        "earned": 48,
-        "budget": 272,
+        "earned": 123,
+        "budget": 320,
+        "dateUnits": 27,
+        "stageUnits": 96,
         "expansion": false,
         "lifts": [
           {
@@ -307,7 +335,9 @@
               true,
               true
             ],
-            "steps": 12,
+            "dateUnits": 6.75,
+            "stageUnits": 24,
+            "steps": 30.75,
             "date": "2026-01-23",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -341,7 +371,9 @@
               true,
               true
             ],
-            "steps": 12,
+            "dateUnits": 6.75,
+            "stageUnits": 24,
+            "steps": 30.75,
             "date": "2026-01-23",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -375,7 +407,9 @@
               true,
               true
             ],
-            "steps": 12,
+            "dateUnits": 6.75,
+            "stageUnits": 24,
+            "steps": 30.75,
             "date": "2026-01-23",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -409,7 +443,9 @@
               true,
               true
             ],
-            "steps": 12,
+            "dateUnits": 6.75,
+            "stageUnits": 24,
+            "steps": 30.75,
             "date": "2026-01-23",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -438,8 +474,10 @@
       },
       {
         "week": 4,
-        "earned": 60,
-        "budget": 272,
+        "earned": 132,
+        "budget": 320,
+        "dateUnits": 36,
+        "stageUnits": 96,
         "expansion": false,
         "lifts": [
           {
@@ -451,7 +489,9 @@
               true,
               true
             ],
-            "steps": 15,
+            "dateUnits": 9,
+            "stageUnits": 24,
+            "steps": 33,
             "date": "2026-01-30",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -485,7 +525,9 @@
               true,
               true
             ],
-            "steps": 15,
+            "dateUnits": 9,
+            "stageUnits": 24,
+            "steps": 33,
             "date": "2026-01-30",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -519,7 +561,9 @@
               true,
               true
             ],
-            "steps": 15,
+            "dateUnits": 9,
+            "stageUnits": 24,
+            "steps": 33,
             "date": "2026-01-30",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -553,7 +597,9 @@
               true,
               true
             ],
-            "steps": 15,
+            "dateUnits": 9,
+            "stageUnits": 24,
+            "steps": 33,
             "date": "2026-01-30",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -582,8 +628,10 @@
       },
       {
         "week": 5,
-        "earned": 74,
-        "budget": 272,
+        "earned": 157,
+        "budget": 320,
+        "dateUnits": 45,
+        "stageUnits": 112,
         "expansion": false,
         "lifts": [
           {
@@ -595,7 +643,9 @@
               true,
               true
             ],
-            "steps": 19,
+            "dateUnits": 11.25,
+            "stageUnits": 32,
+            "steps": 43.25,
             "date": "2026-02-06",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -629,7 +679,9 @@
               true,
               true
             ],
-            "steps": 19,
+            "dateUnits": 11.25,
+            "stageUnits": 32,
+            "steps": 43.25,
             "date": "2026-02-06",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -663,7 +715,9 @@
               true,
               true
             ],
-            "steps": 18,
+            "dateUnits": 11.25,
+            "stageUnits": 24,
+            "steps": 35.25,
             "date": "2026-02-06",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -697,7 +751,9 @@
               true,
               true
             ],
-            "steps": 18,
+            "dateUnits": 11.25,
+            "stageUnits": 24,
+            "steps": 35.25,
             "date": "2026-02-06",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -726,8 +782,10 @@
       },
       {
         "week": 6,
-        "earned": 88,
-        "budget": 272,
+        "earned": 182,
+        "budget": 320,
+        "dateUnits": 54,
+        "stageUnits": 128,
         "expansion": false,
         "lifts": [
           {
@@ -739,7 +797,9 @@
               true,
               true
             ],
-            "steps": 22,
+            "dateUnits": 13.5,
+            "stageUnits": 32,
+            "steps": 45.5,
             "date": "2026-02-13",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -773,7 +833,9 @@
               true,
               true
             ],
-            "steps": 22,
+            "dateUnits": 13.5,
+            "stageUnits": 32,
+            "steps": 45.5,
             "date": "2026-02-13",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -807,7 +869,9 @@
               true,
               true
             ],
-            "steps": 22,
+            "dateUnits": 13.5,
+            "stageUnits": 32,
+            "steps": 45.5,
             "date": "2026-02-13",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -841,7 +905,9 @@
               true,
               true
             ],
-            "steps": 22,
+            "dateUnits": 13.5,
+            "stageUnits": 32,
+            "steps": 45.5,
             "date": "2026-02-13",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -870,8 +936,10 @@
       },
       {
         "week": 7,
-        "earned": 100,
-        "budget": 272,
+        "earned": 191,
+        "budget": 320,
+        "dateUnits": 63,
+        "stageUnits": 128,
         "expansion": false,
         "lifts": [
           {
@@ -883,7 +951,9 @@
               true,
               true
             ],
-            "steps": 25,
+            "dateUnits": 15.75,
+            "stageUnits": 32,
+            "steps": 47.75,
             "date": "2026-02-20",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -917,7 +987,9 @@
               true,
               true
             ],
-            "steps": 25,
+            "dateUnits": 15.75,
+            "stageUnits": 32,
+            "steps": 47.75,
             "date": "2026-02-20",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -951,7 +1023,9 @@
               true,
               true
             ],
-            "steps": 25,
+            "dateUnits": 15.75,
+            "stageUnits": 32,
+            "steps": 47.75,
             "date": "2026-02-20",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -985,7 +1059,9 @@
               true,
               true
             ],
-            "steps": 25,
+            "dateUnits": 15.75,
+            "stageUnits": 32,
+            "steps": 47.75,
             "date": "2026-02-20",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -1014,8 +1090,10 @@
       },
       {
         "week": 8,
-        "earned": 112,
-        "budget": 272,
+        "earned": 200,
+        "budget": 320,
+        "dateUnits": 72,
+        "stageUnits": 128,
         "expansion": false,
         "lifts": [
           {
@@ -1027,7 +1105,9 @@
               true,
               true
             ],
-            "steps": 28,
+            "dateUnits": 18,
+            "stageUnits": 32,
+            "steps": 50,
             "date": "2026-02-27",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -1061,7 +1141,9 @@
               true,
               true
             ],
-            "steps": 28,
+            "dateUnits": 18,
+            "stageUnits": 32,
+            "steps": 50,
             "date": "2026-02-27",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -1095,7 +1177,9 @@
               true,
               true
             ],
-            "steps": 28,
+            "dateUnits": 18,
+            "stageUnits": 32,
+            "steps": 50,
             "date": "2026-02-27",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -1129,7 +1213,9 @@
               true,
               true
             ],
-            "steps": 28,
+            "dateUnits": 18,
+            "stageUnits": 32,
+            "steps": 50,
             "date": "2026-02-27",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -1158,8 +1244,10 @@
       },
       {
         "week": 9,
-        "earned": 124,
-        "budget": 272,
+        "earned": 209,
+        "budget": 320,
+        "dateUnits": 81,
+        "stageUnits": 128,
         "expansion": false,
         "lifts": [
           {
@@ -1171,7 +1259,9 @@
               true,
               true
             ],
-            "steps": 31,
+            "dateUnits": 20.25,
+            "stageUnits": 32,
+            "steps": 52.25,
             "date": "2026-03-06",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -1205,7 +1295,9 @@
               true,
               true
             ],
-            "steps": 31,
+            "dateUnits": 20.25,
+            "stageUnits": 32,
+            "steps": 52.25,
             "date": "2026-03-06",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -1239,7 +1331,9 @@
               true,
               true
             ],
-            "steps": 31,
+            "dateUnits": 20.25,
+            "stageUnits": 32,
+            "steps": 52.25,
             "date": "2026-03-06",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -1273,7 +1367,9 @@
               true,
               true
             ],
-            "steps": 31,
+            "dateUnits": 20.25,
+            "stageUnits": 32,
+            "steps": 52.25,
             "date": "2026-03-06",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -1302,8 +1398,10 @@
       },
       {
         "week": 10,
-        "earned": 136,
-        "budget": 272,
+        "earned": 218,
+        "budget": 320,
+        "dateUnits": 90,
+        "stageUnits": 128,
         "expansion": false,
         "lifts": [
           {
@@ -1315,7 +1413,9 @@
               true,
               true
             ],
-            "steps": 34,
+            "dateUnits": 22.5,
+            "stageUnits": 32,
+            "steps": 54.5,
             "date": "2026-03-13",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -1349,7 +1449,9 @@
               true,
               true
             ],
-            "steps": 34,
+            "dateUnits": 22.5,
+            "stageUnits": 32,
+            "steps": 54.5,
             "date": "2026-03-13",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -1383,7 +1485,9 @@
               true,
               true
             ],
-            "steps": 34,
+            "dateUnits": 22.5,
+            "stageUnits": 32,
+            "steps": 54.5,
             "date": "2026-03-13",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -1417,7 +1521,9 @@
               true,
               true
             ],
-            "steps": 34,
+            "dateUnits": 22.5,
+            "stageUnits": 32,
+            "steps": 54.5,
             "date": "2026-03-13",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -1446,8 +1552,10 @@
       },
       {
         "week": 11,
-        "earned": 148,
-        "budget": 272,
+        "earned": 227,
+        "budget": 320,
+        "dateUnits": 99,
+        "stageUnits": 128,
         "expansion": false,
         "lifts": [
           {
@@ -1459,7 +1567,9 @@
               true,
               true
             ],
-            "steps": 37,
+            "dateUnits": 24.75,
+            "stageUnits": 32,
+            "steps": 56.75,
             "date": "2026-03-20",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -1493,7 +1603,9 @@
               true,
               true
             ],
-            "steps": 37,
+            "dateUnits": 24.75,
+            "stageUnits": 32,
+            "steps": 56.75,
             "date": "2026-03-20",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -1527,7 +1639,9 @@
               true,
               true
             ],
-            "steps": 37,
+            "dateUnits": 24.75,
+            "stageUnits": 32,
+            "steps": 56.75,
             "date": "2026-03-20",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -1561,7 +1675,9 @@
               true,
               true
             ],
-            "steps": 37,
+            "dateUnits": 24.75,
+            "stageUnits": 32,
+            "steps": 56.75,
             "date": "2026-03-20",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -1590,8 +1706,10 @@
       },
       {
         "week": 12,
-        "earned": 160,
-        "budget": 272,
+        "earned": 236,
+        "budget": 320,
+        "dateUnits": 108,
+        "stageUnits": 128,
         "expansion": false,
         "lifts": [
           {
@@ -1603,7 +1721,9 @@
               true,
               true
             ],
-            "steps": 40,
+            "dateUnits": 27,
+            "stageUnits": 32,
+            "steps": 59,
             "date": "2026-03-27",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -1637,7 +1757,9 @@
               true,
               true
             ],
-            "steps": 40,
+            "dateUnits": 27,
+            "stageUnits": 32,
+            "steps": 59,
             "date": "2026-03-27",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -1671,7 +1793,9 @@
               true,
               true
             ],
-            "steps": 40,
+            "dateUnits": 27,
+            "stageUnits": 32,
+            "steps": 59,
             "date": "2026-03-27",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -1705,7 +1829,9 @@
               true,
               true
             ],
-            "steps": 40,
+            "dateUnits": 27,
+            "stageUnits": 32,
+            "steps": 59,
             "date": "2026-03-27",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -1734,8 +1860,10 @@
       },
       {
         "week": 13,
-        "earned": 172,
-        "budget": 272,
+        "earned": 245,
+        "budget": 320,
+        "dateUnits": 117,
+        "stageUnits": 128,
         "expansion": false,
         "lifts": [
           {
@@ -1747,7 +1875,9 @@
               true,
               true
             ],
-            "steps": 43,
+            "dateUnits": 29.25,
+            "stageUnits": 32,
+            "steps": 61.25,
             "date": "2026-04-03",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -1781,7 +1911,9 @@
               true,
               true
             ],
-            "steps": 43,
+            "dateUnits": 29.25,
+            "stageUnits": 32,
+            "steps": 61.25,
             "date": "2026-04-03",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -1815,7 +1947,9 @@
               true,
               true
             ],
-            "steps": 43,
+            "dateUnits": 29.25,
+            "stageUnits": 32,
+            "steps": 61.25,
             "date": "2026-04-03",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -1849,7 +1983,9 @@
               true,
               true
             ],
-            "steps": 43,
+            "dateUnits": 29.25,
+            "stageUnits": 32,
+            "steps": 61.25,
             "date": "2026-04-03",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -1878,8 +2014,10 @@
       },
       {
         "week": 14,
-        "earned": 184,
-        "budget": 272,
+        "earned": 254,
+        "budget": 320,
+        "dateUnits": 126,
+        "stageUnits": 128,
         "expansion": false,
         "lifts": [
           {
@@ -1891,7 +2029,9 @@
               true,
               true
             ],
-            "steps": 46,
+            "dateUnits": 31.5,
+            "stageUnits": 32,
+            "steps": 63.5,
             "date": "2026-04-10",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -1925,7 +2065,9 @@
               true,
               true
             ],
-            "steps": 46,
+            "dateUnits": 31.5,
+            "stageUnits": 32,
+            "steps": 63.5,
             "date": "2026-04-10",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -1959,7 +2101,9 @@
               true,
               true
             ],
-            "steps": 46,
+            "dateUnits": 31.5,
+            "stageUnits": 32,
+            "steps": 63.5,
             "date": "2026-04-10",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -1993,7 +2137,9 @@
               true,
               true
             ],
-            "steps": 46,
+            "dateUnits": 31.5,
+            "stageUnits": 32,
+            "steps": 63.5,
             "date": "2026-04-10",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -2022,8 +2168,10 @@
       },
       {
         "week": 15,
-        "earned": 196,
-        "budget": 272,
+        "earned": 263,
+        "budget": 320,
+        "dateUnits": 135,
+        "stageUnits": 128,
         "expansion": false,
         "lifts": [
           {
@@ -2035,7 +2183,9 @@
               true,
               true
             ],
-            "steps": 49,
+            "dateUnits": 33.75,
+            "stageUnits": 32,
+            "steps": 65.75,
             "date": "2026-04-17",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -2069,7 +2219,9 @@
               true,
               true
             ],
-            "steps": 49,
+            "dateUnits": 33.75,
+            "stageUnits": 32,
+            "steps": 65.75,
             "date": "2026-04-17",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -2103,7 +2255,9 @@
               true,
               true
             ],
-            "steps": 49,
+            "dateUnits": 33.75,
+            "stageUnits": 32,
+            "steps": 65.75,
             "date": "2026-04-17",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -2137,7 +2291,9 @@
               true,
               true
             ],
-            "steps": 49,
+            "dateUnits": 33.75,
+            "stageUnits": 32,
+            "steps": 65.75,
             "date": "2026-04-17",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -2166,8 +2322,10 @@
       },
       {
         "week": 16,
-        "earned": 208,
-        "budget": 272,
+        "earned": 272,
+        "budget": 320,
+        "dateUnits": 144,
+        "stageUnits": 128,
         "expansion": false,
         "lifts": [
           {
@@ -2179,7 +2337,9 @@
               true,
               true
             ],
-            "steps": 52,
+            "dateUnits": 36,
+            "stageUnits": 32,
+            "steps": 68,
             "date": "2026-04-24",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -2213,7 +2373,9 @@
               true,
               true
             ],
-            "steps": 52,
+            "dateUnits": 36,
+            "stageUnits": 32,
+            "steps": 68,
             "date": "2026-04-24",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -2247,7 +2409,9 @@
               true,
               true
             ],
-            "steps": 52,
+            "dateUnits": 36,
+            "stageUnits": 32,
+            "steps": 68,
             "date": "2026-04-24",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -2281,7 +2445,9 @@
               true,
               true
             ],
-            "steps": 52,
+            "dateUnits": 36,
+            "stageUnits": 32,
+            "steps": 68,
             "date": "2026-04-24",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -2312,8 +2478,10 @@
     "intermediate": [
       {
         "week": 1,
-        "earned": 24,
-        "budget": 544,
+        "earned": 76,
+        "budget": 640,
+        "dateUnits": 12,
+        "stageUnits": 64,
         "expansion": false,
         "lifts": [
           {
@@ -2325,7 +2493,9 @@
               true,
               false
             ],
-            "steps": 3,
+            "dateUnits": 1.5,
+            "stageUnits": 8,
+            "steps": 9.5,
             "date": "2026-01-08",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -2359,7 +2529,9 @@
               true,
               false
             ],
-            "steps": 3,
+            "dateUnits": 1.5,
+            "stageUnits": 8,
+            "steps": 9.5,
             "date": "2026-01-09",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -2393,7 +2565,9 @@
               true,
               false
             ],
-            "steps": 3,
+            "dateUnits": 1.5,
+            "stageUnits": 8,
+            "steps": 9.5,
             "date": "2026-01-08",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -2427,7 +2601,9 @@
               true,
               false
             ],
-            "steps": 3,
+            "dateUnits": 1.5,
+            "stageUnits": 8,
+            "steps": 9.5,
             "date": "2026-01-09",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -2461,7 +2637,9 @@
               true,
               false
             ],
-            "steps": 3,
+            "dateUnits": 1.5,
+            "stageUnits": 8,
+            "steps": 9.5,
             "date": "2026-01-08",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -2495,7 +2673,9 @@
               true,
               false
             ],
-            "steps": 3,
+            "dateUnits": 1.5,
+            "stageUnits": 8,
+            "steps": 9.5,
             "date": "2026-01-09",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -2529,7 +2709,9 @@
               true,
               false
             ],
-            "steps": 3,
+            "dateUnits": 1.5,
+            "stageUnits": 8,
+            "steps": 9.5,
             "date": "2026-01-08",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -2563,7 +2745,9 @@
               true,
               false
             ],
-            "steps": 3,
+            "dateUnits": 1.5,
+            "stageUnits": 8,
+            "steps": 9.5,
             "date": "2026-01-09",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -2592,8 +2776,10 @@
       },
       {
         "week": 2,
-        "earned": 48,
-        "budget": 544,
+        "earned": 152,
+        "budget": 640,
+        "dateUnits": 24,
+        "stageUnits": 128,
         "expansion": false,
         "lifts": [
           {
@@ -2605,7 +2791,9 @@
               true,
               false
             ],
-            "steps": 6,
+            "dateUnits": 3,
+            "stageUnits": 16,
+            "steps": 19,
             "date": "2026-01-15",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -2639,7 +2827,9 @@
               true,
               false
             ],
-            "steps": 6,
+            "dateUnits": 3,
+            "stageUnits": 16,
+            "steps": 19,
             "date": "2026-01-16",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -2673,7 +2863,9 @@
               true,
               false
             ],
-            "steps": 6,
+            "dateUnits": 3,
+            "stageUnits": 16,
+            "steps": 19,
             "date": "2026-01-15",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -2707,7 +2899,9 @@
               true,
               false
             ],
-            "steps": 6,
+            "dateUnits": 3,
+            "stageUnits": 16,
+            "steps": 19,
             "date": "2026-01-16",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -2741,7 +2935,9 @@
               true,
               false
             ],
-            "steps": 6,
+            "dateUnits": 3,
+            "stageUnits": 16,
+            "steps": 19,
             "date": "2026-01-15",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -2775,7 +2971,9 @@
               true,
               false
             ],
-            "steps": 6,
+            "dateUnits": 3,
+            "stageUnits": 16,
+            "steps": 19,
             "date": "2026-01-16",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -2809,7 +3007,9 @@
               true,
               false
             ],
-            "steps": 6,
+            "dateUnits": 3,
+            "stageUnits": 16,
+            "steps": 19,
             "date": "2026-01-15",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -2843,7 +3043,9 @@
               true,
               false
             ],
-            "steps": 6,
+            "dateUnits": 3,
+            "stageUnits": 16,
+            "steps": 19,
             "date": "2026-01-16",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -2872,8 +3074,10 @@
       },
       {
         "week": 3,
-        "earned": 64,
-        "budget": 544,
+        "earned": 164,
+        "budget": 640,
+        "dateUnits": 36,
+        "stageUnits": 128,
         "expansion": false,
         "lifts": [
           {
@@ -2885,7 +3089,9 @@
               true,
               false
             ],
-            "steps": 8,
+            "dateUnits": 4.5,
+            "stageUnits": 16,
+            "steps": 20.5,
             "date": "2026-01-22",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -2919,7 +3125,9 @@
               true,
               false
             ],
-            "steps": 8,
+            "dateUnits": 4.5,
+            "stageUnits": 16,
+            "steps": 20.5,
             "date": "2026-01-23",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -2953,7 +3161,9 @@
               true,
               false
             ],
-            "steps": 8,
+            "dateUnits": 4.5,
+            "stageUnits": 16,
+            "steps": 20.5,
             "date": "2026-01-22",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -2987,7 +3197,9 @@
               true,
               false
             ],
-            "steps": 8,
+            "dateUnits": 4.5,
+            "stageUnits": 16,
+            "steps": 20.5,
             "date": "2026-01-23",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -3021,7 +3233,9 @@
               true,
               false
             ],
-            "steps": 8,
+            "dateUnits": 4.5,
+            "stageUnits": 16,
+            "steps": 20.5,
             "date": "2026-01-22",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -3055,7 +3269,9 @@
               true,
               false
             ],
-            "steps": 8,
+            "dateUnits": 4.5,
+            "stageUnits": 16,
+            "steps": 20.5,
             "date": "2026-01-23",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -3089,7 +3305,9 @@
               true,
               false
             ],
-            "steps": 8,
+            "dateUnits": 4.5,
+            "stageUnits": 16,
+            "steps": 20.5,
             "date": "2026-01-22",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -3123,7 +3341,9 @@
               true,
               false
             ],
-            "steps": 8,
+            "dateUnits": 4.5,
+            "stageUnits": 16,
+            "steps": 20.5,
             "date": "2026-01-23",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -3152,8 +3372,10 @@
       },
       {
         "week": 4,
-        "earned": 80,
-        "budget": 544,
+        "earned": 176,
+        "budget": 640,
+        "dateUnits": 48,
+        "stageUnits": 128,
         "expansion": false,
         "lifts": [
           {
@@ -3165,7 +3387,9 @@
               true,
               false
             ],
-            "steps": 10,
+            "dateUnits": 6,
+            "stageUnits": 16,
+            "steps": 22,
             "date": "2026-01-29",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -3199,7 +3423,9 @@
               true,
               false
             ],
-            "steps": 10,
+            "dateUnits": 6,
+            "stageUnits": 16,
+            "steps": 22,
             "date": "2026-01-30",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -3233,7 +3459,9 @@
               true,
               false
             ],
-            "steps": 10,
+            "dateUnits": 6,
+            "stageUnits": 16,
+            "steps": 22,
             "date": "2026-01-29",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -3267,7 +3495,9 @@
               true,
               false
             ],
-            "steps": 10,
+            "dateUnits": 6,
+            "stageUnits": 16,
+            "steps": 22,
             "date": "2026-01-30",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -3301,7 +3531,9 @@
               true,
               false
             ],
-            "steps": 10,
+            "dateUnits": 6,
+            "stageUnits": 16,
+            "steps": 22,
             "date": "2026-01-29",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -3335,7 +3567,9 @@
               true,
               false
             ],
-            "steps": 10,
+            "dateUnits": 6,
+            "stageUnits": 16,
+            "steps": 22,
             "date": "2026-01-30",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -3369,7 +3603,9 @@
               true,
               false
             ],
-            "steps": 10,
+            "dateUnits": 6,
+            "stageUnits": 16,
+            "steps": 22,
             "date": "2026-01-29",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -3403,7 +3639,9 @@
               true,
               false
             ],
-            "steps": 10,
+            "dateUnits": 6,
+            "stageUnits": 16,
+            "steps": 22,
             "date": "2026-01-30",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -3432,8 +3670,10 @@
       },
       {
         "week": 5,
-        "earned": 96,
-        "budget": 544,
+        "earned": 188,
+        "budget": 640,
+        "dateUnits": 60,
+        "stageUnits": 128,
         "expansion": false,
         "lifts": [
           {
@@ -3445,7 +3685,9 @@
               true,
               false
             ],
-            "steps": 12,
+            "dateUnits": 7.5,
+            "stageUnits": 16,
+            "steps": 23.5,
             "date": "2026-02-05",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -3479,7 +3721,9 @@
               true,
               false
             ],
-            "steps": 12,
+            "dateUnits": 7.5,
+            "stageUnits": 16,
+            "steps": 23.5,
             "date": "2026-02-06",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -3513,7 +3757,9 @@
               true,
               false
             ],
-            "steps": 12,
+            "dateUnits": 7.5,
+            "stageUnits": 16,
+            "steps": 23.5,
             "date": "2026-02-05",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -3547,7 +3793,9 @@
               true,
               false
             ],
-            "steps": 12,
+            "dateUnits": 7.5,
+            "stageUnits": 16,
+            "steps": 23.5,
             "date": "2026-02-06",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -3581,7 +3829,9 @@
               true,
               false
             ],
-            "steps": 12,
+            "dateUnits": 7.5,
+            "stageUnits": 16,
+            "steps": 23.5,
             "date": "2026-02-05",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -3615,7 +3865,9 @@
               true,
               false
             ],
-            "steps": 12,
+            "dateUnits": 7.5,
+            "stageUnits": 16,
+            "steps": 23.5,
             "date": "2026-02-06",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -3649,7 +3901,9 @@
               true,
               false
             ],
-            "steps": 12,
+            "dateUnits": 7.5,
+            "stageUnits": 16,
+            "steps": 23.5,
             "date": "2026-02-05",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -3683,7 +3937,9 @@
               true,
               false
             ],
-            "steps": 12,
+            "dateUnits": 7.5,
+            "stageUnits": 16,
+            "steps": 23.5,
             "date": "2026-02-06",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -3712,8 +3968,10 @@
       },
       {
         "week": 6,
-        "earned": 112,
-        "budget": 544,
+        "earned": 200,
+        "budget": 640,
+        "dateUnits": 72,
+        "stageUnits": 128,
         "expansion": false,
         "lifts": [
           {
@@ -3725,7 +3983,9 @@
               true,
               false
             ],
-            "steps": 14,
+            "dateUnits": 9,
+            "stageUnits": 16,
+            "steps": 25,
             "date": "2026-02-12",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -3759,7 +4019,9 @@
               true,
               false
             ],
-            "steps": 14,
+            "dateUnits": 9,
+            "stageUnits": 16,
+            "steps": 25,
             "date": "2026-02-13",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -3793,7 +4055,9 @@
               true,
               false
             ],
-            "steps": 14,
+            "dateUnits": 9,
+            "stageUnits": 16,
+            "steps": 25,
             "date": "2026-02-12",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -3827,7 +4091,9 @@
               true,
               false
             ],
-            "steps": 14,
+            "dateUnits": 9,
+            "stageUnits": 16,
+            "steps": 25,
             "date": "2026-02-13",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -3861,7 +4127,9 @@
               true,
               false
             ],
-            "steps": 14,
+            "dateUnits": 9,
+            "stageUnits": 16,
+            "steps": 25,
             "date": "2026-02-12",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -3895,7 +4163,9 @@
               true,
               false
             ],
-            "steps": 14,
+            "dateUnits": 9,
+            "stageUnits": 16,
+            "steps": 25,
             "date": "2026-02-13",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -3929,7 +4199,9 @@
               true,
               false
             ],
-            "steps": 14,
+            "dateUnits": 9,
+            "stageUnits": 16,
+            "steps": 25,
             "date": "2026-02-12",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -3963,7 +4235,9 @@
               true,
               false
             ],
-            "steps": 14,
+            "dateUnits": 9,
+            "stageUnits": 16,
+            "steps": 25,
             "date": "2026-02-13",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -3992,8 +4266,10 @@
       },
       {
         "week": 7,
-        "earned": 128,
-        "budget": 544,
+        "earned": 212,
+        "budget": 640,
+        "dateUnits": 84,
+        "stageUnits": 128,
         "expansion": false,
         "lifts": [
           {
@@ -4005,7 +4281,9 @@
               true,
               false
             ],
-            "steps": 16,
+            "dateUnits": 10.5,
+            "stageUnits": 16,
+            "steps": 26.5,
             "date": "2026-02-19",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -4039,7 +4317,9 @@
               true,
               false
             ],
-            "steps": 16,
+            "dateUnits": 10.5,
+            "stageUnits": 16,
+            "steps": 26.5,
             "date": "2026-02-20",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -4073,7 +4353,9 @@
               true,
               false
             ],
-            "steps": 16,
+            "dateUnits": 10.5,
+            "stageUnits": 16,
+            "steps": 26.5,
             "date": "2026-02-19",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -4107,7 +4389,9 @@
               true,
               false
             ],
-            "steps": 16,
+            "dateUnits": 10.5,
+            "stageUnits": 16,
+            "steps": 26.5,
             "date": "2026-02-20",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -4141,7 +4425,9 @@
               true,
               false
             ],
-            "steps": 16,
+            "dateUnits": 10.5,
+            "stageUnits": 16,
+            "steps": 26.5,
             "date": "2026-02-19",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -4175,7 +4461,9 @@
               true,
               false
             ],
-            "steps": 16,
+            "dateUnits": 10.5,
+            "stageUnits": 16,
+            "steps": 26.5,
             "date": "2026-02-20",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -4209,7 +4497,9 @@
               true,
               false
             ],
-            "steps": 16,
+            "dateUnits": 10.5,
+            "stageUnits": 16,
+            "steps": 26.5,
             "date": "2026-02-19",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -4243,7 +4533,9 @@
               true,
               false
             ],
-            "steps": 16,
+            "dateUnits": 10.5,
+            "stageUnits": 16,
+            "steps": 26.5,
             "date": "2026-02-20",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -4272,8 +4564,10 @@
       },
       {
         "week": 8,
-        "earned": 144,
-        "budget": 544,
+        "earned": 224,
+        "budget": 640,
+        "dateUnits": 96,
+        "stageUnits": 128,
         "expansion": false,
         "lifts": [
           {
@@ -4285,7 +4579,9 @@
               true,
               false
             ],
-            "steps": 18,
+            "dateUnits": 12,
+            "stageUnits": 16,
+            "steps": 28,
             "date": "2026-02-26",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -4319,7 +4615,9 @@
               true,
               false
             ],
-            "steps": 18,
+            "dateUnits": 12,
+            "stageUnits": 16,
+            "steps": 28,
             "date": "2026-02-27",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -4353,7 +4651,9 @@
               true,
               false
             ],
-            "steps": 18,
+            "dateUnits": 12,
+            "stageUnits": 16,
+            "steps": 28,
             "date": "2026-02-26",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -4387,7 +4687,9 @@
               true,
               false
             ],
-            "steps": 18,
+            "dateUnits": 12,
+            "stageUnits": 16,
+            "steps": 28,
             "date": "2026-02-27",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -4421,7 +4723,9 @@
               true,
               false
             ],
-            "steps": 18,
+            "dateUnits": 12,
+            "stageUnits": 16,
+            "steps": 28,
             "date": "2026-02-26",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -4455,7 +4759,9 @@
               true,
               false
             ],
-            "steps": 18,
+            "dateUnits": 12,
+            "stageUnits": 16,
+            "steps": 28,
             "date": "2026-02-27",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -4489,7 +4795,9 @@
               true,
               false
             ],
-            "steps": 18,
+            "dateUnits": 12,
+            "stageUnits": 16,
+            "steps": 28,
             "date": "2026-02-26",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -4523,7 +4831,9 @@
               true,
               false
             ],
-            "steps": 18,
+            "dateUnits": 12,
+            "stageUnits": 16,
+            "steps": 28,
             "date": "2026-02-27",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -4552,8 +4862,10 @@
       },
       {
         "week": 9,
-        "earned": 160,
-        "budget": 544,
+        "earned": 236,
+        "budget": 640,
+        "dateUnits": 108,
+        "stageUnits": 128,
         "expansion": false,
         "lifts": [
           {
@@ -4565,7 +4877,9 @@
               true,
               false
             ],
-            "steps": 20,
+            "dateUnits": 13.5,
+            "stageUnits": 16,
+            "steps": 29.5,
             "date": "2026-03-05",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -4599,7 +4913,9 @@
               true,
               false
             ],
-            "steps": 20,
+            "dateUnits": 13.5,
+            "stageUnits": 16,
+            "steps": 29.5,
             "date": "2026-03-06",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -4633,7 +4949,9 @@
               true,
               false
             ],
-            "steps": 20,
+            "dateUnits": 13.5,
+            "stageUnits": 16,
+            "steps": 29.5,
             "date": "2026-03-05",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -4667,7 +4985,9 @@
               true,
               false
             ],
-            "steps": 20,
+            "dateUnits": 13.5,
+            "stageUnits": 16,
+            "steps": 29.5,
             "date": "2026-03-06",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -4701,7 +5021,9 @@
               true,
               false
             ],
-            "steps": 20,
+            "dateUnits": 13.5,
+            "stageUnits": 16,
+            "steps": 29.5,
             "date": "2026-03-05",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -4735,7 +5057,9 @@
               true,
               false
             ],
-            "steps": 20,
+            "dateUnits": 13.5,
+            "stageUnits": 16,
+            "steps": 29.5,
             "date": "2026-03-06",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -4769,7 +5093,9 @@
               true,
               false
             ],
-            "steps": 20,
+            "dateUnits": 13.5,
+            "stageUnits": 16,
+            "steps": 29.5,
             "date": "2026-03-05",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -4803,7 +5129,9 @@
               true,
               false
             ],
-            "steps": 20,
+            "dateUnits": 13.5,
+            "stageUnits": 16,
+            "steps": 29.5,
             "date": "2026-03-06",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -4832,8 +5160,10 @@
       },
       {
         "week": 10,
-        "earned": 176,
-        "budget": 544,
+        "earned": 248,
+        "budget": 640,
+        "dateUnits": 120,
+        "stageUnits": 128,
         "expansion": false,
         "lifts": [
           {
@@ -4845,7 +5175,9 @@
               true,
               false
             ],
-            "steps": 22,
+            "dateUnits": 15,
+            "stageUnits": 16,
+            "steps": 31,
             "date": "2026-03-12",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -4879,7 +5211,9 @@
               true,
               false
             ],
-            "steps": 22,
+            "dateUnits": 15,
+            "stageUnits": 16,
+            "steps": 31,
             "date": "2026-03-13",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -4913,7 +5247,9 @@
               true,
               false
             ],
-            "steps": 22,
+            "dateUnits": 15,
+            "stageUnits": 16,
+            "steps": 31,
             "date": "2026-03-12",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -4947,7 +5283,9 @@
               true,
               false
             ],
-            "steps": 22,
+            "dateUnits": 15,
+            "stageUnits": 16,
+            "steps": 31,
             "date": "2026-03-13",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -4981,7 +5319,9 @@
               true,
               false
             ],
-            "steps": 22,
+            "dateUnits": 15,
+            "stageUnits": 16,
+            "steps": 31,
             "date": "2026-03-12",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -5015,7 +5355,9 @@
               true,
               false
             ],
-            "steps": 22,
+            "dateUnits": 15,
+            "stageUnits": 16,
+            "steps": 31,
             "date": "2026-03-13",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -5049,7 +5391,9 @@
               true,
               false
             ],
-            "steps": 22,
+            "dateUnits": 15,
+            "stageUnits": 16,
+            "steps": 31,
             "date": "2026-03-12",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -5083,7 +5427,9 @@
               true,
               false
             ],
-            "steps": 22,
+            "dateUnits": 15,
+            "stageUnits": 16,
+            "steps": 31,
             "date": "2026-03-13",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -5112,8 +5458,10 @@
       },
       {
         "week": 11,
-        "earned": 192,
-        "budget": 544,
+        "earned": 260,
+        "budget": 640,
+        "dateUnits": 132,
+        "stageUnits": 128,
         "expansion": false,
         "lifts": [
           {
@@ -5125,7 +5473,9 @@
               true,
               false
             ],
-            "steps": 24,
+            "dateUnits": 16.5,
+            "stageUnits": 16,
+            "steps": 32.5,
             "date": "2026-03-19",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -5159,7 +5509,9 @@
               true,
               false
             ],
-            "steps": 24,
+            "dateUnits": 16.5,
+            "stageUnits": 16,
+            "steps": 32.5,
             "date": "2026-03-20",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -5193,7 +5545,9 @@
               true,
               false
             ],
-            "steps": 24,
+            "dateUnits": 16.5,
+            "stageUnits": 16,
+            "steps": 32.5,
             "date": "2026-03-19",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -5227,7 +5581,9 @@
               true,
               false
             ],
-            "steps": 24,
+            "dateUnits": 16.5,
+            "stageUnits": 16,
+            "steps": 32.5,
             "date": "2026-03-20",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -5261,7 +5617,9 @@
               true,
               false
             ],
-            "steps": 24,
+            "dateUnits": 16.5,
+            "stageUnits": 16,
+            "steps": 32.5,
             "date": "2026-03-19",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -5295,7 +5653,9 @@
               true,
               false
             ],
-            "steps": 24,
+            "dateUnits": 16.5,
+            "stageUnits": 16,
+            "steps": 32.5,
             "date": "2026-03-20",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -5329,7 +5689,9 @@
               true,
               false
             ],
-            "steps": 24,
+            "dateUnits": 16.5,
+            "stageUnits": 16,
+            "steps": 32.5,
             "date": "2026-03-19",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -5363,7 +5725,9 @@
               true,
               false
             ],
-            "steps": 24,
+            "dateUnits": 16.5,
+            "stageUnits": 16,
+            "steps": 32.5,
             "date": "2026-03-20",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -5392,8 +5756,10 @@
       },
       {
         "week": 12,
-        "earned": 208,
-        "budget": 544,
+        "earned": 272,
+        "budget": 640,
+        "dateUnits": 144,
+        "stageUnits": 128,
         "expansion": false,
         "lifts": [
           {
@@ -5405,7 +5771,9 @@
               true,
               false
             ],
-            "steps": 26,
+            "dateUnits": 18,
+            "stageUnits": 16,
+            "steps": 34,
             "date": "2026-03-26",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -5439,7 +5807,9 @@
               true,
               false
             ],
-            "steps": 26,
+            "dateUnits": 18,
+            "stageUnits": 16,
+            "steps": 34,
             "date": "2026-03-27",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -5473,7 +5843,9 @@
               true,
               false
             ],
-            "steps": 26,
+            "dateUnits": 18,
+            "stageUnits": 16,
+            "steps": 34,
             "date": "2026-03-26",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -5507,7 +5879,9 @@
               true,
               false
             ],
-            "steps": 26,
+            "dateUnits": 18,
+            "stageUnits": 16,
+            "steps": 34,
             "date": "2026-03-27",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -5541,7 +5915,9 @@
               true,
               false
             ],
-            "steps": 26,
+            "dateUnits": 18,
+            "stageUnits": 16,
+            "steps": 34,
             "date": "2026-03-26",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -5575,7 +5951,9 @@
               true,
               false
             ],
-            "steps": 26,
+            "dateUnits": 18,
+            "stageUnits": 16,
+            "steps": 34,
             "date": "2026-03-27",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -5609,7 +5987,9 @@
               true,
               false
             ],
-            "steps": 26,
+            "dateUnits": 18,
+            "stageUnits": 16,
+            "steps": 34,
             "date": "2026-03-26",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -5643,7 +6023,9 @@
               true,
               false
             ],
-            "steps": 26,
+            "dateUnits": 18,
+            "stageUnits": 16,
+            "steps": 34,
             "date": "2026-03-27",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -5672,8 +6054,10 @@
       },
       {
         "week": 13,
-        "earned": 224,
-        "budget": 544,
+        "earned": 284,
+        "budget": 640,
+        "dateUnits": 156,
+        "stageUnits": 128,
         "expansion": false,
         "lifts": [
           {
@@ -5685,7 +6069,9 @@
               true,
               false
             ],
-            "steps": 28,
+            "dateUnits": 19.5,
+            "stageUnits": 16,
+            "steps": 35.5,
             "date": "2026-04-02",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -5719,7 +6105,9 @@
               true,
               false
             ],
-            "steps": 28,
+            "dateUnits": 19.5,
+            "stageUnits": 16,
+            "steps": 35.5,
             "date": "2026-04-03",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -5753,7 +6141,9 @@
               true,
               false
             ],
-            "steps": 28,
+            "dateUnits": 19.5,
+            "stageUnits": 16,
+            "steps": 35.5,
             "date": "2026-04-02",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -5787,7 +6177,9 @@
               true,
               false
             ],
-            "steps": 28,
+            "dateUnits": 19.5,
+            "stageUnits": 16,
+            "steps": 35.5,
             "date": "2026-04-03",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -5821,7 +6213,9 @@
               true,
               false
             ],
-            "steps": 28,
+            "dateUnits": 19.5,
+            "stageUnits": 16,
+            "steps": 35.5,
             "date": "2026-04-02",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -5855,7 +6249,9 @@
               true,
               false
             ],
-            "steps": 28,
+            "dateUnits": 19.5,
+            "stageUnits": 16,
+            "steps": 35.5,
             "date": "2026-04-03",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -5889,7 +6285,9 @@
               true,
               false
             ],
-            "steps": 28,
+            "dateUnits": 19.5,
+            "stageUnits": 16,
+            "steps": 35.5,
             "date": "2026-04-02",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -5923,7 +6321,9 @@
               true,
               false
             ],
-            "steps": 28,
+            "dateUnits": 19.5,
+            "stageUnits": 16,
+            "steps": 35.5,
             "date": "2026-04-03",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -5952,8 +6352,10 @@
       },
       {
         "week": 14,
-        "earned": 240,
-        "budget": 544,
+        "earned": 296,
+        "budget": 640,
+        "dateUnits": 168,
+        "stageUnits": 128,
         "expansion": false,
         "lifts": [
           {
@@ -5965,7 +6367,9 @@
               true,
               false
             ],
-            "steps": 30,
+            "dateUnits": 21,
+            "stageUnits": 16,
+            "steps": 37,
             "date": "2026-04-09",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -5999,7 +6403,9 @@
               true,
               false
             ],
-            "steps": 30,
+            "dateUnits": 21,
+            "stageUnits": 16,
+            "steps": 37,
             "date": "2026-04-10",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -6033,7 +6439,9 @@
               true,
               false
             ],
-            "steps": 30,
+            "dateUnits": 21,
+            "stageUnits": 16,
+            "steps": 37,
             "date": "2026-04-09",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -6067,7 +6475,9 @@
               true,
               false
             ],
-            "steps": 30,
+            "dateUnits": 21,
+            "stageUnits": 16,
+            "steps": 37,
             "date": "2026-04-10",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -6101,7 +6511,9 @@
               true,
               false
             ],
-            "steps": 30,
+            "dateUnits": 21,
+            "stageUnits": 16,
+            "steps": 37,
             "date": "2026-04-09",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -6135,7 +6547,9 @@
               true,
               false
             ],
-            "steps": 30,
+            "dateUnits": 21,
+            "stageUnits": 16,
+            "steps": 37,
             "date": "2026-04-10",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -6169,7 +6583,9 @@
               true,
               false
             ],
-            "steps": 30,
+            "dateUnits": 21,
+            "stageUnits": 16,
+            "steps": 37,
             "date": "2026-04-09",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -6203,7 +6619,9 @@
               true,
               false
             ],
-            "steps": 30,
+            "dateUnits": 21,
+            "stageUnits": 16,
+            "steps": 37,
             "date": "2026-04-10",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -6232,8 +6650,10 @@
       },
       {
         "week": 15,
-        "earned": 256,
-        "budget": 544,
+        "earned": 308,
+        "budget": 640,
+        "dateUnits": 180,
+        "stageUnits": 128,
         "expansion": false,
         "lifts": [
           {
@@ -6245,7 +6665,9 @@
               true,
               false
             ],
-            "steps": 32,
+            "dateUnits": 22.5,
+            "stageUnits": 16,
+            "steps": 38.5,
             "date": "2026-04-16",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -6279,7 +6701,9 @@
               true,
               false
             ],
-            "steps": 32,
+            "dateUnits": 22.5,
+            "stageUnits": 16,
+            "steps": 38.5,
             "date": "2026-04-17",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -6313,7 +6737,9 @@
               true,
               false
             ],
-            "steps": 32,
+            "dateUnits": 22.5,
+            "stageUnits": 16,
+            "steps": 38.5,
             "date": "2026-04-16",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -6347,7 +6773,9 @@
               true,
               false
             ],
-            "steps": 32,
+            "dateUnits": 22.5,
+            "stageUnits": 16,
+            "steps": 38.5,
             "date": "2026-04-17",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -6381,7 +6809,9 @@
               true,
               false
             ],
-            "steps": 32,
+            "dateUnits": 22.5,
+            "stageUnits": 16,
+            "steps": 38.5,
             "date": "2026-04-16",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -6415,7 +6845,9 @@
               true,
               false
             ],
-            "steps": 32,
+            "dateUnits": 22.5,
+            "stageUnits": 16,
+            "steps": 38.5,
             "date": "2026-04-17",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -6449,7 +6881,9 @@
               true,
               false
             ],
-            "steps": 32,
+            "dateUnits": 22.5,
+            "stageUnits": 16,
+            "steps": 38.5,
             "date": "2026-04-16",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -6483,7 +6917,9 @@
               true,
               false
             ],
-            "steps": 32,
+            "dateUnits": 22.5,
+            "stageUnits": 16,
+            "steps": 38.5,
             "date": "2026-04-17",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -6512,8 +6948,10 @@
       },
       {
         "week": 16,
-        "earned": 280,
-        "budget": 544,
+        "earned": 384,
+        "budget": 640,
+        "dateUnits": 192,
+        "stageUnits": 192,
         "expansion": false,
         "lifts": [
           {
@@ -6525,7 +6963,9 @@
               true,
               false
             ],
-            "steps": 35,
+            "dateUnits": 24,
+            "stageUnits": 24,
+            "steps": 48,
             "date": "2026-04-23",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -6559,7 +6999,9 @@
               true,
               false
             ],
-            "steps": 35,
+            "dateUnits": 24,
+            "stageUnits": 24,
+            "steps": 48,
             "date": "2026-04-24",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -6593,7 +7035,9 @@
               true,
               false
             ],
-            "steps": 35,
+            "dateUnits": 24,
+            "stageUnits": 24,
+            "steps": 48,
             "date": "2026-04-23",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -6627,7 +7071,9 @@
               true,
               false
             ],
-            "steps": 35,
+            "dateUnits": 24,
+            "stageUnits": 24,
+            "steps": 48,
             "date": "2026-04-24",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -6661,7 +7107,9 @@
               true,
               false
             ],
-            "steps": 35,
+            "dateUnits": 24,
+            "stageUnits": 24,
+            "steps": 48,
             "date": "2026-04-23",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -6695,7 +7143,9 @@
               true,
               false
             ],
-            "steps": 35,
+            "dateUnits": 24,
+            "stageUnits": 24,
+            "steps": 48,
             "date": "2026-04-24",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -6729,7 +7179,9 @@
               true,
               false
             ],
-            "steps": 35,
+            "dateUnits": 24,
+            "stageUnits": 24,
+            "steps": 48,
             "date": "2026-04-23",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -6763,7 +7215,9 @@
               true,
               false
             ],
-            "steps": 35,
+            "dateUnits": 24,
+            "stageUnits": 24,
+            "steps": 48,
             "date": "2026-04-24",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -6794,8 +7248,10 @@
     "change": [
       {
         "week": 1,
-        "earned": 16,
-        "budget": 272,
+        "earned": 41,
+        "budget": 320,
+        "dateUnits": 9,
+        "stageUnits": 32,
         "expansion": false,
         "lifts": [
           {
@@ -6807,7 +7263,9 @@
               true,
               true
             ],
-            "steps": 4,
+            "dateUnits": 2.25,
+            "stageUnits": 8,
+            "steps": 10.25,
             "date": "2026-01-09",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -6841,7 +7299,9 @@
               true,
               true
             ],
-            "steps": 4,
+            "dateUnits": 2.25,
+            "stageUnits": 8,
+            "steps": 10.25,
             "date": "2026-01-09",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -6875,7 +7335,9 @@
               true,
               true
             ],
-            "steps": 4,
+            "dateUnits": 2.25,
+            "stageUnits": 8,
+            "steps": 10.25,
             "date": "2026-01-09",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -6909,7 +7371,9 @@
               true,
               true
             ],
-            "steps": 4,
+            "dateUnits": 2.25,
+            "stageUnits": 8,
+            "steps": 10.25,
             "date": "2026-01-09",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -6938,8 +7402,10 @@
       },
       {
         "week": 2,
-        "earned": 36,
-        "budget": 272,
+        "earned": 114,
+        "budget": 320,
+        "dateUnits": 18,
+        "stageUnits": 96,
         "expansion": false,
         "lifts": [
           {
@@ -6951,7 +7417,9 @@
               true,
               true
             ],
-            "steps": 9,
+            "dateUnits": 4.5,
+            "stageUnits": 24,
+            "steps": 28.5,
             "date": "2026-01-16",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -6985,7 +7453,9 @@
               true,
               true
             ],
-            "steps": 9,
+            "dateUnits": 4.5,
+            "stageUnits": 24,
+            "steps": 28.5,
             "date": "2026-01-16",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -7019,7 +7489,9 @@
               true,
               true
             ],
-            "steps": 9,
+            "dateUnits": 4.5,
+            "stageUnits": 24,
+            "steps": 28.5,
             "date": "2026-01-16",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -7053,7 +7525,9 @@
               true,
               true
             ],
-            "steps": 9,
+            "dateUnits": 4.5,
+            "stageUnits": 24,
+            "steps": 28.5,
             "date": "2026-01-16",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -7082,8 +7556,10 @@
       },
       {
         "week": 3,
-        "earned": 48,
-        "budget": 272,
+        "earned": 123,
+        "budget": 320,
+        "dateUnits": 27,
+        "stageUnits": 96,
         "expansion": false,
         "lifts": [
           {
@@ -7095,7 +7571,9 @@
               true,
               true
             ],
-            "steps": 12,
+            "dateUnits": 6.75,
+            "stageUnits": 24,
+            "steps": 30.75,
             "date": "2026-01-23",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -7129,7 +7607,9 @@
               true,
               true
             ],
-            "steps": 12,
+            "dateUnits": 6.75,
+            "stageUnits": 24,
+            "steps": 30.75,
             "date": "2026-01-23",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -7163,7 +7643,9 @@
               true,
               true
             ],
-            "steps": 12,
+            "dateUnits": 6.75,
+            "stageUnits": 24,
+            "steps": 30.75,
             "date": "2026-01-23",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -7197,7 +7679,9 @@
               true,
               true
             ],
-            "steps": 12,
+            "dateUnits": 6.75,
+            "stageUnits": 24,
+            "steps": 30.75,
             "date": "2026-01-23",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -7226,8 +7710,10 @@
       },
       {
         "week": 4,
-        "earned": 60,
-        "budget": 272,
+        "earned": 132,
+        "budget": 320,
+        "dateUnits": 36,
+        "stageUnits": 96,
         "expansion": false,
         "lifts": [
           {
@@ -7239,7 +7725,9 @@
               true,
               true
             ],
-            "steps": 15,
+            "dateUnits": 9,
+            "stageUnits": 24,
+            "steps": 33,
             "date": "2026-01-30",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -7273,7 +7761,9 @@
               true,
               true
             ],
-            "steps": 15,
+            "dateUnits": 9,
+            "stageUnits": 24,
+            "steps": 33,
             "date": "2026-01-30",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -7307,7 +7797,9 @@
               true,
               true
             ],
-            "steps": 15,
+            "dateUnits": 9,
+            "stageUnits": 24,
+            "steps": 33,
             "date": "2026-01-30",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -7341,7 +7833,9 @@
               true,
               true
             ],
-            "steps": 15,
+            "dateUnits": 9,
+            "stageUnits": 24,
+            "steps": 33,
             "date": "2026-01-30",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -7370,8 +7864,10 @@
       },
       {
         "week": 5,
-        "earned": 74,
-        "budget": 272,
+        "earned": 157,
+        "budget": 320,
+        "dateUnits": 45,
+        "stageUnits": 112,
         "expansion": false,
         "lifts": [
           {
@@ -7383,7 +7879,9 @@
               true,
               true
             ],
-            "steps": 19,
+            "dateUnits": 11.25,
+            "stageUnits": 32,
+            "steps": 43.25,
             "date": "2026-02-06",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -7417,7 +7915,9 @@
               true,
               true
             ],
-            "steps": 19,
+            "dateUnits": 11.25,
+            "stageUnits": 32,
+            "steps": 43.25,
             "date": "2026-02-06",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -7451,7 +7951,9 @@
               true,
               true
             ],
-            "steps": 18,
+            "dateUnits": 11.25,
+            "stageUnits": 24,
+            "steps": 35.25,
             "date": "2026-02-06",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -7485,7 +7987,9 @@
               true,
               true
             ],
-            "steps": 18,
+            "dateUnits": 11.25,
+            "stageUnits": 24,
+            "steps": 35.25,
             "date": "2026-02-06",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -7514,8 +8018,10 @@
       },
       {
         "week": 6,
-        "earned": 88,
-        "budget": 272,
+        "earned": 182,
+        "budget": 320,
+        "dateUnits": 54,
+        "stageUnits": 128,
         "expansion": false,
         "lifts": [
           {
@@ -7527,7 +8033,9 @@
               true,
               true
             ],
-            "steps": 22,
+            "dateUnits": 13.5,
+            "stageUnits": 32,
+            "steps": 45.5,
             "date": "2026-02-13",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -7561,7 +8069,9 @@
               true,
               true
             ],
-            "steps": 22,
+            "dateUnits": 13.5,
+            "stageUnits": 32,
+            "steps": 45.5,
             "date": "2026-02-13",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -7595,7 +8105,9 @@
               true,
               true
             ],
-            "steps": 22,
+            "dateUnits": 13.5,
+            "stageUnits": 32,
+            "steps": 45.5,
             "date": "2026-02-13",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -7629,7 +8141,9 @@
               true,
               true
             ],
-            "steps": 22,
+            "dateUnits": 13.5,
+            "stageUnits": 32,
+            "steps": 45.5,
             "date": "2026-02-13",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -7658,8 +8172,10 @@
       },
       {
         "week": 7,
-        "earned": 100,
-        "budget": 272,
+        "earned": 191,
+        "budget": 320,
+        "dateUnits": 63,
+        "stageUnits": 128,
         "expansion": false,
         "lifts": [
           {
@@ -7671,7 +8187,9 @@
               true,
               true
             ],
-            "steps": 25,
+            "dateUnits": 15.75,
+            "stageUnits": 32,
+            "steps": 47.75,
             "date": "2026-02-20",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -7705,7 +8223,9 @@
               true,
               true
             ],
-            "steps": 25,
+            "dateUnits": 15.75,
+            "stageUnits": 32,
+            "steps": 47.75,
             "date": "2026-02-20",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -7739,7 +8259,9 @@
               true,
               true
             ],
-            "steps": 25,
+            "dateUnits": 15.75,
+            "stageUnits": 32,
+            "steps": 47.75,
             "date": "2026-02-20",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -7773,7 +8295,9 @@
               true,
               true
             ],
-            "steps": 25,
+            "dateUnits": 15.75,
+            "stageUnits": 32,
+            "steps": 47.75,
             "date": "2026-02-20",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -7802,8 +8326,10 @@
       },
       {
         "week": 8,
-        "earned": 112,
-        "budget": 408,
+        "earned": 200,
+        "budget": 480,
+        "dateUnits": 72,
+        "stageUnits": 128,
         "expansion": true,
         "lifts": [
           {
@@ -7815,7 +8341,9 @@
               true,
               true
             ],
-            "steps": 28,
+            "dateUnits": 18,
+            "stageUnits": 32,
+            "steps": 50,
             "date": "2026-02-27",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -7849,7 +8377,9 @@
               true,
               true
             ],
-            "steps": 28,
+            "dateUnits": 18,
+            "stageUnits": 32,
+            "steps": 50,
             "date": "2026-02-27",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -7883,7 +8413,9 @@
               true,
               true
             ],
-            "steps": 28,
+            "dateUnits": 18,
+            "stageUnits": 32,
+            "steps": 50,
             "date": "2026-02-27",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -7917,7 +8449,9 @@
               true,
               true
             ],
-            "steps": 28,
+            "dateUnits": 18,
+            "stageUnits": 32,
+            "steps": 50,
             "date": "2026-02-27",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -7951,6 +8485,8 @@
               false,
               false
             ],
+            "dateUnits": 0,
+            "stageUnits": 0,
             "steps": 0
           },
           {
@@ -7962,14 +8498,18 @@
               false,
               false
             ],
+            "dateUnits": 0,
+            "stageUnits": 0,
             "steps": 0
           }
         ]
       },
       {
         "week": 9,
-        "earned": 132,
-        "budget": 408,
+        "earned": 229.5,
+        "budget": 480,
+        "dateUnits": 85.5,
+        "stageUnits": 144,
         "expansion": false,
         "lifts": [
           {
@@ -7981,7 +8521,9 @@
               true,
               true
             ],
-            "steps": 31,
+            "dateUnits": 20.25,
+            "stageUnits": 32,
+            "steps": 52.25,
             "date": "2026-03-06",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -8015,7 +8557,9 @@
               true,
               true
             ],
-            "steps": 31,
+            "dateUnits": 20.25,
+            "stageUnits": 32,
+            "steps": 52.25,
             "date": "2026-03-06",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -8049,7 +8593,9 @@
               true,
               true
             ],
-            "steps": 31,
+            "dateUnits": 20.25,
+            "stageUnits": 32,
+            "steps": 52.25,
             "date": "2026-03-06",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -8083,7 +8629,9 @@
               true,
               true
             ],
-            "steps": 31,
+            "dateUnits": 20.25,
+            "stageUnits": 32,
+            "steps": 52.25,
             "date": "2026-03-06",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -8117,7 +8665,9 @@
               false,
               false
             ],
-            "steps": 4,
+            "dateUnits": 2.25,
+            "stageUnits": 8,
+            "steps": 10.25,
             "date": "2026-03-06",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -8151,7 +8701,9 @@
               false,
               false
             ],
-            "steps": 4,
+            "dateUnits": 2.25,
+            "stageUnits": 8,
+            "steps": 10.25,
             "date": "2026-03-06",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -8180,8 +8732,10 @@
       },
       {
         "week": 10,
-        "earned": 152,
-        "budget": 408,
+        "earned": 259,
+        "budget": 480,
+        "dateUnits": 99,
+        "stageUnits": 160,
         "expansion": false,
         "lifts": [
           {
@@ -8193,7 +8747,9 @@
               true,
               true
             ],
-            "steps": 34,
+            "dateUnits": 22.5,
+            "stageUnits": 32,
+            "steps": 54.5,
             "date": "2026-03-13",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -8227,7 +8783,9 @@
               true,
               true
             ],
-            "steps": 34,
+            "dateUnits": 22.5,
+            "stageUnits": 32,
+            "steps": 54.5,
             "date": "2026-03-13",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -8261,7 +8819,9 @@
               true,
               true
             ],
-            "steps": 34,
+            "dateUnits": 22.5,
+            "stageUnits": 32,
+            "steps": 54.5,
             "date": "2026-03-13",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -8295,7 +8855,9 @@
               true,
               true
             ],
-            "steps": 34,
+            "dateUnits": 22.5,
+            "stageUnits": 32,
+            "steps": 54.5,
             "date": "2026-03-13",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -8329,7 +8891,9 @@
               false,
               false
             ],
-            "steps": 8,
+            "dateUnits": 4.5,
+            "stageUnits": 16,
+            "steps": 20.5,
             "date": "2026-03-13",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -8363,7 +8927,9 @@
               false,
               false
             ],
-            "steps": 8,
+            "dateUnits": 4.5,
+            "stageUnits": 16,
+            "steps": 20.5,
             "date": "2026-03-13",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -8392,8 +8958,10 @@
       },
       {
         "week": 11,
-        "earned": 170,
-        "budget": 408,
+        "earned": 272.5,
+        "budget": 480,
+        "dateUnits": 112.5,
+        "stageUnits": 160,
         "expansion": false,
         "lifts": [
           {
@@ -8405,7 +8973,9 @@
               true,
               true
             ],
-            "steps": 37,
+            "dateUnits": 24.75,
+            "stageUnits": 32,
+            "steps": 56.75,
             "date": "2026-03-20",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -8439,7 +9009,9 @@
               true,
               true
             ],
-            "steps": 37,
+            "dateUnits": 24.75,
+            "stageUnits": 32,
+            "steps": 56.75,
             "date": "2026-03-20",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -8473,7 +9045,9 @@
               true,
               true
             ],
-            "steps": 37,
+            "dateUnits": 24.75,
+            "stageUnits": 32,
+            "steps": 56.75,
             "date": "2026-03-20",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -8507,7 +9081,9 @@
               true,
               true
             ],
-            "steps": 37,
+            "dateUnits": 24.75,
+            "stageUnits": 32,
+            "steps": 56.75,
             "date": "2026-03-20",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -8541,7 +9117,9 @@
               false,
               false
             ],
-            "steps": 11,
+            "dateUnits": 6.75,
+            "stageUnits": 16,
+            "steps": 22.75,
             "date": "2026-03-20",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -8575,7 +9153,9 @@
               false,
               false
             ],
-            "steps": 11,
+            "dateUnits": 6.75,
+            "stageUnits": 16,
+            "steps": 22.75,
             "date": "2026-03-20",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -8604,8 +9184,10 @@
       },
       {
         "week": 12,
-        "earned": 188,
-        "budget": 408,
+        "earned": 286,
+        "budget": 480,
+        "dateUnits": 126,
+        "stageUnits": 160,
         "expansion": false,
         "lifts": [
           {
@@ -8617,7 +9199,9 @@
               true,
               true
             ],
-            "steps": 40,
+            "dateUnits": 27,
+            "stageUnits": 32,
+            "steps": 59,
             "date": "2026-03-27",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -8651,7 +9235,9 @@
               true,
               true
             ],
-            "steps": 40,
+            "dateUnits": 27,
+            "stageUnits": 32,
+            "steps": 59,
             "date": "2026-03-27",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -8685,7 +9271,9 @@
               true,
               true
             ],
-            "steps": 40,
+            "dateUnits": 27,
+            "stageUnits": 32,
+            "steps": 59,
             "date": "2026-03-27",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -8719,7 +9307,9 @@
               true,
               true
             ],
-            "steps": 40,
+            "dateUnits": 27,
+            "stageUnits": 32,
+            "steps": 59,
             "date": "2026-03-27",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -8753,7 +9343,9 @@
               false,
               false
             ],
-            "steps": 14,
+            "dateUnits": 9,
+            "stageUnits": 16,
+            "steps": 25,
             "date": "2026-03-27",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -8787,7 +9379,9 @@
               false,
               false
             ],
-            "steps": 14,
+            "dateUnits": 9,
+            "stageUnits": 16,
+            "steps": 25,
             "date": "2026-03-27",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -8816,8 +9410,10 @@
       },
       {
         "week": 13,
-        "earned": 206,
-        "budget": 408,
+        "earned": 299.5,
+        "budget": 480,
+        "dateUnits": 139.5,
+        "stageUnits": 160,
         "expansion": false,
         "lifts": [
           {
@@ -8829,7 +9425,9 @@
               true,
               true
             ],
-            "steps": 43,
+            "dateUnits": 29.25,
+            "stageUnits": 32,
+            "steps": 61.25,
             "date": "2026-04-03",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -8863,7 +9461,9 @@
               true,
               true
             ],
-            "steps": 43,
+            "dateUnits": 29.25,
+            "stageUnits": 32,
+            "steps": 61.25,
             "date": "2026-04-03",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -8897,7 +9497,9 @@
               true,
               true
             ],
-            "steps": 43,
+            "dateUnits": 29.25,
+            "stageUnits": 32,
+            "steps": 61.25,
             "date": "2026-04-03",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -8931,7 +9533,9 @@
               true,
               true
             ],
-            "steps": 43,
+            "dateUnits": 29.25,
+            "stageUnits": 32,
+            "steps": 61.25,
             "date": "2026-04-03",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -8965,7 +9569,9 @@
               false,
               false
             ],
-            "steps": 17,
+            "dateUnits": 11.25,
+            "stageUnits": 16,
+            "steps": 27.25,
             "date": "2026-04-03",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -8999,7 +9605,9 @@
               false,
               false
             ],
-            "steps": 17,
+            "dateUnits": 11.25,
+            "stageUnits": 16,
+            "steps": 27.25,
             "date": "2026-04-03",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -9028,8 +9636,10 @@
       },
       {
         "week": 14,
-        "earned": 224,
-        "budget": 408,
+        "earned": 313,
+        "budget": 480,
+        "dateUnits": 153,
+        "stageUnits": 160,
         "expansion": false,
         "lifts": [
           {
@@ -9041,7 +9651,9 @@
               true,
               true
             ],
-            "steps": 46,
+            "dateUnits": 31.5,
+            "stageUnits": 32,
+            "steps": 63.5,
             "date": "2026-04-10",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -9075,7 +9687,9 @@
               true,
               true
             ],
-            "steps": 46,
+            "dateUnits": 31.5,
+            "stageUnits": 32,
+            "steps": 63.5,
             "date": "2026-04-10",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -9109,7 +9723,9 @@
               true,
               true
             ],
-            "steps": 46,
+            "dateUnits": 31.5,
+            "stageUnits": 32,
+            "steps": 63.5,
             "date": "2026-04-10",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -9143,7 +9759,9 @@
               true,
               true
             ],
-            "steps": 46,
+            "dateUnits": 31.5,
+            "stageUnits": 32,
+            "steps": 63.5,
             "date": "2026-04-10",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -9177,7 +9795,9 @@
               false,
               false
             ],
-            "steps": 20,
+            "dateUnits": 13.5,
+            "stageUnits": 16,
+            "steps": 29.5,
             "date": "2026-04-10",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -9211,7 +9831,9 @@
               false,
               false
             ],
-            "steps": 20,
+            "dateUnits": 13.5,
+            "stageUnits": 16,
+            "steps": 29.5,
             "date": "2026-04-10",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -9240,8 +9862,10 @@
       },
       {
         "week": 15,
-        "earned": 242,
-        "budget": 408,
+        "earned": 326.5,
+        "budget": 480,
+        "dateUnits": 166.5,
+        "stageUnits": 160,
         "expansion": false,
         "lifts": [
           {
@@ -9253,7 +9877,9 @@
               true,
               true
             ],
-            "steps": 49,
+            "dateUnits": 33.75,
+            "stageUnits": 32,
+            "steps": 65.75,
             "date": "2026-04-17",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -9287,7 +9913,9 @@
               true,
               true
             ],
-            "steps": 49,
+            "dateUnits": 33.75,
+            "stageUnits": 32,
+            "steps": 65.75,
             "date": "2026-04-17",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -9321,7 +9949,9 @@
               true,
               true
             ],
-            "steps": 49,
+            "dateUnits": 33.75,
+            "stageUnits": 32,
+            "steps": 65.75,
             "date": "2026-04-17",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -9355,7 +9985,9 @@
               true,
               true
             ],
-            "steps": 49,
+            "dateUnits": 33.75,
+            "stageUnits": 32,
+            "steps": 65.75,
             "date": "2026-04-17",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -9389,7 +10021,9 @@
               false,
               false
             ],
-            "steps": 23,
+            "dateUnits": 15.75,
+            "stageUnits": 16,
+            "steps": 31.75,
             "date": "2026-04-17",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -9423,7 +10057,9 @@
               false,
               false
             ],
-            "steps": 23,
+            "dateUnits": 15.75,
+            "stageUnits": 16,
+            "steps": 31.75,
             "date": "2026-04-17",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -9452,8 +10088,10 @@
       },
       {
         "week": 16,
-        "earned": 260,
-        "budget": 408,
+        "earned": 340,
+        "budget": 480,
+        "dateUnits": 180,
+        "stageUnits": 160,
         "expansion": false,
         "lifts": [
           {
@@ -9465,7 +10103,9 @@
               true,
               true
             ],
-            "steps": 52,
+            "dateUnits": 36,
+            "stageUnits": 32,
+            "steps": 68,
             "date": "2026-04-24",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -9499,7 +10139,9 @@
               true,
               true
             ],
-            "steps": 52,
+            "dateUnits": 36,
+            "stageUnits": 32,
+            "steps": 68,
             "date": "2026-04-24",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -9533,7 +10175,9 @@
               true,
               true
             ],
-            "steps": 52,
+            "dateUnits": 36,
+            "stageUnits": 32,
+            "steps": 68,
             "date": "2026-04-24",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -9567,7 +10211,9 @@
               true,
               true
             ],
-            "steps": 52,
+            "dateUnits": 36,
+            "stageUnits": 32,
+            "steps": 68,
             "date": "2026-04-24",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -9601,7 +10247,9 @@
               false,
               false
             ],
-            "steps": 26,
+            "dateUnits": 18,
+            "stageUnits": 16,
+            "steps": 34,
             "date": "2026-04-24",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
@@ -9635,7 +10283,9 @@
               false,
               false
             ],
-            "steps": 26,
+            "dateUnits": 18,
+            "stageUnits": 16,
+            "steps": 34,
             "date": "2026-04-24",
             "selectionStatus": "recommended",
             "standingUnavailable": false,
