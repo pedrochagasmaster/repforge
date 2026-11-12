@@ -1717,6 +1717,43 @@ window.__push = {
       pushing: document.body.classList.contains("is-pushing"),
     };
   },
+  /** Hold the real push's completion so sparse observations cannot miss its mounted layers. */
+  async held(sel, act) {
+    const motion = window.RepForgeMotion;
+    const original = motion.animatePush;
+    let release, finished;
+    const gate = new Promise((resolve) => { release = resolve; });
+    motion.animatePush = (...args) => {
+      finished = original(...args);
+      const held = finished.then(async (arrived) => { await gate; return arrived; });
+      held.cancel = finished.cancel;
+      return held;
+    };
+    const samples = [];
+    const t0 = performance.now();
+    const sample = () => samples.push({ t: performance.now() - t0, x: this.x(sel), ...this.frame() });
+    try {
+      act();
+      sample();
+      if (!finished) throw new Error("the preview did not call the production push");
+      if (!await finished) throw new Error("the preview push did not arrive");
+      sample();
+      // The app cannot unmount either layer until this held continuation is released.
+      const cleaned = new Promise((resolve) => {
+        const watch = new MutationObserver(() => {
+          if (!document.body.classList.contains("is-pushing")) { watch.disconnect(); resolve(); }
+        });
+        watch.observe(document.body, { attributes: true, attributeFilter: ["class"] });
+      });
+      release();
+      await cleaned;
+      sample();
+      return samples;
+    } finally {
+      release();
+      motion.animatePush = original;
+    }
+  },
   /** Run \`act\`, then sample \`sel\`'s x and the mounted layers on every frame for \`ms\`. */
   run(sel, act, ms = 700) {
     return new Promise((resolve) => {
@@ -1864,7 +1901,8 @@ async function pageMotion(browser, { reducedMotion = "no-preference" } = {}) {
   else assert(lib.frames >= 5 && lib.mounted && lib.leftover === 0 && lib.layered.every((s) => s.under.includes("program")),
     "it pushes in over the Program tab, both mounted", JSON.stringify({ frames: lib.frames, mounted: lib.mounted, leftover: lib.leftover, under: lib.layered.map((s) => s.under), ms: lib.ms }));
   await page.waitForSelector("#libList [data-lib-preview]", { timeout: 5000 });
-  const preview = pushRun(await page.evaluate(() => window.__push.run("#exercisePreview", () => document.querySelector("#libList [data-lib-preview]").click())));
+  const preview = pushRun(await page.evaluate((reduced) => window.__push[reduced ? "run" : "held"](
+    "#exercisePreview", () => document.querySelector("#libList [data-lib-preview]").click()), reduced));
   if (reduced) assert(preview.never, "no push layers for the preview under reduced motion");
   else assert(preview.frames >= 5 && preview.layered.every((s) => s.under.includes("library")) && preview.leftover === 0,
     "the preview pushes in over the library", JSON.stringify({ frames: preview.frames, leftover: preview.leftover, under: preview.layered.map((s) => s.under), ms: preview.ms }));
