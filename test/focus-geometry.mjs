@@ -283,9 +283,9 @@ async function checkContextText(browser) {
 async function checkTestSetPrompt(browser) {
   const failures = [];
   for (const key of ["workout/max-set-prompt", "workout/max-set-recheck"]) {
-    for (const lang of ["en", "pt"]) for (const text of ["normal", "text200"]) {
-      const opened = await openCatalogState(browser, key, 320, lang, text, { safe: { top: 0, bottom: 0 } });
-      const label = `${key} 320px ${lang} ${text}`;
+    for (const width of [320, 390, 430]) for (const lang of ["en", "pt"]) for (const text of ["normal", "text200"]) {
+      const opened = await openCatalogState(browser, key, width, lang, text, { height: width === 430 ? 932 : CATALOG_PHONES[width], safe: { top: 0, bottom: 0 } });
+      const label = `${key} ${width}px ${lang} ${text}`;
       try {
         const measured = await opened.page.evaluate(() => {
           const card = document.querySelector(".exercise.is-current");
@@ -296,15 +296,21 @@ async function checkTestSetPrompt(browser) {
             return Math.min(box.right, prompt.right) > Math.max(box.left, prompt.left) + 1 &&
               Math.min(box.bottom, prompt.bottom) > Math.max(box.top, prompt.top) + 1;
           });
-          return { covered, left: prompt.left, right: prompt.right };
+          const context = card.querySelector(".fcard__context").getBoundingClientRect();
+          const row = card.querySelector(".ledgerline--open").getBoundingClientRect();
+          const target = card.querySelector(".fx-cue__l1").getBoundingClientRect();
+          return { covered, left: prompt.left, right: prompt.right, width: innerWidth,
+            rowWhole: row.top >= context.top - 1 && row.bottom <= context.bottom + 1,
+            targetWhole: target.top >= context.top - 1 && target.bottom <= context.bottom + 1 };
         });
-        if (measured.covered.length || measured.left < 0 || measured.right > 320)
+        if (measured.covered.length || measured.left < 0 || measured.right > measured.width)
           failures.push(`${label}: prompt covers the target or open row, or spills horizontally: ${JSON.stringify(measured)}`);
-        await opened.page.locator('.exercise.is-current .resttip__acts').scrollIntoViewIfNeeded();
+        if (!measured.rowWhole || !measured.targetWhole)
+          failures.push(`${label}: target and current row must be whole without scrolling: ${JSON.stringify(measured)}`);
         const actions = await opened.page.locator('.exercise.is-current .resttip__acts button').evaluateAll(buttons =>
           buttons.map(button => {
             const box = button.getBoundingClientRect();
-            const context = button.closest(".fcard__context").getBoundingClientRect();
+            const context = button.closest(".exercise").getBoundingClientRect();
             const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
             return { text: button.textContent.trim(), width: box.width, height: box.height,
               whole: box.top >= context.top - 1 && box.bottom <= context.bottom + 1 && box.left >= 0 && box.right <= innerWidth,
@@ -322,7 +328,7 @@ async function checkTestSetPrompt(browser) {
     }
   }
   assert(!failures.length, "test-set prompts leave the target and open row readable", failures.join(" | "));
-  console.log("  8 test-set frames keep the target and open row clear, with Make a guess reachable");
+  console.log("  24 test-set frames keep the target and open row clear, with Make a guess reachable");
 }
 
 async function main() {
