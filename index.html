@@ -33,7 +33,7 @@
   <link rel="apple-touch-startup-image" href="icons/splash-1640x2360.png" media="screen and (device-width: 820px) and (device-height: 1180px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
   <link rel="apple-touch-startup-image" href="icons/splash-1668x2224.png" media="screen and (device-width: 834px) and (device-height: 1112px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
   <link rel="apple-touch-startup-image" href="icons/splash-1536x2048.png" media="screen and (device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
-  <link rel="stylesheet" href="styles.css?v=728">
+  <link rel="stylesheet" href="styles.css?v=732">
   <link rel="stylesheet" href="motion-polish.css?v=643">
   <!-- Runs before the first paint, and only reads.
        Theme: app.js owns the Appearance setting, but it is the last script on the
@@ -1185,20 +1185,23 @@ Triceps pushdown 3x12-15</pre>
   </div>
   <div id="maxSetScrim" class="sheet-scrim hidden"></div>
   <div id="maxSetSheet" class="sheet sheet--maxset hidden" role="dialog" aria-modal="true" aria-labelledby="maxSetTitle" aria-describedby="maxSetFrom" hidden>
-    <div class="sheetband">
-      <span class="sheetband__handle" aria-hidden="true"></span>
-      <h2 class="sheetband__title" id="maxSetTitle">How many reps can you do?</h2>
-      <p class="sheetband__sub" id="maxSetFrom"></p>
-    </div>
-    <div class="sheetbody sheetbody--maxset">
-      <div class="maxset__count">
-        <button type="button" class="stepbtn maxset__pad" id="maxSetLess" data-i18n-aria="maxset.fewer" aria-label="One fewer">−</button>
-        <output class="maxset__n" id="maxSetCount" aria-live="polite">10</output>
-        <button type="button" class="stepbtn maxset__pad" id="maxSetMore" data-i18n-aria="maxset.more" aria-label="One more">+</button>
+    <div class="maxset__scroll">
+      <div class="sheetband">
+        <span class="sheetband__handle" aria-hidden="true"></span>
+        <h2 class="sheetband__title" id="maxSetTitle">How many reps can you do?</h2>
+        <p class="sheetband__sub" id="maxSetFrom"></p>
       </div>
-      <p class="maxset__rule" data-i18n="maxset.fail_rule">Failure is the rep you can't finish with good form. Stop there; that rep doesn't count.</p>
-      <p class="maxset__safety" data-i18n="maxset.safety">Stop at once if anything hurts.</p>
-      <p class="maxset__safety" id="maxSetPress" data-i18n="maxset.press_line" hidden>Only to failure on presses if you can safely drop or rack the weights.</p>
+      <div class="sheetbody sheetbody--maxset">
+        <p class="maxset__explanation" id="maxSetInvite"></p>
+        <div class="maxset__count">
+          <button type="button" class="stepbtn maxset__pad" id="maxSetLess" data-i18n-aria="maxset.fewer" aria-label="One fewer">−</button>
+          <output class="maxset__n" id="maxSetCount" aria-live="polite">10</output>
+          <button type="button" class="stepbtn maxset__pad" id="maxSetMore" data-i18n-aria="maxset.more" aria-label="One more">+</button>
+        </div>
+        <p class="maxset__rule" data-i18n="maxset.fail_rule">Failure is the rep you can't finish with good form. Stop there; that rep doesn't count.</p>
+        <p class="maxset__safety" data-i18n="maxset.safety">Stop at once if anything hurts.</p>
+        <p class="maxset__safety" id="maxSetPress" data-i18n="maxset.press_line" hidden>Only to failure on presses if you can safely drop or rack the weights.</p>
+      </div>
     </div>
     <div class="sheetfoot sheetfoot--pair">
       <button type="button" id="maxSetNo" data-i18n="maxset.not_now">Not now</button>
@@ -1588,7 +1591,7 @@ Triceps pushdown 3x12-15</pre>
   <script src="posthog-init.js"></script>
   <script src="schedule.js"></script>
   <script src="notify.js"></script>
-  <script src="i18n.js?v=728"></script>
+  <script src="i18n.js?v=732"></script>
   <script src="exercises.js?v=728"></script>
   <script src="generation-identity.js?v=459"></script>
   <script src="exercise-catalog.js?v=459"></script>
@@ -1627,6 +1630,6 @@ Triceps pushdown 3x12-15</pre>
   <script src="progress-model.js?v=730"></script>
   <script src="history-ui.js?v=728"></script>
   <script src="share-cards.js?v=728"></script>
-  <script src="app.js?v=728"></script>
+  <script src="app.js?v=732"></script>
 </body>
 </html>

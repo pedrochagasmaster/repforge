@@ -1377,7 +1377,7 @@ async function maxSetRest(page, { exerciseId = null } = {}) {
     if (left <= 1) break;
     await logFixtureSet(page, { load: "45", reps: "12", rir: "2" });
   }
-  await page.waitForSelector("#workout .exercise.is-current .focus-shelf.has-rest .resttip", { state: "visible", timeout: 20000 });
+  await page.waitForSelector('#workout .exercise.is-current .resttip[data-tip="max-set"]', { state: "visible", timeout: 20000 });
 }
 
 /** Log the current lift's next set at these values, through the draft's own commands (its fields are metrics, which
@@ -2666,8 +2666,6 @@ export const APP_SCENARIOS = {
     }
     await seed(page,state);
     await maxSetRest(page,{exerciseId:row.id});
-    await page.waitForFunction(() => document.querySelector('.exercise.is-current [data-tip="max-set"]')?.textContent.includes(
-      t("maxset.invite_reason_recheck")));
   },
   "workout/max-set-guess": async (page) => {
     await maxSetRest(page);

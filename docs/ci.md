@@ -237,6 +237,13 @@ makespan, including 56s on the holdout. These are simulations, **not
 observed GitHub wall-clock savings**. See the
 [packing audit](audits/ci-pr-browser-packing-2026-10-27.md).
 
+Full-lane Focus weights were refreshed from run 43280026294 on November 12:
+`focus-geometry` measured 379.84 s after its expanded dock/guess matrix, so its
+weight is 380 s; `max-set-browser` measured 48.88 s, so its weight is 49 s.
+The twelve bins now estimate 1,342–1,345 s each. Shard 1's cancellation in that
+run came from diagnostic replays of two stale assertions, rather than longer
+initial commands; correcting those assertions removes that replay work.
+
 The PR lane keeps five runners within the account's concurrency limit.
 The complete full lane still uses twelve runners with approximately
 1,090s of estimated browser work per runner and remains staged after
