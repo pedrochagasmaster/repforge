@@ -10,6 +10,7 @@
  *
  * Run: node test/profile-browser.mjs   (REPFORGE_URL points at a static server)
  */
+import { profileRingProofs } from "./profile-ring-browser.mjs";
 import { launchChromium } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 import { metricLogRow, installGeneratedProgram, definitionSlot, isWeightRepsSlot } from "./fixtures/history-metric-rows.mjs";
@@ -94,6 +95,7 @@ const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
 const errors = [];
 page.on("pageerror", (e) => errors.push(String(e)));
 try {
+  await profileRingProofs(browser,assert,BASE);
   phase("The profile replaces the gauge, including on a first session");
   await boot(page, { history: [] });
   assert(await page.locator("#todayCalRing, #todayCalRingBar").count() === 0,
