@@ -1057,11 +1057,28 @@ async function main() {
 
     await resetWithProgram(page);
     await openEditor(page);
-    await importFile(page, "empty-log.json", freshBackup);
+    // Keep the real file read pending until the import helper registers its
+    // acknowledgement wait. A timer-only helper returns with no dialog instead.
+    await holdFileReads(page, "empty-log.json");
+    const waitForFunction = page.waitForFunction;
+    page.waitForFunction = (...args) => {
+      const waiting = waitForFunction.apply(page, args);
+      return page.evaluate(() => window.__releaseFileRead()).then(() => waiting);
+    };
+    try {
+      await importFile(page, "empty-log.json", freshBackup);
+    } finally {
+      page.waitForFunction = waitForFunction;
+    }
     choice = await dialogState();
     assert(choice.open && !choice.reviewing,
       "a backup carrying no sessions still opens the restore choice", JSON.stringify(choice));
     assert(choice.programOnly, "the program-only import stays on the table for it", JSON.stringify(choice));
+    // Finish the held read after recording a premature return, so a red proof
+    // does not cascade into unrelated restore assertions.
+    await page.evaluate(() => window.__releaseFileRead());
+    await page.waitForFunction(() => document.querySelector("#importChoice")?.open);
+    choice = await dialogState();
     const noLogButtons = await page.evaluate(() => ({
       merge: !document.querySelector("#importMerge").classList.contains("hidden"),
       replace: !document.querySelector("#importReplace").classList.contains("hidden"),
