@@ -316,6 +316,7 @@ export const FULL_SUITES = {
 };
 
 export const SUPPORT = {
+  "test/saved-profile.mjs": "Plan 084 saved-evidence profile proofs executed by test/progress-model.mjs in the PR lane.",
   "test/findings.mjs": "Plan 081 finding rules executed by test/progress-model.mjs in the PR lane.",
   "test/session-zero-browser.mjs": "Session-zero browser journeys executed by workout-finish-boundary.mjs in the PR lane.",
   "test/week-review-browser.mjs": "Plan 082 weekly facts journeys executed by test/progress-lifecycle.mjs in the PR lane.",

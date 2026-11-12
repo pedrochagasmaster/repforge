@@ -1,0 +1,233 @@
+{
+  "round": 3,
+  "rendered": 24,
+  "retained": 8,
+  "layout": "8 columns x 4 rows, 390x844 per cell",
+  "retainedFromHead": "dac9c6c73e874da97ba7c0c4daa00015e127aa87",
+  "cells": [
+    {
+      "language": "pt",
+      "theme": "light",
+      "label": "Today \u00b7 fresh",
+      "source": "retained-round-2",
+      "sha256": "4b8f5077e40bbbf35d7a25c3cdfc911b5f5175103477057a7ad88dcc5a92498c"
+    },
+    {
+      "language": "pt",
+      "theme": "light",
+      "label": "Today \u00b7 mid-way",
+      "source": "rendered-round-3",
+      "sha256": "e5ad0b2b56f11adc29b31fc4daf0303ae01710fd5605d95423754ee1612c3de1"
+    },
+    {
+      "language": "pt",
+      "theme": "light",
+      "label": "Today \u00b7 well-tailored",
+      "source": "rendered-round-3",
+      "sha256": "fe5bbee8162802c8214823411c59fc9d2765867012d9db9fc153688c234cad55"
+    },
+    {
+      "language": "pt",
+      "theme": "light",
+      "label": "Overview \u00b7 mid-way",
+      "source": "rendered-round-3",
+      "sha256": "5ce02a643fa68baff399a2f990449e9a4a69d7a8796bccb3025c662b1f1bd3c2"
+    },
+    {
+      "language": "pt",
+      "theme": "light",
+      "label": "Per-lift stages",
+      "source": "retained-round-2",
+      "sha256": "e9c1cfb671e9720fd7cfbf7d1de79a7cda58cace6ceecec4303631ccc9b0c9fb"
+    },
+    {
+      "language": "pt",
+      "theme": "light",
+      "label": "Finish \u00b7 previous reading",
+      "source": "rendered-round-3",
+      "sha256": "0bf78d1fc91dc3d6575c71e537b828fefb46b2a3679efd9ffb98e102ebbfaf05"
+    },
+    {
+      "language": "pt",
+      "theme": "light",
+      "label": "Finish \u00b7 after save",
+      "source": "rendered-round-3",
+      "sha256": "3c1b8d3e183cd6790d47621da956308a251707be861a345e182f153241ba7f08"
+    },
+    {
+      "language": "pt",
+      "theme": "light",
+      "label": "Scope \u00b7 4 to 6 lifts",
+      "source": "rendered-round-3",
+      "sha256": "45b1df6b1a83abd1e0663149369a987a914c543f7eee63f28cf90e831241d781"
+    },
+    {
+      "language": "pt",
+      "theme": "dark",
+      "label": "Today \u00b7 fresh",
+      "source": "retained-round-2",
+      "sha256": "a8da9f17b011a18749496be82f4562840a27b5a92975b6ac7c1bbe02fe2dbfb5"
+    },
+    {
+      "language": "pt",
+      "theme": "dark",
+      "label": "Today \u00b7 mid-way",
+      "source": "rendered-round-3",
+      "sha256": "2110c66936139588921e6a2ef26dc86b8a65cfbf3d3a32446fdfbb38c5a7c029"
+    },
+    {
+      "language": "pt",
+      "theme": "dark",
+      "label": "Today \u00b7 well-tailored",
+      "source": "rendered-round-3",
+      "sha256": "83c3cae31e2a490328d96c0d49c5fe057b25d3d93cc3d80d96150c531854ce17"
+    },
+    {
+      "language": "pt",
+      "theme": "dark",
+      "label": "Overview \u00b7 mid-way",
+      "source": "rendered-round-3",
+      "sha256": "b16a8aaa4a7c092f581ccfe85902d27d340f3b85abda46602743c318760ff2f9"
+    },
+    {
+      "language": "pt",
+      "theme": "dark",
+      "label": "Per-lift stages",
+      "source": "retained-round-2",
+      "sha256": "e74acdf49466088f64f92d3866b57ad9c474e16d25684439d1102b254a42557b"
+    },
+    {
+      "language": "pt",
+      "theme": "dark",
+      "label": "Finish \u00b7 previous reading",
+      "source": "rendered-round-3",
+      "sha256": "3a6bbf59185cf22fb439bc1dbaae7dde69cc5daf21dd2f6876215ffb1343c876"
+    },
+    {
+      "language": "pt",
+      "theme": "dark",
+      "label": "Finish \u00b7 after save",
+      "source": "rendered-round-3",
+      "sha256": "95342e281525edb8e838f868338a64ad3c5071358d9901d9ca5d2c11b6ef8260"
+    },
+    {
+      "language": "pt",
+      "theme": "dark",
+      "label": "Scope \u00b7 4 to 6 lifts",
+      "source": "rendered-round-3",
+      "sha256": "82fde81c1f9a05f87ad23b4440e57765c1ccecc76c46819caa34970980531e82"
+    },
+    {
+      "language": "en",
+      "theme": "light",
+      "label": "Today \u00b7 fresh",
+      "source": "retained-round-2",
+      "sha256": "c9a4bcdbba4b7e10aeac2106cdedfd2e3728a8463c67c793447f0fdc3babf933"
+    },
+    {
+      "language": "en",
+      "theme": "light",
+      "label": "Today \u00b7 mid-way",
+      "source": "rendered-round-3",
+      "sha256": "7b08c355ec5218694844fa94ebe99f56545090928a81631aa32449bbec0e945b"
+    },
+    {
+      "language": "en",
+      "theme": "light",
+      "label": "Today \u00b7 well-tailored",
+      "source": "rendered-round-3",
+      "sha256": "823857ce644f297280e29a88c0b2c967dfb6f6cfabd8cbfa127d7384b0a225d3"
+    },
+    {
+      "language": "en",
+      "theme": "light",
+      "label": "Overview \u00b7 mid-way",
+      "source": "rendered-round-3",
+      "sha256": "8eb66ce2c3d73dfbe33d1af50e879ed0593b3b505093d7206838cca80e061268"
+    },
+    {
+      "language": "en",
+      "theme": "light",
+      "label": "Per-lift stages",
+      "source": "retained-round-2",
+      "sha256": "70bdc879936dbc6ee5c760611bff29e20c24088e81c41197f59be069346d6159"
+    },
+    {
+      "language": "en",
+      "theme": "light",
+      "label": "Finish \u00b7 previous reading",
+      "source": "rendered-round-3",
+      "sha256": "c955eb6aa672c24ec34adff4302cfea6e8562c804fbaa4f1b478cc2e0b662f35"
+    },
+    {
+      "language": "en",
+      "theme": "light",
+      "label": "Finish \u00b7 after save",
+      "source": "rendered-round-3",
+      "sha256": "2e882446a77d0a9ce04599fe4d9423f56cb45a7117738443e0fcff88553da025"
+    },
+    {
+      "language": "en",
+      "theme": "light",
+      "label": "Scope \u00b7 4 to 6 lifts",
+      "source": "rendered-round-3",
+      "sha256": "83f7029f50ed1dde994a9fbc6236a31b413b255d25f9530da068b0ec15c05528"
+    },
+    {
+      "language": "en",
+      "theme": "dark",
+      "label": "Today \u00b7 fresh",
+      "source": "retained-round-2",
+      "sha256": "7eaa68260feb4b0ef50e59c839edad095c53e998236c701c084a4e923f8e65c8"
+    },
+    {
+      "language": "en",
+      "theme": "dark",
+      "label": "Today \u00b7 mid-way",
+      "source": "rendered-round-3",
+      "sha256": "e2badce0ce43b7f9a40f591cc16d838b9e39b8b661416ee2579223c7df97a7a8"
+    },
+    {
+      "language": "en",
+      "theme": "dark",
+      "label": "Today \u00b7 well-tailored",
+      "source": "rendered-round-3",
+      "sha256": "18f574e8de0650c403a9b9339fe38d850509c8f14adc6fd9c8d2458cfed8f8c1"
+    },
+    {
+      "language": "en",
+      "theme": "dark",
+      "label": "Overview \u00b7 mid-way",
+      "source": "rendered-round-3",
+      "sha256": "cae45a8ceb4af8695ad002e64702aba34ccb7d47f7a519420e8dc1043d974925"
+    },
+    {
+      "language": "en",
+      "theme": "dark",
+      "label": "Per-lift stages",
+      "source": "retained-round-2",
+      "sha256": "2bd34d7a46c2b0ef916351d51fec504adb23f9d088fdb025a47d9ad91dac703b"
+    },
+    {
+      "language": "en",
+      "theme": "dark",
+      "label": "Finish \u00b7 previous reading",
+      "source": "rendered-round-3",
+      "sha256": "57217be98b0bcf4b185b0e00d1db9d7892a95f9345b99216110833f5823a8865"
+    },
+    {
+      "language": "en",
+      "theme": "dark",
+      "label": "Finish \u00b7 after save",
+      "source": "rendered-round-3",
+      "sha256": "7329787e7d9355cd0add6ccdf17001029d5f6de74536c788e170e23f53d34131"
+    },
+    {
+      "language": "en",
+      "theme": "dark",
+      "label": "Scope \u00b7 4 to 6 lifts",
+      "source": "rendered-round-3",
+      "sha256": "6ba63028f81715e8eb59628d7a953428d49307314ace7700928b650f1e9c12f5"
+    }
+  ]
+}

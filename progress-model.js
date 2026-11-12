@@ -649,6 +649,108 @@
     return entries.sort((a, b) => compareChronology(a, b) || a.exerciseId.localeCompare(b.exerciseId));
   }
 
+  const PROFILE_VERSION = "profile@084.1";
+  const PROFILE_WEIGHTS = Object.freeze({ date: 0.75, transition: 8, dateCap: 64, transitions: 4 });
+
+  /** Pure projection of acknowledged rows. `lifts` supplies current performed-capacity descriptors
+   * {exerciseId, metricType, metricIds, metricDefinitions, loadingModel, context, name}.
+   * Historical descriptors come only from captured rows, never today's prescription or a draft.
+   * Archived identities remain in `lifts`; only active identities contribute to fill. */
+  function buildSavedProfile({ log = [], lifts = [], now } = {}) {
+    const Engine = root?.RepForgeProgression || (typeof require === "function" ? require("./progression-engine.js") : null);
+    const Calibration = root?.RepForgeEffortCalibration || (typeof require === "function" ? require("./effort-calibration.js") : null);
+    const Draft = root?.RepForgeWorkoutDraft || (typeof require === "function" ? require("./workout-draft.js") : null);
+    const validDate = date => typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date) &&
+      Number.isFinite(Date.parse(date)) && new Date(date).toISOString().slice(0, 10) === date;
+    const chosen = new Set(["rir", "reps_left", "effort", "reps_left_3plus", "reps_left_5plus"]);
+    const entries = new Map();
+    for (const [index, lift] of lifts.entries()) {
+      const key = Engine.savedLiftIdentity(lift) || `unsupported:${index}`;
+      if (!entries.has(key)) entries.set(key, { key, descriptor: lift, active: true, rows: [] });
+    }
+    let unsupportedRows = 0;
+    const seen = new Set();
+    for (const row of log.filter(row => row && validDate(row.date) && row.date <= now)
+      .slice().sort(compareChronology)) {
+      if (row.warmup || row.origin === "ramp" || row.work === false) continue;
+      const descriptor = { exerciseId: row.performedLibraryId || row.performedMovementId,
+        metricType: row.metricType, metricIds: row.metricIds, metricDefinitions: row.metricDefinitions,
+        loadingModel: row.loadingModel || { bodyweightCoefficient: row.loadingContext?.bodyweightCoefficient },
+        context: row.loadingContext && { ...row.loadingContext, equipmentId: row.equipmentId,
+          loadingConvention: row.loadingConvention }, name: row.performedName || row.name };
+      const key = Engine.savedLiftIdentity(descriptor);
+      if (!key || !row.session || !row.loadingConvention) { unsupportedRows++; continue; }
+      const rowKey = JSON.stringify([key, row.session, row.exerciseId, row.setIndex]);
+      if (seen.has(rowKey)) continue;
+      seen.add(rowKey);
+      if (!entries.has(key)) entries.set(key, { key, descriptor, active: false, rows: [] });
+      entries.get(key).rows.push({ ...row, exerciseId: descriptor.exerciseId, completed: true });
+    }
+    const projected = [];
+    for (const entry of entries.values()) {
+      const sessions = new Map();
+      for (const row of entry.rows) {
+        if (!sessions.has(row.session)) sessions.set(row.session, { sessionId: row.session, date: row.date, completed: true, sets: [] });
+        sessions.get(row.session).sets.push(row);
+      }
+      const history = [...sessions.values()];
+      // Each original boundary uses its own captured context, including bodyweight. No historical target is needed.
+      const prefix = [], depth = new Set(), transitions = [], checks = [], dates = new Map();
+      let historicalSolid = false, anchor = null, understoodStage = null;
+      const add = (stage, date) => transitions.push({ stage, date });
+      const calibrationFor = (read, today) => Calibration.estimate(Calibration.checkErrors({ today,
+        sessions: read.sessions.map(session => ({ date: session.date, checks: session.sets
+          .filter(set => set.effortSource === "failure" && Draft.validCalibration(set.calibration))
+          .map(set => ({ predictedReps: set.calibration.predictedReps, reps: set.reps })) })) }));
+      for (const session of history) {
+        prefix.push(session);
+        const captured = session.sets[0];
+        const descriptor = { ...entry.descriptor, context: { ...captured.loadingContext,
+          equipmentId: captured.equipmentId, loadingConvention: captured.loadingConvention } };
+        const initial = Engine.readSavedLift(descriptor, prefix, { now: session.date });
+        if (!initial.available) continue;
+        const calibration = calibrationFor(initial, session.date);
+        const read = Engine.readSavedLift(descriptor, prefix, { now: session.date, calibration });
+        const saved = read.sessions.find(item => item.sessionId === session.sessionId);
+        for (const set of saved?.sets || []) {
+          if (!anchor) anchor = { date: session.date, load: set.displayLoadKg, opening: set.startingLoad?.openingKg ?? null };
+          if (chosen.has(set.effortSource)) dates.set(session.date, (dates.get(session.date) || 0) + 1);
+          if (set.effortSource === "failure" && Draft.validCalibration(set.calibration))
+            checks.push({ date: session.date, sessionId: session.sessionId,
+              guess: set.calibration.predictedReps, reps: set.reps });
+        }
+        if ((dates.get(session.date) || 0) >= 2) depth.add(session.date);
+        const standing = read.standing;
+        if (depth.size && !standing?.unavailable && ["learning", "solid"].includes(standing?.word) && transitions.length === 0)
+          add("learning", session.date);
+        if (standing?.word === "solid" && !standing.unavailable) historicalSolid = true;
+        if (transitions.length === 1 && historicalSolid) add("solid", session.date);
+        if (transitions.length === 2 && (checks.length || depth.size >= 32))
+          add(checks.length ? "checked" : "long_record", session.date);
+        const understood = calibration.n >= Calibration.ESTIMATOR.minChecks && calibration.spread <= Calibration.ESTIMATOR.calibratedSpread &&
+          ["calibrated", "under", "over"].includes(calibration.state);
+        if (understood && !understoodStage) understoodStage = calibration.state === "calibrated" ? "calibrated" : "bias_understood";
+        if (transitions.length === 3 && (understoodStage || depth.size >= PROFILE_WEIGHTS.dateCap))
+          add(understoodStage || "established", session.date);
+      }
+      const initial = Engine.readSavedLift(entry.descriptor, history, { now });
+      const calibration = calibrationFor(initial, now);
+      const current = Engine.readSavedLift(entry.descriptor, history, { now, calibration });
+      const stageUnits = transitions.length * PROFILE_WEIGHTS.transition;
+      const dateUnits = Math.min(PROFILE_WEIGHTS.dateCap, depth.size) * PROFILE_WEIGHTS.date;
+      projected.push({ key: entry.key, name: entry.descriptor.name || entry.descriptor.exerciseId,
+        active: entry.active, stage: transitions.length === 4 && understoodStage ? understoodStage
+          : transitions.length === 3 && checks.length ? "checked" : transitions.at(-1)?.stage || "first", transitions,
+        anchor, depthDates: [...depth].sort(), checks, stageUnits, dateUnits, units: stageUnits + dateUnits,
+        current: { available: current.available, reasons: current.reasons, standing: current.standing, calibration } });
+    }
+    const active = projected.filter(lift => lift.active);
+    const budgetPerLift = PROFILE_WEIGHTS.date * PROFILE_WEIGHTS.dateCap + PROFILE_WEIGHTS.transition * PROFILE_WEIGHTS.transitions;
+    const budget = active.length * budgetPerLift, units = active.reduce((sum, lift) => sum + lift.units, 0);
+    return { version: PROFILE_VERSION, standingVersion: Engine.STANDING_VERSION, calibrationVersion: Calibration.CALIBRATION_VERSION,
+      lifts: projected, scope: active.map(lift => lift.key).sort(), unsupportedRows, units, budget, fill: budget ? units / budget : 0 };
+  }
+
   const FINDINGS_VERSION = "findings@081.1";
   const FINDING_IDS = Object.freeze(["weights_found", "first_target", "first_check", "effort_read",
     "first_solid", "first_trend", "month_one"]);
@@ -771,6 +873,9 @@
   }
 
   const api = {
+    PROFILE_VERSION,
+    PROFILE_WEIGHTS,
+    buildSavedProfile,
     FINDINGS_VERSION,
     buildFindings,
     MODEL_VERSION,

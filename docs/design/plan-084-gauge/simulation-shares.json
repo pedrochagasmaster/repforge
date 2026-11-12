@@ -1,0 +1,35 @@
+[
+  {
+    "scenario": "beginner",
+    "week": 16,
+    "dateUnits": 144,
+    "stageUnits": 128,
+    "earned": 272,
+    "budget": 320,
+    "stageShareOfEarned": 47.05882352941177,
+    "stageShareOfCapacity": 40,
+    "dateShareOfCapacity": 45
+  },
+  {
+    "scenario": "intermediate",
+    "week": 16,
+    "dateUnits": 192,
+    "stageUnits": 192,
+    "earned": 384,
+    "budget": 640,
+    "stageShareOfEarned": 50,
+    "stageShareOfCapacity": 30,
+    "dateShareOfCapacity": 30
+  },
+  {
+    "scenario": "change",
+    "week": 16,
+    "dateUnits": 180,
+    "stageUnits": 160,
+    "earned": 340,
+    "budget": 480,
+    "stageShareOfEarned": 47.05882352941177,
+    "stageShareOfCapacity": 33.333333333333336,
+    "dateShareOfCapacity": 37.5
+  }
+]
