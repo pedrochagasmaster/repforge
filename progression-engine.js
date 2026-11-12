@@ -136,7 +136,7 @@
     return { ok: true, value: result };
   }
 
-  function currentConfiguration(prescription, shape, loadingContext) {
+  function currentConfiguration(prescription, shape, loadingContext, evidenceOnly = false) {
     const bySlotId = isPlainObject(loadingContext?.bySlotId) ? loadingContext.bySlotId : null;
     const context = bySlotId && isPlainObject(bySlotId[prescription.slotId]) ? bySlotId[prescription.slotId] : null;
     if (!context) return { ok: false, status: "configuration_required", reasons: ["loading_context_required"] };
@@ -191,7 +191,7 @@
         : shape.kind === "per_side" ? "loadPerSideKg"
           : shape.kind === "persistent_per_side" ? "persistentLoadPerSideKg" : null;
     let loads = [];
-    if (displayLoadSemantic) {
+    if (displayLoadSemantic && !evidenceOnly) {
       if (!Array.isArray(context.availableLoadsKg) || context.availableLoadsKg.length === 0
         || context.availableLoadsKg.some((load) => !finite(load) || load < 0 || load > 1000)
         || new Set(context.availableLoadsKg).size !== context.availableLoadsKg.length) {
@@ -692,8 +692,6 @@
    *  `settings.now` is an ISO date for historical replay; one local calendar day is shared by a batch by default. */
   function standingFor(result, prescription, history, loadingContext, settings, now) {
     // The gauge loads later in the page shell; resolve its pure helpers when a recommendation is requested.
-    const quality = root?.RepForgeCalibrationGauge ||
-      (typeof require === "function" ? require("./calibration-gauge.js") : null);
     const calibration = isPlainObject(settings?.calibration)
       && settings.calibration.version === CALIBRATION_VERSION ? settings.calibration : null;
     const evidence = { ...emptyStandingEvidence(),
@@ -705,6 +703,17 @@
     if (!result.historyAnchor || result.status === "configuration_required") return standing("first", ["no_history"]);
     const shape = prescriptionShape(prescription);
     const config = currentConfiguration(prescription, shape, loadingContext);
+    return standingFromHistory(prescription, history, shape, config, calibration, now, result.historyAnchor.source);
+  }
+
+  function standingFromHistory(prescription, history, shape, config, calibration, now, source) {
+    const quality = root?.RepForgeCalibrationGauge ||
+      (typeof require === "function" ? require("./calibration-gauge.js") : null);
+    const evidence = { ...emptyStandingEvidence(),
+      checks: Number.isInteger(calibration?.n) && calibration.n >= 0 ? calibration.n : 0,
+      spread: finite(calibration?.spread) && calibration.spread >= 0 ? calibration.spread : null,
+      state: ["uncalibrated", "calibrated", "over", "under"].includes(calibration?.state) ? calibration.state : "uncalibrated" };
+    const standing = (word, reasons) => ({ version: STANDING_VERSION, word, reasons, evidence });
     const observations = [];
     let hasHistoryAnchor = false;
     const day = (date) => Math.floor(Date.parse(date) / 86400000);
@@ -726,7 +735,7 @@
       }
     }
     const dated = observations.filter((obs) => obs.q > 0);
-    if (!hasHistoryAnchor && result.historyAnchor.source === "current_session") return standing("first", ["live_only"]);
+    if (!hasHistoryAnchor && source === "current_session") return standing("first", ["live_only"]);
     evidence.sets = dated.reduce((sum, obs) => sum + obs.q * quality.decay(obs.date, now), 0);
     evidence.sessions = new Set(dated.map((obs) => obs.session)).size;
     // Keep uncountable rows in the sequence so a missing effort cannot join two otherwise separated sets.
@@ -748,6 +757,57 @@
     if (evidence.state === "uncalibrated" && calibration?.reason === "inconsistent") reasons.push("inconsistent_checks");
     if (evidence.gapDays >= 42) reasons.push("break");
     return standing(reasons.length ? "learning" : "solid", reasons);
+  }
+
+  /** Saved evidence has no historical target range. Validate its capacity semantics and captured
+   * configuration, then use the same parser and standing producer as recommendations. */
+  function savedShape(lift) {
+    if (!isPlainObject(lift) || typeof lift.exerciseId !== "string" || !lift.exerciseId ||
+      lift.metricType !== "source_metrics@1" ||
+      !METRIC_DOMAIN.validateDefinitions(lift.metricIds, lift.metricDefinitions, { allowEmpty: true }).ok) return null;
+    const semantics = lift.metricDefinitions.map(metric => metric.semantic);
+    const composition = Object.keys(SUPPORTED_SEMANTICS).find(key => same(SUPPORTED_SEMANTICS[key], semantics));
+    const coefficient = lift.loadingModel?.bodyweightCoefficient;
+    if (!composition || !finite(coefficient) || coefficient < 0 || coefficient > 1) return null;
+    const kind = CANONICAL_KIND_BY_COMPOSITION[composition] || composition;
+    return { kind, semantics, coefficient: effectiveBodyweightCoefficient(coefficient, kind),
+      requiresExecutionMode: semantics.some(value => ["repsPerSide", "loadPerSideKg", "persistentLoadPerSideKg"].includes(value)) };
+  }
+
+  /** Canonical engine-comparable identity. Names, slot ids, load grids and current bodyweight are not identity. */
+  function savedLiftIdentity(lift) {
+    const shape = savedShape(lift), context = lift?.context;
+    if (!shape || !isPlainObject(context)) return null;
+    return JSON.stringify([lift.exerciseId, lift.metricIds, shape.semantics, context.equipmentId ?? null,
+      context.loadingConvention ?? null, shape.requiresExecutionMode ? context.executionMode ?? null : null, context.externalLoadMultiplier ?? null,
+      shape.coefficient, shape.coefficient > 0 ? context.bodyweightContributionEnabled ?? null : false]);
+  }
+
+  function readSavedLift(lift, history = [], { now, calibration = null } = {}) {
+    calibration = calibration?.version === CALIBRATION_VERSION ? calibration : null;
+    const shape = savedShape(lift);
+    const unavailable = reasons => ({ available: false, reasons, sessions: [], standing: null });
+    if (!shape) return unavailable(["unsupported_saved_context"]);
+    const descriptor = { ...lift, slotId: lift.slotId || "saved-evidence" };
+    const config = currentConfiguration(descriptor, shape, { bySlotId: { [descriptor.slotId]: lift.context } }, true);
+    if (!config.ok) return unavailable(config.reasons);
+    // The source rows retain their provenance; a warm-up or ramp is never a working observation.
+    const working = history.filter(session => session?.completed === true).map(session => ({ ...session,
+      sets: (session.sets || []).filter(set => set && !set.warmup && set.origin !== "ramp" && set.work !== false &&
+        (!shape.requiresExecutionMode || set.loadingContext?.executionMode === lift.context.executionMode)) }));
+    const sessions = working.map(session => ({ sessionId: session.sessionId, date: session.date,
+      sets: session.sets.flatMap(raw => {
+        if (shape.requiresExecutionMode && raw.loadingContext?.executionMode !== lift.context.executionMode) return [];
+        const parsed = parsePerformedSet(raw, shape, descriptor, config);
+        return parsed && parsed.ok !== false ? [{ ...parsed, date: raw.date ?? session.date,
+          calibration: raw.calibration ?? null, startingLoad: raw.startingLoad ?? null }] : [];
+      }).sort((a, b) => a.setIndex - b.setIndex),
+    })).filter(session => session.sets.length);
+    const hasAnchor = sessions.some(session => session.sets.some(set => set.setIndex === 0));
+    const standing = hasAnchor
+      ? standingFromHistory(descriptor, working, shape, config, calibration, now, "history")
+      : { version: STANDING_VERSION, word: "first", reasons: ["no_history"], evidence: emptyStandingEvidence() };
+    return { available: true, reasons: [], sessions, standing };
   }
 
   function recommendSets(prescriptions, history = [], currentSession = [], loadingContext = {}, settings = {}) {
@@ -782,7 +842,7 @@
   }
 
   const api = Object.freeze({ ENGINE_VERSION, STANDING_VERSION, RIR_CREDIT_CAP, CALIBRATION_VERSION, CALIBRATION_DELTA, CALIBRATION_STEPS, FORMULA_VERSION, SUPPORTED_SEMANTICS, BODYWEIGHT_MATERIAL_THRESHOLD,
-    effectiveBodyweightCoefficient, performanceTrend, recommendSets });
+    effectiveBodyweightCoefficient, performanceTrend, recommendSets, savedLiftIdentity, readSavedLift });
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.RepForgeProgression = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

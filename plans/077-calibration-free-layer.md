@@ -36,6 +36,18 @@ follow-on plans; the body below is left as the history of what shipped.
   that finds starting loads in words, and a published, versioned priors table for opening loads and new-lift
   ratios.
 
+### OD-20 amendment (owner, 2026-11-12)
+
+[Plan 084](084-gauge-return.md), approved in PR #753, replaces the former gauge with the
+ink-only **Your profile / Seu perfil** ring. It never prints a percentage or changes
+recommendations, calibration or test-set frequency. One comparable lift has a presentation
+budget of 80: ¾ per qualifying saved date up to 64, plus 8 per attained transition up to four.
+The 32/64-date history path shares the last two transitions with the test-set path and never
+claims effort calibration. Stages are replayed from retained saved evidence and never decay
+with rest. The six existing signals and findings remain separate facts, without extra credit.
+All remains Free during alpha. The original OD-20 arithmetic below is historical, not the
+replacement's rule table; `RepForgeProgressModel.PROFILE_WEIGHTS` owns the shipped weights.
+
 ## 1. Problem
 
 Taurifer turns every logged set into capacity, `effectiveLoad × (1 + (reps + RIR)/30)`
