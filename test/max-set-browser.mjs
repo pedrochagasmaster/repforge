@@ -152,9 +152,13 @@ try {
 
   phase("During the rest before the last set: the prompt, then the guess");
   await page.waitForSelector(`${TIP}`, { state: "visible", timeout: 5000 });
-  const tipText = await page.locator(TIP).innerText();
-  assert(/still learning this lift/i.test(tipText), "the invite explains why the check is requested", tipText);
-  assert(/test set/i.test(tipText) && /50 kg/.test(tipText), "the prompt names the test set and the load", tipText);
+  await page.locator(`${TIP} [data-maxset-guess]`).click();
+  await page.locator("#maxSetSheet.is-open").waitFor({state:"visible"});
+  const explanation = await page.locator("#maxSetInvite").innerText();
+  assert(/still learning this lift/i.test(explanation), "the guess sheet explains why the check is requested", explanation);
+  assert(/test set/i.test(explanation) && /50 kg/.test(explanation), "the explanation names the test set and the load", explanation);
+  await page.keyboard.press("Escape");
+  await page.locator("#maxSetSheet").waitFor({state:"hidden"});
   phase("A real discomfort mark suppresses the offer until cleared");
   await openActions(page, exId);
   await page.locator("#exActionDiscomfortBtn").click();

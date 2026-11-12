@@ -1792,18 +1792,29 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
 .resttip__x{position:absolute;top:0;right:0;display:grid;place-items:center;width:var(--control-target);height:var(--control-target);padding:0;border:0;background:transparent;color:inherit;opacity:.75;cursor:pointer}
 .resttip__x .icon-mask{width:18px;height:18px;background:currentColor}
 .resttip :focus-visible{outline:2px solid currentColor;outline-offset:-2px;border-radius:var(--radius-button)}
-/* An inline invitation shares the context's surface and quiet-control roles. */
-.fcard__context > .resttip[data-tip="max-set"]{
-  position:relative;inset:auto;margin:var(--space-12) 0;
-  background:var(--color-surface);color:var(--color-ink);box-shadow:none;
-  border:1px solid var(--boundary-decorative);
+/* The invitation and rest clock share one docked line above the input fields. */
+.focus-shelf > .resttip[data-tip="max-set"]{
+  position:relative;inset:auto;display:flex;align-items:center;gap:0;min-height:var(--control-target);
+  padding:0;margin:0;border:0;border-radius:var(--radius-none);box-shadow:none;
+  background:var(--control-quiet-bg);color:var(--color-ink);font-size:min(var(--font-size-body-small),var(--large-cap-small));
 }
-.fcard__context > .resttip[data-tip="max-set"] :is(.resttip__no,.resttip__yes,.resttip__x){
+.resttip[data-tip="max-set"] .resttip__acts{flex:1;min-width:0;justify-content:space-between;margin:0;gap:0}
+.resttip[data-tip="max-set"] :is(.resttip__no,.resttip__yes){
+  min-width:var(--control-target);padding:0 var(--space-4);white-space:nowrap;
   background:var(--control-quiet-bg);color:var(--control-quiet-ink);opacity:1;
 }
-.fcard__context > .resttip[data-tip="max-set"] button:hover{background:var(--well)}
-.fcard__context > .resttip[data-tip="max-set"] button.is-pressed{background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
-.fcard__context > .resttip[data-tip="max-set"] :focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
+.resttip[data-tip="max-set"] .resttip__yes{flex:1;text-align:left}
+.resttip[data-tip="max-set"] button:hover{background:var(--well)}
+.resttip[data-tip="max-set"] button.is-pressed{background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
+.resttip[data-tip="max-set"] :focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
+.resttip[data-tip="max-set"] .resttab{position:static;flex:none;inset:auto;margin:0;width:auto;min-width:var(--control-target);max-width:none;padding:0 var(--space-2);border-radius:var(--radius-control)}
+.resttip[data-tip="max-set"] .resttab__label,.resttip[data-tip="max-set"] .resttab__chev{display:none}
+.resttip[data-tip="max-set"] .resttab__time{font-size:min(var(--font-size-body-small),var(--large-cap-supporting))}
+.workshelf.focus-shelf:has(.resttip[data-tip="max-set"]){row-gap:var(--space-8)}
+.exercise--focus.is-text-scaled .workshelf.focus-shelf:has(.resttip[data-tip="max-set"]){row-gap:var(--space-4)}
+article.exercise--focus:has(.resttip[data-tip="max-set"]) .fcard__context{padding-bottom:0}
+article.exercise--focus > .fx-cue__l1{flex:none;padding:0 var(--gut);font-size:min(var(--font-size-feature-title),var(--large-cap-value))}
+.maxset__explanation{margin:0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink)}
 
 /* ---- The wheel picker (Plan 075 phase 2W, ADR 0023 choice 8) ----
    A second tap on the selected Load or Reps field opens this in a fit sheet.

@@ -29,7 +29,7 @@ import { CATALOG_PHONES, SAFE_AREA, inPool, openCatalogState } from "./fixtures/
 const BASE_URL = process.env.REPFORGE_URL || "http://localhost:8000/";
 const STATE_KEY = "repforge_v1";
 
-// FOCUS_GEOMETRY_ONLY=large,smallest runs just those sections (stability, large, smallest, standing, context, test-set, gestures); the default is all.
+// FOCUS_GEOMETRY_ONLY=large,smallest runs just those sections (stability, large, smallest, standing, context, test-set, dismissal, gestures); the default is all.
 const only = (process.env.FOCUS_GEOMETRY_ONLY || "").split(",").filter(Boolean);
 const wants = (section) => !only.length || only.includes(section);
 
@@ -282,11 +282,15 @@ async function checkContextText(browser) {
 
 async function checkTestSetPrompt(browser) {
   const failures = [];
-  for (const key of ["workout/max-set-prompt", "workout/max-set-recheck"]) {
-    for (const width of [320, 390, 430]) for (const lang of ["en", "pt"]) for (const text of ["normal", "text200"]) {
+  const cases = [];
+  for (const key of ["workout/max-set-prompt", "workout/max-set-recheck"])
+    for (const width of [320, 390, 430]) for (const lang of ["en", "pt"]) for (const text of ["normal", "text200"])
+      cases.push({ key, width, lang, text });
+  await inPool(cases, 3, async ({ key, width, lang, text }) => {
       const opened = await openCatalogState(browser, key, width, lang, text, { height: width === 430 ? 932 : CATALOG_PHONES[width], safe: { top: 0, bottom: 0 } });
       const label = `${key} ${width}px ${lang} ${text}`;
       try {
+        for (const problem of focusCardProblems(await opened.page.evaluate(measureFocusCard, 0))) failures.push(`${label}: ${problem}`);
         const measured = await opened.page.evaluate(() => {
           const card = document.querySelector(".exercise.is-current");
           const tip = card.querySelector('[data-tip="max-set"]');
@@ -297,11 +301,12 @@ async function checkTestSetPrompt(browser) {
               Math.min(box.bottom, prompt.bottom) > Math.max(box.top, prompt.top) + 1;
           });
           const context = card.querySelector(".fcard__context").getBoundingClientRect();
+          const cardBox = card.getBoundingClientRect(), shelf = card.querySelector(".focus-shelf").getBoundingClientRect();
           const row = card.querySelector(".ledgerline--open").getBoundingClientRect();
           const target = card.querySelector(".fx-cue__l1").getBoundingClientRect();
           return { covered, left: prompt.left, right: prompt.right, width: innerWidth,
             rowWhole: row.top >= context.top - 1 && row.bottom <= context.bottom + 1,
-            targetWhole: target.top >= context.top - 1 && target.bottom <= context.bottom + 1 };
+            targetWhole: target.top >= cardBox.top - 1 && target.bottom <= shelf.top + 1 };
         });
         if (measured.covered.length || measured.left < 0 || measured.right > measured.width)
           failures.push(`${label}: prompt covers the target or open row, or spills horizontally: ${JSON.stringify(measured)}`);
@@ -313,22 +318,50 @@ async function checkTestSetPrompt(browser) {
             const context = button.closest(".exercise").getBoundingClientRect();
             const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
             return { text: button.textContent.trim(), width: box.width, height: box.height,
-              whole: box.top >= context.top - 1 && box.bottom <= context.bottom + 1 && box.left >= 0 && box.right <= innerWidth,
+              whole: box.top >= Math.max(0, context.top) - 1 && box.bottom <= Math.min(innerHeight, context.bottom) + 1 && box.left >= 0 && box.right <= innerWidth,
               reachable: !!hit && button.contains(hit) };
           }));
         if (actions.length !== 2 || actions.some(action => action.width < 44 || action.height < 44 || !action.whole || !action.reachable))
           failures.push(`${label}: both invitation actions must be visible 44px targets: ${JSON.stringify(actions)}`);
+        const clock = await opened.page.locator("#restTab").evaluate(button => {
+          const box = button.getBoundingClientRect(), hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+          return { width: box.width, height: box.height, whole: box.top >= 0 && box.bottom <= innerHeight && box.left >= 0 && box.right <= innerWidth,
+            reachable: !!hit && button.contains(hit), label: button.getAttribute("aria-label") };
+        });
+        if (clock.width < 44 || clock.height < 44 || !clock.whole || !clock.reachable || !clock.label)
+          failures.push(`${label}: rest clock must remain a named, visible 44px target: ${JSON.stringify(clock)}`);
         const guess = opened.page.locator('.exercise.is-current [data-maxset-guess]');
         await guess.click();
         await opened.page.locator("#maxSetSheet.is-open").waitFor({ state: "visible" });
+        assert(await opened.page.evaluate(key => document.querySelector("#maxSetInvite").textContent.includes(
+          t(key.endsWith("recheck") ? "maxset.invite_reason_recheck" : "maxset.invite_reason_learning")), key),
+          `${label}: the guess sheet keeps the full invitation reason`);
         console.log(`  ${label}: ${JSON.stringify(measured)}`);
       } finally {
         await opened.context.close();
       }
+  });
+  assert(!failures.length, "test-set prompts leave the target and open row readable", failures.join(" | "));
+  console.log("  24 test-set frames keep the target and open row whole, with both bar actions and the rest clock visible before scrolling");
+}
+
+async function checkTestSetDismissal(browser) {
+  for (const lang of ["en", "pt"]) {
+    const opened = await openCatalogState(browser, "workout/max-set-prompt", 320, lang, "text200", { safe: { top: 0, bottom: 0 } });
+    try {
+      const time = await opened.page.locator("#restTab .resttab__time").textContent();
+      await opened.page.locator('.exercise.is-current [data-maxset-no]').click();
+      await opened.page.locator('.exercise.is-current [data-tip="max-set"]').waitFor({ state: "detached" });
+      assert(await opened.page.locator("#restTab").count() === 1 && await opened.page.locator(".restlight").count() === 1,
+        `${lang}: dismissing the invitation preserves one rest control and contour`);
+      assert(await opened.page.locator("#restTab .resttab__time").textContent() === time,
+        `${lang}: dismissal preserves the running rest`);
+      await opened.page.locator("#restTab").click();
+      await opened.page.locator("#restSheet.is-open").waitFor({ state: "visible" });
+    } finally {
+      await opened.context.close();
     }
   }
-  assert(!failures.length, "test-set prompts leave the target and open row readable", failures.join(" | "));
-  console.log("  24 test-set frames keep the target and open row clear, with Make a guess reachable");
 }
 
 async function main() {
@@ -447,6 +480,7 @@ async function main() {
     /* ======================================================================
      * 2. The shelf's action stays whole at large text (R7 V-02)
      * ====================================================================== */
+    if (wants("dismissal")) await checkTestSetDismissal(browser);
     if (wants("test-set")) await checkTestSetPrompt(browser);
     if (wants("context")) await checkContextText(browser);
     if (wants("large")) await checkFocusStatesAtLargeText(browser);

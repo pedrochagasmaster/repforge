@@ -10095,14 +10095,14 @@
       "id": "rest-tip",
       "selector": ".resttip",
       "roles": {
-        "elevation": "floating"
+        "elevation": ["flat", "floating"]
       },
       "variant": null,
       "facets": [],
       "states": [
         "default"
       ],
-      "rationale": "A between-sets tip (Plan 077, OD-6): a dismissible ink card over the shelf during the rest, never over the shelf itself, so logging stays live.",
+      "rationale": "Between sets: the stage tip floats above the shelf; the test-set invitation shares a flat dock with the rest clock above the input fields.",
       "owner": "plan-077",
       "catalogStates": [
         "workout/stage-tip",
@@ -10125,7 +10125,7 @@
         "pressed",
         "focus-visible"
       ],
-      "rationale": "The tip's two answers, Not now and its offer, as text buttons on the ink card; neither commits training data on its own.",
+      "rationale": "The tip's two answers, Not now and its offer, as quiet text buttons; neither commits training data on its own.",
       "owner": "plan-077",
       "catalogStates": [
         "workout/stage-tip",

@@ -7287,11 +7287,12 @@ function layoutRestContour(){
   if(!svg||!tab||!svg.isConnected)return;
   // Measured from the shelf's border box (its top border is there, transparent, while the contour draws the edge).
   const shelf=svg.parentElement,W=shelf.offsetWidth,H=shelf.offsetHeight,edge=shelf.clientTop;
-  const T=Math.max(0,-(tab.offsetTop+edge)),RT=parseFloat(getComputedStyle(tab).borderTopLeftRadius)||16;
+  const docked=tab.parentElement.matches('.resttip[data-tip="max-set"]');
+  const T=docked?0:Math.max(0,-(tab.offsetTop+edge)),RT=docked?0:parseFloat(getComputedStyle(tab).borderTopLeftRadius)||16;
   // A tab grown wide by large text keeps its whole shape: the shoulder fillets, then the shelf's corners, tighten.
-  const room=Math.max(0,tab.offsetLeft),F=Math.min(REST_FILLET,room);
+  const room=docked?W/2:Math.max(0,tab.offsetLeft),F=docked?0:Math.min(REST_FILLET,room);
   const R=Math.min(parseFloat(getComputedStyle(shelf).borderTopLeftRadius)||28,room-F);
-  const SH=T+H,{top,left,right,tabLength,length}=restContourPaths({W,T,R,RT,F,tabLeft:tab.offsetLeft,tabWidth:tab.offsetWidth});
+  const SH=T+H,{top,left,right,tabLength,length}=restContourPaths({W,T,R,RT,F,tabLeft:docked?W/2:tab.offsetLeft,tabWidth:docked?0:tab.offsetWidth});
   svg.setAttribute("viewBox",`0 0 ${W} ${SH}`);
   Object.assign(svg.style,{top:`${-T-edge}px`,left:`${-shelf.clientLeft}px`,width:`${W}px`,height:`${SH}px`});
   for(const el of svg.querySelectorAll("filter,mask")){
@@ -7301,7 +7302,7 @@ function layoutRestContour(){
   for(const el of svg.querySelectorAll(".restlight__hair,.restlight__core,.restlight__bloom"))el.setAttribute("d",top);
   const halves=[...svg.querySelectorAll(".restlight__half")];
   halves[0].setAttribute("d",left);halves[1].setAttribute("d",right);
-  restContour={svg,lit:svg.querySelector(".restlight__lit"),halves,tabLength,length}}
+  restContour={svg,lit:svg.querySelector(".restlight__lit"),halves,tabLength:docked?REST_TAB_SHARE*length:tabLength,length}}
 /** The contour's paths for a shelf W wide whose tab (tabLeft, tabWidth) rises T above its top edge, with the tab's top
  *  corner radius RT, the shoulder fillet F and the shelf's corner radius R; y is 0 at the tab's top. `top` is the lit
  *  edge, `left` and `right` its halves from the tab's top centre out, `bump` the raised part alone (closed a little below
@@ -7338,15 +7339,21 @@ function focusRestTipHtml(ex,n){return restTipFor(ex,n)?.html(ex,n)||""}
 function focusDraftSet(exId,n){
   const draft=activeWorkoutDraft?.exercises?.[exId];
   return draft?.sets?.[draft.setOrder.find(id=>draft.sets[id].ordinal===n)]||null}
-/** Test-set invitations follow the ledger in its scroller; other tips belong to the shelf. */
+/** Both kinds of rest tip belong to the shelf; the test-set bar also holds its rest control. */
 function syncRestTip(shelf){
   const card=shelf?.closest(".exercise"),base=card?prog.find(card.dataset.ex):null,ex=base?sessionExercise(base):null;
   const n=ex?focusActiveSet(ex):0,entry=shelf?restTipFor(ex,n):null;
-  const host=entry?.id==="max-set"?card.querySelector(".fcard__context"):shelf;
-  $$(".resttip").forEach(el=>{if(el.parentElement!==host||el.dataset.tip!==entry?.id)el.remove()});
+  const host=shelf,context=card?.querySelector(".fcard__context"),target=card?.querySelector(".fx-cue__l1");
+  if(entry?.id==="max-set"&&target&&target.parentElement!==card)context.before(target);
+  else if(entry?.id!=="max-set"&&target&&target.parentElement===card)context.querySelector(".fx-cue")?.prepend(target);
+  $$(".resttip").forEach(el=>{
+    if(el.parentElement===host&&el.dataset.tip===entry?.id)return;
+    const clock=el.querySelector("#restTab");
+    if(clock&&shelf)shelf.prepend(clock);
+    el.remove();
+    if(clock){layoutRestContour();refitFocusSoon()}});
   if(!entry||host.querySelector(`.resttip[data-tip="${entry.id}"]`))return;
-  if(entry.id==="max-set")host.querySelector(".fcard__ledger").insertAdjacentHTML("afterend",entry.html(ex,n));
-  else host.insertAdjacentHTML("afterbegin",entry.html(ex,n));
+  host.insertAdjacentHTML("afterbegin",entry.html(ex,n));
   entry.bind?.(host.querySelector(".resttip"),shelf,ex,n)}
 
 /** The set the lifter has started entering during this rest: the stage tip never sits over a set being entered. */
@@ -7422,6 +7429,8 @@ function syncRestTab(){
     restContourObserver?.disconnect();
     restContourObserver=typeof ResizeObserver==="function"?new ResizeObserver(()=>{layoutRestContour();paintRestVisuals()}):null;
     restContourObserver?.observe(shelf);restContourObserver?.observe(shelf.querySelector("#restTab"))}
+  const dock=shelf.querySelector('.resttip[data-tip="max-set"]'),tab=shelf.querySelector("#restTab");
+  if(dock&&tab.parentElement!==dock){dock.prepend(tab);layoutRestContour();refitFocusSoon()}
   shelf.classList.add("has-rest");
   paintRestTab();
   paintRestVisuals();
@@ -8382,16 +8391,14 @@ function maxSetOffer(ex,n){
 function maxSetTipHtml(ex,n,peek){
   if(peek)return"";
   const offer=maxSetOffer(ex,n);if(!offer)return"";
-  const title=t("maxset.invite_title"),body=t(offer.load?"maxset.invite_body":"maxset.invite_body_noload",
-    {load:offer.load,reason:t(`maxset.invite_reason_${offer.reason}`)});
+  const title=t("maxset.bar_label");
   return `<section class="resttip" data-tip="max-set" aria-label="${esc(title)}">`+
-    `<p class="resttip__text"><b>${esc(title)}</b> ${esc(body)}</p>`+
-    `<div class="resttip__acts"><button type="button" class="resttip__no" data-maxset-no>${esc(t("maxset.not_now"))}</button>`+
-    `<button type="button" class="resttip__yes" data-maxset-guess>${esc(t("maxset.make_guess"))}</button></div>`+
-    `<button type="button" class="resttip__x" data-maxset-no aria-label="${esc(t("maxset.not_now"))}"><span class="icon-mask icon-mask--close" aria-hidden="true"></span></button></section>`}
+    `<div class="resttip__acts"><button type="button" class="resttip__yes" data-maxset-guess aria-haspopup="dialog" aria-controls="maxSetSheet">${esc(title)}</button>`+
+    `<button type="button" class="resttip__no" data-maxset-no>${esc(t("maxset.not_now"))}</button></div></section>`}
+
 function declineMaxSet(exId){
   if(activeWorkoutDraft)maxSetDeclined.add(`${activeWorkoutDraft.draftId}:${exId}`);
-  $$('.resttip[data-tip="max-set"]').forEach(el=>el.remove())}
+  syncRestTab()}
 function bindMaxSetTip(tip,shelf,ex){
   tip.querySelectorAll("[data-maxset-no]").forEach(b=>b.onclick=()=>{declineMaxSet(ex.id);quietFocus(shelf.querySelector(".saveset"))});
   tip.querySelector("[data-maxset-guess]")?.addEventListener("click",()=>openMaxSetSheet(ex.id))}
@@ -8406,6 +8413,8 @@ function openMaxSetSheet(exId){
   const sheet=$("#maxSetSheet"),scrim=$("#maxSetScrim");if(!sheet)return;
   maxSetUi={exId,setId:offer.set.setId,guess:offer.guess.predictedReps,prefill:offer.guess.predictedReps,basis:offer.guess.prefillBasis,phase:"guessing"};
   $("#maxSetTitle").textContent=t(offer.load?"maxset.guess_q":"maxset.guess_q_noload",{load:offer.load});
+  $("#maxSetInvite").textContent=t("maxset.invite_title")+" "+t(offer.load?"maxset.invite_body":"maxset.invite_body_noload",
+    {load:offer.load,reason:t(`maxset.invite_reason_${offer.reason}`)});
   $("#maxSetFrom").textContent=offer.guess.prefillBasis==="reps_rir"
     ?t("maxset.guess_from",{n:offer.before.ordinal,reps:fmt(offer.reps),left:fmt(offer.rir)})
     :t("maxset.guess_from_reps",{n:offer.before.ordinal,reps:fmt(offer.reps)});
@@ -11545,9 +11554,10 @@ function syncFocusFloor(){
   // floors stand down, and this one makes what sits above the deck (a draft recovery) give way instead of the shelf.
   // The band the region leaves for the rest tab's rise (#550) is part of its floor; it stands down with the keyboard up.
   const rise=least?parseFloat(least.marginBottom)||0:0;
-  const deck=tall(shelf)+rise+(least?(parseFloat(least.paddingTop)||0)+(parseFloat(least.paddingBottom)||0):0);
+  const target=card.querySelector(":scope > .fx-cue__l1");
+  const deck=tall(shelf)+tall(target)+rise+(least?(parseFloat(least.paddingTop)||0)+(parseFloat(least.paddingBottom)||0):0);
   shell.style.setProperty("--focus-deck-floor",`${Math.ceil(deck)}px`);
-  let form=tall($("#woProgress"))+tall(shelf)+rise+(least?Math.max(parseFloat(least.minHeight)||0,parseFloat(least.paddingTop)+parseFloat(least.paddingBottom)):0);
+  let form=tall($("#woProgress"))+tall(shelf)+tall(target)+rise+(least?Math.max(parseFloat(least.minHeight)||0,parseFloat(least.paddingTop)+parseFloat(least.paddingBottom)):0);
   for(const el of $("#workout")?.children||[])if(!el.matches(".deck"))form+=tall(el);
   shell.style.setProperty("--focus-form-floor",`${Math.ceil(form)}px`);
   shell.style.setProperty("--focus-floor",`${Math.ceil(form+tall(head))}px`);
@@ -11565,7 +11575,7 @@ function syncFocusFloor(){
   // Observing starts with a notification of its own, so the watch is only re-pointed when its elements changed.
   // The context region too (#541): a banner that appears above the deck (a draft recovery, say) shrinks it, and the
   // open set has to be brought back into it.
-  const watched=[head,shelf,$("#woProgress"),context,...(context?.children||[])].filter(Boolean);
+  const watched=[head,shelf,target,$("#woProgress"),context,...(context?.children||[])].filter(Boolean);
   if(focusFloorWatched.length===watched.length&&watched.every((el,i)=>el===focusFloorWatched[i]))return;
   focusFloorWatch??=new ResizeObserver(()=>syncFocusFloor());
   focusFloorWatch.disconnect();

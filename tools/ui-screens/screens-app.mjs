@@ -2666,8 +2666,6 @@ export const APP_SCENARIOS = {
     }
     await seed(page,state);
     await maxSetRest(page,{exerciseId:row.id});
-    await page.waitForFunction(() => document.querySelector('.exercise.is-current [data-tip="max-set"]')?.textContent.includes(
-      t("maxset.invite_reason_recheck")));
   },
   "workout/max-set-guess": async (page) => {
     await maxSetRest(page);
