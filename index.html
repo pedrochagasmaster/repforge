@@ -1185,21 +1185,23 @@ Triceps pushdown 3x12-15</pre>
   </div>
   <div id="maxSetScrim" class="sheet-scrim hidden"></div>
   <div id="maxSetSheet" class="sheet sheet--maxset hidden" role="dialog" aria-modal="true" aria-labelledby="maxSetTitle" aria-describedby="maxSetFrom" hidden>
-    <div class="sheetband">
-      <span class="sheetband__handle" aria-hidden="true"></span>
-      <h2 class="sheetband__title" id="maxSetTitle">How many reps can you do?</h2>
-      <p class="sheetband__sub" id="maxSetFrom"></p>
-    </div>
-    <div class="sheetbody sheetbody--maxset">
-      <p class="maxset__explanation" id="maxSetInvite"></p>
-      <div class="maxset__count">
-        <button type="button" class="stepbtn maxset__pad" id="maxSetLess" data-i18n-aria="maxset.fewer" aria-label="One fewer">−</button>
-        <output class="maxset__n" id="maxSetCount" aria-live="polite">10</output>
-        <button type="button" class="stepbtn maxset__pad" id="maxSetMore" data-i18n-aria="maxset.more" aria-label="One more">+</button>
+    <div class="maxset__scroll">
+      <div class="sheetband">
+        <span class="sheetband__handle" aria-hidden="true"></span>
+        <h2 class="sheetband__title" id="maxSetTitle">How many reps can you do?</h2>
+        <p class="sheetband__sub" id="maxSetFrom"></p>
       </div>
-      <p class="maxset__rule" data-i18n="maxset.fail_rule">Failure is the rep you can't finish with good form. Stop there; that rep doesn't count.</p>
-      <p class="maxset__safety" data-i18n="maxset.safety">Stop at once if anything hurts.</p>
-      <p class="maxset__safety" id="maxSetPress" data-i18n="maxset.press_line" hidden>Only to failure on presses if you can safely drop or rack the weights.</p>
+      <div class="sheetbody sheetbody--maxset">
+        <p class="maxset__explanation" id="maxSetInvite"></p>
+        <div class="maxset__count">
+          <button type="button" class="stepbtn maxset__pad" id="maxSetLess" data-i18n-aria="maxset.fewer" aria-label="One fewer">−</button>
+          <output class="maxset__n" id="maxSetCount" aria-live="polite">10</output>
+          <button type="button" class="stepbtn maxset__pad" id="maxSetMore" data-i18n-aria="maxset.more" aria-label="One more">+</button>
+        </div>
+        <p class="maxset__rule" data-i18n="maxset.fail_rule">Failure is the rep you can't finish with good form. Stop there; that rep doesn't count.</p>
+        <p class="maxset__safety" data-i18n="maxset.safety">Stop at once if anything hurts.</p>
+        <p class="maxset__safety" id="maxSetPress" data-i18n="maxset.press_line" hidden>Only to failure on presses if you can safely drop or rack the weights.</p>
+      </div>
     </div>
     <div class="sheetfoot sheetfoot--pair">
       <button type="button" id="maxSetNo" data-i18n="maxset.not_now">Not now</button>

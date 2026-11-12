@@ -1725,7 +1725,11 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
 .ledgerline__resline{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
 /* Sized to its content: it is read in the rest, so it stays low enough to keep the lift in view. */
 .sheet.sheet--maxset{height:auto}
+.maxset__scroll{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
 .sheetbody--maxset{display:grid;gap:var(--space-8);padding-top:var(--space-4)}
+.maxset__scroll .sheetbody--maxset{flex:none;overflow:visible}
+.sheet--maxset .sheetfoot{flex:none}
+.sheet--maxset .sheetfoot>button{height:auto;padding-block:var(--space-8)}
 .maxset__count{display:grid;grid-template-columns:72px minmax(0,1fr) 72px;align-items:center;margin-bottom:var(--space-4)}
 .maxset__pad{height:56px;min-height:56px;font-size:var(--font-size-metric)}
 .maxset__n{text-align:center;font-family:var(--font-training-data);font-size:var(--font-size-display);font-weight:var(--weight-semibold);line-height:1;font-variant-numeric:tabular-nums;color:var(--color-ink)}

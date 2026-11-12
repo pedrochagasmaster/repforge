@@ -11643,11 +11643,15 @@ function sizeFocusCard(card){
     // Preserve the established placement unless real context text is cut. A correction must leave both the hero
     // and the open row whole; the hero's fractional top is an upper bound, never a boundary to round past.
     context.scrollTop=scaled?target:uncutFocusContext(context,target,Math.max(0,Math.ceil(rowBottom-foot)),Math.floor(leadTop));
-    break}}
+    break}
+  if(card.querySelector(":scope > .fx-cue__l1")){
+    const rowTop=open.getBoundingClientRect().top-origin;
+    context.scrollTop=uncutFocusContext(context,context.scrollTop,
+      Math.max(0,Math.ceil(rowBottom-foot)),Math.min(Math.floor(rowTop),context.scrollHeight-context.clientHeight),[context])}}
 /** Repair only a clipped text line, within the interval that keeps the current row and its lead visible. */
-function uncutFocusContext(context,target,least,most){
+function uncutFocusContext(context,target,least,most,blocks=context.querySelectorAll(".fx-head,.fx-cue__standing,.fx-cue__evidence")){
   const origin=context.getBoundingClientRect().top-context.scrollTop,lines=[];
-  for(const block of context.querySelectorAll(".fx-head,.fx-cue__standing,.fx-cue__evidence")){
+  for(const block of blocks){
     const walker=document.createTreeWalker(block,NodeFilter.SHOW_TEXT);
     for(let node=walker.nextNode();node;node=walker.nextNode()){
       if(!node.textContent.trim())continue;
