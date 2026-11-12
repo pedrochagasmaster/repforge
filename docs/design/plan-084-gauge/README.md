@@ -1,83 +1,82 @@
-# Plan 084: three disposable gauge directions
+# Plan 084, round 2: Your profile / Seu perfil
 
-Design question: how can saved training feel like a growing investment without
-turning effort reporting into a percentage to fill?
+[Plan, model, simulation and remaining decisions](../../../plans/084-gauge-return.md).
+[One contact sheet](contact-sheet.png).
 
-[Plan and owner questions](../../../plans/084-gauge-return.md).
-These are synthetic fixtures and candidate copy, not a shipping UI or an
-approved decision. Open `index.html` directly in a browser. No server, app boot,
-storage, service worker, analytics, network requests or training mutations.
-Fonts and tokens load from the repo. Only relative local files are needed.
+The owner chose A's ink ring and the name Your profile / Seu perfil. This
+round replaces the short-lived four-lift completion count with per-lift stages
+and saved-session depth. B and C are retired; their round-1 artifacts remain
+in Git at `a02c7a567`.
 
-## Compare
-
-Use the floating prototype controls or the left/right arrow keys to switch
-directions. Every selection is in the URL. The tools are absent from captures.
-The Start session action jumps to the simulated saved finish; it does not
-implement Focus or claim a workout happened. Gauge taps open Overview. The
-finish reader has an explicit return link, illustrated in the interactive page.
-Other dock destinations are context-only links back to Overview.
-
-| Direction | Question it answers | Contact sheet |
-| --- | --- | --- |
-| A, evidence ring | Does #636's compact glanceable shape work when each segment means one lift with saved evidence used in a later target? Recommended. | [A](contact-a.png) |
-| B, coverage rail | Is a flat coverage bar plus an explicit load/basis/used table clearer than a ring? | [B](contact-b.png) |
-| C, history in use | Is an open-ended source-session count enough to convey investment without a completion total? | [C](contact-c.png) |
-
-Each sheet contains 24 whole 390 × 844 screens. Columns are Today fresh,
-Today mid-way, Today well-tailored, Overview mid-way, finish previous reading, finish
-updated reading. Rows are PT light, PT dark, EN light, EN dark. The two finish columns
-show the same simulated save, not two sessions. Replay the change in the
-interactive page. Reduced motion uses the immediate final state.
-
-Example file URL query, appended to `index.html`:
+Open `index.html` directly. Use the prototype controls to switch screens,
+fresh/mid/well-tailored evidence, language and theme. Selections live in the
+URL, not storage. Gauge tap opens Overview; each lift opens its stage reader;
+Back returns to Overview. The finish can replay its saved stage step. The
+Start session link skips to a synthetic saved finish, not a real Focus flow.
+History and Program dock links are context-only links back to Overview.
 
 ```text
-?variant=A&screen=today&stage=mid&lang=pt&theme=dark
-?variant=B&screen=overview&stage=mid&lang=en&theme=light
-?variant=C&screen=finish&stage=mid&lang=pt&theme=dark
+?screen=today&stage=mid&lang=pt&theme=dark
+?screen=overview&stage=mid&lang=en&theme=light
+?screen=lift&lang=pt&theme=light
+?screen=finish&lang=en&theme=dark
+?screen=scope&lang=pt&theme=light
 ```
 
-`freeze=before` holds the pre-save gauge for capture. `capture=1` hides the
-review tools. The simulated finish always uses 1/4 → 2/4 and five → six source
-sessions regardless of the stage selector. The fresh Today has an onboarded
-four-lift program with no saved sets, not the product's no-program state.
-Overview's text labels are current standing; the gauge is historical earned
-evidence. After a real break those can differ, as the plan explains.
+The single sheet contains 32 whole 390 × 844 browser captures. Columns:
 
-## Sources and limits
+1. Today, fresh, 0/272 internal steps.
+2. Today, mid-way, 74/272, beginner week 5.
+3. Today, well-tailored, 208/272, beginner week 16. Still room to grow.
+4. Overview, with Your profile as the heading and the existing sentence below.
+5. Cable row's attained stages, current standing, depth and next condition.
+6. Finish with the previous ring reading, 74/272.
+7. The same finish with its updated reading, 76/272.
+8. A week-8 scope expansion, 112/272 → 112/408, with all learned steps retained.
 
-The page imports the actual `styles.css`, including local Plex fonts and the
-`:root[data-theme]` theme swap. It uses Today's `.pagehead` and `.rxrow`,
-Overview's `.tabrow`, `.profile-lifts`, `.profile-finding`, and the summary's
-eyebrow/hero/ledger structure. It keeps the training values, quiet hairlines,
-CTA and four-destination dock in view. Prototype-only CSS arranges the new
-gauge and confines the frame; it names production colour tokens. The ring and
-bar are ink, with no new orange-budget use or colour scale.
+Rows are PT light, PT dark, EN light, EN dark. Fractions above are design
+arithmetic, never percentages printed in the product. Only the evidence
+counts and explanations appear on screen. `capture=1` hides prototype tools;
+`freeze=before` holds the old finish reading. Review copy is synthetic and
+pending owner approval.
 
-Historical comparison: `758e298b3^` has the removed Today title/bar ring,
-Overview percentage/six bars and `calib.*` EN/PT copy. The Plan 054 standalone
-prototype informed the local token reuse and language/theme controls. Ring
-history was read in `calib-ring-prototype.md` and `plan077-calibration.md` in
-the owner's project memory. The selected test-set-dot ring shipped in #636;
-these designs deliberately propose a different denominator and no percent.
+## Where the evidence comes from
 
-The Overview frame is an excerpt, not a plan to delete the remaining signals,
-findings or recent-test rows. There is no live estimator, engine replay or
-persistence proof in this prototype. No collapsed-header scrolling, screen
-reader, 200% text, physical device or production fidelity acceptance is claimed.
-The visible count changes illustrate the proposed projection; they do not
-establish that every older log can reproduce a historical prescription.
-
-## Reproduce only these artifacts
-
-From the repo root, using the existing pinned browser tooling and Python Pillow:
+`simulate.mjs` constructs its own synthetic completed sessions and calls the
+shipped `progression-engine.js` and `effort-calibration.js` public interfaces.
+`simulation.json` retains every week's per-lift standing evidence, calibration
+count/bias/spread, attained transitions, depth and total. `simulation-table.md`
+and `simulation-chart.html` are generated from it. The latter uses the small
+`render-simulation.py` helper. Run the simulation without launching a browser:
 
 ```bash
-flock /tmp/taurifer-browser.lock node docs/design/plan-084-gauge/capture.mjs
+node docs/design/plan-084-gauge/simulate.mjs
 ```
 
-If this worktree has no test-only dependencies but the shared clone does:
+This is scenario arithmetic, not a test suite. There are no assertions, app
+writes, test fixture imports or CI calls. It does not predict actual people.
+The beginner's agreeing test sets deliberately model a fast calibration path;
+the ring still has months of saved-session depth left. The intermediate has
+no test sets and continues gaining evidence through all 16 weeks.
+
+The proposed 64-date budget and alternate long-history stage path are new
+presentation choices for owner review. Existing standing and calibration
+thresholds are read from production modules, not changed. Findings and opening
+loads explain evidence; they do not add duplicate steps. The UI fixtures use
+the generated week-5/week-16 totals, with a separate explicit three-check
+finish example. They are not a second production implementation of the model.
+
+## Rendering
+
+The prototype loads the repo's actual `styles.css` and local Plex fonts,
+including the root light/dark token swap. Today retains `.pagehead` and
+`.rxrow`; Overview retains `.tabrow` and `.profile-lifts`; finish keeps the
+saved-summary ledger, factual totals and Done action. The new ring/stage reader
+uses those same ink, paper, type, hairline and control tokens. No app scripts,
+service worker, storage, analytics or network service is loaded.
+
+Reproduce only these design captures, using the existing pinned browser and
+Python Pillow:
 
 ```bash
 NODE_PATH=/home/ubuntu/repforge/test/node_modules \
@@ -85,8 +84,18 @@ NODE_PATH=/home/ubuntu/repforge/test/node_modules \
   node docs/design/plan-084-gauge/capture.mjs
 ```
 
-This captures exactly the three directions and four language/theme combinations.
-It launches one browser, retains source frames in an announced temporary
-folder, closes it, then lays those unchanged pixels into three labelled PNGs.
-`contact-sheets.py` is a contact-sheet assembler, not a screenshot editor.
-No test suite or CI command is part of this design phase.
+If dependencies are already available under this worktree's `test/`, omit
+`NODE_PATH`. One browser captures only the eight requested/complementary scenes
+in the four language/theme combinations. It closes before the contact-sheet
+assembler lays the unchanged pixels into one PNG. Raw frames are retained in
+an announced temporary directory. Do not launch a second browser alongside it.
+
+The fill moves once after the synthetic save, with no celebration. Reduced
+motion uses the finished state. Stage check marks are static evidence labels,
+in ink, not rewards. The scope-change scene keeps both static readings rather
+than animating a drain or hiding a changed denominator.
+
+The screen is an excerpt of the profile, not a proposal to remove its signal
+counts, findings, dates or recent checks. Collapsed-header scrolling, full
+production navigation, screen readers, 200% text and physical devices are not
+validated by these pictures. No tests or CI run in this design round.

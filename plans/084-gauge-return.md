@@ -1,308 +1,316 @@
-# Plan 084: the gauge returns as Training foundation
+# Plan 084: Your profile / Seu perfil, round 2
 
-Status: design proposal for owner review, 2026-11-11. Docs and a disposable
-static prototype only. The owner has reversed D-6's removal of the gauge and
-rejected the name "effort calibration". The model, name, visual direction and
-copy below are recommendations, not approved changes to the product rules.
+Status: owner-directed second design round on draft PR #753, 2026-11-12.
+Design only. Base remains `991163048b9e0da288e20924660e1b285c9ac4ca`;
+round 1 is preserved in commit `a02c7a567`. No app code, tests or CI.
 
-Base: `origin/main` at `991163048b9e0da288e20924660e1b285c9ac4ca`.
-[Prototype and contact sheets](../docs/design/plan-084-gauge/README.md).
+## 1. Decisions and problem
 
-## 1. The job
+The owner chose A's ink ring, named it **Your profile / Seu perfil**, allowed
+an ink fill without a percentage number or celebration, and kept everything
+Free during alpha. Post-alpha commercialization remains notes only. Directions
+B and C are removed from this branch's current artifacts.
 
-The owner's brief asks for progression, tailoring and investment, eventually
-leading to a paywall after the alpha. The gauge should make the connection
-visible: the lifter saved work, Taurifer learned something specific, and a later
-target used it. A growing record makes that connection more useful over time.
-It must never imply that a fuller ring means a stronger or more diligent person.
+Round 1 counted a lift once after its history informed a target. Four lifts
+could finish the ring in two weeks. That does not show months of learning or
+investment. Round 2 gives each comparable lift stages and depth within them.
+Every increment must come from saved evidence. Time alone never adds or removes
+anything, and the ring never affects recommendations or test-set frequency.
 
-Plan 077's percent answered a smaller question, how much recent evidence exists
-about effort reporting. Its six signals are T test sets, A set agreement,
-H suggestion agreement, W week pairs, S slow-rep answers and R history.
-`calibration-gauge.js` still computes the percent on this base but nothing renders
-it. Renaming that number would preserve the wrong model.
+A five-label ladder alone still fails: three agreeing checks can establish
+calibration in weeks. Delaying the words Solid or Well calibrated for months
+would misrepresent the existing estimator. The proposed ring therefore counts
+saved comparable-session steps within the attained stage as well as the four
+stage transitions. The 16-week simulation below exposes this choice rather
+than hiding an early plateau behind slower animation.
 
-T has 55% of the weight, with two weighted checks on up to four eligible lifts.
-Without optional test sets the ceiling is 45%. Evidence has a 90-day half-life,
-so the number falls during rest. The old Today ring combined that percent with
-test-set dots; the Overview repeated it over six weighted bars. Direction B of
-the earlier ring study shipped in #636. Commit `758e298b3` removed that UI under
-Plan 081. Neither the formula nor its dots should return under a broader name.
+## 2. Proposed per-lift model
 
-## 2. Proposed model: evidence used, with its history intact
+A lift is an engine-comparable identity: performed movement, equipment,
+loading convention and metric semantics. Duplicate slots and display aliases
+share evidence; a different machine does not. No bundled four-lift cap.
 
-Recommend counting **lifts with a demonstrated history-to-target chain**.
-This measures one bounded part of tailoring, not everything Taurifer knows.
-Beside it, show the actual investment, sessions whose saved rows informed later
-saved targets, and the optional lessons in test sets and findings. Do not add
-these unlike units into a weighted total.
+A **depth step** is one distinct saved calendar date with at least two normal,
+comparable, non-warm-up working rows whose effort was explicitly chosen. Both
+rows need valid performed load, reps and finite effort, and a supported engine
+configuration. Numeric and word answers count equally as dates; standing still
+uses its own quality weights. A failure row does not replace those two ordinary
+rows. A repeated import/session id or two sessions on the same date cannot add
+a second step for that lift. This is a dated observation count, not a streak.
 
-A lift contributes once when all three statements have saved evidence:
+An opening load recorded by session zero or a normal saved row anchors the
+first stage; a declared prior, generator answer or an unsaved draft does not.
+Imported history can contribute when its comparable identity, dates and explicit
+effort are recoverable; unknown provenance cannot be promoted to explicit.
 
-| Step | Required evidence | What it means |
+### Stage rules
+
+The labels below describe the deepest evidence ever supported by the retained
+record. They are not today's `standing.word`. The per-lift page shows both.
+Transitions are earned once, in order. Evidence acquired earlier can satisfy a
+later stage once its prerequisites hold.
+
+| Stage | Exact proposed rule | Ring contribution and next need |
 | --- | --- | --- |
-| A working load exists | A saved non-warm-up row with valid performed load and reps. A session-zero `startingLoad` can explain its origin; it is not required. | A declared prior has met work the lifter actually did. |
-| A basis formed | At a historical session boundary the comparable-key estimate was Solid under the pinned standing rule. Retain the row/session references that reproduce that boundary. | Enough comparable evidence existed. This does not promise that today's standing is Solid. |
-| The basis was used | A later saved session contains a working set at the history-derived suggested load, within one implied capacity rep of that target, under a pinned engine replay with only earlier sessions available. | A target informed by that basis was borne out by saved work. A hold target qualifies. |
+| First time | No valid saved history anchor. `standing@078.1` returns `first`, or unavailable/configuration-required. | No transition. Save comparable working sets to start. |
+| Learning | At least one depth date with a saved working load, and a non-unavailable historical `standing@078.1` result of `learning` or `solid`. | First transition, plus each saved depth date. Next need is the existing standing reason, never a fabricated date. |
+| Solid | At a saved boundary the actual `standing@078.1` result is `solid`. | Second transition. Current production rule: at least 6 weighted sets over 2 sessions; if at least 4 pairs, agreement at least 0.6; no inconsistent-check reason and no gap of at least 42 days. The producer owns weights, 90-day weighting and comparability. |
+| Checked by a test set | Historical Solid, plus at least one valid saved `calibration` guess/result on this comparable identity. | Third transition. A check is evidence even when the guess is wrong. Next: the existing estimator's need, usually 2 more checks after the first. Safety and prompt ceilings stay unchanged. |
+| Well calibrated | Previous stages, plus at a historical boundary at least 3 valid checks and `calibration@077.1` state `calibrated`: absolute shrunken bias below 0.75 and sample spread at most 1.25 reps. | Fourth transition. More comparable-session depth still fills the ring afterwards; this stage does not imply perfect future targets. |
 
-The proposed projection reconstructs these events from saved rows. It never
-awards credit for a tap, a preview, accepting an invitation, purchasing, or
-merely waiting. Words count under the standing module's existing row weights;
-missing effort and untouched prefills cannot fabricate a qualifying basis.
-Measured failure rows follow the standing owner's rules rather than a second
-quality table. A pain stop or an unmatched target has no penalty. There is no
-request to train extra or obey a load to fill the gauge.
+Plan 077's arithmetic remains authoritative. Errors are predicted minus actual
+reps, clipped to ±5. Bias is their sum divided by `n + 2`. Spread is their sample
+standard deviation. `checkErrors` takes the last six valid checks, no older than
+180 days at the historical boundary, after the latest 42-day reset. Never pool
+checks from different equipment to make them agree.
 
-Use the engine's complete comparability identity, including performed movement,
-equipment, loading convention and metrics. A display alias or duplicate slot
-must not earn another contribution. The current movement-only profile/gauge
-keys are not sufficient authority for this new projection. Do not merge a new
-machine with an old one to make a mark fill.
+A consistent bias is also useful learning. With at least 3 checks, spread at
+most 1.25 and state `under` or `over`, the fourth transition instead reads
+**Consistent bias understood / Tendência consistente identificada**. It is
+not labelled Well calibrated or accurate. The same bound for both directions
+avoids treating a high-spread `over` state as agreement just because the engine
+permits its conservative correction. The existing calibration state and delta
+remain unchanged.
 
-### Scope and monotonicity
+### A lifter who skips test sets must keep moving
 
-The ring/bar describes the active program's distinct comparable keys. The
-prototype has four. Production uses the actual number, never the old four-lift
-cap. With no program show no gauge; with no usable keys show a plain explanation,
-not 0/0. For a large program, use a continuous arc plus the exact textual count,
-not dozens of unreadable segments.
+Do not give that lifter imaginary calibration. After historical Solid:
 
-Within a fixed program scope, an earned chain stays earned while its saved
-source evidence remains valid. Time alone never subtracts it. Historical Solid
-is distinct from current Solid: after a break the profile may say Learning while
-the gauge still says that this lift has informed targets before. The detail
-explains both, with dates. Never use the gauge to schedule test sets or select
-loads; the estimator's uncertainty and safety ceilings remain authoritative.
+- At **32 depth dates**, the third transition can instead read **Long record /
+  Histórico amplo**. It is evidence depth, not a check result.
+- At **64 depth dates**, the fourth can read **Established from history /
+  Base consolidada pelo histórico**. Effort calibration still says **Not
+  checked / Sem série-teste**. No claim about effort-report accuracy follows.
 
-Changing program scope can change the fraction. Say "New program: 2 of 6 lifts
-have a basis from your history", retain the prior program's factual record,
-and avoid an animated fall. Changing equipment creates a new key with its own
-learning, with an explanation. History correction, deletion, backup replacement
-or a revised projection can also reduce counts. Re-derive, name the reason and
-never silently preserve an unsupported high-water value. Clearing history clears
-its gauge. Evidence must travel only with the existing authorized backup and
-install-transfer data, not a new counter or setup-link field.
+The test and history paths share each transition's single place. Taking a test
+after reaching Long record changes the explanation, not the number of earned
+transitions. A test is never required for a full ring. Disabling prompts does
+not grant anything. Barbell-ineligible lifts have the same history path.
 
-Pin a foundation-rule version and replay dependency versions before implementation.
-A historical rule is an explicit interpretation of saved evidence, not a claim
-that the old app stored or executed an adaptation it did not. If the replay
-cannot reconstruct a comparable prescription and history, leave the chain
-unproven. Legacy/imported logs keep their factual session and test counts;
-unknown provenance never becomes confirmed target use. Do not introduce a saved
-acceptance event or schema just to make a prototype number attainable.
+### Fill, depth and duration
 
-### Candidate signals, and why they stay separate
+For each comparable lift:
 
-| Candidate | Proposed treatment |
-| --- | --- |
-| First / Learning / Solid per lift | Show current standing in the profile; historical Solid forms one part of a chain. Never average the three words. |
-| Test sets | Saved guess against result, dated and optional. No minimum for filling the gauge. Three checks still govern a bias correction under OD-14/18. |
-| Findings released | Reuse the seven rules and dates from `progress-model.js`. No credit for opening or dismissing one; no extra invented findings. |
-| Opening loads confirmed | Saved working-load evidence, whether from session zero or ordinary sessions. A prior alone is not confirmation. |
-| Weeks trained | Optional factual distinct weeks with saved sessions, never consecutive weeks or elapsed calendar time. Not in the gauge arithmetic. |
-| Adaptations accepted | Only name an adaptation when a saved applied definition and its provenance prove it. Not an input in the first implementation; accepting a proposal alone proves no benefit. |
-| Sessions informing targets | Distinct source session ids in successful chain replays, counted once across all lifts, never all sessions merely logged. Direction C makes this investment the lead figure. |
+```text
+steps = min(64, qualifying saved depth dates) + attained transitions, at most 4
+budget = 68
+program fill = sum(lift steps) / (68 × distinct comparable lifts in this program)
+```
 
-### Worked states in the prototype
+No percentage is printed. Today shows only the ink ring and its name. Overview
+explains the saved-date and stage counts separately; the per-lift reader names
+every next condition. The 64-date budget is a proposed presentation threshold,
+not a discovered physiological constant or an engine setting. It is the main
+remaining product choice. One date and one transition each contribute one
+visible step; their counts stay distinguishable in the reader. No invented
+points, daily bonus, time-in-app credit, finding-open credit or acceptance reward.
 
-The four-lift program is machine chest press, cable row, leg press and pulldown.
-The full-day prescription remains the focus of Today.
+A full ring needs at least 64 trained dates **per lift** as well as the stage
+path, even if test sets agree early. At three exposures per lift per week that
+is at least 22 weeks; at two it is 32 weeks. Each is months of actual records,
+not elapsed time. A training break can make that take longer, never undo it.
+The ring can finish; it is not an endless meter. Afterwards it stays full while
+findings and history continue. New comparable lifts add genuine learning room.
 
-| State | Earned chains | Source sessions used | Other evidence |
+The next-depth line states what is being observed, not an instruction to train
+extra, hit an authored load, take a test or lift through pain. A saved date can
+count even if a load goes down. There is no promised weekly increase for an
+actual person whose evidence is missing or unsupported.
+
+## 3. Current standing, findings and honesty over time
+
+The ring uses historical attained stages, re-derived at each original saved
+boundary. Current standing still comes from the current engine result. After
+rest, a lift can read **Solid reached on 16 Jan; current estimate Learning
+after a break**. A historical check remains a historical check when its current
+180-day window expires. Neither record claims the engine still uses the old
+bias. The per-lift view distinguishes those statements.
+
+The profile from #731 and the seven findings from #737 remain. The finish
+integration follows #736's final finding slot. Findings such as weights found,
+first target, first check, first Solid and month one explain the transitions
+with their existing release dates; they do not add a second step for the same
+fact. Never derive a stage from a `findingsSeen` preference, tap or calendar
+finding. Opening loads explain the first evidence. Accepted adaptations stay
+out because acceptance is not proof of a training result.
+
+No decay for rest, age, missed weeks or subscription state. Recompute from
+surviving evidence after a correction, deletion, backup replacement or a model
+version change. If support disappears, state the exact reason and affected
+lift before showing the revised reading. Never keep an unsupported high-water
+counter. Clearing history clears its stages. No new persistent ledger is
+assumed by this plan; versioned replay must be feasible before implementation.
+The historical standing calculation may need more than the old gauge's bounded
+30-set H replay. Do not silently infer unavailable historical prescriptions.
+
+## 4. New lifts, new programs and the ring's denominator
+
+Carry a stage only when the full comparability identity carries. A renamed
+slot is the same lift; a new machine starts its own evidence. A retained lift
+keeps its depth dates across programs. Archived lifts keep their facts in the
+profile but leave the active program's denominator.
+
+An expanded denominator necessarily lowers the proportion for the same earned
+steps. A fixed-size single ring cannot keep the same angle **and** tell the
+truth. Do not animate a drain or claim that nothing visually changes.
+
+On the first Overview visit after expansion, show a quiet **Profile scope
+changed / O perfil agora cobre mais exercícios** explanation:
+
+- A small static previous-scope ring, labelled **4 lifts, before**.
+- The current A ring, labelled **6 lifts, now**.
+- **112 saved steps retained. Two new lifts start at First time.**
+
+The new ring appears at its new reading without a backward tween. Today uses
+that same new scope immediately, with a temporary factual line **2 new lifts
+in your profile** leading to the explanation. This is presentation of an actual
+scope change, not a loss of learned evidence. The eighth contact-sheet column
+shows it. If scope shrinks, show the same before/now comparison rather than
+celebrating a larger fill. No extra Settings dial, notification or telemetry.
+
+## 5. Sixteen-week simulation, executed as design legwork
+
+Run `node docs/design/plan-084-gauge/simulate.mjs`. This is a synthetic scenario
+generator, not a test suite. It calls the shipped `recommendSets` and
+`Calibration.checkErrors/estimate/shouldOffer` interfaces. It writes the
+[weekly table](../docs/design/plan-084-gauge/simulation-table.md) and
+[per-week, per-lift evidence](../docs/design/plan-084-gauge/simulation.json).
+No test file is imported, no private helper is scraped, and no app data is read
+or written. The proposed step aggregation is disposable code in this directory.
+
+Assumptions are deliberately explicit:
+
+- Beginner: four machine lifts, full body Monday/Wednesday/Friday. Three working
+  sets with explicitly chosen words per lift, same equipment, controlled
+  comparable rows. Checks rotate on at most Monday and Friday, one per session,
+  at least 14 days per lift, only when shipped uncertainty/recheck policy permits.
+  Every simulated guess equals the measured result. This is an optimistic
+  calibration path, not a forecast of beginner accuracy.
+- Intermediate: eight lifts, upper/lower four days per week; each lift gets two
+  comparable exposures per week. Explicit numeric effort, no test sets at all.
+  It reaches Long record at week 16 and keeps room for another 16 weeks.
+- Program change: the beginner's schedule, retaining its four lifts and adding
+  two new machine identities **after** the last session of week 8. Six lifts
+  thereafter. New lifts have no invented earlier history and no scheduled
+  checks in this example. At week 8, 112 earned steps are retained while the
+  budget grows from 272 to 408. This tests expansion rather than erasing old
+  evidence or conveniently substituting already-known lifts.
+
+The fractions below are design arithmetic for review, never percentage numbers
+or points presented to the lifter. Every column gains saved evidence each week;
+the scope change is explicitly marked. The generator produces this table and the [ink-line comparison chart](../docs/design/plan-084-gauge/simulation-chart.html).
+
+<!-- simulation-table:start -->
+| Week | Beginner, 3/week | Intermediate, 4/week, no tests | New program at week 8 |
 | --- | --- | --- | --- |
-| Fresh, before first saved session | 0 of 4 | 0 | All First; no test sets or findings yet. |
-| Mid-way | 2 of 4 | 6 | Chest press and row earned; leg press Learning, pulldown First; 1 optional test set. |
-| Well-tailored in this bounded sense | 4 of 4 | 18 | Every current lift has a chain; more evidence and new findings can still arrive. |
-| Finish, before → after this save | 1 of 4 → 2 of 4 | 5 → 6 | Row's first qualifying use completes its chain. A separate first-test-set finding says guessed 11, did 14; one check changes no bias. |
+| 1 | 16/272 | 24/544 | 16/272 |
+| 2 | 36/272 | 48/544 | 36/272 |
+| 3 | 48/272 | 64/544 | 48/272 |
+| 4 | 60/272 | 80/544 | 60/272 |
+| 5 | 74/272 | 96/544 | 74/272 |
+| 6 | 88/272 | 112/544 | 88/272 |
+| 7 | 100/272 | 128/544 | 100/272 |
+| 8 | 112/272 | 144/544 | 112/408 * |
+| 9 | 124/272 | 160/544 | 132/408 |
+| 10 | 136/272 | 176/544 | 152/408 |
+| 11 | 148/272 | 192/544 | 170/408 |
+| 12 | 160/272 | 208/544 | 188/408 |
+| 13 | 172/272 | 224/544 | 206/408 |
+| 14 | 184/272 | 240/544 | 224/408 |
+| 15 | 196/272 | 256/544 | 242/408 |
+| 16 | 208/272 | 280/544 | 260/408 |
+<!-- simulation-table:end -->
 
-These are synthetic design fixtures, not production-module outputs or observed
-lifter results. The finish may reveal existing saved source sessions as newly
-used by today's target; its count does not mean six sessions happened today.
-If a session earns nothing, show the unchanged reading and its next evidence
-need. Never manufacture a delta. A first saved session confirms work but cannot
-have its own previous-history chain, so the ring can honestly remain empty.
+`*` At week 8, 112/272 becomes 112/408 because two new lifts enter the program.
+No earned step is removed. The before/now scope view makes this explicit.
+Results demonstrate these stated scenarios, not all schedules or noisy records.
+Early stage labels finish sooner than the ring: that is why depth within the
+stage is necessary. The simulation uses clean synthetic engine inputs and
+machine identities, not a claim of catalog integration or physical validation.
 
-## 3. Names, PT first
+## 6. Name and the selected prototype
 
-| PT | EN | Assessment |
-| --- | --- | --- |
-| **Base do treino** | **Training foundation** | Recommend. A basis in the record, with no claim of comprehensive knowledge. |
-| Construído com suas sessões | Built from your sessions | Makes investment clear; too long for a small header. Good supporting sentence. |
-| Histórico em uso | History in use | Most literal for the successful chain, but colder as a title. |
-| O que aprendemos | What we've learned | Warm and close to the profile; the subject can imply a human team. |
-| Seu treino, com mais contexto | Your program, with more context | Broad and understandable; "context" needs a concrete line underneath. |
+The name stays **Your profile / Seu perfil**. Printing it as a gauge title
+immediately below **What Taurifer knows about you / O que o Taurifer sabe sobre
+você** repeats the same subject and weakens the hierarchy. Recommend the minimal
+fix shown in the prototype: **Your profile** is the section heading, and the
+existing explanatory sentence becomes its subtitle. The words of that sentence
+stay intact. This hierarchy change is flagged for owner approval, not a rename.
 
-Avoid "sob medida", rejected by the strategy note for promising tailored
-generation, as well as coach, score, streak, accuracy and completion language.
-Standing remains First / Learning / Solid in its existing localized words;
-it never becomes the name of a whole-person state.
+[Single round-2 contact sheet](../docs/design/plan-084-gauge/contact-sheet.png).
+Eight columns: Today fresh, mid-way and well-tailored, Overview, one lift's
+stage reader, finish before and after a saved stage step, and scope expansion.
+Rows: PT light, PT dark, EN light, EN dark. Every source frame is 390 × 844.
 
-## 4. Three directions, with one recommended
+The ring keeps A's compact ink shape. It has no percentage, colour reward or
+completion flourish. Per-lift rows open the stage reader. That reader shows the
+attained stage, current standing, saved depth, check results and the next exact
+condition. Current prescriptions and Start session stay dominant on Today.
+Fresh means an onboarded program before saved sets; no-program stays outside.
 
-**A. Evidence ring, recommended.** A segmented ink ring beside the Today title,
-with the earned-lift count inside and a short "Base do treino" label. A larger
-version leads the profile. The finish shows the same ring moving from 1/4 to
-2/4, accompanied by the row's saved reason. Keep the appeal of #636's small
-ring, but remove the percent, test-set dots and colour ladder. Trade-off: a
-closed circle still invites completion. The count and scope must be explicit.
+Prototype fixtures: fresh 0/272; mid-way 74/272, based on beginner week 5;
+well-tailored 208/272, beginner week 16. It is deliberately not full. The finish
+illustrates a third agreeing row check: 74 → 76 steps, comprising one saved
+depth date and one new stage transition. That row has checks 11→11, 10→11,
+12→12. Errors 0, -1, 0 give bias -0.2 and spread about 0.577, so the production
+estimator says calibrated. Its pre-save errors 0, -1 give `n=2`, no correction.
+The whole program's other evidence stays fixed. A concurrent finding comes
+from the existing rule if supported, never a duplicate reward.
 
-**B. Coverage rail.** A flat row beneath Today's program name contains four
-segments, one per lift, with an exact "2 of 4" line. Overview replaces the
-abstract rail with a three-column evidence table: load, basis, used. The finish
-extends one segment and names the lift. It explains the denominator best, at
-the cost of a full-width item ahead of the training task. This is explicitly
-a proposed exception to the ban on bars, not a way around it.
+An unchanged-stage finish can still gain a depth date. An unchanged-depth and
+unchanged-stage save leaves the ring unchanged. Failed/cancelled saves add
+nothing. The fill moves once after save, linearly over 500ms in this disposable
+comparison, no bounce or celebration. Reduced motion shows the end state
+immediately. Production motion would go through the existing motion layer;
+no vendor or app module is loaded into this prototype.
 
-**C. History in use.** Today has a slim typographic line, "6 sessions informing
-your targets", beside six restrained ledger marks. Overview opens a receipt of
-source dates and the target they informed. The finish moves 5 → 6 with one new
-source line. No total to fill; 18 keeps growing. The same 2-of-4 coverage stays
-in the detail. This is the least game-like alternative, but the least like the
-small ring the owner originally liked. Marks are compressed above 12, never a
-hidden maximum. The exact count always remains visible.
+## 7. Rules and implementation split
 
-### Placement and interaction
+The owner has resolved the visual exception, name and alpha boundary. Record
+those decisions here instead of asking them again. A later implementation
+updates the D-6/OD-20/PRODUCT/CONTEXT references to the selected model without
+erasing their rationale. No orange category, Settings tuning, scoring system,
+telemetry event/property, account or new transfer field is authorized.
 
-- Today: below the title for B/C, beside it for A. A fresh onboarded lifter sees
-  a quiet empty reading and a truthful next step. Start session remains the
-  strongest action. Never show this in the no-program invitation or as an
-  interruption while logging in Focus. For a collapsed header, propose a
-  44px tap target containing A's 30px ring; B/C remain in the scroll content.
-  The static prototype concentrates on the large header, not that scroll path.
-- Progress › Overview: gauge, brief meaning and dated evidence, followed by
-  the profile's per-lift standing, findings, six signal counts and recent tests.
-  It is one reader, not a fifth dock destination or a second dashboard.
-- Finish: factual session totals first, one gauge change and its reason next,
-  the existing new finding beneath it. One tap opens Overview, with a return
-  to the finish screen. Keep the finding visible when the gauge does not move.
-- Later commercial moment: the block review, when a history-aware next program
-  is a real available action. The gauge is subordinate evidence, never the
-  trigger, a countdown, or a lock. No commercial UI is in this prototype.
+1. Freeze the remaining depth/alternate-path rules and exact EN/PT labels.
+   Build a pure, versioned saved-evidence projection using the existing standing,
+   calibration, opening-load and findings owners. Prove actual identity,
+   deduplication, historical support, rest, edits/deletions, scope carry-forward
+   and unknown historical contexts in that future implementation packet.
+2. Today and Overview, including scope explanation and per-lift stage reader.
+   Keep diagnostic signals and findings; no percentages. Approved copy, semantic
+   controls, focus/return, asset revisions and targeted catalog artifacts belong
+   to that implementation, not this design round.
+3. Finish integration against the final #736 slot, stage and depth changes from
+   the same successful save, unchanged state, navigation and reduced motion.
 
-Gauge tap announces the name, exact count and scope, then opens Overview at
-its explanation. No slider semantics. Decorative arcs/marks are hidden from
-assistive technology; the text is the reading. A live update announces once
-after a successful save, never every animation frame. All controls retain
-44px targets, visible focus and localized labels. PT is reviewed first.
-The proposed 500ms linear change in the disposable prototype is a comparison
-aid with a manual replay control, not approved product motion. Production would
-use `motion-layer.js`, one short transition with no bounce, and an immediate
-end state under reduced motion. No pulse, confetti, sound, haptic or reward.
+This PR remains docs and a static prototype. The simulation is scenario
+arithmetic requested by the owner, not an application test or completion gate.
+Browser capture alone uses `flock /tmp/taurifer-browser.lock`. No tests or CI
+are run or awaited in this round.
 
-## 5. Keep the profile and findings
+## 8. Post-alpha notes only
 
-#731's profile and #737's seven findings are merged on this base. #736's
-finish findings remain an open PR at the time of writing; this design depicts
-its intended finding slot and must integrate with its final implementation.
-Do not restore removed markup/globals as a shortcut. The old historical shell
-is research material, not a compatibility requirement for a new design.
+Everything stays Free in alpha, including the whole profile, stages, findings
+and both evidence paths. Keep post-alpha commercial discussion separate from
+fill, eligibility, recommendations and saved facts. A later history-aware next
+program or bounded adaptation may use the record under the thesis's evidence
+gates and entitlement ADR. This plan defines no paid boundary, offer, trial,
+price, checkout or trigger. Paying, lapsing and declining never move the ring.
 
-The profile answers "what is known on this lift now?" Findings say what the
-record first showed and when. The gauge answers "where has my history already
-informed a target?" A lift can be Learning today after a break and still carry
-an earned historical chain. Show its dated evidence; do not overwrite standing
-or release another first finding to make the gauge feel busy.
+## 9. Remaining owner questions
 
-Reuse the actual `standing` field and findings owner. The old six signals stay
-as diagnostic counts, including disagreeing sets. They are not six progress
-bars again, and poorer agreement does not subtract investment. The prototype
-shows a compact excerpt of the profile so the whole relationship fits at 390;
-it does not propose deleting the remaining rows from production.
-
-## 6. Answer the rejected gauge and define the later commercial hook
-
-The strategy rejected a percentage in a landing hero, a bar to fill and the
-45% ceiling. This proposal keeps the gauge inside the lifter's record, keeps
-the landing unchanged, uses countable work instead of a synthetic percentage,
-and makes full coverage possible without test sets, numeric effort mode or
-paid adaptations. It never fades while the person rests.
-
-That answers the arithmetic and pressure objections. It does not erase the
-visual objection: A's ring and B's rail still look fillable. The owner must
-approve a narrow exception for actual evidence coverage or choose C. If even
-an exact count becomes an instruction to comply, prefer C or remove the
-Today gauge while keeping its evidence reader. Do not reward hitting targets
-in the engine or increase test frequency to make a mark move.
-
-Post-alpha proposal only: keep the gauge, its source record, current-program
-profile, seven findings, test-set corrections, normal progression and exports
-Free. Pro can add a next program built from the record and bounded adaptations
-under the existing thesis jobs. The block review can say which source sessions
-are available to that real capability, with an ordinary optional Pro choice
-separate from its factual conclusions. It cannot say that buying Pro completes
-the ring or that Free loses what Taurifer learned. Never dim saved facts, sell
-accuracy or show a withheld proposal. A lapsed subscription changes no earned
-mark and no Free target. Across-program factual records remain readable Free;
-the tentative paid boundary is synthesis into a new program, not ownership of
-history. This specific boundary still needs the owner's post-alpha decision.
-
-All alpha participants retain all features, without payment or a trial clock.
-No price, fake door, checkout, entitlement call or backend belongs to Plan 084.
-An entitlement-lifecycle ADR and the alpha evidence gates still precede any
-commercial implementation, as D-7 to D-13 and ADR 0010 require.
-
-## 7. Conflicts the owner must settle
-
-| Rule / decision | Proposed treatment |
-| --- | --- |
-| D-6, Plan 081 §2 and Plan 077 OD-20 amendment | Owner's new brief reverses removal. Amend these records with the selected model and keep the profile/findings. Do not erase their historical rationale. |
-| PRODUCT.md / CONTEXT.md percentage and score bans | Keep percentages and arbitrary points banned. Add a precise exception for dated evidence counts and, if A/B wins, their scoped coverage visualization. The gauge is not capacity, accuracy or current standing. |
-| No bars and no celebrations, Plan 081 §3/6 and DESIGN.md | A/B require an explicit visual exception; C avoids a completion total but still needs agreement that cumulative evidence is useful. Keep celebrations banned in every direction. |
-| DESIGN.md orange budget | Prototype uses ink for every gauge mark. No additional orange use is requested. Rest/Focus bars retain their own meanings. A coloured gauge would require a separate owner decision and contract amendment. |
-| ADR 0003, no new Settings dial | Keep fixed versioned rules in code, no sensitivity, weights, goal or visibility setting. The gauge never feeds recommendations. |
-| Telemetry freeze and closed schema | No new event, property, percent, source id, finding text, lift name or Basics value. Design reviewed without measuring gauge engagement. Any later experiment requires its own approved schema decision; never infer permission from the funnel aim. |
-| Free floor, analytical independence, ADR 0010 | Commercial choice is separate from engine conclusions. No pay-to-fill, decayed Free reading or degraded suggestions. |
-
-This PR leaves the governing documents intact until the owner chooses. A plan
-is not silent permission to bypass them during implementation.
-
-## 8. Proposed PR split after owner selection
-
-1. **Decision record and pure model.** Record the selected exceptions/name in
-   PRODUCT, CONTEXT, strategy D-6 and Plans 077/081. Define the versioned
-   evidence projection through shipped modules. Prove saved provenance,
-   comparability, no-test-set completion, idempotent replay, no change with
-   elapsed time, correct history edits/deletion and unsupported legacy inputs.
-   First resolve replay limits and version availability, before promising a
-   production count. No visual work before that contract holds.
-2. **Today and Overview.** Build the chosen direction beside the existing
-   profile and findings. Approved EN/PT strings, navigation and return focus,
-   no-program state, new equipment/program scope explanations, motion and
-   reduced motion, shared roles, asset/cache revisions and affected catalog
-   frames. Keep old percent unrendered. Handle the collapsed-header ring here
-   if selected. No new durable preference or schema is presumed.
-3. **Finish integration.** Rebase onto the final #736 implementation, one
-   successful-save comparison, unchanged-count state, finding co-presence,
-   Overview-and-back navigation and approved localized copy/frames. A failed
-   or cancelled save earns nothing. Only necessary implementation proofs,
-   according to the repository's then-current rules.
-4. **Separate gated commercial design later.** Alpha evidence, owner Free/Pro
-   decision and entitlement ADR first. This is not authorization to build it.
-
-This design PR runs no tests and waits on no CI, by the explicit brief. Browser
-work is limited to prototype capture and visual inspection under
-`flock /tmp/taurifer-browser.lock`. No app assets, test files, production catalog,
-cache inventory, source strings, settings or telemetry are changed.
-
-## 9. Owner questions
-
-1. **Recommend A, the small evidence ring.** Choose A, B's explicit coverage
-   rail, or C's open-ended history receipt? A best preserves the original
-   glanceable ring while tying every segment to a lift.
-2. **Recommend Training foundation / Base do treino.** Approve that name and
-   the prototype's EN/PT candidate copy, or choose another row in §3?
-3. **Recommend one earned history-to-target chain per comparable lift, with
-   optional test sets and no weighted total.** Approve this definition of
-   learning and tailoring, with session counts as investment alongside it?
-4. **Recommend no time decay and no loss during rest.** Approve historical
-   earned evidence separate from current standing, with explained changes
-   only after scope changes, corrected/deleted records or a version change?
-5. **Recommend a narrow ink-only coverage exception for A/B, no percent and
-   no celebration.** Approve the amendments in §7 while keeping the landing,
-   orange budget, settings and telemetry unchanged?
-6. **Recommend Today + Overview + finish, with Start session dominant and no
-   gauge in Focus.** Approve these placements and a static full ring once
-   current-program coverage is complete, while evidence keeps growing?
-7. **Recommend all of it Free in the alpha, and facts Free afterwards.** Keep
-   Pro as the later action of building/adapting from the record, decided
-   after alpha evidence and an entitlement ADR, with no paywall in this plan?
+1. **Recommend the 64-date depth budget with four attained transitions per
+   comparable lift.** Approve depth within stages so calibrated lifts still
+   move for months, and the 32/64-date history path so skipping tests never
+   creates an artificial ceiling? These are proposed presentation rules, not
+   existing estimator thresholds. Labels alone cannot deliver the requested
+   duration without suppressing what the app already knows.
+2. **Recommend the alternate labels in §2.** Approve Long record / Histórico
+   amplo and Established from history / Base consolidada pelo histórico for
+   the no-test route, and Consistent bias understood / Tendência consistente
+   identificada for stable biased checks? They avoid claiming calibration
+   without supporting evidence.
+3. **Recommend Your profile as the heading with the existing sentence as its
+   subtitle.** Approve that minimal hierarchy change and the before/now scope
+   explanation, with no backwards fill animation or concealment of re-scaling?
