@@ -8266,11 +8266,13 @@ function validProfileScope(record){
     typeof record.acknowledged==="boolean"&&Array.isArray(record.scope)&&
     record.scope.every(key=>typeof key==="string"&&key.length>0)&&
     JSON.stringify(record.scope)===JSON.stringify([...new Set(record.scope)].sort())}
+function saveProfileScope(record){
+  return updateUiPrefs(prefs=>({...(GuideRegistry?.migrateLegacyTourDone?.(prefs)||prefs),profileScope:record}))}
 function observeProfileScope(profile){
   const record=loadUiPrefs().profileScope;
   if(record===undefined||validProfileScope(record)&&!record.acknowledged&&!record.scope.length){
     const next={v:1,scope:profile.scope,acknowledged:false};
-    if(JSON.stringify(next)!==JSON.stringify(record))setUiPref("profileScope",next);
+    if(JSON.stringify(next)!==JSON.stringify(record))saveProfileScope(next);
     return null}
   if(!validProfileScope(record)||JSON.stringify(record.scope)===JSON.stringify(profile.scope))return null;
   return{before:record.scope,now:profile.scope,
@@ -8411,7 +8413,7 @@ function renderOverviewProfile(){
     `<div class="ovsec"><h3 class="ovsec__title">${esc(t("calib.recent"))}</h3></div><ul class="calchecks">${rows}</ul>`;
   el.querySelectorAll("[data-profile-lift]").forEach(button=>button.onclick=()=>openProfilePage({kind:"lift",key:button.dataset.profileLift}));
   const accept=el.querySelector("#profileScopeContinue");if(accept)accept.onclick=()=>{
-    if(!setUiPref("profileScope",{v:1,scope:change.now,acknowledged:true}))return;
+    if(!saveProfileScope({v:1,scope:change.now,acknowledged:true}))return;
     render();window.scrollTo({top:0});focusRoute($("#overviewProfileTitle"))};
   const back=$("#summaryProfileBack");if(back)back.onclick=returnFromSummaryProfile}
 /* "Not now" closes the prompt for that exercise in this workout. */

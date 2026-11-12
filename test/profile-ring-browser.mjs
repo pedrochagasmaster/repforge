@@ -30,7 +30,7 @@ export async function profileRingProofs(browser, assert, base) {
     await page.click('#onbCancel');await page.click('#entryCancelDiscard');
     await page.waitForFunction(()=>!document.querySelector('#onboarding')?.classList.contains('active'));
     assert(await page.locator('#createProgram').isVisible(),'Settings create-program returns after cancel without a guide intercepting navigation');
-    await page.click('[data-view="log"]');
+    await page.click('#settingsBack');
     const unique=generated.program.filter((ex,i,all)=>all.findIndex(other=>other.libraryId===ex.libraryId)===i);
     const lifts=unique.filter(ex=>isWeightRepsSlot(definitionSlot(generated.programMeta,ex)));
     if(lifts.length<4)throw new Error('profile fixture requires four different weight/reps lifts');

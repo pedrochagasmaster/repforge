@@ -1505,7 +1505,8 @@
         "today/deload-week",
         "today/ready-scrolled",
         "today/in-progress",
-        "today/week-card"
+        "today/week-card",
+        "today/profile-first"
       ]
     },
     {
@@ -4363,7 +4364,9 @@
       "rationale": "Performs a reversible supporting action without becoming the screen commitment.",
       "owner": "plan-058",
       "catalogStates": [
-        "today/done"
+        "today/done",
+        "today/profile",
+        "today/profile-scope"
       ]
     },
     {
@@ -4749,7 +4752,10 @@
         "today/deload-week",
         "today/ready-scrolled",
         "today/in-progress",
-        "today/week-card"
+        "today/week-card",
+        "today/profile",
+        "today/profile-first",
+        "today/profile-scope"
       ]
     },
     {
@@ -5775,7 +5781,9 @@
       "rationale": "Advances the current task with the strongest action weight.",
       "owner": "plan-064/r3x",
       "catalogStates": [
-        "today/done"
+        "today/done",
+        "today/profile",
+        "today/profile-scope"
       ]
     },
     {
@@ -6444,7 +6452,8 @@
         "workout/invalid-draft",
         "today/deload-week",
         "today/ready-scrolled",
-        "today/week-card"
+        "today/week-card",
+        "today/profile-first"
       ]
     },
     {
@@ -7120,7 +7129,10 @@
         "today/deload-week",
         "today/ready-scrolled",
         "today/in-progress",
-        "today/week-card"
+        "today/week-card",
+        "today/profile",
+        "today/profile-first",
+        "today/profile-scope"
       ],
       "progressScopes": {
         "active-program-week": "block"
@@ -7177,7 +7189,8 @@
         "today/deload-week",
         "today/ready-scrolled",
         "today/in-progress",
-        "today/week-card"
+        "today/week-card",
+        "today/profile-first"
       ],
       "progressScopes": {
         "current-week-trained-days": "week"
@@ -7243,7 +7256,10 @@
         "today/deload-week",
         "today/ready-scrolled",
         "today/in-progress",
-        "today/week-card"
+        "today/week-card",
+        "today/profile",
+        "today/profile-first",
+        "today/profile-scope"
       ]
     },
     {
@@ -7529,7 +7545,8 @@
         "progress/minibar",
         "progress/overview-profile",
         "progress/overview-profile-first",
-        "session/summary-profile"
+        "session/summary-profile",
+        "progress/profile-scope"
       ]
     },
     {
@@ -9195,7 +9212,11 @@
         "progress/review-evaluated",
         "progress/overview-profile",
         "progress/overview-profile-first",
-        "session/summary-profile"
+        "session/summary-profile",
+        "progress/profile-reader",
+        "today/profile",
+        "today/profile-first",
+        "today/profile-scope"
       ]
     },
     {
@@ -9278,7 +9299,11 @@
         "progress/review-evaluated",
         "progress/overview-profile",
         "progress/overview-profile-first",
-        "session/summary-profile"
+        "session/summary-profile",
+        "progress/profile-reader",
+        "today/profile",
+        "today/profile-first",
+        "today/profile-scope"
       ]
     },
     {
@@ -9370,7 +9395,11 @@
         "progress/review-evaluated",
         "progress/overview-profile",
         "progress/overview-profile-first",
-        "session/summary-profile"
+        "session/summary-profile",
+        "progress/profile-reader",
+        "today/profile",
+        "today/profile-first",
+        "today/profile-scope"
       ]
     },
     {
@@ -9539,7 +9568,9 @@
         "progress/overview-profile",
         "progress/overview-profile-first",
         "session/summary-finding",
-        "session/summary-profile"
+        "session/summary-profile",
+        "today/profile",
+        "today/profile-scope"
       ]
     },
     {
@@ -9750,7 +9781,8 @@
         "today/ready-scrolled",
         "today/in-progress",
         "program/minibar-rest-done",
-        "today/week-card"
+        "today/week-card",
+        "today/profile-first"
       ]
     },
     {
@@ -9907,7 +9939,8 @@
         "progress/review-evaluated",
         "progress/overview-profile",
         "progress/overview-profile-first",
-        "session/summary-profile"
+        "session/summary-profile",
+        "progress/profile-scope"
       ]
     },
     {
@@ -10955,7 +10988,8 @@
         "progress/minibar",
         "progress/overview-profile",
         "progress/overview-profile-first",
-        "session/summary-profile"
+        "session/summary-profile",
+        "progress/profile-scope"
       ]
     },
     {

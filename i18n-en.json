@@ -3251,14 +3251,14 @@
   "profile.scope.now": "{n} lifts, now",
   "profile.scope.retained": "All saved evidence retained",
   "profile.scope.facts": "{observations} lift sessions saved · {stages} attained stages",
-  "profile.scope.includes": "Your profile now includes the current program’s comparable lifts. Their saved evidence carries over.",
+  "profile.scope.includes": "Your profile now includes the current program's comparable lifts. Their saved evidence carries over.",
   "profile.scope.continuing": "{n} continuing lifts",
   "profile.scope.carry": "Their stages, checks and saved sessions carry over.",
   "profile.scope.new_count": "{n} new lifts",
   "profile.scope.start": "Each comparable lift uses its own saved evidence. Lifts without history start at First time.",
   "profile.scope.archived": "{n} lifts outside the current program",
-  "profile.scope.archive_detail": "Their evidence stays in your history and leaves this ring’s scope.",
-  "profile.scope.scale": "A changed scope changes the ring’s scale. No earned evidence was removed. Rest never reduces it.",
+  "profile.scope.archive_detail": "Their evidence stays in your history and leaves this ring's scope.",
+  "profile.scope.scale": "A changed scope changes the ring's scale. No earned evidence was removed. Rest never reduces it.",
   "profile.scope.continue": "See your profile",
   "profile.ring.archived": "Lifts outside this program",
   "profile.ring.lifts": "lifts",
@@ -3271,5 +3271,5 @@
   "profile.scope.continuing_one": "{n} continuing lift",
   "profile.scope.new_count_one": "{n} new lift",
   "profile.scope.archived_one": "{n} lift outside the current program",
-  "profile.reader.depth_full": "{n} comparable-session dates saved. This lift’s ring is full; your record keeps growing."
+  "profile.reader.depth_full": "{n} comparable-session dates saved. This lift's ring is full; your record keeps growing."
 }
