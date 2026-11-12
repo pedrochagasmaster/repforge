@@ -1784,7 +1784,6 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
   padding:var(--space-12) var(--space-14);border-radius:var(--radius-surface);background:var(--toast-bg);color:var(--toast-ink);
   box-shadow:var(--elevation-floating-shadow);font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);
 }
-.fcard__context > .resttip[data-tip="max-set"]{position:relative;inset:auto;margin:var(--space-12) 0}
 .resttip__text{margin:0;padding-right:var(--space-26)}
 .resttip__text b{font-weight:var(--weight-semibold)}
 .resttip__acts{display:flex;justify-content:flex-end;gap:var(--space-4);margin:var(--space-4) calc(-1 * var(--space-8)) calc(-1 * var(--space-8)) 0}
@@ -1793,6 +1792,18 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
 .resttip__x{position:absolute;top:0;right:0;display:grid;place-items:center;width:var(--control-target);height:var(--control-target);padding:0;border:0;background:transparent;color:inherit;opacity:.75;cursor:pointer}
 .resttip__x .icon-mask{width:18px;height:18px;background:currentColor}
 .resttip :focus-visible{outline:2px solid currentColor;outline-offset:-2px;border-radius:var(--radius-button)}
+/* An inline invitation shares the context's surface and quiet-control roles. */
+.fcard__context > .resttip[data-tip="max-set"]{
+  position:relative;inset:auto;margin:var(--space-12) 0;
+  background:var(--color-surface);color:var(--color-ink);box-shadow:none;
+  border:1px solid var(--boundary-decorative);
+}
+.fcard__context > .resttip[data-tip="max-set"] :is(.resttip__no,.resttip__yes,.resttip__x){
+  background:var(--control-quiet-bg);color:var(--control-quiet-ink);opacity:1;
+}
+.fcard__context > .resttip[data-tip="max-set"] button:hover{background:var(--well)}
+.fcard__context > .resttip[data-tip="max-set"] button.is-pressed{background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
+.fcard__context > .resttip[data-tip="max-set"] :focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
 
 /* ---- The wheel picker (Plan 075 phase 2W, ADR 0023 choice 8) ----
    A second tap on the selected Load or Reps field opens this in a fit sheet.

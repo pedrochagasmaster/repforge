@@ -300,8 +300,19 @@ async function checkTestSetPrompt(browser) {
         });
         if (measured.covered.length || measured.left < 0 || measured.right > 320)
           failures.push(`${label}: prompt covers the target or open row, or spills horizontally: ${JSON.stringify(measured)}`);
+        await opened.page.locator('.exercise.is-current .resttip__acts').scrollIntoViewIfNeeded();
+        const actions = await opened.page.locator('.exercise.is-current .resttip__acts button').evaluateAll(buttons =>
+          buttons.map(button => {
+            const box = button.getBoundingClientRect();
+            const context = button.closest(".fcard__context").getBoundingClientRect();
+            const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+            return { text: button.textContent.trim(), width: box.width, height: box.height,
+              whole: box.top >= context.top - 1 && box.bottom <= context.bottom + 1 && box.left >= 0 && box.right <= innerWidth,
+              reachable: !!hit && button.contains(hit) };
+          }));
+        if (actions.length !== 2 || actions.some(action => action.width < 44 || action.height < 44 || !action.whole || !action.reachable))
+          failures.push(`${label}: both invitation actions must be visible 44px targets: ${JSON.stringify(actions)}`);
         const guess = opened.page.locator('.exercise.is-current [data-maxset-guess]');
-        await guess.scrollIntoViewIfNeeded();
         await guess.click();
         await opened.page.locator("#maxSetSheet.is-open").waitFor({ state: "visible" });
         console.log(`  ${label}: ${JSON.stringify(measured)}`);
