@@ -1904,8 +1904,15 @@ async function pageMotion(browser, { reducedMotion = "no-preference" } = {}) {
   const preview = pushRun(await page.evaluate((reduced) => window.__push[reduced ? "run" : "held"](
     "#exercisePreview", () => document.querySelector("#libList [data-lib-preview]").click()), reduced));
   if (reduced) assert(preview.never, "no push layers for the preview under reduced motion");
-  else assert(preview.frames >= 5 && preview.layered.every((s) => s.under.includes("library")) && preview.leftover === 0,
-    "the preview pushes in over the library", JSON.stringify({ frames: preview.frames, leftover: preview.leftover, under: preview.layered.map((s) => s.under), ms: preview.ms }));
+  else {
+    assert(preview.frames === 2 && preview.mounted && preview.single && preview.layered.every((s) =>
+      s.over.join() === "exercisePreview" && s.under.join() === "library") && preview.leftover === 0,
+    "the preview pushes in over the library", JSON.stringify({ samples: preview.frames, mounted: preview.mounted,
+      leftover: preview.leftover, under: preview.layered.map((s) => s.under) }));
+    assert(preview.start >= 300 && preview.start <= 390.5 && preview.xs.at(-1) === 0,
+      "the preview travels from the right edge to rest before its held completion releases the layers",
+      JSON.stringify({ xs: preview.xs }));
+  }
   const previewBack = pushRun(await page.evaluate(() => window.__push.run("#exercisePreview", () => document.querySelector("#previewBack").click())));
   const toLibrary = await page.evaluate(() => [...document.querySelectorAll(".view.active")].map((v) => v.id).join());
   assert(toLibrary === "library", "Back from the preview returns to the library", toLibrary);
