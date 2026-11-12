@@ -2437,6 +2437,41 @@
       "label": "One-time landing — test-set comparisons",
       "scenario": "Scrolled to the surface band: computed guess/result comparisons, safety ceilings, correction limits and excluded barbell movements.",
       "variants": "standard"
+    },
+    {
+      "id": "profile-first",
+      "flow": "today",
+      "label": "Today — first profile evidence",
+      "scenario": "An onboarded program before saved evidence: the empty ink ring and factual first-saved-set line.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "profile",
+      "flow": "today",
+      "label": "Today — saved-evidence profile",
+      "scenario": "The current program and session remain dominant beside the saved-evidence profile ring.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "profile-reader",
+      "flow": "progress",
+      "label": "Profile — per-lift stages",
+      "scenario": "The attained evidence stages, current standing, saved depth and optional check/history routes for one comparable lift.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "profile-scope",
+      "flow": "progress",
+      "label": "Profile — changed scope",
+      "scenario": "Static before/now scope rings retain saved evidence and explain two newly included comparable lifts, with explicit acknowledgment.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "profile-scope",
+      "flow": "today",
+      "label": "Today — profile scope changed",
+      "scenario": "A factual two-new-lifts line opens the before/now explanation; the current ring already uses its new denominator.",
+      "variants": "demandingText"
     }
   ]
 }

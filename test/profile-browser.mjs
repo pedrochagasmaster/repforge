@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * Plan 081 profile and Plan 077 slow-rep answers and "Was the last rep slow?".
+ * Plan 084 saved profile, Plan 081 signals and Plan 077 slow-rep answers.
  *
- * - Progress and exercise profiles show standing and counts. Today has no gauge.
+ * - Today and Overview share the saved-evidence ring; readers retain current standing and signal counts.
  * - The slow tap sits under an exercise's last logged set during its rest (owner: the last set only), never on the
  *   shelf: Next exercise stays live. An answer is stored on the set and reaches History; a second tap takes it back;
  *   the Settings switch turns the question off.

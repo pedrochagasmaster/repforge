@@ -428,6 +428,11 @@ function effortStageState(key, lang) {
 }
 
 export function appState(key, lang) {
+  if (["today/profile-first", "today/profile", "today/profile-scope", "progress/profile-reader", "progress/profile-scope"].includes(key)) {
+    const drawn=localeState(directionDState(),lang);
+    drawn.log=key==="today/profile-first"?[]:withTestSets(drawn.log);
+    return drawn;
+  }
   if (EFFORT_STAGE_STATES[key]) return effortStageState(key, lang);
   if (key === "today/no-program" || key === "program/no-program") {
     return emptyEntryState(lang);
@@ -2065,6 +2070,33 @@ async function showShareTemplate(page, template) {
   await page.waitForFunction((name) => { const s = window.__repforgeShareSheet.state(); return s?.template === name && s.fileTemplate === name; }, template, { timeout: 20000 });
 }
 export const APP_SCENARIOS = {
+  "today/profile-first": page=>view(page,"log"),
+  "today/profile": page=>view(page,"log"),
+  "today/profile-scope": async page=>{
+    await page.evaluate(()=>{
+      const scope=window.__repforgeProgressEvidence.profile().scope;
+      window.__repforgeUi.setPref('profileScope',{v:1,scope:scope.slice(0,-2),acknowledged:true});
+      render();
+    });
+    await view(page,"log");
+  },
+  "progress/profile-reader": async page=>{
+    await view(page,"stats");
+    const name=await page.evaluate(()=>{
+      const lifts=window.__repforgeProgressEvidence.profile().lifts.filter(lift=>lift.active);
+      return (lifts.find(lift=>lift.checks.length)||lifts[0]).name;
+    });
+    await page.locator('#overviewProfile [data-profile-lift]').filter({hasText:name}).first().click();
+    await page.waitForSelector('#profilePage.active .profile-stage-list');
+  },
+  "progress/profile-scope": async page=>{
+    await page.evaluate(()=>{
+      const scope=window.__repforgeProgressEvidence.profile().scope;
+      if(scope.length<3)throw new Error('scope catalog requires three comparable lifts');
+      window.__repforgeUi.setPref('profileScope',{v:1,scope:scope.slice(0,-2),acknowledged:true});
+    });
+    await view(page,"stats");await page.waitForSelector('#profilePage.active .profile-scope-rings');
+  },
   "workout/focus-ramp": async page=>{await rampFixture(page)},
   "workout/focus-ramp-ratio": async page=>{await rampFixture(page,{ratio:true})},
   "workout/focus-ramp-substitution": async page=>{await rampFixture(page,{ratio:true,substitute:true})},

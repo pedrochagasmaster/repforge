@@ -1133,7 +1133,7 @@ const ROUTE_PUSH_DEADLINE_MS=1500;
    route does not push it a second time. While a pull is live the page it returns
    to is mounted beneath it (History has none to mount: its list is rendered
    over the session page, so the pull shows the paper beneath). */
-const EDGE_BACK={stats:"#summaryProfileBack",exercise:"#exBack",library:"#libBack",exercisePreview:"#previewBack",history:"[data-history-back]"};
+const EDGE_BACK={profilePage:"#profilePageBack",stats:"#summaryProfileBack",exercise:"#exBack",library:"#libBack",exercisePreview:"#previewBack",history:"[data-history-back]"};
 let routeEdge=null,routeEdgeFrame=0;
 function edgeBackPage(){
   if(document.body.classList.contains("is-focus-wo"))return null;
@@ -1187,7 +1187,7 @@ function scheduleBodyRouteHistorySync(records){
   if(records.some(record=>{
     const before=new Set((record.oldValue||"").split(/\s+/));
     const after=new Set(document.body.className.split(/\s+/));
-    return ["is-library","is-preview","is-exercise"].some(name=>before.has(name)!==after.has(name))}))syncRouteHistory();
+    return ["is-library","is-preview","is-exercise","is-profile"].some(name=>before.has(name)!==after.has(name))}))syncRouteHistory();
   scheduleEdgeSwipeSync()}
 /* ---- Browser history for pushed pages (ADR 0023, Plan 075 phase 3) ----
    Each pushed page on screen holds one history entry, so Safari's back button,
@@ -1206,7 +1206,8 @@ function openPushedRoutes(){
   if(body.contains("is-preview"))open.push("exercisePreview");
   if(body.contains("is-exercise"))open.push("exercise");
   if(history?.classList.contains("active")&&HistoryUi.hasPushedPage())open.push("history");
-  if(sessionSummaryProfileReturn&&$("#stats")?.classList.contains("active"))open.push("stats");
+  if(sessionSummaryProfileReturn&&($("#stats")?.classList.contains("active")||body.contains("is-profile")))open.push("stats");
+  if(body.contains("is-profile"))open.push("profilePage");
   return open}
 function syncRouteHistory(){
   if(expectedRouteDepth!==null)return;
@@ -5224,6 +5225,7 @@ function installTransferUiMeaningful(uiRaw,ui){
   if(!ui)return true;
   const remaining={...ui};
   if(remaining.entryLandingSeen===true)delete remaining.entryLandingSeen;
+  if(validProfileScope(remaining.profileScope)&&!remaining.profileScope.acknowledged&&!remaining.profileScope.scope.length)delete remaining.profileScope;
   for(const[key,value]of Object.entries({installLastOfferedMilestone:null,installLastOfferedAt:null,
     installDismissedMilestone:null,installDismissedAt:null})){
     if(remaining[key]===value)delete remaining[key]}
@@ -6660,11 +6662,13 @@ function setStatsSeg(seg){
   if(opensReview||seg==="review"&&weeklyAdaptationView?.error)weeklyAdaptationView=null;
   if(seg==="review")renderReview();
   if(opensReview)captureBlockReviewViewed();
+  if(seg==="overview")queueMicrotask(maybeOpenProfileScope);
   queueMicrotask(()=>maybeShowContextualGuides([seg==="review"?"block-transition":"progress"]))}
 window.__repforgeStatsNav={setStatsSeg,setEvidenceView};
 // Read-only evidence seam: suites assert the model-backed values the Evidence
 // views render, without scraping DOM markup.
 window.__repforgeProgressEvidence={
+  profile:()=>savedProfile(),
   strength:liftId=>{
     const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;if(!Model)return null;
     return strengthProjection(strengthScope).series.get(liftId)||null},
@@ -8239,6 +8243,146 @@ function profileFindingsHtml(){
       `<p>${esc(findingText(finding))}</p></li>`).join("")}</ul>`:`<p class="profile-finding-empty">${esc(t("finding.empty"))}</p>`)+
     (findings.next?.need?`<p class="profile-finding-need" data-finding-next="${findings.next.id}">${esc(t("finding.next",{need:findingNeedText(findings.next)}))}</p>`:"")}
 
+/* Saved-evidence profile (Plan 084). The projection owns arithmetic; this adapter supplies current
+ * canonical capacity descriptors. Neither live drafts nor presentation acknowledgments feed it. */
+let savedProfileCache={key:"",value:null},profilePageState=null;
+function savedProfileLoadingContext(slot){
+  const projection=slotLoadingProjection(slot),coefficient=materialBodyweightCoefficient(slot.loadingModel?.bodyweightCoefficient,projection.loadingConvention);
+  const measured=state.log.filter(row=>Number(row.loadingContext?.bodyweightKg??row.bodyweight)>0).slice().sort(compareLogChronology).at(-1);
+  const bodyweight=Number(measured?.loadingContext?.bodyweightKg??measured?.bodyweight)||interpretedProfile(state.profile).weightKg||null;
+  return{...projection,equipmentId:null,bodyweightKg:bodyweight,bodyweightContributionEnabled:coefficient>0&&bodyweight>0}}
+function savedProfile(){
+  const key=JSON.stringify([state.log,state.program,state.programMeta,state.settings,state.profile,today(),I18N.getLang()]);
+  if(savedProfileCache.key===key)return savedProfileCache.value;
+  const compiler=window.RepForgeProgramCompiler,definition=state.programMeta?.programDefinition;
+  const prescriptions=definition?compiler.prescriptionsForCycle(definition,1):[];
+  const lifts=days().flatMap(day=>state.program.filter(ex=>ex.day===day)).map(ex=>{
+    const slot=canonicalPrescriptionSlot(ex)?.slot,first=prescriptions.find(item=>item.slotId===slot?.id);
+    return{...first,exerciseId:first?.exerciseId||ex.libraryId||ex.id,name:exerciseDisplayName(ex),
+      context:slot?savedProfileLoadingContext(slot):null}});
+  const value=RepForgeProgressModel.buildSavedProfile({log:state.log,lifts,now:today()});
+  savedProfileCache={key,value};return value}
+function validProfileScope(record){
+  return isPlainStateObject(record)&&Object.keys(record).length===3&&record.v===1&&
+    typeof record.acknowledged==="boolean"&&Array.isArray(record.scope)&&
+    record.scope.every(key=>typeof key==="string"&&key.length>0)&&
+    JSON.stringify(record.scope)===JSON.stringify([...new Set(record.scope)].sort())}
+function observeProfileScope(profile){
+  const record=loadUiPrefs().profileScope;
+  if(record===undefined||validProfileScope(record)&&!record.acknowledged&&!record.scope.length){
+    const next={v:1,scope:profile.scope,acknowledged:false};
+    if(JSON.stringify(next)!==JSON.stringify(record))setUiPref("profileScope",next);
+    return null}
+  if(!validProfileScope(record)||JSON.stringify(record.scope)===JSON.stringify(profile.scope))return null;
+  return{before:record.scope,now:profile.scope,
+    added:profile.scope.filter(key=>!record.scope.includes(key)),removed:record.scope.filter(key=>!profile.scope.includes(key))}}
+function profileRingHtml(fill,large=false){
+  return `<svg class="profile-ring${large?" profile-ring--large":""}" viewBox="0 0 64 64" aria-hidden="true" data-profile-fill="${fill}">`+
+    `<circle cx="32" cy="32" r="27" pathLength="100"/><circle class="profile-ring__fill${fill?"":" is-empty"}" cx="32" cy="32" r="27" pathLength="100" style="stroke-dasharray:${fill*100} 100"/></svg>`}
+function profileTotals(profile){return profile.lifts.reduce((sum,lift)=>({observations:sum.observations+lift.depthDates.length,
+  stages:sum.stages+lift.transitions.length}),{observations:0,stages:0})}
+function profileReadingHtml(profile){
+  const sessions=new Set(state.log.filter(row=>!row.warmup&&row.origin!=="ramp").map(row=>row.session)).size;
+  return `<div class="profile-reading">${profileRingHtml(profile.fill,true)}<div><p class="profile-reading__title">${esc(t("profile.ring.built"))}</p>`+
+    `<p class="profile-caption">${esc(t("profile.ring.scope",{n:profile.scope.length,sessions,liftWord:tOne("profile.ring.lifts",profile.scope.length),sessionWord:tp(sessions,"session")}))}</p>`+
+    `<p class="profile-caption">${esc(t("profile.ring.rest"))}</p></div></div>`}
+function profileStageName(stage){return t(`profile.stage_name.${stage}`)}
+function profileStandingReason(standing){
+  const e=standing?.evidence;if(!e||standing.unavailable)return t("profile.unavailable");
+  const vars={sets:fmt(Math.round(e.sets*10)/10),setWord:tp(Math.round(e.sets*10)/10,"set"),sessions:e.sessions,
+    sessionWord:tp(e.sessions,"session"),weeks:Math.floor((e.gapDays||0)/7),checks:e.checks};
+  return t(`why.standing.${standing.reasons[0]||"evidence"}`,vars)}
+function profileNextLine(profile,change){
+  if(change?.added.length)return t(change.added.length===1?"profile.scope.new_one":"profile.scope.new_other",{n:change.added.length});
+  if(change)return t("profile.scope.changed");
+  if(!profile.lifts.some(lift=>lift.active&&lift.depthDates.length))return t("profile.ring.first");
+  const next=profileFindings().next;
+  return next?.need?findingNeedText(next):t("profile.reader.growing")}
+function renderTodayProfile(){
+  const button=$("#todayProfile"),need=$("#todayProfileNeed"),hasProgram=hasProgramContent();
+  if(!button||!need)return;
+  const profile=savedProfile(),change=observeProfileScope(profile);
+  button.classList.toggle("hidden",!hasProgram);need.classList.toggle("hidden",!hasProgram);
+  if(!hasProgram)return;
+  button.innerHTML=profileRingHtml(profile.fill)+`<span>${esc(t("profile.ring.title"))}</span>`;
+  button.setAttribute("aria-label",t("profile.ring.open"));button.onclick=openProfileOverview;
+  need.innerHTML=change?`<button type="button" class="profile-scope-link">${esc(profileNextLine(profile,change))}</button>`:esc(profileNextLine(profile,null));
+  const scope=need.querySelector("button");if(scope)scope.onclick=openProfileOverview}
+function openProfileOverview(){
+  navTo("stats");setStatsSeg("overview");
+  if(maybeOpenProfileScope())return;
+  if($("#stats")?.classList.contains("active")){
+    $("#overviewProfile")?.scrollIntoView({block:"start"});focusRoute($("#overviewProfileTitle"))}}
+function maybeOpenProfileScope(){
+  if(profilePageState||statsSeg!=="overview"||evidenceView||!$("#stats")?.classList.contains("active"))return false;
+  const change=observeProfileScope(savedProfile());if(!change)return false;
+  openProfilePage({kind:"scope",change});return true}
+function profileLiftName(lift){return lift.active?lift.name:localizedMovementName(lift.name,JSON.parse(lift.key)[0])}
+function profileLiftButtonHtml(lift){return `<li class="profile-lift profile-lift--link"><button type="button" data-profile-lift="${esc(lift.key)}">`+
+  `<span><h4 class="profile-lift__name">${esc(profileLiftName(lift))}</h4><span class="profile-lift__standing">${esc(profileStageName(lift.stage))}</span></span>`+
+  `<span class="profile-lift__depth">${esc(tOne("profile.ring.dates",lift.depthDates.length))}<span class="chevron" aria-hidden="true"></span></span></button></li>`}
+function openProfilePage(page){
+  profilePageState={...page,scrollY:window.scrollY};
+  const settle=routePushBegin("in",{pushed:$("#profilePage"),under:$("#stats")});
+  $$(".view").forEach(view=>view.classList.toggle("active",view.id==="profilePage"));
+  document.body.classList.add("is-profile");document.body.classList.toggle("is-profile-scope",page.kind==="scope");renderProfilePage();window.scrollTo({top:0});
+  focusRoute($("#profilePageTitle"));syncRouteHistory();settle?.()}
+function closeProfilePage({acknowledge=false}={}){
+  const page=profilePageState;if(!page)return;
+  if(acknowledge&&!setUiPref("profileScope",{v:1,scope:page.change.now,acknowledged:true}))return;
+  const settle=routePushBegin("out",{pushed:$("#profilePage"),under:$("#stats")});
+  profilePageState=null;document.body.classList.remove("is-profile","is-profile-scope");
+  $$(".view").forEach(view=>view.classList.toggle("active",view.id==="stats"));
+  render();window.scrollTo({top:page.scrollY});settle?.();
+  focusRoute(page.kind==="lift"?$(`[data-profile-lift="${CSS.escape(page.key)}"]`):$("#overviewProfileTitle"));syncRouteHistory()}
+function profileCheckReading(calibration){
+  if(!calibration.n)return t("profile.reader.not_checked");
+  const left=Math.max(0,EffortCalibration.ESTIMATOR.minChecks-calibration.n);
+  return left?t(left===1?"maxset.status_wait_one":"maxset.status_wait",{n:left})
+    :t(calibration.state==="calibrated"?"maxset.status_calibrated":calibration.state==="under"||calibration.state==="over"?"maxset.status_shifted":"maxset.status_varies")}
+function profileStageReaderHtml(lift){
+  const stages=["first","learning","solid",lift.checks.length?"checked":"long_record",
+    ["calibrated","bias_understood"].includes(lift.stage)?lift.stage:lift.checks.length?"calibrated":"established"];
+  const nextChecks=Math.max(0,EffortCalibration.ESTIMATOR.minChecks-lift.current.calibration.n);
+  const checkNeed=nextChecks?t(nextChecks===1?"profile.reader.check_need_one":"profile.reader.check_need_other",{n:nextChecks})
+    :t("profile.reader.check_agreement",{spread:fmt(EffortCalibration.ESTIMATOR.calibratedSpread),bias:fmt(EffortCalibration.ESTIMATOR.bias)});
+  const checkDetails=lift.checks.map(check=>t("profile.reader.check",{date:shortDate(check.date),guess:check.guess,reps:check.reps})).join(" ");
+  const list=stages.map((stage,index)=>{
+    const transition=index?lift.transitions[index-1]:null,reached=index===0||!!transition;
+    const detail=index===0?t("profile.reader.before"):index===1?t("profile.reader.saved_load")
+      :index===2?(transition?t("profile.reader.solid_date",{date:shortDate(transition.date)}):profileStandingReason(lift.current.standing))
+      :index===3?(lift.checks.length?checkDetails:!transition&&lift.transitions.length<2?profileStandingReason(lift.current.standing):t("profile.reader.history_need",{n:Math.max(0,RepForgeProgressModel.PROFILE_WEIGHTS.dateCap/2-lift.depthDates.length),stage:profileStageName("long_record")}))
+      :transition?(stage==="established"?t("profile.reader.history_reached",{date:shortDate(transition.date)}):t("profile.reader.pattern_reached",{date:shortDate(transition.date)}))
+        :lift.transitions.length<2?profileStandingReason(lift.current.standing):lift.checks.length?checkNeed:t("profile.reader.history_need",{n:Math.max(0,RepForgeProgressModel.PROFILE_WEIGHTS.dateCap-lift.depthDates.length),stage:profileStageName("established")});
+    return `<li data-attained="${reached}"><span class="profile-stage-mark" aria-hidden="true">${reached?"✓":index+1}</span><div><h3>${esc(profileStageName(stage))}</h3><p>${esc(detail)}</p></div></li>`}).join("");
+  return `<h1 id="profilePageTitle">${esc(profileLiftName(lift))}</h1><p class="profile-caption">${esc(t("profile.reader.this_lift"))}</p>`+
+    `<div class="profile-lift-status"><h2>${esc(profileStageName(lift.stage))}</h2><p>${esc(t("profile.reader.current",{standing:lift.current.available?standingWord(lift.current.standing):t("profile.unavailable")}))}</p>`+
+    (lift.transitions.length>=2&&lift.current.standing?.word!=="solid"?`<p>${esc(profileStandingReason(lift.current.standing))}</p>`:"")+`</div>`+
+    `<ol class="profile-stage-list">${list}</ol><section class="profile-depth"><h2>${esc(t("profile.reader.growing"))}</h2>`+
+    `<p>${esc(t(lift.depthDates.length>=RepForgeProgressModel.PROFILE_WEIGHTS.dateCap?"profile.reader.depth_full":"profile.reader.depth",{n:lift.depthDates.length,cap:RepForgeProgressModel.PROFILE_WEIGHTS.dateCap}))}</p><p class="profile-caption">${esc(t("profile.reader.optional"))}</p>`+
+    `<p>${esc(t("profile.reader.calibration",{reading:profileCheckReading(lift.current.calibration)}))}</p>`+
+    (lift.anchor?.opening!=null?`<p>${esc(t("profile.opening",{opening:fmtLoad(lift.anchor.opening),worked:fmtLoad(lift.anchor.load),unit:unitLabel()}))}</p>`:"")+`</section>`}
+function profileScopeHtml(profile,change){
+  const before=profile.lifts.filter(lift=>change.before.includes(lift.key));
+  const weights=RepForgeProgressModel.PROFILE_WEIGHTS,budget=weights.date*weights.dateCap+weights.transition*weights.transitions;
+  const oldFill=change.before.length?before.reduce((sum,lift)=>sum+lift.units,0)/(budget*change.before.length):0;
+  const totals=profileTotals(profile);
+  return `<h1 id="profilePageTitle">${esc(t(change.now.length>change.before.length?"profile.scope.more":"profile.scope.changed"))}</h1>`+
+    `<div class="profile-scope-rings"><div>${profileRingHtml(oldFill)}<p>${esc(tOne("profile.scope.before",change.before.length))}</p></div>`+
+    `<div>${profileRingHtml(profile.fill,true)}<p>${esc(tOne("profile.scope.now",profile.scope.length))}</p></div></div>`+
+    `<h2>${esc(t("profile.scope.retained"))}</h2><p class="profile-caption">${esc(t("profile.scope.facts",totals))}</p>`+
+    `<p>${esc(t("profile.scope.includes"))}</p><ul class="profile-scope-list"><li><b>${esc(tOne("profile.scope.continuing",change.now.filter(key=>change.before.includes(key)).length))}</b>`+
+    `<p>${esc(t("profile.scope.carry"))}</p></li>`+(change.added.length?`<li><b>${esc(tOne("profile.scope.new_count",change.added.length))}</b><p>${esc(t("profile.scope.start"))}</p></li>`:"")+
+    (change.removed.length?`<li><b>${esc(tOne("profile.scope.archived",change.removed.length))}</b><p>${esc(t("profile.scope.archive_detail"))}</p></li>`:"")+`</ul>`+
+    `<p class="profile-caption">${esc(t("profile.scope.scale"))}</p><button type="button" class="btn btn--cta" id="profileScopeContinue">${esc(t("profile.scope.continue"))}</button>`}
+function renderProfilePage(){
+  const el=$("#profilePageContent");if(!el||!profilePageState)return;
+  const profile=savedProfile(),page=profilePageState,lift=profile.lifts.find(lift=>lift.key===page.key);
+  if(page.kind==="scope"){const change=observeProfileScope(profile);if(change)page.change=change}
+  el.innerHTML=page.kind==="scope"?profileScopeHtml(profile,page.change):lift?profileStageReaderHtml(lift):`<h1 id="profilePageTitle">${esc(t("profile.unavailable"))}</h1>`;
+  $("#profilePageBack").textContent=t("profile.reader.back");$("#profilePageBack").onclick=()=>closeProfilePage();
+  const accept=$("#profileScopeContinue");if(accept)accept.onclick=()=>closeProfilePage({acknowledge:true})}
+
 /** Progress › Overview reads counts from the six signals. No component or combined percentage is presented. */
 function renderOverviewProfile(){
   const el=$("#overviewProfile");if(!el)return;
@@ -8258,19 +8402,22 @@ function renderOverviewProfile(){
       `<span><span class="calcheck__gd">${esc(t("maxset.guessed"))} <b>${esc(String(item.guess))}</b> → ${esc(t("maxset.did"))} <b>${esc(String(item.did??"—"))}</b></span>`+
       `<small class="calcheck__result">${esc(line)}</small></span></li>`}).join("")
     :`<li class="calcheck calcheck--empty">${esc(t("calib.empty"))}</li>`;
-  const lifts=days().flatMap(day=>state.program.filter(ex=>ex.day===day));
+  const lifts=days().flatMap(day=>state.program.filter(ex=>ex.day===day)),profile=savedProfile(),totals=profileTotals(profile);
   el.innerHTML=(sessionSummaryProfileReturn?`<button type="button" class="back-link" id="summaryProfileBack">${esc(t("exercise.back"))}</button>`:"")+
-    `<div class="ovsec"><h3 class="ovsec__title">${esc(t("profile.title"))}</h3></div>`+
-    profileFindingsHtml()+
+    `<h3 class="profile-heading" id="overviewProfileTitle">${esc(t("profile.ring.title"))}</h3><p class="profile-intro">${esc(t("profile.title"))}</p>`+
+    profileReadingHtml(profile)+`<div class="profile-detail-counts"><span>${esc(tOne("profile.ring.observations",totals.observations))}</span><span>${esc(tOne("profile.ring.transitions",totals.stages))}</span></div>`+
+    `<ul class="profile-lifts">${profile.lifts.filter(lift=>lift.active).map(profileLiftButtonHtml).join("")}</ul>`+
+    (profile.lifts.some(lift=>!lift.active)?`<section class="profile-archive"><h4 class="section-label">${esc(t("profile.ring.archived"))}</h4><ul class="profile-lifts">${profile.lifts.filter(lift=>!lift.active).map(profileLiftButtonHtml).join("")}</ul></section>`:"")+profileFindingsHtml()+
     `<p class="profile-stage">${esc(t("profile.stage",{stage:t(STAGE_LABEL[effortStage()])}))}</p>`+
     `<p class="profile-effort">${esc(t("profile.chosen",effort))}</p>`+
-    `<ul class="profile-lifts">${lifts.map(ex=>profileLiftHtml(ex)).join("")}</ul>`+
+
     `<div class="ovsec"><h3 class="ovsec__title">${esc(t("profile.signals"))}</h3></div>`+
     `<ul class="profile-signals">${signals.map(([label,value])=>`<li class="profile-signal"><span>${esc(t(label))}</span><span>${esc(value)}</span></li>`).join("")}</ul>`+
     `<p class="profile-history-label">${esc(t("profile.history"))}</p><ul class="profile-signals">${lifts.map(ex=>{
       const n=(state.log||[]).filter(row=>!row.warmup&&maxSetRowKey(row)===programGaugeKey(ex)).length;
       return `<li class="profile-signal"><span>${esc(exerciseDisplayName(ex))}</span><span>${esc(t("profile.history_sets",{n}))}</span></li>`}).join("")}</ul>`+
     `<div class="ovsec"><h3 class="ovsec__title">${esc(t("calib.recent"))}</h3></div><ul class="calchecks">${rows}</ul>`;
+  el.querySelectorAll("[data-profile-lift]").forEach(button=>button.onclick=()=>openProfilePage({kind:"lift",key:button.dataset.profileLift}));
   const back=$("#summaryProfileBack");if(back)back.onclick=returnFromSummaryProfile}
 /* "Not now" closes the prompt for that exercise in this workout. */
 const maxSetDeclined=new Set();
@@ -9350,7 +9497,7 @@ function renderTodayNoProgram(){
  *  beside Start first, so the control (its handler, its focus) outlives the redraw. */
 function parkDayAction(){const pick=$("#chooseAnotherDay"),start=$("#startWorkout"),sess=$("#todaySession");
   if(pick&&start&&sess?.contains(pick))start.after(pick)}
-function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent=formatLongDate(today());
+function renderToday(){renderTodayProfile();const dateEl=$("#todayDate");if(dateEl)dateEl.textContent=formatLongDate(today());
   // The dashboard describes a program: with none there is nothing to describe,
   // and the empty state stands in for the whole surface.
   const empty=$("#todayNoProgram");
@@ -9927,6 +10074,7 @@ function render(){applyI18n();
   renderToday();renderTabs();renderWorkout();renderStats();HistoryUi.render();renderProgram();renderSettings();renderBlockPrompt();
   updateSessionBanner();
   if(exView&&$("#exercise")?.classList.contains("active"))renderExerciseView();
+  if(profilePageState&&$("#profilePage")?.classList.contains("active"))renderProfilePage();
   queueMicrotask(()=>maybeShowContextualGuides())}
 
 function renderTabs(){const ds=days();if(!ds.includes(day))day=ds[0]||"Day 1";
@@ -27154,13 +27302,14 @@ function init(){
     if(dockRetap(b))return;
     if(b.dataset.view!=="stats")clearSummaryProfileReturn();
     abandonVoiceOp();
-    exView=null;cancelWorkoutEntry();workoutActive=false;workoutLeft=true;
+    exView=null;profilePageState=null;cancelWorkoutEntry();workoutActive=false;workoutLeft=true;
     // Progress remembers its segment, so arriving there can itself open the review.
     const opensReview=b.dataset.view==="stats"&&statsSeg==="review"&&!evidenceView&&!$("#stats")?.classList.contains("active");
-    document.body.classList.remove("is-settings","is-exercise","is-onboarding","is-workout");
+    document.body.classList.remove("is-settings","is-exercise","is-profile","is-profile-scope","is-onboarding","is-workout");
     $$("nav button").forEach(x=>{const on=x===b;x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
     $$(".view").forEach(v=>v.classList.toggle("active",v.id===b.dataset.view));window.scrollTo({top:0});render();
-    if(opensReview)captureBlockReviewViewed()});
+    if(opensReview)captureBlockReviewViewed();
+    if(b.dataset.view==="stats")maybeOpenProfileScope()});
   $("#exBack").onclick=closeExerciseView;
   $("nav button.active")?.setAttribute("aria-current","page");
   render();

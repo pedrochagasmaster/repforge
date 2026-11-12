@@ -1397,6 +1397,31 @@
       "owner": "issue-691",
       "content": "flat",
       "scenario": "An imported training day with its final exercise removed. Existing empty-day guidance blocks activation."
+    },
+    "today/profile-first": {
+      "owner": "plan-084",
+      "content": "flat",
+      "scenario": "An onboarded program before saved evidence: the empty ink ring and factual first-saved-set line."
+    },
+    "today/profile": {
+      "owner": "plan-084",
+      "content": "flat",
+      "scenario": "The current program and session remain dominant beside the saved-evidence profile ring."
+    },
+    "progress/profile-reader": {
+      "owner": "plan-084",
+      "content": "flat",
+      "scenario": "The attained evidence stages, current standing, saved depth and optional check/history routes for one comparable lift."
+    },
+    "progress/profile-scope": {
+      "owner": "plan-084",
+      "content": "flat",
+      "scenario": "Static before/now scope rings retain saved evidence and explain two newly included comparable lifts, with explicit acknowledgment."
+    },
+    "today/profile-scope": {
+      "owner": "plan-084",
+      "content": "flat",
+      "scenario": "The pending scope change is reachable from Today’s factual line, with the new denominator applied."
     }
   },
   "components": [
@@ -13998,7 +14023,7 @@
     },
     {
       "id": "profile-lift-name",
-      "selector": ".profile-lift__name",
+      "selector": ".profile-lift:not(.profile-lift--link) .profile-lift__name",
       "roles": {
         "typography": "section-title"
       },
@@ -14024,7 +14049,7 @@
     },
     {
       "id": "profile-lift-standing",
-      "selector": ".profile-lift__standing",
+      "selector": ".profile-lift:not(.profile-lift--link) .profile-lift__standing",
       "roles": {
         "typography": "body"
       },
@@ -14215,6 +14240,778 @@
         "session/summary-lifts"
       ],
       "neverDisabledReason": "The profile is available whenever the finish screen has a finding or a next need."
+    },
+    {
+      "id": "profile-ring-open",
+      "selector": "#todayProfile",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "focus-visible"
+      ],
+      "rationale": "Opens the current program’s saved evidence.",
+      "owner": "plan-084",
+      "catalogStates": [
+        "today/ready",
+        "today/dock-viewer",
+        "today/ready-scrolled",
+        "today/rest-bar",
+        "today/day-picker",
+        "today/done",
+        "today/deload-week",
+        "today/draft-resume",
+        "today/context-menu",
+        "today/skipped",
+        "today/in-progress",
+        "today/week-card",
+        "today/profile-first",
+        "today/profile",
+        "today/profile-scope"
+      ],
+      "neverDisabledReason": "Saved evidence navigation stays available; no training mutation is committed."
+    },
+    {
+      "id": "profile-ring-ink",
+      "selector": ".profile-ring",
+      "roles": {
+        "elevation": "flat"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Static ink-only presentation of the saved-evidence projection; no printed percentage.",
+      "owner": "plan-084",
+      "catalogStates": [
+        "today/profile-first",
+        "today/profile",
+        "progress/profile-reader",
+        "progress/profile-scope",
+        "progress/overview",
+        "progress/overview-guide",
+        "progress/overview-baseline",
+        "progress/overview-action",
+        "progress/exercise-chart",
+        "progress/strength",
+        "progress/strength-current-block",
+        "progress/strength-all-history",
+        "progress/strength-comparison",
+        "progress/strength-sparse",
+        "progress/volume",
+        "progress/volume-block",
+        "progress/volume-drill-in",
+        "progress/prs",
+        "progress/prs-drill-in",
+        "progress/review",
+        "progress/review-guide",
+        "progress/review-active",
+        "progress/review-complete",
+        "progress/review-insufficient",
+        "progress/schedule-diagnosis",
+        "progress/sibling-lower-frequency",
+        "progress/sibling-shorter-session",
+        "progress/guided-repair",
+        "progress/volume-reduction-preview",
+        "progress/recovery-ineligible",
+        "progress/recovery-questions",
+        "progress/recovery-preview",
+        "progress/recovery-active",
+        "progress/recovery-reassessment",
+        "progress/minibar",
+        "progress/review-proposal",
+        "progress/review-evaluated",
+        "progress/overview-profile",
+        "progress/overview-profile-first",
+        "session/summary-profile",
+        "today/profile-scope"
+      ]
+    },
+    {
+      "id": "profile-ring-need",
+      "selector": ".profile-next-evidence",
+      "roles": {
+        "typography": "body-small"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "States the next factual evidence condition or a changed scope.",
+      "owner": "plan-084",
+      "catalogStates": [
+        "today/ready",
+        "today/dock-viewer",
+        "today/ready-scrolled",
+        "today/rest-bar",
+        "today/day-picker",
+        "today/done",
+        "today/deload-week",
+        "today/draft-resume",
+        "today/context-menu",
+        "today/skipped",
+        "today/in-progress",
+        "today/week-card",
+        "today/profile-first",
+        "today/profile",
+        "today/profile-scope"
+      ]
+    },
+    {
+      "id": "profile-heading",
+      "selector": ".profile-heading",
+      "roles": {
+        "typography": "section-title"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Names Your profile above its explanatory sentence.",
+      "owner": "plan-084",
+      "catalogStates": [
+        "progress/overview",
+        "progress/overview-guide",
+        "progress/overview-baseline",
+        "progress/overview-action",
+        "progress/exercise-chart",
+        "progress/strength",
+        "progress/strength-current-block",
+        "progress/strength-all-history",
+        "progress/strength-comparison",
+        "progress/strength-sparse",
+        "progress/volume",
+        "progress/volume-block",
+        "progress/volume-drill-in",
+        "progress/prs",
+        "progress/prs-drill-in",
+        "progress/review",
+        "progress/review-guide",
+        "progress/review-active",
+        "progress/review-complete",
+        "progress/review-insufficient",
+        "progress/schedule-diagnosis",
+        "progress/sibling-lower-frequency",
+        "progress/sibling-shorter-session",
+        "progress/guided-repair",
+        "progress/volume-reduction-preview",
+        "progress/recovery-ineligible",
+        "progress/recovery-questions",
+        "progress/recovery-preview",
+        "progress/recovery-active",
+        "progress/recovery-reassessment",
+        "progress/minibar",
+        "progress/review-proposal",
+        "progress/review-evaluated",
+        "progress/overview-profile",
+        "progress/overview-profile-first",
+        "progress/profile-reader",
+        "progress/profile-scope",
+        "session/summary-profile"
+      ]
+    },
+    {
+      "id": "profile-caption",
+      "selector": ".profile-caption",
+      "roles": {
+        "typography": "caption"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Supporting saved-evidence counts, dates and explanations.",
+      "owner": "plan-084",
+      "catalogStates": [
+        "today/profile-first",
+        "today/profile",
+        "progress/profile-reader",
+        "progress/profile-scope",
+        "progress/overview",
+        "progress/overview-guide",
+        "progress/overview-baseline",
+        "progress/overview-action",
+        "progress/exercise-chart",
+        "progress/strength",
+        "progress/strength-current-block",
+        "progress/strength-all-history",
+        "progress/strength-comparison",
+        "progress/strength-sparse",
+        "progress/volume",
+        "progress/volume-block",
+        "progress/volume-drill-in",
+        "progress/prs",
+        "progress/prs-drill-in",
+        "progress/review",
+        "progress/review-guide",
+        "progress/review-active",
+        "progress/review-complete",
+        "progress/review-insufficient",
+        "progress/schedule-diagnosis",
+        "progress/sibling-lower-frequency",
+        "progress/sibling-shorter-session",
+        "progress/guided-repair",
+        "progress/volume-reduction-preview",
+        "progress/recovery-ineligible",
+        "progress/recovery-questions",
+        "progress/recovery-preview",
+        "progress/recovery-active",
+        "progress/recovery-reassessment",
+        "progress/minibar",
+        "progress/review-proposal",
+        "progress/review-evaluated",
+        "progress/overview-profile",
+        "progress/overview-profile-first",
+        "session/summary-profile"
+      ]
+    },
+    {
+      "id": "profile-reading-title",
+      "selector": ".profile-reading__title",
+      "roles": {
+        "typography": "body-small"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Names the saved-session source of the reading.",
+      "owner": "plan-084",
+      "catalogStates": [
+        "progress/overview",
+        "progress/overview-guide",
+        "progress/overview-baseline",
+        "progress/overview-action",
+        "progress/exercise-chart",
+        "progress/strength",
+        "progress/strength-current-block",
+        "progress/strength-all-history",
+        "progress/strength-comparison",
+        "progress/strength-sparse",
+        "progress/volume",
+        "progress/volume-block",
+        "progress/volume-drill-in",
+        "progress/prs",
+        "progress/prs-drill-in",
+        "progress/review",
+        "progress/review-guide",
+        "progress/review-active",
+        "progress/review-complete",
+        "progress/review-insufficient",
+        "progress/schedule-diagnosis",
+        "progress/sibling-lower-frequency",
+        "progress/sibling-shorter-session",
+        "progress/guided-repair",
+        "progress/volume-reduction-preview",
+        "progress/recovery-ineligible",
+        "progress/recovery-questions",
+        "progress/recovery-preview",
+        "progress/recovery-active",
+        "progress/recovery-reassessment",
+        "progress/minibar",
+        "progress/review-proposal",
+        "progress/review-evaluated",
+        "progress/overview-profile",
+        "progress/overview-profile-first",
+        "progress/profile-reader",
+        "progress/profile-scope",
+        "session/summary-profile"
+      ]
+    },
+    {
+      "id": "profile-detail-counts",
+      "selector": ".profile-detail-counts",
+      "roles": {
+        "typography": "caption"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Reports observations and attained stages separately.",
+      "owner": "plan-084",
+      "catalogStates": [
+        "progress/overview",
+        "progress/overview-guide",
+        "progress/overview-baseline",
+        "progress/overview-action",
+        "progress/exercise-chart",
+        "progress/strength",
+        "progress/strength-current-block",
+        "progress/strength-all-history",
+        "progress/strength-comparison",
+        "progress/strength-sparse",
+        "progress/volume",
+        "progress/volume-block",
+        "progress/volume-drill-in",
+        "progress/prs",
+        "progress/prs-drill-in",
+        "progress/review",
+        "progress/review-guide",
+        "progress/review-active",
+        "progress/review-complete",
+        "progress/review-insufficient",
+        "progress/schedule-diagnosis",
+        "progress/sibling-lower-frequency",
+        "progress/sibling-shorter-session",
+        "progress/guided-repair",
+        "progress/volume-reduction-preview",
+        "progress/recovery-ineligible",
+        "progress/recovery-questions",
+        "progress/recovery-preview",
+        "progress/recovery-active",
+        "progress/recovery-reassessment",
+        "progress/minibar",
+        "progress/review-proposal",
+        "progress/review-evaluated",
+        "progress/overview-profile",
+        "progress/overview-profile-first",
+        "progress/profile-reader",
+        "progress/profile-scope",
+        "session/summary-profile"
+      ]
+    },
+    {
+      "id": "profile-lift-open",
+      "selector": ".profile-lift--link button",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "focus-visible"
+      ],
+      "rationale": "Opens the selected comparable lift’s stage reader.",
+      "owner": "plan-084",
+      "catalogStates": [
+        "progress/overview",
+        "progress/overview-guide",
+        "progress/overview-baseline",
+        "progress/overview-action",
+        "progress/exercise-chart",
+        "progress/strength",
+        "progress/strength-current-block",
+        "progress/strength-all-history",
+        "progress/strength-comparison",
+        "progress/strength-sparse",
+        "progress/volume",
+        "progress/volume-block",
+        "progress/volume-drill-in",
+        "progress/prs",
+        "progress/prs-drill-in",
+        "progress/review",
+        "progress/review-guide",
+        "progress/review-active",
+        "progress/review-complete",
+        "progress/review-insufficient",
+        "progress/schedule-diagnosis",
+        "progress/sibling-lower-frequency",
+        "progress/sibling-shorter-session",
+        "progress/guided-repair",
+        "progress/volume-reduction-preview",
+        "progress/recovery-ineligible",
+        "progress/recovery-questions",
+        "progress/recovery-preview",
+        "progress/recovery-active",
+        "progress/recovery-reassessment",
+        "progress/minibar",
+        "progress/review-proposal",
+        "progress/review-evaluated",
+        "progress/overview-profile",
+        "progress/overview-profile-first",
+        "progress/profile-reader",
+        "progress/profile-scope",
+        "session/summary-profile"
+      ],
+      "neverDisabledReason": "Saved evidence navigation stays available; no training mutation is committed."
+    },
+    {
+      "id": "profile-lift-compact-name",
+      "selector": ".profile-lift--link .profile-lift__name",
+      "roles": {
+        "typography": "body-small"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Names one comparable lift in the compact list.",
+      "owner": "plan-084",
+      "catalogStates": [
+        "progress/overview",
+        "progress/overview-guide",
+        "progress/overview-baseline",
+        "progress/overview-action",
+        "progress/exercise-chart",
+        "progress/strength",
+        "progress/strength-current-block",
+        "progress/strength-all-history",
+        "progress/strength-comparison",
+        "progress/strength-sparse",
+        "progress/volume",
+        "progress/volume-block",
+        "progress/volume-drill-in",
+        "progress/prs",
+        "progress/prs-drill-in",
+        "progress/review",
+        "progress/review-guide",
+        "progress/review-active",
+        "progress/review-complete",
+        "progress/review-insufficient",
+        "progress/schedule-diagnosis",
+        "progress/sibling-lower-frequency",
+        "progress/sibling-shorter-session",
+        "progress/guided-repair",
+        "progress/volume-reduction-preview",
+        "progress/recovery-ineligible",
+        "progress/recovery-questions",
+        "progress/recovery-preview",
+        "progress/recovery-active",
+        "progress/recovery-reassessment",
+        "progress/minibar",
+        "progress/review-proposal",
+        "progress/review-evaluated",
+        "progress/overview-profile",
+        "progress/overview-profile-first",
+        "progress/profile-reader",
+        "progress/profile-scope",
+        "session/summary-profile"
+      ]
+    },
+    {
+      "id": "profile-lift-compact-stage",
+      "selector": ".profile-lift--link .profile-lift__standing",
+      "roles": {
+        "typography": "caption"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Reads the historically attained stage.",
+      "owner": "plan-084",
+      "catalogStates": [
+        "progress/overview",
+        "progress/overview-guide",
+        "progress/overview-baseline",
+        "progress/overview-action",
+        "progress/exercise-chart",
+        "progress/strength",
+        "progress/strength-current-block",
+        "progress/strength-all-history",
+        "progress/strength-comparison",
+        "progress/strength-sparse",
+        "progress/volume",
+        "progress/volume-block",
+        "progress/volume-drill-in",
+        "progress/prs",
+        "progress/prs-drill-in",
+        "progress/review",
+        "progress/review-guide",
+        "progress/review-active",
+        "progress/review-complete",
+        "progress/review-insufficient",
+        "progress/schedule-diagnosis",
+        "progress/sibling-lower-frequency",
+        "progress/sibling-shorter-session",
+        "progress/guided-repair",
+        "progress/volume-reduction-preview",
+        "progress/recovery-ineligible",
+        "progress/recovery-questions",
+        "progress/recovery-preview",
+        "progress/recovery-active",
+        "progress/recovery-reassessment",
+        "progress/minibar",
+        "progress/review-proposal",
+        "progress/review-evaluated",
+        "progress/overview-profile",
+        "progress/overview-profile-first",
+        "progress/profile-reader",
+        "progress/profile-scope",
+        "session/summary-profile"
+      ]
+    },
+    {
+      "id": "profile-lift-depth",
+      "selector": ".profile-lift__depth",
+      "roles": {
+        "typography": "caption"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Counts qualifying distinct saved dates.",
+      "owner": "plan-084",
+      "catalogStates": [
+        "progress/overview",
+        "progress/overview-guide",
+        "progress/overview-baseline",
+        "progress/overview-action",
+        "progress/exercise-chart",
+        "progress/strength",
+        "progress/strength-current-block",
+        "progress/strength-all-history",
+        "progress/strength-comparison",
+        "progress/strength-sparse",
+        "progress/volume",
+        "progress/volume-block",
+        "progress/volume-drill-in",
+        "progress/prs",
+        "progress/prs-drill-in",
+        "progress/review",
+        "progress/review-guide",
+        "progress/review-active",
+        "progress/review-complete",
+        "progress/review-insufficient",
+        "progress/schedule-diagnosis",
+        "progress/sibling-lower-frequency",
+        "progress/sibling-shorter-session",
+        "progress/guided-repair",
+        "progress/volume-reduction-preview",
+        "progress/recovery-ineligible",
+        "progress/recovery-questions",
+        "progress/recovery-preview",
+        "progress/recovery-active",
+        "progress/recovery-reassessment",
+        "progress/minibar",
+        "progress/review-proposal",
+        "progress/review-evaluated",
+        "progress/overview-profile",
+        "progress/overview-profile-first",
+        "progress/profile-reader",
+        "progress/profile-scope",
+        "session/summary-profile"
+      ]
+    },
+    {
+      "id": "profile-page-back",
+      "selector": "#profilePageBack",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "focus-visible"
+      ],
+      "rationale": "Returns focus to the opening profile row.",
+      "owner": "plan-084",
+      "catalogStates": [
+        "progress/profile-reader",
+        "progress/profile-scope"
+      ],
+      "neverDisabledReason": "Saved evidence navigation stays available; no training mutation is committed."
+    },
+    {
+      "id": "profile-page-title",
+      "selector": "#profilePageTitle",
+      "roles": {
+        "typography": "title"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Names the lift or the changed scope.",
+      "owner": "plan-084",
+      "catalogStates": [
+        "progress/profile-reader",
+        "progress/profile-scope"
+      ]
+    },
+    {
+      "id": "profile-reader-stage-title",
+      "selector": ".profile-stage-list h3",
+      "roles": {
+        "typography": "body-small"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Names an attained or pending evidence stage.",
+      "owner": "plan-084",
+      "catalogStates": [
+        "progress/profile-reader"
+      ]
+    },
+    {
+      "id": "profile-reader-stage-copy",
+      "selector": ".profile-stage-list p",
+      "roles": {
+        "typography": "caption"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Explains the exact saved support or next condition.",
+      "owner": "plan-084",
+      "catalogStates": [
+        "progress/profile-reader"
+      ]
+    },
+    {
+      "id": "profile-reader-current",
+      "selector": ".profile-lift-status",
+      "roles": {
+        "elevation": "flat"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Keeps the current estimate separate from historical attainment.",
+      "owner": "plan-084",
+      "catalogStates": [
+        "progress/profile-reader"
+      ]
+    },
+    {
+      "id": "profile-reader-depth",
+      "selector": ".profile-depth",
+      "roles": {
+        "elevation": "flat"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Explains the bounded date runway and optional history path.",
+      "owner": "plan-084",
+      "catalogStates": [
+        "progress/profile-reader"
+      ]
+    },
+    {
+      "id": "profile-scope-rings",
+      "selector": ".profile-scope-rings",
+      "roles": {
+        "elevation": "flat"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Compares the old and new denominator without a backward tween.",
+      "owner": "plan-084",
+      "catalogStates": [
+        "progress/profile-scope"
+      ]
+    },
+    {
+      "id": "profile-scope-continue",
+      "selector": "#profileScopeContinue",
+      "roles": {
+        "control": "primary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "focus-visible"
+      ],
+      "rationale": "Acknowledges this precise scope change.",
+      "owner": "plan-084",
+      "catalogStates": [
+        "progress/profile-scope"
+      ],
+      "neverDisabledReason": "Saved evidence navigation stays available; no training mutation is committed."
+    },
+    {
+      "id": "profile-intro",
+      "selector": ".profile-intro",
+      "roles": {
+        "typography": "body-small"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Keeps the existing explanatory sentence below the profile name.",
+      "owner": "plan-084",
+      "catalogStates": [
+        "progress/overview",
+        "progress/overview-guide",
+        "progress/overview-baseline",
+        "progress/overview-action",
+        "progress/exercise-chart",
+        "progress/strength",
+        "progress/strength-current-block",
+        "progress/strength-all-history",
+        "progress/strength-comparison",
+        "progress/strength-sparse",
+        "progress/volume",
+        "progress/volume-block",
+        "progress/volume-drill-in",
+        "progress/prs",
+        "progress/prs-drill-in",
+        "progress/review",
+        "progress/review-guide",
+        "progress/review-active",
+        "progress/review-complete",
+        "progress/review-insufficient",
+        "progress/schedule-diagnosis",
+        "progress/sibling-lower-frequency",
+        "progress/sibling-shorter-session",
+        "progress/guided-repair",
+        "progress/volume-reduction-preview",
+        "progress/recovery-ineligible",
+        "progress/recovery-questions",
+        "progress/recovery-preview",
+        "progress/recovery-active",
+        "progress/recovery-reassessment",
+        "progress/minibar",
+        "progress/review-proposal",
+        "progress/review-evaluated",
+        "progress/overview-profile",
+        "progress/overview-profile-first",
+        "progress/profile-reader",
+        "progress/profile-scope",
+        "session/summary-profile"
+      ]
+    },
+    {
+      "id": "profile-scope-link",
+      "selector": ".profile-scope-link",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "focus-visible"
+      ],
+      "rationale": "Opens the factual scope explanation from Today.",
+      "owner": "plan-084",
+      "catalogStates": [
+        "today/profile-scope"
+      ],
+      "neverDisabledReason": "A pending scope comparison stays available until acknowledged."
     }
   ],
   "contextualVariants": [
