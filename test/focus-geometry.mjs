@@ -339,7 +339,7 @@ async function checkTestSetPrompt(browser) {
         });
         const full = lang === "en" ? "Test set? Guess your reps" : "Série-teste? Adivinhe suas reps";
         const short = lang === "en" ? "Test set?" : "Série-teste?";
-        const expected = text === "text200" || (width === 320 && lang === "pt") ? short : width >= 390 ? full : null;
+        const expected = width === 320 && text === "text200" ? short : width >= 390 && text === "normal" ? full : null;
         if (![full, short].includes(copy.text) || (expected && copy.text !== expected) || copy.lines.length !== 1 || copy.overflow ||
             copy.lines.some(line => line.left < copy.left - 1 || line.right > copy.right + 1 || line.top < copy.top - 1 || line.bottom > copy.bottom + 1))
           failures.push(`${label}: approved bar copy must fit on one whole, unclipped line (expected ${expected}): ${JSON.stringify(copy)}`);
@@ -351,6 +351,19 @@ async function checkTestSetPrompt(browser) {
         if (clock.width < 44 || clock.height < 44 || !clock.whole || !clock.reachable || !clock.label)
           failures.push(`${label}: rest clock must remain a named, visible 44px target: ${JSON.stringify(clock)}`);
         const guess = opened.page.locator('.exercise.is-current [data-maxset-guess]');
+        if (key.endsWith("prompt") && width === 430 && lang === "pt" && text === "normal") {
+          for (const [resizedWidth, expectedText] of [[336, short], [337, full], [413, full], [430, full]]) {
+            await opened.page.setViewportSize({ width: resizedWidth, height: 932 });
+            await opened.page.waitForFunction(expected => document.querySelector('.exercise.is-current [data-maxset-guess]').innerText.trim() === expected, expectedText);
+            const resized = await guess.evaluate(button => {
+              const range = document.createRange(); range.selectNodeContents(button.querySelector(".resttip__label"));
+              const text = range.getBoundingClientRect(), box = button.getBoundingClientRect(), style = getComputedStyle(button);
+              return { fits: text.left >= box.left + parseFloat(style.paddingLeft) - 1 && text.right <= box.right - parseFloat(style.paddingRight) + 1 && text.top >= box.top && text.bottom <= box.bottom,
+                height: button.closest('[data-tip="max-set"]').getBoundingClientRect().height };
+            });
+            assert(resized.fits && resized.height === 44, `${label}: resized ${resizedWidth}px label fits in one 44px dock`, JSON.stringify(resized));
+          }
+        }
         await guess.click();
         await opened.page.locator("#maxSetSheet.is-open").waitFor({ state: "visible" });
         assert(await opened.page.evaluate(key => document.querySelector("#maxSetInvite").textContent.includes(
@@ -374,6 +387,14 @@ async function checkTestSetDismissal(browser) {
       await opened.page.locator('.exercise.is-current [data-tip="max-set"]').waitFor({ state: "detached" });
       assert(await opened.page.locator("#restTab").count() === 1 && await opened.page.locator(".restlight").count() === 1,
         `${lang}: dismissing the invitation preserves one rest control and contour`);
+      const ordinary = await opened.page.locator("#restTab").evaluate(tab => ({
+        position: getComputedStyle(tab).position,
+        label: getComputedStyle(tab.querySelector(".resttab__label")).display,
+        chevron: getComputedStyle(tab.querySelector(".resttab__chev")).display,
+        raised: tab.getBoundingClientRect().top < tab.closest(".focus-shelf").getBoundingClientRect().top,
+      }));
+      assert(ordinary.position === "absolute" && ordinary.label !== "none" && ordinary.chevron !== "none" && ordinary.raised,
+        `${lang}: without the test-set bar the ordinary raised rest chip keeps its label and chevron`, JSON.stringify(ordinary));
       assert(await opened.page.locator("#restTab .resttab__time").textContent() === time,
         `${lang}: dismissal preserves the running rest`);
       await opened.page.locator("#restTab").click();
