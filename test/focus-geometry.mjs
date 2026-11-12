@@ -352,7 +352,7 @@ async function checkTestSetPrompt(browser) {
           failures.push(`${label}: rest clock must remain a named, visible 44px target: ${JSON.stringify(clock)}`);
         const guess = opened.page.locator('.exercise.is-current [data-maxset-guess]');
         if (key.endsWith("prompt") && width === 430 && lang === "pt" && text === "normal") {
-          for (const [resizedWidth, expectedText] of [[336, short], [337, full], [413, full], [430, full]]) {
+          for (const [resizedWidth, expectedText] of [[337, short], [413, full], [430, full]]) {
             await opened.page.setViewportSize({ width: resizedWidth, height: 932 });
             await opened.page.waitForFunction(expected => document.querySelector('.exercise.is-current [data-maxset-guess]').innerText.trim() === expected, expectedText);
             const resized = await guess.evaluate(button => {

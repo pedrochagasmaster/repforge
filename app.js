@@ -7427,10 +7427,11 @@ function syncRestTab(){
     layoutRestContour();
     // The contour follows the shelf and the tab: a rotation, a text size, or "Rest" becoming "Rest done +0:05".
     restContourObserver?.disconnect();
-    restContourObserver=typeof ResizeObserver==="function"?new ResizeObserver(()=>{layoutRestContour();paintRestVisuals()}):null;
+    restContourObserver=typeof ResizeObserver==="function"?new ResizeObserver(()=>{fitMaxSetBar(shelf);layoutRestContour();paintRestVisuals()}):null;
     restContourObserver?.observe(shelf);restContourObserver?.observe(shelf.querySelector("#restTab"))}
   const dock=shelf.querySelector('.resttip[data-tip="max-set"]'),tab=shelf.querySelector("#restTab");
   if(dock&&tab.parentElement!==dock){dock.prepend(tab);layoutRestContour();refitFocusSoon()}
+  if(dock){restContourObserver?.observe(dock.querySelector("[data-maxset-guess]"));restContourObserver?.observe(dock.querySelector(".resttip__full"))}
   shelf.classList.add("has-rest");
   paintRestTab();
   paintRestVisuals();
@@ -7450,7 +7451,8 @@ function paintRestTab(){
   const aria=v.held?t("focus.rest.paused_aria",{time})
     :done?(over>0?t("focus.rest.over_aria",{time:fmtClock(over)}):t("focus.rest.done_aria"))
     :t("focus.rest.running_aria",{time});
-  if(tab.getAttribute("aria-label")!==aria)tab.setAttribute("aria-label",aria)}
+  if(tab.getAttribute("aria-label")!==aria)tab.setAttribute("aria-label",aria);
+  fitMaxSetBar(tab.closest(".focus-shelf"))}
 /** Time left as a share of the length this rest is armed at: 1 at the start, 0 at the bell. */
 function restShare(){return restState().active?Math.max(0,Math.min(1,restLeftMs()/(1000*Math.max(1,restPlanSec())))):1}
 /** Where an arc that starts at the top and runs clockwise for `share` of a turn ends, in percent of its box. */
@@ -8387,13 +8389,20 @@ function maxSetOffer(ex,n){
       draft.exerciseOrder.indexOf(id)<draft.exerciseOrder.indexOf(ex.id)))return null;
   }
   return offer}
+/** Use the full invitation only when its rendered width fits beside the clock and dismissal. */
+function fitMaxSetBar(shelf){
+  const button=shelf?.querySelector('[data-tip="max-set"] [data-maxset-guess]');if(!button)return;
+  const full=button.querySelector(".resttip__full"),label=button.querySelector(".resttip__label"),style=getComputedStyle(button);
+  const available=button.clientWidth-parseFloat(style.paddingLeft)-parseFloat(style.paddingRight);
+  const text=full.getBoundingClientRect().width<=available?full.textContent:t("maxset.bar_label_short");
+  if(label.textContent!==text)label.textContent=text}
 /** The prompt above the shelf while the rest runs (CSS hides it once the rest ends). */
 function maxSetTipHtml(ex,n,peek){
   if(peek)return"";
   const offer=maxSetOffer(ex,n);if(!offer)return"";
   const title=t("maxset.bar_label");
   return `<section class="resttip" data-tip="max-set" aria-label="${esc(title)}">`+
-    `<div class="resttip__acts"><button type="button" class="resttip__yes" data-maxset-guess aria-haspopup="dialog" aria-controls="maxSetSheet">${esc(title)}</button>`+
+    `<div class="resttip__acts"><button type="button" class="resttip__yes" data-maxset-guess aria-haspopup="dialog" aria-controls="maxSetSheet"><span class="resttip__label">${esc(t("maxset.bar_label_short"))}</span><span class="resttip__full" aria-hidden="true">${esc(title)}</span></button>`+
     `<button type="button" class="resttip__no" data-maxset-no>${esc(t("maxset.not_now"))}</button></div></section>`}
 
 function declineMaxSet(exId){
