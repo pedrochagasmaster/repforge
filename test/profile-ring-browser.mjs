@@ -19,6 +19,18 @@ export async function profileRingProofs(browser, assert, base) {
     assert(await page.locator('#todayProfile').isVisible(),'onboarded fresh program has the ink profile ring');
     if(!await page.locator('#todayProfile').isVisible())return;
     assert(await page.locator('#todayProfile svg').getAttribute('data-profile-fill')==='0','fresh profile has no invented evidence');
+    // A raw preference reset must not let automatic profile metadata resurrect contextual guides.
+    await page.evaluate(()=>localStorage.removeItem('repforge_ui_v1'));
+    await page.evaluate(()=>window.__repforgeShowSettings());
+    const blocked=await page.locator('#guideDialog[open]').count()>0;
+    assert(!blocked,'profile scope observation preserves canonical guide preferences after a raw reset');
+    if(blocked)return;
+    await page.click('#createProgram');
+    await page.waitForSelector('#onboarding.active');
+    await page.click('#onbCancel');await page.click('#entryCancelDiscard');
+    await page.waitForFunction(()=>!document.querySelector('#onboarding')?.classList.contains('active'));
+    assert(await page.locator('#createProgram').isVisible(),'Settings create-program returns after cancel without a guide intercepting navigation');
+    await page.click('[data-view="log"]');
     const unique=generated.program.filter((ex,i,all)=>all.findIndex(other=>other.libraryId===ex.libraryId)===i);
     const lifts=unique.filter(ex=>isWeightRepsSlot(definitionSlot(generated.programMeta,ex)));
     if(lifts.length<4)throw new Error('profile fixture requires four different weight/reps lifts');
