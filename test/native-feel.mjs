@@ -1857,8 +1857,18 @@ async function standaloneSwipe(browser) {
   phase("A quick release at 25% goes through");
   {
     const { context, page, touch } = await open();
+    await page.evaluate(() => {
+      window.__nativeBackSwipeSamples = [];
+      for (const type of ["pointermove", "pointerup"]) document.addEventListener(type, event => {
+        window.__nativeBackSwipeSamples.push({ type, x: event.clientX, time: event.timeStamp });
+      }, { capture: true });
+    });
     // About 8px a frame: roughly 0.5px/ms at release.
     const popped = await swipe(page, touch, 10, steps(10, 98, 11));
+    const samples = await page.evaluate(() => window.__nativeBackSwipeSamples);
+    const moves = samples.filter(sample => sample.type === "pointermove"), last = moves.at(-1), previous = moves.at(-2);
+    const velocity = last && previous ? (last.x - previous.x) / (last.time - previous.time) : 0;
+    assert(velocity >= 0.3, "the synthetic fast swipe actually delivers at least 0.3px/ms", JSON.stringify({ velocity, samples }));
     assert(popped, "a release at 0.3px/ms or faster goes through short of the commit share");
     await context.close();
   }
