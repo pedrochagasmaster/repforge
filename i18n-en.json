@@ -2985,7 +2985,6 @@
   "maxset.not_now": "Not now",
   "maxset.invite_reason_learning": "The app is still learning this lift.",
   "maxset.invite_reason_recheck": "It has been a while since the last check.",
-  "maxset.make_guess": "Make a guess",
   "maxset.guess_q": "How many reps can you do at {load}?",
   "maxset.guess_q_noload": "How many reps can you do?",
   "maxset.guess_from": "From set {n}: {reps} reps with {left} left, less one for fatigue.",

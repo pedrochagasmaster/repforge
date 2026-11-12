@@ -7302,7 +7302,7 @@ function layoutRestContour(){
   for(const el of svg.querySelectorAll(".restlight__hair,.restlight__core,.restlight__bloom"))el.setAttribute("d",top);
   const halves=[...svg.querySelectorAll(".restlight__half")];
   halves[0].setAttribute("d",left);halves[1].setAttribute("d",right);
-  restContour={svg,lit:svg.querySelector(".restlight__lit"),halves,tabLength:docked?REST_TAB_SHARE*length:tabLength,length}}
+  restContour={svg,lit:svg.querySelector(".restlight__lit"),halves,tabLength,length}}
 /** The contour's paths for a shelf W wide whose tab (tabLeft, tabWidth) rises T above its top edge, with the tab's top
  *  corner radius RT, the shoulder fillet F and the shelf's corner radius R; y is 0 at the tab's top. `top` is the lit
  *  edge, `left` and `right` its halves from the tab's top centre out, `bump` the raised part alone (closed a little below
@@ -8394,14 +8394,17 @@ function fitMaxSetBar(shelf){
   const button=shelf?.querySelector('[data-tip="max-set"] [data-maxset-guess]');if(!button)return;
   const full=button.querySelector(".resttip__full"),label=button.querySelector(".resttip__label"),style=getComputedStyle(button);
   const available=button.clientWidth-parseFloat(style.paddingLeft)-parseFloat(style.paddingRight);
-  const text=full.getBoundingClientRect().width<=available?full.textContent:t("maxset.bar_label_short");
+  const text=full.offsetWidth<=available?full.textContent:t("maxset.bar_label_short");
   if(label.textContent!==text)label.textContent=text}
 /** The prompt above the shelf while the rest runs (CSS hides it once the rest ends). */
 function maxSetTipHtml(ex,n,peek){
   if(peek)return"";
   const offer=maxSetOffer(ex,n);if(!offer)return"";
+  return maxSetBarHtml()}
+/** The same invitation controls in Focus and the landing's inert phone. */
+function maxSetBarHtml(clock=""){
   const title=t("maxset.bar_label");
-  return `<section class="resttip" data-tip="max-set" aria-label="${esc(title)}">`+
+  return `<section class="resttip" data-tip="max-set" aria-label="${esc(title)}">${clock}`+
     `<div class="resttip__acts"><button type="button" class="resttip__yes" data-maxset-guess aria-haspopup="dialog" aria-controls="maxSetSheet"><span class="resttip__label">${esc(t("maxset.bar_label_short"))}</span><span class="resttip__full" aria-hidden="true">${esc(title)}</span></button>`+
     `<button type="button" class="resttip__no" data-maxset-no>${esc(t("maxset.not_now"))}</button></div></section>`}
 
@@ -8416,14 +8419,16 @@ function paintMaxSetGuess(){
   const less=$("#maxSetLess"),more=$("#maxSetMore");
   if(less)less.disabled=!maxSetUi||maxSetUi.guess<=EffortCalibration.LIMITS.minGuess;
   if(more)more.disabled=!maxSetUi||maxSetUi.guess>=EffortCalibration.LIMITS.maxGuess}
+function maxSetInviteText(load,reason){
+  return t("maxset.invite_title")+" "+t(load?"maxset.invite_body":"maxset.invite_body_noload",
+    {load,reason:t(reason==="learning"?"maxset.invite_reason_learning":"maxset.invite_reason_recheck")})}
 function openMaxSetSheet(exId){
   const base=prog.find(exId),ex=base?sessionExercise(base):null;if(!ex)return;
   const offer=maxSetOffer(ex,focusActiveSet(ex));if(!offer)return;
   const sheet=$("#maxSetSheet"),scrim=$("#maxSetScrim");if(!sheet)return;
   maxSetUi={exId,setId:offer.set.setId,guess:offer.guess.predictedReps,prefill:offer.guess.predictedReps,basis:offer.guess.prefillBasis,phase:"guessing"};
   $("#maxSetTitle").textContent=t(offer.load?"maxset.guess_q":"maxset.guess_q_noload",{load:offer.load});
-  $("#maxSetInvite").textContent=t("maxset.invite_title")+" "+t(offer.load?"maxset.invite_body":"maxset.invite_body_noload",
-    {load:offer.load,reason:t(`maxset.invite_reason_${offer.reason}`)});
+  $("#maxSetInvite").textContent=maxSetInviteText(offer.load,offer.reason);
   $("#maxSetFrom").textContent=offer.guess.prefillBasis==="reps_rir"
     ?t("maxset.guess_from",{n:offer.before.ordinal,reps:fmt(offer.reps),left:fmt(offer.rir)})
     :t("maxset.guess_from_reps",{n:offer.before.ordinal,reps:fmt(offer.reps)});
@@ -24787,7 +24792,7 @@ const LANDING_DEMO_KEYS=["focus.exmeta.range","program.progression.adaptive","fo
   "focus.evidence.history","focus.evidence.target","focus.evidence.why","log.set","log.reps","focus.col.left","focus.field.left",
   "focus.prev_line","focus.next_row","focus.metric.load_kg","focus.metric.reps","focus.shelf.pad_load","focus.shelf.log_set",
   "rest.inline.label","rest.inline.done","landing.outcomes.next_label","landing.outcomes.target","landing.outcomes.did_same",
-  "maxset.invite_title","maxset.invite_body","maxset.not_now","maxset.make_guess","maxset.guess_q","maxset.guess_from","maxset.fail_rule","maxset.safety","maxset.press_line","maxset.start","maxset.cue_head","maxset.cue_sub","maxset.tag","maxset.guessed","maxset.did","maxset.result_more","maxset.result_fewer","maxset.result_same","maxset.status_wait_one","maxset.status_wait",
+  "maxset.invite_title","maxset.invite_body","maxset.not_now","maxset.bar_label","maxset.bar_label_short","maxset.invite_reason_learning","maxset.guess_q","maxset.guess_from","maxset.fail_rule","maxset.safety","maxset.press_line","maxset.start","maxset.cue_head","maxset.cue_sub","maxset.tag","maxset.guessed","maxset.did","maxset.result_more","maxset.result_fewer","maxset.result_same","maxset.status_wait_one","maxset.status_wait",
   "dialog.done"];
 let landingDemo=null;
 /** The proof's screen, from the "add" case and the engine's answer for it (`add`). */
@@ -24853,13 +24858,18 @@ function landingDemoHtml(add,testSet){
     LANDING_TEST_SETS.slice(0,-1).map(values=>line(check,values.map(landingNum),false,"","")).join("")+
     line(finished?check:LANDING_TEST_SETS.length,[landingNum(test[0]),landingNum(finished?test[1]:armed?guess:before[1]),landingNum(armed?test[2]:before[2])],!finished,"",
       armed?`<small class="ledgerline__tag">${esc(t("maxset.tag",{n:landingNum(guess)}))}</small>`:"")+`</div>`;
-  const testScenes=`<div class="firstrun-demo__test-backdrop"></div><div class="firstrun-demo__test-tip firstrun-demo__test-scene">${testLedger(false,false)}<section class="resttip">`+
-    `<p class="resttip__text"><b>${esc(t("maxset.invite_title"))}</b> ${esc(t("maxset.invite_body",{load:landingKg(test[0])}))}</p>`+
-    `<div class="resttip__acts">${button("resttip__no",esc(t("maxset.not_now")))}${button("resttip__yes",esc(t("maxset.make_guess")))}</div></section></div>`+
+  const shelfControls=(last=false)=>`<div class="shelf__fields firstrun-demo__fields">${field(load,`${load}, ${unit}`,last?landingNum(test[0]):kg,unit)}${last?field(repsLabel,repsLabel,landingNum(before[1]),""):repsField}`+
+        `${field(t("focus.field.left"),t("focus.field.left"),landingNum(last?before[2]:rir0),"")}<span class="firstrun-demo__sel"></span></div>`+
+      `<div class="shelf__pads">${pad("−")}${pad("+")}</div>`+
+      button("btn btn--cta btn--noarrow saveset firstrun-demo__log",last?esc(t("focus.shelf.log_set",{n:LANDING_TEST_SETS.length})):`<span class="firstrun-demo__log1">${esc(t("focus.shelf.log_set",{n:1}))}</span>`+
+        `<span class="firstrun-demo__log2">${esc(t("focus.shelf.log_set",{n:2}))}</span>`);
+  const inviteClock=`<span class="resttab"><span class="resttab__end"><span class="resttab__time">2:00</span></span></span>`;
+  const testScenes=`<div class="firstrun-demo__test-backdrop"></div><div class="firstrun-demo__test-tip firstrun-demo__test-scene">${testLedger(false,false)}`+
+    `<div class="workshelf focus-shelf firstrun-demo__invite-shelf">${maxSetBarHtml(inviteClock)}${shelfControls(true)}</div></div>`+
     `<div class="firstrun-demo__test-guess firstrun-demo__test-scene"><div class="sheetband"><span class="sheetband__handle"></span>`+
     `<h2 class="sheetband__title">${esc(t("maxset.guess_q",{load:landingKg(test[0])}))}</h2>`+
     `<p class="sheetband__sub">${esc(t("maxset.guess_from",{n:landingNum(LANDING_TEST_SETS.length-1),reps:landingNum(before[1]),left:landingNum(before[2])}))}</p></div>`+
-    `<div class="sheetbody sheetbody--maxset"><div class="maxset__count">${button("stepbtn maxset__pad","−")}<output class="maxset__n">${esc(landingNum(guess))}</output>${button("stepbtn maxset__pad","+")}</div>${rule}</div>`+
+    `<div class="sheetbody sheetbody--maxset"><p class="maxset__explanation">${esc(maxSetInviteText(landingKg(test[0]),"learning"))}</p><div class="maxset__count">${button("stepbtn maxset__pad","−")}<output class="maxset__n">${esc(landingNum(guess))}</output>${button("stepbtn maxset__pad","+")}</div>${rule}</div>`+
     `<div class="sheetfoot sheetfoot--pair">${button("",esc(t("maxset.not_now")))}${button("",esc(t("maxset.start")))}</div></div>`+
     `<div class="firstrun-demo__test-cue firstrun-demo__test-scene"><div class="fx-cue is-now"><p class="fx-cue__l1">${esc(t("maxset.cue_head",{load:landingNum(test[0]),unit}))}</p>`+
     `<p class="fx-cue__l2">${esc(t("maxset.cue_sub",{n:landingNum(guess)}))}</p></div>${rule}${testLedger()}</div>`+
@@ -24890,11 +24900,7 @@ function landingDemoHtml(add,testSet){
     `<div class="workshelf focus-shelf firstrun-demo__shelf">`+
       `<span class="resttab firstrun-demo__tab"><span class="resttab__label"></span><span class="resttab__end"><span class="resttab__time"></span>`+
       `<span class="resttab__chev icon-mask icon-mask--chev-up" aria-hidden="true"></span></span></span>`+
-      `<div class="shelf__fields firstrun-demo__fields">${field(load,`${load}, ${unit}`,kg,unit)}${repsField}`+
-        `${field(t("focus.field.left"),t("focus.field.left"),landingNum(rir0),"")}<span class="firstrun-demo__sel"></span></div>`+
-      `<div class="shelf__pads">${pad("−")}${pad("+")}</div>`+
-      button("btn btn--cta btn--noarrow saveset firstrun-demo__log",`<span class="firstrun-demo__log1">${esc(t("focus.shelf.log_set",{n:1}))}</span>`+
-        `<span class="firstrun-demo__log2">${esc(t("focus.shelf.log_set",{n:2}))}</span>`)+
+      shelfControls()+
     `</div>`+
     `<div class="firstrun-demo__scrim"></div>`+wheel+testScenes+
     landingTouchHtml()+
@@ -24909,6 +24915,7 @@ function landingDemoHtml(add,testSet){
 function layoutLandingDemo(d){
   const shelf=d.shelf,tab=d.tab;
   if(!shelf.offsetWidth||!tab.offsetWidth)return false;
+  fitMaxSetBar(d.root.querySelector(".firstrun-demo__invite-shelf"));
   const W=shelf.offsetWidth,T=LANDING_DEMO.rise,top=shelf.offsetTop-T,CH=T+shelf.offsetHeight,F=REST_FILLET;
   const R=parseFloat(getComputedStyle(shelf).borderTopLeftRadius)||28,RT=parseFloat(getComputedStyle(tab).borderTopLeftRadius)||16;
   // The tab sized to its words in both states it shows: "Rest 2:00" and "Rest done +0:00".

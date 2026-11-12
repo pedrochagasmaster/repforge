@@ -1806,8 +1806,8 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
 .resttip[data-tip="max-set"] .resttip__yes{flex:1 1 0;text-align:left}
 .resttip[data-tip="max-set"] .resttip__no{flex:none}
 .resttip[data-tip="max-set"] .resttip__full{position:fixed;left:0;top:0;width:max-content;visibility:hidden;pointer-events:none}
-.resttip[data-tip="max-set"] button:hover{background:var(--well)}
-.resttip[data-tip="max-set"] button.is-pressed{background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
+.resttip[data-tip="max-set"] .resttip__acts > button:hover{background:var(--well)}
+.resttip[data-tip="max-set"] .resttip__acts > button.is-pressed{background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
 .resttip[data-tip="max-set"] :focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
 .resttip[data-tip="max-set"] .resttab{position:static;flex:none;inset:auto;margin:0;width:auto;min-width:var(--control-target);max-width:none;padding:0 var(--space-2);border-radius:var(--radius-control)}
 .resttip[data-tip="max-set"] .resttab__label,.resttip[data-tip="max-set"] .resttab__chev{display:none}
@@ -6329,7 +6329,9 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun-demo__test-scene{position:absolute;z-index:4;left:0;right:0;bottom:34px;background:var(--surface);border-radius:var(--radius-prominent);padding:var(--space-16);opacity:0;will-change:transform,opacity}
 .firstrun-demo__test-tip,.firstrun-demo__test-cue,.firstrun-demo__test-result{background:var(--bg);border-radius:var(--radius-none)}
 .firstrun-demo__test-backdrop{position:absolute;z-index:3;inset:80px 0 0;background:var(--bg);opacity:0}
-.firstrun-demo__test-tip .resttip{position:relative;inset:auto;margin:var(--space-16) 0 0}
+.firstrun-demo__test-tip{padding:0}
+.firstrun-demo__test-tip > .fcard__ledger{margin:0 var(--space-16) var(--space-16)}
+.workshelf.firstrun-demo__invite-shelf{border-radius:var(--radius-none)}
 .firstrun-demo__test-guess{bottom:0;padding:0 0 34px;overflow:hidden;border-radius:var(--radius-prominent) var(--radius-prominent) var(--radius-none) var(--radius-none)}
 .firstrun-demo__test-cue .fx-cue{margin:0}
 .firstrun-demo__test-cue .fcard__ledger{margin-top:var(--space-16)}

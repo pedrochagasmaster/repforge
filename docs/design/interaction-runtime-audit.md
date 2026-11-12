@@ -394,9 +394,11 @@ rule 11 additions recorded by the later rows of this section.
 While a test-set invitation is available (#750), its bar and the existing rest
 control share one docked row above the shelf's fields. The clock comes first
 and shows time only, with its full existing accessible label and rest-sheet
-action. The shelf's light follows its flat edge, proportionally through the
-whole countdown; its frame loop, numeral roll, bell and reduced-motion paths
-are unchanged. The target stays in a compact fixed line above the scrolling
+action. The shelf's light follows its flat edge using the timer's existing
+70% shelf / 30% tab reach calculation and the actual contour lengths, without
+a synthetic tab length. Its frame loop, numeral roll, bell and reduced-motion
+paths are unchanged. The clock keeps its original transparent, dim-only press
+feedback; the invitation actions alone take the quiet-control press fill. The target stays in a compact fixed line above the scrolling
 context while this bar is present. No new animation accompanies the bar.
 
 The rest timer redesign (owner direction, 2026-10-23: "a subtle, tasteful glow
