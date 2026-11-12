@@ -304,12 +304,12 @@ async function checkTestSetPrompt(browser) {
           const cardBox = card.getBoundingClientRect(), shelf = card.querySelector(".focus-shelf").getBoundingClientRect();
           const row = card.querySelector(".ledgerline--open").getBoundingClientRect();
           const target = card.querySelector(".fx-cue__l1").getBoundingClientRect();
-          return { covered, left: prompt.left, right: prompt.right, width: innerWidth,
+          return { covered, left: prompt.left, right: prompt.right, width: innerWidth, height: prompt.height,
             rowWhole: row.top >= context.top - 1 && row.bottom <= context.bottom + 1,
             targetWhole: target.top >= cardBox.top - 1 && target.bottom <= shelf.top + 1 };
         });
-        if (measured.covered.length || measured.left < 0 || measured.right > measured.width)
-          failures.push(`${label}: prompt covers the target or open row, or spills horizontally: ${JSON.stringify(measured)}`);
+        if (measured.covered.length || measured.left < 0 || measured.right > measured.width || Math.abs(measured.height - 44) > 0.5)
+          failures.push(`${label}: prompt must be one 44px row without covering the target/open row or spilling: ${JSON.stringify(measured)}`);
         if (!measured.rowWhole || !measured.targetWhole)
           failures.push(`${label}: target and current row must be whole without scrolling: ${JSON.stringify(measured)}`);
         const actions = await opened.page.locator('.exercise.is-current .resttip__acts button').evaluateAll(buttons =>
@@ -317,12 +317,32 @@ async function checkTestSetPrompt(browser) {
             const box = button.getBoundingClientRect();
             const context = button.closest(".exercise").getBoundingClientRect();
             const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
-            return { text: button.textContent.trim(), width: box.width, height: box.height,
+            return { text: button.innerText.trim(), width: box.width, height: box.height,
               whole: box.top >= Math.max(0, context.top) - 1 && box.bottom <= Math.min(innerHeight, context.bottom) + 1 && box.left >= 0 && box.right <= innerWidth,
               reachable: !!hit && button.contains(hit) };
           }));
         if (actions.length !== 2 || actions.some(action => action.width < 44 || action.height < 44 || !action.whole || !action.reachable))
           failures.push(`${label}: both invitation actions must be visible 44px targets: ${JSON.stringify(actions)}`);
+        const copy = await opened.page.locator('.exercise.is-current [data-maxset-guess]').evaluate(button => {
+          const style = getComputedStyle(button), box = button.getBoundingClientRect();
+          const walker = document.createTreeWalker(button, NodeFilter.SHOW_TEXT);
+          const lines = [];
+          while (walker.nextNode()) {
+            const node = walker.currentNode, parentStyle = getComputedStyle(node.parentElement);
+            if (!node.textContent.trim() || parentStyle.visibility === "hidden" || !node.parentElement.getClientRects().length) continue;
+            const range = document.createRange(); range.selectNodeContents(node);
+            for (const rect of range.getClientRects()) lines.push({ left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom });
+          }
+          return { text: button.innerText.trim(), lines,
+            left: box.left + parseFloat(style.paddingLeft), right: box.right - parseFloat(style.paddingRight),
+            top: box.top, bottom: box.bottom, overflow: button.scrollWidth > button.clientWidth + 1 };
+        });
+        const full = lang === "en" ? "Test set? Guess your reps" : "Série-teste? Adivinhe suas reps";
+        const short = lang === "en" ? "Test set?" : "Série-teste?";
+        const expected = text === "text200" || (width === 320 && lang === "pt") ? short : width >= 390 ? full : null;
+        if (![full, short].includes(copy.text) || (expected && copy.text !== expected) || copy.lines.length !== 1 || copy.overflow ||
+            copy.lines.some(line => line.left < copy.left - 1 || line.right > copy.right + 1 || line.top < copy.top - 1 || line.bottom > copy.bottom + 1))
+          failures.push(`${label}: approved bar copy must fit on one whole, unclipped line (expected ${expected}): ${JSON.stringify(copy)}`);
         const clock = await opened.page.locator("#restTab").evaluate(button => {
           const box = button.getBoundingClientRect(), hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
           return { width: box.width, height: box.height, whole: box.top >= 0 && box.bottom <= innerHeight && box.left >= 0 && box.right <= innerWidth,
