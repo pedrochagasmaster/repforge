@@ -9216,7 +9216,8 @@
         "progress/profile-reader",
         "today/profile",
         "today/profile-first",
-        "today/profile-scope"
+        "today/profile-scope",
+        "progress/profile-scope"
       ]
     },
     {
@@ -9303,7 +9304,8 @@
         "progress/profile-reader",
         "today/profile",
         "today/profile-first",
-        "today/profile-scope"
+        "today/profile-scope",
+        "progress/profile-scope"
       ]
     },
     {
@@ -9399,7 +9401,8 @@
         "progress/profile-reader",
         "today/profile",
         "today/profile-first",
-        "today/profile-scope"
+        "today/profile-scope",
+        "progress/profile-scope"
       ]
     },
     {
@@ -9570,7 +9573,8 @@
         "session/summary-finding",
         "session/summary-profile",
         "today/profile",
-        "today/profile-scope"
+        "today/profile-scope",
+        "progress/profile-scope"
       ]
     },
     {
@@ -9880,7 +9884,8 @@
         "progress/review-evaluated",
         "progress/overview-profile",
         "progress/overview-profile-first",
-        "session/summary-profile"
+        "session/summary-profile",
+        "progress/profile-scope"
       ]
     },
     {
@@ -14175,7 +14180,8 @@
         "progress/minibar",
         "progress/overview-guide",
         "progress/overview-baseline",
-        "progress/overview-action"
+        "progress/overview-action",
+        "progress/profile-scope"
       ]
     },
     {
@@ -14199,7 +14205,8 @@
         "progress/minibar",
         "progress/overview-guide",
         "progress/overview-baseline",
-        "progress/overview-action"
+        "progress/overview-action",
+        "progress/profile-scope"
       ]
     },
     {
@@ -14223,7 +14230,8 @@
         "progress/minibar",
         "progress/overview-guide",
         "progress/overview-baseline",
-        "progress/overview-action"
+        "progress/overview-action",
+        "progress/profile-scope"
       ]
     },
     {
