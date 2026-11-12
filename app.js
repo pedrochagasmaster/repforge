@@ -8355,7 +8355,7 @@ function profileStageReaderHtml(lift){
     (lift.transitions.length>=2&&lift.current.standing?.word!=="solid"?`<p>${esc(profileStandingReason(lift.current.standing))}</p>`:"")+`</div>`+
     `<ol class="profile-stage-list">${list}</ol><section class="profile-depth"><h2>${esc(t("profile.reader.growing"))}</h2>`+
     `<p>${esc(t(lift.depthDates.length>=RepForgeProgressModel.PROFILE_WEIGHTS.dateCap?"profile.reader.depth_full":"profile.reader.depth",{n:lift.depthDates.length,cap:RepForgeProgressModel.PROFILE_WEIGHTS.dateCap}))}</p><p class="profile-caption">${esc(t("profile.reader.optional"))}</p>`+
-    `<p>${esc(t("profile.reader.calibration",{reading:profileCheckReading(lift.current.calibration)}))}</p>`+
+    `<p>${esc(t("profile.reader.calibration",{reading:""}).trim())}<br>${esc(profileCheckReading(lift.current.calibration))}</p>`+
     (lift.anchor?.opening!=null?`<p>${esc(t("profile.opening",{opening:fmtLoad(lift.anchor.opening),worked:fmtLoad(lift.anchor.load),unit:unitLabel()}))}</p>`:"")+`</section>`}
 function profileScopeHtml(profile,change){
   const before=profile.lifts.filter(lift=>change.before.includes(lift.key));
