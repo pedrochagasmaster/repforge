@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { waitForAppBoot } from './browser.mjs';
 import { installGeneratedProgram, definitionSlot, isWeightRepsSlot, metricLogRow } from './fixtures/history-metric-rows.mjs';
 import { appState } from '../tools/ui-screens/screens-app.mjs';
@@ -39,29 +41,47 @@ export async function profileRingProofs(browser, assert, base) {
     // Compare catalog history with rows published by the actual draft/finish protocol.
     await page.evaluate(day=>window.__repforgeEnterWorkout({day}),lifts[0].day);
     await page.waitForSelector('#workout .exercise.is-current .focus-shelf');
-    await page.evaluate(async()=>{
+    await page.evaluate(async libraryId=>{
       const api=window.__repforgeWorkoutDraft,draft=api.current();
-      const exerciseInstanceId=draft.exerciseOrder[0],exercise=draft.exercises[exerciseInstanceId];
+      const exerciseInstanceId=draft.exerciseOrder.find(id=>draft.exercises[id].libraryId===libraryId||draft.exercises[id].sourceExerciseId===libraryId);
+      if(!exerciseInstanceId)throw new Error('generated weight/reps lift missing from draft');
+      const exercise=draft.exercises[exerciseInstanceId];
       for(const setId of exercise.setOrder.slice(0,2)){
         const set=exercise.sets[setId];
         for(const metric of set.programmed.metrics)
           await api.dispatch('editMetricValue',{exerciseInstanceId,setId,metricId:metric.id,value:/rep/i.test(metric.semantic)?'8':'60'});
         await api.dispatch('editSetField',{exerciseInstanceId,setId,field:'rir',value:'2'});
         const result=await api.dispatch('completeSet',{exerciseInstanceId,setId,completedAt:new Date().toISOString()});
-        if(!result.ok)throw new Error('production profile set refused: '+JSON.stringify(result));
+        if(result.status!=='applied')throw new Error('production profile set refused: '+JSON.stringify(result));
       }
       await api.flush();
-    });
+    },lifts[0].libraryId);
     await finishEarly(page);
     await page.reload({waitUntil:'domcontentloaded'});await waitForAppBoot(page,{base});
     const persisted=await page.evaluate(()=>{
       const saved=JSON.parse(localStorage.getItem('repforge_v1'));
-      return {rows:saved.log,profile:window.__repforgeProgressEvidence.profile()};
+      const row=saved.log[0],descriptor={exerciseId:row.performedLibraryId,metricType:row.metricType,
+        metricIds:row.metricIds,metricDefinitions:row.metricDefinitions,loadingModel:row.loadingModel,
+        context:{...row.loadingContext,equipmentId:row.equipmentId,loadingConvention:row.loadingConvention}};
+      const history=[{sessionId:row.session,date:row.date,completed:true,
+        sets:saved.log.map(item=>({...item,exerciseId:item.performedLibraryId,completed:true}))}];
+      const engine=window.RepForgeProgression.readSavedLift(descriptor,history,{now:row.date});
+      return {rows:saved.log,profile:window.__repforgeProgressEvidence.profile(),engine};
     });
-    assert(persisted.rows.length===2&&persisted.rows.every(row=>row.effortSource==='rir'),
+    assert(persisted.rows.length===2&&persisted.rows.every(row=>['rir','reps_left'].includes(row.effortSource)),
       'production finish and reload preserve explicit effort, unlike the former catalog seed');
+    assert(persisted.engine.sessions.length===1&&persisted.engine.standing.word==='learning',
+      'the shipped engine anchors on the same production-saved history',persisted.engine);
     assert(persisted.profile.lifts.some(lift=>lift.active&&lift.depthDates.length===1&&lift.stage==='learning'),
       'a production-saved comparable session starts Learning with one saved date',persisted.profile);
+    await page.evaluate(()=>window.__repforgeShowSettings());await page.click('#dataBackupRow');
+    const [download]=await Promise.all([page.waitForEvent('download'),page.click('#exportJson')]);
+    const backupPath=join(process.env.REPFORGE_ARTIFACT_DIR||'/tmp','profile-production-backup.json');
+    await download.saveAs(backupPath);
+    const backup=JSON.parse(readFileSync(backupPath,'utf8'));
+    assert(JSON.stringify(backup.log)===JSON.stringify(persisted.rows),
+      'production JSON backup retains the same comparable saved rows and explicit effort');
+    await page.click('#settingsBack');
     // Start from a fresh baseline, as first activation would, rather than treating fixture setup as a scope change.
     await page.evaluate(()=>window.__repforgeUi.setPref('profileScope',{v:1,scope:[],acknowledged:false}));
     const state={...generated,program:lifts.slice(0,2),log:[],settings:{...generated.settings,lang:'en'}};
