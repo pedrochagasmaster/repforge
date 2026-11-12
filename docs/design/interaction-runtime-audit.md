@@ -683,6 +683,7 @@ motion shows it at once.
 The Today ring and per-lift rows open saved evidence through the existing
 page push and Back owners. The stage reader registers its Back control with
 the shared history/edge-swipe path; reduced motion keeps the existing page
-cross-fade. Scope comparisons show two static rings and acknowledge only the
-displayed identity set. Today and Overview paint the new reading directly;
+cross-fade. Scope comparisons live inside Overview’s tab panel, so Strength
+and Review remain reachable without acknowledgment. The two static rings
+acknowledge only the displayed identity set. Today and Overview paint the new reading directly;
 there is no fill tween or backward drain in PR 2. Finish motion stays in PR 3.

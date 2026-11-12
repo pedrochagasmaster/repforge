@@ -5504,14 +5504,12 @@ body.is-focus-wo .toast:not(.toast--top){bottom:calc(var(--toast-clear,0px) + va
 .profile-lift--link .profile-lift__standing{font-size:var(--font-size-caption);line-height:var(--line-standard);color:var(--ink-soft)}
 .profile-lift__depth{display:flex;align-items:center;gap:var(--space-4);font-size:var(--font-size-caption);line-height:var(--line-standard);color:var(--ink-soft);text-align:right}
 .profile-lift__depth .chevron{width:10px;height:10px;flex:none}
-body.is-profile-scope nav{display:none}
-body.is-profile-scope{padding-bottom:calc(env(safe-area-inset-bottom) + var(--space-24))}
 #profilePageBack{color:var(--control-quiet-ink)}
 #profilePage{overflow-x:clip;padding-top:var(--space-12)}
 #profilePage h1{margin:var(--space-12) 0 var(--space-4);font-size:var(--font-size-title);font-weight:var(--weight-semibold);line-height:var(--line-tight);letter-spacing:-.02em;overflow-wrap:anywhere}
-#profilePage h2{margin:var(--space-18) 0 var(--space-8);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-standard)}
+#profilePage h2,.profile-scope-inline h4{margin:var(--space-18) 0 var(--space-8);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-standard)}
 #profilePage h3{margin:0;font-size:var(--font-size-body-small);font-weight:var(--weight-semibold);line-height:var(--line-standard)}
-#profilePage p{line-height:var(--line-standard)}
+:is(#profilePage,.profile-scope-inline) p{line-height:var(--line-standard)}
 .profile-lift-status{margin:var(--space-14) 0;padding:var(--space-12) 0;border-block:1px solid var(--rule)}
 #profilePage .profile-lift-status h2{margin:0 0 var(--space-4)}
 .profile-lift-status p{font-size:var(--font-size-body-small);color:var(--ink-soft);margin:var(--space-4) 0}
@@ -5525,9 +5523,11 @@ body.is-profile-scope{padding-bottom:calc(env(safe-area-inset-bottom) + var(--sp
 .profile-depth{border-top:1px solid var(--rule);margin-top:var(--space-12)}
 .profile-depth p{font-size:var(--font-size-body-small);margin:var(--space-8) 0}
 .profile-depth .profile-caption{font-size:var(--font-size-caption)}
+.profile-scope-inline{margin:var(--space-18) 0;padding-bottom:var(--space-18);border-bottom:1px solid var(--rule)}
+#profileScopeTitle{margin:var(--space-12) 0 var(--space-4);font-size:var(--font-size-title);font-weight:var(--weight-semibold);line-height:var(--line-tight);letter-spacing:-.02em;overflow-wrap:anywhere}
 .profile-scope-rings{display:flex;gap:var(--space-32);align-items:center;margin:var(--space-26) 0;border-bottom:1px solid var(--rule);padding-bottom:var(--space-18)}
 .profile-scope-rings>div{flex:1;min-width:0;display:flex;align-items:center;flex-direction:column;gap:var(--space-8);text-align:center;font-size:var(--font-size-body-small)}
-#profilePageContent>p,.profile-scope-list p{font-size:var(--font-size-body-small);margin:var(--space-8) 0}
+#profilePageContent>p,.profile-scope-inline>p:not(.profile-caption),.profile-scope-list p{font-size:var(--font-size-body-small);margin:var(--space-8) 0}
 .profile-scope-list{list-style:none;padding:0;margin:var(--space-18) 0}
 .profile-scope-list li{padding:var(--space-12) 0;border-bottom:1px solid var(--rule);font-size:var(--font-size-body)}
 .profile-scope-list p{color:var(--ink-soft)}

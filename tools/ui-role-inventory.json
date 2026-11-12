@@ -1416,7 +1416,7 @@
     "progress/profile-scope": {
       "owner": "plan-084",
       "content": "flat",
-      "scenario": "Static before/now scope rings retain saved evidence and explain two newly included comparable lifts, with explicit acknowledgment."
+      "scenario": "A pending scope change appears within Progress Overview while its other tabs stay reachable."
     },
     "today/profile-scope": {
       "owner": "plan-084",
@@ -14270,7 +14270,28 @@
         "today/week-card",
         "today/profile-first",
         "today/profile",
-        "today/profile-scope"
+        "today/profile-scope",
+        "install/banner",
+        "workout/invalid-draft",
+        "program/custom-exercise-recovery",
+        "install/transfer-destination",
+        "program/custom-exercise",
+        "program/custom-exercise-saving",
+        "program/custom-exercise-deleting",
+        "program/custom-exercise-archiving",
+        "install/ios-sheet",
+        "install/transfer-eligible",
+        "install/transfer-creating",
+        "install/transfer-ready",
+        "install/transfer-retryable",
+        "install/transfer-claiming",
+        "install/transfer-importing",
+        "install/transfer-success",
+        "install/transfer-cleanup",
+        "install/transfer-terminal",
+        "install/transfer-interrupted",
+        "install/transfer-unknown",
+        "install/transfer-claimed-expired"
       ],
       "neverDisabledReason": "Saved evidence navigation stays available; no training mutation is committed."
     },
@@ -14328,7 +14349,40 @@
         "progress/overview-profile",
         "progress/overview-profile-first",
         "session/summary-profile",
-        "today/profile-scope"
+        "today/profile-scope",
+        "today/ready",
+        "today/dock-viewer",
+        "today/ready-scrolled",
+        "today/rest-bar",
+        "today/day-picker",
+        "today/done",
+        "today/deload-week",
+        "today/draft-resume",
+        "today/context-menu",
+        "today/skipped",
+        "today/in-progress",
+        "today/week-card",
+        "install/banner",
+        "workout/invalid-draft",
+        "program/custom-exercise-recovery",
+        "install/transfer-destination",
+        "program/custom-exercise",
+        "program/custom-exercise-saving",
+        "program/custom-exercise-deleting",
+        "program/custom-exercise-archiving",
+        "install/ios-sheet",
+        "install/transfer-eligible",
+        "install/transfer-creating",
+        "install/transfer-ready",
+        "install/transfer-retryable",
+        "install/transfer-claiming",
+        "install/transfer-importing",
+        "install/transfer-success",
+        "install/transfer-cleanup",
+        "install/transfer-terminal",
+        "install/transfer-interrupted",
+        "install/transfer-unknown",
+        "install/transfer-claimed-expired"
       ]
     },
     {
@@ -14359,7 +14413,28 @@
         "today/week-card",
         "today/profile-first",
         "today/profile",
-        "today/profile-scope"
+        "today/profile-scope",
+        "install/banner",
+        "workout/invalid-draft",
+        "program/custom-exercise-recovery",
+        "install/transfer-destination",
+        "program/custom-exercise",
+        "program/custom-exercise-saving",
+        "program/custom-exercise-deleting",
+        "program/custom-exercise-archiving",
+        "install/ios-sheet",
+        "install/transfer-eligible",
+        "install/transfer-creating",
+        "install/transfer-ready",
+        "install/transfer-retryable",
+        "install/transfer-claiming",
+        "install/transfer-importing",
+        "install/transfer-success",
+        "install/transfer-cleanup",
+        "install/transfer-terminal",
+        "install/transfer-interrupted",
+        "install/transfer-unknown",
+        "install/transfer-claimed-expired"
       ]
     },
     {
@@ -14820,7 +14895,7 @@
     },
     {
       "id": "profile-page-title",
-      "selector": "#profilePageTitle",
+      "selector": "#profilePageTitle, #profileScopeTitle",
       "roles": {
         "typography": "title"
       },
@@ -14829,7 +14904,7 @@
       "states": [
         "default"
       ],
-      "rationale": "Names the lift or the changed scope.",
+      "rationale": "Names the pushed lift reader or the inline scope comparison.",
       "owner": "plan-084",
       "catalogStates": [
         "progress/profile-reader",
@@ -14915,7 +14990,7 @@
       "states": [
         "default"
       ],
-      "rationale": "Compares the old and new denominator without a backward tween.",
+      "rationale": "Compares old and current scopes inside Overview without blocking Progress navigation or animating a backward tween.",
       "owner": "plan-084",
       "catalogStates": [
         "progress/profile-scope"
@@ -15012,6 +15087,23 @@
         "today/profile-scope"
       ],
       "neverDisabledReason": "A pending scope comparison stays available until acknowledged."
+    },
+    {
+      "id": "profile-scope-inline",
+      "selector": ".profile-scope-inline",
+      "roles": {
+        "elevation": "flat"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Shows the pending before/now scope comparison inside Overview while Progress navigation stays reachable.",
+      "owner": "plan-084",
+      "catalogStates": [
+        "progress/profile-scope"
+      ]
     }
   ],
   "contextualVariants": [
