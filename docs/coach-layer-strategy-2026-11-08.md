@@ -186,6 +186,15 @@ cadence, and proposes dissolving the 0–100 gauge into it.
   Where the Pro line falls is decided after the alpha, together with OD-21 (D-7), which
   stays open: whether any calibration surface becomes a Pro lever is not decided here.
 
+**D-6 amendment, owner 2026-11-12 (Plan 084, PR #753).** The old percentage stays retired. The
+owner approved an ink-only ring named Your profile / Seu perfil, without a printed percentage,
+colour reward or celebration. It reads retained saved evidence: ¾ per qualifying date up to 64,
+and 8 per attained transition up to four, giving 80 per comparable lift. Historical stages do
+not decay with rest; current standing still follows the estimator. The 32/64-date history path
+earns the same transition weight without claiming calibration. Scope changes retain the facts
+and explain the changed denominator once per change. The original D-6 decision above records
+why the former gauge went; Plan 084 governs this replacement. All stays Free during alpha.
+
 ## 4. The landing, briefly
 
 The landing follows from §3 and is designed in [`plans/083-landing-test-set.md`](../plans/083-landing-test-set.md).

@@ -137,7 +137,7 @@ One true thing the record now shows about the lifter, released when the evidence
 _Avoid_: Milestone, achievement, unlock, badge, insight (marketing register)
 
 **Profile**:
-What Taurifer knows about you: per lift, the standing, the test sets and their results, and what the next finding needs; program-wide, the effort stage, the findings so far, and the calibration signals as counts. It replaces the 0–100 calibration gauge. Free for the current program in the alpha; the Free/Pro line is decided after it.
+What Taurifer knows about you: per comparable lift, the historically attained evidence stage, current standing, saved depth dates, test-set results and what the next finding needs; program-wide, the effort stage, findings and calibration signals as counts. Plan 084 adds an ink-only ring named Your profile / Seu perfil, without a printed percentage or celebration. Each lift has an 80-unit presentation budget: ¾ per qualifying saved date up to 64, plus 8 for each of four attained transitions. The no-test history path reaches its last two transitions at 32 and 64 dates, without claiming effort calibration. Stages replay from retained saved evidence and do not decay with rest; current standing keeps its own rules. All Free during alpha, including carried and archived evidence; the Free/Pro line is decided after it. See `plans/084-gauge-return.md`.
 _Avoid_: Dashboard, score, calibration %, training profile (the excluded Plan 077 concept), athlete model
 
 **Weekly review**:

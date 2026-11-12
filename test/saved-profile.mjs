@@ -24,7 +24,7 @@ function session(i, extra = {}, count = 4) {
 const history = n => Array.from({length:n}, (_,i) => session(i)).flat();
 const build = (log, lifts=[lift], now='2026-12-31') => Model.buildSavedProfile({log,lifts,now});
 const first = log => build(log).lifts.find(l => l.active);
-const check = (i,guess=8) => session(i).map((r,j) => j===3 ? {...r,effortSource:'failure',rir:0,calibration:{predictedReps:guess}} : r);
+const check = (i,guess=8) => session(i).map((r,j) => j===3 ? {...r,effortSource:'failure',rir:0,calibration:{v:1,predictedReps:guess,predictionEdited:true,prefillBasis:"reps"}} : r);
 
 test('versioned projection starts empty and does not invent anchors from a program', () => {
   const out=build([]); assert.equal(out.version,'profile@084.1');
@@ -123,4 +123,83 @@ test('saved evidence reader agrees with shipped standing without any historical 
   assert.deepEqual(read.standing,Engine.recommendSets(...input)[0].standing);
   assert.equal(read.sessions.length,4);
   assert.deepEqual(Engine.recommendSets(...input),Engine.recommendSets(...structuredClone(input)));
+});
+
+test('all shipped standing fixtures retain selection and standing after sharing the reader', () => {
+  const frozen=require('./fixtures/engine-standing.json');
+  for(const {name,input} of cases) {
+    const {standing,...selection}=Engine.recommendSets(...structuredClone(input))[0];
+    assert.deepEqual(selection,frozen.cases[name],name);
+    if(!['configuration-required','invalid','live-only','warmup'].includes(name)) {
+      const [ps,hs,,,settings]=structuredClone(input);
+      const actual=Engine.readSavedLift({...ps[0],context:input[3].bySlotId?.[ps[0].slotId]},hs,settings);
+      if(actual.available && standing.word!=='first') assert.deepEqual(actual.standing,standing,name);
+    }
+  }
+});
+test('a later test updates the explanation without another transition', () => {
+  const out=first([...history(32),...check(40)]);
+  assert.equal(out.stage,'checked'); assert.equal(out.transitions.length,3);
+  assert.equal(out.transitions[2].stage,'long_record');
+});
+test('malformed calibration is not a check, even when a failure row has valid metrics', () => {
+  const rows=[...history(2),...check(3)].map(r=>r.calibration?{...r,calibration:{predictedReps:8}}:r);
+  assert.equal(first(rows).checks.length,0); assert.equal(first(rows).stage,'solid');
+});
+test('history replay uses the context at the boundary and preserves early Solid beyond thirty sets', () => {
+  const rows=history(70); assert.equal(first(rows).transitions[1].date,date(1));
+  const broken=[...history(4),...session(80)];
+  assert.equal(first(broken).transitions[1].date,date(1));
+  assert.equal(first(broken).current.standing.word,'learning');
+});
+test('scope has no four-lift cap and no-program has no ring budget', () => {
+  const lifts=Array.from({length:8},(_,i)=>({...lift,exerciseId:'lift-'+i}));
+  assert.equal(build([],lifts).budget,640);
+  const archived=build(history(2),[]);assert.equal(archived.budget,0);assert.equal(archived.fill,0);
+  assert.equal(archived.lifts[0].active,false);
+});
+test('opening-load provenance is descriptive and never grants a date or stage', () => {
+  const row=session(0,{effortSource:'prefilled',startingLoad:{v:1,openingKg:40}});
+  const out=first(row);assert.equal(out.units,0);assert.equal(out.anchor.opening,40);
+  assert.equal(first([...row,...session(1)]).stage,'learning');
+});
+test('bodyweight and per-side observations use their saved metric semantics', () => {
+  const Metrics=require('../exercise-metrics.js');
+  const defs=semantics=>semantics.map(s=>Metrics.DEFINITIONS.find(d=>d.semantic===s));
+  const bwDefs=defs(['reps']);
+  const bw={...lift,metricIds:bwDefs.map(m=>m.id),metricDefinitions:bwDefs,loadingModel:{bodyweightCoefficient:1},
+    context:{equipmentId:'rack-a',loadingConvention:'bodyweight',externalLoadMultiplier:0,bodyweightContributionEnabled:true,bodyweightKg:80,bodyweightCoefficient:1}};
+  const adapt=(r,l)=>({...r,metricIds:l.metricIds,metricDefinitions:l.metricDefinitions,loadingModel:l.loadingModel,
+    loadingConvention:l.context.loadingConvention,loadingContext:l.context,
+    metricValues:l.metricDefinitions.map(m=>({metricId:m.id,value:m.semantic.startsWith('reps')?8:m.semantic==='loadPerSideKg'?20:100,unit:m.unit}))});
+  assert.equal(build(history(2).map(r=>adapt(r,bw)),[bw]).lifts[0].stage,'solid');
+  const sideDefs=defs(['repsPerSide','loadPerSideKg']);
+  const side={...lift,metricIds:sideDefs.map(m=>m.id),metricDefinitions:sideDefs,
+    context:{...context,executionMode:'unilateral',loadingConvention:'per_side',externalLoadMultiplier:1,bodyweightCoefficient:0}};
+  const rows=history(2).map(r=>adapt(r,side));
+  assert.equal(build(rows,[side]).lifts[0].stage,'solid');
+  const other={...side,context:{...side.context,executionMode:'bilateral',externalLoadMultiplier:2}};
+  const out=build(rows,[other]);assert.equal(out.lifts.find(l=>l.active).units,0);
+  const externalDefs=defs(['loadKg','repsPerSide']);
+  const external={...lift,metricIds:externalDefs.map(m=>m.id),metricDefinitions:externalDefs,context:{...context,executionMode:'unilateral'}};
+  const raw=history(2).map(r=>({...adapt(r,external),exerciseId:prescription.exerciseId,completed:true}));
+  const read=Engine.readSavedLift({...external,context:{...external.context,executionMode:'bilateral'}},[{sessionId:'s',completed:true,date:date(1),sets:raw}],{now:date(1)});
+  assert.equal(read.sessions.length,0);assert.equal(read.standing.word,'first');
+});
+test('checks on different equipment cannot combine into an agreeing calibration', () => {
+  const other=check(19).map(r=>({...r,equipmentId:'rack-b'}));
+  const out=first([...history(2),...check(5),...other,...check(33)]);
+  assert.equal(out.stage,'checked');assert.equal(out.checks.length,2);
+});
+test('a calibrated pattern acquired before Solid can satisfy the later stage after a break', () => {
+  const early=[...check(0),...check(14),...check(28)].map(r=>r.effortSource==='failure'?r:{...r,effortSource:'effort'});
+  assert.equal(first(early).stage,'learning');
+  const later=[100,101,102,103].flatMap(i=>session(i));
+  const out=first([...early,...later]);
+  assert.equal(out.stage,'calibrated'); assert.equal(out.transitions.length,4);
+  assert.equal(out.current.calibration.n,0);
+});
+
+test('identity ignores execution metadata for metrics that do not distinguish sides', () => {
+  assert.equal(Engine.savedLiftIdentity(lift),Engine.savedLiftIdentity({...lift,context:{...context,executionMode:'bilateral'}}));
 });
