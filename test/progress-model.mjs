@@ -7,6 +7,7 @@
 import assert from "node:assert/strict";
 import "./week-review.mjs";
 import "./findings.mjs";
+import "./saved-profile.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";

@@ -38,7 +38,6 @@ const s = (file, args = [], extra = {}) => {
 const shards = (count) => Array.from({ length: count }, (_, index) => `${index + 1}/${count}`);
 export const SUITES = {
   "fast": [
-    s("test/saved-profile.mjs", [], { domains: ["workout", "progress"], cost: "tiny", nodeArgs: ["--test"] }),
     s("test/ci.mjs", [], {"domains": ["global"], "cost": "normal", "tier": "feedback", "nodeArgs": ["--test"]}),
     s("test/privacy-contract.mjs", [], {"domains": ["privacy"], "cost": "tiny", "tier": "feedback"}),
     s("test/pages-deploy-boundary.mjs", [], {"domains": ["privacy", "offline"], "cost": "normal", "tier": "feedback", "nodeArgs": ["--test"]}),
@@ -317,6 +316,7 @@ export const FULL_SUITES = {
 };
 
 export const SUPPORT = {
+  "test/saved-profile.mjs": "Plan 084 saved-evidence profile proofs executed by test/progress-model.mjs in the PR lane.",
   "test/findings.mjs": "Plan 081 finding rules executed by test/progress-model.mjs in the PR lane.",
   "test/session-zero-browser.mjs": "Session-zero browser journeys executed by workout-finish-boundary.mjs in the PR lane.",
   "test/week-review-browser.mjs": "Plan 082 weekly facts journeys executed by test/progress-lifecycle.mjs in the PR lane.",
