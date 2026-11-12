@@ -6,11 +6,11 @@ export async function profileRingProofs(browser, assert, base) {
   const context=await browser.newContext({viewport:{width:390,height:844},serviceWorkers:'block'});
   const page=await context.newPage();
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
-  const boot=async p=>{await p.goto(base,{waitUntil:'domcontentloaded'});await waitForAppBoot(p,{base});await p.evaluate(()=>window.closeFirstRun?.());};
+  const boot=async (p,dismiss=true)=>{await p.goto(base,{waitUntil:'domcontentloaded'});await waitForAppBoot(p,{base});if(dismiss)await p.evaluate(()=>window.closeFirstRun?.());};
   const commit=async next=>page.evaluate(async value=>{
     const result=await window.__repforgeCommitProposedState(value);
     if(!result.committed)throw new Error('profile fixture commit refused');
-    await window.__repforgeStorage.flush();
+    await window.__repforgeStorage.flush();render();
   },next);
   try {
     await boot(page);
@@ -18,6 +18,7 @@ export async function profileRingProofs(browser, assert, base) {
     const generated=await installGeneratedProgram(page);
     assert(await page.locator('#todayProfile').isVisible(),'onboarded fresh program has the ink profile ring');
     if(!await page.locator('#todayProfile').isVisible())return;
+    assert(await page.locator('#todayProfile svg').getAttribute('data-profile-fill')==='0','fresh profile has no invented evidence');
     const unique=generated.program.filter((ex,i,all)=>all.findIndex(other=>other.libraryId===ex.libraryId)===i);
     const lifts=unique.filter(ex=>isWeightRepsSlot(definitionSlot(generated.programMeta,ex)));
     if(lifts.length<4)throw new Error('profile fixture requires four different weight/reps lifts');
@@ -38,6 +39,7 @@ export async function profileRingProofs(browser, assert, base) {
     assert(!/%/.test(await page.locator('#overviewProfile').innerText()),'no percentage is printed in the profile');
     const row=page.locator('#overviewProfile [data-profile-lift]').first();
     const key=await row.getAttribute('data-profile-lift');
+    const savedBeforeNavigation=await page.evaluate(()=>localStorage.getItem('repforge_v1'));
     await row.click();await page.waitForSelector('#profilePage.active .profile-stage-list');
     assert((await page.locator('#profilePage').innerText()).includes('Current estimate: Solid'),'stage reader separates attained stages from the current estimate');
     assert(await page.locator('#profilePage [data-attained="true"]').count()>=2,'saved boundaries appear as attained stages');
@@ -47,14 +49,19 @@ export async function profileRingProofs(browser, assert, base) {
     assert(await row.isVisible(),'Back restores the profile and focus to the opening lift');
     await row.click();await page.evaluate(()=>history.back());
     await page.waitForFunction(()=>document.querySelector('#stats')?.classList.contains('active'));
+    await page.locator('#profilePage').waitFor({state:'hidden'});
     assert(!await page.locator('#profilePage').isVisible(),'browser Back returns from the stage reader');
 
+    assert(savedBeforeNavigation===await page.evaluate(()=>localStorage.getItem('repforge_v1')),'profile navigation retains the saved training snapshot');
     state.program=lifts.slice(0,3);await commit(state);
     await page.click('[data-view="log"]');
     assert((await page.locator('#todayProfileNeed').innerText()).includes('1 new lift'),'Today explains actual scope growth');
     const expandedFill=Number(await page.locator('#todayProfile svg').getAttribute('data-profile-fill'));
     assert(expandedFill<Number(today),'current denominator applies immediately without a drain animation');
     await page.click('#todayProfile');await page.waitForSelector('#profilePage.active .profile-scope-rings');
+    await page.waitForFunction(()=>!document.body.classList.contains('is-pushing'));
+    const scopeGeometry=await page.evaluate(()=>({scroll:window.scrollY,back:document.querySelector('#profilePageBack').getBoundingClientRect().top}));
+    assert(scopeGeometry.scroll===0&&scopeGeometry.back>=0,'scope opens at the top with Back visible',scopeGeometry);
     assert(await page.locator('.profile-scope-rings svg').count()===2,'first Overview visit shows static before/now scope rings');
     assert(!await page.locator('.profile-scope-rings svg').evaluateAll(nodes=>nodes.some(n=>n.getAnimations({subtree:true}).length)),'scope rings have no backward tween');
     await page.reload({waitUntil:'domcontentloaded'});await waitForAppBoot(page,{base});
@@ -74,6 +81,26 @@ export async function profileRingProofs(browser, assert, base) {
     assert((await page.locator('.profile-scope-rings').innerText()).includes('4 lifts, before'),'scope shrink also explains the changed scale');
     await page.click('#profileScopeContinue');
 
+    state.program=lifts.slice(0,3);await commit(state);await page.click('[data-view="log"]');await page.click('#todayProfile');
+    await page.waitForSelector('#profileScopeContinue');
+    state.program=lifts.slice(0,4);
+    await page.evaluate(async next=>{
+      const result=await window.__repforgeCommitProposedState(next);
+      if(!result.committed)throw new Error('concurrent scope change refused');
+      await window.__repforgeStorage.flush();
+    },state);
+    await page.click('#profileScopeContinue');
+    const raced=await page.evaluate(()=>window.__repforgeUi.loadUiPrefs().profileScope);
+    assert(raced.scope.length===3,'acknowledgment covers the displayed expansion, never a later unrendered growth',raced.scope.length);
+    if(raced.scope.length===3){
+      await page.click('[data-view="log"]');await page.click('#todayProfile');
+      await page.waitForSelector('#profileScopeContinue');
+      assert(await page.locator('#profileScopeContinue').isVisible(),'the later unacknowledged growth still gets its own comparison');
+      await page.click('#profileScopeContinue');
+    }
+    state.program=lifts.slice(0,2);await commit(state);await page.click('[data-view="log"]');await page.click('#todayProfile');
+    await page.waitForSelector('#profileScopeContinue');await page.click('#profileScopeContinue');
+
     const built=await page.evaluate(async()=>{
       const captured=await installTransferCaptureLogicalSnapshot();
       if(!captured.ok)throw new Error(captured.code);
@@ -85,25 +112,36 @@ export async function profileRingProofs(browser, assert, base) {
     if(built.ok)for(const reload of [false,true]) {
       const target=await browser.newContext({guides:'live',serviceWorkers:'block'});const p=await target.newPage();
       try {
-        await boot(p);if(reload){await p.reload({waitUntil:'domcontentloaded'});await waitForAppBoot(p,{base});}
+        await boot(p,false);if(reload){
+          // An existing telemetry identity is intentionally protected. This contract isolates automatic UI
+          // metadata across reload; the separate transfer owner proves identity and consent protection.
+          await p.evaluate(()=>localStorage.removeItem('repforge_telemetry_identity_v1'));await p.reload({waitUntil:'domcontentloaded'});await waitForAppBoot(p,{base});}
         const baseline=await p.evaluate(()=>window.__repforgeUi.loadUiPrefs().profileScope);
         assert(baseline?.v===1&&baseline.scope.length===0&&baseline.acknowledged===false,`fresh ${reload?'reload':'boot'} creates only the automatic empty scope baseline`);
         const result=await importInto(p,built.value);
-        assert(result?.ok===true,`automatic scope metadata stays eligible after ${reload?'reload':'boot'}`);
+        assert(result?.ok===true,`automatic scope metadata stays eligible after ${reload?'reload':'boot'}`,{result,prefs:await p.evaluate(()=>window.__repforgeUi.loadUiPrefs())});
         const actual=await p.evaluate(()=>window.__repforgeUi.loadUiPrefs().profileScope);
         assert(JSON.stringify(actual)===JSON.stringify(built.value.uiPreferences.profileScope),'install transfer clones the acknowledged scope exactly');
+        await p.reload({waitUntil:'domcontentloaded'});await waitForAppBoot(p,{base});
+        assert(JSON.stringify(await p.evaluate(()=>window.__repforgeUi.loadUiPrefs().profileScope))===JSON.stringify(built.value.uiPreferences.profileScope),'cloned acknowledgment survives destination reload');
       } finally {await target.close();}
     }
-    if(built.ok)for(const record of [{v:1,scope:[],acknowledged:true},{v:2,scope:[],acknowledged:false},{v:1,scope:'invalid',acknowledged:false}]) {
+    if(built.ok)for(const record of [{v:1,scope:[],acknowledged:true},{v:2,scope:[],acknowledged:false},{v:1,scope:'invalid',acknowledged:false},{v:1,scope:[],acknowledged:false,futureField:true}]) {
       const target=await browser.newContext({guides:'live',serviceWorkers:'block'});const p=await target.newPage();
       try {
-        await boot(p);await p.evaluate(value=>window.__repforgeUi.setPref('profileScope',value),record);
+        await boot(p,false);await p.evaluate(value=>window.__repforgeUi.setPref('profileScope',value),record);
         await p.reload({waitUntil:'domcontentloaded'});await waitForAppBoot(p,{base});
         const before=await p.evaluate(()=>localStorage.getItem('repforge_ui_v1'));
         const result=await importInto(p,built.value);
         assert(result?.ok===false&&before===await p.evaluate(()=>localStorage.getItem('repforge_ui_v1')),'production import protects explicit, unknown or malformed scope records');
       } finally {await target.close();}
     }
+    const equipmentId=await page.evaluate(()=>Object.entries(window.RepForgeExerciseCatalog.snapshot().uuidIndex).find(([,entry])=>entry.type==='equipment')[0]);
+    state.log=state.log.map(row=>({...row,equipmentId}));await commit(state);
+    await page.click('[data-view="log"]');await page.click('#todayProfile');
+    const active=await page.evaluate(()=>window.__repforgeProgressEvidence.profile().lifts.filter(lift=>lift.active));
+    assert(active.every(lift=>lift.stage==='first'&&lift.units===0),'a different saved machine cannot fill the active lift’s ring');
+    assert(await page.locator('#overviewProfile .profile-archive [data-profile-lift]').count()>0,'other-machine evidence remains reachable outside the active ring');
     assert(errors.length===0,'profile navigation and scope protocol have no page errors',errors);
   } finally {await context.close();}
 }

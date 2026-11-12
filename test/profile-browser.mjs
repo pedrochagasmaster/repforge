@@ -96,6 +96,7 @@ const errors = [];
 page.on("pageerror", (e) => errors.push(String(e)));
 try {
   await profileRingProofs(browser,assert,BASE);
+  if(process.env.REPFORGE_PROFILE_RING_ONLY!=="1"){
   phase("The profile replaces the gauge, including on a first session");
   await boot(page, { history: [] });
   assert(await page.locator("#todayCalRing, #todayCalRingBar").count() === 0,
@@ -136,8 +137,14 @@ try {
   const checks = await page.locator("#overviewProfile .calcheck").allTextContents();
   assert(checks.length === 1 && /Seated leg curl/.test(checks[0]) && /Guessed 10 → Did 12/.test(checks[0]),
     "recent test sets retain the guess and result", checks);
-  assert(profile.includes("Started at 40 kg, worked at 60 kg."), "opening and first working load come from the same session", profile);
-  assert(profile.includes("2 more test sets"), "per-lift test sets say what is still needed", profile);
+  await page.locator('#overviewProfile [data-profile-lift]').first().click();
+  const openingReader=await page.locator('#profilePage').innerText();
+  assert(openingReader.includes("Started at 40 kg, worked at 60 kg."), "opening and first working load come from the same session", openingReader);
+  await page.click('#profilePageBack');
+  await page.locator('#overviewProfile [data-profile-lift]').nth(1).click();
+  const checkReader=await page.locator('#profilePage').innerText();
+  assert(checkReader.includes("2 more test sets"), "per-lift test sets say what is still needed", checkReader);
+  await page.click('#profilePageBack');
   assert(profile.includes("Reps left") && profile.includes("53 of 54"), "effort stage and recent chosen effort counts are shown", profile);
   await page.click('[data-view="log"]');
   await page.locator('#todayExList [data-exopen]').first().click();
@@ -339,11 +346,15 @@ try {
     },generated);
     await swapPage.reload({waitUntil:"domcontentloaded"});
     await swapPage.waitForFunction(()=>window.__repforgeBooted===true);
-    const profile=swapPage.locator("#overviewProfile .profile-lift").filter({has:swapPage.locator("h4",{hasText:"Hack squat"})}).first();
     async function overview(){
       await swapPage.locator('nav [data-view="stats"]').click();
-      return {profile:await profile.innerText(),history:await swapPage.locator("#overviewProfile .profile-signal")
-        .filter({has:swapPage.locator("span",{hasText:/^Hack squat$/})}).innerText()};
+      if(await swapPage.locator("#profileScopeContinue").isVisible())await swapPage.click("#profileScopeContinue");
+      const history=await swapPage.locator("#overviewProfile .profile-signal")
+        .filter({has:swapPage.locator("span",{hasText:/^Hack squat$/})}).innerText();
+      const key=await swapPage.evaluate(()=>window.__repforgeProgressEvidence.profile().lifts.find(lift=>lift.name==="Hack squat"&&lift.checks.length===3)?.key);
+      if(!key)throw new Error("Hack squat saved evidence missing from profile");
+      await swapPage.locator('[data-profile-lift]').filter({hasText:"Hack squat"}).evaluateAll((nodes,key)=>nodes.find(node=>node.dataset.profileLift===key)?.click(),key);const reader=await swapPage.locator("#profilePage").innerText();await swapPage.click("#profilePageBack");
+      return {profile:reader,history};
     }
     async function originalDetail(){
       await swapPage.locator('nav [data-view="program"]').click();
@@ -353,7 +364,7 @@ try {
       return text;
     }
     const baseline=await overview(),detail=await originalDetail();
-    assert(baseline.profile.includes("3 test sets")&&baseline.profile.includes("Started at 35 kg, worked at 40 kg")&&baseline.history.includes("4"),
+    assert((baseline.profile.match(/guessed 8, did 8/g)||[]).length===3&&baseline.profile.includes("Started at 35 kg, worked at 40 kg")&&baseline.history.includes("4"),
       "Hack squat baseline has its own three checks, opening load and four history rows",baseline);
     await swapPage.evaluate(id=>window.__repforgeGoToLogExercise(id),target.id);
     const replacementId=await swapPage.evaluate(()=>window.RepForgeExerciseCatalog.snapshot().exercises.find(ex=>ex.name==="Pendulum squat").id);
@@ -449,6 +460,7 @@ try {
   });
   assert(validity.yes && validity.no && !validity.text && !validity.one, "isSafeLogRow accepts a boolean lastRepSlow and refuses anything else", validity);
   assert(errors.length === 0, "no page errors", errors);
+  }
 } finally {
   await browser.close();
 }
