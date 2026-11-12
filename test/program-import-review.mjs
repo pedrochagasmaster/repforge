@@ -113,12 +113,14 @@ async function openEditor(page) {
   await page.locator("#program details.advanced").evaluate((details) => { details.open = true; });
 }
 
-async function importFile(page, name, body) {
+async function importFile(page, name, body, expected = "review") {
   await page.setInputFiles("#importProgram", {
     name, mimeType: name.endsWith(".txt") ? "text/plain" : "application/json",
     buffer: Buffer.from(body),
   });
-  await settle(page, 500);
+  await page.waitForFunction((expected) => expected === "restore"
+    ? document.querySelector("#importChoice")?.open
+    : document.body.classList.contains("is-import"), expected);
 }
 
 /** A program file that names its own program, for the picks a test makes. */
@@ -988,7 +990,7 @@ async function main() {
 
     await resetWithProgram(page);
     await openEditor(page);
-    await importFile(page, "backup.json", backup);
+    await importFile(page, "backup.json", backup, "restore");
     let choice = await dialogState();
     assert(choice.open && !choice.reviewing,
       "a backup opens the restore choice instead of the program review", JSON.stringify(choice));
@@ -1012,7 +1014,7 @@ async function main() {
     // Merge takes the sessions without touching anything else.
     await resetWithProgram(page);
     await openEditor(page);
-    await importFile(page, "backup.json", backup);
+    await importFile(page, "backup.json", backup, "restore");
     await page.evaluate(() => document.querySelector("#importMerge").click());
     await settle(page, 900);
     restored = await getState(page);
@@ -1022,9 +1024,9 @@ async function main() {
     // Program only is still there for a lifter who wants the split alone.
     await resetWithProgram(page);
     await openEditor(page);
-    await importFile(page, "backup.json", backup);
+    await importFile(page, "backup.json", backup, "restore");
     await page.evaluate(() => document.querySelector("#importProgramOnly").click());
-    await settle(page, 500);
+    await page.waitForFunction(() => document.body.classList.contains("is-import"));
     assert((await dialogState()).reviewing, "program only opens the review screen");
     await acceptFirstProposals(page);
     await reviewAndActivateImport(page);
@@ -1066,7 +1068,7 @@ async function main() {
       return page.evaluate(() => window.__releaseFileRead()).then(() => waiting);
     };
     try {
-      await importFile(page, "empty-log.json", freshBackup);
+      await importFile(page, "empty-log.json", freshBackup, "restore");
     } finally {
       page.waitForFunction = waitForFunction;
     }
@@ -1105,9 +1107,9 @@ async function main() {
     // of the split, so it travels rather than being reinvented as "Untitled".
     await resetWithProgram(page);
     await openEditor(page);
-    await importFile(page, "empty-log.json", freshBackup);
+    await importFile(page, "empty-log.json", freshBackup, "restore");
     await page.evaluate(() => document.querySelector("#importProgramOnly").click());
-    await settle(page, 500);
+    await page.waitForFunction(() => document.body.classList.contains("is-import"));
     await acceptFirstProposals(page);
     await reviewAndActivateImport(page);
     restored = await getState(page);
@@ -1120,7 +1122,7 @@ async function main() {
     // not hand a new install its exercises and a fresh set of defaults.
     await reset(page);
     await page.evaluate(() => window.startOnboarding("first-run"));
-    await importFile(page, "empty-log.json", freshBackup);
+    await importFile(page, "empty-log.json", freshBackup, "restore");
     choice = await dialogState();
     assert(choice.open && !choice.reviewing,
       "the setup gate's import offers the restore for a session-less backup", JSON.stringify(choice));
