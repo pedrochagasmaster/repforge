@@ -1,5 +1,7 @@
 import { waitForAppBoot } from './browser.mjs';
 import { installGeneratedProgram, definitionSlot, isWeightRepsSlot, metricLogRow } from './fixtures/history-metric-rows.mjs';
+import { appState } from '../tools/ui-screens/screens-app.mjs';
+import { finishEarly } from './fixtures/focus-workout.mjs';
 import { importInto } from './fixtures/install-transfer-import.mjs';
 
 export async function profileRingProofs(browser, assert, base) {
@@ -34,6 +36,32 @@ export async function profileRingProofs(browser, assert, base) {
     const unique=generated.program.filter((ex,i,all)=>all.findIndex(other=>other.libraryId===ex.libraryId)===i);
     const lifts=unique.filter(ex=>isWeightRepsSlot(definitionSlot(generated.programMeta,ex)));
     if(lifts.length<4)throw new Error('profile fixture requires four different weight/reps lifts');
+    // Compare catalog history with rows published by the actual draft/finish protocol.
+    await page.evaluate(day=>window.__repforgeEnterWorkout({day}),lifts[0].day);
+    await page.waitForSelector('#workout .exercise.is-current .focus-shelf');
+    await page.evaluate(async()=>{
+      const api=window.__repforgeWorkoutDraft,draft=api.current();
+      const exerciseInstanceId=draft.exerciseOrder[0],exercise=draft.exercises[exerciseInstanceId];
+      for(const setId of exercise.setOrder.slice(0,2)){
+        const set=exercise.sets[setId];
+        for(const metric of set.programmed.metrics)
+          await api.dispatch('editMetricValue',{exerciseInstanceId,setId,metricId:metric.id,value:/rep/i.test(metric.semantic)?'8':'60'});
+        await api.dispatch('editSetField',{exerciseInstanceId,setId,field:'rir',value:'2'});
+        const result=await api.dispatch('completeSet',{exerciseInstanceId,setId,completedAt:new Date().toISOString()});
+        if(!result.ok)throw new Error('production profile set refused: '+JSON.stringify(result));
+      }
+      await api.flush();
+    });
+    await finishEarly(page);
+    await page.reload({waitUntil:'domcontentloaded'});await waitForAppBoot(page,{base});
+    const persisted=await page.evaluate(()=>{
+      const saved=JSON.parse(localStorage.getItem('repforge_v1'));
+      return {rows:saved.log,profile:window.__repforgeProgressEvidence.profile()};
+    });
+    assert(persisted.rows.length===2&&persisted.rows.every(row=>row.effortSource==='rir'),
+      'production finish and reload preserve explicit effort, unlike the former catalog seed');
+    assert(persisted.profile.lifts.some(lift=>lift.active&&lift.depthDates.length===1&&lift.stage==='learning'),
+      'a production-saved comparable session starts Learning with one saved date',persisted.profile);
     // Start from a fresh baseline, as first activation would, rather than treating fixture setup as a scope change.
     await page.evaluate(()=>window.__repforgeUi.setPref('profileScope',{v:1,scope:[],acknowledged:false}));
     const state={...generated,program:lifts.slice(0,2),log:[],settings:{...generated.settings,lang:'en'}};
@@ -182,6 +210,28 @@ export async function profileRingProofs(browser, assert, base) {
     const active=await page.evaluate(()=>window.__repforgeProgressEvidence.profile().lifts.filter(lift=>lift.active));
     assert(active.every(lift=>lift.stage==='first'&&lift.units===0),'a different saved machine cannot fill the active lift’s ring');
     assert(await page.locator('#overviewProfile .profile-archive [data-profile-lift]').count()>0,'other-machine evidence remains reachable outside the active ring');
+    for(const catalogKey of ['today/ready','progress/overview-profile','today/profile-first']){
+      await commit(appState(catalogKey,'en'));
+      const profile=await page.evaluate(()=>window.__repforgeProgressEvidence.profile());
+      assert(catalogKey==='today/profile-first'?profile.units===0:
+        profile.fill>0&&profile.lifts.some(lift=>lift.active&&lift.depthDates.length>0&&lift.stage!=='first'),
+        `${catalogKey} catalog history has the intended fresh or learned evidence`,{fill:profile.fill,unsupported:profile.unsupportedRows});
+    }
+    await commit(appState('progress/profile-reader','pt'));await page.evaluate(()=>{I18N.setLang('pt');render();});await page.click('[data-view="stats"]');
+    await page.locator('#overviewProfile [data-profile-lift]').first().click();
+    for(const scale of ['100%','200%']){
+      await page.evaluate(scale=>{document.documentElement.style.fontSize=scale;render();},scale);
+      const reader=await page.locator('#profilePage').evaluate(node=>{
+        const title=node.querySelector('h1'),marks=[...node.querySelectorAll('.profile-stage-mark')];
+        const painted=e=>{const r=e.getBoundingClientRect(),s=getComputedStyle(e);return r.width>0&&r.height>0&&s.visibility==='visible'&&Number(s.opacity)>0;};
+        const reading=node.querySelector('.profile-depth p:last-child');
+        return {title:title?.textContent,titlePainted:title&&painted(title),marks:marks.length,marksPainted:marks.every(painted),
+          separate:!!reading?.querySelector('br'),copy:reading?.textContent};
+      });
+      assert(reader.titlePainted&&reader.title&&reader.marks===5&&reader.marksPainted,
+        `PT reader retains its heading and all five stage markers at ${scale}`,reader);
+      assert(reader.separate,`PT reader separates the label from its full-sentence reading at ${scale}`,reader.copy);
+    }
     assert(errors.length===0,'profile navigation and scope protocol have no page errors',errors);
   } finally {await context.close();}
 }

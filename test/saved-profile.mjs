@@ -203,3 +203,23 @@ test('a calibrated pattern acquired before Solid can satisfy the later stage aft
 test('identity ignores execution metadata for metrics that do not distinguish sides', () => {
   assert.equal(Engine.savedLiftIdentity(lift),Engine.savedLiftIdentity({...lift,context:{...context,executionMode:'bilateral'}}));
 });
+
+test('the catalog lifter has explicit saved effort and Learning wherever its comparable history anchors', async () => {
+  const {DIRECTION_D_CANONICAL_DATA:data}=await import('../tools/ui-screens/direction-d-canonical-fixture.generated.mjs');
+  const row=data.log[0];
+  const descriptor={exerciseId:row.performedLibraryId,metricType:row.metricType,
+    metricIds:row.metricIds,metricDefinitions:row.metricDefinitions,loadingModel:row.loadingModel,
+    context:{...row.loadingContext,equipmentId:row.equipmentId,loadingConvention:row.loadingConvention}};
+  const log=data.log.filter(item=>item.session===row.session&&item.performedLibraryId===row.performedLibraryId);
+  const history=[{sessionId:row.session,date:row.date,completed:true,
+    sets:log.map(item=>({...item,exerciseId:item.performedLibraryId,completed:true}))}];
+  const read=Engine.readSavedLift(descriptor,history,{now:row.date});
+  assert.ok(read.sessions.length>0);
+  assert.equal(read.standing.word,'learning');
+  const projection=build(log,[descriptor],row.date).lifts[0];
+  assert.equal(projection.depthDates.length,1);
+  assert.equal(projection.stage,'learning');
+  // Missing provenance remains unknown for actual older/imported history (§2 of the plan).
+  const unknown=log.map(({effortSource,...item})=>item);
+  assert.equal(build(unknown,[descriptor],row.date).lifts[0].units,0);
+});
