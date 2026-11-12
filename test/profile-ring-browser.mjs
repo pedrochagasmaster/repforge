@@ -53,6 +53,22 @@ export async function profileRingProofs(browser, assert, base) {
     assert(!await page.locator('#profilePage').isVisible(),'browser Back returns from the stage reader');
 
     assert(savedBeforeNavigation===await page.evaluate(()=>localStorage.getItem('repforge_v1')),'profile navigation retains the saved training snapshot');
+    await page.click('[data-view="log"]');
+    await page.evaluate(()=>{
+      const log=JSON.parse(localStorage.getItem("repforge_v1")).log,rows=log.filter(row=>row.session===log.at(-1).session);
+      const summary=window.__repforgeSessionSummary.build({rows,prevLog:log.filter(row=>row.session!==rows[0].session),session:rows[0].session,date:rows[0].date,day:rows[0].day,startedAt:0});
+      window.__repforgeSessionSummary.open(summary);
+    });
+    await page.click('#sumFinding');await page.waitForSelector('#summaryProfileBack');
+    await page.locator('#overviewProfile [data-profile-lift]').first().click();
+    await page.waitForFunction(()=>history.state?.tauriferRoute?.view==='profilePage');
+    assert(await page.evaluate(()=>history.state.tauriferRoute.depth)===2,'reader retains the finish-to-profile route underneath it');
+    await page.goBack();await page.waitForSelector('#summaryProfileBack');
+    assert(await page.locator('#stats').isVisible(),'browser Back from nested reader returns to Overview');
+    await page.click('#summaryProfileBack');await page.waitForSelector('#sessionSummary:not(.hidden)');
+    assert(await page.locator('#sessionSummary').isVisible(),'the next Back restores the existing finish screen');
+    await page.evaluate(()=>window.__repforgeSessionSummary.close());
+
     state.program=lifts.slice(0,3);await commit(state);
     await page.click('[data-view="log"]');
     assert((await page.locator('#todayProfileNeed').innerText()).includes('1 new lift'),'Today explains actual scope growth');
