@@ -143,6 +143,12 @@ try {
     .filter((set) => set.role === "working").length, exId);
   assert(total >= 2, "the first lift has at least two working sets", total);
 
+  await page.setViewportSize({ width: 360, height: 640 });
+  const shelfGeometry = () => page.locator(SHELF).evaluate(shelf => ({
+    height: shelf.offsetHeight,
+    dock: shelf.querySelector('[data-tip="max-set"]')?.getBoundingClientRect().height || 0,
+  }));
+  const beforeDock = await shelfGeometry();
   phase("No prompt before the last set");
   await logSet(page, exId, 1);
   if (total > 2) {
@@ -152,6 +158,10 @@ try {
 
   phase("During the rest before the last set: the prompt, then the guess");
   await page.waitForSelector(`${TIP}`, { state: "visible", timeout: 5000 });
+  const withDock = await shelfGeometry();
+  assert(beforeDock.dock === 0 && withDock.dock === 44 && withDock.height - withDock.dock === beforeDock.height,
+    "the first test-set offer adds one 44px dock without resizing the shelf fields", { beforeDock, withDock });
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.locator(`${TIP} [data-maxset-guess]`).click();
   await page.locator("#maxSetSheet.is-open").waitFor({state:"visible"});
   const explanation = await page.locator("#maxSetInvite").innerText();
