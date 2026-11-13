@@ -113,6 +113,15 @@ export async function profileRingProofs(browser, assert, base) {
     assert(!await page.locator('#profilePage').isVisible(),'browser Back returns from the stage reader');
 
     assert(savedBeforeNavigation===await page.evaluate(()=>localStorage.getItem('repforge_v1')),'profile navigation retains the saved training snapshot');
+    const older={...state,log:state.log.filter(row=>row.set<=2).map(({effortSource,...row})=>row)};
+    await commit(older);
+    const olderProfile=await page.evaluate(()=>window.__repforgeProgressEvidence.profile());
+    assert(olderProfile.lifts.filter(lift=>lift.active).every(lift=>lift.depthDates.length===3&&lift.depthSteps===1.5&&lift.stage==='learning'&&lift.current.standing.word==='learning'),
+      'older numeric-RIR history counts saved dates at half quality without exceeding engine Learning',olderProfile);
+    await page.locator('#overviewProfile [data-profile-lift]').first().click();
+    const olderDepth=await page.locator('#profilePage .profile-depth').innerText();
+    assert(olderDepth.includes('1.5 of 64'),'reader displays weighted date steps for older history',olderDepth);
+    await page.click('#profilePageBack');await commit(state);
     await page.click('[data-view="log"]');
     await page.evaluate(()=>{
       const log=JSON.parse(localStorage.getItem("repforge_v1")).log,rows=log.filter(row=>row.session===log.at(-1).session);
@@ -230,10 +239,10 @@ export async function profileRingProofs(browser, assert, base) {
     const active=await page.evaluate(()=>window.__repforgeProgressEvidence.profile().lifts.filter(lift=>lift.active));
     assert(active.every(lift=>lift.stage==='first'&&lift.units===0),'a different saved machine cannot fill the active lift’s ring');
     assert(await page.locator('#overviewProfile .profile-archive [data-profile-lift]').count()>0,'other-machine evidence remains reachable outside the active ring');
-    for(const catalogKey of ['today/ready','progress/overview-profile','today/profile-first']){
+    for(const catalogKey of ['today/ready','progress/overview-profile','today/profile-first','today/profile']){
       await commit(appState(catalogKey,'en'));
       const profile=await page.evaluate(()=>window.__repforgeProgressEvidence.profile());
-      assert(catalogKey==='today/profile-first'?profile.units===0:
+      assert(catalogKey==='today/profile'?profile.fill>=0.8&&profile.lifts.filter(lift=>lift.active).every(lift=>lift.depthSteps===48):catalogKey==='today/profile-first'?profile.units===0:
         profile.fill>0&&profile.lifts.some(lift=>lift.active&&lift.depthDates.length>0&&lift.stage!=='first'),
         `${catalogKey} catalog history has the intended fresh or learned evidence`,{fill:profile.fill,unsupported:profile.unsupportedRows});
     }
