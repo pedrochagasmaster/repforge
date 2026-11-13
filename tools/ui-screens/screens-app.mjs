@@ -3132,6 +3132,9 @@ export const APP_SCENARIOS = {
     await page.locator('.session--read .histlift__ledger').waitFor();
     await page.waitForFunction(()=>!document.body.classList.contains("is-pushing"));
     await page.locator('.histlift__ledger-frame').evaluate(el=>el.scrollIntoView({block:"center",behavior:"instant"}));
+    // Centering the ledger can scroll a wrapped summary out of frame at large text.
+    // Keep that placement when it fits, otherwise bring the entire summary back.
+    await page.locator('.histpage__totals').evaluate(el=>el.scrollIntoView({block:"nearest",behavior:"instant"}));
   },
   "history/per-side-session": async (page) => {
     await installPerSideHistory(page);
