@@ -404,8 +404,8 @@ async function testCreateNormalCommitAndReload(page) {
   await reset(page);
   await holdLibraryRows(page);
   const opening = openNewCustom(page, name);
-  // Observe the real deferred catalog append, or the premature press, whichever arrives first.
-  await page.waitForFunction(() => window.__customLibraryHeld || window.__customOpenerPressed);
+  // Hold a real deferred catalog append before observing whether the opener was pressed.
+  await page.waitForFunction(() => window.__customLibraryHeld);
   const earlyPress = await page.evaluate(() => window.__customOpenerPressed);
   check(!earlyPress, "custom creation waits for the library rows before pressing its moving opener");
   await page.evaluate(() => window.__releaseCustomLibrary());
