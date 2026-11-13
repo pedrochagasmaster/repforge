@@ -298,6 +298,43 @@ async function main() {
     const detail = page.locator('[data-evdetail="' + pressKey + '"]');
     check(/35/.test(await detail.textContent()) && /Load per side/i.test(await detail.textContent()),
       "Progress detail displays the per-side e1RM with its established cue", await detail.textContent());
+    // Decimal loads stay whole while headings wrap at word boundaries (#720).
+    for (const width of [320, 390]) for (const lang of ["en", "pt"]) for (const scale of ["100%", "200%"]) {
+      await page.setViewportSize({ width, height: 844 });
+      await page.evaluate(({ lang, scale }) => {
+        I18N.setLang(lang);
+        document.documentElement.style.fontSize = scale;
+        window.__repforgeStatsNav.setEvidenceView("strength");
+      }, { lang, scale });
+      await strengthRow.click();
+      const geometry = await detail.locator(".evtable").evaluate(table => {
+        const fragments = (node, start, end) => {
+          const range = document.createRange();
+          range.setStart(node, start); range.setEnd(node, end);
+          return [...range.getClientRects()].filter(rect => rect.width > 0);
+        };
+        const numbers = [...table.querySelectorAll("tbody td:not(:first-child)")].map(cell => {
+          const rects = fragments(cell.firstChild, 0, cell.textContent.length);
+          const box = cell.getBoundingClientRect();
+          return { value: cell.textContent, lines: new Set(rects.map(rect => rect.top)).size,
+            contained: rects.every(rect => rect.left >= box.left - 1 && rect.right <= box.right + 1) };
+        });
+        const words = [...table.querySelectorAll("th")].flatMap(cell => {
+          const text = cell.firstChild;
+          return [...text.textContent.matchAll(/[^\s·]+/g)].map(match => ({ word: match[0],
+            lines: new Set(fragments(text, match.index, match.index + match[0].length).map(rect => rect.top)).size }));
+        });
+        const box = table.getBoundingClientRect();
+        return { numbers, words, fits: box.left >= 0 && box.right <= innerWidth + 1 && table.scrollWidth <= table.clientWidth + 1 };
+      });
+      const label = `Strength ${width}px ${lang} ${scale}`;
+      check(geometry.numbers.some(cell => /27[.,]5/.test(cell.value)) && geometry.numbers.every(cell => cell.lines === 1 && cell.contained),
+        `${label}: decimal loads and all numeric values stay whole inside their cells`, geometry.numbers);
+      check(geometry.words.every(word => word.lines === 1), `${label}: headings wrap between whole words`, geometry.words);
+      check(geometry.fits, `${label}: every column fits without horizontal scrolling`, geometry);
+    }
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.evaluate(() => { I18N.setLang("en"); document.documentElement.style.fontSize = ""; });
     const totalLoadStrength = await page.evaluate(({ exerciseId }) => {
       const key = window.__repforgeProgressEvidence.keyForExerciseId(exerciseId);
       const series = window.__repforgeProgressEvidence.strength(key);
