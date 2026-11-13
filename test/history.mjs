@@ -875,6 +875,68 @@ async function runEverySetChecks(browser) {
   }
 }
 
+async function runMetricGridGeometryChecks(browser) {
+  console.log("\nHistory metric grid: decimal and integer loads, EN/PT, 320/390px");
+  for (const lang of ["en", "pt"]) {
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: "block" });
+    try {
+      const page = await context.newPage();
+      await page.goto(BASE, { waitUntil: "domcontentloaded" });
+      await waitForApp(page);
+      await installSeedProgram(page, { key: KEY, waitFor: waitForApp });
+      const state = await page.evaluate(k => JSON.parse(localStorage.getItem(k)), KEY);
+      const exercise = state.program[0];
+      const log = [12.5, 125.5, 80].map((load, i) => metricLogRow(state.programMeta, exercise,
+        { session: "metric-grid", date: "2026-03-03", set: i + 1, load, reps: 14, rir: 2 }));
+      await persistState(page, { ...state, settings: { ...state.settings, lang }, log });
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await waitForApp(page);
+      await page.locator('nav [data-view="history"]').click();
+      await page.locator('#sessions .session__open').first().click();
+      await page.waitForFunction(() => !!document.querySelector('.session--read .histlift__sets') && !document.body.classList.contains('is-pushing'));
+      for (const width of [390, 320]) for (const scale of [1, 2]) {
+        await page.setViewportSize({ width, height: 844 });
+        await page.evaluate(async scale => {
+          document.documentElement.style.fontSize = `${scale * 100}%`;
+          await document.fonts.ready;
+        }, scale);
+        const m = await page.evaluate(() => {
+          const problems = [], values = [];
+          for (const grid of document.querySelectorAll('.histpage__cols .history-metric-grid, .histlift__sets .history-metric-grid')) {
+            const bounds = grid.getBoundingClientRect();
+            if (bounds.left < 0 || bounds.right > innerWidth + 1) problems.push('grid outside viewport');
+            const boxes = [];
+            for (const cell of grid.children) {
+              const box = cell.getBoundingClientRect(), walker = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT);
+              for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+                if (!node.textContent.trim()) continue;
+                const range = document.createRange(); range.selectNodeContents(node);
+                const rects = [...range.getClientRects()].filter(r => r.width > 0);
+                for (const r of rects) {
+                  if (r.left < box.left - 1 || r.right > box.right + 1 || r.top < box.top - 1 || r.bottom > box.bottom + 1)
+                    problems.push(`cell spills: ${cell.textContent}`);
+                  boxes.push({ left: r.left, right: r.right, top: r.top, bottom: r.bottom, cell });
+                }
+                if (cell.closest('.histlift__sets') && rects.length !== 1) problems.push(`value wraps: ${node.textContent}`);
+              }
+              if (cell.dataset.historyMetricId) values.push(cell.dataset.metricValue);
+            }
+            for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) {
+              const a = boxes[i], b = boxes[j];
+              if (a.cell !== b.cell && Math.min(a.right, b.right) - Math.max(a.left, b.left) > 1 && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 1)
+                problems.push(`overlap: ${a.cell.textContent} / ${b.cell.textContent}`);
+            }
+          }
+          return { problems, values, wide: document.documentElement.scrollWidth > innerWidth };
+        });
+        const tag = `${lang} ${width}px ${scale * 100}%`;
+        assert(["12.5", "125.5", "80"].every(value => m.values.includes(value)), `${tag}: geometry includes decimal and integer source loads`, JSON.stringify(m));
+        assert(!m.problems.length && !m.wide, `${tag}: History headers, loads, units and reps stay separate and whole`, JSON.stringify(m));
+      }
+    } finally { await context.close(); }
+  }
+}
+
 async function main() {
   const browser = await launchChromium();
   try {
@@ -899,6 +961,7 @@ async function main() {
     await runHistoryHeadAtLargeText(browser);
     await runSessionPageBackChecks(browser);
     await runEverySetChecks(browser);
+    await runMetricGridGeometryChecks(browser);
   } finally {
     await browser.close();
   }
