@@ -73,3 +73,17 @@ Owner-approved, including the Solid/date wording below. The unchanged key is rem
 | `profile.finish.reader` | See this lift's stages | Ver as etapas deste exercício |
 
 After the approved copy edits and removal of the unchanged line, the focused finish suite passes 92 assertions. `build-i18n --check` confirms 3287 keys per language. All 24 new PNGs now have reviewed CI replacements; see the linked frame review.
+
+## Inventory correction and keyboard/motion contracts
+
+Run 43441037781 exposed two stale exact inventories. The summary assertion listed four buttons before Plan 084; the approved profile Overview link is now first, making the exact order `sumProfileOpen,sumFinding,sumSee,sumShare,sumDone` for that fixture. The previous test focused `sumSee` successfully but never pressed Tab. The motion integration assertion expected nine vocabulary entries; the approved `profileFill` makes ten. Neither failure demonstrated a focus loop or a motion cleanup defect. The owner authorized these two assertion updates while keeping both exact.
+
+The summary proof now presses Tab from the title through every action including Share and Done, traverses backward with Shift+Tab, verifies wrapping at both ends, and retains initial focus and underlying-app inertness assertions. The motion proof names all ten vocabulary entries in their exact order. Its live SVG checks verify exactly 500ms linear timing, the reduced-motion final state with no animation, completed/cancelled final ink and no remaining animation, transform or layer hint. Existing vocabulary rules in `test/vendor-runtimes.mjs` also constrain `profileFill` to exactly 500ms linear.
+
+Local reproduction on the previous head: session summary 137 passed / 1 failed (the obsolete four-button inventory); motion integration 466 passed / 1 failed (the obsolete nine-entry vocabulary inventory). No application behavior or catalog frame changes are needed for these inventory corrections.
+
+The real traversal also names Chromium's native focus stops on the horizontal share-card and record-card strips. Forward order from the title is exactly `sum-cards,sumProfileOpen,sumFinding,sum-rtiles,sumSee,sumShare,sumDone`; reverse order from Done is exactly `sumShare,sumSee,sum-rtiles,sumFinding,sumProfileOpen`, followed by the existing trap's wrap to Done. These strips keep their native keyboard scrolling; the assertions skip no unidentified stops.
+
+After correction, the full session-summary suite passes 142 assertions and motion-integration passes 475 assertions, both with zero failures and both run through `tools/run-tests.mjs full-browser --suite-id <owner>` in the foreground under the browser lock.
+
+The focused finish suite also passes all 92 assertions with `REPFORGE_PROFILE_FINISH_ONLY=1 flock /tmp/taurifer-browser.lock node tools/run-tests.mjs full-browser --suite-id test-profile-browser-mjs`. Final remote CI and owner sign-off remain pending.
