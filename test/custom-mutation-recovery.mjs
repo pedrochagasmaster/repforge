@@ -73,6 +73,34 @@ async function openNewCustom(page, name) {
   await page.locator("#exCustomPrimary .pchip").first().click();
 }
 
+async function holdLibraryRows(page) {
+  await page.evaluate(() => {
+    const list = document.querySelector("#libList");
+    const append = list.insertAdjacentHTML;
+    const pending = [];
+    window.__customLibraryHeld = false;
+    window.__customOpenerPressed = false;
+    const pressed = () => { window.__customOpenerPressed = true; };
+    document.querySelector("#libCustom").addEventListener("pointerdown", pressed);
+    list.insertAdjacentHTML = function (...args) {
+      pending.push(args);
+      window.__customLibraryHeld = true;
+      const frame = window.requestAnimationFrame;
+      window.requestAnimationFrame = callback => {
+        window.requestAnimationFrame = frame;
+        window.__resumeCustomLibrary = () => frame.call(window, callback);
+        return 0;
+      };
+    };
+    window.__releaseCustomLibrary = () => {
+      list.insertAdjacentHTML = append;
+      for (const args of pending) append.apply(list, args);
+      window.__resumeCustomLibrary?.();
+      document.querySelector("#libCustom").removeEventListener("pointerdown", pressed);
+    };
+  });
+}
+
 async function seedCustomFixture(page, name) {
   const outcome = await page.evaluate(async (exerciseName) => {
     const saved = await window.__repforgeSaveCustomExercise({
@@ -374,7 +402,14 @@ async function testCreateBothReplicasFail(page) {
 async function testCreateNormalCommitAndReload(page) {
   const name = "Normal durable custom create";
   await reset(page);
-  await openNewCustom(page, name);
+  await holdLibraryRows(page);
+  const opening = openNewCustom(page, name);
+  // Observe the real deferred catalog append, or the premature press, whichever arrives first.
+  await page.waitForFunction(() => window.__customLibraryHeld || window.__customOpenerPressed);
+  const earlyPress = await page.evaluate(() => window.__customOpenerPressed);
+  check(!earlyPress, "custom creation waits for the library rows before pressing its moving opener");
+  await page.evaluate(() => window.__releaseCustomLibrary());
+  await opening;
   await page.click("#exCustomSave");
   await page.waitForSelector("#exCustomSheet", { state: "hidden", timeout: 5000 });
   const saved = await readReplicas(page);
@@ -1475,6 +1510,10 @@ async function main() {
   const otherPage = await context.newPage();
   try {
     await testCreateNormalCommitAndReload(page);
+    if (process.env.CUSTOM_MUTATION_CASE === "opener") {
+      if (results.failed) throw new Error(`${results.failed} opener checks failed`);
+      return;
+    }
     await testEditorReorderAndRemoval(page);
     if (process.argv.includes("--editor-contract")) {
       if (results.failed) throw new Error(`${results.failed} editor contract checks failed`);
