@@ -65,7 +65,7 @@ async function readReplicas(page) {
 
 async function openNewCustom(page, name) {
   await page.evaluate(() => window.__repforgeOpenLibrary({}));
-  await page.waitForSelector("#library.active", { timeout: 5000 });
+  await page.waitForSelector('#library.active #libList[aria-busy="false"]', { timeout: 5000 });
   await page.click("#libCustom");
   await page.waitForSelector("#exCustomSheet.is-open", { timeout: 5000 });
   await page.locator("#exCustomName").fill(name);
