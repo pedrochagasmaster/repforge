@@ -5,6 +5,10 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { chooseRepsLeft, launchChromium, openShelfField, waitForAppBoot } from "./browser.mjs";
 
+import { loadManifest } from "../tools/ui-screens/manifest.mjs";
+import { APP_SCENARIOS, appState } from "../tools/ui-screens/screens-app.mjs";
+import { dismissChrome, openPage } from "../tools/ui-screens/session.mjs";
+
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const CATALOG = JSON.parse(readFileSync(new URL("../assets/exercise-catalog.json", import.meta.url), "utf8"));
 const STATE_KEY = "repforge_v1";
@@ -205,6 +209,60 @@ async function persistState(page, state) {
   }, { key: STATE_KEY, state });
 }
 
+async function checkStrengthTableGeometry(browser) {
+  const manifest = loadManifest();
+  for (const screen of ["strength-sparse", "strength-comparison"]) for (const locale of ["en", "pt"]) {
+    const state = `progress/${screen}`;
+    const capture = { flow: "progress", screen, viewport: "phone-390", theme: "light", locale, text: "normal", motion: "normal" };
+    const opened = await openPage(browser, manifest, capture, appState(state, manifest.locales[locale].lang));
+    const page = opened.page;
+    try {
+      await dismissChrome(page);
+      await APP_SCENARIOS[state](page);
+      const key = await page.locator('#strengthDash [data-evdetail]:not([hidden])').getAttribute("data-evdetail");
+      for (const width of [320, 390, 430]) for (const scale of ["100%", "200%"]) {
+        await page.setViewportSize({ width, height: 844 });
+        await page.evaluate(({ key, scale }) => {
+          document.documentElement.style.fontSize = scale;
+          window.__repforgeStatsNav.setEvidenceView("strength");
+          [...document.querySelectorAll('#strengthDash [data-evkey]')].find(row => row.dataset.evkey === key).click();
+        }, { key, scale });
+        const geometry = await page.locator('#strengthDash [data-evdetail]:not([hidden]) .evtable').evaluate(table => {
+          const gap = parseFloat(getComputedStyle(table).getPropertyValue("--space-8"));
+          const rows = [...table.rows].map(row => [...row.cells].map(cell => {
+            const box = cell.getBoundingClientRect(), style = getComputedStyle(cell);
+            const left = box.left + parseFloat(style.paddingLeft), right = box.right - parseFloat(style.paddingRight);
+            const range = document.createRange(); range.selectNodeContents(cell);
+            const rects = [...range.getClientRects()].filter(rect => rect.width > 0);
+            const words = [...cell.firstChild.textContent.matchAll(/[^\s·]+/g)].map(match => {
+              range.setStart(cell.firstChild, match.index); range.setEnd(cell.firstChild, match.index + match[0].length);
+              return { word: match[0], lines: new Set([...range.getClientRects()].filter(rect => rect.width > 0).map(rect => rect.top)).size };
+            });
+            return { text: cell.textContent, left, right,
+              contained: rects.every(rect => rect.left >= left - 0.5 && rect.right <= right + 0.5),
+              lines: new Set(rects.map(rect => rect.top)).size, words };
+          }));
+          const box = table.getBoundingClientRect();
+          return { gap, rows, fits: box.left >= 0 && box.right <= innerWidth + 0.5 && table.scrollWidth <= table.clientWidth + 0.5 };
+        });
+        const label = `${state} ${width}px ${locale} ${scale}`;
+        const cells = geometry.rows.flat();
+        // Padding belongs to the gap, so compare each cell's content box, not its touching table border box.
+        check(geometry.gap > 0 && geometry.rows.every(row => row.every((cell, index) => index === 0 || cell.left - row[index - 1].right >= geometry.gap - 0.5)),
+          `${label}: adjacent header and cell content boxes keep the spacing-token gap`, geometry);
+        check(cells.every(cell => cell.contained && cell.words.every(word => word.lines === 1)),
+          `${label}: headers and cells wrap only between words inside their columns`, geometry);
+        const numbers = geometry.rows.slice(1).flatMap(row => row.slice(1));
+        check(numbers.length > 0 && numbers.every(cell => cell.lines === 1) && (screen !== "strength-comparison" || numbers.some(cell => /27[.,]5/.test(cell.text))),
+          `${label}: numeric values including decimal loads stay whole`, numbers);
+        check(geometry.fits, `${label}: every column fits without horizontal scrolling`, geometry);
+        check(geometry.rows[0].at(-1).text === (locale === "pt" ? "Sobra" : "Left"),
+          `${label}: the approved narrow-table label stays`);
+      }
+    } finally { await opened.context.close(); }
+  }
+}
+
 async function main() {
   const browser = await launchChromium();
   const observations = {};
@@ -298,43 +356,6 @@ async function main() {
     const detail = page.locator('[data-evdetail="' + pressKey + '"]');
     check(/35/.test(await detail.textContent()) && /Load per side/i.test(await detail.textContent()),
       "Progress detail displays the per-side e1RM with its established cue", await detail.textContent());
-    // Decimal loads stay whole while headings wrap at word boundaries (#720).
-    for (const width of [320, 390]) for (const lang of ["en", "pt"]) for (const scale of ["100%", "200%"]) {
-      await page.setViewportSize({ width, height: 844 });
-      await page.evaluate(({ lang, scale }) => {
-        I18N.setLang(lang);
-        document.documentElement.style.fontSize = scale;
-        window.__repforgeStatsNav.setEvidenceView("strength");
-      }, { lang, scale });
-      await strengthRow.click();
-      const geometry = await detail.locator(".evtable").evaluate(table => {
-        const fragments = (node, start, end) => {
-          const range = document.createRange();
-          range.setStart(node, start); range.setEnd(node, end);
-          return [...range.getClientRects()].filter(rect => rect.width > 0);
-        };
-        const numbers = [...table.querySelectorAll("tbody td:not(:first-child)")].map(cell => {
-          const rects = fragments(cell.firstChild, 0, cell.textContent.length);
-          const box = cell.getBoundingClientRect();
-          return { value: cell.textContent, lines: new Set(rects.map(rect => rect.top)).size,
-            contained: rects.every(rect => rect.left >= box.left - 1 && rect.right <= box.right + 1) };
-        });
-        const words = [...table.querySelectorAll("th")].flatMap(cell => {
-          const text = cell.firstChild;
-          return [...text.textContent.matchAll(/[^\s·]+/g)].map(match => ({ word: match[0],
-            lines: new Set(fragments(text, match.index, match.index + match[0].length).map(rect => rect.top)).size }));
-        });
-        const box = table.getBoundingClientRect();
-        return { numbers, words, fits: box.left >= 0 && box.right <= innerWidth + 1 && table.scrollWidth <= table.clientWidth + 1 };
-      });
-      const label = `Strength ${width}px ${lang} ${scale}`;
-      check(geometry.numbers.some(cell => /27[.,]5/.test(cell.value)) && geometry.numbers.every(cell => cell.lines === 1 && cell.contained),
-        `${label}: decimal loads and all numeric values stay whole inside their cells`, geometry.numbers);
-      check(geometry.words.every(word => word.lines === 1), `${label}: headings wrap between whole words`, geometry.words);
-      check(geometry.fits, `${label}: every column fits without horizontal scrolling`, geometry);
-    }
-    await page.setViewportSize({ width: 390, height: 844 });
-    await page.evaluate(() => { I18N.setLang("en"); document.documentElement.style.fontSize = ""; });
     const totalLoadStrength = await page.evaluate(({ exerciseId }) => {
       const key = window.__repforgeProgressEvidence.keyForExerciseId(exerciseId);
       const series = window.__repforgeProgressEvidence.strength(key);
@@ -644,6 +665,7 @@ async function main() {
       writeFileSync(join(artifactDir, "p069-s2-per-side-reading-observation.json"), JSON.stringify(observations, null, 2) + "\n");
     }
     await context.close();
+    await checkStrengthTableGeometry(browser);
   } finally {
     await browser.close();
   }
