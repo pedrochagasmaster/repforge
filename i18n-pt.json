@@ -1863,6 +1863,7 @@
   "why.engine.target": "Para terminar com cerca de {rir} repetições em reserva, a carga mais próxima é {load} {unit} para {reps} repetições.",
   "why.engine.target_norir": "A carga mais próxima é {load} {unit} para {reps} repetições.",
   "why.engine.step": "As cargas mudam em passos de {step} {unit}.",
+  "why.engine.step_ladder": "As cargas mudam em passos de {small} {unit} até {at} {unit}, depois em passos de {large} {unit}.",
   "why.engine.bodyweight": "Conta {bw} {unit} do seu peso corporal como parte da carga.",
   "why.engine.per_side": "Ele estima a carga total como {load} {unit} por lado × {multiplier}.",
   "why.engine.per_side_bodyweight": "O modelo estima a carga total como {load} {unit} por lado × {multiplier}, mais {bw} {unit} do seu peso corporal.",

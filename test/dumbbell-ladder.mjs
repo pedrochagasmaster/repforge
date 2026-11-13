@@ -96,6 +96,14 @@ try {
     check(JSON.stringify(s.available) === JSON.stringify(LADDER), "the engine is handed the dumbbell ladder as its available loads", { isDumbbell, available: s.available });
     check(s.status === "recommended" && LADDER.includes(s.target) && s.value === s.target, "its suggestion is a rung of the ladder, and the field shows it", s);
 
+    // Why says how the ladder moves: two step sizes and where they change, not the smallest gap alone.
+    await page.evaluate(() => document.querySelector("#workout .exercise.is-current [data-why]").click());
+    await page.waitForSelector("#whySheet.is-open", { timeout: 5000 });
+    const why = await page.evaluate(() => document.querySelector("#whySheet").textContent);
+    check(/Loads move in 1 kg steps up to 10 kg, then 2 kg steps\./.test(why), "Why says the ladder's steps: 1 kg to 10 kg, then 2 kg", why.slice(why.indexOf("How it loads"), why.indexOf("How it loads") + 120));
+    await page.keyboard.press("Escape");
+    await page.waitForSelector("#whySheet", { state: "hidden" });
+
     const wheel = await wheelValues(page, PER_SIDE_LOAD);
     check(JSON.stringify(wheel.filter((v) => v > 0)) === JSON.stringify(LADDER), "the wheel offers the ladder", wheel);
 

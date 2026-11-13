@@ -26343,7 +26343,11 @@ function engineWhyRows(ex,rec,n=1){
     {rir:fmt(rir),reps,load:fmtLoad(load),unit:u})}));
   const loads=(assumptions.availableLoadsKg||[]).slice().sort((a,b)=>a-b);
   const steps=loads.slice(1).map((value,index)=>Math.round((value-loads[index])*1000)/1000).filter(step=>step>0);
-  if(steps.length)rows.push(whyRow("step",{text:t("why.engine.step",{step:fmtLoad(Math.min(...steps)),unit:u})}));
+  // A ladder (the dumbbell rack) has two step sizes: say both and where the larger one starts.
+  const sizes=[...new Set(steps)],change=steps.findIndex(step=>step!==steps[0]);
+  const ladder=sizes.length===2&&change>0&&steps.slice(change).every(step=>step===steps[change]);
+  if(ladder)rows.push(whyRow("step",{text:t("why.engine.step_ladder",{small:fmtLoad(steps[0]),at:fmtLoad(loads[change]),large:fmtLoad(steps[change]),unit:u})}));
+  else if(steps.length)rows.push(whyRow("step",{text:t("why.engine.step",{step:fmtLoad(Math.min(...steps)),unit:u})}));
   if(assumptions.bodyweightContributionEnabled&&assumptions.bodyweightContributionKg>0){
     if(loadMetric&&["loadPerSideKg","persistentLoadPerSideKg"].includes(loadMetric.semantic))
       rows.push(whyRow("per_side_bodyweight",{text:t("why.engine.per_side_bodyweight",{
