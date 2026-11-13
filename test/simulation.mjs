@@ -119,8 +119,8 @@ async function loadApp(page, url = BASE) {
  * history.go(-1), which the browser runs a moment later. A reload or navigation started before that traversal
  * lands is aborted by it (net::ERR_ABORTED, full lane 2026-10-23), so wait until the entry is gone.
  */
-async function pressPushedBack(page, selector) {
-  // Watch for the traversal itself: if this Back hands an entry back, its popstate is what has to land first.
+async function settlePushedNavigation(page, navigate) {
+  // Closing a pushed page hands its entry back; its popstate must land first.
   await page.evaluate(() => {
     const go = history.go.bind(history);
     // The listener keeps its own record, so a popstate arriving after the cleanup below has somewhere to land.
@@ -132,12 +132,16 @@ async function pressPushedBack(page, selector) {
       return go(delta);
     };
   });
-  await page.click(selector);
+  await navigate();
   // The app hands the entry back from the next animation frame (syncEdgeSwipe), not in the tap: a first poll
   // before that frame saw no call yet and moved on (full lane 2026-10-24). Let the frame run, then wait.
   await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   await page.waitForFunction(() => !window.__simBackTraversal.called || window.__simBackTraversal.landed, undefined, { timeout: 5000 });
   await page.evaluate(() => { delete history.go; delete window.__simBackTraversal; });
+}
+
+async function pressPushedBack(page, selector) {
+  await settlePushedNavigation(page, () => page.click(selector));
 }
 
 async function reloadApp(page, opts = {}) {
@@ -484,8 +488,12 @@ async function nav(page, view) {
   }
   if (view === "settings") {
     // Profile control lives on Today (hidden during active workout / other tabs).
-    await page.evaluate(() => window.__repforgeShowSettings?.());
-    await page.waitForSelector(`#settings.view.active`, { timeout: 5000 });
+    // Closing a pushed page also releases its browser entry. The active DOM
+    // precedes popstate; saving or reloading must wait for that acknowledgement.
+    await settlePushedNavigation(page, async () => {
+      await page.evaluate(() => window.__repforgeShowSettings?.());
+      await page.waitForSelector(`#settings.view.active`, { timeout: 5000 });
+    });
     return;
   }
   // Tab bar is display:none on settings/exercise/onboarding — click via DOM.
@@ -1310,6 +1318,36 @@ async function selectEffort(page, key, effort) {
   }
 }
 
+async function proveRejectedFinishSettings(page, valEx) {
+  const valKey = `${valEx.id}_1`;
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  await setLogDate(page, "2024-02-29");
+  await fillExerciseSets(page, valEx.id, 1, 80, 8, 1);
+  await setWorkoutField(page, "#sessionBodyweight", "");
+  await setWorkoutField(page, `[data-k="${valKey}_metric_2555c6f170d8805cafa6d16d3fdddbaa"]`, "-9");
+  const surviveLog = JSON.stringify((await getState(page)).log);
+  const surviveDraft = await readDraftRaw(page);
+  await stopRestIfRunning(page);
+  await saveWorkout(page, { expectNewRows: false });
+  await saveSettingsAndFlush(page);
+  await reloadApp(page);
+  assert(
+    JSON.stringify((await getState(page)).log) === surviveLog,
+    "Failed Finish log is unchanged after Settings save, flush, and reload",
+    "log drifted after unrelated Settings save",
+    "Invalid Finish → Settings save → flush → reload"
+  );
+  const surviveDraftAfter = await readDraft(page);
+  assert(
+    surviveDraftAfter?.exercises?.[valEx.id]?.sets?.[surviveDraftAfter.exercises[valEx.id].setOrder[0]]?.edited?.metrics?.["2555c6f170d8805cafa6d16d3fdddbaa"] === "-9",
+    "Failed Finish draft survives Settings save, flush, and reload",
+    `draft=${JSON.stringify(surviveDraftAfter)}`,
+    "Invalid Finish → Settings save → flush → reload → draft still has -9 load"
+  );
+  void surviveDraft;
+}
+
 async function proveSettingsNavigation(page) {
   await nav(page, "log");
   await selectDay(page, "Day 1");
@@ -1417,6 +1455,8 @@ async function main() {
 
   await proveSettingsNavigation(page);
   if (process.env.REPFORGE_SIM_SECTION === "settings-navigation") {
+    const [exercise] = await getExerciseMeta(page, "Day 1");
+    await proveRejectedFinishSettings(page, exercise);
     await browser.close();
     process.exit(results.failed ? 1 : 0);
   }
@@ -6598,28 +6638,7 @@ async function main() {
   await assertRejectedFinish("impossible date", () => setLogDateRaw(page, "2024-02-30"), "#sessionDate");
   await assertRejectedFinish("invalid leap-day date", () => setLogDateRaw(page, "2023-02-29"), "#sessionDate");
 
-  await fillValidCandidate();
-  await setWorkoutField(page, `[data-k="${valKey}_metric_2555c6f170d8805cafa6d16d3fdddbaa"]`, "-9");
-  const surviveLog = JSON.stringify((await getState(page)).log);
-  const surviveDraft = await readDraftRaw(page);
-  await stopRestIfRunning(page);
-  await saveWorkout(page, { expectNewRows: false });
-  await saveSettingsAndFlush(page);
-  await reloadApp(page);
-  assert(
-    JSON.stringify((await getState(page)).log) === surviveLog,
-    "Failed Finish log is unchanged after Settings save, flush, and reload",
-    "log drifted after unrelated Settings save",
-    "Invalid Finish → Settings save → flush → reload"
-  );
-  const surviveDraftAfter = await readDraft(page);
-  assert(
-    surviveDraftAfter?.exercises?.[valEx.id]?.sets?.[surviveDraftAfter.exercises[valEx.id].setOrder[0]]?.edited?.metrics?.["2555c6f170d8805cafa6d16d3fdddbaa"] === "-9",
-    "Failed Finish draft survives Settings save, flush, and reload",
-    `draft=${JSON.stringify(surviveDraftAfter)}`,
-    "Invalid Finish → Settings save → flush → reload → draft still has -9 load"
-  );
-  void surviveDraft;
+  await proveRejectedFinishSettings(page, valEx);
 
   await nav(page, "log");
   await selectDay(page, "Day 1");
