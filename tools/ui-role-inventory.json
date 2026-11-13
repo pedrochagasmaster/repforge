@@ -1422,6 +1422,11 @@
       "owner": "plan-084",
       "content": "flat",
       "scenario": "The pending scope change is reachable from Today’s factual line, with the new denominator applied."
+    },
+    "history/metric-overflow": {
+      "owner": "issue-726",
+      "content": "flat",
+      "scenario": "Accepted numeric bounds force horizontal scrolling at enlarged text, with an explicit bidirectional cue and a keyboard-focusable named ledger."
     }
   },
   "components": [

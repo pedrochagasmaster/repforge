@@ -1732,6 +1732,13 @@
       "variants": "demandingText"
     },
     {
+      "id": "metric-overflow",
+      "flow": "history",
+      "label": "History metric overflow boundary",
+      "scenario": "Accepted numeric boundary values exceed the ledger width at 200% text. The horizontal overflow cue and named scroll region preserve the complete values.",
+      "variants": "demandingText"
+    },
+    {
       "id": "session-share",
       "flow": "history",
       "label": "History — share a past session",

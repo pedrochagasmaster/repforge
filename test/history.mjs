@@ -889,6 +889,7 @@ async function runMetricGridGeometryChecks(browser) {
       const exercise = state.program[0];
       const log = [12.5, 125.5, 80].map((load, i) => metricLogRow(state.programMeta, exercise,
         { session: "metric-grid", date: "2026-03-03", set: i + 1, load, reps: 14, rir: 2 }));
+      log.push(metricLogRow(state.programMeta, exercise, { session: "metric-overflow", date: "2026-03-02", set: 1, load: 999.5, reps: 999999999, rir: 2 }));
       await persistState(page, { ...state, settings: { ...state.settings, lang }, log });
       await page.reload({ waitUntil: "domcontentloaded" });
       await waitForApp(page);
@@ -900,6 +901,7 @@ async function runMetricGridGeometryChecks(browser) {
         await page.evaluate(async scale => {
           document.documentElement.style.fontSize = `${scale * 100}%`;
           await document.fonts.ready;
+          await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
         }, scale);
         const m = await page.evaluate(() => {
           const problems = [], values = [], tracks = [];
@@ -943,14 +945,30 @@ async function runMetricGridGeometryChecks(browser) {
         assert(["12.5", "125.5", "80"].every(value => m.values.includes(value)), `${tag}: geometry includes decimal and integer source loads`, JSON.stringify(m));
         assert(!m.problems.length && !m.wide, `${tag}: History headers, loads, units and reps stay separate and whole`, JSON.stringify(m));
       }
+      await page.locator('[data-history-back]').click();
+      await page.waitForFunction(() => !!document.querySelector('#sessions .session__open') && !document.body.classList.contains('is-pushing'));
+      await page.locator('#sessions [data-sess="metric-overflow"] .session__open').click();
+      await page.waitForFunction(() => !!document.querySelector('.session--read .histlift__ledger') && !document.body.classList.contains('is-pushing'));
+      const ledger = page.locator('.histlift__ledger');
+      const overflow = await ledger.evaluate(el => {
+        const cue = el.parentElement.querySelector('.histlift__overflow');
+        return { scrolls: el.scrollWidth > el.clientWidth + 1, cue: !!cue && cue.getBoundingClientRect().height > 0 && getComputedStyle(cue).visibility !== 'hidden',
+          text: cue?.textContent, width: el.clientWidth, content: el.scrollWidth };
+      });
+      assert(overflow.scrolls && overflow.cue && !!overflow.text, `${lang}: values that genuinely cannot fit have a visible overflow cue`, JSON.stringify(overflow));
+      await ledger.focus();
+      await page.keyboard.press('ArrowRight');
+      await page.waitForFunction(() => document.querySelector('.histlift__ledger').scrollLeft > 0);
+      assert(await ledger.evaluate(el => el.getAttribute('role') === 'region' && !!el.getAttribute('aria-label') && el.tabIndex === 0), `${lang}: last-resort scrolling is keyboard reachable and named`);
     } finally { await context.close(); }
   }
 }
 
 async function runCatalogMetricFitChecks(browser) {
   console.log("\nHistory catalog ledgers fit before horizontal scrolling");
-  for (const key of ["history/session", "history/ramp-rows", "history/per-side-session"])
+  for (const key of ["history/session", "history/ramp-rows", "history/per-side-session", "history/metric-overflow"])
     for (const lang of ["en", "pt"]) for (const width of [320, 390, 430]) for (const text of ["normal", "text200"]) {
+      if (key === "history/metric-overflow" && (width !== 390 || text !== "text200")) continue;
       if (process.env.HISTORY_METRIC_CASE && process.env.HISTORY_METRIC_CASE !== `${key}:${lang}:${width}:${text}`) continue;
       const opened = await openCatalogState(browser, key, width, lang, text, { height: 844, safe: { top: 0, bottom: 0 } });
       try {
@@ -979,15 +997,20 @@ async function runCatalogMetricFitChecks(browser) {
             }
           }
           if (edges.some(row => row.some((right, i) => Math.abs(right - edges[0][i]) > 1))) problems.push('header/row alignment');
+          const cue = ledger.parentElement.querySelector('.histlift__overflow');
           const last = ledger.querySelector('.histlift__sets .ledgerline:last-child .fx-col:last-child').getBoundingClientRect();
           return { name: ledger.getAttribute('aria-label'), width: ledger.clientWidth, content: ledger.scrollWidth,
             allVisible: ledger.scrollLeft === 0 && ledger.scrollWidth <= ledger.clientWidth + 1 && last.right <= port.right + 1,
-            valueFont: getComputedStyle(ledger.querySelector('.histlift__sets .ledgerline__vals')).fontSize, headers, problems };
+            valueFont: getComputedStyle(ledger.querySelector('.histlift__sets .ledgerline__vals')).fontSize, cue: !!cue && cue.getBoundingClientRect().height > 0, headers, problems };
         }));
         const label = `${key} ${lang} ${width}px ${text}`;
-        const mustFit = text === "normal" || (width >= 390 && key !== "history/per-side-session");
+        const mustFit = key !== "history/metric-overflow" && (text === "normal" || (width >= 390 && key !== "history/per-side-session"));
         assert(read.length > 0 && read.every(x => !x.problems.length), `${label}: no metric overlaps, clips or wraps and headers align`, JSON.stringify(read));
+        assert(read.every(x => x.valueFont === (text === "text200" ? "32px" : "16px")), `${label}: values retain their enlarged text size`, JSON.stringify(read));
+        if (width === 390 && text === "text200" && key !== "history/per-side-session" && key !== "history/metric-overflow") assert(read.every(x => x.headers.every(h => h.lines <= 2.05)), `${label}: headings fit in at most two lines`, JSON.stringify(read));
         if (mustFit) assert(read.every(x => x.allVisible), `${label}: every column including reps left is visible without scrolling`, JSON.stringify(read));
+        if (key === "history/metric-overflow") assert(read.every(x => x.headers.every(h => h.lines <= 2.05)), `${label}: last-resort scrolling keeps whole-word headings on two lines`, JSON.stringify(read));
+        if (key === "history/metric-overflow") assert(read.every(x => !x.allVisible && x.cue), `${label}: unavoidably wide values show a clear overflow cue`, JSON.stringify(read));
         console.log(`  layout ${label}: ${JSON.stringify(read)}`);
       } finally { await opened.context.close(); }
     }
@@ -997,7 +1020,8 @@ async function main() {
   const browser = await launchChromium();
   try {
     if (process.env.HISTORY_METRIC_CASE) {
-      await runCatalogMetricFitChecks(browser);
+      if (process.env.HISTORY_METRIC_CASE === "overflow") await runMetricGridGeometryChecks(browser);
+      else await runCatalogMetricFitChecks(browser);
       console.log(`history geometry: ${results.passed} passed, ${results.failed} failed`);
       process.exitCode = results.failed ? 1 : 0;
       return;

@@ -260,7 +260,7 @@ export const FULL_SUITES = {
     s("test/rules-only-gate.mjs", [], { domains: RENDERED_DOMAINS, cost: "normal", tier: "feedback", seconds: 53 }),
     s("test/accessibility.mjs", [], { seconds: 144 }),
     s("test/accessibility.mjs", ["--touch-targets-320"], { seconds: 4 }),
-    s("test/history.mjs", [], { seconds: 110 }),
+    s("test/history.mjs", [], { seconds: 420 }),
     s("test/per-side-reading-browser.mjs", [], { domains: ["history", "progress", "workout"], tier: "packet", seconds: 21, timeoutMs: 900000 }),
     s("test/per-side-completion-summary-browser.mjs", [], { domains: ["workout", "history", "progress"], seconds: 79 }),
     s("test/history-edit.mjs", [], { seconds: 42 }),

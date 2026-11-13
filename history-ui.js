@@ -688,8 +688,8 @@ function historyReadingView(s,rows){
     return`<section class="histlift" data-lift="${esc(g.key)}" data-history-exercise-id="${esc(exerciseId)}"><div class="histlift__head"><h3 class="histlift__name">${esc(shownName(g.rows[0]))}</h3>`+
       `<span class="histlift__tags">${record}${historyOutcomeMark(g,sid)}</span></div>`+
       (before?`<p class="histlift__before">${esc(before)}</p>`:"")+
-      `<div class="histlift__ledger" style="--history-metric-count:${count}" tabindex="0" role="region" aria-label="${esc(shownName(g.rows[0]))}">`+
-      groupHeader+`<div class="histlift__sets">${setRows}</div></div></section>`}).join("");
+      `<div class="histlift__ledger-frame"><span class="histlift__overflow" aria-hidden="true">↔</span><div class="histlift__ledger" style="--history-metric-count:${count}" tabindex="0" role="region" aria-label="${esc(shownName(g.rows[0]))}">`+
+      groupHeader+`<div class="histlift__sets">${setRows}</div></div></div></section>`}).join("");
   // The figure in Sans with its unit once, small, as the finish screen draws it (#621).
   const total=(value,label,unit)=>`<div><b>${esc(value)}${unit?`<small>${esc(unit)}</small>`:""}</b><span>${esc(label)}</span></div>`;
   const totals=total(historyInt(setCount),setCount===1?t("plural.set.one"):t("plural.set.other"))+
@@ -950,7 +950,39 @@ function renderHistoryCalendar(index){const el=$("#historyCalendar");if(!el)retu
   $("#calPrev").onclick=()=>{if(histMonth.m===0){histMonth={y:histMonth.y-1,m:11}}else histMonth={y:histMonth.y,m:histMonth.m-1};renderHistoryCalendar(index)};
   $("#calNext").onclick=()=>{if(histMonth.m===11){histMonth={y:histMonth.y+1,m:0}}else histMonth={y:histMonth.y,m:histMonth.m+1};renderHistoryCalendar(index)}}
 
+let historyLedgerObserver=null;
+function bindHistoryLedgers(){
+  const fit=ledger=>{
+    if(!ledger.isConnected||!ledger.clientWidth)return;
+    const frame=ledger.parentElement;
+    frame.classList.remove("is-compact-ledger","is-value-fit");
+    const overflows=()=>ledger.scrollWidth>ledger.clientWidth+1;
+    // Wrap headings first. If their set label still reserves too much room, put it above the column headings.
+    if(overflows())frame.classList.add("is-compact-ledger");
+    // The final minimum belongs to the values, not a long heading. Keep all heading text by letting it wrap further.
+    if(overflows())frame.classList.add("is-value-fit");
+    // If even the value minimum cannot fit, scroll with readable whole-word headings.
+    if(overflows())frame.classList.remove("is-value-fit");
+    frame.classList.toggle("is-overflowing",overflows());
+  };
+  const ledgers=$$(".histlift__ledger");
+  if(!ledgers.length)return;
+  ledgers.forEach(fit);
+  if(typeof ResizeObserver==="function"){
+    historyLedgerObserver=new ResizeObserver(entries=>{
+      const changed=new Set(entries.map(({target})=>target.closest(".histlift__ledger")));
+      changed.forEach(ledger=>ledger&&fit(ledger));
+    });
+    for(const ledger of ledgers){
+      historyLedgerObserver.observe(ledger);
+      historyLedgerObserver.observe(ledger.querySelector(".histpage__cols"));
+      historyLedgerObserver.observe(ledger.querySelector(".histlift__sets"));
+    }
+  }
+}
+
 function renderHistory(source=state.log){
+  historyLedgerObserver?.disconnect();
   const selected=historySelection.mode!=="calendar";
   const selectionEl=$("#historySelection"),freqEl=$("#historyFreq"),recent=$("#historyRecentLabel"),tableDetails=$("#historyTable")?.closest("details");
   const listControls=[$("#historySearchBtn"),$("#historyCalBtn"),$("#historyExportBtn")];
@@ -978,7 +1010,7 @@ function renderHistory(source=state.log){
       :`<div class="history-selection__head"><button type="button" class="back-link" data-history-back><span class="chevron" aria-hidden="true"></span>${esc(t("history.title"))}</button>`+
       `<div class="history-selection__date"><span class="section-label">${esc(t("history.selected"))}</span><h3 data-history-selection-heading tabindex="-1">${esc(longDate)}</h3></div></div>`;
     $("#sessions").innerHTML=body;$("#historyTable").innerHTML="";
-    bindHistorySelection();return}
+    bindHistorySelection();bindHistoryLedgers();return}
   $("#history")?.classList.remove("is-session-page","is-session-edit");
   recent?.classList.remove("hidden");tableDetails?.classList.remove("hidden");
   listControls.forEach(b=>b?.classList.remove("hidden"));selectionEl?.classList.add("hidden");selectionEl&&(selectionEl.innerHTML="");
