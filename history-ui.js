@@ -691,7 +691,14 @@ function historyReadingView(s,rows){
       `<div class="histlift__ledger-frame"><span class="histlift__overflow" aria-hidden="true">↔</span><div class="histlift__ledger" style="--history-metric-count:${count}" tabindex="0" role="region" aria-label="${esc(shownName(g.rows[0]))}">`+
       groupHeader+`<div class="histlift__sets">${setRows}</div></div></div></section>`}).join("");
   // The figure in Sans with its unit once, small, as the finish screen draws it (#621).
-  const total=(value,label,unit)=>`<div><b>${esc(value)}${unit?`<small>${esc(unit)}</small>`:""}</b><span>${esc(label)}</span></div>`;
+  const separator=new Intl.NumberFormat(historyLocale()).formatToParts(1000).find(part=>part.type==="group").value;
+  const total=(value,label,unit)=>{
+    const groups=value.split(separator);
+    const figure=groups.map((group,i)=>{
+      const last=i===groups.length-1;
+      return`<span class="histpage__total-group">${esc(group+(last?"":separator))}${last&&unit?`<small>${esc(unit)}</small>`:""}</span>`
+    }).join("<wbr>");
+    return`<div><b>${figure}</b><span>${esc(label)}</span></div>`};
   const totals=total(historyInt(setCount),setCount===1?t("plural.set.one"):t("plural.set.other"))+
     (hasStrengthProjection?total(historyInt(toDisplay(volume)),t("stats.cap.moved"),unitLabel())+
       total(historyInt(prLifts.size),t("stats.metric.prs")):"");

@@ -218,8 +218,11 @@ async function readHistoryMoved(page, sessions) {
     await page.locator(`#sessions .hist-row[data-sess="${session}"] .session__open`).click();
     const reading = page.locator(`.session--read[data-reading="${session}"]`);
     await reading.waitFor({ state: "visible", timeout: 10000 });
-    moved[session] = movedNumber(await reading.evaluate(root => [...root.querySelectorAll(".histpage__totals > div")]
-      .find(cell => /moved/i.test(cell.querySelector("span")?.textContent || ""))?.querySelector("b")?.firstChild?.textContent.trim() ?? null));
+    moved[session] = movedNumber(await reading.evaluate(root => {
+      const cell = [...root.querySelectorAll(".histpage__totals > div")]
+        .find(cell => /moved/i.test(cell.querySelector(":scope > span")?.textContent || ""));
+      return cell?.querySelector("b")?.textContent.replace(cell.querySelector("small")?.textContent || "", "").trim() ?? null;
+    }));
     await page.locator("#history [data-history-back]").click();
   }
   await page.locator('nav button[data-view="log"]').click();

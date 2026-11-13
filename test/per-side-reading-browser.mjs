@@ -172,8 +172,8 @@ async function readSession(page, sessionId) {
   return reading.evaluate(root => ({
     totals: [...root.querySelectorAll(".histpage__totals > div")].map(cell => ({
       // The figure alone; its unit is said once after it, small (#621's stat treatment).
-      value: cell.querySelector("b")?.firstChild?.textContent.trim() || "",
-      label: cell.querySelector("span")?.textContent.trim() || "",
+      value: cell.querySelector("b")?.textContent.replace(cell.querySelector("small")?.textContent || "", "").trim() || "",
+      label: cell.querySelector(":scope > span")?.textContent.trim() || "",
     })),
     lifts: [...root.querySelectorAll("section[data-history-exercise-id]")].map(section => ({
       exerciseId: section.dataset.historyExerciseId,
