@@ -13,7 +13,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(import.meta.url);
 const Engine = require(path.join(root, "progression-engine.js"));
 const Metrics = require(path.join(root, "exercise-metrics.js"));
-assert.equal(Engine.ENGINE_VERSION, "078.1");
+assert.equal(Engine.ENGINE_VERSION, "078.2");
 assert.equal(Engine.RIR_CREDIT_CAP, 5);
 assert.equal(Engine.FORMULA_VERSION, "rir-adjusted-epley@067.1");
 

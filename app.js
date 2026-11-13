@@ -6817,6 +6817,47 @@ function loadGridKg(step){
   const loads=[];
   for(let k=1;k<=2000&&k*step<=1000+1e-9;k++)loads.push(Math.round(k*step*1000)/1000);
   return loads}
+/* The dumbbell ladder (owner rule, 2026-11-13): a dumbbell movement's loads are the dumbbells a gym stocks, per hand
+   (starting-loads.js), unless the lifter set the movement's own step. The engine's suggestions and calibration bounds,
+   the opening loads, the wheel and the ± steppers all read it from here. Null for any other movement. */
+function dumbbellLadderKg(exerciseId,equipmentId=null){
+  const own=+state.programMeta?.loadingConfiguration?.byExerciseId?.[exerciseId]?.loadStepKg;
+  const loads=typeof window!=="undefined"?window.RepForgeStartingLoads:null,exercise=rawExercise(exerciseId);
+  if(!loads?.isDumbbell||!exercise||(Number.isFinite(own)&&own>0))return null;
+  const equipmentName=equipmentId?rawCatalogObject(equipmentId)?.name||null:null;
+  return loads.isDumbbell({exercise,lookup:rawCatalogObject,equipmentName})?loads.dumbbellLoadsKg(state.settings.unit):null}
+/** The loads a movement can take, in kg: its dumbbell ladder, else the lifter's step grid. */
+function availableLoadsKg(exerciseId,equipmentId=null){
+  const ladder=dumbbellLadderKg(exerciseId,equipmentId);
+  return ladder?[...ladder]:loadGridKg(loadStepKg(exerciseId))}
+/** The dumbbell ladder for the set a Focus key names (`exId_n` or a field key under it), or null. */
+function setLoadLadderKg(key){
+  const target=draftTargetFromKey(key);
+  const set=activeWorkoutDraft?.exercises?.[target?.exerciseInstanceId]?.sets?.[target?.setId];
+  return set?dumbbellLadderKg(set.programmed?.sourceLibraryId,set.programmed?.equipmentId):null}
+/** A ladder pad: the gap to the neighbouring rung in its direction, or at an end of the ladder the last gap, resting. */
+function ladderPad(ladderKg,value,dir,unit){
+  const next=ladderNeighbour(ladderKg,value,dir),gap=Math.abs(next-(Number.isFinite(value)?value:0));
+  const step=fmt(Math.round((gap||Math.abs(next-ladderNeighbour(ladderKg,next,-dir)))*100)/100);
+  return{text:t("focus.shelf.pad_load",{sign:dir>0?"+":"−",step,unit}),off:gap===0}}
+/** A dumbbell lift's pads follow its load field as it changes. */
+function syncLadderPads(input){
+  const key=input?.dataset?.k,ladder=key&&/_metric_/.test(key)?setLoadLadderKg(key):null;if(!ladder)return;
+  const target=draftTargetFromKey(key),metric=activeWorkoutDraft?.exercises?.[target?.exerciseInstanceId]?.sets?.[target?.setId]
+    ?.programmed?.metrics?.find(item=>item.id===target.metricId);
+  const value=parseDec(input.value);
+  $$(`.stepbtn[data-step="${CSS.escape(key)}"]`).forEach(button=>{
+    const view=ladderPad(ladder,value,+button.dataset.dir,metricDisplayUnit(metric));
+    button.textContent=view.text;button.disabled=view.off})}
+/** The ladder's rungs in the lifter's unit. */
+const ladderRungs=ladderKg=>ladderKg.map(kg=>Math.round(toDisplay(kg)*100)/100);
+/** The neighbouring rung from a displayed load: the next one up or down, or from between rungs the one on that side.
+ *  It stays at either end. */
+function ladderNeighbour(ladderKg,current,dir){
+  const rungs=ladderRungs(ladderKg),eps=1e-6,value=Number.isFinite(current)?current:0;
+  if(dir>0)return rungs.find(rung=>rung>value+eps)??rungs[rungs.length-1];
+  const below=rungs.filter(rung=>rung<value-eps);
+  return below.length?below[below.length-1]:rungs[0]}
 function sessionBodyweightKg(){
   const live=activeWorkoutDraft?.session?.bodyweight;
   if(live!=null&&live!==""&&+live>0)return+live;
@@ -6836,7 +6877,7 @@ function materialBodyweightCoefficient(coefficient,loadingConvention){
 function slotLoadingContext(slot){
   const projection=slotLoadingProjection(slot),{loadingConvention,executionMode,externalLoadMultiplier}=projection;
   const coefficient=materialBodyweightCoefficient(slot.loadingModel?.bodyweightCoefficient,loadingConvention),bodyweight=sessionBodyweightKg();
-  return{equipmentId:null,availableLoadsKg:loadGridKg(loadStepKg(slot.exerciseId)),loadingConvention,
+  return{equipmentId:null,availableLoadsKg:availableLoadsKg(slot.exerciseId,slot.equipmentId),loadingConvention,
     bodyweightContributionEnabled:coefficient>0&&bodyweight>0,bodyweightKg:bodyweight||null,
     executionMode,externalLoadMultiplier}}
 function recommendation(ex,{savedHistoryOnly=false}={}){
@@ -8198,7 +8239,7 @@ function findingReadings(){
     const measurement=log.filter(row=>Number(row.loadingContext?.bodyweightKg??row.bodyweight)>0).slice().sort(compareLogChronology).at(-1);
     const bodyweight=Number(measurement?.loadingContext?.bodyweightKg??measurement?.bodyweight)||null;
     return plans.filter(plan=>!request.keys||request.keys.includes(plan.key)).flatMap(plan=>{
-    const{slot,key}=plan,context={...plan.projection,equipmentId:null,availableLoadsKg:loadGridKg(loadStepKg(slot.exerciseId)),
+    const{slot,key}=plan,context={...plan.projection,equipmentId:null,availableLoadsKg:availableLoadsKg(slot.exerciseId,slot.equipmentId),
       bodyweightKg:bodyweight,bodyweightContributionEnabled:materialBodyweightCoefficient(slot.loadingModel?.bodyweightCoefficient,plan.projection.loadingConvention)>0&&bodyweight>0};
     const first=cycles.get(cycle).find(item=>item.slotId===slot.id);if(!first)return[];
     const history=progressionHistoryFor(first.exerciseId,first.metricIds,plan.projection,slot.metricDefinitions,log);
@@ -10261,7 +10302,7 @@ function focusRamp(ex,n,r){
   const metrics=draftSetMetrics(set),loadMetric=metrics.find(metric=>["loadKg","loadPerSideKg","persistentLoadPerSideKg"].includes(metric.semantic));
   const repsMetric=metrics.find(metric=>["reps","repsPerSide"].includes(metric.semantic));
   if(metrics.length!==2||!loadMetric||!repsMetric||!ex.min)return null;
-  const grid=loadGridKg(loadStepKg(ex.libraryId)),exercise=rawExercise(ex.libraryId);
+  const grid=availableLoadsKg(ex.libraryId,set.programmed.equipmentId),exercise=rawExercise(ex.libraryId);
   const equipmentName=set.programmed.equipmentId?rawCatalogObject(set.programmed.equipmentId)?.name:null;
   const recorded=set.startingLoad;
   const opening=recorded?{loadKg:recorded.openingKg,basis:recorded.basis}
@@ -10910,7 +10951,13 @@ function shelfPadsHtml(ex,n,ui,vals,{peek}){
     const load=["loadKg","assistanceKg","loadPerSideKg","persistentLoadPerSideKg"].includes(metric.semantic);
     const unit=metricDisplayUnit(metric),step=load?shelfLoadStep():"1";
     const attrs=' data-step="'+key+"_metric_"+metric.id+'"';
+    // A dumbbell lift's pads say how far each rung is from the load in the field; at an end of the ladder that pad rests.
+    const ladder=load?setLoadLadderKg(key):null;
+    const inputKey=`${key}_metric_${metric.id}`,set=ladder?draftSetAt(ex.id,n):null;
+    const shown=ladder?parseDec(pendingFieldValue(inputKey)??(document.querySelector(`[data-k="${CSS.escape(inputKey)}"]`)?.value
+      ||metricTextValue(set?.edited?.metrics?.[metric.id]??"",metric))):NaN;
     return [-1,1].map(dir=>{
+      if(ladder){const view=ladderPad(ladder,shown,dir,unit);return pad(dir,view.text,{attrs,off:view.off})}
       const text=reps?t("focus.shelf.pad_reps",{sign:dir>0?"+":"−"})
         :load?t("focus.shelf.pad_load",{sign:dir>0?"+":"−",step,unit})
           :(dir>0?"+":"−")+"1"+(unit?" "+unit:"");
@@ -10991,6 +11038,12 @@ function wheelLoadValues(step,current){
   const count=Math.max(0,Math.round(max/step));
   const out=[];
   for(let i=0;i<=count;i++)out.push(Math.round(i*step*100)/100);
+  if(Number.isFinite(current)&&current>=0&&!out.some(v=>Math.abs(v-current)<1e-6)){
+    out.push(Math.round(current*100)/100);out.sort((a,b)=>a-b)}
+  return out}
+/** A dumbbell ladder's rungs, with the field's current value included when it sits between them. */
+function ladderWheelValues(ladderKg,current){
+  const out=ladderRungs(ladderKg);
   if(Number.isFinite(current)&&current>=0&&!out.some(v=>Math.abs(v-current)<1e-6)){
     out.push(Math.round(current*100)/100);out.sort((a,b)=>a-b)}
   return out}
@@ -11113,7 +11166,9 @@ function openWheelSheet(key,id,kind){
   const range=kind==="reps"?wheelRepsRange(target):null;
   const typed=parseDec(input.value);
   const current=Number.isFinite(typed)?typed:wheelOpeningValue(target,kind,range);
-  const values=kind==="load"?wheelLoadValues(step,current):wheelRepsValues(current);
+  // A dumbbell lift's wheel offers its ladder (owner rule, 2026-11-13); any other load steps by the lifter's jump.
+  const ladder=kind==="load"?setLoadLadderKg(`${key}_${id}`):null;
+  const values=kind==="load"?(ladder?ladderWheelValues(ladder,current):wheelLoadValues(step,current)):wheelRepsValues(current);
   const index=wheelNearestIndex(values,Number.isFinite(current)?current:values[0]);
   // An empty field's suggestion is what the wheel shows, so Done applies it; a typed value is already in the draft.
   wheelUi={key,id,kind,input,unit,label,values,range,index,lastCommitted:Number.isFinite(typed)?values[index]:null,openedIndex:index};
@@ -11880,6 +11935,7 @@ function bindWorkout(){
   $$("#workout [data-ramp-skip]").forEach(button=>button.onclick=()=>startFocusRamp(button.dataset.rampSkip,+button.dataset.rampN,true));
   $w("input").forEach(i=>{i.oninput=async()=>{const row=i.closest(".shelf__field"),target=draftTargetFromKey(i.dataset.k);
     const padDir=padTap.get(i)||0;padTap.delete(i);
+    syncLadderPads(i);
     if(!activeWorkoutDraft||!target?.field)return;
     row?.classList.remove("is-suggested");
     // The write may wait on the lock while the lifter moves on and the shelf is rebuilt: the value is held for
@@ -11973,14 +12029,17 @@ function bindWorkout(){
     if(target?.metricId){
       const metric=activeWorkoutDraft?.exercises?.[target.exerciseInstanceId]?.sets?.[target.setId]?.programmed?.metrics?.find(item=>item.id===target.metricId);
       const cur=parseDec(inp.value)||0,load=["loadKg","assistanceKg","loadPerSideKg","persistentLoadPerSideKg"].includes(metric?.semantic);
+      // A dumbbell lift steps a rung of its ladder at a time.
+      const ladder=load?setLoadLadderKg(key):null;
       const step=load?(parseDec(shelfLoadStep())||1):1;
-      inp.value=fmtPlain(Math.max(0,Math.round((cur+step*dir)*10)/10));
+      inp.value=fmtPlain(ladder?ladderNeighbour(ladder,cur,dir):Math.max(0,Math.round((cur+step*dir)*10)/10));
     }else if(/_reps$|_rir$/.test(key)){
       const cur=parseDec(inp.value)||0;inp.value=fmtPlain(Math.max(0,cur+dir));
     }else{
+      const ladder=setLoadLadderKg(key);
       const incKg=parseDec(state.settings.minJump)||2.5,curKg=fromDisplay(inp.value||0),
         nextKg=Math.max(0,Math.round((curKg+incKg*dir)/incKg)*incKg);
-      inp.value=fmtPlain(toDisplay(nextKg));
+      inp.value=fmtPlain(ladder?ladderNeighbour(ladder,toDisplay(curKg),dir):toDisplay(nextKg));
     }
     padTap.set(inp,dir);
     await inp.oninput?.()});
@@ -26286,7 +26345,11 @@ function engineWhyRows(ex,rec,n=1){
     {rir:fmt(rir),reps,load:fmtLoad(load),unit:u})}));
   const loads=(assumptions.availableLoadsKg||[]).slice().sort((a,b)=>a-b);
   const steps=loads.slice(1).map((value,index)=>Math.round((value-loads[index])*1000)/1000).filter(step=>step>0);
-  if(steps.length)rows.push(whyRow("step",{text:t("why.engine.step",{step:fmtLoad(Math.min(...steps)),unit:u})}));
+  // A ladder (the dumbbell rack) has two step sizes: say both and where the larger one starts.
+  const sizes=[...new Set(steps)],change=steps.findIndex(step=>step!==steps[0]);
+  const ladder=sizes.length===2&&change>0&&steps.slice(change).every(step=>step===steps[change]);
+  if(ladder)rows.push(whyRow("step",{text:t("why.engine.step_ladder",{small:fmtLoad(steps[0]),at:fmtLoad(loads[change]),large:fmtLoad(steps[change]),unit:u})}));
+  else if(steps.length)rows.push(whyRow("step",{text:t("why.engine.step",{step:fmtLoad(Math.min(...steps)),unit:u})}));
   if(assumptions.bodyweightContributionEnabled&&assumptions.bodyweightContributionKg>0){
     if(loadMetric&&["loadPerSideKg","persistentLoadPerSideKg"].includes(loadMetric.semantic))
       rows.push(whyRow("per_side_bodyweight",{text:t("why.engine.per_side_bodyweight",{
