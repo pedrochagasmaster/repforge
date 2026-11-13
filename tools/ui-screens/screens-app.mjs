@@ -500,6 +500,11 @@ export function appState(key, lang) {
   if (key === "today/no-program" || key === "program/no-program") {
     return emptyEntryState(lang);
   }
+  if (key === "history/metric-overflow") {
+    const drawn=directionDState(),exercise=drawn.program.find(row=>isWeightRepsSlot(definitionSlot(drawn.programMeta,row)));
+    drawn.log=[metricLogRow(drawn.programMeta,exercise,{session:"history-metric-overflow",date:CAPTURE_NOW.slice(0,10),set:1,load:999.5,reps:999999999,rir:2})];
+    return localeState(drawn,lang);
+  }
   if (key === "history/per-side-session" || key === "workout/focus-per-side") return emptyEntryState(lang);
   if (["workout/focus-ramp","workout/focus-ramp-ratio","workout/focus-ramp-substitution","workout/focus-ramp-changed-movement","workout/focus-ramp-floor","workout/focus-ramp-easy","history/ramp-rows"].includes(key)) return emptyEntryState(lang);
   if (key === "workout/why-setup") return emptyEntryState(lang);
@@ -3120,6 +3125,13 @@ export const APP_SCENARIOS = {
     await page.waitForFunction(() => document.querySelector("#historyTopbar")?.classList.contains("is-scrolled"), undefined, { timeout: 20000 });
     await page.waitForFunction(() => Number(getComputedStyle(document.querySelector("#historyTopbar .topbar__title")).opacity) === 1, undefined, { timeout: 20000 });
     await sleep(page, 300);
+  },
+  "history/metric-overflow": async page=>{
+    await view(page,"history");
+    await page.locator('#sessions [data-sess="history-metric-overflow"] .session__open').click();
+    await page.locator('.session--read .histlift__ledger').waitFor();
+    await page.waitForFunction(()=>!document.body.classList.contains("is-pushing"));
+    await page.locator('.histlift__ledger-frame').evaluate(el=>el.scrollIntoView({block:"center",behavior:"instant"}));
   },
   "history/per-side-session": async (page) => {
     await installPerSideHistory(page);
