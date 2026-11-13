@@ -18706,10 +18706,13 @@ function renderLibraryBrowse({through=null}={}){
     ?rows.slice(0,first).map(e=>libraryRowHtml(e)).join("")
     :`<p class="pick__empty">${esc(t("picker.empty",{q:libFlow.query}))}</p>`;
   let next=first;
+  list.setAttribute("aria-busy",String(next<rows.length));
   const appendChunk=()=>{
     if(!libFlow||render!==libraryRenderToken||!list.isConnected||next>=rows.length)return;
     list.insertAdjacentHTML("beforeend",rows.slice(next,next+LIBRARY_CHUNK_ROWS).map(e=>libraryRowHtml(e)).join(""));
-    next+=LIBRARY_CHUNK_ROWS;requestAnimationFrame(appendChunk)};
+    next+=LIBRARY_CHUNK_ROWS;
+    if(next>=rows.length)list.setAttribute("aria-busy","false");
+    else requestAnimationFrame(appendChunk)};
   // The rest waits until the view's push has settled, so it never competes
   // with the transition for frames.
   if(next<rows.length)setTimeout(()=>requestAnimationFrame(appendChunk),LIBRARY_DEFER_MS);
