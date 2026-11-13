@@ -3,6 +3,7 @@
 import { pathToFileURL } from "url";
 import { launchChromium } from "./browser.mjs";
 import { installSeedProgram } from "./fixtures/seed-program.mjs";
+import { openCatalogState } from "./fixtures/catalog-state.mjs";
 import { metricLogRow } from "./fixtures/history-metric-rows.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
@@ -946,9 +947,61 @@ async function runMetricGridGeometryChecks(browser) {
   }
 }
 
+async function runCatalogMetricFitChecks(browser) {
+  console.log("\nHistory catalog ledgers fit before horizontal scrolling");
+  for (const key of ["history/session", "history/ramp-rows", "history/per-side-session"])
+    for (const lang of ["en", "pt"]) for (const width of [320, 390, 430]) for (const text of ["normal", "text200"]) {
+      if (process.env.HISTORY_METRIC_CASE && process.env.HISTORY_METRIC_CASE !== `${key}:${lang}:${width}:${text}`) continue;
+      const opened = await openCatalogState(browser, key, width, lang, text, { height: 844, safe: { top: 0, bottom: 0 } });
+      try {
+        const read = await opened.page.evaluate(() => [...document.querySelectorAll('.histlift__ledger')].map(ledger => {
+          const port = ledger.getBoundingClientRect(), problems = [], headers = [], edges = [];
+          for (const row of ledger.querySelectorAll('.history-metric-grid')) {
+            const cells = [...row.children], textBoxes = [];
+            edges.push(cells.map(cell => cell.getBoundingClientRect().right));
+            for (const cell of cells) {
+              const box = cell.getBoundingClientRect(), walker = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT);
+              for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+                if (!node.textContent.trim()) continue;
+                const range = document.createRange(); range.selectNodeContents(node);
+                const rects = [...range.getClientRects()].filter(r => r.width > 0);
+                for (const r of rects) {
+                  if (r.left < box.left - 1 || r.right > box.right + 1 || r.top < box.top - 1 || r.bottom > box.bottom + 1) problems.push(`spill: ${cell.textContent}`);
+                  textBoxes.push({ cell, left: r.left, right: r.right, top: r.top, bottom: r.bottom });
+                }
+                if (cell.closest('.histlift__sets') && rects.length !== 1) problems.push(`wrapped value: ${node.textContent}`);
+              }
+              if (cell.closest('.histpage__cols')) headers.push({ text: cell.textContent, font: getComputedStyle(cell).fontSize, lines: box.height / parseFloat(getComputedStyle(cell).lineHeight) });
+            }
+            for (let i = 0; i < textBoxes.length; i++) for (let j = i + 1; j < textBoxes.length; j++) {
+              const a = textBoxes[i], b = textBoxes[j];
+              if (a.cell !== b.cell && Math.min(a.right, b.right) > Math.max(a.left, b.left) + 1 && Math.min(a.bottom, b.bottom) > Math.max(a.top, b.top) + 1) problems.push('overlapping metric text');
+            }
+          }
+          if (edges.some(row => row.some((right, i) => Math.abs(right - edges[0][i]) > 1))) problems.push('header/row alignment');
+          const last = ledger.querySelector('.histlift__sets .ledgerline:last-child .fx-col:last-child').getBoundingClientRect();
+          return { name: ledger.getAttribute('aria-label'), width: ledger.clientWidth, content: ledger.scrollWidth,
+            allVisible: ledger.scrollLeft === 0 && ledger.scrollWidth <= ledger.clientWidth + 1 && last.right <= port.right + 1,
+            valueFont: getComputedStyle(ledger.querySelector('.histlift__sets .ledgerline__vals')).fontSize, headers, problems };
+        }));
+        const label = `${key} ${lang} ${width}px ${text}`;
+        const mustFit = text === "normal" || (width >= 390 && key !== "history/per-side-session");
+        assert(read.length > 0 && read.every(x => !x.problems.length), `${label}: no metric overlaps, clips or wraps and headers align`, JSON.stringify(read));
+        if (mustFit) assert(read.every(x => x.allVisible), `${label}: every column including reps left is visible without scrolling`, JSON.stringify(read));
+        console.log(`  layout ${label}: ${JSON.stringify(read)}`);
+      } finally { await opened.context.close(); }
+    }
+}
+
 async function main() {
   const browser = await launchChromium();
   try {
+    if (process.env.HISTORY_METRIC_CASE) {
+      await runCatalogMetricFitChecks(browser);
+      console.log(`history geometry: ${results.passed} passed, ${results.failed} failed`);
+      process.exitCode = results.failed ? 1 : 0;
+      return;
+    }
     const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
     const page = await context.newPage();
     page.on("dialog", (dialog) => dialog.accept());
@@ -971,6 +1024,7 @@ async function main() {
     await runSessionPageBackChecks(browser);
     await runEverySetChecks(browser);
     await runMetricGridGeometryChecks(browser);
+    await runCatalogMetricFitChecks(browser);
   } finally {
     await browser.close();
   }
