@@ -1725,7 +1725,11 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
 .ledgerline__resline{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
 /* Sized to its content: it is read in the rest, so it stays low enough to keep the lift in view. */
 .sheet.sheet--maxset{height:auto}
+.maxset__scroll{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
 .sheetbody--maxset{display:grid;gap:var(--space-8);padding-top:var(--space-4)}
+.maxset__scroll .sheetbody--maxset{flex:none;overflow:visible}
+.sheet--maxset .sheetfoot{flex:none}
+.sheet--maxset .sheetfoot>button{height:auto;padding-block:var(--space-8)}
 .maxset__count{display:grid;grid-template-columns:72px minmax(0,1fr) 72px;align-items:center;margin-bottom:var(--space-4)}
 .maxset__pad{height:56px;min-height:56px;font-size:var(--font-size-metric)}
 .maxset__n{text-align:center;font-family:var(--font-training-data);font-size:var(--font-size-display);font-weight:var(--weight-semibold);line-height:1;font-variant-numeric:tabular-nums;color:var(--color-ink)}
@@ -1792,6 +1796,31 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
 .resttip__x{position:absolute;top:0;right:0;display:grid;place-items:center;width:var(--control-target);height:var(--control-target);padding:0;border:0;background:transparent;color:inherit;opacity:.75;cursor:pointer}
 .resttip__x .icon-mask{width:18px;height:18px;background:currentColor}
 .resttip :focus-visible{outline:2px solid currentColor;outline-offset:-2px;border-radius:var(--radius-button)}
+/* The invitation and rest clock share one docked line above the input fields. */
+.focus-shelf > .resttip[data-tip="max-set"]{
+  position:relative;inset:auto;display:flex;align-items:center;gap:0;min-width:0;min-height:var(--control-target);
+  padding:0;margin:0;border:0;border-radius:var(--radius-none);box-shadow:none;
+  background:var(--control-quiet-bg);color:var(--color-ink);font-size:min(var(--font-size-body-small),var(--large-cap-small));
+}
+.resttip[data-tip="max-set"] .resttip__acts{flex:1;min-width:0;justify-content:space-between;margin:0;gap:0}
+.resttip[data-tip="max-set"] :is(.resttip__no,.resttip__yes){
+  min-width:var(--control-target);padding:0 var(--space-4);white-space:nowrap;
+  background:var(--control-quiet-bg);color:var(--control-quiet-ink);opacity:1;
+}
+.resttip[data-tip="max-set"] .resttip__yes{flex:1 1 0;text-align:left}
+.resttip[data-tip="max-set"] .resttip__no{flex:none}
+.resttip[data-tip="max-set"] .resttip__full{position:fixed;left:0;top:0;width:max-content;visibility:hidden;pointer-events:none}
+.resttip[data-tip="max-set"] .resttip__acts > button:hover{background:var(--well)}
+.resttip[data-tip="max-set"] .resttip__acts > button.is-pressed{background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
+.resttip[data-tip="max-set"] :focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
+.resttip[data-tip="max-set"] .resttab{position:static;flex:none;inset:auto;margin:0;width:auto;min-width:var(--control-target);max-width:none;padding:0 var(--space-2);border-radius:var(--radius-control)}
+.resttip[data-tip="max-set"] .resttab__label,.resttip[data-tip="max-set"] .resttab__chev{display:none}
+.resttip[data-tip="max-set"] .resttab__time{font-size:min(var(--font-size-body-small),var(--large-cap-supporting))}
+.workshelf.focus-shelf:has(.resttip[data-tip="max-set"]){row-gap:var(--space-8)}
+.exercise--focus.is-text-scaled .workshelf.focus-shelf:has(.resttip[data-tip="max-set"]){row-gap:var(--space-4)}
+article.exercise--focus:has(.resttip[data-tip="max-set"]) .fcard__context{padding-bottom:0}
+article.exercise--focus > .fx-cue__l1{flex:none;padding:0 var(--gut);font-size:min(var(--font-size-feature-title),var(--large-cap-value))}
+.maxset__explanation{margin:0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink)}
 
 /* ---- The wheel picker (Plan 075 phase 2W, ADR 0023 choice 8) ----
    A second tap on the selected Load or Reps field opens this in a fit sheet.
@@ -6362,7 +6391,9 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun-demo__test-scene{position:absolute;z-index:4;left:0;right:0;bottom:34px;background:var(--surface);border-radius:var(--radius-prominent);padding:var(--space-16);opacity:0;will-change:transform,opacity}
 .firstrun-demo__test-tip,.firstrun-demo__test-cue,.firstrun-demo__test-result{background:var(--bg);border-radius:var(--radius-none)}
 .firstrun-demo__test-backdrop{position:absolute;z-index:3;inset:80px 0 0;background:var(--bg);opacity:0}
-.firstrun-demo__test-tip .resttip{position:relative;inset:auto;margin:var(--space-16) 0 0}
+.firstrun-demo__test-tip{padding:0}
+.firstrun-demo__test-tip > .fcard__ledger{margin:0 var(--space-16) var(--space-16)}
+.workshelf.firstrun-demo__invite-shelf{border-radius:var(--radius-none)}
 .firstrun-demo__test-guess{bottom:0;padding:0 0 34px;overflow:hidden;border-radius:var(--radius-prominent) var(--radius-prominent) var(--radius-none) var(--radius-none)}
 .firstrun-demo__test-cue .fx-cue{margin:0}
 .firstrun-demo__test-cue .fcard__ledger{margin-top:var(--space-16)}

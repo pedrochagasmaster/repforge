@@ -29,7 +29,7 @@ import { CATALOG_PHONES, SAFE_AREA, inPool, openCatalogState } from "./fixtures/
 const BASE_URL = process.env.REPFORGE_URL || "http://localhost:8000/";
 const STATE_KEY = "repforge_v1";
 
-// FOCUS_GEOMETRY_ONLY=large,smallest runs just those sections (stability, large, smallest, standing, context, gestures); the default is all.
+// FOCUS_GEOMETRY_ONLY=large,smallest runs just those sections (stability, large, smallest, standing, context, test-set, guess, dismissal, gestures); the default is all.
 const only = (process.env.FOCUS_GEOMETRY_ONLY || "").split(",").filter(Boolean);
 const wants = (section) => !only.length || only.includes(section);
 
@@ -280,6 +280,185 @@ async function checkContextText(browser) {
   assert(!failures.length, "Focus context text is never clipped below the progress bars", failures.join(" | "));
 }
 
+async function checkTestSetPrompt(browser) {
+  const failures = [];
+  const cases = [];
+  for (const key of ["workout/max-set-prompt", "workout/max-set-recheck"])
+    for (const width of [320, 390, 430]) for (const lang of ["en", "pt"]) for (const text of ["normal", "text200"])
+      cases.push({ key, width, lang, text });
+  await inPool(cases, 3, async ({ key, width, lang, text }) => {
+      const opened = await openCatalogState(browser, key, width, lang, text, { height: width === 430 ? 932 : CATALOG_PHONES[width], safe: { top: 0, bottom: 0 } });
+      const label = `${key} ${width}px ${lang} ${text}`;
+      try {
+        for (const problem of focusCardProblems(await opened.page.evaluate(measureFocusCard, 0))) failures.push(`${label}: ${problem}`);
+        const measured = await opened.page.evaluate(() => {
+          const card = document.querySelector(".exercise.is-current");
+          const tip = card.querySelector('[data-tip="max-set"]');
+          const prompt = tip.getBoundingClientRect();
+          const covered = [".fx-cue", ".ledgerline--open"].filter(selector => {
+            const box = card.querySelector(selector).getBoundingClientRect();
+            return Math.min(box.right, prompt.right) > Math.max(box.left, prompt.left) + 1 &&
+              Math.min(box.bottom, prompt.bottom) > Math.max(box.top, prompt.top) + 1;
+          });
+          const region = card.querySelector(".fcard__context"), context = region.getBoundingClientRect();
+          const cut = [], walker = document.createTreeWalker(region, NodeFilter.SHOW_TEXT);
+          for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+            if (!node.textContent.trim()) continue;
+            const range = document.createRange(); range.selectNodeContents(node);
+            for (const rect of range.getClientRects())
+              if (rect.width > 1 && rect.height > 1 && rect.top < context.top - 0.5 && rect.bottom > context.top + 0.5)
+                cut.push({ text: node.textContent.trim(), top: rect.top, bottom: rect.bottom });
+          }
+          const cardBox = card.getBoundingClientRect(), shelf = card.querySelector(".focus-shelf").getBoundingClientRect();
+          const row = card.querySelector(".ledgerline--open").getBoundingClientRect();
+          const target = card.querySelector(".fx-cue__l1").getBoundingClientRect();
+          return { cut, covered, left: prompt.left, right: prompt.right, width: innerWidth, height: prompt.height,
+            rowWhole: row.top >= context.top - 1 && row.bottom <= context.bottom + 1,
+            targetWhole: target.top >= cardBox.top - 1 && target.bottom <= shelf.top + 1 };
+        });
+        if (measured.covered.length || measured.left < 0 || measured.right > measured.width || Math.abs(measured.height - 44) > 0.5)
+          failures.push(`${label}: prompt must be one 44px row without covering the target/open row or spilling: ${JSON.stringify(measured)}`);
+        if (measured.cut.length) failures.push(`${label}: context must start on a whole line before scrolling: ${JSON.stringify(measured)}`);
+        if (!measured.rowWhole || !measured.targetWhole)
+          failures.push(`${label}: target and current row must be whole without scrolling: ${JSON.stringify(measured)}`);
+        const actions = await opened.page.locator('.exercise.is-current .resttip__acts button').evaluateAll(buttons =>
+          buttons.map(button => {
+            const box = button.getBoundingClientRect();
+            const context = button.closest(".exercise").getBoundingClientRect();
+            const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+            return { text: button.innerText.trim(), width: box.width, height: box.height,
+              whole: box.top >= Math.max(0, context.top) - 1 && box.bottom <= Math.min(innerHeight, context.bottom) + 1 && box.left >= 0 && box.right <= innerWidth,
+              reachable: !!hit && button.contains(hit) };
+          }));
+        if (actions.length !== 2 || actions.some(action => action.width < 44 || action.height < 44 || !action.whole || !action.reachable))
+          failures.push(`${label}: both invitation actions must be visible 44px targets: ${JSON.stringify(actions)}`);
+        const copy = await opened.page.locator('.exercise.is-current [data-maxset-guess]').evaluate(button => {
+          const style = getComputedStyle(button), box = button.getBoundingClientRect();
+          const walker = document.createTreeWalker(button, NodeFilter.SHOW_TEXT);
+          const lines = [];
+          while (walker.nextNode()) {
+            const node = walker.currentNode, parentStyle = getComputedStyle(node.parentElement);
+            if (!node.textContent.trim() || parentStyle.visibility === "hidden" || !node.parentElement.getClientRects().length) continue;
+            const range = document.createRange(); range.selectNodeContents(node);
+            for (const rect of range.getClientRects()) lines.push({ left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom });
+          }
+          return { text: button.innerText.trim(), lines,
+            left: box.left + parseFloat(style.paddingLeft), right: box.right - parseFloat(style.paddingRight),
+            top: box.top, bottom: box.bottom, overflow: button.scrollWidth > button.clientWidth + 1 };
+        });
+        const full = lang === "en" ? "Test set? Guess your reps" : "Série-teste? Adivinhe suas reps";
+        const short = lang === "en" ? "Test set?" : "Série-teste?";
+        const expected = width === 320 && text === "text200" ? short : width >= 390 && text === "normal" ? full : null;
+        if (![full, short].includes(copy.text) || (expected && copy.text !== expected) || copy.lines.length !== 1 || copy.overflow ||
+            copy.lines.some(line => line.left < copy.left - 1 || line.right > copy.right + 1 || line.top < copy.top - 1 || line.bottom > copy.bottom + 1))
+          failures.push(`${label}: approved bar copy must fit on one whole, unclipped line (expected ${expected}): ${JSON.stringify(copy)}`);
+        const clock = await opened.page.locator("#restTab").evaluate(button => {
+          const box = button.getBoundingClientRect(), hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+          return { width: box.width, height: box.height, whole: box.top >= 0 && box.bottom <= innerHeight && box.left >= 0 && box.right <= innerWidth,
+            reachable: !!hit && button.contains(hit), label: button.getAttribute("aria-label") };
+        });
+        if (clock.width < 44 || clock.height < 44 || !clock.whole || !clock.reachable || !clock.label)
+          failures.push(`${label}: rest clock must remain a named, visible 44px target: ${JSON.stringify(clock)}`);
+        const guess = opened.page.locator('.exercise.is-current [data-maxset-guess]');
+        if (key.endsWith("prompt") && width === 430 && lang === "pt" && text === "normal") {
+          for (const [resizedWidth, expectedText] of [[337, short], [413, full], [430, full]]) {
+            await opened.page.setViewportSize({ width: resizedWidth, height: 932 });
+            await opened.page.waitForFunction(expected => document.querySelector('.exercise.is-current [data-maxset-guess]').innerText.trim() === expected, expectedText);
+            const resized = await guess.evaluate(button => {
+              const range = document.createRange(); range.selectNodeContents(button.querySelector(".resttip__label"));
+              const text = range.getBoundingClientRect(), box = button.getBoundingClientRect(), style = getComputedStyle(button);
+              return { fits: text.left >= box.left + parseFloat(style.paddingLeft) - 1 && text.right <= box.right - parseFloat(style.paddingRight) + 1 && text.top >= box.top && text.bottom <= box.bottom,
+                height: button.closest('[data-tip="max-set"]').getBoundingClientRect().height };
+            });
+            assert(resized.fits && resized.height === 44, `${label}: resized ${resizedWidth}px label fits in one 44px dock`, JSON.stringify(resized));
+          }
+        }
+        await guess.click();
+        await opened.page.locator("#maxSetSheet.is-open").waitFor({ state: "visible" });
+        assert(await opened.page.evaluate(key => document.querySelector("#maxSetInvite").textContent.includes(
+          t(key.endsWith("recheck") ? "maxset.invite_reason_recheck" : "maxset.invite_reason_learning")), key),
+          `${label}: the guess sheet keeps the full invitation reason`);
+        console.log(`  ${label}: ${JSON.stringify(measured)}`);
+      } finally {
+        await opened.context.close();
+      }
+  });
+  assert(!failures.length, "test-set prompts leave the target and open row readable", failures.join(" | "));
+  console.log("  24 test-set frames keep the target and open row whole, with both bar actions and the rest clock visible before scrolling");
+}
+
+async function checkTestSetGuess(browser) {
+  const failures = [], cases = [];
+  for (const width of [320, 390, 430]) for (const lang of ["en", "pt"]) for (const text of ["normal", "text200"])
+    cases.push({ width, lang, text });
+  await inPool(cases, 3, async ({ width, lang, text }) => {
+    const opened = await openCatalogState(browser, "workout/max-set-guess", width, lang, text,
+      { height: width === 430 ? 932 : CATALOG_PHONES[width], safe: { top: 0, bottom: 0 } });
+    try {
+      const measured = await opened.page.evaluate(() => {
+        const sheet = document.querySelector("#maxSetSheet"), results = [];
+        const originalPage = scrollY, originalFocus = document.querySelector(".exercise.is-current .fcard__context").scrollTop;
+        for (const element of sheet.querySelectorAll(".maxset__count,.maxset__rule,.maxset__safety:not([hidden])")) {
+          let scroller = element.parentElement;
+          while (scroller !== sheet && !(/auto|scroll/.test(getComputedStyle(scroller).overflowY) && scroller.scrollHeight > scroller.clientHeight)) scroller = scroller.parentElement;
+          if (scroller !== sheet) {
+            const box = element.getBoundingClientRect(), port = scroller.getBoundingClientRect();
+            scroller.scrollTop += box.top - port.top - (scroller.clientHeight - box.height) / 2;
+          }
+          const box = element.getBoundingClientRect(), port = scroller.getBoundingClientRect();
+          const foot = sheet.querySelector(".sheetfoot").getBoundingClientRect();
+          const top = Math.max(0, port.top, sheet.getBoundingClientRect().top), bottom = Math.min(innerHeight, port.bottom, foot.top);
+          const range = document.createRange(); range.selectNodeContents(element);
+          const glyphsWhole = [...range.getClientRects()].every(rect => rect.width < 1 || rect.height < 1 ||
+            (rect.top >= top - 1 && rect.bottom <= bottom + 1 && rect.left >= box.left - 1 && rect.right <= box.right + 1));
+          results.push({ name: element.className, top: box.top, bottom: box.bottom, portTop: top, portBottom: bottom,
+            whole: glyphsWhole && box.top >= top - 1 && box.bottom <= bottom + 1 && box.left >= 0 && box.right <= innerWidth });
+          for (const button of element.querySelectorAll("button")) {
+            const rect = button.getBoundingClientRect(), hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+            results.push({ name: button.id, whole: rect.width >= 44 && rect.height >= 44 && !!hit && button.contains(hit) });
+          }
+        }
+        for (const button of sheet.querySelectorAll(".sheetfoot button")) {
+          const box = button.getBoundingClientRect(), hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+          results.push({ name: button.id, whole: box.height >= 44 && box.width >= 44 && box.top >= 0 && box.bottom <= innerHeight + 1 && !!hit && button.contains(hit) });
+        }
+        return { results, pageStill: originalPage === scrollY, focusStill: originalFocus === document.querySelector(".exercise.is-current .fcard__context").scrollTop };
+      });
+      console.log(`  guess ${width}px ${lang} ${text}: ${JSON.stringify(measured)}`);
+      if (!measured.pageStill || !measured.focusStill || measured.results.some(result => !result.whole))
+        failures.push(`${width}px ${lang} ${text}: ${JSON.stringify(measured)}`);
+    } finally { await opened.context.close(); }
+  });
+  assert(!failures.length, "guess count, controls, guidance and actions fit or are reachable by scrolling inside the sheet", failures.join(" | "));
+}
+
+async function checkTestSetDismissal(browser) {
+  for (const lang of ["en", "pt"]) {
+    const opened = await openCatalogState(browser, "workout/max-set-prompt", 320, lang, "text200", { safe: { top: 0, bottom: 0 } });
+    try {
+      const time = await opened.page.locator("#restTab .resttab__time").textContent();
+      await opened.page.locator('.exercise.is-current [data-maxset-no]').click();
+      await opened.page.locator('.exercise.is-current [data-tip="max-set"]').waitFor({ state: "detached" });
+      assert(await opened.page.locator("#restTab").count() === 1 && await opened.page.locator(".restlight").count() === 1,
+        `${lang}: dismissing the invitation preserves one rest control and contour`);
+      const ordinary = await opened.page.locator("#restTab").evaluate(tab => ({
+        position: getComputedStyle(tab).position,
+        label: getComputedStyle(tab.querySelector(".resttab__label")).display,
+        chevron: getComputedStyle(tab.querySelector(".resttab__chev")).display,
+        raised: tab.getBoundingClientRect().top < tab.closest(".focus-shelf").getBoundingClientRect().top,
+      }));
+      assert(ordinary.position === "absolute" && ordinary.label !== "none" && ordinary.chevron !== "none" && ordinary.raised,
+        `${lang}: without the test-set bar the ordinary raised rest chip keeps its label and chevron`, JSON.stringify(ordinary));
+      assert(await opened.page.locator("#restTab .resttab__time").textContent() === time,
+        `${lang}: dismissal preserves the running rest`);
+      await opened.page.locator("#restTab").click();
+      await opened.page.locator("#restSheet.is-open").waitFor({ state: "visible" });
+    } finally {
+      await opened.context.close();
+    }
+  }
+}
+
 async function main() {
   const browser = await launchChromium();
 
@@ -396,6 +575,9 @@ async function main() {
     /* ======================================================================
      * 2. The shelf's action stays whole at large text (R7 V-02)
      * ====================================================================== */
+    if (wants("dismissal")) await checkTestSetDismissal(browser);
+    if (wants("test-set")) await checkTestSetPrompt(browser);
+    if (wants("guess")) await checkTestSetGuess(browser);
     if (wants("context")) await checkContextText(browser);
     if (wants("large")) await checkFocusStatesAtLargeText(browser);
     if (only.includes("standing")) { await checkStandingLedger(browser); await checkOpeningStandingLedger(browser); }

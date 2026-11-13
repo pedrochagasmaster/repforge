@@ -603,8 +603,8 @@ async function main() {
         .find(item => item.ordinal === 1);
       return set?.completion !== "pending";
     });
-    await candidatePage.waitForSelector(`${SHELF} .resttip[data-tip="max-set"]`, { state: "visible", timeout: 5000 });
-    await candidatePage.locator(`${SHELF} .resttip [data-maxset-guess]`).click();
+    await candidatePage.waitForSelector(`#workout .exercise.is-current .resttip[data-tip="max-set"]`, { state: "visible", timeout: 5000 });
+    await candidatePage.locator(`#workout .exercise.is-current .resttip [data-maxset-guess]`).click();
     await candidatePage.waitForSelector("#maxSetSheet.is-open", { timeout: 5000 });
   }
 

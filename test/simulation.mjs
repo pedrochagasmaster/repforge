@@ -4052,6 +4052,7 @@ async function main() {
       const saveBox = save?.getBoundingClientRect();
       return {
         wellH: card.querySelector(".focus-shelf").offsetHeight,
+        dockH: card.querySelector('[data-tip="max-set"]')?.getBoundingClientRect().height || 0,
         cueLines: card.querySelector(".fx-cue") ? 1 : 0,
         spill: card.scrollHeight - card.clientHeight,
         saveWhole: !!saveBox && saveBox.bottom <= cardBox.bottom + 1 && saveBox.height >= 44,
@@ -4087,10 +4088,11 @@ async function main() {
     "360×640 → Focus → log set 1 → the button for set 2 is still whole inside the card"
   );
   assert(
-    fitAfter.wellH === fitBefore.wellH,
-    "the shelf keeps its height when a set lands",
+    fitAfter.wellH - fitAfter.dockH === fitBefore.wellH - fitBefore.dockH &&
+      [fitBefore.dockH, fitAfter.dockH].every(height => height === 0 || height === 44),
+    "the shelf fields keep their height when a set lands; the test-set dock adds one 44px row",
     `before=${JSON.stringify(fitBefore)} after=${JSON.stringify(fitAfter)}`,
-    "Focus → log a set → only the ledger changes"
+    "Focus → log a set → fields keep their height; an offered test set adds its 44px dock"
   );
   assert(
     fitAfter.rowsWhole >= 1,

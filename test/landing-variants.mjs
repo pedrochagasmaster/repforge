@@ -844,12 +844,20 @@ async function finalPage(browser) {
     await waitForDockState(page, false);
     const exercise = Catalog.exercises.find(ex => ex.id === BENCH);
     assert(calibration.eligibility({exercise, lookup: id => Catalog.uuidIndex[id]}).eligible, 'the proof movement can take a test set');
-    for (const [time, selector, key] of [[14.5, '.firstrun-demo__test-tip', 'maxset.invite_title'],
+    for (const [time, selector, key] of [[14.5, '.firstrun-demo__test-tip', 'maxset.bar_label'],
       [15.8, '.firstrun-demo__test-guess', 'maxset.press_line'], [17.4, '.firstrun-demo__test-cue', 'maxset.fail_rule'],
       [19, '.firstrun-demo__test-result', 'maxset.guessed']]) {
       await page.evaluate(t => window.__repforgeLandingSeek(t), time);
-      const scene = await page.evaluate(sel => {const el=document.querySelector(sel);return {text:el?.textContent,opacity:el?Number(getComputedStyle(el).opacity):0}}, selector);
-      assert(scene.opacity === 1 && scene.text?.includes(tr(lang, key)), `[${lang}] test-set scene at ${time}s uses Focus copy`, JSON.stringify(scene));
+      const scene = await page.evaluate(sel => {
+        const el = document.querySelector(sel);
+        return { text: el?.textContent, opacity: el ? Number(getComputedStyle(el).opacity) : 0,
+          label: el?.querySelector(".resttip__label")?.innerText,
+          dismissal: el?.querySelector("[data-maxset-no]")?.innerText };
+      }, selector);
+      const saysFocusCopy = key === "maxset.bar_label"
+        ? [tr(lang, key), tr(lang, "maxset.bar_label_short")].includes(scene.label) && scene.dismissal === tr(lang, "maxset.not_now")
+        : scene.text?.includes(tr(lang, key));
+      assert(scene.opacity === 1 && saysFocusCopy, `[${lang}] test-set scene at ${time}s uses Focus copy`, JSON.stringify(scene));
     }
     await page.evaluate(() => window.__repforgeLandingSeek(22));
     const adaptation = await page.evaluate(() => ({
