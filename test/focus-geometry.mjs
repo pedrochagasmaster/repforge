@@ -252,8 +252,8 @@ async function checkContextText(browser) {
       cases.push({ key, width, lang, text, requireRow: text === "text200" });
   for (const { key, width, lang, text, requireRow } of cases) {
     const label = `${key} ${width}px ${lang} ${text}`;
-    const opened = await openCatalogState(browser, key, width, lang, text,
-      width === 320 ? { safe: { top: 0, bottom: 0 } } : {});
+    // Match the catalog frames' insets; the standing section separately covers device safe areas.
+    const opened = await openCatalogState(browser, key, width, lang, text, { safe: { top: 0, bottom: 0 } });
     try {
       const measured = await opened.page.evaluate(() => {
         const context = document.querySelector(".exercise.is-current .fcard__context");
