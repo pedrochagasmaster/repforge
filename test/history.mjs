@@ -1016,11 +1016,63 @@ async function runCatalogMetricFitChecks(browser) {
     }
 }
 
+async function runSummaryGeometryChecks(browser) {
+  console.log("\nHistory summary totals at accepted numeric boundaries");
+  for (const width of [320, 390, 430]) for (const lang of ["en", "pt"]) for (const text of ["normal", "text200"]) {
+    const label = `${width}px ${lang} ${text}`;
+    const opened = await openCatalogState(browser, "history/metric-overflow", width, lang, text,
+      { height: { 320: 568, 390: 844, 430: 932 }[width], safe: { top: 0, bottom: 0 } });
+    try {
+      const m = await opened.page.evaluate(() => {
+        const totals = document.querySelector('.histpage__totals');
+        const cells = [...totals.children], boxes = [], problems = [];
+        const figures = cells.map((cell, index) => {
+          const bounds = cell.getBoundingClientRect();
+          const value = cell.querySelector('b'), caption = cell.querySelector('span'), unit = value.querySelector('small');
+          const walker = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT);
+          for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+            if (!node.textContent.trim()) continue;
+            const range = document.createRange(); range.selectNodeContents(node);
+            for (const rect of range.getClientRects()) {
+              if (rect.width <= 0 || rect.height <= 0) continue;
+              const box = { index, text: node.textContent.trim(), left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom };
+              boxes.push(box);
+              if (rect.left < -0.5 || rect.right > innerWidth + 0.5 || rect.left < bounds.left - 0.5 || rect.right > bounds.right + 0.5)
+                problems.push({ kind: 'clipped text', box, cell: { left: bounds.left, right: bounds.right } });
+            }
+          }
+          return { value: value.textContent.trim(), caption: caption.textContent.trim(),
+            valueFont: getComputedStyle(value).fontSize, captionFont: getComputedStyle(caption).fontSize,
+            unitFont: unit ? getComputedStyle(unit).fontSize : null };
+        });
+        const overlaps = [];
+        for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) {
+          const a = boxes[i], b = boxes[j];
+          const across = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+          const down = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+          if (across > 0.5 && down > 0.5) overlaps.push({ a, b });
+        }
+        return { figures, problems, overlaps, pageWide: document.documentElement.scrollWidth > innerWidth + 1 };
+      });
+      console.log(`  ${label}: ${JSON.stringify(m)}`);
+      assert(m.figures.length === 3 && m.figures[1].value.replace(/\D/g, '') === '999499999001' && m.figures[2].value === '0',
+        `${label}: the summary shows the accepted boundary total beside the PR count`, JSON.stringify(m));
+      assert(!m.problems.length && !m.overlaps.length && !m.pageWide,
+        `${label}: summary figures and labels never overlap or clip at the viewport or cell edge`, JSON.stringify(m));
+      const scale = text === 'text200' ? 2 : 1;
+      assert(m.figures.every(figure => figure.valueFont === `${22 * scale}px` && figure.captionFont === `${14 * scale}px`
+        && (!figure.unitFont || figure.unitFont === `${14 * scale}px`)),
+        `${label}: summary figures, captions and units retain their role sizes`, JSON.stringify(m));
+    } finally { await opened.context.close(); }
+  }
+}
+
 async function main() {
   const browser = await launchChromium();
   try {
     if (process.env.HISTORY_METRIC_CASE) {
-      if (process.env.HISTORY_METRIC_CASE === "overflow") await runMetricGridGeometryChecks(browser);
+      if (process.env.HISTORY_METRIC_CASE === "summary") await runSummaryGeometryChecks(browser);
+      else if (process.env.HISTORY_METRIC_CASE === "overflow") await runMetricGridGeometryChecks(browser);
       else await runCatalogMetricFitChecks(browser);
       console.log(`history geometry: ${results.passed} passed, ${results.failed} failed`);
       process.exitCode = results.failed ? 1 : 0;
@@ -1049,6 +1101,7 @@ async function main() {
     await runEverySetChecks(browser);
     await runMetricGridGeometryChecks(browser);
     await runCatalogMetricFitChecks(browser);
+    await runSummaryGeometryChecks(browser);
   } finally {
     await browser.close();
   }
