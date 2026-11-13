@@ -1023,13 +1023,13 @@ async function runSummaryGeometryChecks(browser) {
     const opened = await openCatalogState(browser, "history/metric-overflow", width, lang, text,
       { height: { 320: 568, 390: 844, 430: 932 }[width], safe: { top: 0, bottom: 0 } });
     try {
-      const m = await opened.page.evaluate(() => {
+      const m = await opened.page.evaluate((lang) => {
         const totals = document.querySelector('.histpage__totals');
         const cells = [...totals.children], boxes = [], problems = [], frameProblems = [];
         const visibleBottom = Math.min(innerHeight, document.querySelector('nav').getBoundingClientRect().top);
         const figures = cells.map((cell, index) => {
           const bounds = cell.getBoundingClientRect();
-          const value = cell.querySelector('b'), caption = cell.querySelector('span'), unit = value.querySelector('small');
+          const value = cell.querySelector('b'), caption = cell.querySelector(':scope > span'), unit = value.querySelector('small');
           const walker = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT);
           for (let node = walker.nextNode(); node; node = walker.nextNode()) {
             if (!node.textContent.trim()) continue;
@@ -1055,8 +1055,26 @@ async function runSummaryGeometryChecks(browser) {
           const down = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
           if (across > 0.5 && down > 0.5) overlaps.push({ a, b });
         }
-        return { figures, problems, frameProblems, overlaps, pageWide: document.documentElement.scrollWidth > innerWidth + 1 };
-      });
+        const chars = [], badBreaks = [];
+        const number = cells[1].querySelector('b');
+        const textNodes = document.createTreeWalker(number, NodeFilter.SHOW_TEXT);
+        for (let node = textNodes.nextNode(); node; node = textNodes.nextNode()) {
+          for (let i = 0; i < node.textContent.length; i++) {
+            if (!node.textContent[i].trim()) continue;
+            const range = document.createRange(); range.setStart(node, i); range.setEnd(node, i + 1);
+            const rect = range.getBoundingClientRect();
+            chars.push({ char: node.textContent[i], top: rect.top, bottom: rect.bottom });
+          }
+        }
+        const separator = lang === 'pt' ? '.' : ',';
+        for (let i = 1; i < chars.length; i++) {
+          const before = chars[i - 1], after = chars[i];
+          const sameLine = Math.min(before.bottom, after.bottom) > Math.max(before.top, after.top) + 0.5;
+          if (!sameLine && before.char !== separator) badBreaks.push({ before, after });
+        }
+        return { figures, problems, frameProblems, overlaps, badBreaks,
+          pageWide: document.documentElement.scrollWidth > innerWidth + 1 };
+      }, lang);
       console.log(`  ${label}: ${JSON.stringify(m)}`);
       assert(m.figures.length === 3 && m.figures[1].value.replace(/\D/g, '') === '999499999001' && m.figures[2].value === '0',
         `${label}: the summary shows the accepted boundary total beside the PR count`, JSON.stringify(m));
@@ -1064,6 +1082,8 @@ async function runSummaryGeometryChecks(browser) {
         `${label}: summary figures and labels never overlap or clip at the viewport or cell edge`, JSON.stringify(m));
       assert(!m.frameProblems.length,
         `${label}: catalog framing keeps every summary figure and label whole above navigation`, JSON.stringify(m));
+      assert(!m.badBreaks.length,
+        `${label}: the total breaks only after thousands separators and keeps its unit with the last group`, JSON.stringify(m));
       const scale = text === 'text200' ? 2 : 1;
       assert(m.figures.every(figure => figure.valueFont === `${22 * scale}px` && figure.captionFont === `${14 * scale}px`
         && (!figure.unitFont || figure.unitFont === `${14 * scale}px`)),
