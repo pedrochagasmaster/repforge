@@ -11636,19 +11636,20 @@ function sizeFocusCard(card){
   const at=context.getBoundingClientRect(),origin=at.top-context.scrollTop;
   const foot=(tab?Math.min(at.bottom,tab.getBoundingClientRect().top):at.bottom)-at.top;
   const rowBottom=open.getBoundingClientRect().bottom-origin;
+  let most=Math.floor(open.getBoundingClientRect().top-origin);
   for(const lead of context.querySelectorAll(".fx-cue__l1,.fx-cue__standing")){
     const leadTop=lead.getBoundingClientRect().top-origin;
     if(rowBottom-leadTop>foot)continue;
+    most=Math.min(most,Math.floor(leadTop));
     const target=context.scrollTop>leadTop?Math.max(0,Math.ceil(rowBottom-foot)):context.scrollTop;
     // Preserve the established placement unless real context text is cut. A correction must leave both the hero
     // and the open row whole; the hero's fractional top is an upper bound, never a boundary to round past.
     context.scrollTop=scaled?target:uncutFocusContext(context,target,Math.max(0,Math.ceil(rowBottom-foot)),Math.floor(leadTop));
     break}
-  // Every scrolled context starts on a whole line, including ramp actions and note labels.
+  // Repair a cut line only inside the interval that preserves the fitting hero and open row.
   if(context.scrollTop>0){
-    const rowTop=open.getBoundingClientRect().top-origin;
     context.scrollTop=uncutFocusContext(context,context.scrollTop,
-      Math.max(0,Math.ceil(rowBottom-foot)),Math.min(Math.floor(rowTop),context.scrollHeight-context.clientHeight),[context])}}
+      Math.max(0,Math.ceil(rowBottom-foot)),Math.min(most,context.scrollHeight-context.clientHeight),[context])}}
 /** Repair only a clipped text line, within the interval that keeps the current row and its lead visible. */
 function uncutFocusContext(context,target,least,most,blocks=context.querySelectorAll(".fx-head,.fx-cue__standing,.fx-cue__evidence")){
   const origin=context.getBoundingClientRect().top-context.scrollTop,lines=[];

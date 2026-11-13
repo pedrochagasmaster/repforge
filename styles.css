@@ -1256,9 +1256,9 @@ body:has(.exercise--focus.is-text-scaled) .wo-head__title{font-size:min(var(--fo
 .exercise--focus.is-hero-compact:not(.is-text-scaled):has(.fx-cue__standing) .fx-cue__standing,
 .exercise--focus.is-hero-compact:not(.is-text-scaled):has(.fx-cue__standing) .fx-cue__evidence{margin-top:0}
 .exercise--focus.is-hero-compact:not(.is-text-scaled):has(.fx-cue__standing) .ledgerline__head:not(:has(.term)){min-height:1lh}
-/* With standing present, compact evidence is caption-sized so a wrapped movement name and evidence still leave the
-   current set whole on the shortest phone. The full-size hero and the hill-climb's open-row spacing stay unchanged. */
-.exercise--focus.is-hero-compact.is-standing-compact:not(.is-text-scaled):has(.fx-cue__standing) .fx-head{margin-bottom:0}
+/* The first set opens unscrolled and keeps its compact budget. Later sets need the head's gap so the scroller can
+   start between its text and the hero's taller figures, whose font boxes otherwise overlap. */
+.exercise--focus.is-hero-compact.is-standing-compact:not(.is-text-scaled):has(.fx-cue__standing):has(.ledgerline--open[data-lrow="1"]) .fx-head{margin-bottom:0}
 article.exercise--focus.is-hero-compact.is-standing-compact .fcard__context > .fx-slot > .fx-cue{margin:0}
 .exercise--focus.is-standing-compact .fx-cue__evidence{font-size:var(--font-size-caption)}
 /* The column heads give way only to the disclosure: while it folds rows it takes their place, and at the first set,
