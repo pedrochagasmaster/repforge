@@ -1815,12 +1815,19 @@ async function standaloneSwipe(browser) {
     return t === "none" ? 0 : new DOMMatrixReadOnly(t).m41;
   });
   /** Drag from `from` through `xs`, a frame apart; `hold` ms still before lifting. Returns whether the page popped. */
-  const swipe = async (page, touch, from, xs, { hold = 0 } = {}) => {
-    const y = 520;
-    await touch("touchStart", [{ x: from, y }]);
-    for (const x of xs) { await touch("touchMove", [{ x, y }]); await frame(page); }
+  const swipe = async (page, touch, from, xs, { hold = 0, sampleMs = 0 } = {}) => {
+    const y = 520, cdp = sampleMs ? await page.context().newCDPSession(page) : null;
+    let timestamp = Date.now() / 1000;
+    const input = cdp ? (type, points = []) => {
+      const dispatched = cdp.send("Input.dispatchTouchEvent", { type, touchPoints: points, timestamp });
+      timestamp += sampleMs / 1000;
+      return dispatched;
+    } : touch;
+    await input("touchStart", [{ x: from, y }]);
+    for (const x of xs) { await input("touchMove", [{ x, y }]); await frame(page); }
     if (hold) await page.evaluate((ms) => new Promise((resolve) => setTimeout(resolve, ms)), hold);
-    await touch("touchEnd");
+    await input("touchEnd");
+    await cdp?.detach();
     return page.waitForFunction(() => !document.body.classList.contains("is-exercise"), undefined, { timeout: 1500 }).then(() => true, () => false);
   };
   const steps = (from, to, n) => Array.from({ length: n }, (_, i) => Math.round(from + ((to - from) * (i + 1)) / n));
@@ -1857,8 +1864,18 @@ async function standaloneSwipe(browser) {
   phase("A quick release at 25% goes through");
   {
     const { context, page, touch } = await open();
-    // About 8px a frame: roughly 0.5px/ms at release.
-    const popped = await swipe(page, touch, 10, steps(10, 98, 11));
+    await page.evaluate(() => {
+      window.__nativeBackSwipeSamples = [];
+      for (const type of ["pointermove", "pointerup"]) document.addEventListener(type, event => {
+        window.__nativeBackSwipeSamples.push({ type, x: event.clientX, time: event.timeStamp });
+      }, { capture: true });
+    });
+    // Input timestamps define 8px per 16ms even when painting drops frames.
+    const popped = await swipe(page, touch, 10, steps(10, 98, 11), { sampleMs: 16 });
+    const samples = await page.evaluate(() => window.__nativeBackSwipeSamples);
+    const moves = samples.filter(sample => sample.type === "pointermove"), last = moves.at(-1), previous = moves.at(-2);
+    const velocity = last && previous ? (last.x - previous.x) / (last.time - previous.time) : 0;
+    assert(velocity >= 0.3, "the synthetic fast swipe actually delivers at least 0.3px/ms", JSON.stringify({ velocity, samples }));
     assert(popped, "a release at 0.3px/ms or faster goes through short of the commit share");
     await context.close();
   }

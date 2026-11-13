@@ -128,7 +128,9 @@ const programById = new Map(program.map((row) => [row.id, row]));
 const log = DIRECTION_D_DATA.log.map((row) => {
   const programRow = programById.get(row.exerciseId);
   if (!programRow) throw new Error(`Direction D log row references unknown exercise ${row.exerciseId}`);
-  const extra = {};
+  // This design lifter chose the mockup's numeric effort answers. The old
+  // mockup predates provenance; do not make production infer it for real imports.
+  const extra = Number.isFinite(row.rir) ? { effortSource: "rir" } : {};
   if (Object.prototype.hasOwnProperty.call(row, "work")) extra.work = row.work;
   if (Object.prototype.hasOwnProperty.call(row, "load") && row.load === null) { /* no load recorded */ }
   return metricLogRow(programMeta, programRow, {

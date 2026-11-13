@@ -686,3 +686,14 @@ white 7% dark), the approved ADR 0023 token, in place of `--well`, which
 lightened a pressed row in light. The day picker's check lands with an opacity
 fade and a `--ease-press-release` scale from .6, as the prototype's does; reduced
 motion shows it at once.
+
+
+## Plan 084 profile navigation
+
+The Today ring and per-lift rows open saved evidence through the existing
+page push and Back owners. The stage reader registers its Back control with
+the shared history/edge-swipe path; reduced motion keeps the existing page
+cross-fade. Scope comparisons live inside Overview’s tab panel, so Strength
+and Review remain reachable without acknowledgment. The two static rings
+acknowledge only the displayed identity set. Today and Overview paint the new reading directly;
+there is no fill tween or backward drain in PR 2. Finish motion stays in PR 3.

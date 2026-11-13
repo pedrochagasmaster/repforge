@@ -427,7 +427,53 @@ function effortStageState(key, lang) {
   return drawn;
 }
 
+function wellTailoredProfileState(lang) {
+  const drawn=localeState(directionDState(),lang);
+  const day=drawn.programMeta.programDefinition.days.find(day=>day.name==="Day 2");
+  const chosen=day.slots.filter(slot=>!/Romanian deadlift/i.test(slot.displayName||""))
+    .map((slot,index)=>({...slot,order:index+1}));
+  const ids=new Set(chosen.map(slot=>slot.id));
+  drawn.program=drawn.program.filter(row=>ids.has(row.id)).map((row,index)=>({...row,order:index+1}));
+  drawn.customExercises=[];
+  if(drawn.program.length!==4)throw new Error("well-tailored profile needs four supported lifts");
+  // One authored workout, repeated at the lifter's pace. Keep its canonical
+  // slots and prescriptions; other days become rest instead of hidden lifts.
+  drawn.programMeta.programDefinition.days=drawn.programMeta.programDefinition.days.map(item=>
+    item.id===day.id?{...item,slots:chosen}:{...item,kind:"rest",slots:[]});
+  drawn.programMeta.daysPerWeek=1;
+  drawn.programMeta.started=isoDaysAgo(95);
+  const loads=drawn.program.map(ex=>drawn.log.find(row=>row.exerciseId===ex.id&&row.load>0)?.load);
+  if(loads.some(load=>!Number.isFinite(load)))throw new Error("well-tailored profile lacks a saved working load");
+  drawn.log=Array.from({length:48},(_,i)=>drawn.program.flatMap((ex,index)=>{
+    const date=isoDaysAgo(95-i*2),session=`profile-tailored-${i}`;
+    const rows=[1,2,3].map(set=>metricLogRow(drawn.programMeta,ex,{
+      session,date,set,load:loads[index],reps:12-set,rir:2,extra:{effortSource:"rir"}}));
+    // Two checks per workout, separated by weeks, on these eligible lifts.
+    if([8,24,40].map(n=>n+(index<2?0:4)).includes(i))rows.push(metricLogRow(drawn.programMeta,ex,{
+      session,date,set:4,load:loads[index],reps:8,rir:0,
+      extra:{effortSource:"failure",calibration:{v:1,predictedReps:8,predictionEdited:true,prefillBasis:"reps"}}}));
+    return rows;
+  })).flat();
+  return drawn;
+}
+
 export function appState(key, lang) {
+  if(key==="today/profile")return wellTailoredProfileState(lang);
+  if (["today/profile-first", "today/profile-scope", "progress/profile-reader", "progress/profile-scope"].includes(key)) {
+    const drawn=localeState(directionDState(),lang);
+    drawn.log=key==="today/profile-first"?[]:withTestSets(drawn.log);
+    if(key==="progress/profile-reader"){
+      // Keep one genuinely older observation without invented provenance so
+      // the registered EN/PT reader states also show weighted history.
+      const checked=drawn.log.find(row=>row.effortSource==="failure");
+      const oldest=drawn.log.find(row=>row.performedLibraryId===checked.performedLibraryId);
+      drawn.log=drawn.log.map(row=>{
+        if(row.performedLibraryId!==checked.performedLibraryId||row.date!==oldest.date)return row;
+        const {effortSource,...older}=row;return older;
+      });
+    }
+    return drawn;
+  }
   if (EFFORT_STAGE_STATES[key]) return effortStageState(key, lang);
   if (key === "today/no-program" || key === "program/no-program") {
     return emptyEntryState(lang);
@@ -2065,6 +2111,33 @@ async function showShareTemplate(page, template) {
   await page.waitForFunction((name) => { const s = window.__repforgeShareSheet.state(); return s?.template === name && s.fileTemplate === name; }, template, { timeout: 20000 });
 }
 export const APP_SCENARIOS = {
+  "today/profile-first": page=>view(page,"log"),
+  "today/profile": page=>view(page,"log"),
+  "today/profile-scope": async page=>{
+    await page.evaluate(()=>{
+      const scope=window.__repforgeProgressEvidence.profile().scope;
+      window.__repforgeUi.setPref('profileScope',{v:1,scope:scope.slice(0,-2),acknowledged:true});
+      render();
+    });
+    await view(page,"log");
+  },
+  "progress/profile-reader": async page=>{
+    await view(page,"stats");
+    const name=await page.evaluate(()=>{
+      const lifts=window.__repforgeProgressEvidence.profile().lifts.filter(lift=>lift.active);
+      return (lifts.find(lift=>lift.checks.length)||lifts[0]).name;
+    });
+    await page.locator('#overviewProfile [data-profile-lift]').filter({hasText:name}).first().click();
+    await page.waitForSelector('#profilePage.active .profile-stage-list');
+  },
+  "progress/profile-scope": async page=>{
+    await page.evaluate(()=>{
+      const scope=window.__repforgeProgressEvidence.profile().scope;
+      if(scope.length<3)throw new Error('scope catalog requires three comparable lifts');
+      window.__repforgeUi.setPref('profileScope',{v:1,scope:scope.slice(0,-2),acknowledged:true});
+    });
+    await view(page,"stats");await page.waitForSelector('#overviewProfile .profile-scope-rings');
+  },
   "workout/focus-ramp": async page=>{await rampFixture(page)},
   "workout/focus-ramp-ratio": async page=>{await rampFixture(page,{ratio:true})},
   "workout/focus-ramp-substitution": async page=>{await rampFixture(page,{ratio:true,substitute:true})},
