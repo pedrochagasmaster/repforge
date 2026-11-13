@@ -316,6 +316,7 @@ export const FULL_SUITES = {
 };
 
 export const SUPPORT = {
+  "test/profile-finish-browser.mjs": "Plan 084 successful-save profile delta, motion and return-path proofs executed by test/profile-browser.mjs.",
   "test/profile-ring-browser.mjs": "Plan 084 navigation, scope and transfer proofs executed by test/profile-browser.mjs.",
   "test/saved-profile.mjs": "Plan 084 saved-evidence profile proofs executed by test/progress-model.mjs in the PR lane.",
   "test/findings.mjs": "Plan 081 finding rules executed by test/progress-model.mjs in the PR lane.",
