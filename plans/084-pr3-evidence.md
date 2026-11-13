@@ -21,7 +21,7 @@ REPFORGE_PROFILE_FINISH_ONLY=1 flock /tmp/taurifer-browser.lock node tools/run-t
 | F5 | Cancelled confirmation and total durable write failure add nothing | `solid` case, production storage adapter refuses both writes | Missing finish integration remains red independently | Focused finish proof, 91 passed; full profile owner, 197 passed before the backdated extension |
 | F6 | Overview agrees, reader returns through Overview to the same finish without replay | Every successful case, real navigation | Missing finish link | Focused finish proof, 91 passed; full profile owner, 197 passed before the backdated extension |
 | F7 | One monotonic bounded fill, immediate final state with reduced motion | Painted `stroke-dasharray`, `reduced` case | Missing finish ring | Focused finish proof, 91 passed; full profile owner, 197 passed before the backdated extension |
-| F8 | EN/PT, dark, 320, text200 and reduced-motion frame fidelity | Catalog finish states, prototype finish columns | CI frame differences | Pending CI renders and owner fidelity review |
+| F8 | EN/PT, dark, 320, text200 and reduced-motion frame fidelity | Catalog finish states, prototype finish columns | CI frame differences | CI renders reviewed; owner fidelity approval pending |
 
 The first red commit is `32230cccc`: 8 passed / 6 failed, all six successful
 saves missing the finish ring. The motion owner was separately red,
@@ -39,11 +39,7 @@ Copy is owner-approved with the edits below. Fidelity review remains an owner ga
 
 ## Catalog review boundary
 
-The 24 new PNGs under `session/profile-finish-{solid,checked,agreeing}__*` are
-local bootstrap placeholders only. They were captured narrowly under the browser
-lock. Existing frames are untouched and must come from CI. Before merge, replace
-these placeholders from CI, or list the pixel-equivalent CI-verified frames after
-zero-tolerance comparison, then review all of them at full size.
+All 24 new PNGs under `session/profile-finish-{solid,checked,agreeing}__*` were replaced from CI run 43430310391 and reviewed at native size. All 39 changed existing summary PNGs also come from that run. Per-frame artifacts, hashes and fidelity observations are recorded in [084-pr3-ci-frame-review.md](084-pr3-ci-frame-review.md). No local placeholders remain. Owner fidelity approval and final CI gates remain pending.
 
 The new states are scrolled to the profile slot, retaining #736's share cards
 above and its Share/Done footer. The prototype omitted those cards and had a
@@ -55,7 +51,7 @@ three agreeing checks to force 157 would already release that global finding
 before this save. Solid uses its actual shorter history, 138.5→149.5. Each case
 still adds exactly four lift dates and one 8-unit stage.
 
-All 24 bootstrap frames were reviewed at native size across the catalog matrix. The 320/text200 reader return path also passed 15 focused assertions. CI replacement/verification and owner approval remain pending.
+All 24 final CI frames were reviewed at native size across the catalog matrix. The 320/text200 reader return path also passed 15 focused assertions. Owner fidelity approval remains pending.
 
 The unchanged-save regression was red first: 12 passed / 1 failed, because a change paragraph still rendered.
 
@@ -76,4 +72,4 @@ Owner-approved, including the Solid/date wording below. The unchanged key is rem
 | `profile.finish.open` | See your profile | Ver seu perfil |
 | `profile.finish.reader` | See this lift's stages | Ver as etapas deste exercício |
 
-After the approved copy edits and removal of the unchanged line, the focused finish suite passes 92 assertions. `build-i18n --check` confirms 3287 keys per language. The 24 bootstrap PNGs remain untouched for CI replacement/verification and prototype review.
+After the approved copy edits and removal of the unchanged line, the focused finish suite passes 92 assertions. `build-i18n --check` confirms 3287 keys per language. All 24 new PNGs now have reviewed CI replacements; see the linked frame review.
