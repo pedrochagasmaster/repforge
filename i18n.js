@@ -3278,6 +3278,16 @@ const EN = {
   "profile.reader.depth_weighted": "{dates} saved dates count as {n} of {cap}. Older sessions without effort detail count half.",
   "profile.reader.optional_weighted": "Test sets stay optional. A longer comparable record can also support Long record and Established from history.",
   "profile.reader.history_need_weighted": "{stage} needs {n} more date steps from comparable sessions.",
+  "profile.finish.solid": "Solid: your saved sets now back your targets.",
+  "profile.finish.checked": "First test set saved: guessed {guess}, did {did}.",
+  "profile.finish.agreeing": "Test set {n} saved: guessed {guess}, did {did}. Your checks agree.",
+  "profile.finish.dates": "{n} lifts gained a saved date.",
+  "profile.finish.dates_one": "{n} lift gained a saved date.",
+  "profile.finish.stages": "{n} stages added to your profile.",
+  "profile.finish.stages_one": "{n} stage added to your profile.",
+  "profile.finish.depth": "This save adds evidence to your saved dates.",
+  "profile.finish.open": "See your profile",
+  "profile.finish.reader": "See this lift's stages",
 };
 const PT = {
   "catalog.unavailable.title": "Biblioteca de exercícios indisponível",
@@ -6557,6 +6567,16 @@ const PT = {
   "profile.reader.depth_weighted": "{dates} datas salvas contam como {n} de {cap}. Sessões antigas sem detalhe de esforço contam pela metade.",
   "profile.reader.optional_weighted": "Séries-teste são opcionais. Um histórico comparável mais longo também pode sustentar Histórico amplo e Base consolidada pelo histórico.",
   "profile.reader.history_need_weighted": "{stage} precisa de mais {n} etapas por data de sessões comparáveis.",
+  "profile.finish.solid": "Bem fundamentada: suas séries salvas já sustentam suas metas.",
+  "profile.finish.checked": "Primeira série-teste salva: estimou {guess}, fez {did}.",
+  "profile.finish.agreeing": "Série-teste {n} salva: estimou {guess}, fez {did}. Suas séries-teste concordam.",
+  "profile.finish.dates": "{n} exercícios ganharam uma data salva.",
+  "profile.finish.dates_one": "{n} exercício ganhou uma data salva.",
+  "profile.finish.stages": "{n} etapas acrescentadas ao seu perfil.",
+  "profile.finish.stages_one": "{n} etapa acrescentada ao seu perfil.",
+  "profile.finish.depth": "Esta sessão salva acrescenta evidências às suas datas salvas.",
+  "profile.finish.open": "Ver seu perfil",
+  "profile.finish.reader": "Ver as etapas deste exercício",
 };
 (function (root) {
   const STRINGS = { en: EN, pt: PT };

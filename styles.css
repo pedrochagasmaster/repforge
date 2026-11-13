@@ -4011,6 +4011,14 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
 .sum-cards .sharecard:only-child{width:calc(100% - var(--sum-pad-l) - var(--sum-pad-r))}
 .sharecard__img{display:block;width:100%;height:100%}
 /* The four numbers: Sans with tabular numerals (Mono's comma opens a gap in "6,453"), the unit once, small. */
+/* Saved evidence changes only in the final finish/finding slot. */
+.sum-profile{margin-top:var(--space-18);padding:var(--space-14) 0;border-block:1px solid var(--boundary-decorative)}
+.sum-profile__open{display:block;width:100%;padding:var(--space-12) 0;min-height:var(--control-target);border:0;background:none;color:var(--control-quiet-ink);text-align:left;font-family:var(--font-language)}
+.sum-profile__open .profile-reading{margin:0;padding:0;border:0}
+.sum-profile__open>.profile-caption{display:block;margin-top:var(--space-8)}
+.sum-profile__lift{margin:var(--space-12) 0 var(--space-4);font-size:var(--font-size-body-small);line-height:var(--line-standard);font-weight:var(--weight-semibold);overflow-wrap:anywhere}
+.sum-profile__reader{display:block;min-height:var(--control-target);padding:var(--space-8) 0;background:none;border:0;color:var(--control-quiet-ink);text-align:left;font:inherit;font-size:var(--font-size-body-small);text-decoration:underline;text-underline-offset:3px}
+.sum-profile__open:focus-visible,.sum-profile__reader:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .sum-finding{display:block;width:100%;min-height:var(--control-target);margin-top:var(--space-18);padding:var(--space-14) 0;border:0;border-block:1px solid var(--boundary-decorative);background:var(--control-quiet-bg);color:var(--control-quiet-ink);text-align:left;font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-reading);overflow-wrap:anywhere}
 .sum-finding__label{font-weight:var(--weight-semibold);margin-right:var(--space-8)}
 .sum-finding:hover{background:var(--well)}
