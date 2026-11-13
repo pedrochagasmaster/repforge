@@ -5553,6 +5553,8 @@ body.is-focus-wo .toast:not(.toast--top){bottom:calc(var(--toast-clear,0px) + va
 .profile-depth p{font-size:var(--font-size-body-small);margin:var(--space-8) 0}
 .profile-depth .profile-caption{font-size:var(--font-size-caption)}
 .profile-scope-inline{margin:var(--space-18) 0;padding-bottom:var(--space-18);border-bottom:1px solid var(--rule)}
+/* The light scope CTA shows through the dark dock lens; its small selected label needs text ink. */
+:root[data-theme="dark"] body:has(#stats.active #segOverview.active .profile-scope-inline) nav button.active>[data-i18n]{color:var(--control-quiet-ink)}
 #profileScopeTitle{margin:var(--space-12) 0 var(--space-4);font-size:var(--font-size-title);font-weight:var(--weight-semibold);line-height:var(--line-tight);letter-spacing:-.02em;overflow-wrap:anywhere}
 .profile-scope-rings{display:flex;gap:var(--space-32);align-items:center;margin:var(--space-26) 0;border-bottom:1px solid var(--rule);padding-bottom:var(--space-18)}
 .profile-scope-rings>div{flex:1;min-width:0;display:flex;align-items:center;flex-direction:column;gap:var(--space-8);text-align:center;font-size:var(--font-size-body-small)}

@@ -6453,7 +6453,8 @@
         "today/deload-week",
         "today/ready-scrolled",
         "today/week-card",
-        "today/profile-first"
+        "today/profile-first",
+        "today/profile"
       ]
     },
     {
@@ -7190,7 +7191,8 @@
         "today/ready-scrolled",
         "today/in-progress",
         "today/week-card",
-        "today/profile-first"
+        "today/profile-first",
+        "today/profile"
       ],
       "progressScopes": {
         "current-week-trained-days": "week"
@@ -9786,7 +9788,8 @@
         "today/in-progress",
         "program/minibar-rest-done",
         "today/week-card",
-        "today/profile-first"
+        "today/profile-first",
+        "today/profile"
       ]
     },
     {
