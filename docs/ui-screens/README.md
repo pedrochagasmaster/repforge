@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 283 screens,
-1701 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 284 screens,
+1709 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -323,6 +323,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Mini bar on History, rest running](screens/history/minibar-rest__phone-390-light-en.png) | 3 | A rest running while a session is open: the bar is the rest timer, Rest 1:24 with the next set, +30s and Resume, and no separate rest pill. |
 | [History — list, scrolled](screens/history/list-scrolled__phone-390-light-en.png) | 3 | Plan 075 phase 3: the same session list, scrolled past the large title, so the scroll-edge bar's material and its mirrored inline title are showing. |
 | [History — expanded session](screens/history/session__phone-390-light-en.png) | 8 | One session expanded in place. |
+| [History metric overflow boundary](screens/history/metric-overflow__phone-390-light-en.png) | 8 | Accepted numeric boundary values exceed the ledger width at 200% text. The horizontal overflow cue and named scroll region preserve the complete values. |
 | [History — share a past session](screens/history/session-share__phone-390-light-en.png) | 8 | Share on a past session's page: the finish screen's share sheet over History, on that session's record poster, with its card, format and style choices, and Share and Save. |
 | [History — per-side session](screens/history/per-side-session__phone-390-light-en.png) | 8 | A saved unilateral and bilateral per-side session shows physical tonnage and a per-side personal record. |
 | [History — dirty edit](screens/history/edit-dirty__phone-390-light-en.png) | 8 | A session edit with an unsaved canonical change and its destructive actions still visible. |
