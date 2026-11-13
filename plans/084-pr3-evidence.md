@@ -1,0 +1,89 @@
+# Plan 084 PR 3 acceptance evidence
+
+- Scope: §7 row 3, the existing successful-save finish/finding slot only.
+- Source: main `28a39d51d1a7ae226f6b1f16f04b58afc61ca95c`.
+- Authority: `buildSavedProfile`, `profile@084.2`, consumes the actual finish receipt's `prevLog` and committed `rows`. No durable field, standing rule, or finding awards credit.
+- Consumer: the existing summary, Overview and per-lift reader.
+- First complete slice: actual DraftV2 save, durable publication, summary SVG paint, Overview and reader, return to the same summary.
+
+All browser assertions below live in `test/profile-finish-browser.mjs`, composed into the existing `test/profile-browser.mjs` owner. Focused command:
+
+```sh
+REPFORGE_PROFILE_FINISH_ONLY=1 flock /tmp/taurifer-browser.lock node tools/run-tests.mjs full-browser --suite-id test-profile-browser-mjs
+```
+
+| ID | Observable result | Producer / assertion | Deliberate failure | Evidence |
+|---|---|---|---|---|
+| F1 | First Solid adds 8 stage units and real date credit to the painted arc | Durable save, `solid` case, projection delta and SVG paints | Missing finish ring | Focused finish proof, 91 passed; full profile owner, 197 passed before the backdated extension |
+| F2 | First valid check adds 8 plus real date credit | Draft `startMaxSet` then finish, `checked` case | Missing finish ring | Focused finish proof, 91 passed; full profile owner, 197 passed before the backdated extension |
+| F3 | Agreeing checks attain a stage; finding adds no duplicate credit | `calibrated` case, finding and exact delta | Missing finish ring | Focused finish proof, 91 passed; full profile owner, 197 passed before the backdated extension |
+| F4 | Date-only save adds .75; same-date unchanged evidence adds zero | `date` and `unchanged` cases | Missing finish ring | Focused finish proof, 91 passed; full profile owner, 197 passed before the backdated extension |
+| F5 | Cancelled confirmation and total durable write failure add nothing | `solid` case, production storage adapter refuses both writes | Missing finish integration remains red independently | Focused finish proof, 91 passed; full profile owner, 197 passed before the backdated extension |
+| F6 | Overview agrees, reader returns through Overview to the same finish without replay | Every successful case, real navigation | Missing finish link | Focused finish proof, 91 passed; full profile owner, 197 passed before the backdated extension |
+| F7 | One monotonic bounded fill, immediate final state with reduced motion | Painted `stroke-dasharray`, `reduced` case | Missing finish ring | Focused finish proof, 91 passed; full profile owner, 197 passed before the backdated extension |
+| F8 | EN/PT, dark, 320, text200 and reduced-motion frame fidelity | Catalog finish states, prototype finish columns | CI frame differences | CI renders reviewed; owner fidelity approval pending |
+
+The first red commit is `32230cccc`: 8 passed / 6 failed, all six successful
+saves missing the finish ring. The motion owner was separately red,
+112 passed / 2 failed, for the missing `profileFill` vocabulary. It is now
+114 passed. `test/i18n.mjs` passes all 40 assertions; `test/ci.mjs` passes
+all 70 metadata assertions after bootstrapping the 24 new catalog PNGs.
+
+A backdated production save originally omitted already-known later sessions from
+the finish reading. The focused backdated proof was red with 9 passed / 3 failed
+(`REPFORGE_PROFILE_FINISH_CASE=backdated`): the arc and returned finish disagreed
+with Overview. The new focused finish run passes all 91 assertions. Both snapshots now use one captured current date, retaining all
+known saved history. The saved rows keep their chosen past date.
+
+Copy is owner-approved with the edits below. Fidelity review remains an owner gate before merge. CI and ci-full on the final head remain coordinator gates. This worker does not merge or watch CI.
+
+## Catalog review boundary
+
+All 24 new PNGs under `session/profile-finish-{solid,checked,agreeing}__*` were replaced from CI run 43430310391 and reviewed at native size. All 39 changed existing summary PNGs also come from that run. Per-frame artifacts, hashes and fidelity observations are recorded in [084-pr3-ci-frame-review.md](084-pr3-ci-frame-review.md). No local placeholders remain. Owner fidelity approval and final CI gates remain pending.
+
+The new states are scrolled to the profile slot, retaining #736's share cards
+above and its Share/Done footer. The prototype omitted those cards and had a
+Done-only footer. Real canonical lift names, truthful history totals and ordinary
+body typography follow the shipped finish screen. These differences await the owner's fidelity decision; the copy table below is approved. The first-check fixture has the prototype's 157→168 arithmetic. The agreeing
+fixture is 141→152: its other three lifts have one valid check each, so this is
+the first producer-released effort-reading finding. Giving those other lifts
+three agreeing checks to force 157 would already release that global finding
+before this save. Solid uses its actual shorter history, 138.5→149.5. Each case
+still adds exactly four lift dates and one 8-unit stage.
+
+All 24 final CI frames were reviewed at native size across the catalog matrix. The 320/text200 reader return path also passed 15 focused assertions. Owner fidelity approval remains pending.
+
+The unchanged-save regression was red first: 12 passed / 1 failed, because a change paragraph still rendered.
+
+## Approved finish copy
+
+Owner-approved, including the Solid/date wording below. The unchanged key is removed; a save that adds no evidence renders no change line and retains its ring and navigation. Singular date copy keeps `{n}` for placeholder parity.
+
+| Key | EN | PT |
+|---|---|---|
+| `profile.finish.solid` | Solid: your saved sets now back your targets. | Bem fundamentada: suas séries salvas já sustentam suas metas. |
+| `profile.finish.checked` | First test set saved: guessed {guess}, did {did}. | Primeira série-teste salva: estimou {guess}, fez {did}. |
+| `profile.finish.agreeing` | Test set {n} saved: guessed {guess}, did {did}. Your checks agree. | Série-teste {n} salva: estimou {guess}, fez {did}. Suas séries-teste concordam. |
+| `profile.finish.dates` | {n} lifts gained a saved date. | {n} exercícios ganharam uma data salva. |
+| `profile.finish.dates_one` | {n} lift gained a saved date. | {n} exercício ganhou uma data salva. |
+| `profile.finish.stages` | {n} stages added to your profile. | {n} etapas acrescentadas ao seu perfil. |
+| `profile.finish.stages_one` | {n} stage added to your profile. | {n} etapa acrescentada ao seu perfil. |
+| `profile.finish.depth` | This save adds evidence to your saved dates. | Esta sessão salva acrescenta evidências às suas datas salvas. |
+| `profile.finish.open` | See your profile | Ver seu perfil |
+| `profile.finish.reader` | See this lift's stages | Ver as etapas deste exercício |
+
+After the approved copy edits and removal of the unchanged line, the focused finish suite passes 92 assertions. `build-i18n --check` confirms 3287 keys per language. All 24 new PNGs now have reviewed CI replacements; see the linked frame review.
+
+## Inventory correction and keyboard/motion contracts
+
+Run 43441037781 exposed two stale exact inventories. The summary assertion listed four buttons before Plan 084; the approved profile Overview link is now first, making the exact order `sumProfileOpen,sumFinding,sumSee,sumShare,sumDone` for that fixture. The previous test focused `sumSee` successfully but never pressed Tab. The motion integration assertion expected nine vocabulary entries; the approved `profileFill` makes ten. Neither failure demonstrated a focus loop or a motion cleanup defect. The owner authorized these two assertion updates while keeping both exact.
+
+The summary proof now presses Tab from the title through every action including Share and Done, traverses backward with Shift+Tab, verifies wrapping at both ends, and retains initial focus and underlying-app inertness assertions. The motion proof names all ten vocabulary entries in their exact order. Its live SVG checks verify exactly 500ms linear timing, the reduced-motion final state with no animation, completed/cancelled final ink and no remaining animation, transform or layer hint. Existing vocabulary rules in `test/vendor-runtimes.mjs` also constrain `profileFill` to exactly 500ms linear.
+
+Local reproduction on the previous head: session summary 137 passed / 1 failed (the obsolete four-button inventory); motion integration 466 passed / 1 failed (the obsolete nine-entry vocabulary inventory). No application behavior or catalog frame changes are needed for these inventory corrections.
+
+The real traversal also names Chromium's native focus stops on the horizontal share-card and record-card strips. Forward order from the title is exactly `sum-cards,sumProfileOpen,sumFinding,sum-rtiles,sumSee,sumShare,sumDone`; reverse order from Done is exactly `sumShare,sumSee,sum-rtiles,sumFinding,sumProfileOpen`, followed by the existing trap's wrap to Done. These strips keep their native keyboard scrolling; the assertions skip no unidentified stops.
+
+After correction, the full session-summary suite passes 142 assertions and motion-integration passes 475 assertions, both with zero failures and both run through `tools/run-tests.mjs full-browser --suite-id <owner>` in the foreground under the browser lock.
+
+The focused finish suite also passes all 92 assertions with `REPFORGE_PROFILE_FINISH_ONLY=1 flock /tmp/taurifer-browser.lock node tools/run-tests.mjs full-browser --suite-id test-profile-browser-mjs`. Final remote CI and owner sign-off remain pending.

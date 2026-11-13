@@ -4,7 +4,7 @@
   "baselineFiles": 199,
   "prCommands": 106,
   "prFiles": 106,
-  "fullCommands": 157,
+  "fullCommands": 165,
   "fullFiles": 138,
   "history": "Supersedes the #446 ledger against 147e4afa (208 commands, 195 files). That ledger's 'reduced' rows are 'full' here: the owner decision of 2026-10-21 keeps them running on main.",
   "entries": [
@@ -1943,10 +1943,11 @@
     {
       "baselineCommand": "node test/focus-geometry.mjs",
       "baselineLane": "workout",
-      "disposition": "full",
-      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
+      "disposition": "consolidated",
+      "evidence": "The original command is partitioned into nine full-lane --only commands in test/focus-geometry.mjs (#765). Every assertion remains; smallest also owns both standing-ledger checks. The original PR risk owners remain below; no coverage or command timeout is reduced.",
       "retainedRisk": "pending fields, save boundaries, real source metrics, production load parser and progression properties",
       "owners": [
+        "test/focus-geometry.mjs",
         "test/focus-pending-field.mjs",
         "test/workout-finish-boundary.mjs",
         "test/workout-draft-parity.mjs",

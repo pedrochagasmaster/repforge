@@ -300,6 +300,17 @@ test("full-lane shards partition every full browser command apart from the PR sh
   assert.ok(FULL_SUITES["full-fast"].every((suite) => !BROWSER_LANES.has("full-fast") && suite.file), "full-fast is a pure-node lane");
 });
 
+test("Focus geometry sections are independent full-lane commands with headroom (#765)", () => {
+  const expected = ["stability", "large", "smallest", "context", "effort", "test-set", "guess", "dismissal", "gestures"];
+  const entries = FULL_SUITES["full-browser"].filter(suite => suite.file === "test/focus-geometry.mjs");
+  assert.deepEqual(entries.map(suite => suite.args), expected.map(section => ["--only", section]),
+    "every section runs exactly once; smallest retains its standing-ledger checks");
+  assert.ok(entries.every(suite => suiteSeconds(suite) < 300), "each section has a separate sub-300s planner weight");
+  assert.ok(entries.every(suite => (suite.timeoutMs || 600000) === 600000), "the existing command cap stays unchanged");
+  const selection = selectFullLane(["test/focus-geometry.mjs"]);
+  assert.deepEqual([...selection.ids].sort(), entries.map(suiteId).sort(), "a geometry change selects all sections");
+});
+
 test("the entire declared critical matrix is required, with source and failure provenance", (t) => {
   const keys = criticalCaptures().map(captureKey), source = "a".repeat(40);
   const report = { schemaVersion: 1, kind: "critical-ui", source, status: "passed",

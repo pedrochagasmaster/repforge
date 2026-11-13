@@ -29,8 +29,13 @@ import { CATALOG_PHONES, SAFE_AREA, inPool, openCatalogState } from "./fixtures/
 const BASE_URL = process.env.REPFORGE_URL || "http://localhost:8000/";
 const STATE_KEY = "repforge_v1";
 
-// FOCUS_GEOMETRY_ONLY=large,smallest runs just those sections (stability, large, smallest, standing, context, effort, test-set, guess, dismissal, gestures); the default is all.
-const only = (process.env.FOCUS_GEOMETRY_ONLY || "").split(",").filter(Boolean);
+// --only large,smallest selects sections for independent CI commands. The environment selector remains available locally; no selector runs all assertions.
+const args = process.argv.slice(2);
+if (args.length && (args.length !== 2 || args[0] !== "--only" || !args[1]))
+  throw new Error("Usage: node test/focus-geometry.mjs [--only section[,section]]");
+const only = (args[1] || process.env.FOCUS_GEOMETRY_ONLY || "").split(",").filter(Boolean);
+const sections = ["stability", "large", "smallest", "standing", "context", "effort", "test-set", "guess", "dismissal", "gestures"];
+if (only.some(section => !sections.includes(section))) throw new Error(`Unknown Focus geometry section: ${only.join(",")}`);
 const wants = (section) => !only.length || only.includes(section);
 
 function assert(condition, message, detail = "") {

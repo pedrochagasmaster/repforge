@@ -3275,5 +3275,15 @@
   "profile.reader.depth_full": "{n} datas com sessões comparáveis salvas. O anel deste exercício está completo; seu histórico continua crescendo.",
   "profile.reader.depth_weighted": "{dates} datas salvas contam como {n} de {cap}. Sessões antigas sem detalhe de esforço contam pela metade.",
   "profile.reader.optional_weighted": "Séries-teste são opcionais. Um histórico comparável mais longo também pode sustentar Histórico amplo e Base consolidada pelo histórico.",
-  "profile.reader.history_need_weighted": "{stage} precisa de mais {n} etapas por data de sessões comparáveis."
+  "profile.reader.history_need_weighted": "{stage} precisa de mais {n} etapas por data de sessões comparáveis.",
+  "profile.finish.solid": "Bem fundamentada: suas séries salvas já sustentam suas metas.",
+  "profile.finish.checked": "Primeira série-teste salva: estimou {guess}, fez {did}.",
+  "profile.finish.agreeing": "Série-teste {n} salva: estimou {guess}, fez {did}. Suas séries-teste concordam.",
+  "profile.finish.dates": "{n} exercícios ganharam uma data salva.",
+  "profile.finish.dates_one": "{n} exercício ganhou uma data salva.",
+  "profile.finish.stages": "{n} etapas acrescentadas ao seu perfil.",
+  "profile.finish.stages_one": "{n} etapa acrescentada ao seu perfil.",
+  "profile.finish.depth": "Esta sessão salva acrescenta evidências às suas datas salvas.",
+  "profile.finish.open": "Ver seu perfil",
+  "profile.finish.reader": "Ver as etapas deste exercício"
 }

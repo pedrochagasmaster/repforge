@@ -1427,6 +1427,21 @@
       "owner": "issue-726",
       "content": "flat",
       "scenario": "Accepted numeric bounds force horizontal scrolling at enlarged text, with an explicit bidirectional cue and a keyboard-focusable named ledger."
+    },
+    "session/profile-finish-solid": {
+      "owner": "plan-084",
+      "content": "flat",
+      "scenario": "Saved-profile change in the successful-save finish/finding slot."
+    },
+    "session/profile-finish-checked": {
+      "owner": "plan-084",
+      "content": "flat",
+      "scenario": "Saved-profile change in the successful-save finish/finding slot."
+    },
+    "session/profile-finish-agreeing": {
+      "owner": "plan-084",
+      "content": "flat",
+      "scenario": "Saved-profile change in the successful-save finish/finding slot."
     }
   },
   "components": [
@@ -6219,7 +6234,10 @@
         "session/summary-lifts",
         "session/summary-declined",
         "session/summary-maintained",
-        "session/summary-first"
+        "session/summary-first",
+        "session/profile-finish-solid",
+        "session/profile-finish-checked",
+        "session/profile-finish-agreeing"
       ]
     },
     {
@@ -6244,7 +6262,10 @@
         "session/summary-lifts",
         "session/summary-declined",
         "session/summary-maintained",
-        "session/summary-first"
+        "session/summary-first",
+        "session/profile-finish-solid",
+        "session/profile-finish-checked",
+        "session/profile-finish-agreeing"
       ],
       "progressScopes": {
         "completed-session-week": "week"
@@ -6577,7 +6598,10 @@
         "session/summary-lifts",
         "session/summary-declined",
         "session/summary-maintained",
-        "session/summary-first"
+        "session/summary-first",
+        "session/profile-finish-solid",
+        "session/profile-finish-checked",
+        "session/profile-finish-agreeing"
       ]
     },
     {
@@ -6603,7 +6627,10 @@
         "session/summary-lifts",
         "session/summary-declined",
         "session/summary-maintained",
-        "session/summary-first"
+        "session/summary-first",
+        "session/profile-finish-solid",
+        "session/profile-finish-checked",
+        "session/profile-finish-agreeing"
       ],
       "neverDisabledReason": "The finish screen always has a card to share."
     },
@@ -6988,7 +7015,10 @@
         "session/summary-lifts",
         "session/summary-declined",
         "session/summary-maintained",
-        "session/summary-first"
+        "session/summary-first",
+        "session/profile-finish-solid",
+        "session/profile-finish-checked",
+        "session/profile-finish-agreeing"
       ]
     },
     {
@@ -8877,7 +8907,10 @@
         "session/summary-lifts",
         "session/summary-declined",
         "session/summary-maintained",
-        "session/summary-first"
+        "session/summary-first",
+        "session/profile-finish-solid",
+        "session/profile-finish-checked",
+        "session/profile-finish-agreeing"
       ]
     },
     {
@@ -9581,7 +9614,10 @@
         "session/summary-profile",
         "today/profile",
         "today/profile-scope",
-        "progress/profile-scope"
+        "progress/profile-scope",
+        "session/profile-finish-solid",
+        "session/profile-finish-checked",
+        "session/profile-finish-agreeing"
       ]
     },
     {
@@ -10166,7 +10202,10 @@
       "id": "rest-tip",
       "selector": ".resttip",
       "roles": {
-        "elevation": ["flat", "floating"]
+        "elevation": [
+          "flat",
+          "floating"
+        ]
       },
       "variant": null,
       "facets": [],
@@ -14287,7 +14326,10 @@
         "session/summary-first",
         "session/summary-maintained",
         "session/summary-declined",
-        "session/summary-lifts"
+        "session/summary-lifts",
+        "session/profile-finish-solid",
+        "session/profile-finish-checked",
+        "session/profile-finish-agreeing"
       ],
       "neverDisabledReason": "The profile is available whenever the finish screen has a finding or a next need."
     },
@@ -14432,7 +14474,20 @@
         "install/transfer-terminal",
         "install/transfer-interrupted",
         "install/transfer-unknown",
-        "install/transfer-claimed-expired"
+        "install/transfer-claimed-expired",
+        "session/summary",
+        "session/summary-finding",
+        "session/summary-maintained",
+        "session/summary-declined",
+        "session/summary-lifts",
+        "session/summary-share",
+        "session/summary-share-photo",
+        "session/summary-share-edit",
+        "session/summary-share-line",
+        "session/summary-first",
+        "session/profile-finish-solid",
+        "session/profile-finish-checked",
+        "session/profile-finish-agreeing"
       ]
     },
     {
@@ -14538,7 +14593,20 @@
         "progress/overview-profile-first",
         "progress/profile-reader",
         "progress/profile-scope",
-        "session/summary-profile"
+        "session/summary-profile",
+        "session/summary",
+        "session/summary-finding",
+        "session/summary-maintained",
+        "session/summary-declined",
+        "session/summary-lifts",
+        "session/summary-share",
+        "session/summary-share-photo",
+        "session/summary-share-edit",
+        "session/summary-share-line",
+        "session/summary-first",
+        "session/profile-finish-solid",
+        "session/profile-finish-checked",
+        "session/profile-finish-agreeing"
       ]
     },
     {
@@ -14594,7 +14662,20 @@
         "progress/review-evaluated",
         "progress/overview-profile",
         "progress/overview-profile-first",
-        "session/summary-profile"
+        "session/summary-profile",
+        "session/summary",
+        "session/summary-finding",
+        "session/summary-maintained",
+        "session/summary-declined",
+        "session/summary-lifts",
+        "session/summary-share",
+        "session/summary-share-photo",
+        "session/summary-share-edit",
+        "session/summary-share-line",
+        "session/summary-first",
+        "session/profile-finish-solid",
+        "session/profile-finish-checked",
+        "session/profile-finish-agreeing"
       ]
     },
     {
@@ -14648,7 +14729,20 @@
         "progress/overview-profile-first",
         "progress/profile-reader",
         "progress/profile-scope",
-        "session/summary-profile"
+        "session/summary-profile",
+        "session/summary",
+        "session/summary-finding",
+        "session/summary-maintained",
+        "session/summary-declined",
+        "session/summary-lifts",
+        "session/summary-share",
+        "session/summary-share-photo",
+        "session/summary-share-edit",
+        "session/summary-share-line",
+        "session/summary-first",
+        "session/profile-finish-solid",
+        "session/profile-finish-checked",
+        "session/profile-finish-agreeing"
       ]
     },
     {
@@ -15116,7 +15210,20 @@
         "progress/overview-profile-first",
         "progress/profile-reader",
         "progress/profile-scope",
-        "session/summary-profile"
+        "session/summary-profile",
+        "session/summary",
+        "session/summary-finding",
+        "session/summary-maintained",
+        "session/summary-declined",
+        "session/summary-lifts",
+        "session/summary-share",
+        "session/summary-share-photo",
+        "session/summary-share-edit",
+        "session/summary-share-line",
+        "session/summary-first",
+        "session/profile-finish-solid",
+        "session/profile-finish-checked",
+        "session/profile-finish-agreeing"
       ]
     },
     {
@@ -15153,6 +15260,136 @@
       "owner": "plan-084",
       "catalogStates": [
         "progress/profile-scope"
+      ]
+    },
+    {
+      "id": "sum-profile-open",
+      "selector": "#sumProfileOpen",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": "profile-link",
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Opens the saved profile and returns to this finished session.",
+      "owner": "plan-084",
+      "catalogStates": [
+        "session/summary",
+        "session/summary-finding",
+        "session/summary-profile",
+        "session/summary-maintained",
+        "session/summary-declined",
+        "session/summary-lifts",
+        "session/summary-share",
+        "session/summary-share-photo",
+        "session/summary-share-edit",
+        "session/summary-share-line",
+        "session/summary-first",
+        "session/profile-finish-solid",
+        "session/profile-finish-checked",
+        "session/profile-finish-agreeing"
+      ],
+      "neverDisabledReason": "The profile is available whenever the finish screen has a finding or a next need."
+    },
+    {
+      "id": "sum-profile-reader",
+      "selector": "#sumProfileLift",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": "profile-link",
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Opens the saved profile and returns to this finished session.",
+      "owner": "plan-084",
+      "catalogStates": [
+        "session/summary",
+        "session/summary-finding",
+        "session/summary-profile",
+        "session/summary-maintained",
+        "session/summary-declined",
+        "session/summary-lifts",
+        "session/summary-share",
+        "session/summary-share-photo",
+        "session/summary-share-edit",
+        "session/summary-share-line",
+        "session/summary-first",
+        "session/profile-finish-solid",
+        "session/profile-finish-checked",
+        "session/profile-finish-agreeing"
+      ],
+      "neverDisabledReason": "The profile is available whenever the finish screen has a finding or a next need."
+    },
+    {
+      "id": "sum-profile",
+      "selector": ".sum-profile",
+      "roles": {
+        "elevation": "flat"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Saved evidence in the final finish/finding slot.",
+      "owner": "plan-084",
+      "catalogStates": [
+        "session/summary",
+        "session/summary-finding",
+        "session/summary-profile",
+        "session/summary-maintained",
+        "session/summary-declined",
+        "session/summary-lifts",
+        "session/summary-share",
+        "session/summary-share-photo",
+        "session/summary-share-edit",
+        "session/summary-share-line",
+        "session/summary-first",
+        "session/profile-finish-solid",
+        "session/profile-finish-checked",
+        "session/profile-finish-agreeing"
+      ]
+    },
+    {
+      "id": "sum-profile-stage",
+      "selector": ".sum-profile__lift",
+      "roles": {
+        "typography": "body-small"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Names the lift and its attained saved-evidence stage.",
+      "owner": "plan-084",
+      "catalogStates": [
+        "session/summary",
+        "session/summary-finding",
+        "session/summary-profile",
+        "session/summary-maintained",
+        "session/summary-declined",
+        "session/summary-lifts",
+        "session/summary-share",
+        "session/summary-share-photo",
+        "session/summary-share-edit",
+        "session/summary-share-line",
+        "session/summary-first",
+        "session/profile-finish-solid",
+        "session/profile-finish-checked",
+        "session/profile-finish-agreeing"
       ]
     }
   ],

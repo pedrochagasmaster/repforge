@@ -287,7 +287,10 @@ export const FULL_SUITES = {
     s("test/focus-exercise-actions.mjs", [], { domains: ["workout"], seconds: 11 }),
     s("test/slot-alternates.mjs", [], { domains: ["program", "workout", "history"], seconds: 24 }),
     s("test/focus-navigation.mjs", [], { domains: ["workout"], seconds: 7 }),
-    s("test/focus-geometry.mjs", [], { domains: ["workout"], seconds: 575 }),
+    // Locked local section timings, rounded up with 15% headroom; the existing 600s cap stays unchanged.
+    ...Object.entries({ stability: 195, large: 220, smallest: 85, context: 210, effort: 115,
+      "test-set": 135, guess: 50, dismissal: 20, gestures: 45 }).map(([section, seconds]) =>
+      s("test/focus-geometry.mjs", ["--only", section], { domains: ["workout"], seconds })),
     s("test/choice-rows-large-text.mjs", [], { domains: ["entry", "progress", "program"], seconds: 120 }),
     s("test/focus-space-summary.mjs", [], { domains: ["workout"], seconds: 124 }),
     s("test/manual-load-carry.mjs", [], { domains: ["workout"], seconds: 8 }),
@@ -316,6 +319,7 @@ export const FULL_SUITES = {
 };
 
 export const SUPPORT = {
+  "test/profile-finish-browser.mjs": "Plan 084 successful-save profile delta, motion and return-path proofs executed by test/profile-browser.mjs.",
   "test/profile-ring-browser.mjs": "Plan 084 navigation, scope and transfer proofs executed by test/profile-browser.mjs.",
   "test/saved-profile.mjs": "Plan 084 saved-evidence profile proofs executed by test/progress-model.mjs in the PR lane.",
   "test/findings.mjs": "Plan 081 finding rules executed by test/progress-model.mjs in the PR lane.",

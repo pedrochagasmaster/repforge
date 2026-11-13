@@ -3275,5 +3275,15 @@
   "profile.reader.depth_full": "{n} comparable-session dates saved. This lift's ring is full; your record keeps growing.",
   "profile.reader.depth_weighted": "{dates} saved dates count as {n} of {cap}. Older sessions without effort detail count half.",
   "profile.reader.optional_weighted": "Test sets stay optional. A longer comparable record can also support Long record and Established from history.",
-  "profile.reader.history_need_weighted": "{stage} needs {n} more date steps from comparable sessions."
+  "profile.reader.history_need_weighted": "{stage} needs {n} more date steps from comparable sessions.",
+  "profile.finish.solid": "Solid: your saved sets now back your targets.",
+  "profile.finish.checked": "First test set saved: guessed {guess}, did {did}.",
+  "profile.finish.agreeing": "Test set {n} saved: guessed {guess}, did {did}. Your checks agree.",
+  "profile.finish.dates": "{n} lifts gained a saved date.",
+  "profile.finish.dates_one": "{n} lift gained a saved date.",
+  "profile.finish.stages": "{n} stages added to your profile.",
+  "profile.finish.stages_one": "{n} stage added to your profile.",
+  "profile.finish.depth": "This save adds evidence to your saved dates.",
+  "profile.finish.open": "See your profile",
+  "profile.finish.reader": "See this lift's stages"
 }

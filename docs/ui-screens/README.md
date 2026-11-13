@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 284 screens,
-1709 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 287 screens,
+1733 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -190,7 +190,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Today — skipped exercise](screens/today/skipped__phone-390-light-en.png) | 8 | A context-menu skip acknowledged on Today, stored only in the workout draft: the skip opens today's session, so the live card leads and the row reads Skipped today. |
 | [Today — last week](screens/today/week-card__phone-390-light-en.png) | 8 | Two sentences about last week with Review and Dismiss. |
 | [Today — first profile evidence](screens/today/profile-first__phone-390-light-en.png) | 8 | An onboarded program before saved evidence: the empty ink ring and factual first-saved-set line. |
-| [Today — saved-evidence profile](screens/today/profile__phone-390-light-en.png) | 8 | The current program and session remain dominant beside the saved-evidence profile ring. |
+| [Today — well-tailored saved-evidence profile](screens/today/profile__phone-390-light-en.png) | 8 | Four comparable lifts after 48 saved dates and three agreeing checks per lift: earned well-tailored evidence, with the current session still dominant. |
 | [Today — profile scope changed](screens/today/profile-scope__phone-390-light-en.png) | 8 | A factual two-new-lifts line opens the before/now explanation; the current ring already uses its new denominator. |
 
 ### Workout logging
@@ -272,6 +272,9 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Session summary — share editor](screens/session/summary-share-edit__phone-390-light-en.png) | 8 | The share sheet's editor open on the Sticker over the chosen photo: the card in its frame with the drag and pinch hint, the size slider, Darken photo, Reset, and Cancel and Done. |
 | [Session summary — Line sticker on clear](screens/session/summary-share-line__phone-390-light-en.png) | 8 | The share sheet on the Line sticker with the clear background: the transparent card over the preview's check, its formats and grounds, and Save and Share. |
 | [Session summary — first session](screens/session/summary-first__phone-390-light-en.png) | 8 | Every lift is a first exposure: only the stats card, the fallback tiles (sets, total reps, kg moved), the baseline sentence, no outcome words, and the next targets from the engine. |
+| [Saved profile finish — first Solid](screens/session/profile-finish-solid__phone-390-light-en.png) | 8 | The final finish/finding slot after a successful saved session with first Solid; four real lift dates plus the stage transition, without duplicate finding credit. |
+| [Saved profile finish — first valid test set](screens/session/profile-finish-checked__phone-390-light-en.png) | 8 | The final finish/finding slot after a successful saved session with first valid test set; four real lift dates plus the stage transition, without duplicate finding credit. |
+| [Saved profile finish — third agreeing test set](screens/session/profile-finish-agreeing__phone-390-light-en.png) | 8 | The final finish/finding slot after a successful saved session with third agreeing test set; four real lift dates plus the stage transition, without duplicate finding credit. |
 
 ### Progress
 
@@ -312,7 +315,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Progress — recovery reassessment](screens/progress/recovery-reassessment__phone-390-light-en.png) | 8 | Canonical week two asks Better, About the same, or Worse. |
 | [Review with a proposed change](screens/progress/review-proposal__phone-390-light-en.png) | 8 | Recurring skips, an equipment cause and an alternate, with four explicit actions. |
 | [Review of an accepted change](screens/progress/review-evaluated__phone-390-light-en.png) | 8 | An accepted removal and the following week’s observed outcome. |
-| [Profile — per-lift stages](screens/progress/profile-reader__phone-390-light-en.png) | 8 | The attained evidence stages, current standing, saved depth and optional check/history routes for one comparable lift. |
+| [Profile — per-lift stages](screens/progress/profile-reader__phone-390-light-en.png) | 8 | The attained evidence stages, current standing, weighted older saved history and optional check/history routes for one comparable lift. |
 | [Profile — changed scope](screens/progress/profile-scope__phone-390-light-en.png) | 8 | Static before/now scope rings retain saved evidence and explain two newly included comparable lifts, with explicit acknowledgment. |
 
 ### History
