@@ -3278,6 +3278,17 @@ const EN = {
   "profile.reader.depth_weighted": "{dates} saved dates count as {n} of {cap}. Older sessions without effort detail count half.",
   "profile.reader.optional_weighted": "Test sets stay optional. A longer comparable record can also support Long record and Established from history.",
   "profile.reader.history_need_weighted": "{stage} needs {n} more date steps from comparable sessions.",
+  "profile.finish.solid": "Your comparable sets now support Solid standing.",
+  "profile.finish.checked": "First test set saved: guessed {guess}, did {did}.",
+  "profile.finish.agreeing": "Test set {n} saved: guessed {guess}, did {did}. Your checks agree.",
+  "profile.finish.dates": "{n} new saved lift dates added to your profile.",
+  "profile.finish.dates_one": "{n} new saved lift date added to your profile.",
+  "profile.finish.stages": "{n} stages added to your profile.",
+  "profile.finish.stages_one": "{n} stage added to your profile.",
+  "profile.finish.unchanged": "This save adds no new date or stage to your profile.",
+  "profile.finish.depth": "This save adds evidence to your saved dates.",
+  "profile.finish.open": "See your profile",
+  "profile.finish.reader": "See this lift's stages",
 };
 const PT = {
   "catalog.unavailable.title": "Biblioteca de exercícios indisponível",
@@ -6557,6 +6568,17 @@ const PT = {
   "profile.reader.depth_weighted": "{dates} datas salvas contam como {n} de {cap}. Sessões antigas sem detalhe de esforço contam pela metade.",
   "profile.reader.optional_weighted": "Séries-teste são opcionais. Um histórico comparável mais longo também pode sustentar Histórico amplo e Base consolidada pelo histórico.",
   "profile.reader.history_need_weighted": "{stage} precisa de mais {n} etapas por data de sessões comparáveis.",
+  "profile.finish.solid": "Suas séries comparáveis agora sustentam uma base bem fundamentada.",
+  "profile.finish.checked": "Primeira série-teste salva: estimou {guess}, fez {did}.",
+  "profile.finish.agreeing": "Série-teste {n} salva: estimou {guess}, fez {did}. Suas séries-teste concordam.",
+  "profile.finish.dates": "{n} novas datas salvas por exercício acrescentadas ao seu perfil.",
+  "profile.finish.dates_one": "{n} nova data salva por exercício acrescentada ao seu perfil.",
+  "profile.finish.stages": "{n} etapas acrescentadas ao seu perfil.",
+  "profile.finish.stages_one": "{n} etapa acrescentada ao seu perfil.",
+  "profile.finish.unchanged": "Esta sessão salva não acrescenta uma nova data ou etapa ao seu perfil.",
+  "profile.finish.depth": "Esta sessão salva acrescenta evidências às suas datas salvas.",
+  "profile.finish.open": "Ver seu perfil",
+  "profile.finish.reader": "Ver as etapas deste exercício",
 };
 (function (root) {
   const STRINGS = { en: EN, pt: PT };

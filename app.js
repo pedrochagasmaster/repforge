@@ -8258,21 +8258,21 @@ function profileFindingsHtml(){
 /* Saved-evidence profile (Plan 084). The projection owns arithmetic; this adapter supplies current
  * canonical capacity descriptors. Neither live drafts nor presentation acknowledgments feed it. */
 let savedProfileCache={key:"",value:null},profilePageState=null;
-function savedProfileLoadingContext(slot){
+function savedProfileLoadingContext(slot,log){
   const projection=slotLoadingProjection(slot),coefficient=materialBodyweightCoefficient(slot.loadingModel?.bodyweightCoefficient,projection.loadingConvention);
-  const measured=state.log.filter(row=>Number(row.loadingContext?.bodyweightKg??row.bodyweight)>0).slice().sort(compareLogChronology).at(-1);
+  const measured=log.filter(row=>Number(row.loadingContext?.bodyweightKg??row.bodyweight)>0).slice().sort(compareLogChronology).at(-1);
   const bodyweight=Number(measured?.loadingContext?.bodyweightKg??measured?.bodyweight)||interpretedProfile(state.profile).weightKg||null;
   return{...projection,equipmentId:null,bodyweightKg:bodyweight,bodyweightContributionEnabled:coefficient>0&&bodyweight>0}}
-function savedProfile(){
-  const key=JSON.stringify([state.log,state.program,state.programMeta,state.settings,state.profile,today(),I18N.getLang()]);
+function savedProfile(log=state.log,asOf=today()){
+  const key=JSON.stringify([log,state.program,state.programMeta,state.settings,state.profile,asOf,I18N.getLang()]);
   if(savedProfileCache.key===key)return savedProfileCache.value;
   const compiler=window.RepForgeProgramCompiler,definition=state.programMeta?.programDefinition;
   const prescriptions=definition?compiler.prescriptionsForCycle(definition,1):[];
   const lifts=days().flatMap(day=>state.program.filter(ex=>ex.day===day)).map(ex=>{
     const slot=canonicalPrescriptionSlot(ex)?.slot,first=prescriptions.find(item=>item.slotId===slot?.id);
     return{...first,exerciseId:first?.exerciseId||ex.libraryId||ex.id,name:exerciseDisplayName(ex),
-      context:slot?savedProfileLoadingContext(slot):null}});
-  const value=RepForgeProgressModel.buildSavedProfile({log:state.log,lifts,now:today()});
+      context:slot?savedProfileLoadingContext(slot,log):null}});
+  const value=RepForgeProgressModel.buildSavedProfile({log,lifts,now:asOf});
   savedProfileCache={key,value};return value}
 function validProfileScope(record){
   return isPlainStateObject(record)&&Object.keys(record).length===3&&record.v===1&&
@@ -8295,8 +8295,8 @@ function profileRingHtml(fill,large=false){
     `<circle cx="32" cy="32" r="27" pathLength="100"/><circle class="profile-ring__fill${fill?"":" is-empty"}" cx="32" cy="32" r="27" pathLength="100" style="stroke-dasharray:${fill*100} 100"/></svg>`}
 function profileTotals(profile){return profile.lifts.reduce((sum,lift)=>({observations:sum.observations+lift.depthDates.length,
   stages:sum.stages+lift.transitions.length}),{observations:0,stages:0})}
-function profileReadingHtml(profile){
-  const sessions=new Set(state.log.filter(row=>!row.warmup&&row.origin!=="ramp").map(row=>row.session)).size;
+function profileReadingHtml(profile,log=state.log){
+  const sessions=new Set(log.filter(row=>!row.warmup&&row.origin!=="ramp").map(row=>row.session)).size;
   return `<div class="profile-reading">${profileRingHtml(profile.fill,true)}<div><p class="profile-reading__title">${esc(t("profile.ring.built"))}</p>`+
     `<p class="profile-caption">${esc(t("profile.ring.scope",{n:profile.scope.length,sessions,liftWord:tOne("profile.ring.lifts",profile.scope.length),sessionWord:tp(sessions,"session")}))}</p>`+
     `<p class="profile-caption">${esc(t("profile.ring.rest"))}</p></div></div>`}
@@ -12287,6 +12287,7 @@ function buildSessionSummary({rows,prevLog,session,date,day:sessDay,startedAt}){
   const strength=strengthGainedThisBlock(rows,prevLog);
   return{session,date,day:sessDay,
     ...sessionFinding(rows,prevLog,date),
+    profileChange:sessionProfileChange(rows,prevLog),
     strength,
     reps:sum(performedWorkingRows(rows).map(row=>+row.reps)),
     tiles:summaryTiles({strength,records:prs.length}),
@@ -12551,7 +12552,7 @@ async function saveWorkoutV2(operation){
     toast(t("toast.workout_forged",{n:rows.length,sets:tp(rows.length,"set")}));
     maybeShowInstallBanner()};
   let summary;
-  try{summary=buildSessionSummary({rows,prevLog,session,date,day:savedDay,startedAt})}
+  try{summary=buildSessionSummary({rows,prevLog,session,date,day:savedDay,startedAt});summary.animateProfile=true}
   catch{savedFallback();return result}
   render();
   try{if(!openSessionSummary(summary))savedFallback()}
@@ -12647,6 +12648,42 @@ function summaryLiftHtml(lift,s){
       `<span class="sum-grp__next"${lift.exerciseId?` data-parity-target="${esc(lift.exerciseId)}"`:""}>`+
       `${verdictMarkHtml(lift.next.glyph)}<span>${esc(lift.next.line)}</span></span></p>`:"")+`</div>`}
 
+/** The same performed identities and projection on both sides of this acknowledged save. */
+function sessionProfileChange(rows,prevLog){
+  const log=[...prevLog,...rows],asOf=today(),before=savedProfile(prevLog,asOf),after=savedProfile(log,asOf);
+  const changes=after.lifts.filter(lift=>lift.active).map(lift=>{
+    const previous=before.lifts.find(item=>item.key===lift.key);
+    return{lift,stages:lift.transitions.slice(previous?.transitions.length||0),
+      dates:lift.depthDates.length-(previous?.depthDates.length||0)}});
+  return{before,after,log,changes,stages:sum(changes.map(item=>item.stages.length)),dates:sum(changes.map(item=>item.dates))}}
+function summaryProfileHtml(s){
+  const change=s.profileChange;if(!change?.after.scope.length)return "";
+  const featured=change.changes.find(item=>item.stages.length)||change.changes.find(item=>item.dates>0);
+  const lift=featured?.lift,stage=featured?.stages.at(-1)?.stage,check=lift?.checks.at(-1);
+  const reason=stage==="solid"?t("profile.finish.solid")
+    :stage==="checked"&&check?t("profile.finish.checked",{guess:check.guess,did:check.reps})
+    :stage==="calibrated"&&check?t("profile.finish.agreeing",{n:lift.checks.length,guess:check.guess,did:check.reps}):"";
+  return `<section class="sum-profile" id="sumProfile" aria-labelledby="sumProfileTitle">`+
+    `<h3 class="profile-heading" id="sumProfileTitle">${esc(t("profile.ring.title"))}</h3>`+
+    `<button type="button" id="sumProfileOpen" class="sum-profile__open">${profileReadingHtml(change.after,change.log)}`+
+    `<span class="profile-caption">${esc(t("profile.finish.open"))}</span></button>`+
+    (lift?`<h4 class="sum-profile__lift">${esc(profileLiftName(lift))} · ${esc(profileStageName(lift.stage))}</h4>`:"")+
+    (reason?`<p class="profile-intro">${esc(reason)}</p>`:"")+
+    `<p class="profile-caption">${esc(change.dates?tOne("profile.finish.dates",change.dates):"")}`+
+    `${change.stages?`${change.dates?" ":""}${esc(tOne("profile.finish.stages",change.stages))}`:!change.dates?esc(t(change.after.units>change.before.units?"profile.finish.depth":"profile.finish.unchanged")):""}</p>`+
+    (lift?`<button type="button" id="sumProfileLift" class="sum-profile__reader" data-lift="${esc(lift.key)}">${esc(t("profile.finish.reader"))}</button>`:"")+
+    `</section>`}
+let summaryProfileFill=null;
+const summaryProfilePlayed=new WeakSet();
+function stopSummaryProfileFill(){summaryProfileFill?.cancel();summaryProfileFill=null}
+function playSummaryProfileFill(s){
+  stopSummaryProfileFill();
+  if(!s.animateProfile||summaryProfilePlayed.has(s))return;
+  summaryProfilePlayed.add(s);
+  const change=s.profileChange;
+  if(!change||JSON.stringify(change.before.scope)!==JSON.stringify(change.after.scope)||change.after.fill<=change.before.fill)return;
+  summaryProfileFill=window.RepForgeMotion?.fillSavedProfile?.($("#sumProfile .profile-ring__fill"),change.before.fill,change.after.fill)||null}
+
 function summaryUnseenFinding(s){
   const seen=loadUiPrefs().findingsSeen;
   return s.finding&&!(Array.isArray(seen)&&seen.includes(s.finding.id))?s.finding:null}
@@ -12662,6 +12699,7 @@ function sessionSummaryHtml(s){
   out.push(`<h2 class="sum-hero" id="sumTitle" tabindex="-1">${esc(dayLabel(s.day))}</h2>`);
   out.push(`<p class="sum-sub">${esc(summarySubLine(s))}</p>`);
   out.push(summaryCardsHtml(s));
+  out.push(summaryProfileHtml(s));
   out.push(summaryFindingHtml(s));
   // The session figures. The counts ramp (motion amendment M2); a signed margin does not.
   out.push(`<div class="sum-stats sum-tiles">${summaryTileValues(s).map(tile=>`<div class="sum-tile" data-tile="${tile.id}">`+
@@ -12696,8 +12734,8 @@ function sessionSummaryHtml(s){
   return out.join("")}
 
 /** The summary's totals count up to their figures over 600 ms (motion amendment M2, owner decision on #295).
- *  They are the reward, so they are the one thing on the screen that moves by itself, and nothing else on
- *  the page does: no row stagger, no overshoot, no odometer digits. The ramp always lands on exactly the
+ *  They have a separate bounded run from Plan 084's saved-profile arc: no row stagger, overshoot or odometer.
+ *  The ramp always lands on exactly the
  *  figure the markup already rendered, so a reader who never sees the motion reads the same page. The
  *  motion layer owns the reduced-motion decision: under it, or in a tab with no screen to animate onto,
  *  the finished figures the markup carries stay put and nothing is repainted. */
@@ -12737,7 +12775,7 @@ function clearSummaryProfileReturn(){
 async function openSummaryProfile(summary){
   const sheet=$("#sessionSummary");
   const returning={summary,view:currentViewId(),scroll:sheet.scrollTop};
-  stopSummaryRamp();await closeModal(sheet);
+  stopSummaryRamp();stopSummaryProfileFill();await closeModal(sheet);
   sessionSummaryProfileReturn=returning;
   navTo("stats");setStatsSeg("overview");syncRouteHistory();
   const profile=$("#overviewProfile");
@@ -12747,13 +12785,16 @@ function returnFromSummaryProfile(){
   clearSummaryProfileReturn();returnToTab(returning.view);render();syncRouteHistory();
   openSessionSummary(returning.summary);
   $("#sessionSummary").scrollTop=returning.scroll;
-  $("#sumFinding")?.focus({preventScroll:true})}
+  $("#sumProfileOpen,#sumFinding")?.focus({preventScroll:true})}
 
 function renderSessionSummary(s){
   const body=$("#sessionSummaryBody");if(!body)return;
-  stopSummaryRamp();
+  stopSummaryRamp();stopSummaryProfileFill();
   body.innerHTML=sessionSummaryHtml(s);
   const finding=$("#sumFinding");if(finding)finding.onclick=()=>openSummaryProfile(s);
+  const profile=$("#sumProfileOpen");if(profile)profile.onclick=()=>openSummaryProfile(s);
+  const reader=$("#sumProfileLift");if(reader)reader.onclick=async()=>{
+    await openSummaryProfile(s);openProfilePage({key:reader.dataset.lift})};
   paintSummaryCards(s);
   const done=$("#sumDone");if(done)done.onclick=()=>closeSessionSummary();
   const share=$("#sumShare");if(share)share.onclick=()=>openShareSheet(share);
@@ -12764,7 +12805,7 @@ function renderSessionSummary(s){
 function clearSessionSummaryView(){
   clearSummaryProfileReturn();syncRouteHistory();
   sessionSummaryCurrent=null;
-  stopSummaryRamp();
+  stopSummaryRamp();stopSummaryProfileFill();
   const el=$("#sessionSummary");
   if(el&&activeModal?.el===el)closeModal(el);
   $("#sessionSummaryBody")?.replaceChildren();
@@ -12782,9 +12823,10 @@ function openSessionSummary(s){
   if(finding){
     updateUiPrefs(prefs=>({...prefs,findingsSeen:[...new Set([
       ...(Array.isArray(prefs.findingsSeen)?prefs.findingsSeen:[]),finding.id])]}))}
-  // The blocks are all present and opaque on the first frame; only the totals count up. The ramp starts
+  // All blocks are present and opaque. The totals and saved-profile arc have separate bounded runs. The ramp starts
   // before the first paint, so the finished figures are never seen and then reset to zero.
   rampSessionStats(el.querySelector(".sum-stats"));
+  playSummaryProfileFill(s);
   el.scrollTop=0;
   captureEvent("session_summary_viewed",{});
   return true}
@@ -12793,7 +12835,7 @@ function closeSessionSummary(opts={}){
   clearSummaryProfileReturn();
   const el=$("#sessionSummary");
   sessionSummaryCurrent=null;
-  stopSummaryRamp();
+  stopSummaryRamp();stopSummaryProfileFill();
   if(el&&activeModal?.el===el)closeModal(el);
   // Finishing a session ends it: the shell steps back to Today either way.
   workoutLeft=true;focusEdit=null;setWorkoutActive(false);document.body.classList.remove("is-focus-wo");

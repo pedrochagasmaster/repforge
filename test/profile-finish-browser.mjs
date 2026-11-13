@@ -1,10 +1,10 @@
 import { waitForAppBoot } from './browser.mjs';
 import { installGeneratedProgram, definitionSlot, isWeightRepsSlot, metricLogRow } from './fixtures/history-metric-rows.mjs';
-import { finishEarly, openEarlyFinish } from './fixtures/focus-workout.mjs';
+import { finishEarly, openEarlyFinish, sessionField } from './fixtures/focus-workout.mjs';
 
 /** Real DraftV2 completion, durable publication, finish paint and its return path. */
 export async function profileFinishProofs(browser, assert, base) {
-  for(const scenario of ['solid','checked','calibrated','date','unchanged','reduced']) {
+  for(const scenario of ['solid','checked','calibrated','date','unchanged','reduced','backdated'].filter(key=>!process.env.REPFORGE_PROFILE_FINISH_CASE||key===process.env.REPFORGE_PROFILE_FINISH_CASE)) {
     const context=await browser.newContext({viewport:{width:390,height:844},serviceWorkers:'block',reducedMotion:scenario==='reduced'?'reduce':'no-preference'});
     const page=await context.newPage(),errors=[];
     page.on('pageerror',error=>errors.push(error.message));
@@ -15,18 +15,22 @@ export async function profileFinishProofs(browser, assert, base) {
       const ex=generated.program.find(ex=>isWeightRepsSlot(definitionSlot(generated.programMeta,ex))&&!definitionSlot(generated.programMeta,ex).loadingModel?.bodyweightCoefficient);
       if(!ex)throw new Error('finish proof needs an external weight/reps lift');
       const age=n=>new Date(Date.now()-n*864e5).toISOString().slice(0,10);
-      const dates=scenario==='solid'||scenario==='reduced'?[1]:scenario==='unchanged'?[1,0]:scenario==='calibrated'?[28,14]:[2,1];
+      const dates=scenario==='solid'||scenario==='reduced'?[1]:scenario==='unchanged'?[1,0]:scenario==='backdated'?[3,1]:scenario==='calibrated'?[28,14]:[2,1];
       generated.program=[ex];generated.settings.lang='en';generated.settings.maxSetPrompts=false;
       generated.log=dates.flatMap((days,i)=>Array.from({length:5},(_,j)=>metricLogRow(generated.programMeta,ex,{
         session:`finish-history-${i}`,date:age(days),set:j+1,load:60,reps:8,rir:2,extra:{effortSource:'rir'}
       })).concat(scenario==='calibrated'?[metricLogRow(generated.programMeta,ex,{session:`finish-history-${i}`,date:age(days),set:6,load:60,reps:8,rir:0,
         extra:{effortSource:'failure',calibration:{v:1,predictedReps:8,predictionEdited:false,prefillBasis:'reps_rir'}}})]:[]));
+      await page.evaluate(()=>window.__repforgeUi.setPref('profileScope',{v:1,scope:[],acknowledged:false}));
       await page.evaluate(async next=>{const result=await window.__repforgeCommitProposedState(next);if(!result.committed)throw new Error('finish fixture refused');await window.__repforgeStorage.flush();render();},generated);
       const before=await page.evaluate(()=>window.__repforgeProgressEvidence.profile());
       await page.evaluate(day=>window.__repforgeEnterWorkout({day}),ex.day);
       await page.waitForSelector('#workout .exercise.is-current .focus-shelf');
-      await page.evaluate(async check=>{
-        const api=window.__repforgeWorkoutDraft,draft=api.current(),exerciseInstanceId=draft.exerciseOrder[0],exercise=draft.exercises[exerciseInstanceId];
+      if(scenario==='backdated')await sessionField(page,'#sessionDate',age(2));
+      await page.evaluate(async ({check,libraryId})=>{
+        const api=window.__repforgeWorkoutDraft,draft=api.current(),exerciseInstanceId=draft.exerciseOrder.find(id=>draft.exercises[id].libraryId===libraryId||draft.exercises[id].sourceExerciseId===libraryId);
+        if(!exerciseInstanceId)throw new Error('finish target missing from actual draft');
+        const exercise=draft.exercises[exerciseInstanceId];
         for(const [i,setId] of exercise.setOrder.entries()){
           if(i>=3)break;
           if(check&&i===1){const result=await api.dispatch('startMaxSet',{exerciseInstanceId,setId,copyLoadFromSetId:exercise.setOrder[0],calibration:{v:1,predictedReps:8,predictionEdited:false,prefillBasis:'reps_rir'}});if(result.status!=='applied')throw new Error('check refused '+JSON.stringify(result));}
@@ -37,7 +41,7 @@ export async function profileFinishProofs(browser, assert, base) {
           if(result.status!=='applied')throw new Error('set refused '+JSON.stringify(result));
         }
         await api.flush();
-      },['checked','calibrated'].includes(scenario));
+      },{check:['checked','calibrated'].includes(scenario),libraryId:ex.libraryId});
       if(scenario==='solid'){
         await openEarlyFinish(page);await page.click('#sessionEarlyCancel');await page.click('#sessionSheetClose');await page.locator('#sessionSheet').waitFor({state:'hidden'});
         assert(!await page.locator('#sessionSummary').isVisible()&&JSON.stringify(before)===await page.evaluate(()=>JSON.stringify(window.__repforgeProgressEvidence.profile())),'cancelled finish adds no profile evidence');
@@ -55,6 +59,7 @@ export async function profileFinishProofs(browser, assert, base) {
       });
       const result=await finishEarly(page);
       assert(result.committed===true,`${scenario}: production save commits`);
+      if(scenario==='backdated')assert(await page.evaluate(date=>JSON.parse(localStorage.getItem('repforge_v1')).log.some(row=>row.date===date&&!String(row.session).startsWith('finish-history')),age(2)),'backdated: production rows keep the chosen past date');
       const hasRing=await page.locator('#sumProfile svg.profile-ring').count()===1;
       assert(hasRing,`${scenario}: successful finish shows the saved-profile ring in the finding slot`);
       if(!hasRing)continue;
@@ -80,10 +85,12 @@ export async function profileFinishProofs(browser, assert, base) {
       assert(Number(await page.locator('#sumProfile svg').getAttribute('data-profile-fill'))===after.fill,`${scenario}: reader and Overview return to the same finish without replay`);
       assert(await page.locator('#sumProfile .profile-ring__fill').evaluate(el=>!el.getAnimations().length),`${scenario}: returned finish has no running fill`);
       if(scenario==='solid'){
+        await page.setViewportSize({width:320,height:568});
+        await page.evaluate(()=>document.documentElement.style.fontSize='200%');
         await page.click('#sumProfileLift');await page.waitForSelector('#profilePage.active');
         await page.click('#profilePageBack');await page.click('#summaryProfileBack');
         await page.waitForSelector('#sessionSummary:not(.hidden)');
-        assert(await page.locator('#sumProfile').isVisible(),'direct lift link returns through Overview to the same finish');
+        assert(await page.locator('#sumProfile').isVisible(),'direct lift link stays reachable at 320 and text200 and returns through Overview to the same finish');
       }
       await page.screenshot({path:`${process.env.REPFORGE_ARTIFACT_DIR||'/tmp'}/profile-finish-${scenario}.png`});
       assert(!errors.length,`${scenario}: no page errors`,errors);

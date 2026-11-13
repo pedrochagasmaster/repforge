@@ -2472,6 +2472,27 @@
       "label": "Today — profile scope changed",
       "scenario": "A factual two-new-lifts line opens the before/now explanation; the current ring already uses its new denominator.",
       "variants": "demandingText"
+    },
+    {
+      "id": "profile-finish-solid",
+      "flow": "session",
+      "label": "Saved profile finish — first Solid",
+      "scenario": "The final finish/finding slot after a successful saved session with first Solid; four real lift dates plus the stage transition, without duplicate finding credit.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "profile-finish-checked",
+      "flow": "session",
+      "label": "Saved profile finish — first valid test set",
+      "scenario": "The final finish/finding slot after a successful saved session with first valid test set; four real lift dates plus the stage transition, without duplicate finding credit.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "profile-finish-agreeing",
+      "flow": "session",
+      "label": "Saved profile finish — third agreeing test set",
+      "scenario": "The final finish/finding slot after a successful saved session with third agreeing test set; four real lift dates plus the stage transition, without duplicate finding credit.",
+      "variants": "demandingText"
     }
   ]
 }

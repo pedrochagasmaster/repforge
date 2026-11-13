@@ -457,7 +457,29 @@ function wellTailoredProfileState(lang) {
   return drawn;
 }
 
+function profileFinishState(event,lang){
+  const state=localeState(directionDState(),lang);
+  const candidates=state.program.filter(ex=>isWeightRepsSlot(definitionSlot(state.programMeta,ex)));
+  const day=candidates[0].day;
+  state.program=candidates.filter(ex=>ex.day===day).slice(0,4);
+  if(state.program.length!==4)throw new Error("profile finish requires four comparable lifts");
+  state.program=[state.program[1],state.program[2],state.program[3],state.program[0]];
+  state.log=[];
+  const date=age=>new Date(Date.parse(CAPTURE_NOW)-age*864e5).toISOString().slice(0,10);
+  for(const [index,ex] of state.program.entries()){
+    const featured=index===2,ages=featured&&event==="solid"?[3]:Array.from({length:15},(_,i)=>45-i*3);
+    for(const age of [...ages,0]){
+      const session=age?`profile-finish-${age}`:"profile-finish-saved";
+      for(let set=1;set<=(age?5:3);set++)state.log.push(metricLogRow(state.programMeta,ex,{session,date:date(age),set,load:35+index*5,reps:11,rir:2,extra:{effortSource:"rir"}}));
+      const check=(!featured&&event!=="agreeing"&&[45,30,15].includes(age))||(!featured&&event==="agreeing"&&age===30)||(featured&&((event==="checked"&&age===0)||(event==="agreeing"&&[30,15,0].includes(age))));
+      if(check){if(!age)state.log.pop();state.log.push(metricLogRow(state.programMeta,ex,{session,date:date(age),set:age?6:3,load:35+index*5,reps:age===15?11:12,rir:0,
+        extra:{effortSource:"failure",calibration:{v:1,predictedReps:age===15?10:12,predictionEdited:false,prefillBasis:"reps_rir"}}}));}
+    }
+  }
+  return state;
+}
 export function appState(key, lang) {
+  if(key.startsWith("session/profile-finish-"))return profileFinishState(key.slice("session/profile-finish-".length),lang);
   if(key==="today/profile")return wellTailoredProfileState(lang);
   if (["today/profile-first", "today/profile-scope", "progress/profile-reader", "progress/profile-scope"].includes(key)) {
     const drawn=localeState(directionDState(),lang);
@@ -811,6 +833,19 @@ async function openFixtureSummary(page, sessionId) {
   }, sessionId);
   await page.waitForSelector("#sessionSummary:not(.hidden)", { timeout: 20000 });
   await sleep(page, 900);
+}
+
+async function openProfileFinish(page){
+  await openFixtureSummary(page,"profile-finish-saved");
+  await page.evaluate(()=>{
+    const change=window.__repforgeSessionSummary.current().profileChange;
+    if(change.stages!==1||change.dates!==4||change.after.units-change.before.units!==11)
+      throw new Error("finish fixture must add four real lift dates and one stage");
+    if(change.changes.some(item=>item.stages.some(stage=>stage.stage==="calibrated"))&&!document.querySelector('#sumFinding[data-finding="effort_read"]'))
+      throw new Error("agreeing finish must show the producer-released finding without duplicate credit");
+    const sheet=document.querySelector("#sessionSummary"),profile=document.querySelector("#sumProfile");
+    sheet.scrollTop=Math.max(0,profile.getBoundingClientRect().top-sheet.getBoundingClientRect().top+sheet.scrollTop-24);
+  });
 }
 
 async function saveWholeSession(page) {
@@ -2874,6 +2909,9 @@ export const APP_SCENARIOS = {
       sheet.scrollTop = Math.max(0, finding.getBoundingClientRect().top - sheet.getBoundingClientRect().top + sheet.scrollTop - 24);
     });
   },
+  "session/profile-finish-solid": openProfileFinish,
+  "session/profile-finish-checked": openProfileFinish,
+  "session/profile-finish-agreeing": openProfileFinish,
   "session/summary-profile": async (page) => {
     await openFixtureSummary(page, DIRECTION_D_SUMMARY_SESSION["session/summary-profile"]);
     await page.click("#sumFinding");
