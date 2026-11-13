@@ -1025,7 +1025,8 @@ async function runSummaryGeometryChecks(browser) {
     try {
       const m = await opened.page.evaluate(() => {
         const totals = document.querySelector('.histpage__totals');
-        const cells = [...totals.children], boxes = [], problems = [];
+        const cells = [...totals.children], boxes = [], problems = [], frameProblems = [];
+        const visibleBottom = Math.min(innerHeight, document.querySelector('nav').getBoundingClientRect().top);
         const figures = cells.map((cell, index) => {
           const bounds = cell.getBoundingClientRect();
           const value = cell.querySelector('b'), caption = cell.querySelector('span'), unit = value.querySelector('small');
@@ -1037,6 +1038,8 @@ async function runSummaryGeometryChecks(browser) {
               if (rect.width <= 0 || rect.height <= 0) continue;
               const box = { index, text: node.textContent.trim(), left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom };
               boxes.push(box);
+              if (rect.top < -0.5 || rect.bottom > visibleBottom + 0.5)
+                frameProblems.push({ box, visibleBottom });
               if (rect.left < -0.5 || rect.right > innerWidth + 0.5 || rect.left < bounds.left - 0.5 || rect.right > bounds.right + 0.5)
                 problems.push({ kind: 'clipped text', box, cell: { left: bounds.left, right: bounds.right } });
             }
@@ -1052,13 +1055,15 @@ async function runSummaryGeometryChecks(browser) {
           const down = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
           if (across > 0.5 && down > 0.5) overlaps.push({ a, b });
         }
-        return { figures, problems, overlaps, pageWide: document.documentElement.scrollWidth > innerWidth + 1 };
+        return { figures, problems, frameProblems, overlaps, pageWide: document.documentElement.scrollWidth > innerWidth + 1 };
       });
       console.log(`  ${label}: ${JSON.stringify(m)}`);
       assert(m.figures.length === 3 && m.figures[1].value.replace(/\D/g, '') === '999499999001' && m.figures[2].value === '0',
         `${label}: the summary shows the accepted boundary total beside the PR count`, JSON.stringify(m));
       assert(!m.problems.length && !m.overlaps.length && !m.pageWide,
         `${label}: summary figures and labels never overlap or clip at the viewport or cell edge`, JSON.stringify(m));
+      assert(!m.frameProblems.length,
+        `${label}: catalog framing keeps every summary figure and label whole above navigation`, JSON.stringify(m));
       const scale = text === 'text200' ? 2 : 1;
       assert(m.figures.every(figure => figure.valueFont === `${22 * scale}px` && figure.captionFont === `${14 * scale}px`
         && (!figure.unitFont || figure.unitFont === `${14 * scale}px`)),
