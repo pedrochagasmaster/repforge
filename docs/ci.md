@@ -244,9 +244,21 @@ The twelve bins now estimate 1,342–1,345 s each. Shard 1's cancellation in tha
 run came from diagnostic replays of two stale assertions, rather than longer
 initial commands; correcting those assertions removes that replay work.
 
+Focus geometry is now scheduled as nine independent `--only` commands (#765):
+`stability`, `large`, `smallest`, `context`, `effort`, `test-set`, `guess`,
+`dismissal` and `gestures`. The `smallest` section also retains both standing-ledger
+checks. The original combined command reached 553s on main and the 600s cap on
+an unrelated History PR. The split keeps every geometry assertion, the existing
+600s per-command cap, shard counts and job budgets. Each command has its own
+planner weight and artifact id, so the planner can distribute the work. Initial
+weights use locked local section timings (13.45–189.14s), rounded up with 15%
+headroom; CI measurements can refine them. A local
+full run remains available with `node tools/run-tests.mjs full-browser --suite test/focus-geometry.mjs` (all nine commands), or the existing
+`FOCUS_GEOMETRY_ONLY` selector for a direct invocation.
+
 The PR lane keeps five runners within the account's concurrency limit.
 The complete full lane still uses twelve runners with approximately
-1,090s of estimated browser work per runner and remains staged after
+1,400s of estimated browser work per runner and remains staged after
 the PR lane.
 
 The browser jobs cache the Chromium
