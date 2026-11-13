@@ -11644,7 +11644,8 @@ function sizeFocusCard(card){
     // and the open row whole; the hero's fractional top is an upper bound, never a boundary to round past.
     context.scrollTop=scaled?target:uncutFocusContext(context,target,Math.max(0,Math.ceil(rowBottom-foot)),Math.floor(leadTop));
     break}
-  if(card.querySelector(":scope > .fx-cue__l1")){
+  // Every scrolled context starts on a whole line, including ramp actions and note labels.
+  if(context.scrollTop>0){
     const rowTop=open.getBoundingClientRect().top-origin;
     context.scrollTop=uncutFocusContext(context,context.scrollTop,
       Math.max(0,Math.ceil(rowBottom-foot)),Math.min(Math.floor(rowTop),context.scrollHeight-context.clientHeight),[context])}}

@@ -287,7 +287,7 @@ export const FULL_SUITES = {
     s("test/focus-exercise-actions.mjs", [], { domains: ["workout"], seconds: 11 }),
     s("test/slot-alternates.mjs", [], { domains: ["program", "workout", "history"], seconds: 24 }),
     s("test/focus-navigation.mjs", [], { domains: ["workout"], seconds: 7 }),
-    s("test/focus-geometry.mjs", [], { domains: ["workout"], seconds: 380 }),
+    s("test/focus-geometry.mjs", [], { domains: ["workout"], seconds: 575 }),
     s("test/choice-rows-large-text.mjs", [], { domains: ["entry", "progress", "program"], seconds: 120 }),
     s("test/focus-space-summary.mjs", [], { domains: ["workout"], seconds: 124 }),
     s("test/manual-load-carry.mjs", [], { domains: ["workout"], seconds: 8 }),
