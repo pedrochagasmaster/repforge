@@ -5687,7 +5687,7 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
 }
 .evtable td:not(:first-child){white-space:nowrap}
 .evtable th:first-child,.evtable td:first-child{width:auto;text-align:left;font-family:var(--font-language)}
-.evtable th + th,.evtable td + td{padding-left:var(--space-2)}
+.evtable th + th,.evtable td + td{padding-left:var(--space-8)}
 .evtable tbody tr:last-child td{border-bottom:0}
 
 /* A narrow screen or enlarged text: the rows stack instead of squeezing the words. */
