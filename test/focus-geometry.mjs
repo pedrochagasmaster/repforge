@@ -245,15 +245,28 @@ async function checkOpeningStandingLedger(browser) {
 
 async function checkContextText(browser) {
   const failures = [];
-  for (const key of ["workout/max-set-guess", "workout/max-set-prompt", "workout/why-in-session"]) {
-    const opened = await openCatalogState(browser, key, 320, "en", "normal", { safe: { top: 0, bottom: 0 } });
+  const cases = ["workout/max-set-guess", "workout/max-set-prompt", "workout/why-in-session"]
+    .map(key => ({ key, width: 320, lang: "en", text: "normal", requireRow: true }));
+  for (const key of ["workout/focus-ramp", "workout/focus-ramp-ratio", "workout/focus-ramp-substitution", "workout/focus-ramp-floor"])
+    for (const lang of ["en", "pt"]) for (const [width, text] of [[390, "text200"], [320, "text200"], [320, "normal"]])
+      cases.push({ key, width, lang, text, requireRow: text === "text200" });
+  for (const { key, width, lang, text, requireRow } of cases) {
+    const label = `${key} ${width}px ${lang} ${text}`;
+    const opened = await openCatalogState(browser, key, width, lang, text,
+      width === 320 ? { safe: { top: 0, bottom: 0 } } : {});
     try {
       const measured = await opened.page.evaluate(() => {
         const context = document.querySelector(".exercise.is-current .fcard__context");
         const window = context.getBoundingClientRect(), cut = [];
         const walker = document.createTreeWalker(context, NodeFilter.SHOW_TEXT);
         for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-          if (!node.textContent.trim() || !node.parentElement.closest(".fx-head,.fx-cue__standing,.fx-cue__evidence")) continue;
+          if (!node.textContent.trim() || node.parentElement.closest(".visually-hidden")) continue;
+          let hidden = false;
+          for (let el = node.parentElement; el && el !== context; el = el.parentElement) {
+            const style = getComputedStyle(el);
+            if (style.display === "none" || style.visibility === "hidden" || parseFloat(style.opacity) === 0) { hidden = true; break; }
+          }
+          if (hidden) continue;
           const range = document.createRange();
           range.selectNodeContents(node);
           for (const rect of range.getClientRects()) {
@@ -266,12 +279,12 @@ async function checkContextText(browser) {
         const bottom = Math.min(window.bottom, tab ? tab.getBoundingClientRect().top : Infinity);
         return { cut, top: window.top, scrollTop: context.scrollTop, row: { top: row.top, bottom: row.bottom }, bottom };
       });
-      console.log(`  ${key}: ${JSON.stringify(measured)}`);
-      if (measured.cut.length) failures.push(`${key}: ${JSON.stringify(measured)}`);
-      assert(measured.row.top >= measured.top - 1 && measured.row.bottom <= measured.bottom + 1,
-        `${key}: current row remains above the shelf`, JSON.stringify(measured));
+      console.log(`  ${label}: ${JSON.stringify(measured)}`);
+      if (measured.cut.length) failures.push(`${label}: ${JSON.stringify(measured)}`);
+      if (requireRow) assert(measured.row.top >= measured.top - 1 && measured.row.bottom <= measured.bottom + 1,
+        `${label}: current row remains above the shelf`, JSON.stringify(measured));
       if (process.env.REPFORGE_ARTIFACT_DIR) await opened.page.screenshot({
-        path: `${process.env.REPFORGE_ARTIFACT_DIR}/${key.split("/")[1]}-context.png`,
+        path: `${process.env.REPFORGE_ARTIFACT_DIR}/${key.split("/")[1]}-${width}-${lang}-${text}-context.png`,
       });
     } finally {
       await opened.context.close();
