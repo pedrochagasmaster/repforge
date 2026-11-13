@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { waitForAppBoot } from './browser.mjs';
 import { installGeneratedProgram, definitionSlot, isWeightRepsSlot, metricLogRow } from './fixtures/history-metric-rows.mjs';
-import { appState } from '../tools/ui-screens/screens-app.mjs';
+import { appState, APP_SCENARIOS } from '../tools/ui-screens/screens-app.mjs';
 import { finishEarly } from './fixtures/focus-workout.mjs';
 import { importInto } from './fixtures/install-transfer-import.mjs';
 
@@ -246,8 +246,8 @@ export async function profileRingProofs(browser, assert, base) {
         profile.fill>0&&profile.lifts.some(lift=>lift.active&&lift.depthDates.length>0&&lift.stage!=='first'),
         `${catalogKey} catalog history has the intended fresh or learned evidence`,{fill:profile.fill,unsupported:profile.unsupportedRows});
     }
-    await commit(appState('progress/profile-reader','pt'));await page.evaluate(()=>{I18N.setLang('pt');render();});await page.click('[data-view="stats"]');
-    await page.locator('#overviewProfile [data-profile-lift]').first().click();
+    await commit(appState('progress/profile-reader','pt'));await page.evaluate(()=>{I18N.setLang('pt');render();});
+    await APP_SCENARIOS['progress/profile-reader'](page);
     for(const scale of ['100%','200%']){
       await page.evaluate(scale=>{document.documentElement.style.fontSize=scale;render();},scale);
       const reader=await page.locator('#profilePage').evaluate(node=>{
@@ -260,6 +260,8 @@ export async function profileRingProofs(browser, assert, base) {
       assert(reader.titlePainted&&reader.title&&reader.marks===5&&reader.marksPainted,
         `PT reader retains its heading and all five stage markers at ${scale}`,reader);
       assert(reader.separate,`PT reader separates the label from its full-sentence reading at ${scale}`,reader.copy);
+      assert((await page.locator('#profilePage .profile-depth').innerText()).includes('etapas por data'),
+        `PT catalog reader explains weighted older history at ${scale}`);
     }
     assert(errors.length===0,'profile navigation and scope protocol have no page errors',errors);
   } finally {await context.close();}

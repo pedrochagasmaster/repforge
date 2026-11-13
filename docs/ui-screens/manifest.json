@@ -2448,15 +2448,15 @@
     {
       "id": "profile",
       "flow": "today",
-      "label": "Today — saved-evidence profile",
-      "scenario": "The current program and session remain dominant beside the saved-evidence profile ring.",
+      "label": "Today — well-tailored saved-evidence profile",
+      "scenario": "Four comparable lifts after 48 saved dates and three agreeing checks per lift: earned well-tailored evidence, with the current session still dominant.",
       "variants": "demandingText"
     },
     {
       "id": "profile-reader",
       "flow": "progress",
       "label": "Profile — per-lift stages",
-      "scenario": "The attained evidence stages, current standing, saved depth and optional check/history routes for one comparable lift.",
+      "scenario": "The attained evidence stages, current standing, weighted older saved history and optional check/history routes for one comparable lift.",
       "variants": "demandingText"
     },
     {

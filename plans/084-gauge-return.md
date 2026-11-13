@@ -44,18 +44,37 @@ A lift is an engine-comparable identity: performed movement, equipment,
 loading convention and metric semantics. Duplicate slots and display aliases
 share evidence; a different machine does not. No bundled four-lift cap.
 
-A **depth step** is one distinct saved calendar date with at least two normal,
-comparable, non-warm-up working rows whose effort was explicitly chosen. Both
-rows need valid performed load, reps and finite effort, and a supported engine
-configuration. Numeric and word answers count equally as dates; standing still
-uses its own quality weights. A failure row does not replace those two ordinary
-rows. A repeated import/session id or two sessions on the same date cannot add
-a second step for that lift. This is a dated observation count, not a streak.
+**Owner decision, 2026-11-13:** older or imported rows with unknown effort
+provenance count exactly as the shipped `standing@078.1` producer treats them.
+Use its comparable identity, exclusions and `CalibrationGauge.rowQuality()`;
+never promote unknown provenance to explicit or give it more evidence credit.
+Missing/null provenance has quality ½, numeric RIR/reps-left has quality 1,
+and word/bounded answers have the same ½ weight as standing. Prefilled, unsure,
+warm-up and ordinary-depth failure rows have zero quality. Valid failure checks
+continue to feed only the existing check/calibration route. Unsupported or
+non-comparable engine rows stay excluded.
 
-An opening load recorded by session zero or a normal saved row anchors the
-first stage; a declared prior, generator answer or an unsaved draft does not.
-Imported history can contribute when its comparable identity, dates and explicit
-effort are recoverable; unknown provenance cannot be promoted to explicit.
+A **depth step** is the saved evidence equivalent of two quality-1 working rows
+on one calendar date. A date needs at least two distinct, valid, comparable
+ordinary working rows. Its contribution is `min(1, sum(rowQuality) / 2)`:
+two unknown-provenance rows contribute ½ step, three contribute ¾, and four
+contribute one. Two numeric rows contribute one. Each date contributes at most
+one step across all its sessions; duplicate imports/rows cannot add credit.
+The physical saved dates remain available separately from weighted depth steps.
+This is a dated observation count, not a streak.
+
+Rows need valid performed load, reps and finite effort, a saved calendar date
+and a supported engine configuration. An opening load recorded by session zero
+or a normal saved row anchors the first stage; a declared prior, generator
+answer or an unsaved draft does not. Imported/older history contributes when
+those fields are recoverable even when its effort provenance is unknown.
+
+Learning/Solid transitions cannot exceed the engine standing at the saved
+boundary that earns them. Later test/history transitions still require the
+engine-supported Solid boundary and their existing prerequisites. Attained
+historical stages remain distinct from today's standing, which can change after
+a break; rest does not erase retained evidence. The 32/64 history thresholds and
+64-step date cap use weighted depth steps, not the unweighted calendar count.
 
 ### Stage rules
 
@@ -67,7 +86,7 @@ later stage once its prerequisites hold.
 | Stage | Exact proposed rule | Ring contribution and next need |
 | --- | --- | --- |
 | First time | No valid saved history anchor. `standing@078.1` returns `first`, or unavailable/configuration-required. | No transition. Save comparable working sets to start. |
-| Learning | At least one depth date with a saved working load, and a non-unavailable historical `standing@078.1` result of `learning` or `solid`. | First transition, plus each saved depth date. Next need is the existing standing reason, never a fabricated date. |
+| Learning | At least one depth date with a saved working load, and a non-unavailable historical `standing@078.1` result of `learning` or `solid`. | First transition, plus weighted saved depth. Next need is the existing standing reason, never a fabricated date. |
 | Solid | At a saved boundary the actual `standing@078.1` result is `solid`. | Second transition. Current production rule: at least 6 weighted sets over 2 sessions; if at least 4 pairs, agreement at least 0.6; no inconsistent-check reason and no gap of at least 42 days. The producer owns weights, 90-day weighting and comparability. |
 | Checked by a test set | Historical Solid, plus at least one valid saved `calibration` guess/result on this comparable identity. | Third transition. A check is evidence even when the guess is wrong. Next: the existing estimator's need, usually 2 more checks after the first. Safety and prompt ceilings stay unchanged. |
 | Well calibrated | Previous stages, plus at a historical boundary at least 3 valid checks and `calibration@077.1` state `calibrated`: absolute shrunken bias below 0.75 and sample spread at most 1.25 reps. | Fourth transition. More comparable-session depth still fills the ring afterwards; this stage does not imply perfect future targets. |
@@ -90,9 +109,9 @@ remain unchanged.
 
 Do not give that lifter imaginary calibration. After historical Solid:
 
-- At **32 depth dates**, the third transition reads **Long record /
+- At **32 weighted depth steps**, the third transition reads **Long record /
   Histórico amplo**. It is evidence depth, not a check result.
-- At **64 depth dates**, the fourth reads **Established from history /
+- At **64 weighted depth steps**, the fourth reads **Established from history /
   Base consolidada pelo histórico**. Effort calibration still says **Not
   checked / Sem série-teste**. No claim about effort-report accuracy follows.
 
@@ -106,7 +125,7 @@ not grant anything. Barbell-ineligible lifts have the same history path.
 For each comparable lift, recommend these exact presentation weights:
 
 ```text
-date units = 0.75 × min(64, qualifying saved depth dates)
+date units = 0.75 × min(64, weighted saved depth steps)
 stage units = 8 × attained transitions, at most 4
 lift budget = 48 + 32 = 80
 program fill = sum(date units + stage units) / (80 × distinct comparable lifts)
@@ -119,8 +138,8 @@ the two simulated schedules. Date credit is reduced by a quarter, but its
 no-test path stall before its approved 64-date final stage.
 
 A first Solid, first valid test set after Solid, or newly confirmed agreeing
-pattern each adds the same 8 stage units. Long record at 32 dates and
-Established from history at 64 dates also add 8 each. If both routes qualify
+pattern each adds the same 8 stage units. Long record at 32 weighted steps and
+Established from history at 64 weighted steps also add 8 each. If both routes qualify
 for one transition, count it once. Existing standing/calibration thresholds,
 checks, prompts and safety rules are unchanged.
 

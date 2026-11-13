@@ -263,6 +263,11 @@ test('profile transitions never outrank the engine at their saved historical bou
         const engine=Engine.readSavedLift(lift,engineHistory(boundary),{now:transition.date});
         assert.ok(rank[transition.stage]<=rank[engine.standing.word],JSON.stringify({source,count,transition,engine:engine.standing}));
       }
+      const saved=engineHistory(rows);
+      const supported=saved.map((session,index)=>Engine.readSavedLift(lift,saved.slice(0,index+1),{now:session.date}));
+      const ceiling=Math.max(0,...supported.map(read=>rank[read.standing?.word]??0));
+      const attained=profile.stage==='first'?0:profile.stage==='learning'?1:2;
+      assert.ok(attained<=ceiling,JSON.stringify({source,count,stage:profile.stage,ceiling}));
       if(source===undefined&&count===4)assert.equal(profile.stage,'solid');
     }
 });

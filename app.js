@@ -8338,6 +8338,7 @@ function profileCheckReading(calibration){
 function profileStageReaderHtml(lift){
   const stages=["first","learning","solid",lift.checks.length?"checked":"long_record",
     ["calibrated","bias_understood"].includes(lift.stage)?lift.stage:lift.checks.length?"calibrated":"established"];
+  const weighted=lift.depthSteps<lift.depthDates.length;
   const nextChecks=Math.max(0,EffortCalibration.ESTIMATOR.minChecks-lift.current.calibration.n);
   const checkNeed=nextChecks?t(nextChecks===1?"profile.reader.check_need_one":"profile.reader.check_need_other",{n:nextChecks})
     :t("profile.reader.check_agreement",{spread:fmt(EffortCalibration.ESTIMATOR.calibratedSpread),bias:fmt(EffortCalibration.ESTIMATOR.bias)});
@@ -8346,15 +8347,15 @@ function profileStageReaderHtml(lift){
     const transition=index?lift.transitions[index-1]:null,reached=index===0||!!transition;
     const detail=index===0?t("profile.reader.before"):index===1?t("profile.reader.saved_load")
       :index===2?(transition?t("profile.reader.solid_date",{date:shortDate(transition.date)}):profileStandingReason(lift.current.standing))
-      :index===3?(lift.checks.length?checkDetails:!transition&&lift.transitions.length<2?profileStandingReason(lift.current.standing):t("profile.reader.history_need",{n:Math.max(0,RepForgeProgressModel.PROFILE_WEIGHTS.dateCap/2-lift.depthDates.length),stage:profileStageName("long_record")}))
+      :index===3?(lift.checks.length?checkDetails:!transition&&lift.transitions.length<2?profileStandingReason(lift.current.standing):t(weighted?"profile.reader.history_need_weighted":"profile.reader.history_need",{n:fmt(Math.max(0,RepForgeProgressModel.PROFILE_WEIGHTS.dateCap/2-lift.depthSteps)),stage:profileStageName("long_record")}))
       :transition?(stage==="established"?t("profile.reader.history_reached",{date:shortDate(transition.date)}):t("profile.reader.pattern_reached",{date:shortDate(transition.date)}))
-        :lift.transitions.length<2?profileStandingReason(lift.current.standing):lift.checks.length?checkNeed:t("profile.reader.history_need",{n:Math.max(0,RepForgeProgressModel.PROFILE_WEIGHTS.dateCap-lift.depthDates.length),stage:profileStageName("established")});
+        :lift.transitions.length<2?profileStandingReason(lift.current.standing):lift.checks.length?checkNeed:t(weighted?"profile.reader.history_need_weighted":"profile.reader.history_need",{n:fmt(Math.max(0,RepForgeProgressModel.PROFILE_WEIGHTS.dateCap-lift.depthSteps)),stage:profileStageName("established")});
     return `<li data-attained="${reached}"><span class="profile-stage-mark" aria-hidden="true">${reached?"✓":index+1}</span><div><h3>${esc(profileStageName(stage))}</h3><p>${esc(detail)}</p></div></li>`}).join("");
   return `<h1 id="profilePageTitle">${esc(profileLiftName(lift))}</h1><p class="profile-caption">${esc(t("profile.reader.this_lift"))}</p>`+
     `<div class="profile-lift-status"><h2>${esc(profileStageName(lift.stage))}</h2><p>${esc(t("profile.reader.current",{standing:lift.current.available?standingWord(lift.current.standing):t("profile.unavailable")}))}</p>`+
     (lift.transitions.length>=2&&lift.current.standing?.word!=="solid"?`<p>${esc(profileStandingReason(lift.current.standing))}</p>`:"")+`</div>`+
     `<ol class="profile-stage-list">${list}</ol><section class="profile-depth"><h2>${esc(t("profile.reader.growing"))}</h2>`+
-    `<p>${esc(t(lift.depthDates.length>=RepForgeProgressModel.PROFILE_WEIGHTS.dateCap?"profile.reader.depth_full":"profile.reader.depth",{n:lift.depthDates.length,cap:RepForgeProgressModel.PROFILE_WEIGHTS.dateCap}))}</p><p class="profile-caption">${esc(t("profile.reader.optional"))}</p>`+
+    `<p>${esc(t(weighted?"profile.reader.depth_weighted":lift.depthSteps>=RepForgeProgressModel.PROFILE_WEIGHTS.dateCap?"profile.reader.depth_full":"profile.reader.depth",{n:weighted?fmt(Math.min(lift.depthSteps,RepForgeProgressModel.PROFILE_WEIGHTS.dateCap)):lift.depthDates.length,dates:lift.depthDates.length,cap:RepForgeProgressModel.PROFILE_WEIGHTS.dateCap}))}</p><p class="profile-caption">${esc(t(weighted?"profile.reader.optional_weighted":"profile.reader.optional"))}</p>`+
     `<p>${esc(t("profile.reader.calibration",{reading:""}).trim())}<br>${esc(profileCheckReading(lift.current.calibration))}</p>`+
     (lift.anchor?.opening!=null?`<p>${esc(t("profile.opening",{opening:fmtLoad(lift.anchor.opening),worked:fmtLoad(lift.anchor.load),unit:unitLabel()}))}</p>`:"")+`</section>`}
 function profileScopeHtml(profile,change){

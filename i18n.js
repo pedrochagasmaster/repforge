@@ -3274,6 +3274,9 @@ const EN = {
   "profile.scope.new_count_one": "{n} new lift",
   "profile.scope.archived_one": "{n} lift outside the current program",
   "profile.reader.depth_full": "{n} comparable-session dates saved. This lift's ring is full; your record keeps growing.",
+  "profile.reader.depth_weighted": "{dates} saved dates contribute {n} of {cap} date steps. Sessions with less effort detail contribute less.",
+  "profile.reader.optional_weighted": "Test sets stay optional. A longer comparable record can also support Long record and Established from history.",
+  "profile.reader.history_need_weighted": "{stage} needs {n} more date steps from comparable sessions.",
 };
 const PT = {
   "catalog.unavailable.title": "Biblioteca de exercícios indisponível",
@@ -6549,6 +6552,9 @@ const PT = {
   "profile.scope.new_count_one": "{n} exercício novo",
   "profile.scope.archived_one": "{n} exercício fora do treino atual",
   "profile.reader.depth_full": "{n} datas com sessões comparáveis salvas. O anel deste exercício está completo; seu histórico continua crescendo.",
+  "profile.reader.depth_weighted": "{dates} datas salvas contribuem com {n} de {cap} etapas por data. Sessões com menos detalhes sobre o esforço contribuem menos.",
+  "profile.reader.optional_weighted": "Séries-teste são opcionais. Um histórico comparável mais longo também pode sustentar Histórico amplo e Base consolidada pelo histórico.",
+  "profile.reader.history_need_weighted": "{stage} precisa de mais {n} etapas por data de sessões comparáveis.",
 };
 (function (root) {
   const STRINGS = { en: EN, pt: PT };
