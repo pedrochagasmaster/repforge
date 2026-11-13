@@ -12669,8 +12669,8 @@ function summaryProfileHtml(s){
     `<span class="profile-caption">${esc(t("profile.finish.open"))}</span></button>`+
     (lift?`<h4 class="sum-profile__lift">${esc(profileLiftName(lift))} · ${esc(profileStageName(lift.stage))}</h4>`:"")+
     (reason?`<p class="profile-intro">${esc(reason)}</p>`:"")+
-    `<p class="profile-caption">${esc(change.dates?tOne("profile.finish.dates",change.dates):"")}`+
-    `${change.stages?`${change.dates?" ":""}${esc(tOne("profile.finish.stages",change.stages))}`:!change.dates?esc(t(change.after.units>change.before.units?"profile.finish.depth":"profile.finish.unchanged")):""}</p>`+
+    (change.after.units>change.before.units?`<p class="profile-caption">${esc(change.dates?tOne("profile.finish.dates",change.dates):"")}`+
+    `${change.stages?`${change.dates?" ":""}${esc(tOne("profile.finish.stages",change.stages))}`:!change.dates?esc(t("profile.finish.depth")):""}</p>`:"")+
     (lift?`<button type="button" id="sumProfileLift" class="sum-profile__reader" data-lift="${esc(lift.key)}">${esc(t("profile.finish.reader"))}</button>`:"")+
     `</section>`}
 let summaryProfileFill=null;

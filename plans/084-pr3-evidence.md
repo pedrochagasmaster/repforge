@@ -35,7 +35,7 @@ the finish reading. The focused backdated proof was red with 9 passed / 3 failed
 with Overview. The new focused finish run passes all 91 assertions. Both snapshots now use one captured current date, retaining all
 known saved history. The saved rows keep their chosen past date.
 
-Copy approval and fidelity review remain owner gates before merge. CI and ci-full on the final head remain coordinator gates. This worker does not merge or watch CI.
+Copy is owner-approved with the edits below. Fidelity review remains an owner gate before merge. CI and ci-full on the final head remain coordinator gates. This worker does not merge or watch CI.
 
 ## Catalog review boundary
 
@@ -48,8 +48,7 @@ zero-tolerance comparison, then review all of them at full size.
 The new states are scrolled to the profile slot, retaining #736's share cards
 above and its Share/Done footer. The prototype omitted those cards and had a
 Done-only footer. Real canonical lift names, truthful history totals and ordinary
-body typography follow the shipped finish screen. These differences and the new
-copy await the owner's fidelity/copy decision. The first-check fixture has the prototype's 157→168 arithmetic. The agreeing
+body typography follow the shipped finish screen. These differences await the owner's fidelity decision; the copy table below is approved. The first-check fixture has the prototype's 157→168 arithmetic. The agreeing
 fixture is 141→152: its other three lifts have one valid check each, so this is
 the first producer-released effort-reading finding. Giving those other lifts
 three agreeing checks to force 157 would already release that global finding
@@ -57,3 +56,24 @@ before this save. Solid uses its actual shorter history, 138.5→149.5. Each cas
 still adds exactly four lift dates and one 8-unit stage.
 
 All 24 bootstrap frames were reviewed at native size across the catalog matrix. The 320/text200 reader return path also passed 15 focused assertions. CI replacement/verification and owner approval remain pending.
+
+The unchanged-save regression was red first: 12 passed / 1 failed, because a change paragraph still rendered.
+
+## Approved finish copy
+
+Owner-approved, including the Solid/date wording below. The unchanged key is removed; a save that adds no evidence renders no change line and retains its ring and navigation. Singular date copy keeps `{n}` for placeholder parity.
+
+| Key | EN | PT |
+|---|---|---|
+| `profile.finish.solid` | Solid: your saved sets now back your targets. | Bem fundamentada: suas séries salvas já sustentam suas metas. |
+| `profile.finish.checked` | First test set saved: guessed {guess}, did {did}. | Primeira série-teste salva: estimou {guess}, fez {did}. |
+| `profile.finish.agreeing` | Test set {n} saved: guessed {guess}, did {did}. Your checks agree. | Série-teste {n} salva: estimou {guess}, fez {did}. Suas séries-teste concordam. |
+| `profile.finish.dates` | {n} lifts gained a saved date. | {n} exercícios ganharam uma data salva. |
+| `profile.finish.dates_one` | {n} lift gained a saved date. | {n} exercício ganhou uma data salva. |
+| `profile.finish.stages` | {n} stages added to your profile. | {n} etapas acrescentadas ao seu perfil. |
+| `profile.finish.stages_one` | {n} stage added to your profile. | {n} etapa acrescentada ao seu perfil. |
+| `profile.finish.depth` | This save adds evidence to your saved dates. | Esta sessão salva acrescenta evidências às suas datas salvas. |
+| `profile.finish.open` | See your profile | Ver seu perfil |
+| `profile.finish.reader` | See this lift's stages | Ver as etapas deste exercício |
+
+After the approved copy edits and removal of the unchanged line, the focused finish suite passes 92 assertions. `build-i18n --check` confirms 3287 keys per language. The 24 bootstrap PNGs remain untouched for CI replacement/verification and prototype review.
