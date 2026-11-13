@@ -153,3 +153,60 @@ test("every allowed catalog pair stays at or below its working anchor", () => {
   assert.ok(allowed > 0);
   console.log(`Catalog ratio safety: ${catalog.exercises.length} movements, ${pairs} pairs, ${allowed} allowed`);
 });
+
+/* The dumbbell ladder (owner rule, 2026-11-13): the dumbbells a gym stocks, per hand. 1 kg steps to 10 kg, then 2 kg
+ * steps, to 60 kg. Every dumbbell load the app offers or suggests comes from it. */
+const Engine = require("../progression-engine.js");
+const DUMBBELL_KG = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40,
+  42, 44, 46, 48, 50, 52, 54, 56, 58, 60];
+test("the dumbbell ladder: 1 kg steps to 10 kg, then 2 kg steps to 60 kg", () => {
+  assert.deepEqual([...Loads.DUMBBELL_LADDER_KG], DUMBBELL_KG);
+  assert.deepEqual([...Loads.dumbbellLoadsKg("kg")], DUMBBELL_KG);
+  // lb (owner question): 5 lb steps from 5 to 130 lb, held in kg so the engine reads one unit.
+  const lb = Loads.dumbbellLoadsKg("lb").map(kg => Math.round(kg / 0.45359237 * 1000) / 1000);
+  assert.deepEqual(lb, Array.from({ length: 26 }, (_, i) => (i + 1) * 5));
+});
+test("a dumbbell movement is told apart from bars and machines by its equipment", () => {
+  assert.equal(Loads.isDumbbell({ exercise: exercise("Dumbbell bench press"), lookup }), true);
+  assert.equal(Loads.isDumbbell({ exercise: exercise("Barbell bench press"), lookup }), false);
+  assert.equal(Loads.isDumbbell({ exercise: exercise("45° incline Smith machine press"), lookup }), false);
+  // The equipment the slot chose wins over the movement's options.
+  assert.equal(Loads.isDumbbell({ exercise: exercise("Barbell bench press"), lookup, equipmentName: "Dumbbells" }), true);
+});
+const W = "25a5c6f170d880e2990fc88146f7de56", R = "25a5c6f170d880baaa2dc8c7b67d4b65";
+const perSide = (loadPerSideKg, reps = 10, rir = 2) => ({ exerciseId: "db-press", completed: true, setIndex: 0, rir,
+  equipmentId: "dumbbells", loadingConvention: "per_side",
+  loadingContext: { loadingConvention: "per_side", executionMode: "bilateral", bodyweightKg: null, bodyweightContributionEnabled: false, externalLoadMultiplier: 2, bodyweightCoefficient: 0 },
+  metricIds: [R, W], metricValues: [{ metricId: R, value: reps, unit: "reps" }, { metricId: W, value: loadPerSideKg, unit: "kg" }] });
+function dumbbellRecommendation(historyKg, { reps = 10, rir = 2, delta = 0 } = {}) {
+  const prescription = { id: "db:c1:s1", slotId: "db", cycleIndex: 1, setIndex: 1, exerciseId: "db-press", role: "hypertrophyPrimaryCompound",
+    metricType: "source_metrics@1", metricIds: [R, W], metricDefinitions: [
+      { id: R, sourceName: "Reps per side", semantic: "repsPerSide", unit: "reps" },
+      { id: W, sourceName: "Weight per side", semantic: "loadPerSideKg", unit: "kg" }],
+    targets: { repsPerSide: { min: 8, max: 12 } }, rir: 2, restSeconds: 90, status: "ready", loadingModel: { bodyweightCoefficient: 0 } };
+  const history = [{ sessionId: "s1", completed: true, sets: [perSide(historyKg, reps, rir), perSide(historyKg, reps, rir)] }];
+  const context = { bySlotId: { db: { equipmentId: "dumbbells", availableLoadsKg: [...Loads.dumbbellLoadsKg("kg")], loadingConvention: "per_side",
+    executionMode: "bilateral", bodyweightContributionEnabled: false, bodyweightKg: null, externalLoadMultiplier: 2 } } };
+  const settings = delta ? { calibration: { version: Engine.CALIBRATION_VERSION, delta } } : {};
+  return Engine.recommendSets([prescription], history, [], context, settings)[0];
+}
+test("engine suggestions for a dumbbell lift never leave the ladder, across the 10 kg boundary", () => {
+  const seen = new Set();
+  for (const kg of [...DUMBBELL_KG.slice(2, 20)]) for (const reps of [8, 10, 12]) for (const rir of [0, 2, 4]) {
+    const r = dumbbellRecommendation(kg, { reps, rir });
+    assert.equal(r.status, "recommended", `${kg} kg × ${reps} @${rir}`);
+    const load = r.targets.loadPerSideKg;
+    assert.ok(DUMBBELL_KG.includes(load), `${kg} kg × ${reps} @${rir} suggested ${load}`);
+    seen.add(load);
+  }
+  assert.ok(!seen.has(11) && !seen.has(12.5) && !seen.has(13), [...seen].join());
+  // A lifter who outgrew 9 kg goes to 10, and one who outgrew 10 goes to 12: never 11 or 12.5.
+  assert.equal(dumbbellRecommendation(9, { reps: 12, rir: 4 }).targets.loadPerSideKg, 10);
+  assert.equal(dumbbellRecommendation(10, { reps: 14, rir: 4 }).targets.loadPerSideKg, 12);
+});
+test("calibration moves a dumbbell suggestion at most one rung up and two down", () => {
+  const base = dumbbellRecommendation(10, { reps: 10, rir: 2 }).targets.loadPerSideKg;
+  assert.equal(base, 10);
+  assert.equal(dumbbellRecommendation(10, { reps: 10, rir: 2, delta: 2 }).targets.loadPerSideKg <= 12, true);
+  assert.ok(dumbbellRecommendation(10, { reps: 10, rir: 2, delta: -1 }).targets.loadPerSideKg >= 8);
+});
