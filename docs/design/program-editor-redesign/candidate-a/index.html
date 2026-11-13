@@ -1,0 +1,183 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Candidate A: one editing language</title>
+<link rel="stylesheet" href="../shared/editor.css">
+<style>
+/* Candidate A: onboarding B's review editor, reused as the Program editor. */
+.a-head{padding-top:4px}
+.a-name{display:flex;align-items:center;gap:8px;margin-top:6px}
+.pencil{width:18px;height:18px;flex:none;position:relative}
+.pencil::before{content:"";position:absolute;left:3px;top:7px;width:14px;height:4px;border:1.5px solid var(--ink-soft);border-radius:1px;transform:rotate(-45deg)}
+.a-facts{margin-top:6px}
+.a-changes{display:flex;align-items:center;justify-content:space-between;min-height:48px;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);margin-top:14px}
+.a-changes b{font-weight:600}
+.a-changes .links{display:flex;gap:18px}
+.a-dayhead{display:flex;align-items:flex-start;justify-content:space-between;margin-top:18px}
+.a-dayhead .more{width:44px;height:44px;display:flex;align-items:center;justify-content:center;font:600 18px var(--sans);letter-spacing:1px;margin-right:-10px}
+.a-ex{display:flex;gap:14px;padding:16px 0;border-bottom:1px solid var(--rule);align-items:flex-start}
+.a-ex .grow{display:grid;gap:4px}
+.a-ex .name{font:600 17px/1.3 var(--sans)}
+.a-set{display:grid;grid-template-columns:22px 1fr auto;align-items:center;gap:10px;min-height:28px;font:400 15px var(--sans)}
+.a-set .idx{width:22px;height:22px;border-radius:50%;background:var(--well);border:1px solid var(--rule);display:flex;align-items:center;justify-content:center;font:500 12px var(--mono);color:var(--ink-soft)}
+.a-set .rir{font:400 14px var(--sans);color:var(--ink-soft)}
+.a-ex .chev{align-self:center}
+.a-sheet{top:56px}
+.a-sheet .body{padding:0 var(--gut);margin:0 calc(-1*var(--gut))}
+.a-sec{padding:18px 0 6px}
+.a-sec>.t-sub{margin-bottom:10px}
+.a-ledger{display:grid;grid-template-columns:44px 1fr auto;align-items:center}
+.a-ledger>*{min-height:56px;display:flex;align-items:center;border-bottom:1px solid var(--rule-on-surface)}
+.a-ledger .h{min-height:32px}
+.a-ledger .r{justify-content:flex-end}
+.a-line{display:flex;align-items:center;justify-content:space-between;min-height:60px;border-bottom:1px solid var(--rule-on-surface);gap:12px}
+.a-line:last-child{border-bottom:0}
+.a-actrow{display:flex;align-items:center;min-height:52px;border-bottom:1px solid var(--rule-on-surface);font:500 16px var(--sans)}
+.a-week{display:grid;grid-template-columns:1fr auto 16px;gap:10px;align-items:center;min-height:56px;border-bottom:1px solid var(--rule-on-surface)}
+.a-week .what{font:400 15px var(--sans);color:var(--ink-soft);text-align:right}
+.a-week.is-open{background:var(--well);margin:0 calc(-1*var(--gut));padding:0 var(--gut);border-bottom:0}
+.a-weekbody{background:var(--well);margin:0 calc(-1*var(--gut));padding:0 var(--gut) 14px;border-bottom:1px solid var(--rule-on-surface)}
+.a-grid{display:grid;grid-template-columns:30px 1fr 1fr 1fr 1fr;gap:6px;align-items:center}
+.a-grid .h{font:500 11px var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft);min-height:28px;display:flex;align-items:end}
+.a-cell{min-height:44px;border:1px solid var(--boundary);border-radius:8px;background:var(--surface);display:flex;align-items:center;justify-content:center;font:500 16px var(--mono)}
+.a-cell.diff{box-shadow:inset 0 0 0 2px var(--ink);border-color:var(--ink)}
+.a-cell.empty{color:var(--ink-soft);font-family:var(--sans);font-weight:400}
+.a-swap{display:flex;gap:12px;align-items:center;min-height:72px;border-bottom:1px solid var(--rule-on-surface)}
+.a-swap .thumb{width:48px;height:48px}
+.a-swap .small{min-height:40px;padding:0 14px;border:1px solid var(--boundary);border-radius:8px;font:500 15px var(--sans);display:flex;align-items:center}
+.a-dayrow{display:flex;align-items:center;gap:6px;min-height:60px;border-bottom:1px solid var(--rule-on-surface)}
+.a-tabpip{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--danger);margin-left:6px;vertical-align:3px}
+.cta.is-disabled{background:#E4E1DA;color:#6A665F}
+:root[data-theme="dark"] .cta.is-disabled{background:#2E2B26;color:#ADA79D}
+.cta.is-disabled::before,.cta.is-disabled::after{display:none}
+</style>
+</head><body>
+<script src="../shared/kit.js"></script>
+<script>
+const { t, n, v, reps, img, EX, DAYS, exName } = Kit;
+
+const navbar = (right = "") => `<div class="navbar"><button class="link">${t("Cancelar","Cancel")}</button><span class="t-sub" style="font-size:16px">${n("Editar treino","Edit program")}</span><span style="min-width:64px;text-align:right">${right}</span></div>`;
+
+const head = (changes = 3) => `<div class="a-head">
+  <div class="a-name"><span class="t-feature">GodMode</span><span class="pencil"></span></div>
+  <p class="t-small a-facts">${n("4 dias · 7 semanas · você está na semana 1","4 days · 7 weeks · you are in week 1")}</p>
+  <div class="a-changes">${changes
+    ? `<span><span class="dot"></span><b>${changes === 1 ? t("1 ajuste seu","1 change of yours") : t(`${changes} ajustes seus`,`${changes} changes of yours`)}</b></span><span class="links"><button class="ulink">${t("Desfazer","Undo")}</button></span>`
+    : `<span class="t-small">${t("Toque num exercício para ajustar séries e repetições ou trocar o movimento.","Tap an exercise to adjust sets and reps or swap the movement.")}</span>`}</div>
+</div>`;
+
+const tabs = (on = 0, pip = -1) => `<div class="tabrow" style="margin-top:4px">${DAYS.map((d, i) =>
+  `<span class="${i === on ? "is-on" : ""}">${t(d.pt, d.en).replace(/ @.*/, "")}${i === pip ? '<span class="a-tabpip"></span>' : ""}</span>`).join("")}</div>`;
+
+const dayHead = (d, over) => `<div class="a-dayhead"><div><div class="a-name" style="margin-top:0"><span class="t-section">${t(d.pt, d.en)}</span><span class="pencil"></span></div>
+  <p class="t-small" style="margin-top:4px">${t(`${d.n} exercícios · cerca de ${d.min} min`,`${d.n} exercises · about ${d.min} min`)}</p></div><button class="more">···</button></div>`;
+
+const exRow = (e, mark) => `<div class="a-ex"><div class="thumb"><img src="${img(e.art)}" alt=""></div><div class="grow">
+  <span class="name">${exName(e)}</span>${mark ? `<span class="mark">${mark}</span>` : ""}
+  ${e.rir.slice(0, e.sets).map((r, i) => `<div class="a-set"><span class="idx">${i + 1}</span><span>${reps(e.min, e.max)}</span><span class="rir">RIR ${v(r)}</span></div>`).join("")}
+  </div><span class="chev"></span></div>`;
+
+const actionbar = (disabled, reason) => `<div class="actionbar">${reason ? `<p class="t-small" style="color:var(--ink);margin:2px 0 10px">${reason}</p>` : ""}<button class="cta${disabled ? " is-disabled" : ""}">${t("Aplicar alterações","Apply changes")}</button></div>`;
+
+const overview = (opts = {}) => {
+  const ex = opts.ex || EX;
+  return `<div class="scroll">${navbar()}${head(opts.changes ?? 3)}${tabs(opts.tab || 0, opts.pip)}${dayHead(opts.day || DAYS[0])}
+  ${ex.map((e, i) => exRow(e, i === 0 && (opts.changes ?? 3) ? t("Ajustado","Adjusted") : "")).join("")}</div>`;
+};
+
+const sheet = (title, body, foot, extraTop = "") => `<div class="scrim"></div><div class="sheet a-sheet">${extraTop}<div class="sheet__handle"></div>
+  <div class="sheet__head"><span class="t-section">${title}</span><button class="close" aria-label="close"></button></div>
+  <div class="body">${body}</div>${foot ? `<div class="sheet__foot">${foot}</div>` : ""}</div>`;
+const done = () => `<button class="cta noarrow">${t("Pronto","Done")}</button>`;
+
+const S = [];
+
+// 1. Overview
+S.push({ id: "a1-overview", title: "Overview", html: () => overview() + actionbar() });
+
+// 2. Exercise sheet (top): B's sheet, unchanged.
+S.push({ id: "a2-exercise", title: "Exercise sheet", html: () => overview() + sheet(exName(EX[0]), `
+  <div style="display:flex;gap:14px;align-items:center;padding-bottom:14px;border-bottom:1px solid var(--rule-on-surface)"><div class="thumb" style="width:72px;height:72px"><img src="${img("pr_bb")}" alt=""></div>
+    <div><p class="t-label">${t("Composto principal","Main compound")}</p><p class="t-small" style="margin-top:6px">${t(EX[0].musclesPt, EX[0].musclesEn)}</p></div></div>
+  <div class="a-sec"><div class="a-ledger">
+    <span class="h t-label">${t("Série","Set")}</span><span class="h t-label">${t("Repetições","Reps")}</span><span class="h t-label r">RIR</span>
+    ${[2, 1, 1].map((r, i) => `<span class="num soft">${i + 1}</span><span>${reps(4, 6)}</span><span class="r"><span class="stepper"><button>−</button><output>${r}</output><button>+</button></span></span>`).join("")}
+  </div></div>
+  <div class="a-line"><span class="t-body">${t("Séries","Sets")}</span><span class="stepper"><button>−</button><output>3</output><button>+</button></span></div>
+  <div class="a-line" style="flex-wrap:wrap;padding:12px 0;gap:10px"><span class="t-body" style="width:100%">${t("Faixa de repetições","Rep range")}</span><span style="display:flex;gap:8px;align-items:center"><span class="stepper"><button>−</button><output>4</output><button>+</button></span><span class="soft">–</span><span class="stepper"><button>−</button><output>6</output><button>+</button></span></span></div>
+  <div class="a-sec" style="padding-top:14px"><p class="t-body" style="margin-bottom:10px">${t("Descanso entre séries","Rest between sets")}</p>
+    <div class="chips">${[60, 90, 120, 150, 180, 240].map(s => `<span class="chip${s === 180 ? " is-on" : ""}"><span class="num">${s}</span>&nbsp;s</span>`).join("")}</div>
+    <p class="t-small" style="margin-top:12px">${t("Dia: cerca de 58 → 61 min","Day: about 58 → 61 min")}</p></div>
+`, done()) });
+
+// 3. Exercise sheet, lower half: what B's sheet lacks today. Suggest loads + per side.
+S.push({ id: "a3-exercise-loads", title: "Exercise sheet: weeks, loads, per side", html: () => overview() + sheet(exName(EX[4]), `
+  <div class="a-line" style="min-height:64px"><span class="grow"><span class="t-body" style="display:block">${n("Semanas","Weeks")}</span><span class="t-small">${n("Igual nas 7 semanas","Same in all 7 weeks")}</span></span><span class="t-small" style="color:var(--ink)">${n("Ajustar","Adjust")}</span><span class="chev"></span></div>
+  <div class="a-sec"><div class="a-line" style="min-height:48px;border:0"><span class="t-sub">${t("Sugerir cargas","Suggest loads")}</span><span class="switch on"></span></div>
+    <p class="t-small">${t("Meta atual de repetições · 12–15","Current rep target · 12–15")}</p></div>
+  <div class="a-line"><span class="t-body">${n("RIR em todas as séries","RIR on every set")}</span><span class="stepper"><button>−</button><output>1</output><button>+</button></span></div>
+  <div class="a-line"><span class="grow"><span class="t-body" style="display:block">${t("Menor variação de carga","Smallest load change")}</span><span class="t-small">${t("As cargas sugeridas mudam em passos deste tamanho.","Suggested loads move in steps of this size.")}</span></span><span class="stepper"><button>−</button><output>1 kg</output><button>+</button></span></div>
+  <div class="a-sec"><p class="t-body" style="margin-bottom:4px">${t("Como você faz este exercício?","How do you do this exercise?")}</p>
+    <div class="a-line" style="min-height:52px"><span>${t("Os dois lados juntos","Both sides together")}</span><span class="radio"></span></div>
+    <div class="a-line" style="min-height:52px"><span>${t("Um lado de cada vez","One side at a time")}</span><span class="radio on"></span></div>
+    <p class="t-small" style="margin-top:6px">${n("A carga e as repetições passam a ser por lado.","Load and reps are now counted per side.")}</p></div>
+  <div class="a-sec"><p class="t-sub" style="margin-bottom:4px">${t("Alternativas na sessão","In-session alternates")}</p>
+    <p class="t-small" style="margin-bottom:6px">${t("Se o equipamento estiver ocupado, a troca durante a sessão mostra estas primeiro.","If the equipment is taken, the mid-workout swap lists these first.")}</p>
+    <div class="a-line" style="min-height:52px"><span>${t("Elevação lateral na polia","Cable lateral raise")}</span><span class="close" style="position:relative;margin:0"></span></div></div>
+`, done()) });
+
+// 4. Weeks: per-week and per-set exceptions, in a second sheet level.
+S.push({ id: "a4-weeks", title: "Weeks and per-set exceptions", html: () => overview() + sheet(n("Semanas","Weeks"), `
+  <p class="t-small" style="margin:-4px 0 12px">${exName(EX[0])} · ${n("1 semana diferente","1 week differs")}</p>
+  ${[1, 2, 3, 4, 5, 6].map(w => `<div class="a-week"><span class="t-body">${n(`Semana ${w}`,`Week ${w}`)}</span><span class="what">${v("3")} × ${reps(4, 6)} · RIR ${v("2·1·1")}</span><span class="chev"></span></div>`).join("")}
+  <div class="a-week is-open"><span class="t-body" style="font-weight:600">${n("Semana 7","Week 7")} <span class="mark" style="margin-left:8px">${n("Diferente","Differs")}</span></span><span class="what"></span><span class="chev up"></span></div>
+  <div class="a-weekbody">
+    <div class="a-grid"><span class="h">#</span><span class="h">${n("Carga kg","Load kg")}</span><span class="h">Reps</span><span class="h">RIR</span><span class="h">${n("Desc.","Rest")}</span>
+      <span class="num soft">1</span><span class="a-cell empty">${n("auto","auto")}</span><span class="a-cell">4–6</span><span class="a-cell diff">3</span><span class="a-cell">180</span>
+      <span class="num soft">2</span><span class="a-cell empty">${n("auto","auto")}</span><span class="a-cell">4–6</span><span class="a-cell diff">3</span><span class="a-cell">180</span>
+    </div>
+    <p class="t-small" style="margin-top:10px">${n("Contornado: diferente das outras semanas. Carga vazia: o Taurifer sugere.","Outlined: differs from the other weeks. Empty load: Taurifer suggests it.")}</p>
+    <div style="display:flex;gap:18px;margin-top:4px"><button class="ulink">${n("Igualar às outras semanas","Match the other weeks")}</button></div>
+  </div>
+`, done()) });
+
+// 5. Swap: alternates first, then the engine's picks, then the catalog.
+S.push({ id: "a5-replace", title: "Swap exercise (alternates first)", html: () => overview() + sheet(t("Trocar exercício","Swap exercise"), `
+  <p class="t-label" style="margin:6px 0 2px">${n("Suas alternativas","Your alternates")}</p>
+  <div class="a-swap"><div class="thumb mono">SH</div><span class="grow">${t("Supino reto com halteres","Dumbbell bench press")}</span><button class="small">${t("Trocar","Swap")}</button></div>
+  <p class="t-label" style="margin:18px 0 2px">${n("Mesma função","Same job")}</p>
+  <p class="t-small" style="margin-bottom:4px">${t("Escolhidos pelo Taurifer para a mesma função, com o seu equipamento.","Picked by Taurifer for the same job, with your equipment.")}</p>
+  ${[["ip_sm", t("Supino reto no Smith","Smith machine bench press")], ["pr_mc", t("Supino máquina","Machine chest press")], ["ip_bb", t("Supino inclinado 45° com barra","45° incline barbell press")]].map(([a, nm]) => `<div class="a-swap"><div class="thumb"><img src="${img(a)}" alt=""></div><span class="grow">${nm}</span><button class="small">${t("Trocar","Swap")}</button></div>`).join("")}
+  <button class="ulink" style="margin-top:4px">${t("Mostrar mais 6","Show 6 more")}</button>
+  <div class="field" style="margin-top:10px;color:var(--ink-soft)">${t("Buscar no catálogo","Search the catalog")}</div>
+`, "") });
+
+// 6. Remove with undo, and add from the day's foot.
+S.push({ id: "a6-remove-add", title: "Remove (undo) and add", html: () => `<div class="scroll">${navbar()}${head(4)}${tabs(0)}${dayHead({ ...DAYS[0], n: 4, min: 51 })}
+  ${EX.filter(e => e.id !== "ohp").slice(1).map(e => exRow(e)).join("")}
+  <div style="padding:10px 0"><button class="ghost plus">${t("Adicionar exercício","Add exercise")}</button></div></div>
+  <div class="toast"><span>${t("Exercício removido.","Exercise removed.")}</span><b>${t("Desfazer","Undo")}</b></div>` + actionbar() });
+
+// 7. Days: rename and reorder in one sheet from the day's ··· menu.
+S.push({ id: "a7-days", title: "Rename and reorder days", html: () => overview() + sheet(t("Dias de treino","Training days"), `
+  <p class="t-small" style="margin:-4px 0 10px">${n("Arraste pela alça para mudar a ordem. Toque no nome para renomear.","Drag by the handle to change the order. Tap a name to rename it.")}</p>
+  ${DAYS.map((d, i) => i === 1
+    ? `<div class="a-dayrow" style="gap:10px;padding:8px 0"><span class="handle"></span><div class="grow"><div class="field is-focus">Inferior @ Casa</div><p class="t-small" style="margin-top:6px">${t("Nome do dia","Day name")}</p></div></div>`
+    : `<div class="a-dayrow"><span class="handle"></span><span class="grow t-body">${t(d.pt, d.en)}</span><span class="t-small">${t(`${d.n} exercícios`,`${d.n} exercises`)}</span></div>`).join("")}
+  <div style="padding:8px 0"><button class="ghost plus">${n("Adicionar dia","Add day")}</button></div>
+  <div class="a-actrow danger" style="border:0">${t("Remover dia","Remove day")}</div>
+`, `<button class="cta noarrow">${t("Salvar","Save")}</button>`) });
+
+// 8. Validation: empty day blocks Apply; the reason sits over the button.
+S.push({ id: "a8-validation", title: "Validation", html: () => `<div class="scroll">${navbar()}${head(5)}${tabs(3, 3)}${dayHead({ ...DAYS[3], n: 0, min: 0 }).replace(/0 exercícios · cerca de 0 min|0 exercises · about 0 min/, t("Sem exercícios","No exercises"))}
+  <div class="banner-err" style="margin-top:16px">${t("Este dia ficou sem exercícios. Adicione um para poder usar o treino.","This day has no exercises. Add one to use the program.")}</div>
+  <div style="padding:10px 0"><button class="ghost plus">${t("Adicionar exercício","Add exercise")}</button></div></div>`
+  + actionbar(true, t("Adicione pelo menos um exercício a cada dia de treino.","Add at least one exercise to each training day.")) });
+
+// 9. Leaving with unapplied changes.
+S.push({ id: "a9-done", title: "Leave with unapplied changes", html: () => overview() + actionbar() + `<div class="scrim"></div><div class="dialog">
+  <p class="d-title">${t("Alterações não aplicadas","Unapplied changes")}</p><p>${t("Suas alterações ainda não foram aplicadas.","Your changes haven't been applied yet.")}</p>
+  <div class="stack"><button class="cta noarrow">${t("Aplicar alterações","Apply changes")}</button><button class="btn2">${t("Descartar alterações","Discard changes")}</button><button class="btn2" style="border:0">${t("Continuar editando","Keep editing")}</button></div></div>` });
+
+Kit.render(S);
+</script>
+</body></html>
