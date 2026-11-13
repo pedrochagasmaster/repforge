@@ -8,6 +8,7 @@
  *   REPFORGE_URL        App base URL (default http://localhost:8000/)
  *   REPFORGE_SIM_WEEKS  Historical weeks to seed (default 52; use 12 for quick runs)
  *   REPFORGE_PROFILE=1  Print per-phase timings at the end
+ *   REPFORGE_SIM_SECTION=settings-navigation  Run only the held traversal proof
  *
  * Coverage highlights:
  *   - Bulk-seeded year of history + targeted UI save regressions
@@ -1309,6 +1310,39 @@ async function selectEffort(page, key, effort) {
   }
 }
 
+async function proveSettingsNavigation(page) {
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  await page.click("#woDayTitle [data-exopen]");
+  await page.waitForSelector("#exercise.view.active");
+  await page.waitForFunction(() => history.state?.tauriferRoute?.view === "exercise");
+  await page.evaluate(() => {
+    const go = history.go.bind(history);
+    window.__simHeldTraversal = { requested: false, saved: false, landed: false };
+    history.go = delta => {
+      window.__simHeldTraversal.requested = true;
+      window.__simHeldTraversal.release = () => go(delta);
+    };
+    addEventListener("popstate", () => { window.__simHeldTraversal.landed = true; }, { once: true });
+    document.querySelector("#saveSettings").addEventListener("click", () => {
+      window.__simHeldTraversal.saved = true;
+    }, { once: true });
+  });
+  const saving = saveSettingsAndFlush(page);
+  await page.waitForFunction(() => window.__simHeldTraversal.requested);
+  await page.evaluate(async () => {
+    await window.__repforgeStorage.flush();
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  });
+  const savedBeforeArrival = await page.evaluate(() => window.__simHeldTraversal.saved);
+  await page.evaluate(() => window.__simHeldTraversal.release());
+  await page.waitForFunction(() => window.__simHeldTraversal.landed);
+  await saving;
+  await page.evaluate(() => { delete history.go; delete window.__simHeldTraversal; });
+  assert(!savedBeforeArrival, "Settings save waits for the pushed-page traversal acknowledgement",
+    "Save settings ran while history.go was still held", "Exercise → Settings with the browser traversal held");
+}
+
 async function main() {
   console.log("RepForge year-of-usage simulation");
   console.log(`Target: ${BASE}\n`);
@@ -1380,6 +1414,12 @@ async function main() {
 
   await loadApp(page);
   await resetWithSeedProgram(page);
+
+  await proveSettingsNavigation(page);
+  if (process.env.REPFORGE_SIM_SECTION === "settings-navigation") {
+    await browser.close();
+    process.exit(results.failed ? 1 : 0);
+  }
 
   // ── Phase 1: Historical training data ────────────────────────────
   beginPhase(`Phase 1: Historical training data (${SIM_WEEKS} weeks, bulk seed)`);
