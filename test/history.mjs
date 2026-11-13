@@ -901,10 +901,12 @@ async function runMetricGridGeometryChecks(browser) {
           await document.fonts.ready;
         }, scale);
         const m = await page.evaluate(() => {
-          const problems = [], values = [];
+          const problems = [], values = [], tracks = [];
+          const ledger = document.querySelector('.histlift__ledger');
+          const port = (ledger || document.querySelector('.histlift')).getBoundingClientRect();
+          if (port.left < 0 || port.right > innerWidth + 1) problems.push('ledger outside viewport');
           for (const grid of document.querySelectorAll('.histpage__cols .history-metric-grid, .histlift__sets .history-metric-grid')) {
-            const bounds = grid.getBoundingClientRect();
-            if (bounds.left < 0 || bounds.right > innerWidth + 1) problems.push('grid outside viewport');
+            tracks.push([...grid.children].map(cell => cell.getBoundingClientRect().right));
             const boxes = [];
             for (const cell of grid.children) {
               const box = cell.getBoundingClientRect(), walker = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT);
@@ -926,6 +928,13 @@ async function runMetricGridGeometryChecks(browser) {
               if (a.cell !== b.cell && Math.min(a.right, b.right) - Math.max(a.left, b.left) > 1 && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 1)
                 problems.push(`overlap: ${a.cell.textContent} / ${b.cell.textContent}`);
             }
+          }
+          if (tracks.some(row => row.some((right, i) => Math.abs(right - tracks[0][i]) > 1))) problems.push('headers and rows misaligned');
+          if (ledger) {
+            ledger.scrollLeft = ledger.scrollWidth;
+            const end = ledger.querySelector('.histlift__sets .ledgerline:last-child .fx-col:last-child').getBoundingClientRect();
+            if (end.right > port.right + 1 || end.left < port.left - 1) problems.push('last metric unreachable by scrolling');
+            ledger.scrollLeft = 0;
           }
           return { problems, values, wide: document.documentElement.scrollWidth > innerWidth };
         });

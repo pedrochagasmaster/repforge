@@ -5846,10 +5846,15 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
 #history .histpage__totals b{display:block;font-family:var(--font-language);font-weight:var(--weight-semibold);letter-spacing:-.02em;font-variant-numeric:tabular-nums;font-size:var(--font-size-metric);line-height:var(--line-tight);white-space:nowrap;color:var(--color-ink)}
 #history .histpage__totals span{display:block;margin-top:var(--space-4);font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
 #history .histpage__cols{margin-top:var(--space-26);min-height:var(--control-target);align-items:center}
-#history .histpage__cols,#history .histlift__sets .ledgerline{grid-template-columns:3rem minmax(0,1fr)}
+/* Header and saved rows share intrinsic tracks. A narrow ledger scrolls as one region instead of overprinting metrics. */
+#history .histlift__ledger{display:grid;grid-template-columns:max-content repeat(var(--history-metric-count,3),minmax(max-content,1fr));column-gap:var(--space-8);overflow-x:auto}
+#history .histlift__ledger .history-metric{display:flex;justify-content:flex-end;align-items:baseline;gap:var(--space-4)}
+#history .histlift__ledger:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+#history .histpage__cols,#history .histlift__sets,#history .histlift__sets .ledgerline{display:grid;grid-column:1/-1;grid-template-columns:subgrid}
+#history .histpage__cols,#history .histlift__sets .ledgerline{padding-inline:0}
 #history .histpage__cols .ledgerline__vals{letter-spacing:0}
 #history .histpage__cols .ledgerline__vals,#history .histlift__sets .ledgerline__vals{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr) minmax(0,1fr);gap:var(--space-8)}
-#history .histpage__cols .history-metric-grid,#history .histlift__sets .history-metric-grid{display:grid;grid-template-columns:repeat(var(--history-metric-count,3),minmax(0,1fr));gap:var(--space-8);min-width:0}
+#history .histpage__cols .history-metric-grid,#history .histlift__sets .history-metric-grid{display:grid;grid-column:2/-1;grid-template-columns:subgrid;gap:var(--space-8);min-width:0}
 #history .histpage__cols .ledgerline__vals>.fx-col,#history .histlift__sets .ledgerline__vals>.fx-col{min-width:0}
 #history .histpage__cols .ledgerline__vals{font-family:inherit;font-size:inherit;font-weight:inherit;line-height:inherit;letter-spacing:inherit;text-transform:inherit;color:inherit}
 #history .histlift{padding:var(--space-12) 0;border-bottom:1px solid var(--boundary-decorative)}
