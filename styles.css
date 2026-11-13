@@ -1268,7 +1268,7 @@ article.exercise--focus.is-hero-compact.is-standing-compact .fcard__context > .f
 .exercise--focus.is-text-scaled .ledgerline__head,.exercise--focus.is-text-scaled .ledgerline{grid-template-columns:auto minmax(0,1fr)}
 .exercise--focus.is-text-scaled .ledgerline__head > :first-child{visibility:hidden}
 .exercise--focus.is-text-scaled .ledgerline__head{font-size:min(var(--font-size-label),var(--large-cap-caption))}
-.exercise--focus.is-text-scaled .ledgerline__vals{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr) minmax(0,1fr);font-size:min(var(--font-size-body),var(--large-cap-data))}
+.exercise--focus.is-text-scaled .ledgerline__vals{display:grid;grid-template-columns:minmax(max-content,1.6fr) minmax(max-content,1fr) minmax(max-content,1fr);font-size:min(var(--font-size-body),var(--large-cap-data))}
 .exercise--focus.is-text-scaled .ledgerline__vals > .fx-col{min-width:0}
 .exercise--focus.is-text-scaled .ledgerline__idx{font-size:min(var(--font-size-body-small),var(--large-cap-small))}
 .exercise--focus.is-text-scaled .ledgerline__prev{font-size:min(var(--font-size-body-small),var(--large-cap-body))}
