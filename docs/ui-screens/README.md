@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 278 screens,
-1661 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 283 screens,
+1701 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -189,6 +189,9 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Today row actions](screens/today/context-menu__phone-390-light-en.png) | 8 | A Today exercise lifted above its context menu, opened through its visible actions button. |
 | [Today — skipped exercise](screens/today/skipped__phone-390-light-en.png) | 8 | A context-menu skip acknowledged on Today, stored only in the workout draft: the skip opens today's session, so the live card leads and the row reads Skipped today. |
 | [Today — last week](screens/today/week-card__phone-390-light-en.png) | 8 | Two sentences about last week with Review and Dismiss. |
+| [Today — first profile evidence](screens/today/profile-first__phone-390-light-en.png) | 8 | An onboarded program before saved evidence: the empty ink ring and factual first-saved-set line. |
+| [Today — saved-evidence profile](screens/today/profile__phone-390-light-en.png) | 8 | The current program and session remain dominant beside the saved-evidence profile ring. |
+| [Today — profile scope changed](screens/today/profile-scope__phone-390-light-en.png) | 8 | A factual two-new-lifts line opens the before/now explanation; the current ring already uses its new denominator. |
 
 ### Workout logging
 
@@ -309,6 +312,8 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Progress — recovery reassessment](screens/progress/recovery-reassessment__phone-390-light-en.png) | 8 | Canonical week two asks Better, About the same, or Worse. |
 | [Review with a proposed change](screens/progress/review-proposal__phone-390-light-en.png) | 8 | Recurring skips, an equipment cause and an alternate, with four explicit actions. |
 | [Review of an accepted change](screens/progress/review-evaluated__phone-390-light-en.png) | 8 | An accepted removal and the following week’s observed outcome. |
+| [Profile — per-lift stages](screens/progress/profile-reader__phone-390-light-en.png) | 8 | The attained evidence stages, current standing, saved depth and optional check/history routes for one comparable lift. |
+| [Profile — changed scope](screens/progress/profile-scope__phone-390-light-en.png) | 8 | Static before/now scope rings retain saved evidence and explain two newly included comparable lifts, with explicit acknowledgment. |
 
 ### History
 

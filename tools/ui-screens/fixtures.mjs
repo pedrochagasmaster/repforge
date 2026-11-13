@@ -50,6 +50,7 @@ export function catalogState() {
       for (let set = 1; set <= Math.min(row.sets, 2); set++) {
         log.push(metricLogRow(programMeta, row, {
           session, date, day, set, load, reps: row.min + 2, rir: 1, created: `${date}T12:00:00.000Z`,
+          extra: { effortSource: "rir" },
         }));
       }
     });

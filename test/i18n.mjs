@@ -176,6 +176,7 @@ const FOCUS_PREV_LINE_FAMILIES = Object.freeze([
 const FOCUS_PREV_LINE_ENDINGS = Object.freeze(["rir", "norir", "effort"]);
 
 const DYNAMIC_FAMILIES = [
+  { test: (s) => s.includes("profile.stage_name.${stage}"), keys: () => ["first", "learning", "solid", "checked", "calibrated", "bias_understood", "long_record", "established"].map((stage) => `profile.stage_name.${stage}`) },
   { test: (s) => s.includes("finding.need.${next.id}${suffix}"), keys: () => ["finding.need.weights_found", "finding.need.weights_found_one", "finding.need.first_target", "finding.need.first_check", "finding.need.effort_read", "finding.need.effort_read_one", "finding.need.effort_read_agreement", "finding.need.first_solid", "finding.need.first_solid_one", "finding.need.first_solid_sessions", "finding.need.first_solid_agreement", "finding.need.first_trend", "finding.need.month_one", "finding.need.month_one_one"] },
   { test: (s) => s.includes("review.proposal.applied.${record.kind}"), keys: () => ["review.proposal.applied.swap_exercise", "review.proposal.applied.drop_exercise", "review.proposal.applied.reduce_sets"] },
   { test: (s) => s.includes("review.proposal.evaluation.${record.evaluation.outcome}"), keys: () => ["review.proposal.evaluation.pattern_stopped", "review.proposal.evaluation.pattern_continued", "review.proposal.evaluation.insufficient"] },

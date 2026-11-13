@@ -27,7 +27,7 @@ const first = log => build(log).lifts.find(l => l.active);
 const check = (i,guess=8) => session(i).map((r,j) => j===3 ? {...r,effortSource:'failure',rir:0,calibration:{v:1,predictedReps:guess,predictionEdited:true,prefillBasis:"reps"}} : r);
 
 test('versioned projection starts empty and does not invent anchors from a program', () => {
-  const out=build([]); assert.equal(out.version,'profile@084.1');
+  const out=build([]); assert.equal(out.version,'profile@084.2');
   assert.equal(out.units,0); assert.equal(out.budget,80); assert.equal(out.fill,0);
   assert.equal(out.lifts[0].stage,'first');
   assert.deepEqual(Model.PROFILE_WEIGHTS,{date:0.75,transition:8,dateCap:64,transitions:4});
@@ -75,9 +75,15 @@ test('one date needs two distinct ordinary rows; failures and repeated imports c
   assert.equal(first([...session(0,{},1),...check(0).slice(-1)]).depthDates.length,0);
   assert.equal(first([...session(0),...session(0),...session(0,{session:'other'})]).depthDates.length,1);
 });
-test('word and numeric choices count equally; absent, prefilled and unsure provenance never become explicit', () => {
+test('date eligibility uses the standing row-quality weights, including older unknown provenance', () => {
   for(const source of ['effort','rir','reps_left','reps_left_3plus','reps_left_5plus']) assert.equal(first(session(0,{effortSource:source})).depthDates.length,1);
-  for(const source of [undefined,null,'prefilled','unsure','failure','unknown']) assert.equal(first(session(0,{effortSource:source})).depthDates.length,0);
+  for(const source of [undefined,null]) assert.equal(first(session(0,{effortSource:source})).depthDates.length,1);
+  for(const source of ['prefilled','unsure','failure','unknown']) assert.equal(first(session(0,{effortSource:source})).depthDates.length,0);
+  for(const source of [undefined,null,'effort','reps_left_3plus','reps_left_5plus']){
+    assert.equal(first(session(0,{effortSource:source},2)).depthDates.length,1);
+    assert.equal(first(session(0,{effortSource:source},2)).depthSteps,0.5);
+    assert.equal(first(session(0,{effortSource:source},4)).depthDates.length,1);
+  }
 });
 test('warmups, ramps, invalid effort, invalid metrics and future/undated rows add no depth', () => {
   for(const extra of [{warmup:true},{origin:'ramp'},{work:false},{rir:null},{rir:NaN},{metricValues:[]},{date:'invalid'},{date:'2027-01-01'}])
@@ -202,4 +208,79 @@ test('a calibrated pattern acquired before Solid can satisfy the later stage aft
 
 test('identity ignores execution metadata for metrics that do not distinguish sides', () => {
   assert.equal(Engine.savedLiftIdentity(lift),Engine.savedLiftIdentity({...lift,context:{...context,executionMode:'bilateral'}}));
+});
+
+test('the catalog lifter has explicit saved effort and Learning wherever its comparable history anchors', async () => {
+  const {DIRECTION_D_CANONICAL_DATA:data}=await import('../tools/ui-screens/direction-d-canonical-fixture.generated.mjs');
+  const row=data.log[0];
+  const descriptor={exerciseId:row.performedLibraryId,metricType:row.metricType,
+    metricIds:row.metricIds,metricDefinitions:row.metricDefinitions,loadingModel:row.loadingModel,
+    context:{...row.loadingContext,equipmentId:row.equipmentId,loadingConvention:row.loadingConvention}};
+  const log=data.log.filter(item=>item.session===row.session&&item.performedLibraryId===row.performedLibraryId);
+  const history=[{sessionId:row.session,date:row.date,completed:true,
+    sets:log.map(item=>({...item,exerciseId:item.performedLibraryId,completed:true}))}];
+  const read=Engine.readSavedLift(descriptor,history,{now:row.date});
+  assert.ok(read.sessions.length>0);
+  assert.equal(read.standing.word,'learning');
+  const projection=build(log,[descriptor],row.date).lifts[0];
+  assert.equal(projection.depthDates.length,1);
+  assert.equal(projection.stage,'learning');
+  // Older rows retain unknown provenance and use the standing producer's half weight.
+  const unknown=log.map(({effortSource,...item})=>item);
+  const older=build(unknown,[descriptor],row.date).lifts[0];
+  assert.equal(older.depthDates.length,1);
+  assert.equal(older.stage,'learning');
+});
+
+function engineHistory(log) {
+  return [...new Set(log.map(row=>row.session))].map(sessionId=>({sessionId,completed:true,
+    date:log.find(row=>row.session===sessionId).date,
+    sets:log.filter(row=>row.session===sessionId).map(row=>({...row,exerciseId:row.performedLibraryId,completed:true}))}));
+}
+
+test('older numeric RIR history earns dates and the same Learning/Solid standing as the engine', () => {
+  for(const n of [1,2,4]){
+    const rows=history(n).map(({effortSource,...row})=>row),now=date(n-1);
+    const input=[[prescription],engineHistory(rows),[],{bySlotId:{[prescription.slotId]:context}},{now}];
+    const recommendation=Engine.recommendSets(...input)[0];
+    assert.equal(recommendation.historyAnchor.source,'history');
+    const profile=build(rows,[lift],now).lifts[0];
+    assert.equal(profile.depthDates.length,n);
+    assert.equal(profile.stage,recommendation.standing.word);
+    assert.equal(profile.current.standing.evidence.sets,recommendation.standing.evidence.sets);
+    assert.equal(profile.current.standing.evidence.sessions,recommendation.standing.evidence.sessions);
+  }
+});
+
+test('profile transitions never outrank the engine at their saved historical boundary', () => {
+  const rank={first:0,learning:1,solid:2};
+  for(const source of [undefined,null,'rir','reps_left','effort','reps_left_3plus','reps_left_5plus','prefilled','unsure','failure'])
+    for(const count of [1,2,3,4,6]){
+      const rows=Array.from({length:4},(_,i)=>session(i,{effortSource:source},count)).flat();
+      const profile=build(rows,[lift],date(3)).lifts[0];
+      for(const transition of profile.transitions.filter(item=>item.stage==='learning'||item.stage==='solid')){
+        const boundary=rows.filter(row=>row.date<=transition.date);
+        const engine=Engine.readSavedLift(lift,engineHistory(boundary),{now:transition.date});
+        assert.ok(rank[transition.stage]<=rank[engine.standing.word],JSON.stringify({source,count,transition,engine:engine.standing}));
+      }
+      const saved=engineHistory(rows);
+      const supported=saved.map((session,index)=>Engine.readSavedLift(lift,saved.slice(0,index+1),{now:session.date}));
+      const ceiling=Math.max(0,...supported.map(read=>rank[read.standing?.word]??0));
+      const attained=profile.stage==='first'?0:profile.stage==='learning'?1:2;
+      assert.ok(attained<=ceiling,JSON.stringify({source,count,stage:profile.stage,ceiling}));
+      if(source===undefined&&count===4)assert.equal(profile.stage,'solid');
+    }
+});
+
+test('date credit preserves standing row quality and caps each calendar date at one step', () => {
+  for(const source of [undefined,null,'effort','reps_left_3plus','reps_left_5plus']){
+    for(const count of [2,3,4,6]){
+      const out=first(session(0,{effortSource:source},count));
+      assert.equal(out.depthSteps,Math.min(1,count*0.5/2));
+      assert.equal(out.dateUnits,0.75*Math.min(1,count*0.5/2));
+    }
+  }
+  assert.equal(first(session(0,{},2)).depthSteps,1);
+  assert.equal(first([...session(0,{effortSource:undefined},2),...session(0,{session:'second',effortSource:undefined},2)]).depthSteps,1);
+  assert.equal(first([...session(0,{effortSource:undefined},2),...session(0,{effortSource:undefined},2)]).depthSteps,0.5);
 });

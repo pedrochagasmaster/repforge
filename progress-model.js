@@ -649,7 +649,7 @@
     return entries.sort((a, b) => compareChronology(a, b) || a.exerciseId.localeCompare(b.exerciseId));
   }
 
-  const PROFILE_VERSION = "profile@084.1";
+  const PROFILE_VERSION = "profile@084.2";
   const PROFILE_WEIGHTS = Object.freeze({ date: 0.75, transition: 8, dateCap: 64, transitions: 4 });
 
   /** Pure projection of acknowledged rows. `lifts` supplies current performed-capacity descriptors
@@ -662,7 +662,7 @@
     const Draft = root?.RepForgeWorkoutDraft || (typeof require === "function" ? require("./workout-draft.js") : null);
     const validDate = date => typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date) &&
       Number.isFinite(Date.parse(date)) && new Date(date).toISOString().slice(0, 10) === date;
-    const chosen = new Set(["rir", "reps_left", "effort", "reps_left_3plus", "reps_left_5plus"]);
+    const Quality = root?.RepForgeCalibrationGauge || (typeof require === "function" ? require("./calibration-gauge.js") : null);
     const entries = new Map();
     for (const [index, lift] of lifts.entries()) {
       const key = Engine.savedLiftIdentity(lift) || `unsupported:${index}`;
@@ -695,7 +695,8 @@
       }
       const history = [...sessions.values()];
       // Each original boundary uses its own captured context, including bodyweight. No historical target is needed.
-      const prefix = [], depth = new Set(), transitions = [], checks = [], dates = new Map();
+      const prefix = [], depth = new Map(), transitions = [], checks = [], dates = new Map();
+      let depthSteps = 0;
       let historicalSolid = false, anchor = null, understoodStage = null;
       const add = (stage, date) => transitions.push({ stage, date });
       const calibrationFor = (read, today) => Calibration.estimate(Calibration.checkErrors({ today,
@@ -714,34 +715,43 @@
         const saved = read.sessions.find(item => item.sessionId === session.sessionId);
         for (const set of saved?.sets || []) {
           if (!anchor) anchor = { date: session.date, load: set.displayLoadKg, opening: set.startingLoad?.openingKg ?? null };
-          if (chosen.has(set.effortSource)) dates.set(session.date, (dates.get(session.date) || 0) + 1);
+          const q = Quality.rowQuality(set);
+          if (q > 0) {
+            const date = dates.get(session.date) || { rows: 0, weight: 0 };
+            dates.set(session.date, { rows: date.rows + 1, weight: date.weight + q });
+          }
           if (set.effortSource === "failure" && Draft.validCalibration(set.calibration))
             checks.push({ date: session.date, sessionId: session.sessionId,
               guess: set.calibration.predictedReps, reps: set.reps });
         }
-        if ((dates.get(session.date) || 0) >= 2) depth.add(session.date);
+        const dateEvidence = dates.get(session.date);
+        if (dateEvidence?.rows >= 2) {
+          const step = Math.min(1, dateEvidence.weight / 2);
+          depthSteps += step - (depth.get(session.date) || 0);
+          depth.set(session.date, step);
+        }
         const standing = read.standing;
         if (depth.size && !standing?.unavailable && ["learning", "solid"].includes(standing?.word) && transitions.length === 0)
           add("learning", session.date);
         if (standing?.word === "solid" && !standing.unavailable) historicalSolid = true;
         if (transitions.length === 1 && historicalSolid) add("solid", session.date);
-        if (transitions.length === 2 && (checks.length || depth.size >= 32))
+        if (transitions.length === 2 && (checks.length || depthSteps >= 32))
           add(checks.length ? "checked" : "long_record", session.date);
         const understood = calibration.n >= Calibration.ESTIMATOR.minChecks && calibration.spread <= Calibration.ESTIMATOR.calibratedSpread &&
           ["calibrated", "under", "over"].includes(calibration.state);
         if (understood && !understoodStage) understoodStage = calibration.state === "calibrated" ? "calibrated" : "bias_understood";
-        if (transitions.length === 3 && (understoodStage || depth.size >= PROFILE_WEIGHTS.dateCap))
+        if (transitions.length === 3 && (understoodStage || depthSteps >= PROFILE_WEIGHTS.dateCap))
           add(understoodStage || "established", session.date);
       }
       const initial = Engine.readSavedLift(entry.descriptor, history, { now });
       const calibration = calibrationFor(initial, now);
       const current = Engine.readSavedLift(entry.descriptor, history, { now, calibration });
       const stageUnits = transitions.length * PROFILE_WEIGHTS.transition;
-      const dateUnits = Math.min(PROFILE_WEIGHTS.dateCap, depth.size) * PROFILE_WEIGHTS.date;
+      const dateUnits = Math.min(PROFILE_WEIGHTS.dateCap, depthSteps) * PROFILE_WEIGHTS.date;
       projected.push({ key: entry.key, name: entry.descriptor.name || entry.descriptor.exerciseId,
         active: entry.active, stage: transitions.length === 4 && understoodStage ? understoodStage
           : transitions.length === 3 && checks.length ? "checked" : transitions.at(-1)?.stage || "first", transitions,
-        anchor, depthDates: [...depth].sort(), checks, stageUnits, dateUnits, units: stageUnits + dateUnits,
+        anchor, depthDates: [...depth.keys()].sort(), depthSteps, checks, stageUnits, dateUnits, units: stageUnits + dateUnits,
         current: { available: current.available, reasons: current.reasons, standing: current.standing, calibration } });
     }
     const active = projected.filter(lift => lift.active);

@@ -195,7 +195,7 @@ treat them as either shipped or unauthorized):
   078.x) whose targets state their standing in words and which requests test
   sets when unsure, under Plan 077's safety ceilings; and the *profile*, "what
   Taurifer knows about you", into which the 0–100 calibration gauge is
-  dissolved as counts and words. Plan 084, approved 2026-11-12, adds the ink-only *Your profile / Seu perfil* ring from saved evidence, with no printed percentage or celebration. Per comparable lift it counts ¾ per qualifying saved date up to 64 and 8 per attained transition up to four, for an 80-unit budget. Test sets and the 32/64-date history path share the last two transitions; the history path never claims effort calibration. Retained evidence carries across programs by full performed identity and never decays with rest. The Free/Pro line on the profile and the
+  dissolved as counts and words. Plan 084, approved 2026-11-12, adds the ink-only *Your profile / Seu perfil* ring from saved evidence, with no printed percentage or celebration. Per comparable lift it counts ¾ per weighted saved date step up to 64 and 8 per attained transition up to four, for an 80-unit budget. Older/unknown effort provenance follows the standing producer's half-quality credit (owner, 2026-11-13). Test sets and the 32/64-step history path share the last two transitions; the history path never claims effort calibration. Retained evidence carries across programs by full performed identity and never decays with rest. The Free/Pro line on the profile and the
   weekly review, whether any calibration surface is a Pro lever (Plan 077
   OD-21), the point where Pro is presented and the trial's shape are decided
   after the alpha, never before.

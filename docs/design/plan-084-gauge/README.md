@@ -123,3 +123,22 @@ The screen is an excerpt of the profile, not a proposal to remove its signal
 counts, findings, dates or recent checks. Collapsed-header scrolling, full
 production navigation, screen readers, 200% text and physical devices are not
 validated by these pictures. No tests or CI run in this design round.
+
+## Production scope acknowledgment contract (PR 2)
+
+`repforge_ui_v1.profileScope` is a device-only UI preference with exactly
+`{v: 1, scope: string[], acknowledged: boolean}`. `scope` is the sorted,
+deduplicated set of canonical comparable identities last accepted by the
+presentation. The automatic fresh baseline is `{v:1,scope:[],acknowledged:false}`.
+Only that exact empty automatic record is ignored for install-transfer
+destination eligibility. An explicit acknowledgment, an unknown version or
+field, and malformed records remain protected. The existing generic UI-preference
+clone carries the whole record; no training, draft or transfer schema changes.
+
+The first nonempty program establishes the automatic baseline. Subsequent
+identity changes retain the old baseline until the before/now explanation is
+acknowledged. Acknowledgment replaces the baseline with the current scope and
+sets `acknowledged:true`; a later scope change is therefore a new explanation.
+The ring uses the current denominator immediately and never animates backwards.
+A reload preserves both pending and acknowledged comparisons. No-program
+surfaces have no ring, and boot never rewrites an unknown or malformed record.

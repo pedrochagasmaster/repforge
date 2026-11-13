@@ -16,10 +16,11 @@ export async function loadAppRuntime(exportNames) {
     matchMedia: () => ({ matches: false, addEventListener() {}, removeEventListener() {} }),
     addEventListener() {},
   };
+  globalThis.addEventListener = globalThis.window.addEventListener;
   globalThis.document = {
     querySelector: () => null, querySelectorAll: () => [], getElementById: () => null,
     addEventListener() {}, hidden: false,
-    documentElement: { setAttribute() {}, style: {}, dataset: {} },
+    documentElement: { setAttribute() {}, style: {}, dataset: {}, classList: { add() {}, remove() {}, contains: () => false } },
     head: { append() {}, appendChild() {} },
     body: { classList: { add() {}, remove() {}, contains: () => false } },
     createElement: () => ({ style: {}, setAttribute() {}, appendChild() {}, classList: { add() {}, remove() {} }, addEventListener() {} }),
@@ -81,8 +82,14 @@ export async function loadAppRuntime(exportNames) {
       return request;
     },
   };
-  globalThis.requestAnimationFrame = (f) => setTimeout(f, 0);
+  // Fixture generators do not mount or paint a document.
+  globalThis.requestAnimationFrame = () => 0;
+  globalThis.cancelAnimationFrame = () => {};
   globalThis.CustomEvent = class CustomEvent {};
+  globalThis.MutationObserver = class MutationObserver {
+    observe() {}
+    disconnect() {}
+  };
   // The only fetch app boot needs here is the local catalog asset, served as-is.
   const CATALOG_BYTES = readFileSync(join(ROOT, "assets/exercise-catalog.json"), "utf8");
   globalThis.fetch = async (url) => String(url).includes("assets/exercise-catalog.json")
@@ -107,11 +114,11 @@ export async function loadAppRuntime(exportNames) {
   await globalThis.window.RepForgeExerciseCatalog.load();
   const catalogSnapshot = globalThis.window.RepForgeExerciseCatalog.snapshot();
   const appSrc = readFileSync(join(ROOT, "app.js"), "utf8");
-  // The production file invokes boot() as its final expression. Omit only that
+  // The production file invokes runBoot() as its final expression. Omit only that
   // auto-start while loading the same runtime functions so this fixture can
   // drive the persistence boundary without a concurrent application boot write.
   // The catalog is installed the way a successful load() would install it.
-  const appRuntimeSrc = appSrc.replace(/\nboot\(\);\s*$/, "\n") + "\n;rawExerciseCatalog=globalThis.__appRuntimeCatalog;";
+  const appRuntimeSrc = appSrc.replace(/\n(?:runBoot|boot)\(\);\s*$/, "\n") + "\n;rawExerciseCatalog=globalThis.__appRuntimeCatalog;";
   globalThis.__appRuntimeCatalog = catalogSnapshot;
   const api = new Function(appRuntimeSrc + `
 ;return {${exportNames.map((name) => `${name}: typeof ${name} !== "undefined" ? ${name} : null`).join(", ")}};`).call(globalThis);
