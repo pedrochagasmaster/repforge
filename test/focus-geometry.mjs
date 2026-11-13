@@ -29,7 +29,7 @@ import { CATALOG_PHONES, SAFE_AREA, inPool, openCatalogState } from "./fixtures/
 const BASE_URL = process.env.REPFORGE_URL || "http://localhost:8000/";
 const STATE_KEY = "repforge_v1";
 
-// FOCUS_GEOMETRY_ONLY=large,smallest runs just those sections (stability, large, smallest, standing, context, test-set, guess, dismissal, gestures); the default is all.
+// FOCUS_GEOMETRY_ONLY=large,smallest runs just those sections (stability, large, smallest, standing, context, effort, test-set, guess, dismissal, gestures); the default is all.
 const only = (process.env.FOCUS_GEOMETRY_ONLY || "").split(",").filter(Boolean);
 const wants = (section) => !only.length || only.includes(section);
 
@@ -459,6 +459,60 @@ async function checkTestSetDismissal(browser) {
   }
 }
 
+async function checkLedgerValues(browser) {
+  console.log("\nLedger values without scrolling: EN/PT, 320/390px, 200% text");
+  const failures = [];
+  for (const key of ["workout/effort-stage-a", "workout/focus-ramp", "workout/focus-ramp-ratio", "workout/focus"])
+    for (const width of [390, 320]) for (const lang of ["pt", "en"]) {
+      const text = "text200";
+      const label = `${key} ${width}px ${lang} ${text}`;
+      const opened = await openCatalogState(browser, key, width, lang, text,
+        width === 320 ? { safe: { top: 0, bottom: 0 } } : {});
+      try {
+        const m = await opened.page.evaluate(() => {
+          const card = document.querySelector(".exercise.is-current");
+          const row = card.querySelector(".ledgerline--open");
+          const context = card.querySelector(".fcard__context");
+          if (!row) return { error: "no current ledger row" };
+          const box = el => {
+            const r = el.getBoundingClientRect();
+            return { left: r.left, right: r.right, top: r.top, bottom: r.bottom };
+          };
+          return { row: box(row), context: box(context), width: innerWidth, height: innerHeight,
+            cells: [...row.querySelectorAll(".ledgerline__vals > .fx-col")].map(el => {
+              const range = document.createRange();
+              range.selectNodeContents(el);
+              return { text: el.textContent.trim(), box: box(el),
+                lines: [...range.getClientRects()].filter(r => r.width > 0).map(r =>
+                  ({ left: r.left, right: r.right, top: r.top, bottom: r.bottom })) };
+            }) };
+        });
+        const problems = [];
+        if (m.error) problems.push(m.error);
+        else {
+          if (m.cells.length !== 3 || m.cells.some(cell => !cell.text)) problems.push("missing load, reps or effort");
+          if (key !== "workout/focus" && !m.cells.some(cell => cell.text === (lang === "pt" ? "Difícil" : "Hard")))
+            problems.push("the words-stage fixture must show the reported effort word");
+          for (const cell of m.cells) {
+            if (cell.lines.length !== 1) problems.push(`${cell.text} wraps`);
+            for (const line of cell.lines) {
+              if (line.left < cell.box.left - 0.5 || line.right > cell.box.right + 0.5)
+                problems.push(`${cell.text} spills outside its column`);
+              for (const [name, bounds] of [["row", m.row], ["context", m.context],
+                ["viewport", { left: 0, right: m.width, top: 0, bottom: m.height }]])
+                if (line.left < bounds.left - 0.5 || line.right > bounds.right + 0.5 ||
+                  line.top < bounds.top - 0.5 || line.bottom > bounds.bottom + 0.5)
+                  problems.push(`${cell.text} is clipped by the ${name}`);
+            }
+          }
+        }
+        if (problems.length) failures.push({ label, problems, geometry: m });
+        else console.log(`  ✓ ${label}: load, reps and effort are whole without scrolling`);
+      } finally { await opened.context.close(); }
+    }
+  assert(!failures.length, "ledger values stay whole without scrolling", JSON.stringify(failures));
+}
+
 async function main() {
   const browser = await launchChromium();
 
@@ -575,6 +629,7 @@ async function main() {
     /* ======================================================================
      * 2. The shelf's action stays whole at large text (R7 V-02)
      * ====================================================================== */
+    if (wants("effort")) await checkLedgerValues(browser);
     if (wants("dismissal")) await checkTestSetDismissal(browser);
     if (wants("test-set")) await checkTestSetPrompt(browser);
     if (wants("guess")) await checkTestSetGuess(browser);
