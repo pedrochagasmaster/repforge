@@ -260,7 +260,7 @@ export async function profileRingProofs(browser, assert, base) {
       assert(reader.titlePainted&&reader.title&&reader.marks===5&&reader.marksPainted,
         `PT reader retains its heading and all five stage markers at ${scale}`,reader);
       assert(reader.separate,`PT reader separates the label from its full-sentence reading at ${scale}`,reader.copy);
-      assert((await page.locator('#profilePage .profile-depth').innerText()).includes('etapas por data'),
+      assert((await page.locator('#profilePage .profile-depth').innerText()).includes('Sessões antigas sem detalhe de esforço contam pela metade.'),
         `PT catalog reader explains weighted older history at ${scale}`);
     }
     assert(errors.length===0,'profile navigation and scope protocol have no page errors',errors);

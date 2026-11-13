@@ -3272,7 +3272,7 @@
   "profile.scope.new_count_one": "{n} exercício novo",
   "profile.scope.archived_one": "{n} exercício fora do treino atual",
   "profile.reader.depth_full": "{n} datas com sessões comparáveis salvas. O anel deste exercício está completo; seu histórico continua crescendo.",
-  "profile.reader.depth_weighted": "{dates} datas salvas contribuem com {n} de {cap} etapas por data. Sessões com menos detalhes sobre o esforço contribuem menos.",
+  "profile.reader.depth_weighted": "{dates} datas salvas contam como {n} de {cap}. Sessões antigas sem detalhe de esforço contam pela metade.",
   "profile.reader.optional_weighted": "Séries-teste são opcionais. Um histórico comparável mais longo também pode sustentar Histórico amplo e Base consolidada pelo histórico.",
   "profile.reader.history_need_weighted": "{stage} precisa de mais {n} etapas por data de sessões comparáveis."
 }
