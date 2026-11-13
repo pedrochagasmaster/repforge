@@ -7610,7 +7610,8 @@
         "history/edit-invalid",
         "history/session",
         "history/per-side-session",
-        "history/ramp-rows"
+        "history/ramp-rows",
+        "history/metric-overflow"
       ]
     },
     {
@@ -7802,7 +7803,8 @@
         "onboarding-recommend/result-corrected",
         "onboarding-recommend/result-existing",
         "program/editor-issues",
-        "history/ramp-rows"
+        "history/ramp-rows",
+        "history/metric-overflow"
       ]
     },
     {
@@ -8787,7 +8789,8 @@
         "history/edit-invalid",
         "history/session",
         "history/per-side-session",
-        "history/ramp-rows"
+        "history/ramp-rows",
+        "history/metric-overflow"
       ]
     },
     {
@@ -9257,7 +9260,8 @@
         "today/profile",
         "today/profile-first",
         "today/profile-scope",
-        "progress/profile-scope"
+        "progress/profile-scope",
+        "history/metric-overflow"
       ]
     },
     {
@@ -9345,7 +9349,8 @@
         "today/profile",
         "today/profile-first",
         "today/profile-scope",
-        "progress/profile-scope"
+        "progress/profile-scope",
+        "history/metric-overflow"
       ]
     },
     {
@@ -9442,7 +9447,8 @@
         "today/profile",
         "today/profile-first",
         "today/profile-scope",
-        "progress/profile-scope"
+        "progress/profile-scope",
+        "history/metric-overflow"
       ]
     },
     {
@@ -9617,7 +9623,8 @@
         "progress/profile-scope",
         "session/profile-finish-solid",
         "session/profile-finish-checked",
-        "session/profile-finish-agreeing"
+        "session/profile-finish-agreeing",
+        "history/metric-overflow"
       ]
     },
     {
@@ -9794,7 +9801,8 @@
         "workout/focus-ramp-easy",
         "history/ramp-rows",
         "workout/focus-ramp-floor",
-        "workout/pain-swap"
+        "workout/pain-swap",
+        "history/metric-overflow"
       ]
     },
     {
