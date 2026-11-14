@@ -10,8 +10,8 @@ value lives in production already.
 **Why this exists.** On 2026-10-23 the owner compared the shipped context menu with the prototype
 on a phone and found production less polished: a hard 1px outline instead of a soft material, no
 row icons, a boxed preview, different copy, different number styling. The owner asked that every
-screen, prototyped or not, meet the prototype's level. This kit is the yardstick. The audit that
-applies it is [`native-fidelity-audit-2026-10.md`](native-fidelity-audit-2026-10.md).
+screen, prototyped or not, meet the prototype's level. This kit is the yardstick.
+Open work is listed only in [the backlog](../backlog.md).
 
 **What the kit is not.** It does not change Taurifer's identity. The palette, IBM Plex, the G icon
 set, Direction D's layouts and the accent budget all stay. The prototype is built from production's

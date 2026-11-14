@@ -170,10 +170,4 @@ The owner chose **B** on 2026-10-10 and asked that its result screen become the 
 
 Before the choice I recommended C, for fewer screens (8 against 17) at today's step count. The owner preferred MacroFactor's one-question-per-screen rhythm. ADR 0020 records that trade-off and asks the implementation plan to measure time to first set, so a later change has evidence rather than another reference app. B shares C's identity, so the handoff seam to Direction D's Today stays small.
 
-## Next steps
-
-1. **Done:** [ADR 0020](../../adr/0020-onboarding-candidate-b.md) makes B the reference, makes its result screen the program editor, and records "no further onboarding overhaul without evidence".
-2. **An implementation plan** that builds B. It folds in Plan 068's inputs as B places them: the equipment step, the block row, inline offers. It also covers the deload input, the two new gym presets, the experience-band decision, a purpose, privacy note and skip for each Basics answer the engine doesn't use yet, and the editor's edit rules behind the program editor's intents.
-3. **The engine's fail-fast fix** for no-candidate requests, before the equipment conflict ships.
-
-Plan 068's measurements stand (PR #345). B now settles its screen placement: OD-1 becomes an equipment step, and its other inputs sit on the result screen.
+Current work lives only in [the backlog](../../backlog.md).

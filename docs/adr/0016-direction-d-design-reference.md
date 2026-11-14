@@ -1,8 +1,7 @@
 # ADR 0016: Direction D is the design reference for the main screens
 
 - **Status:** Accepted, 2026-09-25 (owner)
-- **Supersedes:** G-23, G-29, G-44, G-60 and G-65 in
-  [`ui-overhaul-disposition-register.md`](../ui-overhaul-disposition-register.md),
+- **Supersedes:** G-23, G-29, G-44, G-60 and G-65 from the original overhaul register, retained in git history,
   for the surfaces named below
 - **Amends:** [`DESIGN.md`](../../DESIGN.md) once Plan 063 lands
 - **Implemented by:** [Plan 063](../../plans/063-direction-d-redesign.md);

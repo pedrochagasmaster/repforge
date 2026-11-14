@@ -11,10 +11,7 @@ if that approval is not recorded on the planning PR, stop and ask.
 1. Read, in this order: `AGENTS.md`, `CLAUDE.md`, `CONTEXT.md`,
    `docs/agents/implementation-evidence.md`, `docs/ci.md`,
    `plans/064-unified-redesign-convergence.md` (all of it),
-   `docs/post-058-open-pr-clearance-sequence.md`,
-   `docs/design/ui-system-semantic-contract.md`,
-   `docs/ui-overhaul-disposition-register.md`,
-   `docs/ui-overhaul-plans-049-057-audit.md` (N01/N02),
+   `docs/backlog.md` and `docs/design/ui-system-semantic-contract.md`,
    `docs/program-entry-flow.md`, ADRs 0005–0007, 0009, 0012–0014, and the
    brand guide.
 2. Fetch and pin live facts before any work: `origin/main` SHA, the open-PR
@@ -91,7 +88,7 @@ explicit owner instruction to split).
   IDs, `test/exercise-library.mjs` revisions (a precached behaviour change
   bumps the revision in its own commit; R6 reconciles the whole lineage), `telemetry.js`, `i18n.js`,
   PNGs, `tools/ui-role-inventory.json` outside R1/R6 rows, `docs/backlog.md`,
-  `plans/README.md`, the clearance sequence, and `app.js` boot, routing and
+  `plans/README.md`, the backlog, and `app.js` boot, routing and
   persistence regions.
 - Each Sonnet packet contains, verbatim, the fields in Plan 064 §10.2. Name
   the files a worker may edit and the files it must not touch. Name the RED
@@ -133,5 +130,5 @@ written. Stop the affected packet, continue independent packets, report.
 
 Plan 064 §14. The PR stops at OWNER REVIEW. Only an explicit owner
 instruction merges it. After merge, the remaining candidate sequence is
-Plan 064 §15 and the clearance sequence; Plan 059 owns everything that
+Plan 064 §15 and the backlog; Plan 059 owns everything that
 touches a physical device, a launch freeze or a candidate SHA.

@@ -14,7 +14,7 @@ const ALL = Object.entries(SUITES).flatMap(([lane, suites]) => suites.map((suite
 // Full-lane commands (ci-full) are selected locally only when their own file
 // changed, or when a test/tool input reaches no pull-request suite at all.
 const FULL = Object.entries(FULL_SUITES).flatMap(([lane, suites]) => suites.map((suite) => ({ lane, suite })));
-const PROSE = /(^|\/)(README|AGENTS|CLAUDE|CONTEXT)\.md$|^(docs|plans|advisor-plans)\/.+\.(md|html)$/;
+const PROSE = /(^|\/)(README|AGENTS|CLAUDE|CONTEXT)\.md$|^(docs|plans)\/.+\.(md|html)$/;
 // Design-only comparisons: not bundled, imported, or scheduled by CI.
 const DESIGN_REFERENCE = /^docs\/design\/native-fidelity-mocks\//;
 const CACHE_REVISION_SUITES = ["test/exercise-library.mjs", "test/sw-upgrade.mjs", "test/vendor-runtimes.mjs"];
@@ -361,7 +361,6 @@ const FULL_PROSE = /(?:^|\/)(?:[^/]+\.(?:md|txt)|\.gitignore|LICENSE)$/;
 const FIXTURE_PATH = /(?:^|\/)(?:fixtures?|__fixtures__)(?:\/|$)/;
 const FULL_INPUT_RULES = [
   { match: /^DESIGN\.md$/, suiteFiles: ["tools/check-design-md.mjs"], why: "DESIGN.md token contract" },
-  { match: /^docs\/design\/plan-064-reconciliation\.md$/, suiteFiles: ["test/direction-d-gate.mjs"], why: "Direction-D reconciliation input" },
   { match: /^README\.md$/, suiteFiles: ["test/simulation.mjs"], why: "simulation documentation contract" },
   {
     match: /^programlab\/|^tools\/build-programlab\.mjs$|^engine-policy\.js$|^test\/fixtures\/programlab-/,

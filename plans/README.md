@@ -2,55 +2,35 @@
 
 This directory contains bounded implementation/audit plans. It is not a
 roadmap. The ordered product and engineering queue lives only in
-[`docs/backlog.md`](../docs/backlog.md).
+[backlog](../docs/backlog.md).
 
 Most numbered plans are already implemented and remain here as design and
 regression history. Their file/line anchors describe the commit at which they
 were written; never execute an old plan against current code without checking
 drift and current governing decisions.
 
-## Current planning state
+## Historical plan index
 
-The owner-approved UI/UX overhaul is the active implementation program.
-It is split into Plans 049–059. Read the
-[cross-plan implementation sequence](../docs/ui-overhaul-implementation-sequence.md)
-before starting any child plan; it owns the dependency DAG, serialization of
-shared files, finding/decision disposition, owner gates, and public-launch
-boundary.
+[backlog](../docs/backlog.md) is the only list of open, deferred and
+paused work. This index records implementation plans and their historical
+state labels. An old IN PROGRESS, PLANNED or OWNER REVIEW label does not
+schedule work or override the backlog. Plans retain their bounded contracts;
+removed queue and audit links now lead to the backlog, not historical evidence.
 
-The planning approval and Plans 049–058 are merged, together with the
-post-053 durable-state bridge. Plans 055, 056, 057 and 058 landed through
-PRs #243, #244, #248 and #256 respectively. Implementation completion does
-not close the remaining audit findings or physical-device launch gates.
-
-The current workfront is the post-058, pre-059 candidate-construction window
-ratified by PR #281 and amended on 2026-09-30. Follow the canonical backlog and its
-[post-058 clearance sequence](../docs/post-058-open-pr-clearance-sequence.md)
-for repository-truth cleanup, stabilization, the concurrently developed
-standalone alpha-readiness work, then the unified redesign
-([Plan 064](./064-unified-redesign-convergence.md): landing, Direction D /
-Plan 063 and onboarding in one production PR), then selected already-open
-Next work. Plan 059 remains planned and validates the resulting stable
-candidate last. This bounded exception does not pull unrelated Later/Gated
-work forward.
-
-Plan 063 (Direction D) is owner-selected; Plan 064's R0 slice migrated it from
-PR #272's branch at `2f2fc044` onto the workfront (PR #295); it keeps its number as the main-app
-specification consumed by Plan 064. No other work may use the number 063;
-PR #258's branch-local plan of that number is renumbered when that work
-resumes. The Opus orchestrator's starting brief is
-[`docs/agents/prompts/plan-064-opus-orchestrator.md`](../docs/agents/prompts/plan-064-opus-orchestrator.md).
+Plans 049–058 and the unified redesign shipped. Plan 059 remains the final
+same-commit release-validation gate in the backlog. The tables below preserve
+plan identity and implementation provenance rather than a second current queue.
 
 ### Owner-approved UI overhaul
 
 | Plan | Phase | State | Outcome |
 |---|---:|---|---|
-| [049](./049-ui-overhaul-canonical-reconciliation.md) | 0 | **IMPLEMENTED** | Reconcile canonical contracts and specify semantic roles, transition/recovery provenance, and the bounded transfer exception. Dispositions: [`docs/ui-overhaul-disposition-register.md`](../docs/ui-overhaul-disposition-register.md). |
+| [049](./049-ui-overhaul-canonical-reconciliation.md) | 0 | **IMPLEMENTED** | Reconcile canonical contracts and specify semantic roles, transition/recovery provenance, and the bounded transfer exception. Contracts are retained in ADR 0012. |
 | [050](./050-ui-correctness-and-catalog-leverage.md) | 1 | **IMPLEMENTED** | Fix verified UI-01–UI-07 defects and UI-29's fixture; add copy/overflow/risk-matrix leverage. |
 | [051](./051-workout-draft-state-foundation.md) | 2A | **IMPLEMENTED — PR #226** | Replace hidden DOM ownership with versioned, crash-safe DraftV2 state. |
 | [052](./052-block-transition-provenance-foundation.md) | 2B | **IMPLEMENTED — PR #228** | Make block transitions reconstructable, preview-hashed, provenance-preserving, and atomic. |
 | [053](./053-ios-install-transfer-foundation.md) | 2C | **IMPLEMENTED — PR #235** | Build the narrowly scoped one-hour encrypted iOS install transfer and recovery snapshot. |
-| [Bridge](../docs/taurifer-architecture-refactoring-plan.md#owner-ratified-disposition-after-plan-053) | 2D | **IMPLEMENTED — PR #240** | One durable outcome and one settlement/recovery owner under accepted Plans 051–053; no new numbered plan or second queue. |
+| Bridge | 2D | **IMPLEMENTED — PR #240** | One durable outcome and one settlement/recovery owner under accepted Plans 051–053; no new numbered plan or second queue. |
 | [054](./054-landing-and-program-entry.md) | 3 | **IMPLEMENTED — PR #241** | Deliver the selected product-led landing, adaptive shared entry, five-job hierarchy, install policy, guides, and Privacy page. |
 | [055](./055-focus-only-workout.md) | 4 | **IMPLEMENTED — PR #243** | Reach capability parity in Focus, add read-only Preview/scope layers, then delete List. |
 | [056](./056-progress-and-block-lifecycle.md) | 5 | **IMPLEMENTED — PR #244** | Correct Progress scope/evidence and expose only exact, confirmed block transitions. |
@@ -58,7 +38,7 @@ resumes. The Opus orchestrator's starting brief is
 | [058](./058-design-system-convergence.md) | 7 | **IMPLEMENTED — PR #256** | Inventory and migrate every public surface to bounded semantic roles and rendered-role AA. |
 | [059](./059-public-launch-ui-validation.md) | 8 | **PLANNED — FINAL OWNER GATE** | Bind catalog, automated, physical-device, accessibility, privacy, and telemetry evidence to one candidate SHA. |
 
-### Post-058 candidate construction
+### Historical post-058 implementation
 
 | Plan | State | Outcome |
 |---|---|---|
@@ -69,14 +49,13 @@ Phase 2 has three independently mergeable plans because workout data loss,
 program-transition provenance, and temporary backend security have distinct
 failure and rollback boundaries. Their combined completion gate closes the
 phase. The owner-ratified unnumbered bridge followed 053 and merged in PR #240.
-Plan 059 retains its owner gates and the post-058 candidate-construction
-prerequisites linked above.
+Plan 059 retains its release-evidence contract; current scheduling is in the backlog.
 
 Implementation PRs stop at **OWNER REVIEW** after their engineering gates pass.
 Only an explicit owner instruction authorizes merge. A merged predecessor does
 not grant merge authority for the next plan.
 
-### Outside the overhaul programme
+### Other historical plan records
 
 | Plan | State | Meaning |
 |---|---|---|
@@ -115,7 +94,7 @@ not grant merge authority for the next plan.
 | [040](./040-launch-readiness-ui-ux-audit.md) | **HISTORICAL AUDIT** | Provenance for Plan 041, not an open remediation queue. |
 | [029](./029-phased-roadmap-pr-breakdown.md) | **HISTORICAL META-PLAN** | Its old four-phase roadmap shipped or was superseded. It is not current sequencing. |
 
-Plans 045–048 describe the foundation on which the overhaul is planned. Their
+Plans 045–048 describe the foundation on which the overhaul was built. Their
 numbering records the dependency order: measurement boundary → shared engine →
 family/compiler → entry/onboarding. Plan 049 must reconcile their current-tense
 contracts where G-01–G-88 supersede them. General lifecycle work, equipment
@@ -160,7 +139,7 @@ claims; current agent execution follows the live CI and evidence docs. A plan
 may require an earlier broad suite when it names the risk that justifies it.
 
 1. Confirm the work is present and correctly prioritized in
-   [`docs/backlog.md`](../docs/backlog.md).
+   [backlog](../docs/backlog.md).
 2. Read the current `AGENTS.md`, governing ADRs, and relevant specification.
 3. Re-check every code anchor against `HEAD`; old line numbers are evidence,
    not authority.

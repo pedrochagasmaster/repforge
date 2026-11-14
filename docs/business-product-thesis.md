@@ -1055,8 +1055,9 @@ the active program and recent work, but the athlete can override it. The one-off
 is saved to History and informs honest exposure/adherence evidence; it does not
 silently rewrite the active program or complete a scheduled day.
 
-The authoritative UX/domain specification is
-[`docs/superpowers/specs/2026-08-25-one-off-session-design.md`](superpowers/specs/2026-08-25-one-off-session-design.md).
+Current one-off scope and scheduling live in [backlog](backlog.md).
+The retired design proposal remains in git history; implementation requires a
+current bounded contract before code.
 
 ---
 
@@ -1206,7 +1207,7 @@ The distinction:
 > **Free can build you a good program. Pro can build a program around you and what Taurifer has learned about your training.**
 
 The ordered implementation and capability queue lives in the
-[`canonical backlog`](backlog.md).
+[backlog](backlog.md).
 
 ## 8.4 Validating the generation boundary
 
@@ -2467,7 +2468,7 @@ The objective is not to maximize technical polish. It is to eliminate the larges
 ### Canonical Phase 1 backlog
 
 The ordered implementation queue lives in
-[`docs/backlog.md`](backlog.md). This thesis defines the strategy and gates; it
+[backlog](backlog.md). This thesis defines the strategy and gates; it
 does not maintain a second list of work.
 
 In summary, alpha readiness requires trustworthy release evidence,

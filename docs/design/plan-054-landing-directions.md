@@ -283,9 +283,8 @@ Critical facts remain live, localized text that reflows at 200% text size.
 
 ### Reproduction and evidence
 
-See [premium refinement evidence](../pr-proof/premium-landing/README.md)
-for source captures, renderer configuration, before/after frames, commands,
-trade-offs and verification. [Brand asset provenance](../../assets/brand/README.md)
+Historical source captures, renderer configuration, before/after frames,
+commands and verification remain in git history. [Brand asset provenance](../../assets/brand/README.md)
 records the source viewport, hardware-model attribution and export steps.
 
 This is a subsequent owner-directed refinement, not a retroactive change to the
@@ -306,8 +305,8 @@ device, replacing the orange crop boundary. The next target carries the
 strongest emphasis, while the factual explanation belongs to the work that
 caused it. Header and CTA changes are optical refinements only.
 
-[Before/after evidence against `42f93a8`](../pr-proof/landing-final-pass/README.md)
-records the 19-case matrix, deliberate geometry failures and the remaining
+The historical final-pass evidence records the 19-case matrix, deliberate
+geometry failures and the remaining
 PT-at-200% word-break trade-off. The independent correction review found no
 remaining concrete visual blocker. This records implementation and browser
 review, not physical-device acceptance. PR #241 remains unmerged and Plan 054
@@ -419,8 +418,7 @@ Cache revision advanced to `repforge-v257` (from `v256`) because `index.html`,
 ritual even though neither file's content changed, to keep
 `test/exercise-library.mjs`'s lockstep check meaningful.
 
-See [premium art-direction refinement evidence](../pr-proof/premium-landing-refinement/README.md)
-for before/after captures, the full test run, and remaining trade-offs. This
+Historical art-direction evidence remains in git history. This
 is an art-direction delta on top of the already-integrated Plan 054
 candidate, not a new product specification. PR #241 remains unmerged, Plan
 054 remains active, and physical iOS/Android and assistive-technology review

@@ -1,6 +1,6 @@
 # Plan 037: Performance-gated Hold · recover
 
-> **Spec**: `docs/superpowers/specs/2026-07-10-hold-recover-performance-gate-design.md`
+> **Spec**: original proposal retained in git history; this plan records the implemented contract.
 > **Status**: Implemented; retained as historical decision/test context
 
 ## Goal

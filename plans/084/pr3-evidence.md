@@ -39,7 +39,7 @@ Copy is owner-approved with the edits below. Fidelity review remains an owner ga
 
 ## Catalog review boundary
 
-All 24 new PNGs under `session/profile-finish-{solid,checked,agreeing}__*` were replaced from CI run 43430310391 and reviewed at native size. All 39 changed existing summary PNGs also come from that run. Per-frame artifacts, hashes and fidelity observations are recorded in [084-pr3-ci-frame-review.md](084-pr3-ci-frame-review.md). No local placeholders remain. Owner fidelity approval and final CI gates remain pending.
+All 24 new PNGs under `session/profile-finish-{solid,checked,agreeing}__*` were replaced from CI run 43430310391 and reviewed at native size. All 39 changed existing summary PNGs also come from that run. Per-frame artifacts, hashes and fidelity observations are recorded in [frame review](pr3-ci-frame-review.md). No local placeholders remain. Owner fidelity approval and final CI gates remain pending.
 
 The new states are scrolled to the profile slot, retaining #736's share cards
 above and its Share/Done footer. The prototype omitted those cards and had a

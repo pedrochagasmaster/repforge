@@ -14,7 +14,7 @@ Read AGENTS.md and applicable nested instructions, the complete
 plans/052-block-transition-provenance-foundation.md,
 docs/agents/herdr-ui-overhaul-execution.md,
 docs/agents/implementation-evidence.md, the Plan 052 proof checkpoint,
-docs/ui-overhaul-implementation-sequence.md, and the transition/recovery
+docs/backlog.md, and the transition/recovery
 contracts required by the plan. Product decisions are already approved.
 Recovery policy version 2 is fixed. Do not redesign Progress or add features.
 

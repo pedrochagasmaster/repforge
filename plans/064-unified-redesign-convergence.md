@@ -30,7 +30,7 @@ This plan defines scope, authority, sequence, delegation, proof and gates.
   remains the main-app specification and is consumed by slice R3
 - **Supersedes:** the three-production-merge sequence "#276 landing → #272
   Direction D → #279 onboarding" in
-  [`docs/post-058-open-pr-clearance-sequence.md`](../docs/post-058-open-pr-clearance-sequence.md)
+  [backlog](../docs/backlog.md)
 - **Affected surfaces:** every public surface: landing, entry hub and all
   entry routes, Today, workout (Focus, rest, Why, sheets), session summary,
   Progress, History, Program, Settings, Library, install and transfer states,
@@ -75,7 +75,7 @@ Pinned on 2026-09-30 by the planning session that wrote this document:
 | Live shell | `sw.js` `CACHE = "repforge-v345"`; `index.html` `app.js?v=313`, `durable-state.js?v=309`, `progress-model.js?v=308`, `history-ui.js?v=308`, the rest `?v=307`; `test/exercise-library.mjs` `expectedCacheRevision = "345"` |
 | Catalog | 148 screens, 915 frames (`docs/ui-screens/manifest.json`) |
 | Open PRs | #255 `db5819e2`, #257 `e013984d`, #258 `ef49788f`, #272 `2f2fc044`, #276 `336b492d`, #279 `1acee97a`, #282 `5f57e2de` (marketing docs, not a candidate dependency) |
-| Merged since the clearance sequence was refreshed | Plan 058 (#256), A01–A04 fixes (#284, #286, #287, #288), the single sharded CI workflow (#283, #285), #289 test stabilization, packet-as-supplemental (`cb629036`) |
+| Merged since the historical integration sequence was refreshed | Plan 058 (#256), A01–A04 fixes (#284, #286, #287, #288), the single sharded CI workflow (#283, #285), #289 test stabilization, packet-as-supplemental (`cb629036`) |
 | Audit findings | A01–A05 closed; N01 (untranslated set count in the exercise-actions sheet) and N02 (Preview omits programmed RIR) open and assigned to Direction D acceptance |
 | Open issue | #274 "PT: rename programa to treino across the app and glossary", owner-authored, `needs-triage`, unscheduled |
 | Branch-local owner record on #279 | Q622–Q637 (register section "onboarding design tournament, reopened September 29, 2026"): Q622 keeps the five-job chooser (PD-1 closed), Q624 keeps "no compiled program before the lifter answers" (PD-4 closed), Q625 routes the PT-BR entry catalog corrections (PD-5) to a standalone PR, Q636 sequenced the onboarding redesign "as a new plan sequenced before Plan 059, shipped as its own PR". Q636's own-PR clause is superseded by the 2026-09-30 unified-topology decision this plan codifies; every other answer stands and is migrated to `main` in R0. |
@@ -150,7 +150,7 @@ orchestrator never chooses an onboarding direction to avoid the split.
   must be renumbered by #258's owner when that work resumes (§15). It takes
   the next free number at that time; no number is reserved here. Two live
   Plan 063 files must never coexist on `main`.
-- **`docs/post-058-open-pr-clearance-sequence.md`** remains the sequencing
+- **`docs/backlog.md`** remains the sequencing
   authority for the candidate window. This plan is the unified redesign stage
   inside it.
 - **Precedence when sources disagree:** owner decisions recorded in this
@@ -215,7 +215,7 @@ pasted text, and it is a sixth exit that clears the tab-scoped draft. L-06's
 | I-04 | The landing final page's section order, headline, subtitle, CTAs, FAQ content, engine-true numbers and copy rules (RIR explained where first used, no absolute promises, usage data only in the FAQ) | `docs/design/landing-candidates/final/` on `claude/landing-candidate-s-round-3-9tmm42` | R2 |
 | I-05 | The three `rec.*.text` rewrites (`rec.add.text`, `rec.reduce.text`, `rec.hold_add_reps.text`) and the refreshed recommendation baseline fixture | #276 production diff | R2, consumed by R3 |
 | I-06 | Onboarding tournament owner answers Q622–Q637 except Q636's own-PR clause: five-job chooser kept (PD-1), minutes and rest asked with nothing preselected (PD-2/PD-3), no compiled program before answers (PD-4), PT-BR catalog corrections as their own small change (PD-5), program-first review with inline chip editing, "Start only" on the shared gate, resume card on the chooser only, the K-25–K-32 acceptance bar, before/after count with accent edge and "novo". Round 3 candidate G is the reference interaction model. | #279 register section, Round 1 synthesis spec §10, Round 3 manifest and polish records | R4 (after gate OG-1) |
-| I-07 | Plan 058 typography proof for 200% text and the A05 closure evidence | `docs/ui-overhaul-plans-049-057-audit.md` | R6 |
+| I-07 | Plan 058 typography proof for 200% text and the A05 closure evidence | `docs/backlog.md` | R6 |
 | I-08 | N01 and N02 close inside this workfront with rendered PT proof and removal/no-draft evidence respectively | Audit finding matrix; backlog | R3 |
 | I-09 | Alpha measurement producers (`set_saved`, `recommendation_explained`, `exercise_skipped`, `block_review_viewed`) attach at the DraftV2 commit, Why-open, skip-dispatch and review-navigation boundaries, not to DOM controls the redesign replaces | Advisor plan 023, Direction D spec §5 | R3 preserves whichever landed first |
 
@@ -468,7 +468,7 @@ names are R0–R7; sub-slices carry letters.
   workfront line amended); the Q622–Q637 section of
   `docs/product-grilling-decision-register.md` migrated from #279 with a
   note that Q636's own-PR clause is superseded by this plan; a new
-  `docs/design/plan-064-reconciliation.md`
+  `docs/backlog.md`
   holding the re-derived treatment table, the onboarding board, the
   terminology inventory and the contract-review record; the PR body;
   `tools/check-canonical-contradictions.mjs` SCOPE gains this plan and the
@@ -482,7 +482,7 @@ names are R0–R7; sub-slices carry letters.
 - **Hotspots:** none in production; `docs/backlog.md` and `plans/README.md`
   are orchestrator-only.
 - **RED proof:** `node tools/check-canonical-contradictions.mjs` and
-  `node tools/check-ui-overhaul-disposition.mjs` pass with the migrated
+  `node docs/backlog.md` pass with the migrated
   documents; a deliberately duplicated Plan 063 file fails the plan-index
   check.
 - **Owners:** `fast` lane document checkers; `tools/build-i18n.mjs --check`.
@@ -746,7 +746,7 @@ names are R0–R7; sub-slices carry letters.
   not build it: every journey, both languages, both themes, 320/360/390/430,
   200% text, reduced motion, offline shell, keyboard and screen-reader
   semantics in the browser, the telemetry allowlist, and every locked row.
-- **Owns:** `docs/design/plan-064-review-report.md`; fixes flow back to the
+- **Owns:** `docs/backlog.md`; fixes flow back to the
   owning slice as new atomic commits.
 - **Consumes:** everything.
 - **Prerequisite:** R6 green.
@@ -823,7 +823,7 @@ Workers do not commit PNGs, `i18n.js`, `sw.js`, `index.html` script tags or
 | `tools/ui-screens/*`, `docs/ui-screens/manifest.json` | Workers add or retire their own states; the orchestrator captures and commits frames. |
 | `tools/ui-role-inventory.json` | R1 and R6 only, plus the row a sub-slice's new selector needs, reviewed by the orchestrator. |
 | `sw.js`, `test/exercise-library.mjs` revision, `telemetry.js` | Orchestrator-only (R3k's allowlist deletion is prepared by the worker and applied by the orchestrator). |
-| `docs/backlog.md`, `plans/README.md`, the clearance sequence | Orchestrator-only, and only for status. |
+| `docs/backlog.md`, `plans/README.md` | Orchestrator-only, and only for status. |
 
 Concurrency map: R0 packets in parallel; R1 alone; R2a ∥ R2b (R2b first);
 R3a alone; then up to four R3 workers on disjoint regions ∥ R4 (after OG-1)
@@ -890,7 +890,7 @@ Rules:
   nothing deletes them.
 - **Never** merge their Git histories into the production branch. The
   prototype code, candidate rounds and tournament captures do not enter
-  `main`; `docs/design/plan-064-reconciliation.md` records where each source
+  `main`; `docs/backlog.md` records where each source
   lives (branch, SHA, path) so provenance stays discoverable.
 - **Cache discipline inside the branch:** a precached file that changes
   behaviour bumps the revision in the same commit as `AGENTS.md` requires;
@@ -959,8 +959,8 @@ one pushed head:
 - `DESIGN.md`, `CONTEXT.md` glossary (under OG-2), the interaction-runtime
   audit, ADR 0016's amendment lines, `plans/README.md` and the backlog
   status rows are current;
-- `docs/post-058-open-pr-clearance-sequence.md` and
-  `docs/ui-overhaul-plans-049-057-audit.md` next-steps carry no obsolete
+- `docs/backlog.md` and
+  `docs/backlog.md` next-steps carry no obsolete
   three-merge claim;
 - #272, #276 and #279 are closed with their provenance comments;
 - the review report (R7) has no open blocker;

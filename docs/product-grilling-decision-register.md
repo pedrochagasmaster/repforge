@@ -3,7 +3,7 @@
 **Status:** Owner decision record through August 26, 2026
 
 **Answered coverage:** Q1–Q602, subject to the transcript notes below; plus
-Q603–Q621, a reopened branch triaging the advisor plans in `advisor-plans/`
+Q603–Q621, a reopened branch triaging the advisor plans in the former advisor-plan documents, retained in git history
 (September 23, 2026); plus Q622–Q637, a reopened branch closing the onboarding
 design tournament's open decisions (September 29, 2026)
 
@@ -799,7 +799,7 @@ not every option sentence. Canonical product meaning is consolidated in §§9,
 
 ### Q603–Q621 — advisor-plan backlog triage (reopened September 23, 2026)
 
-A deep codebase audit produced proposals in `advisor-plans/` (PR #250). The
+A deep codebase audit produced proposals in the former advisor-plan documents, retained in git history (PR #250). The
 owner reopened this register for that one branch, answered every question
 with the recommended option except where noted, and closed it after Q621.
 Plan numbers below are advisor-plan numbers, not `plans/NNN`.
@@ -1290,8 +1290,8 @@ economics are later layers, not prerequisites hidden inside the first Pro MVP.
 
 ### 15. One-off session mode
 
-The dedicated specification is
-[`docs/superpowers/specs/2026-08-25-one-off-session-design.md`](superpowers/specs/2026-08-25-one-off-session-design.md).
+Current scope and scheduling live only in [the backlog](backlog.md); the retired
+design proposal remains in git history.
 The governing decisions are:
 
 - Enter from the existing **Choose another day** control below Start session on
@@ -1454,7 +1454,7 @@ marketed as an “AI personal trainer.”
 This PR reconciles the following documents to this register:
 
 - [`business-product-thesis.md`](business-product-thesis.md)
-- [`backlog.md`](backlog.md)
+- [backlog](backlog.md)
 - [`adr/0010-product-business-thesis-and-validation-sequencing.md`](adr/0010-product-business-thesis-and-validation-sequencing.md)
 - [`../plans/044-posthog-measurement-experiments-paywall.md`](../plans/044-posthog-measurement-experiments-paywall.md)
 - [`adr/0002-byok-ai-coach.md`](adr/0002-byok-ai-coach.md), superseded by the

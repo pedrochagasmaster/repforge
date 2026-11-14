@@ -238,10 +238,6 @@ Real, in-repo, and usable:
   primary surface in both Appearance themes and every onboarding state across
   all entry routes. Regenerated on every user-visible change; CI fails on drift.
   This is the visual source of truth for any before/after judgement.
-- **`docs/ui-audit.md`**, `docs/ui-audit-opus-design.md`,
-  `docs/ui-screen-audit-opus-taste.md`, `docs/ui-screen-audit-sol-taste.md`, and
-  `docs/ui-overhaul-disposition-register.md` — completed design critiques with
-  per-finding dispositions.
 - **`docs/adr/`** — 14 ADRs covering the irreversible decisions.
 - **`assets/exercises/`** — 96 licensed `.webp` movement illustrations.
 - **`assets/brand/milo-hero.webp`** — owner-licensed, archival, not referenced

@@ -50,7 +50,7 @@ and Git HEAD/tree/status before and after execution. Use it for focused proof
 after committing a coherent slice. Run ordinary checks before committing too.
 
 ```bash
-node tools/record-verification.mjs --output /tmp/taurifer-audit-proof.json -- node tools/extract-ui-audit-findings.mjs --check
+node tools/record-verification.mjs --output /tmp/taurifer-audit-proof.json -- node docs/backlog.md --check
 node --test test/verification-recorder.mjs
 ```
 
@@ -128,34 +128,6 @@ node tools/build-icon-masks.mjs --check   # fail if the block has drifted
 
 Never edit between the markers by hand; `test/ui-system-checker.mjs` fails when the block
 differs from the generator's output or a G name is defined twice.
-
-## extract-ui-audit-findings.mjs
-
-Prints the headings and first-column table labels from the four source UI
-audits that [`docs/ui-audit.md`](../docs/ui-audit.md) consolidates.
-
-```bash
-node tools/extract-ui-audit-findings.mjs
-node tools/extract-ui-audit-findings.mjs --check
-```
-
-`--check` verifies that all four source reports still exist, the consolidated
-report cites each source, is marked final and owner-approved, and contains all
-32 finding IDs and all 88 grilling-decision IDs without duplicates. It also
-prints the current screen and frame counts so the report baseline can be
-checked after the catalog changes.
-
-## check-ui-overhaul-disposition.mjs
-
-Verifies [`docs/ui-overhaul-disposition-register.md`](../docs/ui-overhaul-disposition-register.md):
-every G-01–G-88 decision and UI-01–UI-32 finding appears exactly once with a
-valid disposition, a plan-number contract owner, and named consumers on `split`
-rows. Also checks the 11 rejected-claim guardrails.
-
-```bash
-node tools/check-ui-overhaul-disposition.mjs
-node tools/check-ui-overhaul-disposition.mjs --check
-```
 
 ## check-ui-semantic-roles.mjs
 
@@ -623,3 +595,17 @@ from the committed one, CI publishes it (`ci-captures.mjs`) as a
 them with `gh`, refuses frames rendered from another commit than `HEAD` and any
 path that is not a registered catalog frame, and writes them under
 `docs/ui-screens/screens/` for review. `--dry-run` only lists them.
+
+## check-doc-references.mjs
+
+After removing documentation, reject working-tree links and code pointers to
+removed files. The check scans tracked and untracked text consumers, resolves
+relative paths, and derives removals from the supplied base without storing a
+second document inventory.
+
+```bash
+node tools/check-doc-references.mjs --base origin/main
+```
+
+`test/ci.mjs` proves that stale Markdown and code references fail and that
+redirecting them to a retained document passes.
