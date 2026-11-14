@@ -494,10 +494,15 @@ const wideRasterFringes = rgbPng(860, 1864, (x, y) => x % 60 < 5 && y % 80 < 40
 const rasterGround = rgbPng(860, 1864, () => [239, 239, 239]);
 assert.equal(comparePngBuffers(rasterGround, wideRasterFringes, CI_STRICT_THRESHOLDS).ok, true,
   "separate glyph fringes pass even when several device pixels wide and numerous");
+// Low-contrast text seen through glass can change its shape without leaving a large solid interior.
+const faintLetter = (left) => rgbPng(860, 1864, (x, y) => (x >= left && x < left + 16 && y >= 1000 && y < 1004)
+  || (x >= left + 6 && x < left + 10 && y >= 1000 && y < 1024) ? [227, 227, 227] : [239, 239, 239]);
+assert.equal(comparePngBuffers(faintLetter(400), faintLetter(440), CI_STRICT_THRESHOLDS).ok, false,
+  "a moved low-contrast glyph fails even when its thin strokes have no large filled interior");
 // CI must inspect the whole frame, including the corners and the bottom rows beyond the last grid sample.
-for (const [left, top] of [[0, 0], [857, 1861], [418, 1682]]) {
+for (const [left, top] of [[0, 0], [844, 1848], [418, 1682]]) {
   const blank = rgbPng(860, 1864, () => [239, 239, 239]);
-  const changed = rgbPng(860, 1864, (x, y) => x >= left && x < left + 3 && y >= top && y < top + 3
+  const changed = rgbPng(860, 1864, (x, y) => x >= left && x < left + 16 && y >= top && y < top + 16
     ? [255, 255, 255] : [239, 239, 239]);
   assert.equal(comparePngBuffers(blank, changed).ok, true, "a tiny control change is below the legacy aggregate limit");
   const strict = comparePngBuffers(blank, changed, CI_STRICT_THRESHOLDS);
