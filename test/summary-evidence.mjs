@@ -252,20 +252,44 @@ try {
     });
   });
   await holder.waitForFunction(() => window.__findingLockHeld);
+  const debugging = await tabs.newCDPSession(tabA);
+  await debugging.send("Debugger.enable");
+  await tabA.evaluate(() => {
+    const write = Storage.prototype.setItem;
+    let held = false;
+    window.__restoreFindingWrite = () => { Storage.prototype.setItem = write; };
+    Storage.prototype.setItem = function(key, value) {
+      if (!held && key === "repforge_ui_v1") {
+        held = true;
+        debugger;
+      }
+      return write.call(this, key, value);
+    };
+  });
+  const paused = new Promise(resolve => debugging.once("Debugger.paused", resolve));
+  const firstAck = tabA.evaluate(summary => window.__repforgeSessionSummary.open(summary), tabFinding.summary);
   try {
-    // Each acknowledgement is one synchronous task. Hold the unrelated state
-    // writer so a lock-backed preference queue cannot accidentally pass.
-    await tabA.evaluate(summary => window.__repforgeSessionSummary.open(summary), tabFinding.summary);
+    await paused;
     await tabB.click("#openSettings");
     await tabB.click('#themeSegments [data-value="dark"]');
     await tabB.click("#settingsBack");
     await tabB.evaluate(summary => window.__repforgeSessionSummary.open(summary), tabMonth);
+    await debugging.send("Debugger.resume");
+    await firstAck;
+    await tabA.evaluate(() => window.__restoreFindingWrite());
+    await tabB.waitForFunction(() => {
+      const prefs = JSON.parse(localStorage.getItem("repforge_ui_v1"));
+      return prefs.theme === "dark" && prefs.findingsSeen?.includes("first_check") && prefs.findingsSeen?.includes("month_one");
+    });
     const held = await tabB.evaluate(() => JSON.parse(localStorage.getItem("repforge_ui_v1")));
     check(held.theme === "dark" && held.findingsSeen?.includes("first_check") && held.findingsSeen?.includes("month_one"),
-      "two tabs' finding deltas and Appearance are canonical before the held state lock is released", JSON.stringify(held));
+      "two first acknowledgements from an absent-key snapshot and Appearance survive the held older publication before locked confirmation", JSON.stringify(held));
   } finally {
+    await debugging.send("Debugger.resume").catch(() => {});
+    await debugging.detach();
     await holder.evaluate(async () => { window.__releaseFindingLock(); await window.__findingLock; });
   }
+  for (const tab of [tabA, tabB]) await tab.evaluate(() => window.__repforgeUi.flushPrefs());
   const darkPrefs = await tabB.evaluate(() => JSON.parse(localStorage.getItem("repforge_ui_v1")));
   check(darkPrefs.theme === "dark" && darkPrefs.findingsSeen?.includes("first_check"),
     "an already-open tab preserves the acknowledged finding when Appearance changes", JSON.stringify(darkPrefs));

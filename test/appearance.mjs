@@ -658,6 +658,49 @@ async function runConcurrentPreferences(browser) {
   } finally { await context.close(); }
 }
 
+async function runConfirmedWriteCollision(browser) {
+  const context = await browser.newContext({ serviceWorkers: "block" });
+  const a = await context.newPage(), b = await context.newPage();
+  const debugging = await context.newCDPSession(a);
+  try {
+    for (const tab of [a, b]) { await tab.goto(BASE); await waitForApp(tab); await tab.evaluate(() => window.__repforgeUi.flushPrefs()); }
+    await debugging.send("Debugger.enable");
+    await a.evaluate(() => {
+      const write = Storage.prototype.setItem;
+      let held = false;
+      window.__restoreConfirmedWrite = () => { Storage.prototype.setItem = write; };
+      Storage.prototype.setItem = function(key, value) {
+        if (!held && key === "repforge_ui_v1") { held = true; debugger; }
+        return write.call(this, key, value);
+      };
+    });
+    const paused = new Promise(resolve => debugging.once("Debugger.paused", resolve));
+    const older = a.evaluate(() => window.__repforgeUi.setTheme("dark"));
+    try {
+      await paused;
+      const confirmed = await b.evaluate(async () => {
+        const saved = window.__repforgeUi.setPref("weekCardSeen", "confirmed-in-other-tab");
+        await window.__repforgeUi.flushPrefs();
+        return saved && JSON.parse(localStorage.getItem("repforge_ui_v1")).weekCardSeen;
+      });
+      assert(confirmed === "confirmed-in-other-tab", "the second tab's different-key write is confirmed before the older publication resumes", confirmed);
+    } finally { await debugging.send("Debugger.resume"); }
+    await older;
+    await a.evaluate(() => window.__restoreConfirmedWrite());
+    for (const tab of [a, b]) await tab.evaluate(() => window.__repforgeUi.flushPrefs());
+    const prefs = await b.evaluate(() => JSON.parse(localStorage.getItem("repforge_ui_v1")));
+    assert(prefs.theme === "dark" && prefs.weekCardSeen === "confirmed-in-other-tab",
+      "a delayed older publication cannot erase an already-confirmed different-key write", JSON.stringify(prefs));
+    for (const tab of [a, b]) { await tab.reload(); await waitForApp(tab); }
+    assert(await b.evaluate(() => JSON.parse(localStorage.getItem("repforge_ui_v1")).weekCardSeen) === "confirmed-in-other-tab",
+      "the confirmed different-key write survives the late collision and both reloads");
+  } finally {
+    await debugging.send("Debugger.resume").catch(() => {});
+    await debugging.detach();
+    await context.close();
+  }
+}
+
 async function runSameKeyCollision(browser) {
   const context = await browser.newContext({ serviceWorkers: "block" });
   const a = await context.newPage(), b = await context.newPage(), holder = await context.newPage();
@@ -892,12 +935,17 @@ async function main() {
   runPaletteIsTheOnlyPlace();
   const browser = await launchChromium();
   try {
-    if (process.env.APPEARANCE_ONLY === "concurrent") {
+    if (process.env.APPEARANCE_ONLY === "confirmed") {
+      await runConfirmedWriteCollision(browser);
+    } else if (process.env.APPEARANCE_ONLY === "concurrent") {
+      await runConcurrentPreferences(browser);
+      await runConfirmedWriteCollision(browser);
       await runSameKeyCollision(browser);
       await runPreferencesWithoutLocks(browser);
     } else {
     if (process.env.APPEARANCE_ONLY !== "lifecycle") {
       await runConcurrentPreferences(browser);
+      await runConfirmedWriteCollision(browser);
       await runSameKeyCollision(browser);
       await runPreferencesWithoutLocks(browser);
     }

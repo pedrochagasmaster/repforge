@@ -138,6 +138,7 @@ async function openReplay(page, id) {
   await context.close();
 }
 
+if (process.env.GUIDE_MODAL_ONLY !== "reload") {
 // Progress: the arrival guide opens as the modal, traps focus, "Got it"
 // dismisses it back to its anchor, the dismissal survives a reload, and Replay
 // shows it again on the next visit.
@@ -426,6 +427,7 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 375, height: 667 }
   }
 }
 
+}
 await browser.close();
 assert.deepEqual(errors, [], "no page errors during guide dialog journeys");
 console.log(`guide modal: ${passed} passed, 0 failed`);
