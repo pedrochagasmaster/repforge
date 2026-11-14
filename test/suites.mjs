@@ -224,7 +224,7 @@ export const FULL_SUITES = {
     s("test/adaptive-build-share.mjs", [], { domains: ["entry", "program", "persistence"], tier: "packet", seconds: 23, timeoutMs: 900000 }),
     s("test/program-text-export.mjs", [], { seconds: 4 }),
     s("test/exercise-picker.mjs", [], { domains: ["program", "library", "workout"], seconds: 19 }),
-    s("test/library-flow.mjs", [], { seconds: 29 }),
+    s("test/library-flow.mjs", [], { seconds: 53 }),
     s("test/library-picker-spacing.mjs", [], { domains: ["library"], seconds: 20 }),
     s("test/share-edited-programs.mjs", [], { domains: ["program", "entry"], seconds: 120 }),
     s("test/share-card.mjs", [], { domains: ["workout"], seconds: 40 }),
