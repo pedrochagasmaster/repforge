@@ -614,7 +614,7 @@ async function runConcurrentPreferences(browser) {
         const held = await read();
         const settled = await Promise.all([a, b].map(page => page.evaluate(() => window.__prefSettled)));
         assert(JSON.stringify(held) === JSON.stringify(before) && settled.every(value => !value),
-          `${test.label}: both writes wait for the held cross-tab lock`, JSON.stringify({ held, settled }));
+          `${test.label}: canonical merges wait for the held cross-tab lock`, JSON.stringify({ held, settled }));
       } finally {
         await a.evaluate(async () => { window.__releasePrefLock(); await window.__prefLock; });
       }
@@ -631,6 +631,31 @@ async function runConcurrentPreferences(browser) {
       for (const page of [a, b]) { await page.reload(); await waitForApp(page); await page.evaluate(() => window.__repforgeUi.flushPrefs?.()); }
       assert(JSON.stringify(await read()) === JSON.stringify(after), `${test.label}: the entire preference record survives reload`);
     }
+    const holder = await context.newPage();
+    await holder.goto(BASE, { waitUntil: "domcontentloaded" });
+    await waitForApp(holder);
+    await holder.evaluate(() => {
+      const gate = new Promise(resolve => { window.__releaseReloadLock = resolve; });
+      window.__reloadLockHeld = false;
+      window.__reloadLock = navigator.locks.request("repforge:state-write", async () => {
+        window.__reloadLockHeld = true; await gate;
+      });
+    });
+    await holder.waitForFunction(() => window.__reloadLockHeld);
+    const beforeReload = await read();
+    try {
+      await a.evaluate(() => { void window.__repforgeUi.setPref("theme", "dark"); });
+      await b.evaluate(() => { void window.__repforgeUi.setPref("weekCardSeen", "reload-before-merge"); });
+      for (const page of [a, b]) await page.reload({ waitUntil: "domcontentloaded" });
+    } finally {
+      await holder.evaluate(async () => { window.__releaseReloadLock(); await window.__reloadLock; });
+    }
+    for (const page of [a, b]) await waitForApp(page);
+    const reloaded = await read();
+    assert(reloaded.theme === "dark" && reloaded.weekCardSeen === "reload-before-merge",
+      "both tabs' different preference keys survive immediate reload before either locked merge runs", reloaded);
+    assert(Object.entries(beforeReload).every(([key, value]) => ["theme", "weekCardSeen"].includes(key) || JSON.stringify(value) === JSON.stringify(reloaded[key])),
+      "immediate reload retains every untouched preference and guide record", reloaded);
   } finally { await context.close(); }
 }
 

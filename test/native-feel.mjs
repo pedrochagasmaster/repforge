@@ -497,7 +497,9 @@ async function restStepperRelease(page) {
           focused: button === document.activeElement, value: document.querySelector('#restSec').value, stored: JSON.parse(localStorage.getItem('repforge_v1')).settings.restSec })) });
         throw error;
       });
-      assert(await page.locator('#restSec').inputValue() === '15', 'the keyboard can still step after a held repeat');
+      assert(await page.locator('#restSec').inputValue() === '15', iteration === 10
+        ? 'the last held-repeat and Enter value persists across immediate reload'
+        : 'the keyboard can still step after a held repeat');
     }
   }
 }

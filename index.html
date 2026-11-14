@@ -56,6 +56,22 @@
       var root=document.documentElement;
       try{
         var pref=(JSON.parse(localStorage.getItem("repforge_ui_v1"))||{}).theme;
+        var pending=[];
+        for(var i=0;i<localStorage.length;i++){
+          var key=localStorage.key(i);
+          if(key&&key.indexOf("repforge_ui_v1:pending:")===0)pending.push(key);
+        }
+        pending.sort().forEach(function(key){
+          try{
+            var entry=JSON.parse(localStorage.getItem(key));
+            if(entry&&entry.v===1&&Array.isArray(entry.changes))entry.changes.forEach(function(change){
+              if(change.path&&change.path.length===1&&change.path[0]==="theme"){
+                if(change.kind==="set")pref=change.value;
+                else if(change.kind==="remove")pref=undefined;
+              }
+            });
+          }catch(e){}
+        });
         var dark=pref==="dark"||(pref==="system"&&matchMedia("(prefers-color-scheme: dark)").matches);
         if(dark){
           root.dataset.theme="dark";

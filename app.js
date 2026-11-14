@@ -5251,7 +5251,11 @@ function installTransferUiMeaningful(uiRaw,ui){
     else delete remaining.guideState}
   return Object.keys(remaining).length>0}
 function installTransferDeviceMeaningful(){
-  const uiRaw=installTransferReadRaw(UIKEY),ui=installTransferReadJson(UIKEY);
+  const pending=readUiPrefJournal();
+  if(pending.some(entry=>!entry.changes))return true;
+  const storedRaw=installTransferReadRaw(UIKEY);
+  if(storedRaw!==null&&!uiPrefObject(installTransferReadJson(UIKEY)))return true;
+  const ui=loadUiPrefs(),uiRaw=storedRaw??(pending.length?JSON.stringify(ui):null);
   if(installTransferUiMeaningful(uiRaw,ui))return true;
   const consent=installTransferReadRaw(TELEMETRY_ENABLED_KEY);
   if(installTransferInitialDevice.consent!==null||
@@ -5297,7 +5301,7 @@ function installTransferSections(durableSnapshot=state,{storedDraft=false}={}){
       const record=readSetupDraftRecord();
       if(!record.ok)throw new Error("program-entry-draft-unavailable");
       return record.envelope?.state||null},
-    uiPreferences:()=>installTransferReadJson(UIKEY)||{},
+    uiPreferences:()=>loadUiPrefs(),
     analytics:()=>({enabled:window.RepForgeTelemetry?.isEnabled?.()!==false&&
       localStorage.getItem(TELEMETRY_ENABLED_KEY)!=="false"}),
     telemetryIdentity:()=>installTransferReadJson(TELEMETRY_IDENTITY_KEY),
@@ -5823,6 +5827,7 @@ function installTransferWriteDeviceSections(envelope){
   try{
     const prefs=cloneSnapshot(envelope.uiPreferences);
     delete prefs.repforge_freeform_session_v1;delete prefs.repforge_import_source_v1;
+    clearUiPrefJournal();
     localStorage.setItem(UIKEY,JSON.stringify(prefs));uiPrefs=loadUiPrefs();
     const consentRaw=String(envelope.analytics.enabled===true);
     if(window.RepForgeTelemetry?.setEnabled)window.RepForgeTelemetry.setEnabled(envelope.analytics.enabled===true);
@@ -5835,6 +5840,7 @@ function installTransferWriteDeviceSections(envelope){
 function installTransferRestoreDeviceSections(previous,presence={}){
   try{
     const prefs=cloneSnapshot(previous.uiPreferences||{});
+    clearUiPrefJournal();
     if(presence.ui===false){
       if(!installTransferWriteRaw(UIKEY,null))return{ok:false,code:"device-prefs-rollback-failed"};
     }else if(!installTransferWriteRaw(UIKEY,JSON.stringify(prefs)))
@@ -24460,39 +24466,88 @@ window.closeOnboarding=closeOnboarding;window.startOnboarding=startOnboarding;
 
 // ---- UI prefs (kept separate from training data so they never touch export/import) ----
 const UIKEY=INSTALL_UI_KEY;
-function loadUiPrefs(){try{const o=JSON.parse(localStorage.getItem(UIKEY));return o&&typeof o==="object"?o:{}}catch{return{}}}
+const UI_PREF_PENDING_PREFIX=`${UIKEY}:pending:`;
+const uiPrefObject=value=>!!value&&typeof value==="object"&&!Array.isArray(value);
+const uiPrefEqual=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+function readUiPrefJournal(){
+  const records=[];
+  try{for(let i=0;i<localStorage.length;i++){
+    const key=localStorage.key(i);if(!key?.startsWith(UI_PREF_PENDING_PREFIX))continue;
+    let changes=null;
+    try{
+      const value=JSON.parse(localStorage.getItem(key));
+      if(value?.v===1&&Object.keys(value).every(key=>["v","changes"].includes(key))&&Array.isArray(value.changes)&&value.changes.length>0&&value.changes.every(change=>
+        uiPrefObject(change)&&Array.isArray(change.path)&&change.path.length>0&&change.path.length<=2&&
+        change.path.every(part=>typeof part==="string")&&
+        (change.kind==="set"&&Object.hasOwn(change,"value")||change.kind==="remove"||
+          change.kind==="members"&&change.path.length===1&&Array.isArray(change.add)&&Array.isArray(change.remove)&&
+          [...change.add,...change.remove].every(item=>typeof item==="string"))))changes=value.changes;
+    }catch{}
+    records.push({key,changes});
+  }}catch{}
+  return records.sort((a,b)=>a.key<b.key?-1:a.key>b.key?1:0)}
+function readUiPrefBase(){try{const value=JSON.parse(localStorage.getItem(UIKEY));return uiPrefObject(value)?value:{}}catch{return{}}}
+function applyUiPrefChanges(prefs,changes){
+  let next={...prefs};
+  for(const change of changes){
+    const[key,member]=change.path;
+    let target=member===undefined?next:{...(uiPrefObject(next[key])?next[key]:{})};
+    const field=member===undefined?key:member;
+    if(change.kind==="remove")delete target[field];
+    else if(change.kind==="members"){
+      const current=Array.isArray(target[field])?target[field]:[];
+      target={...target,[field]:[...new Set([...current.filter(item=>!change.remove.includes(item)),...change.add])]};
+    }else target={...target,[field]:change.value};
+    next=member===undefined?target:{...next,[key]:target};
+  }
+  return next}
+function loadUiPrefs(){
+  return readUiPrefJournal().reduce((prefs,entry)=>entry.changes?applyUiPrefChanges(prefs,entry.changes):prefs,readUiPrefBase())}
+function uiPrefChanges(before,after){
+  const changes=[];
+  const compare=(a,b,path)=>{
+    for(const key of new Set([...Object.keys(a),...Object.keys(b)])){
+      if(!Object.hasOwn(b,key)){changes.push({kind:"remove",path:[...path,key]});continue}
+      if(uiPrefEqual(a[key],b[key]))continue;
+      if(!path.length&&["guideState","stageTip"].includes(key)&&uiPrefObject(b[key]))compare(uiPrefObject(a[key])?a[key]:{},b[key],[key]);
+      else if(!path.length&&["findingsSeen","collapsedProgramDays"].includes(key)&&
+        Array.isArray(a[key])&&Array.isArray(b[key])&&[...a[key],...b[key]].every(value=>typeof value==="string"))
+        changes.push({kind:"members",path:[key],add:b[key].filter(value=>!a[key].includes(value)),remove:a[key].filter(value=>!b[key].includes(value))});
+      else changes.push({kind:"set",path:[...path,key],value:b[key]});
+    }
+  };
+  compare(before,after,[]);return changes}
+function consolidateUiPrefs(){
+  const entries=readUiPrefJournal().filter(entry=>entry.changes);
+  const next=entries.reduce((prefs,entry)=>applyUiPrefChanges(prefs,entry.changes),readUiPrefBase());
+  if(!uiPrefEqual(next,readUiPrefBase()))localStorage.setItem(UIKEY,JSON.stringify(next));
+  // Oldest first: an interrupted cleanup leaves a replayable newest suffix.
+  for(const entry of entries)localStorage.removeItem(entry.key);
+  return true}
+function clearUiPrefJournal(){for(const entry of readUiPrefJournal())if(entry.changes)localStorage.removeItem(entry.key)}
 let uiPrefs=loadUiPrefs();
-const pendingUiPrefUpdates=[];
+let uiPrefClock=0;
 let uiPrefWriteTail=Promise.resolve();
-function projectUiPrefs(){
-  return pendingUiPrefUpdates.reduce((prefs,pending)=>pending.persisted?prefs:pending.update(prefs),loadUiPrefs())}
+const projectUiPrefs=()=>loadUiPrefs();
 async function flushUiPrefs(){
   for(;;){const tail=uiPrefWriteTail;await tail;if(tail===uiPrefWriteTail)return}}
 function updateUiPrefs(update){
   if(installTransferMutationFrozen())return false;
-  const pending={update};pendingUiPrefUpdates.push(pending);
-  // Keep immediate UI feedback; only the locked read/modify/write is durable.
-  uiPrefs=projectUiPrefs();
-  const persist=async()=>{
-    // An owned transaction may precede older queued preference requests. Apply
-    // those first, then let their later callbacks acknowledge without replaying.
-    for(const item of pendingUiPrefUpdates){
-      if(!item.persisted){
-        const live=loadUiPrefs(),next=item.update(live);
-        if(JSON.stringify(next)!==JSON.stringify(live))localStorage.setItem(UIKEY,JSON.stringify(next));
-        item.persisted=true;
-      }
-      if(item===pending)break;
+  try{
+    const live=loadUiPrefs(),changes=uiPrefChanges(live,update(live));
+    if(changes.length){
+      const last=readUiPrefJournal().at(-1)?.key.slice(UI_PREF_PENDING_PREFIX.length).split(":")[0];
+      uiPrefClock=Math.max(Date.now(),uiPrefClock+1,(Number(last)||0)+1);
+      const key=`${UI_PREF_PENDING_PREFIX}${String(uiPrefClock).padStart(16,"0")}:${crypto.randomUUID()}`;
+      // The immutable intent is durable before the caller can close or reload.
+      localStorage.setItem(key,JSON.stringify({v:1,changes}));
     }
-    return true;
-  };
+    uiPrefs=loadUiPrefs();
+  }catch(error){console.warn("ui prefs save failed",error);return false}
+  const persist=async()=>consolidateUiPrefs();
   const written=(DurableState.ownsStorageLock()?persist():withStorageLock(storageIO,persist))
-    .then(result=>result===true).catch(error=>{
-    console.warn("ui prefs save failed",error);return false;
-  }).finally(()=>{
-    pendingUiPrefUpdates.splice(pendingUiPrefUpdates.indexOf(pending),1);
-    uiPrefs=projectUiPrefs();
-  });
+    .then(result=>result===true).catch(error=>{console.warn("ui prefs merge failed",error);return false})
+    .finally(()=>{uiPrefs=loadUiPrefs()});
   uiPrefWriteTail=Promise.all([uiPrefWriteTail,written]).then(()=>undefined);
   return written}
 function setUiPref(k,v){return updateUiPrefs(prefs=>({...prefs,[k]:v}))}
