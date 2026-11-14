@@ -678,6 +678,90 @@ async function runPreferencesWithoutLocks(browser) {
   } finally { await context.close(); }
 }
 
+async function runPreferenceJournalLifecycle(browser) {
+  console.log("\nPreference journal clear, quota and bounded failure recovery");
+  const context = await browser.newContext({ serviceWorkers: "block" });
+  const page = await context.newPage(), holder = await context.newPage();
+  try {
+    for (const tab of [page, holder]) { await tab.goto(BASE); await waitForApp(tab); await tab.evaluate(() => window.__repforgeUi.flushPrefs()); }
+    await holder.evaluate(() => {
+      const gate = new Promise(resolve => { window.__releaseClearLock = resolve; });
+      window.__clearLock = navigator.locks.request("repforge:state-write", async () => {
+        window.__clearLockHeld = true; await gate;
+      });
+    });
+    await holder.waitForFunction(() => window.__clearLockHeld);
+    try {
+      await page.evaluate(() => { void window.__repforgeUi.setPref("theme", "dark"); });
+      assert(await page.evaluate(() => Object.keys(localStorage).some(key => key.startsWith("repforge_ui_v1:pending:"))),
+        "a preference intent is durable while consolidation is held before a full device clear");
+      // Browser site-data deletion is the full device reset. Settings' Delete
+      // workout history intentionally retains preferences and is not this path.
+      await page.evaluate(() => localStorage.clear());
+      await page.reload({ waitUntil: "domcontentloaded" });
+    } finally {
+      await holder.evaluate(async () => { window.__releaseClearLock(); await window.__clearLock; });
+    }
+    await waitForApp(page);
+    await page.evaluate(() => window.__repforgeUi.flushPrefs());
+    assert(await page.evaluate(() => window.__repforgeUi.loadUiPrefs().theme === undefined),
+      "full device clear followed by immediate reload never resurrects the pending preference");
+    assert(await page.evaluate(() => !Object.keys(localStorage).some(key => key.startsWith("repforge_ui_v1:pending:"))),
+      "successful consolidation removes all acknowledged journal entries after clear");
+
+    const quota = await page.evaluate(async () => {
+      const before = window.__repforgeUi.loadUiPrefs();
+      const write = Storage.prototype.setItem;
+      Storage.prototype.setItem = function(key, value) {
+        if (String(key).startsWith("repforge_ui_v1:pending:")) throw new DOMException("proof quota", "QuotaExceededError");
+        return write.call(this, key, value);
+      };
+      let result;
+      try { result = await window.__repforgeUi.setPref("theme", "dark"); }
+      finally { Storage.prototype.setItem = write; }
+      return { result, before, after: window.__repforgeUi.loadUiPrefs() };
+    });
+    assert(quota.result === false && JSON.stringify(quota.before) === JSON.stringify(quota.after),
+      "quota failure rejects the change without claiming durability or changing preferences", quota);
+  } finally { await context.close(); }
+
+  const blocked = await browser.newContext({ serviceWorkers: "block" });
+  await blocked.addInitScript(() => {
+    const write = Storage.prototype.setItem;
+    Storage.prototype.setItem = function(key, value) {
+      if (key === "repforge_ui_v1") throw new DOMException("held canonical write", "QuotaExceededError");
+      return write.call(this, key, value);
+    };
+  });
+  const failing = await blocked.newPage();
+  try {
+    await failing.goto(BASE); await waitForApp(failing);
+    const observed = await failing.evaluate(async () => {
+      let rejected = 0, accepted = 0;
+      for (let i = 0; i < 160; i++) {
+        const previous = window.__repforgeUi.loadUiPrefs().weekCardSeen;
+        await window.__repforgeUi.setPref("weekCardSeen", String(i));
+        if (window.__repforgeUi.loadUiPrefs().weekCardSeen === String(i)) accepted++;
+        else { rejected++; if (window.__repforgeUi.loadUiPrefs().weekCardSeen !== previous) throw new Error("rejected change mutated prefs"); }
+      }
+      const keys = Object.keys(localStorage).filter(key => key.startsWith("repforge_ui_v1:pending:"));
+      return { accepted, rejected, count: keys.length, latest: window.__repforgeUi.loadUiPrefs().weekCardSeen };
+    });
+    assert(observed.count <= 128 && observed.accepted > 0 && observed.rejected > 0,
+      "persistent consolidation failure bounds the journal and rejects further changes without discarding acknowledged intents", JSON.stringify(observed));
+    await failing.reload(); await waitForApp(failing);
+    assert(await failing.evaluate(() => window.__repforgeUi.loadUiPrefs().weekCardSeen) === observed.latest,
+      "the last durably accepted change survives reload even when consolidation keeps failing");
+    const oversized = await failing.evaluate(async () => {
+      const before = JSON.stringify(window.__repforgeUi.loadUiPrefs());
+      const result = await window.__repforgeUi.setPref("largeProof", "x".repeat(256 * 1024));
+      return { result, unchanged: before === JSON.stringify(window.__repforgeUi.loadUiPrefs()) };
+    });
+    assert(oversized.result === false && oversized.unchanged,
+      "an oversized intent is refused without bypassing the journal byte budget", oversized);
+  } finally { await blocked.close(); }
+}
+
 async function main() {
   console.log("Appearance / dark theme");
   console.log(`Target: ${BASE}`);
@@ -686,6 +770,7 @@ async function main() {
   try {
     await runConcurrentPreferences(browser);
     await runPreferencesWithoutLocks(browser);
+    await runPreferenceJournalLifecycle(browser);
     if (process.env.APPEARANCE_ONLY !== "preferences") {
     await runLightDefault(browser);
     await runFollowsSystemLive(browser);
