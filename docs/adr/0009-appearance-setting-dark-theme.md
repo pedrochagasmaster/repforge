@@ -66,7 +66,7 @@ Appearance is stored in `uiPrefs` (`repforge_ui_v1`), not `state.settings`.
 Which paper this device prefers says nothing about the training in a backup, and
 a setup link that repainted the recipient's app would be reading well past its
 remit. Keeping it in UI prefs means it never enters export/import, never enters
-a state proposal or the cross-tab write path, and leaves the shared-setup
+a training-state proposal, and leaves the shared-setup
 allowlist at the eight settings `docs/adr/0007-shared-setup-links.md` describes
 and `index.html` names to the lifter. The one-hour install-transfer clone is
 not export/import: UI preferences travel there only under the explicit
@@ -107,3 +107,34 @@ explicit `system` choice follows the device live, an explicit choice survives
 a reload, the pre-paint snippet applies it before `app.js` runs, the chart
 repaints, `theme-color` tracks the theme, and no theme key reaches
 `repforge_v1` or a shared setup link.
+
+## Device preference durability (#741)
+
+A preference change first writes a synchronous, immutable version-1 intent under
+`repforge_ui_v1:pending:`. Readers apply ordered intents over the base
+`repforge_ui_v1` object. Consolidation merges them into that object under the
+existing cross-tab lock, then removes the acknowledged entries oldest first.
+Without Web Locks, readers retain the intents rather than compacting unsafely.
+
+Admission checks cap the journal at 128 records and 256 KiB of UTF-16 key/value
+storage. Unknown or malformed entries count toward the budget and remain
+protected. A full journal or quota failure rejects a new change rather than
+removing an older intent or pretending the new choice was saved. Successful
+consolidation frees the space. Journal keys and metadata never travel in a
+backup, setup link, state proposal or transfer envelope.
+
+Browser site-data deletion clears both the base and the journal. Settings'
+Delete workout history and storage recovery's Start fresh clear training data,
+not device preferences. Ordinary backup replacement/merge preserves device
+preferences. Install transfer captures the logical preferences after locked
+consolidation; without Web Locks it still projects all intents into the clone
+and retains the journal. Replacement and rollback clear superseded destination
+intents. Malformed intents make a transfer destination ineligible rather than being
+silently discarded.
+
+A journal-unaware release can still read the base object: it is valid but may be
+stale. It ignores the extra keys; the next journal-aware load applies them.
+Consolidate pending intents before rolling back if the older release must show
+the latest choices. The Appearance suite exercises the real older shell and
+modules, site-data deletion while consolidation is held, quota failure, bounded
+failed consolidation, and the production transfer preference producer.

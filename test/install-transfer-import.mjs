@@ -1059,7 +1059,7 @@ async function runFaultMatrix(browser, envelope) {
   }
 }
 
-async function runMeaningfulDestinationMatrix(browser, envelope) {
+async function runMeaningfulDestinationMatrix(browser, envelope, only = null) {
   console.log("\nPlan 053-P4b meaningful-destination refusal matrix");
   const cases = [
     ["prefs-only", "prefs-only"],
@@ -1079,7 +1079,7 @@ async function runMeaningfulDestinationMatrix(browser, envelope) {
     ["candidate-only", "candidate-only"],
     ["unreadable state", "unreadable-state"],
   ];
-  for (const [label, kind] of cases) {
+  for (const [label, kind] of cases.filter(([, kind]) => !only || kind === only)) {
     const { context, page } = await openFreshContext(browser);
     const network = [];
     const onRequest = (request) => network.push({ method: request.method(), url: request.url() });
@@ -2251,7 +2251,7 @@ async function runPendingPreferenceImport(browser, envelope) {
       });
       check(seeded.count > 0 && seeded.logical.entryLandingSeen === true,
         `${rollback ? "rollback" : "replace"}: automatic destination metadata is pending before import`, seeded);
-      if (rollback) await setImportFault(page, { point: "before-readback" });
+      if (rollback) await setImportFault(page, { point: "before-readback", mode: "readback" });
       const result = await importInto(page, envelope);
       if (rollback) {
         await removeImportFault(page);
@@ -2338,6 +2338,9 @@ async function main() {
     check(sameValue(envelope.programEntryDraft, sourceObservation.candidate), "envelope candidate equals the production persisted candidate");
 
     await runPendingPreferenceImport(browser, envelope);
+    if (process.env.INSTALL_TRANSFER_IMPORT_ONLY === "preferences") {
+      await runMeaningfulDestinationMatrix(browser, envelope, "malformed-pref-intent");
+    } else {
     await runPreBootImportCase(browser, envelope);
 
     destinationContext = await browser.newContext();
@@ -2441,6 +2444,7 @@ async function main() {
       await runP4cRollbackPhasePersistence(browser, envelope);
       await runP4cRemoteDeletionClearsMirrors(browser, envelope);
       await runP4cMalformedMarkerPreTelemetryBoundary(browser);
+    }
     }
   } finally {
     await refusalContext?.close().catch(() => {});

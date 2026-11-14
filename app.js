@@ -5301,7 +5301,10 @@ function installTransferSections(durableSnapshot=state,{storedDraft=false}={}){
       const record=readSetupDraftRecord();
       if(!record.ok)throw new Error("program-entry-draft-unavailable");
       return record.envelope?.state||null},
-    uiPreferences:()=>loadUiPrefs(),
+    uiPreferences:async()=>{
+      const persist=()=>consolidateUiPrefs();
+      await (DurableState.ownsStorageLock()?persist():withStorageLock(storageIO,persist));
+      return loadUiPrefs()},
     analytics:()=>({enabled:window.RepForgeTelemetry?.isEnabled?.()!==false&&
       localStorage.getItem(TELEMETRY_ENABLED_KEY)!=="false"}),
     telemetryIdentity:()=>installTransferReadJson(TELEMETRY_IDENTITY_KEY),
@@ -24464,9 +24467,10 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
   return result}
 window.closeOnboarding=closeOnboarding;window.startOnboarding=startOnboarding;
 
-// ---- UI prefs (kept separate from training data so they never touch export/import) ----
+// ---- Device UI prefs (ordinary backups exclude them; install transfer carries the logical value) ----
 const UIKEY=INSTALL_UI_KEY;
 const UI_PREF_PENDING_PREFIX=`${UIKEY}:pending:`;
+const UI_PREF_PENDING_MAX_RECORDS=128,UI_PREF_PENDING_MAX_BYTES=256*1024;
 const uiPrefObject=value=>!!value&&typeof value==="object"&&!Array.isArray(value);
 const uiPrefEqual=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 function readUiPrefJournal(){
@@ -24533,25 +24537,45 @@ let uiPrefWriteTail=Promise.resolve();
 const projectUiPrefs=()=>loadUiPrefs();
 async function flushUiPrefs(){
   for(;;){const tail=uiPrefWriteTail;await tail;if(tail===uiPrefWriteTail)return}}
-function updateUiPrefs(update){
-  if(installTransferMutationFrozen())return false;
-  try{
-    const live=loadUiPrefs(),changes=uiPrefChanges(live,update(live));
-    if(changes.length){
-      const last=readUiPrefJournal().at(-1)?.key.slice(UI_PREF_PENDING_PREFIX.length).split(":")[0];
-      uiPrefClock=Math.max(Date.now(),uiPrefClock+1,(Number(last)||0)+1);
-      const key=`${UI_PREF_PENDING_PREFIX}${String(uiPrefClock).padStart(16,"0")}:${crypto.randomUUID()}`;
-      // The immutable intent is durable before the caller can close or reload.
-      localStorage.setItem(key,JSON.stringify({v:1,changes}));
-    }
-    uiPrefs=loadUiPrefs();
-  }catch(error){console.warn("ui prefs save failed",error);return false}
+let uiPrefRetryPending=false;
+function queueUiPrefConsolidation(){
   const persist=async()=>consolidateUiPrefs();
   const written=(DurableState.ownsStorageLock()?persist():withStorageLock(storageIO,persist))
     .then(result=>result===true).catch(error=>{console.warn("ui prefs merge failed",error);return false})
     .finally(()=>{uiPrefs=loadUiPrefs()});
   uiPrefWriteTail=Promise.all([uiPrefWriteTail,written]).then(()=>undefined);
   return written}
+function updateUiPrefs(update){
+  if(installTransferMutationFrozen())return false;
+  try{
+    const live=loadUiPrefs(),changes=uiPrefChanges(live,update(live));
+    if(changes.length){
+      const pending=readUiPrefJournal();
+      const last=pending.at(-1)?.key.slice(UI_PREF_PENDING_PREFIX.length).split(":")[0];
+      uiPrefClock=Math.max(Date.now(),uiPrefClock+1,(Number(last)||0)+1);
+      const key=`${UI_PREF_PENDING_PREFIX}${String(uiPrefClock).padStart(16,"0")}:${crypto.randomUUID()}`;
+      const raw=JSON.stringify({v:1,changes});
+      const bytes=2*(key.length+raw.length)+pending.reduce((sum,entry)=>
+        sum+2*(entry.key.length+(localStorage.getItem(entry.key)||"").length),0);
+      // Reject new work instead of dropping an acknowledged intent when the
+      // lock is unavailable or consolidation cannot make space. Count unknown
+      // records too; they remain protected for recovery/transfer refusal.
+      if(pending.length>=UI_PREF_PENDING_MAX_RECORDS||bytes>UI_PREF_PENDING_MAX_BYTES)
+        throw new DOMException("UI preference journal full","QuotaExceededError");
+      // The immutable intent is durable before the caller can close or reload.
+      localStorage.setItem(key,raw);
+    }
+    uiPrefs=loadUiPrefs();
+  }catch(error){
+    console.warn("ui prefs save failed",error);
+    if(!uiPrefRetryPending){
+      uiPrefRetryPending=true;
+      void queueUiPrefConsolidation().finally(()=>{uiPrefRetryPending=false});
+    }
+    return false
+  }
+  return queueUiPrefConsolidation()}
+
 function setUiPref(k,v){return updateUiPrefs(prefs=>({...prefs,[k]:v}))}
 const INSTALL_PREF_DEFAULTS=Object.freeze({installLastOfferedMilestone:null,installLastOfferedAt:null,
   installDismissedMilestone:null,installDismissedAt:null});
