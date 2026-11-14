@@ -15,7 +15,7 @@ import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { deflateSync } from "node:zlib";
 import { replaceCatalog } from "../tools/capture-ui-screens.mjs";
-import { compareCatalog, comparePngBuffers } from "../tools/compare-ui-screens.mjs";
+import { compareCatalog, comparePngBuffers, CI_STRICT_THRESHOLDS } from "../tools/compare-ui-screens.mjs";
 import { checkCatalog } from "../tools/check-ui-screens.mjs";
 import { expandCaptures, loadManifest, variantSlug } from "../tools/ui-screens/manifest.mjs";
 import { APP_SCENARIOS } from "../tools/ui-screens/screens-app.mjs";
@@ -487,6 +487,24 @@ assert.equal(fontRasterComparison.ok, true,
 const layoutComparison = comparePngBuffers(syntheticBaseline, syntheticLayoutChange);
 assert.equal(layoutComparison.ok, false, `a layout shift must fail the PNG evidence gate: ${JSON.stringify(layoutComparison)}`);
 assert.ok(layoutComparison.reasons.length > 0, "layout changes report actionable PNG comparator reasons");
+// CI must inspect the whole frame, including the corners and the bottom rows beyond the last grid sample.
+for (const [left, top] of [[0, 0], [857, 1861], [418, 1682]]) {
+  const blank = rgbPng(860, 1864, () => [239, 239, 239]);
+  const changed = rgbPng(860, 1864, (x, y) => x >= left && x < left + 3 && y >= top && y < top + 3
+    ? [255, 255, 255] : [239, 239, 239]);
+  assert.equal(comparePngBuffers(blank, changed).ok, true, "a tiny control change is below the legacy aggregate limit");
+  const strict = comparePngBuffers(blank, changed, CI_STRICT_THRESHOLDS);
+  assert.equal(strict.ok, false, `CI rejects a changed interior at (${left}, ${top})`);
+  assert.deepEqual(strict.firstChangedInterior, { x: left + 1, y: top + 1 });
+}
+const fringe = rgbPng(192, 256, (x, y) => {
+  const base = scenePixel(x, y);
+  return x === 95 && y >= 100 && y < 120 ? base.map(c => c - 16) : base;
+});
+assert.equal(comparePngBuffers(syntheticBaseline, fringe, CI_STRICT_THRESHOLDS).ok, true,
+  "CI retains tolerance for isolated one-pixel antialiasing fringes");
+assert.equal(comparePngBuffers(syntheticBaseline, syntheticNoise, CI_STRICT_THRESHOLDS).ok, true,
+  "CI retains tolerance for small raster noise");
 const dimensionComparison = comparePngBuffers(syntheticBaseline, rgbPng(193, 256, (x, y) => scenePixel(x, y)));
 assert.equal(dimensionComparison.ok, false, "dimension drift must fail the evidence gate");
 assert.match(dimensionComparison.reasons[0], /dimensions changed/);

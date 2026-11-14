@@ -521,10 +521,15 @@ PNG bytes are intentionally not compared: Chromium font rasterisation and
 anti-aliasing can differ between hosted runners while the rendered UI remains
 the same. A cell counts as changed only above an 8% colour delta; the default
 gate rejects broad changes (more than 4.5% of cells or a 3.5% mean colour
-delta), coordinated edge changes, and a 16% luminance-histogram delta. The
-thresholds are covered by the self-test, which proves small deterministic pixel
-noise passes while a broad panel/content change, a layout shift and any
-dimension drift fail.
+delta), coordinated edge changes, and a 16% luminance-histogram delta.
+CI uses stricter thresholds: no cell above the 8% delta may change. It also
+checks every pixel for changed interiors: a 3×3 patch whose nine pixels each
+change by more than 8/255 in any channel fails, even when grid sampling misses
+or dilutes it. This catches a small changed control while retaining tolerance
+for one-pixel antialiasing fringes and low-amplitude raster noise. Default
+comparisons keep the aggregate thresholds above. The self-tests cover both
+policies, including the deliberately stale 430 px execution-mode control in
+`test/fixtures/catalog/`.
 
 ```bash
 baseline="$(mktemp -d)"
