@@ -541,12 +541,81 @@ async function runPaperFillsViewport(browser) {
   }
 }
 
+async function runConcurrentPreferences(browser) {
+  console.log("\nConcurrent device preferences under a held state-write lock");
+  const context = await browser.newContext({ serviceWorkers: "block" });
+  const a = await context.newPage(), b = await context.newPage();
+  try {
+    for (const page of [a, b]) {
+      await page.goto(BASE, { waitUntil: "domcontentloaded" });
+      await waitForApp(page);
+      await page.evaluate(() => window.__repforgeUi.flushPrefs?.());
+    }
+    await a.evaluate((key) => {
+      const prefs = JSON.parse(localStorage.getItem(key));
+      localStorage.setItem(key, JSON.stringify({ ...prefs, theme: "light", findingsSeen: ["existing"],
+        collapsedProgramDays: ["Existing day"], installDismissedMilestone: 3, installDismissedAt: 12345,
+        futurePreference: { keep: ["unknown", "record"] }, guideState: { ...prefs.guideState,
+          futureGuide: { version: 9, status: "dismissed", lastTransitionAt: 123 } } }));
+    }, UIKEY);
+    for (const page of [a, b]) { await page.reload(); await waitForApp(page); await page.evaluate(() => window.__repforgeUi.flushPrefs?.()); }
+    const read = () => a.evaluate(key => JSON.parse(localStorage.getItem(key)), UIKEY);
+    const cases = [
+      { label: "theme and collapsed days", first: ["setPref", "theme", "dark"], second: ["setPref", "collapsedProgramDays", ["Other day"]], changes: { theme: "dark", collapsedProgramDays: ["Other day"] } },
+      { label: "findings and theme", first: ["setPref", "findingsSeen", ["existing", "new"]], second: ["setPref", "theme", "system"], changes: { findingsSeen: ["existing", "new"], theme: "system" } },
+      { label: "same key, last request wins", first: ["setPref", "theme", "dark"], second: ["setPref", "theme", "light"], changes: { theme: "light" } },
+      { label: "two guide records", first: ["replayGuide", "progress"], second: ["replayGuide", "block-transition"], changes: {}, guideIds: ["progress", "block-transition"] },
+    ];
+    for (const test of cases) {
+      const before = await read();
+      await a.evaluate(() => {
+        window.__prefLockHeld = false;
+        const gate = new Promise(resolve => { window.__releasePrefLock = resolve; });
+        window.__prefLock = navigator.locks.request("repforge:state-write", async () => {
+          window.__prefLockHeld = true; await gate;
+        });
+      });
+      await a.waitForFunction(() => window.__prefLockHeld);
+      try {
+        for (const [page, operation] of [[a, test.first], [b, test.second]]) {
+          await page.evaluate(([method, ...args]) => {
+            window.__prefSettled = false;
+            window.__prefResult = Promise.resolve(window.__repforgeUi[method](...args)).then(result => {
+              window.__prefSettled = true; return result;
+            });
+          }, operation);
+        }
+        const held = await read();
+        const settled = await Promise.all([a, b].map(page => page.evaluate(() => window.__prefSettled)));
+        assert(JSON.stringify(held) === JSON.stringify(before) && settled.every(value => !value),
+          `${test.label}: both writes wait for the held cross-tab lock`, { held, settled });
+      } finally {
+        await a.evaluate(async () => { window.__releasePrefLock(); await window.__prefLock; });
+      }
+      const outcomes = await Promise.all([a, b].map(page => page.evaluate(() => window.__prefResult)));
+      await Promise.all([a, b].map(page => page.evaluate(() => window.__repforgeUi.flushPrefs?.())));
+      const after = await read();
+      assert(outcomes.every(value => value === true), `${test.label}: both writes acknowledge persistence`, outcomes);
+      assert(Object.entries(test.changes).every(([key, value]) => JSON.stringify(after[key]) === JSON.stringify(value)),
+        `${test.label}: both changes survive, with last-write-wins on the same key`, after);
+      const kept = Object.entries(before).every(([key, value]) => key in test.changes || test.guideIds && key === "guideState" || JSON.stringify(after[key]) === JSON.stringify(value));
+      const guidesKept = Object.entries(before.guideState).every(([id, value]) => test.guideIds?.includes(id) || JSON.stringify(after.guideState[id]) === JSON.stringify(value));
+      assert(kept && guidesKept && (!test.guideIds || test.guideIds.every(id => after.guideState[id].status === "deferred" && Number.isFinite(after.guideState[id].lastTransitionAt))),
+        `${test.label}: every other preference and guide record is retained`, { before, after });
+      for (const page of [a, b]) { await page.reload(); await waitForApp(page); await page.evaluate(() => window.__repforgeUi.flushPrefs?.()); }
+      assert(JSON.stringify(await read()) === JSON.stringify(after), `${test.label}: the entire preference record survives reload`);
+    }
+  } finally { await context.close(); }
+}
+
 async function main() {
   console.log("Appearance / dark theme");
   console.log(`Target: ${BASE}`);
   runPaletteIsTheOnlyPlace();
   const browser = await launchChromium();
   try {
+    await runConcurrentPreferences(browser);
+    if (process.env.APPEARANCE_ONLY !== "preferences") {
     await runLightDefault(browser);
     await runFollowsSystemLive(browser);
     await runSettingsRow(browser);
@@ -555,6 +624,7 @@ async function main() {
     await runStaysOutOfTrainingData(browser);
     await runSettingsReadsAsOneList(browser);
     await runPaperFillsViewport(browser);
+    }
   } finally {
     await browser.close();
   }
