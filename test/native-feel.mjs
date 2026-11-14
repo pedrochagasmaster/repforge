@@ -2655,13 +2655,14 @@ async function scrollerPress(browser) {
 }
 
 // NATIVE_FEEL_ONLY=press runs the held scroller-press regression, =rest runs the ten-cycle held Settings probe, =large runs just phase 5, =shelf just its addendum, =wheel just the wheel picker and =swipe just the
-// history and back-swipe phases, =refresh just the catalog layout regressions, for a local red/green; CI runs everything.
+// history and back-swipe phases, =refresh just the catalog layout regressions, and =core the remaining phases.
+// refresh + core + large + shelf partitions the complete suite for machines that cannot finish one run within its limit; CI runs everything.
 const ONLY = process.env.NATIVE_FEEL_ONLY || "";
 const browser = await launchChromium();
 try {
  if (ONLY === "press") await scrollerPress(browser);
  if (!ONLY || ONLY === "refresh") await refreshLayout(browser);
- if (!ONLY) {
+ if (!ONLY || ONLY === "core") {
   phase("A primary action is pressed on touch-down");
   {
     const { context, page, touch } = await todayPage(browser);
@@ -2854,7 +2855,7 @@ try {
     await autoSwipe(browser);
     await standaloneSwipe(browser);
   }
-  if (!["wheel", "swipe", "rest", "refresh", "press"].includes(ONLY)) await concentricShelf(browser);
+  if (!["wheel", "swipe", "rest", "refresh", "press", "core"].includes(ONLY)) await concentricShelf(browser);
 } finally {
   await browser.close();
 }
