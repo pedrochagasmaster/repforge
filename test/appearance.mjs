@@ -562,8 +562,17 @@ async function runConcurrentPreferences(browser) {
     }, UIKEY);
     for (const page of [a, b]) { await page.reload(); await waitForApp(page); await page.evaluate(() => window.__repforgeUi.flushPrefs?.()); }
     const read = () => a.evaluate(key => JSON.parse(localStorage.getItem(key)), UIKEY);
+    const nested = await a.evaluate(async () => {
+      const durable = window.RepForgeDurableState;
+      return durable.withStorageLock(durable.storageIO, () => {
+        window.__nestedPrefWrite = window.__repforgeUi.setPref("weekCardSeen", "nested-lock");
+        return JSON.parse(localStorage.getItem("repforge_ui_v1")).weekCardSeen;
+      });
+    });
+    assert(nested === "nested-lock", "a preference merges immediately inside an already-owned storage lock", nested);
+    await a.evaluate(() => window.__nestedPrefWrite);
     const cases = [
-      { label: "theme and collapsed days", first: ["setPref", "theme", "dark"], second: ["setPref", "collapsedProgramDays", ["Other day"]], changes: { theme: "dark", collapsedProgramDays: ["Other day"] } },
+      { label: "theme and collapsed days", first: ["setTheme", "dark"], second: ["setPref", "collapsedProgramDays", ["Other day"]], changes: { theme: "dark", collapsedProgramDays: ["Other day"] } },
       { label: "findings and theme", first: ["setPref", "findingsSeen", ["existing", "new"]], second: ["setPref", "theme", "system"], changes: { findingsSeen: ["existing", "new"], theme: "system" } },
       { label: "same key, last request wins", first: ["setPref", "theme", "dark"], second: ["setPref", "theme", "light"], changes: { theme: "light" } },
       { label: "two guide records", first: ["replayGuide", "progress"], second: ["replayGuide", "block-transition"], changes: {}, guideIds: ["progress", "block-transition"] },
@@ -587,6 +596,7 @@ async function runConcurrentPreferences(browser) {
             });
           }, operation);
         }
+        if (test.first[0] === "setTheme") assert(await themeOf(a) === "dark", "Appearance paints immediately while persistence is held");
         const held = await read();
         const settled = await Promise.all([a, b].map(page => page.evaluate(() => window.__prefSettled)));
         assert(JSON.stringify(held) === JSON.stringify(before) && settled.every(value => !value),

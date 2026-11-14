@@ -531,8 +531,21 @@ export async function runWeekReviewBrowser(browser) {
       assert.equal(await page.locator('#todayWeekCard:not(.hidden)').count(),0,"Review retires the card too");
       await page.evaluate(()=>window.__repforgeUi.setPref("weekCardSeen",null));
       await page.reload({waitUntil:"domcontentloaded"});await waitForAppBoot(page);
-      await page.locator('#weekCardDismiss').click();
-      assert.equal(await page.locator('#todayWeekCard:not(.hidden)').count(),0);
+      await page.evaluate(() => {
+        const gate = new Promise(resolve => { window.__releaseWeekPrefLock = resolve; });
+        window.__weekPrefLockHeld = false;
+        window.__weekPrefLock = navigator.locks.request("repforge:state-write", async () => {
+          window.__weekPrefLockHeld = true; await gate;
+        });
+      });
+      await page.waitForFunction(() => window.__weekPrefLockHeld);
+      try {
+        await page.locator('#weekCardDismiss').click();
+        assert.equal(await page.locator('#todayWeekCard:not(.hidden)').count(),0,"dismissal renders before its held preference write completes");
+      } finally {
+        await page.evaluate(async () => { window.__releaseWeekPrefLock(); await window.__weekPrefLock; });
+      }
+      await page.evaluate(() => window.__repforgeUi.flushPrefs());
       assert.match(await page.evaluate(()=>JSON.parse(localStorage.getItem("repforge_ui_v1")).weekCardSeen),/^\d{4}-W\d{2}$/);
       await page.reload({waitUntil:"domcontentloaded"}); await waitForAppBoot(page);
       assert.equal(await page.locator('#todayWeekCard:not(.hidden)').count(),0,"dismissal survives reload");
