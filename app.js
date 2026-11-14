@@ -24526,6 +24526,8 @@ function stageUiPrefRepairs(){
   if(!uiPrefOwned.size)return;
   try{if(localStorage.getItem(UIKEY)===null){resetUiPrefRepairs();return}}catch{return}
   const live=loadUiPrefs();observeUiPrefClock(live);
+  // A metadata-free record is a legacy replacement, not a stamped race.
+  if(!Object.hasOwn(live,UI_PREF_STAMPS)){resetUiPrefRepairs();uiPrefs=live;return}
   if(Object.hasOwn(live,UI_PREF_STAMPS)&&!validUiPrefStamps(live[UI_PREF_STAMPS]))return;
   for(const[path,change]of uiPrefOwned){
     const order=compareUiPrefStamp(change.stamp,live[UI_PREF_STAMPS]?.[path]);
@@ -24553,7 +24555,7 @@ function repairUiPrefs(){
       if(current===change&&compareUiPrefStamp(next[UI_PREF_STAMPS]?.[path],change.stamp)>=0)uiPrefUnconfirmed.delete(path);
     }
     completed=true;
-  }).catch(error=>{console.warn("ui prefs repair failed",error)}).finally(()=>{uiPrefRepair=null;if(completed)repairUiPrefs()});
+  }).catch(error=>{console.warn("ui prefs repair failed",error)}).finally(()=>{uiPrefRepair=null;if(completed||generation!==uiPrefRepairGeneration)repairUiPrefs()});
 }
 async function flushUiPrefs(){
   repairUiPrefs();
@@ -24569,7 +24571,7 @@ function updateUiPrefs(update){
       uiPrefClock=Math.max(Date.now(),uiPrefClock+1,...Object.values(live[UI_PREF_STAMPS]||{}).filter(Array.isArray).map(stamp=>stamp[0]+1));
       for(const change of changes)change.stamp=[uiPrefClock,uiPrefWriter];
       // Publication is synchronous. The lock only confirms or repairs it later.
-      publishUiPrefChanges([...uiPrefOwned.values(),...changes]);
+      publishUiPrefChanges(changes);
       for(const change of changes){
         const path=JSON.stringify(change.path);uiPrefOwned.set(path,change);uiPrefUnconfirmed.set(path,change);
       }
