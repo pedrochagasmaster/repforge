@@ -669,9 +669,6 @@ async function openFreshContext(browser, { guides } = {}) {
   page.on("dialog", (dialog) => dialog.dismiss().catch(() => {}));
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
   await waitForAppBoot(page, { base: BASE });
-  await clearProfile(page);
-  await page.reload({ waitUntil: "domcontentloaded" });
-  await waitForAppBoot(page, { base: BASE });
   return { context, page };
 }
 
@@ -942,6 +939,22 @@ async function seedMeaningfulDestination(page, kind, envelope) {
       localStorage.setItem(uiKey, JSON.stringify(prefs));
       return { ok: JSON.stringify(parse(localStorage.getItem(uiKey))?.guideState?.[id]) === JSON.stringify(record) };
     }
+    if (kind === "explicit-consent" || kind === "disabled-consent") {
+      window.RepForgeTelemetry.setEnabled(kind === "explicit-consent");
+      return { ok: localStorage.getItem(consentKey) === String(kind === "explicit-consent") };
+    }
+    if (kind === "changed-identity") {
+      const identity = parse(localStorage.getItem(identityKey));
+      localStorage.setItem(identityKey, JSON.stringify({ ...identity, installationId: crypto.randomUUID() }));
+      return { ok: true };
+    }
+    if (kind === "malformed-identity" || kind === "unknown-identity-field") {
+      const raw = localStorage.getItem(identityKey);
+      const identity = parse(raw);
+      localStorage.setItem(identityKey, kind === "malformed-identity" ? "{broken" :
+        JSON.stringify({ ...identity, futureField: "keep" }));
+      return { ok: raw !== null };
+    }
     if (kind === "consent-identity-only") {
       window.RepForgeTelemetry?.setEnabled?.(false);
       const identity = parse(localStorage.getItem(identityKey)) || {
@@ -1060,6 +1073,34 @@ async function runFaultMatrix(browser, envelope) {
   }
 }
 
+async function runFreshDestinationReloads(browser, envelope) {
+  for (const reloads of [0, 1, 2]) {
+    const context = await browser.newContext({ guides: "live" });
+    try {
+      const page = await context.newPage();
+      page.on("dialog", dialog => dialog.dismiss().catch(() => {}));
+      await page.goto(BASE, { waitUntil: "domcontentloaded" });
+      await waitForAppBoot(page, { base: BASE });
+      for (let count = 0; count < reloads; count++) {
+        await page.reload({ waitUntil: "domcontentloaded" });
+        await waitForAppBoot(page, { base: BASE });
+      }
+      const before = await readStorageBytes(page);
+      const result = await importInto(page, envelope);
+      check(result?.ok === true, `fresh destination accepts transfer after ${reloads} reloads`, { result, device: { prefs: before.local[UI_KEY], consent: before.local[CONSENT_KEY], identity: before.local[IDENTITY_KEY] } });
+      if (result?.ok === true) {
+        const actual = await readLogical(page);
+        assertImportedLogical(actual, await readIdb(page), envelope, `fresh destination after ${reloads} reloads`);
+        if (reloads === 0) {
+          check(result?.ok === true, "ordinary first boot stays eligible without initializing findingsSeen", result);
+          check(sameValue(actual.uiPreferences.findingsSeen, envelope.uiPreferences.findingsSeen),
+            "install transfer carries seen finding ids to the fresh device");
+        }
+      }
+    } finally { await context.close(); }
+  }
+}
+
 async function runMeaningfulDestinationMatrix(browser, envelope, only = null) {
   console.log("\nPlan 053-P4b meaningful-destination refusal matrix");
   const cases = [
@@ -1075,6 +1116,11 @@ async function runMeaningfulDestinationMatrix(browser, envelope, only = null) {
     ["missing-version-guide-only", "missing-version-guide"],
     ["extra-field-guide-only", "extra-field-guide"],
     ["invalid-timestamp-guide-only", "invalid-timestamp-guide"],
+    ["explicit enabled consent", "explicit-consent"],
+    ["explicit disabled consent", "disabled-consent"],
+    ["changed valid identity", "changed-identity"],
+    ["malformed identity after reload", "malformed-identity"],
+    ["unknown identity field after reload", "unknown-identity-field"],
     ["consent/identity-only", "consent-identity-only"],
     ["DraftV2-only", "draft-only"],
     ["candidate-only", "candidate-only"],
@@ -1088,6 +1134,10 @@ async function runMeaningfulDestinationMatrix(browser, envelope, only = null) {
     try {
       const seeded = await seedMeaningfulDestination(page, kind, envelope);
       check(seeded.ok === true, `${label}: deterministic meaningful state is seeded through current APIs`, seeded);
+      if (["explicit-consent", "disabled-consent", "malformed-identity", "unknown-identity-field"].includes(kind)) {
+        await page.reload({ waitUntil: "domcontentloaded" });
+        await waitForAppBoot(page, { base: BASE });
+      }
       const before = await readStorageBytes(page);
       let result;
       try { result = await importInto(page, envelope); }
@@ -2327,6 +2377,10 @@ async function main() {
     check(sameValue(envelope.workoutDraft, sourceObservation.draft.logical), "envelope DraftV2 equals the real production logical clone");
     check(sameValue(envelope.programEntryDraft, sourceObservation.candidate), "envelope candidate equals the production persisted candidate");
 
+    await runFreshDestinationReloads(browser, envelope);
+    if (process.env.INSTALL_TRANSFER_IMPORT_ONLY === "destination") {
+      await runMeaningfulDestinationMatrix(browser, envelope);
+    } else {
     await runCanonicalPreferenceImport(browser, envelope);
     if (process.env.INSTALL_TRANSFER_IMPORT_ONLY !== "preferences") {
     await runPreBootImportCase(browser, envelope);
@@ -2400,18 +2454,6 @@ async function main() {
       check(sameValue(refusalAfter.local, refusalBefore.local) && sameValue(refusalAfter.idb, refusalBefore.idb),
         "meaningful-destination refusal leaves storage bytes/logical state unchanged");
       await refusal.close();
-      const bootDestination = await browser.newContext({ guides: "live" });
-      try {
-        const bootPage = await bootDestination.newPage();
-        bootPage.on("dialog", dialog => dialog.dismiss().catch(() => {}));
-        await bootPage.goto(BASE, { waitUntil: "domcontentloaded" });
-        await waitForAppBoot(bootPage, { base: BASE });
-        const importedAtBoot = await importInto(bootPage, envelope);
-        check(importedAtBoot?.ok === true, "ordinary first boot stays eligible without initializing findingsSeen", importedAtBoot);
-        const bootLogical = await readLogical(bootPage);
-        check(sameValue(bootLogical.uiPreferences.findingsSeen, envelope.uiPreferences.findingsSeen),
-          "install transfer carries seen finding ids to the fresh device");
-      } finally { await bootDestination.close(); }
       await runFaultMatrix(browser, envelope);
       await runProfileDestinationProtection(browser, envelope);
       await runMalformedProfileSettings(browser);
@@ -2432,6 +2474,7 @@ async function main() {
       await runP4cRollbackPhasePersistence(browser, envelope);
       await runP4cRemoteDeletionClearsMirrors(browser, envelope);
       await runP4cMalformedMarkerPreTelemetryBoundary(browser);
+    }
     }
     }
   } finally {
