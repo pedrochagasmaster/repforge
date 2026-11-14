@@ -116,7 +116,7 @@ async function openReplay(page, id) {
   await waitForAppBoot(holder, { base: BASE });
   await openProgress(page);
   await expectGuideDialog(page, "progress", "Immediate reload");
-  await page.evaluate(() => window.__repforgeUi.flushPrefs());
+
   await holder.evaluate(() => {
     const gate = new Promise(resolve => { window.__releaseGuideLock = resolve; });
     window.__guideLockHeld = false;

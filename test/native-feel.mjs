@@ -555,7 +555,7 @@ async function nativeControls(browser, { appearanceOnly = false } = {}) {
   if (hasSegments) {
     await segmented.locator('[data-value="light"]').click();
     assert(await segmented.locator('[data-value="light"]').getAttribute('aria-checked') === 'true', 'the selected default is acknowledged on screen immediately');
-    await page.evaluate(() => window.__repforgeUi.flushPrefs?.());
+
     assert(await page.evaluate(() => JSON.parse(localStorage.getItem('repforge_ui_v1') || '{}').theme) === 'light', 'explicitly choosing the selected default records the device preference');
     await segmented.locator('[data-value="dark"]').click();
     assert(await page.locator('html').getAttribute('data-theme') === 'dark', "a tap applies Appearance immediately");

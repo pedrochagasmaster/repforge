@@ -1027,7 +1027,6 @@ async function run() {
 
       const replayResult = await page.evaluate(
         async ({ dataKey, uiKey, seedData, seedUi }) => {
-          await window.__repforgeUi.flushPrefs();
           localStorage.setItem(dataKey, JSON.stringify(seedData));
           localStorage.setItem(uiKey, JSON.stringify(seedUi));
 
@@ -1040,8 +1039,8 @@ async function run() {
           }
 
           const postData = JSON.parse(localStorage.getItem(dataKey) || "{}");
-          // The reset intent is synchronous; canonical consolidation is locked.
-          const postUi = window.__repforgeUi.loadUiPrefs();
+          // The target reset is canonical before the queued presentation.
+          const postUi = JSON.parse(localStorage.getItem(uiKey));
 
           return {
             hookCalled,
@@ -1065,7 +1064,7 @@ async function run() {
         true // Expected baseline RED on current head before P8 production changes
       );
 
-      await page.evaluate(() => window.__repforgeUi.flushPrefs());
+
       const replaySettled = await page.evaluate(() => window.__repforgeUi.loadUiPrefs());
       assert(replaySettled.guideState.entry.status === "completed" &&
         replaySettled.guideState.entry.version === 1 && replaySettled.guideState.privacy.status === "completed",

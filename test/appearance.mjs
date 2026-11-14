@@ -550,7 +550,7 @@ async function runConcurrentPreferences(browser) {
     for (const page of [a, b]) {
       await page.goto(BASE, { waitUntil: "domcontentloaded" });
       await waitForApp(page);
-      await page.evaluate(() => window.__repforgeUi.flushPrefs?.());
+
     }
     await a.evaluate((key) => {
       const prefs = JSON.parse(localStorage.getItem(key));
@@ -561,8 +561,10 @@ async function runConcurrentPreferences(browser) {
           "first-set": { version: 1, status: "deferred", lastTransitionAt: 121 },
           futureGuide: { version: 9, status: "dismissed", lastTransitionAt: 123 } } }));
     }, UIKEY);
-    for (const page of [a, b]) { await page.reload(); await waitForApp(page); await page.evaluate(() => window.__repforgeUi.flushPrefs?.()); }
+    for (const page of [a, b]) { await page.reload(); await waitForApp(page); }
     const read = () => a.evaluate(key => JSON.parse(localStorage.getItem(key)), UIKEY);
+    const settle = () => Promise.all([a, b].map(page => page.evaluate(() => window.__repforgeUi.flushPrefs())));
+    await settle();
     const nested = await a.evaluate(async () => {
       const durable = window.RepForgeDurableState;
       return durable.withStorageLock(durable.storageIO, () => {
@@ -572,17 +574,13 @@ async function runConcurrentPreferences(browser) {
     });
     assert(nested === "nested-lock", "a preference merges immediately inside an already-owned storage lock", nested);
     await a.evaluate(() => window.__nestedPrefWrite);
-    const ordered = await a.evaluate(async () => {
+    const ordered = await a.evaluate(() => {
       const durable = window.RepForgeDurableState;
-      let older, newer, owner;
-      await navigator.locks.request("repforge:state-write", () => {
-        owner = durable.withStorageLock(durable.storageIO, () => {
-          newer = window.__repforgeUi.setPref("theme", "light");
-        });
-        older = window.__repforgeUi.setPref("theme", "dark");
+      return durable.withStorageLock(durable.storageIO, () => {
+        window.__repforgeUi.setPref("theme", "light");
+        window.__repforgeUi.setPref("theme", "dark");
+        return JSON.parse(localStorage.getItem("repforge_ui_v1")).theme;
       });
-      await owner; await older; await newer;
-      return JSON.parse(localStorage.getItem("repforge_ui_v1")).theme;
     });
     assert(ordered === "dark", "same-key writes persist in synchronous call order even while the state lock is owned", ordered);
     const cases = [
@@ -592,6 +590,7 @@ async function runConcurrentPreferences(browser) {
       { label: "two guide records", first: ["replayGuide", "progress"], second: ["replayGuide", "block-transition"], changes: {}, guideIds: ["progress", "block-transition"] },
     ];
     for (const test of cases) {
+      await settle();
       const before = await read();
       await a.evaluate(() => {
         window.__prefLockHeld = false;
@@ -606,12 +605,11 @@ async function runConcurrentPreferences(browser) {
           await page.evaluate(([method, ...args]) => {
             window.__prefSettled = false;
             window.__prefResult = Promise.resolve(window.__repforgeUi[method](...args)).then(async result => {
-              await window.__repforgeUi.flushPrefs();
               window.__prefSettled = true; return result;
             });
           }, operation);
         }
-        if (test.first[0] === "setTheme") assert(await themeOf(a) === "dark", "Appearance paints immediately while persistence is held");
+        if (test.first[0] === "setTheme") assert(await themeOf(a) === "dark", "Appearance paints immediately while the state lock is held");
         const held = await read();
         const settled = await Promise.all([a, b].map(page => page.evaluate(() => window.__prefSettled)));
         assert(Object.entries(test.changes).every(([key, value]) => JSON.stringify(held[key]) === JSON.stringify(value)) && settled.every(Boolean),
@@ -620,16 +618,16 @@ async function runConcurrentPreferences(browser) {
         await a.evaluate(async () => { window.__releasePrefLock(); await window.__prefLock; });
       }
       const outcomes = await Promise.all([a, b].map(page => page.evaluate(() => window.__prefResult)));
-      await Promise.all([a, b].map(page => page.evaluate(() => window.__repforgeUi.flushPrefs?.())));
+      await settle();
       const after = await read();
       assert(outcomes.every(value => value === true), `${test.label}: both writes acknowledge persistence`, outcomes);
       assert(Object.entries(test.changes).every(([key, value]) => JSON.stringify(after[key]) === JSON.stringify(value)),
         `${test.label}: both changes survive, with last-write-wins on the same key`, JSON.stringify(after));
-      const kept = Object.entries(before).every(([key, value]) => key in test.changes || test.guideIds && key === "guideState" || JSON.stringify(after[key]) === JSON.stringify(value));
+      const kept = Object.entries(before).every(([key, value]) => key === "__repforgePrefWrites" || key in test.changes || test.guideIds && key === "guideState" || JSON.stringify(after[key]) === JSON.stringify(value));
       const guidesKept = Object.entries(before.guideState).every(([id, value]) => test.guideIds?.includes(id) || JSON.stringify(after.guideState[id]) === JSON.stringify(value));
       assert(kept && guidesKept && (!test.guideIds || test.guideIds.every(id => after.guideState[id].status === "deferred" && Number.isFinite(after.guideState[id].lastTransitionAt))),
         `${test.label}: every other preference and guide record is retained`, JSON.stringify({ before, after }));
-      for (const page of [a, b]) { await page.reload(); await waitForApp(page); await page.evaluate(() => window.__repforgeUi.flushPrefs?.()); }
+      for (const page of [a, b]) { await page.reload(); await waitForApp(page); }
       assert(JSON.stringify(await read()) === JSON.stringify(after), `${test.label}: the entire preference record survives reload`);
     }
     const holder = await context.newPage();
@@ -646,18 +644,80 @@ async function runConcurrentPreferences(browser) {
     const beforeReload = await read();
     try {
       await a.evaluate(() => { void window.__repforgeUi.setPref("theme", "dark"); });
-      await b.evaluate(() => { void window.__repforgeUi.setPref("weekCardSeen", "reload-before-merge"); });
+      await b.evaluate(() => { void window.__repforgeUi.setPref("weekCardSeen", "immediate-reload"); });
       for (const page of [a, b]) await page.reload({ waitUntil: "domcontentloaded" });
     } finally {
       await holder.evaluate(async () => { window.__releaseReloadLock(); await window.__reloadLock; });
     }
     for (const page of [a, b]) await waitForApp(page);
     const reloaded = await read();
-    assert(reloaded.theme === "dark" && reloaded.weekCardSeen === "reload-before-merge",
-      "both tabs' different preference keys survive immediate reload before either locked merge runs", reloaded);
-    assert(Object.entries(beforeReload).every(([key, value]) => ["theme", "weekCardSeen"].includes(key) || JSON.stringify(value) === JSON.stringify(reloaded[key])),
+    assert(reloaded.theme === "dark" && reloaded.weekCardSeen === "immediate-reload",
+      "both tabs' different preference keys survive immediate reload while the state lock is held", reloaded);
+    assert(Object.entries(beforeReload).every(([key, value]) => ["theme", "weekCardSeen", "__repforgePrefWrites"].includes(key) || JSON.stringify(value) === JSON.stringify(reloaded[key])),
       "immediate reload retains every untouched preference and guide record", reloaded);
   } finally { await context.close(); }
+}
+
+async function runSameKeyCollision(browser) {
+  const context = await browser.newContext({ serviceWorkers: "block" });
+  const a = await context.newPage(), b = await context.newPage(), holder = await context.newPage();
+  const debugging = await context.newCDPSession(a);
+  try {
+    for (const tab of [a, b, holder]) { await tab.goto(BASE); await waitForApp(tab); await tab.evaluate(() => window.__repforgeUi.flushPrefs()); }
+    await a.evaluate(() => window.__repforgeUi.setTheme("system"));
+    await a.evaluate(() => window.__repforgeUi.flushPrefs());
+    await holder.evaluate(() => {
+      const gate = new Promise(resolve => { window.__releaseCollisionLock = resolve; });
+      window.__collisionLock = navigator.locks.request("repforge:state-write", async () => {
+        window.__collisionLockHeld = true; await gate;
+      });
+    });
+    await holder.waitForFunction(() => window.__collisionLockHeld);
+    await debugging.send("Debugger.enable");
+    await a.evaluate(() => {
+      const write = Storage.prototype.setItem;
+      window.__restoreCollisionWrite = () => { Storage.prototype.setItem = write; };
+      let held = false;
+      Storage.prototype.setItem = function(key, value) {
+        if (!held && key === "repforge_ui_v1") {
+          held = true; window.__collisionRaw = value;
+          debugger;
+        }
+        return write.call(this, key, value);
+      };
+    });
+    const paused = new Promise(resolve => debugging.once("Debugger.paused", resolve));
+    const older = a.evaluate(() => window.__repforgeUi.setTheme("dark"));
+    let newest;
+    try {
+      await paused;
+      newest = await b.evaluate(() => {
+        window.__repforgeUi.setTheme("dark");
+        window.__repforgeUi.setTheme("light");
+        return JSON.parse(localStorage.getItem("repforge_ui_v1"));
+      });
+    } finally { await debugging.send("Debugger.resume"); }
+    await older;
+    const attempted = await a.evaluate(() => {
+      window.__restoreCollisionWrite(); return JSON.parse(window.__collisionRaw);
+    });
+    const path = JSON.stringify(["theme"]);
+    assert(newest.__repforgePrefWrites[path][0] > attempted.__repforgePrefWrites[path][0],
+      "the held older publication has a lower stamp than the other tab's latest choice");
+    await b.waitForFunction(() => JSON.parse(localStorage.getItem("repforge_ui_v1")).theme === "light");
+    const repaired = await b.evaluate(() => JSON.parse(localStorage.getItem("repforge_ui_v1")));
+    assert(JSON.stringify(repaired.__repforgePrefWrites[path]) === JSON.stringify(newest.__repforgePrefWrites[path]),
+      "storage-event repair preserves the newer same-key stamp while the confirmation lock is held");
+    await holder.evaluate(async () => { window.__releaseCollisionLock(); await window.__collisionLock; });
+    for (const tab of [a, b]) await tab.evaluate(() => window.__repforgeUi.flushPrefs());
+    for (const tab of [a, b]) { await tab.reload(); await waitForApp(tab); }
+    assert(await themeOf(a) === "light" && await themeOf(b) === "light",
+      "the newer same-key choice survives locked repair and both reloads");
+  } finally {
+    await debugging.send("Debugger.resume").catch(() => {});
+    await debugging.detach();
+    await context.close();
+  }
 }
 
 async function runPreferencesWithoutLocks(browser) {
@@ -666,34 +726,39 @@ async function runPreferencesWithoutLocks(browser) {
   const a = await context.newPage(), b = await context.newPage();
   try {
     for (const page of [a, b]) { await page.goto(BASE); await waitForApp(page); }
-    await Promise.all([
+    const receipts = await Promise.all([
       a.evaluate(() => window.__repforgeUi.setPref("theme", "dark")),
       b.evaluate(() => window.__repforgeUi.setPref("weekCardSeen", "without-locks")),
     ]);
-    assert(await a.evaluate(() => Object.keys(localStorage).some(key => key.startsWith("repforge_ui_v1:pending:"))),
-      "without a cross-tab lock, durable intents remain available instead of unsafe compaction");
+    await a.waitForFunction(() => { const prefs = JSON.parse(localStorage.getItem("repforge_ui_v1"));
+      return prefs.theme === "dark" && prefs.weekCardSeen === "without-locks"; });
+    const canonical = await a.evaluate(() => ({ prefs: JSON.parse(localStorage.getItem("repforge_ui_v1")),
+      auxiliary: Object.keys(localStorage).filter(key => key.startsWith("repforge_ui_v1:")) }));
+    assert(receipts.every(value => value === true) && canonical.prefs.theme === "dark" &&
+      canonical.prefs.weekCardSeen === "without-locks" && canonical.auxiliary.length === 0,
+      "without Web Locks, both changes are immediately canonical without auxiliary preference keys", JSON.stringify({ receipts, ...canonical }));
     for (const page of [a, b]) { await page.reload(); await waitForApp(page); }
     const prefs = await a.evaluate(() => window.__repforgeUi.loadUiPrefs());
     assert(prefs.theme === "dark" && prefs.weekCardSeen === "without-locks",
-      "different tabs' preferences also survive reload when Web Locks are unavailable", prefs);
+      "different tabs' preferences also survive reload when Web Locks are unavailable", JSON.stringify(prefs));
   } finally { await context.close(); }
 }
 
-async function runPreferenceJournalLifecycle(browser) {
-  console.log("\nPreference journal clear, quota and bounded failure recovery");
+async function runPreferenceLifecycle(browser) {
+  console.log("\nCanonical preferences survive reload and clear with no pending writes");
   const context = await browser.newContext({ serviceWorkers: "block" });
   const page = await context.newPage(), holder = await context.newPage();
   try {
-    for (const tab of [page, holder]) { await tab.goto(BASE); await waitForApp(tab); await tab.evaluate(() => window.__repforgeUi.flushPrefs()); }
-    const identityCalls = await page.evaluate(async () => {
+    for (const tab of [page, holder]) { await tab.goto(BASE); await waitForApp(tab); }
+    const identityCalls = await page.evaluate(() => {
       const next = crypto.randomUUID.bind(crypto);
       let calls = 0;
       crypto.randomUUID = () => { calls++; return next(); };
-      try { await window.__repforgeUi.setPref("weekCardSeen", "independent-preference-id"); }
+      try { window.__repforgeUi.setPref("weekCardSeen", "independent-preference-id"); }
       finally { crypto.randomUUID = next; }
       return calls;
     });
-    assert(identityCalls === 0, "preference intent keys do not consume program/draft identity UUIDs", identityCalls);
+    assert(identityCalls === 0, "preference writes do not consume program/draft identity UUIDs", identityCalls);
     await holder.evaluate(() => {
       const gate = new Promise(resolve => { window.__releaseClearLock = resolve; });
       window.__clearLock = navigator.locks.request("repforge:state-write", async () => {
@@ -702,11 +767,11 @@ async function runPreferenceJournalLifecycle(browser) {
     });
     await holder.waitForFunction(() => window.__clearLockHeld);
     try {
-      await page.evaluate(() => { void window.__repforgeUi.setPref("theme", "dark"); });
-      assert(await page.evaluate(() => Object.keys(localStorage).some(key => key.startsWith("repforge_ui_v1:pending:"))),
-        "a preference intent is durable while consolidation is held before a full device clear");
-      // Browser site-data deletion is the full device reset. Settings' Delete
-      // workout history intentionally retains preferences and is not this path.
+      await page.evaluate(() => window.__repforgeUi.setPref("theme", "dark"));
+      assert(await page.evaluate(() => JSON.parse(localStorage.getItem("repforge_ui_v1")).theme === "dark"),
+        "a preference is canonical before full device clear even while the state lock is held");
+      // Settings' Delete workout history retains preferences. Browser site-data
+      // deletion is the full device reset and must leave nothing to replay.
       const storage = await context.newCDPSession(page);
       await storage.send("Storage.clearDataForOrigin", { origin: new URL(BASE).origin, storageTypes: "all" });
       await storage.detach();
@@ -715,135 +780,75 @@ async function runPreferenceJournalLifecycle(browser) {
       await holder.evaluate(async () => { window.__releaseClearLock(); await window.__clearLock; });
     }
     await waitForApp(page);
-    await page.evaluate(() => window.__repforgeUi.flushPrefs());
     assert(await page.evaluate(() => window.__repforgeUi.loadUiPrefs().theme === undefined),
-      "full device clear followed by immediate reload never resurrects the pending preference");
-    assert(await page.evaluate(() => !Object.keys(localStorage).some(key => key.startsWith("repforge_ui_v1:pending:"))),
-      "successful consolidation removes all acknowledged journal entries after clear");
-
-    const quota = await page.evaluate(async () => {
-      const before = window.__repforgeUi.loadUiPrefs();
+      "full device clear followed by immediate reload never resurrects a preference");
+    assert(await page.evaluate(() => !Object.keys(localStorage).some(key => key.startsWith("repforge_ui_v1:"))),
+      "preference changes create no auxiliary storage keys");
+    const quota = await page.evaluate(() => {
+      const before = window.__repforgeUi.loadUiPrefs(), theme = window.__repforgeUi.currentTheme();
       const write = Storage.prototype.setItem;
       Storage.prototype.setItem = function(key, value) {
-        if (String(key).startsWith("repforge_ui_v1:pending:")) throw new DOMException("proof quota", "QuotaExceededError");
+        if (key === "repforge_ui_v1") throw new DOMException("proof quota", "QuotaExceededError");
         return write.call(this, key, value);
       };
       let result;
-      try { result = await window.__repforgeUi.setPref("theme", "dark"); }
+      try { result = window.__repforgeUi.setPref("theme", "dark"); }
       finally { Storage.prototype.setItem = write; }
-      return { result, before, after: window.__repforgeUi.loadUiPrefs() };
+      return { result, before, after: window.__repforgeUi.loadUiPrefs(),
+        memoryUnchanged: theme === window.__repforgeUi.currentTheme() };
     });
-    assert(quota.result === false && JSON.stringify(quota.before) === JSON.stringify(quota.after),
-      "quota failure rejects the change without claiming durability or changing preferences", quota);
+    assert(quota.result === false && quota.memoryUnchanged && JSON.stringify(quota.before) === JSON.stringify(quota.after),
+      "quota failure rejects the change without claiming durability or changing memory", quota);
+    await page.evaluate(() => window.__repforgeUi.setTheme("dark"));
+    await holder.waitForFunction(() => window.__repforgeUi.currentTheme() === "dark" && document.documentElement.dataset.theme === "dark");
+    assert(await themeOf(holder) === "dark", "an already-open tab refreshes memory and appearance through the storage event");
+    await page.reload(); await waitForApp(page);
+    assert(await themeOf(page) === "dark", "a later successful write is canonical and survives immediate reload after quota recovery");
   } finally { await context.close(); }
-
-  const blocked = await browser.newContext({ serviceWorkers: "block" });
-  await blocked.addInitScript(() => {
-    const write = Storage.prototype.setItem;
-    Storage.prototype.setItem = function(key, value) {
-      if (key === "repforge_ui_v1" && !window.__allowPrefBaseWrites) throw new DOMException("held canonical write", "QuotaExceededError");
-      return write.call(this, key, value);
-    };
-  });
-  const failing = await blocked.newPage();
-  try {
-    await failing.goto(BASE); await waitForApp(failing);
-    const oversized = await failing.evaluate(async () => {
-      const before = JSON.stringify(window.__repforgeUi.loadUiPrefs());
-      const result = await window.__repforgeUi.setPref("largeProof", "x".repeat(256 * 1024));
-      return { result, unchanged: before === JSON.stringify(window.__repforgeUi.loadUiPrefs()) };
-    });
-    assert(oversized.result === false && oversized.unchanged,
-      "an oversized intent is refused without bypassing the journal byte budget", oversized);
-    const observed = await failing.evaluate(async () => {
-      let rejected = 0, accepted = 0;
-      for (let i = 0; i < 160; i++) {
-        const previous = window.__repforgeUi.loadUiPrefs().weekCardSeen;
-        await window.__repforgeUi.setPref("weekCardSeen", String(i));
-        if (window.__repforgeUi.loadUiPrefs().weekCardSeen === String(i)) accepted++;
-        else { rejected++; if (window.__repforgeUi.loadUiPrefs().weekCardSeen !== previous) throw new Error("rejected change mutated prefs"); }
-      }
-      const keys = Object.keys(localStorage).filter(key => key.startsWith("repforge_ui_v1:pending:"));
-      return { accepted, rejected, count: keys.length, latest: window.__repforgeUi.loadUiPrefs().weekCardSeen };
-    });
-    assert(observed.count <= 128 && observed.accepted > 0 && observed.rejected > 0,
-      "persistent consolidation failure bounds the journal and rejects further changes without discarding acknowledged intents", JSON.stringify(observed));
-    await failing.reload(); await waitForApp(failing);
-    assert(await failing.evaluate(() => window.__repforgeUi.loadUiPrefs().weekCardSeen) === observed.latest,
-      "the last durably accepted change survives reload even when consolidation keeps failing");
-    const recovered = await failing.evaluate(async () => {
-      window.__allowPrefBaseWrites = true;
-      await window.__repforgeUi.setPref("weekCardSeen", "retry-after-full");
-      await window.__repforgeUi.flushPrefs();
-      const accepted = await window.__repforgeUi.setPref("weekCardSeen", "recovered");
-      return { accepted, value: window.__repforgeUi.loadUiPrefs().weekCardSeen,
-        pending: Object.keys(localStorage).filter(key => key.startsWith("repforge_ui_v1:pending:")).length };
-    });
-    assert(recovered.accepted === true && recovered.value === "recovered" && recovered.pending === 0,
-      "a full journal retries cleanup and accepts new changes when consolidation recovers", JSON.stringify(recovered));
-  } finally { await blocked.close(); }
 }
 
-async function runPendingPreferenceExport(browser) {
+async function runPreferenceExport(browser) {
   const context = await browser.newContext({ serviceWorkers: "block" });
   const page = await context.newPage();
   try {
-    await page.goto(BASE); await waitForApp(page); await page.evaluate(() => window.__repforgeUi.flushPrefs());
-    await page.evaluate(async () => {
-      const write = Storage.prototype.setItem;
-      Storage.prototype.setItem = function(key, value) {
-        if (key === "repforge_ui_v1") throw new DOMException("held export consolidation", "QuotaExceededError");
-        return write.call(this, key, value);
-      };
-      try { await window.__repforgeUi.setPref("theme", "dark"); }
-      finally { Storage.prototype.setItem = write; }
-    });
-    assert(await page.evaluate(() => Object.keys(localStorage).some(key => key.startsWith("repforge_ui_v1:pending:"))),
-      "export fixture has an acknowledged intent not yet consolidated into the base record");
-    // Ordinary backups exclude device preferences, including pending ones.
+    await page.goto(BASE); await waitForApp(page);
+    await page.evaluate(() => window.__repforgeUi.setTheme("dark"));
+    assert(await page.evaluate(() => JSON.parse(localStorage.getItem("repforge_ui_v1")).theme === "dark"),
+      "export reads the acknowledged preference directly from the canonical record");
+    // Ordinary backups exclude device preferences, including appearance.
     const [download] = await Promise.all([page.waitForEvent("download"),
       page.evaluate(() => document.querySelector("#exportJson").click())]);
     const backup = JSON.parse(readFileSync(await download.path(), "utf8"));
     assert(!("uiPreferences" in backup) && !("theme" in backup.settings) && !JSON.stringify(backup).includes("repforge_ui_v1"),
-      "ordinary backup keeps pending device preferences and journal metadata out of training data");
+      "ordinary backup keeps device preferences out of training data");
     const exported = await page.evaluate(async () => {
       const result = await window.installTransferCaptureLogicalSnapshot();
       return { result, base: JSON.parse(localStorage.getItem("repforge_ui_v1")),
         pending: Object.keys(localStorage).filter(key => key.startsWith("repforge_ui_v1:pending:")) };
     });
     assert(exported.result.ok && exported.result.value.uiPreferences.theme === "dark",
-      "the production install-transfer producer includes not-yet-consolidated preferences", JSON.stringify(exported));
+      "the production install-transfer producer includes the latest canonical preferences", JSON.stringify(exported));
     assert(exported.base.theme === "dark" && exported.pending.length === 0,
-      "install-transfer export consolidates preferences before capturing them", JSON.stringify(exported));
-    await page.evaluate(async () => {
-      const write = Storage.prototype.setItem;
-      window.__restoreBackupPreferenceWrites = () => { Storage.prototype.setItem = write; };
-      Storage.prototype.setItem = function(key, value) {
-        if (key === "repforge_ui_v1") throw new DOMException("held backup preference merge", "QuotaExceededError");
-        return write.call(this, key, value);
-      };
-      await window.__repforgeUi.setPref("theme", "light");
-    });
+      "install-transfer export reads the same canonical preference value without auxiliary records", JSON.stringify(exported));
+    await page.evaluate(() => window.__repforgeUi.setTheme("light"));
     await page.locator("#importJson").setInputFiles({ name: "pending-preference-backup.json",
       mimeType: "application/json", buffer: Buffer.from(JSON.stringify(backup)) });
     await page.locator("#importChoice[open]").waitFor();
     await page.locator("#importReplace").click();
     await page.waitForFunction(() => !document.querySelector("#importChoice").open);
-    assert(await page.evaluate(() => window.__repforgeUi.loadUiPrefs().theme === "light" &&
-      Object.keys(localStorage).some(key => key.startsWith("repforge_ui_v1:pending:"))),
-      "ordinary backup replacement preserves this device's pending preference instead of copying source appearance");
-    await page.evaluate(() => window.__restoreBackupPreferenceWrites());
+    assert(await page.evaluate(() => JSON.parse(localStorage.getItem("repforge_ui_v1")).theme === "light"),
+      "ordinary backup replacement preserves this device's canonical preference instead of copying source appearance");
     await page.reload(); await waitForApp(page);
-    assert(await themeOf(page) === "light", "pending device preferences survive backup replacement and reload");
+    assert(await themeOf(page) === "light", "device preferences survive backup replacement and reload");
   } finally { await context.close(); }
 }
 
-async function runPreferenceJournalVersionSkew(browser) {
+async function runPreferenceVersionSkew(browser) {
   const old = legacyRelease("2b200fdd2a916405ce6e77932053f9f0edbd162c");
   const context = await browser.newContext({ serviceWorkers: "block" });
   const page = await context.newPage(), holder = await context.newPage();
   try {
-    for (const tab of [page, holder]) { await tab.goto(BASE); await waitForApp(tab); await tab.evaluate(() => window.__repforgeUi.flushPrefs()); }
+    for (const tab of [page, holder]) { await tab.goto(BASE); await waitForApp(tab); }
     await page.evaluate(() => window.__repforgeUi.setPref("theme", "light"));
     await holder.evaluate(() => {
       const gate = new Promise(resolve => { window.__releaseLegacyLock = resolve; });
@@ -869,14 +874,14 @@ async function runPreferenceJournalVersionSkew(browser) {
     try { await page.reload({ waitUntil: "domcontentloaded" }); }
     finally { await holder.evaluate(async () => { window.__releaseLegacyLock(); await window.__legacyLock; }); }
     await waitForApp(page);
-    assert(await themeOf(page) === "light", "the real journal-unaware release boots against its own shell using the valid base preference fallback");
-    assert(await page.evaluate(records => Object.entries(records).every(([key, raw]) => localStorage.getItem(key) === raw), pending),
-      "the older release leaves every pending intent intact");
+    assert(await themeOf(page) === "dark", "the real older release boots against its own shell and sees the latest canonical appearance");
+    assert(await page.evaluate(records => Object.keys(records).length === 0, pending),
+      "no auxiliary preference records are needed by either release");
     await page.unroute("**/*", serveOld);
-    await page.reload(); await waitForApp(page); await page.evaluate(() => window.__repforgeUi.flushPrefs());
-    assert(await themeOf(page) === "dark", "the next new-release load applies the pending change ignored by the older release");
+    await page.reload(); await waitForApp(page);
+    assert(await themeOf(page) === "dark", "the current release reads the same canonical choice after an older-release load");
     assert(await page.evaluate(() => !Object.keys(localStorage).some(key => key.startsWith("repforge_ui_v1:pending:"))),
-      "the new release consolidates and cleans the old retained intent");
+      "both releases use only the canonical preference record");
     assert(old.onDemand.length === 0, "the older shell and modules were preloaded from one retained release", old.onDemand);
   } finally { await context.close(); }
 }
@@ -887,14 +892,19 @@ async function main() {
   runPaletteIsTheOnlyPlace();
   const browser = await launchChromium();
   try {
-    if (process.env.APPEARANCE_ONLY !== "journal") {
+    if (process.env.APPEARANCE_ONLY === "concurrent") {
+      await runSameKeyCollision(browser);
+      await runPreferencesWithoutLocks(browser);
+    } else {
+    if (process.env.APPEARANCE_ONLY !== "lifecycle") {
       await runConcurrentPreferences(browser);
+      await runSameKeyCollision(browser);
       await runPreferencesWithoutLocks(browser);
     }
-    await runPreferenceJournalLifecycle(browser);
-    await runPendingPreferenceExport(browser);
-    await runPreferenceJournalVersionSkew(browser);
-    if (!["preferences", "journal"].includes(process.env.APPEARANCE_ONLY)) {
+    await runPreferenceLifecycle(browser);
+    await runPreferenceExport(browser);
+    await runPreferenceVersionSkew(browser);
+    if (!["preferences", "lifecycle"].includes(process.env.APPEARANCE_ONLY)) {
     await runLightDefault(browser);
     await runFollowsSystemLive(browser);
     await runSettingsRow(browser);
@@ -903,6 +913,7 @@ async function main() {
     await runStaysOutOfTrainingData(browser);
     await runSettingsReadsAsOneList(browser);
     await runPaperFillsViewport(browser);
+    }
     }
   } finally {
     await browser.close();

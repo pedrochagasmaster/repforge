@@ -545,7 +545,7 @@ export async function runWeekReviewBrowser(browser) {
       } finally {
         await page.evaluate(async () => { window.__releaseWeekPrefLock(); await window.__weekPrefLock; });
       }
-      await page.evaluate(() => window.__repforgeUi.flushPrefs());
+
       assert.match(await page.evaluate(()=>JSON.parse(localStorage.getItem("repforge_ui_v1")).weekCardSeen),/^\d{4}-W\d{2}$/);
       await page.reload({waitUntil:"domcontentloaded"}); await waitForAppBoot(page);
       assert.equal(await page.locator('#todayWeekCard:not(.hidden)').count(),0,"dismissal survives reload");

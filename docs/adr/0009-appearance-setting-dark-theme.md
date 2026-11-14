@@ -110,31 +110,39 @@ repaints, `theme-color` tracks the theme, and no theme key reaches
 
 ## Device preference durability (#741)
 
-A preference change first writes a synchronous, immutable version-1 intent under
-`repforge_ui_v1:pending:`. Readers apply ordered intents over the base
-`repforge_ui_v1` object. Consolidation merges them into that object under the
-existing cross-tab lock, then removes the acknowledged entries oldest first.
-Without Web Locks, readers retain the intents rather than compacting unsafely.
+A preference update reads `repforge_ui_v1` from localStorage, applies its
+field change, membership delta or target guide transition, and writes that same
+key synchronously. Only after a successful write does it update memory and the
+screen. The next user step, including an immediate reload, sees the published
+value. A quota failure returns false and leaves memory intact. There are no
+intent keys, base-lagging journal, consolidation limits or unload flushes.
 
-Admission checks cap the journal at 128 records and 256 KiB of UTF-16 key/value
-storage. Unknown or malformed entries count toward the budget and remain
-protected. A full journal or quota failure rejects a new change rather than
-removing an older intent or pretending the new choice was saved. Successful
-consolidation frees the space. Journal keys and metadata never travel in a
-backup, setup link, state proposal or transfer envelope.
+Separate renderer processes can interleave even synchronous read/write tasks.
+Each tab therefore retains its unconfirmed changes in memory and asynchronously
+re-checks them under the existing state-write lock. It merges any missing change
+into a fresh read of the base. Storage events also repair unconfirmed changes
+and refresh memory and appearance. Without Web Locks, events still repair live
+tabs' outstanding changes, but there is no locked confirmation.
 
-Browser site-data deletion clears both the base and the journal. Settings'
-Delete workout history and storage recovery's Start fresh clear training data,
-not device preferences. Ordinary backup replacement/merge preserves device
-preferences. Install transfer captures the logical preferences after locked
-consolidation; without Web Locks it still projects all intents into the clone
-and retains the journal. Replacement and rollback clear superseded destination
-intents. Malformed intents make a transfer destination ineligible rather than being
-silently discarded.
+The base's `__repforgePrefWrites` map stamps each scalar field, individual array
+member and target guide record. A stamp combines a monotonic millisecond counter
+with a random tab identifier. A repair applies only a higher stamp, so an older
+pending choice cannot undo a genuinely newer choice. Finding additions union;
+member removals retain their stamp. Unknown preferences and unrelated guide
+records survive. A later choice for the same key wins. The in-memory pending map
+keeps only the latest change per path and drops it after locked confirmation.
 
-A journal-unaware release can still read the base object: it is valid but may be
-stale. It ignores the extra keys; the next journal-aware load applies them.
-Consolidate pending intents before rolling back if the older release must show
-the latest choices. The Appearance suite exercises the real older shell and
-modules, site-data deletion while consolidation is held, quota failure, bounded
-failed consolidation, and the production transfer preference producer.
+The canonical base remains the preference record read by existing tests, the
+pre-paint snippet and older releases. They do not need to understand stamps to
+read the current values. Valid stamps are bookkeeping for transfer eligibility;
+unknown or malformed metadata remains protected. Ordinary backups exclude device
+preferences. Install transfer captures the canonical record and replaces or
+rolls it back exactly, cancelling obsolete repairs. Browser site-data deletion
+removes the record and cancels other live tabs' pending repairs. Settings' Delete
+workout history and storage recovery's Start fresh still retain preferences.
+
+The Appearance suite covers real simultaneous tabs, a held older same-key
+publication, storage events, immediate reload, quota rejection, full device clear,
+backup/transfer and an actual older-release shell. Summary evidence covers two
+tabs adding different finding ids while Appearance changes. Guide and native
+control suites retain immediate-reload dismissal and last-value proofs.

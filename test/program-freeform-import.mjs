@@ -78,7 +78,7 @@ async function switchDoorWhilePrefsHeld(page, trigger, destination) {
   } finally {
     await page.evaluate(async () => { window.__releaseDoorPrefLock(); await window.__doorPrefLock; });
   }
-  await page.evaluate(() => window.__repforgeUi.flushPrefs());
+
 }
 
 async function reset(page) {

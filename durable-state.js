@@ -27,7 +27,6 @@
   const STORAGE_SETUP_TXN = "_storageSetupActivation";
   const SHARED_IMPORT = "_sharedSetupImport";
   const STORAGE_LOCK = "repforge:state-write";
-  let storageLockDepth = 0;
   const DRAFT_WRITE_LOCK = "repforge:draft-write";
   const PENDING = "repforge_pending_v1";
   const PENDING_PREFIX = "repforge_pending_v1:";
@@ -1128,9 +1127,7 @@
         return typeof onFrozen==="function"?onFrozen(...args):
           normalizeDurableOutcome({localOk:false,idbOk:false,conflict:true,
             transferFrozen:true,code:"install-transfer-frozen"});
-      if(io!==storageIO)return op(...args);
-      storageLockDepth++;
-      try{return await op(...args)}finally{storageLockDepth--}};
+      return op(...args)};
     if(io===storageIO&&navigator.locks?.request)return navigator.locks.request(STORAGE_LOCK,guarded);
     return guarded()}
 
@@ -3019,8 +3016,6 @@
     requireAdapter,
     writeSnapshot,
     withStorageLock,
-    // For synchronous auxiliary merges only; state transactions still queue normally.
-    ownsStorageLock:()=>storageLockDepth>0,
     enqueueWrite,
     flushStorage,
     getStorageHealth,

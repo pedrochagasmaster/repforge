@@ -180,7 +180,7 @@ try {
   const findingLine = page.locator("#sumFinding");
   check(await findingLine.count() === 1 && /New today/.test(await findingLine.textContent() || ""),
     "a test set released by this session appears above the tiles as New today");
-  await page.evaluate(() => window.__repforgeUi.flushPrefs());
+
   check(await page.evaluate(() => JSON.parse(localStorage.getItem("repforge_ui_v1") || "{}").findingsSeen?.includes("first_check")),
     "opening the real finish screen marks the displayed finding seen in device preferences");
   check(!Object.hasOwn(finding.summary, "streak") && !await page.locator('[data-tile="streak"]').count(),
@@ -242,10 +242,9 @@ try {
   const tabMonth = await tabB.evaluate(({ previous, current }) => window.__repforgeSessionSummary.build({
     rows: current, prevLog: previous, session: current[0].session, date: current[0].date, day: "Day 1", startedAt: 0,
   }), { previous: monthPrevious, current: monthCurrent });
-  for (const tab of [tabA, tabB]) await tab.evaluate(() => window.__repforgeUi.flushPrefs());
   const holder = await tabs.newPage();
   await boot(holder);
-  await holder.evaluate(() => window.__repforgeUi.flushPrefs());
+
   await holder.evaluate(() => {
     const gate = new Promise(resolve => { window.__releaseFindingLock = resolve; });
     window.__findingLock = navigator.locks.request("repforge:state-write", async () => {
@@ -253,46 +252,20 @@ try {
     });
   });
   await holder.waitForFunction(() => window.__findingLockHeld);
-  const beforeHeld = await tabA.evaluate(() => localStorage.getItem("repforge_ui_v1"));
-  const debuggerSession = await tabs.newCDPSession(tabA);
-  await debuggerSession.send("Debugger.enable");
-  await tabA.evaluate(() => {
-    const write = Storage.prototype.setItem;
-    window.__restoreFindingWrite = () => { Storage.prototype.setItem = write; };
-    let held = false;
-    Storage.prototype.setItem = function(key, value) {
-      if (!held && String(key).startsWith("repforge_ui_v1:pending:")) {
-        held = true;
-        // Pause this real page after it reads its snapshot, before its first
-        // immutable intent lands. The other real page can now acknowledge a
-        // different finding from the same absent-key boundary.
-        debugger;
-      }
-      return write.call(this, key, value);
-    };
-  });
-  const paused = new Promise(resolve => debuggerSession.once("Debugger.paused", resolve));
-  const firstAck = tabA.evaluate(summary => window.__repforgeSessionSummary.open(summary), tabFinding.summary);
   try {
-    await paused;
+    // Each acknowledgement is one synchronous task. Hold the unrelated state
+    // writer so a lock-backed preference queue cannot accidentally pass.
+    await tabA.evaluate(summary => window.__repforgeSessionSummary.open(summary), tabFinding.summary);
     await tabB.click("#openSettings");
     await tabB.click('#themeSegments [data-value="dark"]');
     await tabB.click("#settingsBack");
     await tabB.evaluate(summary => window.__repforgeSessionSummary.open(summary), tabMonth);
-    await debuggerSession.send("Debugger.resume");
-    await firstAck;
-    await tabA.evaluate(() => window.__restoreFindingWrite());
-    const held = await tabB.evaluate(() => ({ logical: window.__repforgeUi.loadUiPrefs(),
-      base: localStorage.getItem("repforge_ui_v1") }));
-    check(held.base === beforeHeld && held.logical.theme === "dark" &&
-      held.logical.findingsSeen?.includes("first_check") && held.logical.findingsSeen?.includes("month_one"),
-      "two first acknowledgements from the same absent-key snapshot retain both ids before the held consolidation", JSON.stringify(held));
+    const held = await tabB.evaluate(() => JSON.parse(localStorage.getItem("repforge_ui_v1")));
+    check(held.theme === "dark" && held.findingsSeen?.includes("first_check") && held.findingsSeen?.includes("month_one"),
+      "two tabs' finding deltas and Appearance are canonical before the held state lock is released", JSON.stringify(held));
   } finally {
-    await debuggerSession.send("Debugger.resume").catch(() => {});
-    await debuggerSession.detach();
     await holder.evaluate(async () => { window.__releaseFindingLock(); await window.__findingLock; });
   }
-  for (const tab of [tabA, tabB]) await tab.evaluate(() => window.__repforgeUi.flushPrefs());
   const darkPrefs = await tabB.evaluate(() => JSON.parse(localStorage.getItem("repforge_ui_v1")));
   check(darkPrefs.theme === "dark" && darkPrefs.findingsSeen?.includes("first_check"),
     "an already-open tab preserves the acknowledged finding when Appearance changes", JSON.stringify(darkPrefs));
@@ -302,7 +275,6 @@ try {
   await tabA.evaluate(() => window.__repforgeSessionSummary.close());
   await tabA.click("#openSettings");
   await tabA.click('#themeSegments [data-value="light"]');
-  await tabA.evaluate(() => window.__repforgeUi.flushPrefs());
   for (const tab of [tabA, tabB]) {
     await boot(tab);
     await tab.evaluate(summary => window.__repforgeSessionSummary.open(summary), tabFinding.summary);
@@ -315,7 +287,6 @@ try {
 
   for (const lang of ["pt", "en"]) {
     await page.evaluate(async () => {
-      await window.__repforgeUi.flushPrefs();
       const prefs = JSON.parse(localStorage.getItem("repforge_ui_v1") || "{}");
       delete prefs.findingsSeen;
       localStorage.setItem("repforge_ui_v1", JSON.stringify(prefs));
