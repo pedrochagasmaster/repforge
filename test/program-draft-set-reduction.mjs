@@ -238,7 +238,7 @@ async function pressApply(page) {
   await page.locator("#programEditDone").click();
 }
 
-async function fillSet(page, set, load, reps, rir) {
+async function fillSet(page, set, load, reps, rir, { beforeRir } = {}) {
   if(!await page.locator(`[data-k="${EXERCISE_ID}_${set}_load"]`).count()) {
     await openLoggedSets(page);
     const correction=page.locator(`[data-editex="${EXERCISE_ID}"][data-editn="${set}"]`);
@@ -249,6 +249,7 @@ async function fillSet(page, set, load, reps, rir) {
     }
   }
   for (const [field, value] of [["load", load], ["reps", reps], ["rir", rir]]) {
+    if (field === "rir") await beforeRir?.();
     const key = `${EXERCISE_ID}_${set}_${field}`;
     await page.locator(`[data-k="${key}"]`).fill(String(value));
     await page.waitForFunction(({ key, field, value }) => {
@@ -652,9 +653,25 @@ async function main() {
     await reloadApp(page);
     await page.evaluate(() => window.__repforgeEnterWorkout({}));
     await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
-    await fillSet(page, 1, 105, 8, 1);
+    await fillSet(page, 1, 105, 8, 1, { beforeRir: async () => {
+      await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+      await holdStorageLock(page);
+      // Hold the same-valued RIR edit until the next acknowledged draft drain.
+      // The real drain releases our Web Lock and then awaits the real writer.
+      await page.evaluate(() => {
+        const hook = window.__repforgeWorkoutDraft;
+        const flush = hook.flush;
+        hook.flush = async () => {
+          hook.flush = flush;
+          window.__setReductionReleaseLock();
+          await window.__setReductionLockDone;
+          return flush();
+        };
+      });
+    } });
 
     const beforeSafeBlock = await readRuntime(page);
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
     const safeOldProgramId = beforeSafeBlock.local?.programMeta?.id;
     const safeBlockResult = await page.evaluate(
       (capturedId) => window.__repforgeCommitNextBlock("reduce_volume", undefined, capturedId),
