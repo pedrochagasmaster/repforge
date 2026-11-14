@@ -1478,13 +1478,26 @@ process.exitCode = result.status ?? 1;
     cwd, outputDir: join(temp, "output"), timeoutMs: 5000, env: { ...process.env, REPFORGE_URL: "" },
   });
   assert.match(result.tail, /EEXIST/);
-  assert.doesNotMatch(result.tail, /fixture suite ran/);
+  assert.equal(existsSync(join(cwd, ".ci-results/workout/test-workout-draft-parity-mjs/initial/output.log")), false);
   assert.equal(readFileSync(evidence, "utf8"), originalEvidence);
   assert.equal(readFileSync(join(cwd, "index.html"), "utf8"), originalIndex);
   assert.equal(existsSync(join(cwd, "posthog-config.js")), false);
   execFileSync("flock", ["-n", lock, "true"]);
   assert.equal(result.timedOut, false, "EEXIST must exit without intervention and release its preview child and outer lock");
   assert.equal(result.exitCode, 1);
+
+  const freshEvidence = join(temp, "fresh.json");
+  const fresh = await execute({ file: launcher, args: [lock, "workout", "--suite-id", "test-workout-draft-parity-mjs", "--evidence", freshEvidence] }, {
+    cwd, outputDir: join(temp, "fresh-output"), timeoutMs: 5000, env: { ...process.env, REPFORGE_URL: "" },
+  });
+  assert.equal(fresh.status, "passed", fresh.tail);
+  const report = JSON.parse(readFileSync(freshEvidence, "utf8"));
+  assert.match(report.execution.initial.tail, /fixture suite ran/);
+  assert.equal(report.outcome, "command-passed");
+  assert.deepEqual(report.sourceAfter, report.sourceBefore);
+  assert.equal(readFileSync(join(cwd, "index.html"), "utf8"), originalIndex);
+  assert.equal(existsSync(join(cwd, "posthog-config.js")), false);
+  execFileSync("flock", ["-n", lock, "true"]);
 });
 
 test("temporary preview disables analytics and restores generated files on interruption", async (t) => {

@@ -264,16 +264,18 @@ async function main() {
   }
   const previewEntries = groups.flatMap(([lane, entries]) => entries.map((suite) => ({ lane, suite })));
   const source = sourceIdentity(ROOT, process.env);
-  const preview = await maybeStartLocalPreview(previewEntries, { cwd: ROOT });
-  if (evidence) evidenceFd = openSync(evidence, "wx", 0o600);
-  let failure, reports;
+  let preview, failure, reports;
   const startedAt = new Date().toISOString();
-  try { reports = await runGroups(groups, { verbose, env: preview?.env || process.env, failFast: failurePolicy ?? Boolean(filter), source }); }
+  try {
+    if (evidence) evidenceFd = openSync(evidence, "wx", 0o600);
+    preview = await maybeStartLocalPreview(previewEntries, { cwd: ROOT });
+    reports = await runGroups(groups, { verbose, env: preview?.env || process.env, failFast: failurePolicy ?? Boolean(filter), source });
+  }
   catch (error) { failure = error; throw error; }
   finally {
     try { preview?.cleanup?.(); }
     catch (error) { failure ||= error; }
-    if (evidence) {
+    if (evidenceFd !== undefined) {
       const after = sourceAtHead();
       const outcome = after.head !== sourceBefore.head || after.tree !== sourceBefore.tree || after.status
         ? "source-changed" : failure || process.exitCode ? "command-failed" : "command-passed";
