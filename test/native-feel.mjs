@@ -2623,7 +2623,7 @@ async function scrollerPress(browser) {
     const flashed = await page.evaluate(() => window.__pressSeen.some(Boolean));
     assert(!flashed, "a scroll that starts on the control never shows its press");
 
-    // Hold a real viewport scroll from the preceding swipe until the next touch is pending.
+    // Hold a real viewport scroll after the swipe until the next touch is pending.
     await page.evaluate(() => {
       window.__priorScrollFinished = new Promise(resolve => {
         window.__releasePriorScroll = () => {
@@ -2633,7 +2633,8 @@ async function scrollerPress(browser) {
         };
       });
     });
-    const tap = scrolling;
+    // The swipe and the held tap are independent gestures; prior scroll work must stay on its own page.
+    const tap = await todayPage(browser);
     await tap.page.locator("#chooseAnotherDay").scrollIntoViewIfNeeded();
     p = await center(tap.page, "#chooseAnotherDay");
     await tap.touch("touchStart", [{ x: p.x, y: p.y }]);
@@ -2647,7 +2648,7 @@ async function scrollerPress(browser) {
     await tap.touch("touchEnd");
     await tap.page.waitForFunction(() => document.querySelector("#dayPickSheet")?.classList.contains("is-open"), undefined, { timeout: 5000 });
     assert(!(await pressState(tap.page, "#chooseAnotherDay")).pressed, "the tap activates the control and the press is released");
-    if (tap !== scrolling) await tap.context.close();
+    await tap.context.close();
     await context.close();
   }
 
