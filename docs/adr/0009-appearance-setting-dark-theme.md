@@ -131,6 +131,11 @@ pending choice cannot undo a genuinely newer choice. Finding additions union;
 member removals retain their stamp. Unknown preferences and unrelated guide
 records survive. A later choice for the same key wins. The in-memory pending map
 keeps only the latest change per path and drops it after locked confirmation.
+The tab also caches its latest own stamped value per path after confirmation:
+a delayed foreign publication can still drop a confirmed value. A storage event
+re-queues that cached value if its stamp is missing or older in the base; a
+genuinely newer stamp retires the cached value. This cache lives only in memory
+and is cleared by device wipe or transfer replacement/rollback.
 
 The canonical base remains the preference record read by existing tests, the
 pre-paint snippet and older releases. They do not need to understand stamps to

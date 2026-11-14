@@ -24515,20 +24515,37 @@ function applyUiPrefChanges(prefs,changes){
   if(changes.length)next[UI_PREF_STAMPS]=stamps;
   return next}
 let uiPrefs=loadUiPrefs(),uiPrefClock=0,uiPrefWriter=null;
-const uiPrefUnconfirmed=new Map();
+const uiPrefUnconfirmed=new Map(),uiPrefOwned=new Map();
 let uiPrefRepair=null,uiPrefRepairGeneration=0;
-function resetUiPrefRepairs(){uiPrefUnconfirmed.clear();uiPrefRepairGeneration++}
+function resetUiPrefRepairs(){uiPrefUnconfirmed.clear();uiPrefOwned.clear();uiPrefRepairGeneration++}
+function observeUiPrefClock(prefs){
+  for(const stamp of Object.values(prefs[UI_PREF_STAMPS]||{}))
+    if(Array.isArray(stamp)&&Number.isSafeInteger(stamp[0]))uiPrefClock=Math.max(uiPrefClock,stamp[0]);
+}
+function stageUiPrefRepairs(){
+  if(!uiPrefOwned.size)return;
+  try{if(localStorage.getItem(UIKEY)===null){resetUiPrefRepairs();return}}catch{return}
+  const live=loadUiPrefs();observeUiPrefClock(live);
+  if(Object.hasOwn(live,UI_PREF_STAMPS)&&!validUiPrefStamps(live[UI_PREF_STAMPS]))return;
+  for(const[path,change]of uiPrefOwned){
+    const order=compareUiPrefStamp(change.stamp,live[UI_PREF_STAMPS]?.[path]);
+    if(order>0)uiPrefUnconfirmed.set(path,change);
+    else if(order<0){uiPrefOwned.delete(path);uiPrefUnconfirmed.delete(path)}
+  }
+}
 function publishUiPrefChanges(changes){
   const live=loadUiPrefs();
   if(Object.hasOwn(live,UI_PREF_STAMPS)&&!validUiPrefStamps(live[UI_PREF_STAMPS]))throw new Error("invalid UI preference stamps");
   const next=applyUiPrefChanges(live,changes);
   if(!uiPrefEqual(live,next))localStorage.setItem(UIKEY,JSON.stringify(next));
-  uiPrefs=next;return next}
+  uiPrefs=next;observeUiPrefClock(next);return next}
 function repairUiPrefs(){
+  stageUiPrefRepairs();
   if(uiPrefRepair||!uiPrefUnconfirmed.size||installTransferMutationFrozen()||!navigator.locks?.request)return;
   const generation=uiPrefRepairGeneration;let completed=false;
   uiPrefRepair=withStorageLock(storageIO,()=>{
     if(generation!==uiPrefRepairGeneration||installTransferMutationFrozen())return;
+    stageUiPrefRepairs();
     const changes=[...uiPrefUnconfirmed.values()];
     const next=publishUiPrefChanges(changes);
     for(const change of changes){
@@ -24545,24 +24562,29 @@ async function flushUiPrefs(){
 function updateUiPrefs(update){
   if(installTransferMutationFrozen())return false;
   try{
+    stageUiPrefRepairs();
     const live=loadUiPrefs(),changes=uiPrefChanges(live,update(live));
     if(changes.length){
       if(uiPrefWriter===null)uiPrefWriter=Array.from(crypto.getRandomValues(new Uint8Array(16)),byte=>byte.toString(16).padStart(2,"0")).join("");
       uiPrefClock=Math.max(Date.now(),uiPrefClock+1,...Object.values(live[UI_PREF_STAMPS]||{}).filter(Array.isArray).map(stamp=>stamp[0]+1));
       for(const change of changes)change.stamp=[uiPrefClock,uiPrefWriter];
       // Publication is synchronous. The lock only confirms or repairs it later.
-      publishUiPrefChanges([...uiPrefUnconfirmed.values(),...changes]);
-      for(const change of changes)uiPrefUnconfirmed.set(JSON.stringify(change.path),change);
+      publishUiPrefChanges([...uiPrefOwned.values(),...changes]);
+      for(const change of changes){
+        const path=JSON.stringify(change.path);uiPrefOwned.set(path,change);uiPrefUnconfirmed.set(path,change);
+      }
     }else uiPrefs=live;
     repairUiPrefs();return true
   }catch(error){console.warn("ui prefs save failed",error);return false}}
 window.addEventListener("storage",event=>{
   if(event.storageArea!==localStorage||event.key!==null&&event.key!==UIKEY)return;
   if(event.key===null||event.newValue===null||installTransferMutationFrozen())resetUiPrefRepairs();
+  stageUiPrefRepairs();
   if(uiPrefUnconfirmed.size&&!installTransferMutationFrozen()){
     try{publishUiPrefChanges([...uiPrefUnconfirmed.values()])}catch(error){console.warn("ui prefs repair failed",error)}
     repairUiPrefs();
   }else uiPrefs=loadUiPrefs();
+  observeUiPrefClock(uiPrefs);
   repaintForTheme();
   if(document.body.classList.contains("is-settings"))renderSettings();
 });
