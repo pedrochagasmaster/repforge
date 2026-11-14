@@ -499,6 +499,17 @@ const faintLetter = (left) => rgbPng(860, 1864, (x, y) => (x >= left && x < left
   || (x >= left + 6 && x < left + 10 && y >= 1000 && y < 1024) ? [227, 227, 227] : [239, 239, 239]);
 assert.equal(comparePngBuffers(faintLetter(400), faintLetter(440), CI_STRICT_THRESHOLDS).ok, false,
   "a moved low-contrast glyph fails even when its thin strokes have no large filled interior");
+const sizeGlyph = JSON.parse(readFileSync(join(root, "test/fixtures/catalog/changed-size-glyph.json"), "utf8"));
+const sizeLabelFrame = (key) => {
+  const pixels = Buffer.from(sizeGlyph[key], "base64");
+  return rgbPng(860, 1864, (x, y) => {
+    const dx = x - sizeGlyph.bounds[0], dy = y - sizeGlyph.bounds[1];
+    return dx >= 0 && dx < sizeGlyph.width && dy >= 0 && dy < sizeGlyph.height
+      ? [...pixels.subarray((dy * sizeGlyph.width + dx) * 3, (dy * sizeGlyph.width + dx) * 3 + 3)] : [239, 239, 239];
+  });
+};
+assert.equal(comparePngBuffers(sizeLabelFrame("baseline"), sizeLabelFrame("current"), CI_STRICT_THRESHOLDS).ok, false,
+  "the real 162-to-163 KB glyph change fails without relying on a large changed region");
 // CI must inspect the whole frame, including the corners and the bottom rows beyond the last grid sample.
 for (const [left, top] of [[0, 0], [844, 1848], [418, 1682]]) {
   const blank = rgbPng(860, 1864, () => [239, 239, 239]);
