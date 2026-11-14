@@ -1,0 +1,53 @@
+[
+  {
+    "source": "43563575943 at 2bd8c4a9b72a64030c3dd28eed4f972fa65bfdd6",
+    "path": "docs/ui-screens/screens/onboarding-build/setup__phone-390-light-en-text200.png",
+    "bounds": [
+      184,
+      1394,
+      224,
+      1454
+    ],
+    "meaning": "text200 glyph edge",
+    "width": 40,
+    "height": 60,
+    "baseline": "eJz78un9l1E0ikbRKBp86OL501lp8XAE5I7aOzjtvXXjClx7TUXhqL2j9lLF3pvXLg2IvSePHaK/vS+fP+1oqaePvXt3bUXWQhDduHpp1N7BYu85ktPz3JlTKE9X0yf3Doi9QDQg9tZUFg2IvZs3rBoQe0+fPDIg9pJRPo/aO2rvqL2j9o7aO2rvYLB38YJZA2Lv9i3rkU1AQ11tjTSy987Nq9npCfS3F4hWLV80IPYC0eH9e1qbakryM+ls7ygaRaNoFNEfAQAGQeNo",
+    "current": "eJzt1j1rwkAYwPEPWacKuhTq5GChIIiCg4uUDqJLaQdB6BCw4CCCoCAoFnxBtFboKuLk293eIzbxjEYv2ueeiAf/ISEkv9xxeSGL2UqPsJasOXRUb2W6GxRQp9suwXTB0T2ulMGuXWK4ujUzUMmuvMH+bWC5slDe3eYA3W7703d7Y8Z2ocd4zIWdZBsX/PGxd0WvMPrqm6eHgveudamt62yGL991tkKw3OGgJ+7S/3MbtapTl57tTifjWORRjlsqFvhTjjbsd3FdqlyjTqvpdD1nUk+C6+qA+5xMoLgsCS7ZcUPBAIqb195R3Ga9BuTSg+4J72dxlyhXucpVrnJd6WJ9F878r7P09pJGcQsfGn8FS/FoGMj9+R74vR75LiuXfUVxWZVyKRJ+CNz5JLsiWWg4yP0u6G3wooVWLqhLuUNwLtmxrtn9BfCzs7A=",
+    "frameWidth": 780,
+    "frameHeight": 1688
+  },
+  {
+    "source": "43563575943 at 2bd8c4a9b72a64030c3dd28eed4f972fa65bfdd6",
+    "path": "docs/ui-screens/screens/onboarding-recommend/replacement-confirm__phone-390-light-en.png",
+    "bounds": [
+      90,
+      54,
+      145,
+      100
+    ],
+    "meaning": "dimmed backdrop glyph",
+    "width": 55,
+    "height": 46,
+    "baseline": "eJztV22LqkAY/RmBkFBRUmBgULBCgh8MDIt2qQ9BQkHBCiskGCQXCSFBaKCi4tK/vRY5ji+9btxtYeB885mZM8+c55za/93tMTB+A1Z6rUAkiPNI54ucUJeHmrV8XZI+6Jo6X786SSJBlrs/0k+EJMl92tvA1zWYaaMWi9yCaujOi5E8UbV6FdLjybTNuJofJ7lbTeuwmbQ0WcXWzJSOyFZoKp08bFVgKrzYlIeqtbgsY2B9dRvCcSGReBZJphftpGP0ubPCzrLyFMQevV1onTcSLf7Oc9tDNn2qKbyHTtzYmlQMDFe2QGfJIE9OidrCctIpE6EbPUoS2HqXy3ttlDQQKnBJtopHxRKMODDh4y5NVSoiSjaCIgFm279aulxXphZYnhXGjRaUo1mxPwGbuE02jt7mhF5Eq8vJO+21921go2sXquhdvCAoTuy295JMUqxQH4yt2JE5D0flM6cdmKaJGCwYw0NdT4tX7AOdPI22MLrHzB1NpLy0ahr+wrX/1snK6IYUu6bJNZgbilSC6qKjsjwqUOs3RZ6tMFQuGRupKEmgSx75FKs41+97iwXtN9ao6g1ssjSYBe4Opl02de0VAiQdTcg8n+QhdOAwZoQvPxm38xGXhVZT5A4Grmj6xJi6UGVog/+hk65V9mEyomUBdYU6fEGTVq/0VE1GyBAZcQw7aau83yszPFPnSO6Af2gkHR4m6Toek4jp2MZWoFbzNX0RUrIpw0wJkvyGT8aR3DiWPmiU/ZhLV1FbBmYLdphk+0isLIwBT0FPCJMMJA7BSIp9keddPkmkwsJb/flgkAL3v0alXHKNKH30gc6w6X0laabEo6n0YHZfRUEcR/XgGG3fRRGQXN9cod7lZqugoh770K+gSyBpTtbPjpWjy0LZe9wUxVRr8tg8NW0xkYVSLo7k6d0/P3gmc5kkBgYGBgYGBgYGBgbGb8Q/P9f1nw==",
+    "current": "eJztV2lTGkEQ/RmWIIgIJARRQQWFeEVURBSveKAS8TZqoqgIaDzKI14oIl7/Nq9qU+1mD0HQClZN1fvU/ab3zfQxs4/3t48MDO8B0c0NhaJADkXKQqu1otPjXgv9zFuRfDid9qv4eZ6LBFyu5v8ucmF+RuDd39sZGurXFKuIs7uznW8iOQSDAeLMz03np8hfW1HiDA70SXLOz37DZbNVGfSlWq3a4bD7fJ0b66tpBayu/EBjgo9VryUyMO4XEyaDARUqQqqMa6qthwd7kmFTN4kur4dPzkUkUkycvV1hTfb2dPNHlsVSbqk0q4oKyVhZYb5JXonD1tprBDvKTuTDfWozvFZm+sgR+vt7xBFg5Lw+nzd+ccoZrxPxvt4n8d8Co4JVS4vz5G1uqt+KRZKJy0xEykGpKMCukVO5IP7hwbHREYHx/u6m3GziIrjbXf8m+tpk+sC5mhrr09ZtJiL1Oq23M5tLx93m4iJUVVXKfTQWDb+KSIKnox3nk7lI6gtzmVGuyC/OT14kUlyTkHR0uD8w0EscybJEOaHqkFNHnc1oNChFuxOIHBn+Si70eI4iCY0Nn4mGkch3YUAZDKXPp0AgsrvL8xYiMR6JFlp9Ks7L+JmuVMPZcYZ9Pd2zM1OR8DrCAmhbSZH+kaG3EDk9OUG0xe9zZEdTk/346CDDmkSEV6xJwqh/mGiYnGRvb2v5K8P8Sbyqy9shKXJ7K5J1d8uJvE1d4x6hmRmPn5Grw93K2XW6EsEqXAS2GqukyLtUkkboS+ekWCTkhddDuP2J86W5gU8YH3tKN3/aJ64u2lpb9HqtpEhgeWmBFqKP7m6TGYpMC22J+uT4kL/89OSoWF1EhOpqi9NZ63TYSzQqPDnQQZwdHNgFj5O62mzu7ueBj4Y3QuIIwYlxSf7s7BS8yCZZ8CTjL0Rf82dR7iLxO4ZjkQsSi4UxSJFTnBheI/jLWFlZ5lyYUbgc8VYUi+SQyXuSgYGBgYGBgYGBgYHhPeIPuigGqQ==",
+    "frameWidth": 780,
+    "frameHeight": 1688
+  },
+  {
+    "source": "43563575943 at 2bd8c4a9b72a64030c3dd28eed4f972fa65bfdd6",
+    "path": "docs/ui-screens/screens/onboarding-recommend/session-length__phone-390-light-en.png",
+    "bounds": [
+      394,
+      874,
+      429,
+      909
+    ],
+    "meaning": "white CTA glyph",
+    "width": 35,
+    "height": 35,
+    "baseline": "eJwTExUWG0WjaBSNogFC////T0pKQBPctm3rfxjo7e1BkxUXE0lJTtqxY/v9e/e+fvny9evXBw8eHNi/vyA/T1pKgloW6WhrnTp16j8OcOXyZUMDPcotUpCXBfoCly0Q8PDhQwUFOQotmjVrJlz8zZs3ba0tri7OVpYWQAaQC5eaOmUyJRYpKyl8+/YNIvjz508nRwdkLQ72tr9+/YLIfvr0SU5WmmyLigoL4IJbt27FdPPJEyfgCjLS08i2aMmSxXDBc+fOzZgxHQ3dvXsHrmDChH6yLdq5cwf+ZIAMVixfTrZFyCFDEGzYsJ5si4A5FC44e/YsrJkFDwLqys3NJjWOgArIsAizkEEOJayp7vnz51hzZVlZqZ2tNS6L7t27i5zsQ0OC/v37h2mRkqI8PB8Bwdq1a4CFHpotwKwELPd0dbSxWvQfKbkePXrkz58/wKIS0yIgmjxpInKMAz3e1NSYlprS1dkBNAEufvr0aVwWIQOgB5HjqKenG64YWDhfvXIFSyJDAkB3ZmdlErQIWOb7+njjKb3VVJUPHTqIy5YPHz5ER0VijaOFCxdcunTx+/fvT58+BRYs1lYWuFIdMoqKjNiyefOdO7eBxRpEGbBQnT9vrrmZKampcRSNomGAANCMD/E=",
+    "current": "eJztVSFvwkAU/hELCNIKwkyZaUAQMGUOBZhuhlStM1BDUK0C/gB1Q7WKU+CKah2uKOrqzrWu7mQXxqDXK4wGlixZ+vKpu7733Xv33dd87iGfIUOGDH+EMAzWIhtbpGojKwiP4X60H4ksimmJY7DZQR8dvkGB5zommPQapV8jous93Y52yYDmtMPcT0RXesC9SPIdviHVC3cRUYwAYFQw2K3VodBiq01eUpcO1iVcvVWp24noprxFx1W0m7/ERvTUmTmn3cBMNpWaqPA8saNK1rBBnLnEqRiTNarRtxFR7LvhnRaRawJN03GA5daPpudqpFZTE3FK1ND18BPXlJ5IddLzhIHRv5kI7whqPPmKUzgDeXEp7sg3zgj4GlHCZErcFDt8pLpYSwuhnKxWbA1kqVW8RPSVdZJ9oSousGcZe0cbTA4u6McUTjFdxdzrDi4vOMM+9nIFe4lajkdoC+uXedViBhQ4xnwiS4O+oi4sN5o2smfdhLueUQw0V/YFUy3z+lWvC731iEtKhfwK7XSh/ZN7V3h145FZeLpIesIBKjAdeCiLoL1UOix99X+UKzYEWbds6AfRnBHcgLFQP6+EDBn+Nz4B77UkOQ==",
+    "frameWidth": 780,
+    "frameHeight": 1688
+  }
+]

@@ -13,7 +13,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, w
 import { basename, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
-import { deflateSync } from "node:zlib";
+import { deflateSync, inflateSync } from "node:zlib";
 import { replaceCatalog } from "../tools/capture-ui-screens.mjs";
 import { compareCatalog, comparePngBuffers, CI_STRICT_THRESHOLDS } from "../tools/compare-ui-screens.mjs";
 import { checkCatalog } from "../tools/check-ui-screens.mjs";
@@ -500,16 +500,20 @@ const faintLetter = (left) => rgbPng(860, 1864, (x, y) => (x >= left && x < left
 assert.equal(comparePngBuffers(faintLetter(400), faintLetter(440), CI_STRICT_THRESHOLDS).ok, false,
   "a moved low-contrast glyph fails even when its thin strokes have no large filled interior");
 const sizeGlyph = JSON.parse(readFileSync(join(root, "test/fixtures/catalog/changed-size-glyph.json"), "utf8"));
-const sizeLabelFrame = (key) => {
-  const pixels = Buffer.from(sizeGlyph[key], "base64");
-  return rgbPng(860, 1864, (x, y) => {
-    const dx = x - sizeGlyph.bounds[0], dy = y - sizeGlyph.bounds[1];
-    return dx >= 0 && dx < sizeGlyph.width && dy >= 0 && dy < sizeGlyph.height
-      ? [...pixels.subarray((dy * sizeGlyph.width + dx) * 3, (dy * sizeGlyph.width + dx) * 3 + 3)] : [239, 239, 239];
+const fixtureFrame = (fixture, key) => {
+  const pixels = inflateSync(Buffer.from(fixture[key], "base64"));
+  return rgbPng(fixture.frameWidth, fixture.frameHeight, (x, y) => {
+    const dx = x - fixture.bounds[0], dy = y - fixture.bounds[1];
+    return dx >= 0 && dx < fixture.width && dy >= 0 && dy < fixture.height
+      ? [...pixels.subarray((dy * fixture.width + dx) * 3, (dy * fixture.width + dx) * 3 + 3)] : [239, 239, 239];
   });
 };
-assert.equal(comparePngBuffers(sizeLabelFrame("baseline"), sizeLabelFrame("current"), CI_STRICT_THRESHOLDS).ok, false,
+assert.equal(comparePngBuffers(fixtureFrame(sizeGlyph, "baseline"), fixtureFrame(sizeGlyph, "current"), CI_STRICT_THRESHOLDS).ok, false,
   "the real 162-to-163 KB glyph change fails without relying on a large changed region");
+for (const fixture of JSON.parse(readFileSync(join(root, "test/fixtures/catalog/raster-fringe-glyphs.json"), "utf8"))) {
+  const comparison = comparePngBuffers(fixtureFrame(fixture, "baseline"), fixtureFrame(fixture, "current"), CI_STRICT_THRESHOLDS);
+  assert.equal(comparison.ok, true, `real CI raster variation passes: ${fixture.meaning}: ${JSON.stringify(comparison)}`);
+}
 // CI must inspect the whole frame, including the corners and the bottom rows beyond the last grid sample.
 for (const [left, top] of [[0, 0], [844, 1848], [418, 1682]]) {
   const blank = rgbPng(860, 1864, () => [239, 239, 239]);
