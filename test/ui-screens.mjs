@@ -487,6 +487,13 @@ assert.equal(fontRasterComparison.ok, true,
 const layoutComparison = comparePngBuffers(syntheticBaseline, syntheticLayoutChange);
 assert.equal(layoutComparison.ok, false, `a layout shift must fail the PNG evidence gate: ${JSON.stringify(layoutComparison)}`);
 assert.ok(layoutComparison.reasons.length > 0, "layout changes report actionable PNG comparator reasons");
+// At DPR 2, compositing changes can cover several pixels across a glyph's edge. Disconnected fringes must not
+// become a structural failure simply because their total pixel count is large (CI run 43563575943).
+const wideRasterFringes = rgbPng(860, 1864, (x, y) => x % 60 < 5 && y % 80 < 40
+  ? [255, 255, 255] : [239, 239, 239]);
+const rasterGround = rgbPng(860, 1864, () => [239, 239, 239]);
+assert.equal(comparePngBuffers(rasterGround, wideRasterFringes, CI_STRICT_THRESHOLDS).ok, true,
+  "separate glyph fringes pass even when several device pixels wide and numerous");
 // CI must inspect the whole frame, including the corners and the bottom rows beyond the last grid sample.
 for (const [left, top] of [[0, 0], [857, 1861], [418, 1682]]) {
   const blank = rgbPng(860, 1864, () => [239, 239, 239]);
