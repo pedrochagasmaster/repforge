@@ -669,9 +669,6 @@ async function openFreshContext(browser, { guides } = {}) {
   page.on("dialog", (dialog) => dialog.dismiss().catch(() => {}));
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
   await waitForAppBoot(page, { base: BASE });
-  await clearProfile(page);
-  await page.reload({ waitUntil: "domcontentloaded" });
-  await waitForAppBoot(page, { base: BASE });
   return { context, page };
 }
 
@@ -1094,6 +1091,11 @@ async function runFreshDestinationReloads(browser, envelope) {
       if (result?.ok === true) {
         const actual = await readLogical(page);
         assertImportedLogical(actual, await readIdb(page), envelope, `fresh destination after ${reloads} reloads`);
+        if (reloads === 0) {
+          check(result?.ok === true, "ordinary first boot stays eligible without initializing findingsSeen", result);
+          check(sameValue(actual.uiPreferences.findingsSeen, envelope.uiPreferences.findingsSeen),
+            "install transfer carries seen finding ids to the fresh device");
+        }
       }
     } finally { await context.close(); }
   }
@@ -2452,18 +2454,6 @@ async function main() {
       check(sameValue(refusalAfter.local, refusalBefore.local) && sameValue(refusalAfter.idb, refusalBefore.idb),
         "meaningful-destination refusal leaves storage bytes/logical state unchanged");
       await refusal.close();
-      const bootDestination = await browser.newContext({ guides: "live" });
-      try {
-        const bootPage = await bootDestination.newPage();
-        bootPage.on("dialog", dialog => dialog.dismiss().catch(() => {}));
-        await bootPage.goto(BASE, { waitUntil: "domcontentloaded" });
-        await waitForAppBoot(bootPage, { base: BASE });
-        const importedAtBoot = await importInto(bootPage, envelope);
-        check(importedAtBoot?.ok === true, "ordinary first boot stays eligible without initializing findingsSeen", importedAtBoot);
-        const bootLogical = await readLogical(bootPage);
-        check(sameValue(bootLogical.uiPreferences.findingsSeen, envelope.uiPreferences.findingsSeen),
-          "install transfer carries seen finding ids to the fresh device");
-      } finally { await bootDestination.close(); }
       await runFaultMatrix(browser, envelope);
       await runProfileDestinationProtection(browser, envelope);
       await runMalformedProfileSettings(browser);
