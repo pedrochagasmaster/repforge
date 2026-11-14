@@ -172,7 +172,7 @@ try {
     element.remove();
     const opened = window.__repforgeSessionSummary.open(summary);
     parent.append(element);
-    return { opened, seen: JSON.parse(localStorage.getItem("repforge_ui_v1") || "{}").findingsSeen };
+    return { opened, seen: window.__repforgeUi.loadUiPrefs().findingsSeen };
   }, finding.summary);
   check(unopened.opened === false && !unopened.seen?.includes("first_check"),
     "deriving a finding or failing to open the finish screen does not mark it seen");
@@ -180,6 +180,7 @@ try {
   const findingLine = page.locator("#sumFinding");
   check(await findingLine.count() === 1 && /New today/.test(await findingLine.textContent() || ""),
     "a test set released by this session appears above the tiles as New today");
+  await page.evaluate(() => window.__repforgeUi.flushPrefs());
   check(await page.evaluate(() => JSON.parse(localStorage.getItem("repforge_ui_v1") || "{}").findingsSeen?.includes("first_check")),
     "opening the real finish screen marks the displayed finding seen in device preferences");
   check(!Object.hasOwn(finding.summary, "streak") && !await page.locator('[data-tile="streak"]').count(),
@@ -313,7 +314,8 @@ try {
   await tabs.close();
 
   for (const lang of ["pt", "en"]) {
-    await page.evaluate(() => {
+    await page.evaluate(async () => {
+      await window.__repforgeUi.flushPrefs();
       const prefs = JSON.parse(localStorage.getItem("repforge_ui_v1") || "{}");
       delete prefs.findingsSeen;
       localStorage.setItem("repforge_ui_v1", JSON.stringify(prefs));

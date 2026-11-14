@@ -1040,7 +1040,8 @@ async function run() {
           }
 
           const postData = JSON.parse(localStorage.getItem(dataKey) || "{}");
-          const postUi = JSON.parse(localStorage.getItem(uiKey) || "{}");
+          // The reset intent is synchronous; canonical consolidation is locked.
+          const postUi = window.__repforgeUi.loadUiPrefs();
 
           return {
             hookCalled,

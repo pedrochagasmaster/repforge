@@ -24515,8 +24515,8 @@ function uiPrefChanges(before,after){
       if(uiPrefEqual(a[key],b[key]))continue;
       if(!path.length&&["guideState","stageTip"].includes(key)&&uiPrefObject(b[key]))compare(uiPrefObject(a[key])?a[key]:{},b[key],[key]);
       else if(!path.length&&["findingsSeen","collapsedProgramDays"].includes(key)&&
-        Array.isArray(a[key])&&Array.isArray(b[key])&&[...a[key],...b[key]].every(value=>typeof value==="string"))
-        changes.push({kind:"members",path:[key],add:b[key].filter(value=>!a[key].includes(value)),remove:a[key].filter(value=>!b[key].includes(value))});
+        (a[key]===undefined||Array.isArray(a[key]))&&Array.isArray(b[key])&&[...(a[key]||[]),...b[key]].every(value=>typeof value==="string"))
+        changes.push({kind:"members",path:[key],add:b[key].filter(value=>!(a[key]||[]).includes(value)),remove:(a[key]||[]).filter(value=>!b[key].includes(value))});
       else changes.push({kind:"set",path:[...path,key],value:b[key]});
     }
   };
@@ -24553,7 +24553,8 @@ function updateUiPrefs(update){
       const pending=readUiPrefJournal();
       const last=pending.at(-1)?.key.slice(UI_PREF_PENDING_PREFIX.length).split(":")[0];
       uiPrefClock=Math.max(Date.now(),uiPrefClock+1,(Number(last)||0)+1);
-      const key=`${UI_PREF_PENDING_PREFIX}${String(uiPrefClock).padStart(16,"0")}:${crypto.randomUUID()}`;
+      const nonce=Array.from(crypto.getRandomValues(new Uint8Array(16)),byte=>byte.toString(16).padStart(2,"0")).join("");
+      const key=`${UI_PREF_PENDING_PREFIX}${String(uiPrefClock).padStart(16,"0")}:${nonce}`;
       const raw=JSON.stringify({v:1,changes});
       const bytes=2*(key.length+raw.length)+pending.reduce((sum,entry)=>
         sum+2*(entry.key.length+(localStorage.getItem(entry.key)||"").length),0);
@@ -26748,7 +26749,7 @@ function guideStored(id){return uiPrefs.guideState?.[id]||null}
 function saveGuideTransition(id,status){
   const guide=guideDefinition(id);if(!guide||!GuideRegistry?.recordGuideTransition)return false;
   return updateUiPrefs(prefs=>({...GuideRegistry.recordGuideTransition(
-    GuideRegistry.migrateLegacyTourDone(prefs),id,status,{version:guide.version,nowMs:Date.now()})}))}
+    prefs,id,status,{version:guide.version,nowMs:Date.now()})}))}
 function guideDialogElement(){
   let el=$("#guideDialog");
   if(el)return el;
