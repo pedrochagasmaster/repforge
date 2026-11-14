@@ -2455,9 +2455,7 @@ body.is-sheet-open{overflow:hidden}
 .exthumb--sm{width:52px;height:52px}
 .exthumb--md{width:72px;height:72px}
 .exthumb--lg{width:100%;height:auto;aspect-ratio:1;border-radius:var(--radius-surface)}
-/* A movement with no illustration yet shows the G dumbbell, quiet, in its tile (the native UI kit), not a blank box. */
 .exthumb--empty{display:grid;place-items:center;background:var(--well);color:var(--ink-faint)}
-.exthumb--empty .icon-mask{width:40%;height:40%;opacity:.5}
 
 /* Browsing a library is not a confirmation prompt: the picker takes the whole
    visible viewport instead of the default 74dvh band, so search, filters and
