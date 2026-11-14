@@ -487,17 +487,24 @@ async function restStepperRelease(page) {
       const keyboardStart = await shorter.evaluate(button => ({ disabled: button.disabled, focused: button === document.activeElement,
         value: document.querySelector('#restSec').value, stored: JSON.parse(localStorage.getItem('repforge_v1')).settings.restSec }));
       await page.keyboard.press('Enter');
+      if (iteration === 10) {
+        await page.reload({ waitUntil: 'domcontentloaded' });
+        await waitForApp(page);
+        await page.click('#openSettings');
+      }
       await page.waitForFunction(() => JSON.parse(localStorage.getItem('repforge_v1')).settings.restSec === 15).catch(async error => {
         console.error('Rest keyboard boundary:', { before: keyboardStart, after: await shorter.evaluate(button => ({ disabled: button.disabled,
           focused: button === document.activeElement, value: document.querySelector('#restSec').value, stored: JSON.parse(localStorage.getItem('repforge_v1')).settings.restSec })) });
         throw error;
       });
-      assert(await page.locator('#restSec').inputValue() === '15', 'the keyboard can still step after a held repeat');
+      assert(await page.locator('#restSec').inputValue() === '15', iteration === 10
+        ? 'the last held-repeat and Enter value persists across immediate reload'
+        : 'the keyboard can still step after a held repeat');
     }
   }
 }
 
-async function nativeControls(browser) {
+async function nativeControls(browser, { appearanceOnly = false } = {}) {
   const { context, page, touch } = await todayPage(browser);
   phase("Phase 4: the off switch has a light track and a required ring");
   await page.click('#openSettings');
@@ -547,6 +554,8 @@ async function nativeControls(browser) {
   assert(hasSegments === 1, "Appearance is a radiogroup");
   if (hasSegments) {
     await segmented.locator('[data-value="light"]').click();
+    assert(await segmented.locator('[data-value="light"]').getAttribute('aria-checked') === 'true', 'the selected default is acknowledged on screen immediately');
+
     assert(await page.evaluate(() => JSON.parse(localStorage.getItem('repforge_ui_v1') || '{}').theme) === 'light', 'explicitly choosing the selected default records the device preference');
     await segmented.locator('[data-value="dark"]').click();
     assert(await page.locator('html').getAttribute('data-theme') === 'dark', "a tap applies Appearance immediately");
@@ -567,6 +576,7 @@ async function nativeControls(browser) {
     assert(await page.locator('#unitSegments [data-value="lb"]').getAttribute('aria-checked') === 'true', "Units persists and restores its selected segment");
     assert(await page.locator('#themeSegments [data-value="dark"]').getAttribute('aria-checked') === 'true', "Appearance restores from device UI preferences");
   }
+  if (appearanceOnly) { await context.close(); return; }
   phase("Taste round 2: the segmented thumb is a raised paper thumb on a soft track");
   for (const theme of ["light", "dark"]) {
     await page.evaluate(value => { document.documentElement.dataset.theme = value; }, theme);
@@ -2678,7 +2688,7 @@ async function scrollerPress(browser) {
 }
 
 // NATIVE_FEEL_ONLY=press runs the held scroller-press regression, =rest runs the ten-cycle held Settings probe, =large runs just phase 5, =shelf just its addendum, =wheel just the wheel picker and =swipe just the
-// history and back-swipe phases, =refresh just the catalog layout regressions, and =core the remaining phases.
+// history and back-swipe phases, =appearance just Appearance control behaviour, =controls all native controls, =refresh just the catalog layout regressions, and =core the remaining phases.
 // refresh + core + large covers the complete suite, including the shelf addendum, within separate runner limits; CI runs everything.
 const ONLY = process.env.NATIVE_FEEL_ONLY || "";
 const browser = await launchChromium();
@@ -2865,6 +2875,8 @@ try {
     await restStepperRelease(page);
     await context.close();
   }
+  if (ONLY === "appearance") await nativeControls(browser, { appearanceOnly: true });
+  if (ONLY === "controls") await nativeControls(browser);
   if (ONLY === "wheel") {
     await wheelPicker(browser);
     await wheelPhysics(browser);
@@ -2878,7 +2890,7 @@ try {
     await autoSwipe(browser);
     await standaloneSwipe(browser);
   }
-  if (!["wheel", "swipe", "rest", "refresh", "press", "core"].includes(ONLY)) await concentricShelf(browser);
+  if (!["wheel", "swipe", "rest", "refresh", "press", "core", "appearance", "controls"].includes(ONLY)) await concentricShelf(browser);
 } finally {
   await browser.close();
 }

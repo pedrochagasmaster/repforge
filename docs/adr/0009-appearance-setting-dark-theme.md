@@ -66,7 +66,7 @@ Appearance is stored in `uiPrefs` (`repforge_ui_v1`), not `state.settings`.
 Which paper this device prefers says nothing about the training in a backup, and
 a setup link that repainted the recipient's app would be reading well past its
 remit. Keeping it in UI prefs means it never enters export/import, never enters
-a state proposal or the cross-tab write path, and leaves the shared-setup
+a training-state proposal, and leaves the shared-setup
 allowlist at the eight settings `docs/adr/0007-shared-setup-links.md` describes
 and `index.html` names to the lifter. The one-hour install-transfer clone is
 not export/import: UI preferences travel there only under the explicit
@@ -107,3 +107,49 @@ explicit `system` choice follows the device live, an explicit choice survives
 a reload, the pre-paint snippet applies it before `app.js` runs, the chart
 repaints, `theme-color` tracks the theme, and no theme key reaches
 `repforge_v1` or a shared setup link.
+
+## Device preference durability (#741)
+
+A preference update reads `repforge_ui_v1` from localStorage, applies its
+field change, membership delta or target guide transition, and writes that same
+key synchronously. Only after a successful write does it update memory and the
+screen. The next user step, including an immediate reload, sees the published
+value. A quota failure returns false and leaves memory intact. There are no
+intent keys, base-lagging journal, consolidation limits or unload flushes.
+
+Separate renderer processes can interleave even synchronous read/write tasks.
+Each tab therefore retains its unconfirmed changes in memory and asynchronously
+re-checks them under the existing state-write lock. It merges any missing change
+into a fresh read of the base. Storage events also repair unconfirmed changes
+and refresh memory and appearance. Without Web Locks, events still repair live
+tabs' outstanding changes, but there is no locked confirmation.
+
+The base's `__repforgePrefWrites` map stamps each scalar field, individual array
+member and target guide record. A stamp combines a monotonic millisecond counter
+with a random tab identifier. A repair applies only a higher stamp, so an older
+pending choice cannot undo a genuinely newer choice. Finding additions union;
+member removals retain their stamp. Unknown preferences and unrelated guide
+records survive. A later choice for the same key wins. The in-memory pending map
+keeps only the latest change per path and drops it after locked confirmation.
+The tab also caches its latest own stamped value per path after confirmation:
+a delayed foreign publication can still drop a confirmed value. A storage event
+re-queues that cached value if its stamp is missing or older in the base; a
+genuinely newer stamp retires the cached value. This cache lives only in memory
+and is cleared by device wipe, a metadata-free legacy replacement, or transfer
+replacement/rollback. A user update publishes only its fresh delta; the
+asynchronous repair handles any other outstanding path.
+
+The canonical base remains the preference record read by existing tests, the
+pre-paint snippet and older releases. They do not need to understand stamps to
+read the current values. Valid stamps are bookkeeping for transfer eligibility;
+unknown or malformed metadata remains protected. Ordinary backups exclude device
+preferences. Install transfer captures the canonical record and replaces or
+rolls it back exactly, cancelling obsolete repairs. Browser site-data deletion
+removes the record and cancels other live tabs' pending repairs. Settings' Delete
+workout history and storage recovery's Start fresh still retain preferences.
+
+The Appearance suite covers real simultaneous tabs, a held older same-key
+publication, storage events, immediate reload, quota rejection, full device clear,
+backup/transfer and an actual older-release shell. Summary evidence covers two
+tabs adding different finding ids while Appearance changes. Guide and native
+control suites retain immediate-reload dismissal and last-value proofs.

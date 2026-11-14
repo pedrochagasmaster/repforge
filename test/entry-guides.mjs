@@ -1039,7 +1039,8 @@ async function run() {
           }
 
           const postData = JSON.parse(localStorage.getItem(dataKey) || "{}");
-          const postUi = JSON.parse(localStorage.getItem(uiKey) || "{}");
+          // The target reset is canonical before the queued presentation.
+          const postUi = JSON.parse(localStorage.getItem(uiKey));
 
           return {
             hookCalled,
@@ -1063,6 +1064,12 @@ async function run() {
         true // Expected baseline RED on current head before P8 production changes
       );
 
+
+      const replaySettled = await page.evaluate(() => window.__repforgeUi.loadUiPrefs());
+      assert(replaySettled.guideState.entry.status === "completed" &&
+        replaySettled.guideState.entry.version === 1 && replaySettled.guideState.privacy.status === "completed",
+        "a replay's later shown/deferred transition preserves every unrelated guide record, including older versions",
+        JSON.stringify(replaySettled.guideState));
       await context.close();
     }
   } finally {

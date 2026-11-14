@@ -4356,7 +4356,7 @@ function renderWeekCard(){
     `<button type="button" class="text-link" id="weekCardReview">${esc(t("review.week.open"))}</button>`+
     `<button type="button" class="text-link" id="weekCardDismiss">${esc(t("review.week.dismiss"))}</button></div>`;
   $("#weekCardReview").onclick=()=>{setUiPref("weekCardSeen",id);renderWeekCard();navTo("stats");setStatsSeg("review")};
-  $("#weekCardDismiss").onclick=()=>{if(setUiPref("weekCardSeen",id))renderWeekCard()};
+  $("#weekCardDismiss").onclick=()=>{if(setUiPref("weekCardSeen",id)!==false)renderWeekCard()};
 }
 
 let weeklyAdaptationView=null,weeklyAdaptationBusy=false,weeklyEvaluationPending=false;
@@ -5224,6 +5224,7 @@ function installTransferUiMeaningful(uiRaw,ui){
   if(uiRaw===null)return false;
   if(!ui)return true;
   const remaining={...ui};
+  if(validUiPrefStamps(remaining[UI_PREF_STAMPS]))delete remaining[UI_PREF_STAMPS];
   if(remaining.entryLandingSeen===true)delete remaining.entryLandingSeen;
   if(validProfileScope(remaining.profileScope)&&!remaining.profileScope.acknowledged&&!remaining.profileScope.scope.length)delete remaining.profileScope;
   for(const[key,value]of Object.entries({installLastOfferedMilestone:null,installLastOfferedAt:null,
@@ -5251,7 +5252,9 @@ function installTransferUiMeaningful(uiRaw,ui){
     else delete remaining.guideState}
   return Object.keys(remaining).length>0}
 function installTransferDeviceMeaningful(){
-  const uiRaw=installTransferReadRaw(UIKEY),ui=installTransferReadJson(UIKEY);
+  const storedRaw=installTransferReadRaw(UIKEY);
+  if(storedRaw!==null&&!uiPrefObject(installTransferReadJson(UIKEY)))return true;
+  const ui=loadUiPrefs(),uiRaw=storedRaw;
   if(installTransferUiMeaningful(uiRaw,ui))return true;
   const consent=installTransferReadRaw(TELEMETRY_ENABLED_KEY);
   if(installTransferInitialDevice.consent!==null||
@@ -5297,7 +5300,7 @@ function installTransferSections(durableSnapshot=state,{storedDraft=false}={}){
       const record=readSetupDraftRecord();
       if(!record.ok)throw new Error("program-entry-draft-unavailable");
       return record.envelope?.state||null},
-    uiPreferences:()=>installTransferReadJson(UIKEY)||{},
+    uiPreferences:()=>loadUiPrefs(),
     analytics:()=>({enabled:window.RepForgeTelemetry?.isEnabled?.()!==false&&
       localStorage.getItem(TELEMETRY_ENABLED_KEY)!=="false"}),
     telemetryIdentity:()=>installTransferReadJson(TELEMETRY_IDENTITY_KEY),
@@ -5821,6 +5824,7 @@ function installTransferWriteCandidate(logical){
     return{ok:true,envelope}}))}
 function installTransferWriteDeviceSections(envelope){
   try{
+    resetUiPrefRepairs();
     const prefs=cloneSnapshot(envelope.uiPreferences);
     delete prefs.repforge_freeform_session_v1;delete prefs.repforge_import_source_v1;
     localStorage.setItem(UIKEY,JSON.stringify(prefs));uiPrefs=loadUiPrefs();
@@ -5834,6 +5838,7 @@ function installTransferWriteDeviceSections(envelope){
   }catch{return{ok:false,code:"device-section-write-failed"}}}
 function installTransferRestoreDeviceSections(previous,presence={}){
   try{
+    resetUiPrefRepairs();
     const prefs=cloneSnapshot(previous.uiPreferences||{});
     if(presence.ui===false){
       if(!installTransferWriteRaw(UIKEY,null))return{ok:false,code:"device-prefs-rollback-failed"};
@@ -8427,7 +8432,7 @@ function renderOverviewProfile(){
     `<div class="ovsec"><h3 class="ovsec__title">${esc(t("calib.recent"))}</h3></div><ul class="calchecks">${rows}</ul>`;
   el.querySelectorAll("[data-profile-lift]").forEach(button=>button.onclick=()=>openProfilePage({kind:"lift",key:button.dataset.profileLift}));
   const accept=el.querySelector("#profileScopeContinue");if(accept)accept.onclick=()=>{
-    if(!saveProfileScope({v:1,scope:change.now,acknowledged:true}))return;
+    if(saveProfileScope({v:1,scope:change.now,acknowledged:true})===false)return;
     render();window.scrollTo({top:0});focusRoute($("#overviewProfileTitle"))};
   const back=$("#summaryProfileBack");if(back)back.onclick=returnFromSummaryProfile}
 /* "Not now" closes the prompt for that exercise in this workout. */
@@ -24458,25 +24463,142 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
   return result}
 window.closeOnboarding=closeOnboarding;window.startOnboarding=startOnboarding;
 
-// ---- UI prefs (kept separate from training data so they never touch export/import) ----
+// ---- Device UI prefs (ordinary backups exclude them; install transfer carries the logical value) ----
 const UIKEY=INSTALL_UI_KEY;
-function loadUiPrefs(){try{const o=JSON.parse(localStorage.getItem(UIKEY));return o&&typeof o==="object"?o:{}}catch{return{}}}
-let uiPrefs=loadUiPrefs();
+const UI_PREF_STAMPS="__repforgePrefWrites";
+const uiPrefObject=value=>!!value&&typeof value==="object"&&!Array.isArray(value);
+const uiPrefEqual=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+function validUiPrefStamps(value){
+  return uiPrefObject(value)&&Object.entries(value).every(([path,stamp])=>{
+    try{const parts=JSON.parse(path);return Array.isArray(parts)&&parts.length>=1&&parts.length<=2&&
+      parts.every(part=>typeof part==="string")&&parts[0]!==UI_PREF_STAMPS&&
+      Array.isArray(stamp)&&stamp.length===2&&Number.isSafeInteger(stamp[0])&&stamp[0]>0&&
+      typeof stamp[1]==="string"&&/^[a-f0-9]{32}$/.test(stamp[1])}catch{return false}})}
+function loadUiPrefs(){try{const value=JSON.parse(localStorage.getItem(UIKEY));return uiPrefObject(value)?value:{}}catch{return{}}}
+function uiPrefChanges(before,after){
+  const changes=[];
+  for(const key of new Set([...Object.keys(before),...Object.keys(after)])){
+    if(key===UI_PREF_STAMPS||uiPrefEqual(before[key],after[key]))continue;
+    if(["findingsSeen","collapsedProgramDays"].includes(key)&&
+      (before[key]===undefined||Array.isArray(before[key]))&&Array.isArray(after[key])&&
+      [...(before[key]||[]),...after[key]].every(value=>typeof value==="string")){
+      for(const member of new Set([...(before[key]||[]),...after[key]])){
+        const value=after[key].includes(member);
+        if(value!==(before[key]||[]).includes(member))changes.push({path:[key,member],kind:"member",value});
+      }
+    }else if(["guideState","stageTip"].includes(key)&&uiPrefObject(after[key])){
+      const previous=uiPrefObject(before[key])?before[key]:{};
+      for(const member of new Set([...Object.keys(previous),...Object.keys(after[key])]))
+        if(!uiPrefEqual(previous[member],after[key][member]))changes.push({path:[key,member],
+          kind:Object.hasOwn(after[key],member)?"set":"remove",value:after[key][member]});
+    }else changes.push({path:[key],kind:Object.hasOwn(after,key)?"set":"remove",value:after[key]});
+  }
+  return changes}
+const compareUiPrefStamp=(a,b)=>!b?1:a[0]-b[0]||(a[1]<b[1]?-1:a[1]>b[1]?1:0);
+function applyUiPrefChanges(prefs,changes){
+  const next={...prefs},stamps={...(prefs[UI_PREF_STAMPS]||{})};
+  for(const change of changes){
+    const path=JSON.stringify(change.path);
+    if(compareUiPrefStamp(change.stamp,stamps[path])<=0)continue;
+    const[key,member]=change.path;
+    if(change.kind==="member"){
+      const values=new Set(Array.isArray(next[key])?next[key]:[]);
+      change.value?values.add(member):values.delete(member);next[key]=[...values];
+    }else{
+      const target=member===undefined?next:{...(uiPrefObject(next[key])?next[key]:{})};
+      const field=member===undefined?key:member;
+      if(change.kind==="remove")delete target[field];else target[field]=change.value;
+      if(member!==undefined)next[key]=target;
+    }
+    stamps[path]=change.stamp;
+  }
+  if(changes.length)next[UI_PREF_STAMPS]=stamps;
+  return next}
+let uiPrefs=loadUiPrefs(),uiPrefClock=0,uiPrefWriter=null;
+const uiPrefUnconfirmed=new Map(),uiPrefOwned=new Map();
+let uiPrefRepair=null,uiPrefRepairGeneration=0;
+function resetUiPrefRepairs(){uiPrefUnconfirmed.clear();uiPrefOwned.clear();uiPrefRepairGeneration++}
+function observeUiPrefClock(prefs){
+  for(const stamp of Object.values(prefs[UI_PREF_STAMPS]||{}))
+    if(Array.isArray(stamp)&&Number.isSafeInteger(stamp[0]))uiPrefClock=Math.max(uiPrefClock,stamp[0]);
+}
+function stageUiPrefRepairs(){
+  if(!uiPrefOwned.size)return;
+  try{if(localStorage.getItem(UIKEY)===null){resetUiPrefRepairs();return}}catch{return}
+  const live=loadUiPrefs();observeUiPrefClock(live);
+  // A metadata-free record is a legacy replacement, not a stamped race.
+  if(!Object.hasOwn(live,UI_PREF_STAMPS)){resetUiPrefRepairs();uiPrefs=live;return}
+  if(Object.hasOwn(live,UI_PREF_STAMPS)&&!validUiPrefStamps(live[UI_PREF_STAMPS]))return;
+  for(const[path,change]of uiPrefOwned){
+    const order=compareUiPrefStamp(change.stamp,live[UI_PREF_STAMPS]?.[path]);
+    if(order>0)uiPrefUnconfirmed.set(path,change);
+    else if(order<0){uiPrefOwned.delete(path);uiPrefUnconfirmed.delete(path)}
+  }
+}
+function publishUiPrefChanges(changes){
+  const live=loadUiPrefs();
+  if(Object.hasOwn(live,UI_PREF_STAMPS)&&!validUiPrefStamps(live[UI_PREF_STAMPS]))throw new Error("invalid UI preference stamps");
+  const next=applyUiPrefChanges(live,changes);
+  if(!uiPrefEqual(live,next))localStorage.setItem(UIKEY,JSON.stringify(next));
+  uiPrefs=next;observeUiPrefClock(next);return next}
+function repairUiPrefs(){
+  stageUiPrefRepairs();
+  if(uiPrefRepair||!uiPrefUnconfirmed.size||installTransferMutationFrozen()||!navigator.locks?.request)return;
+  const generation=uiPrefRepairGeneration;let completed=false;
+  uiPrefRepair=withStorageLock(storageIO,()=>{
+    if(generation!==uiPrefRepairGeneration||installTransferMutationFrozen())return;
+    stageUiPrefRepairs();
+    const changes=[...uiPrefUnconfirmed.values()];
+    const next=publishUiPrefChanges(changes);
+    for(const change of changes){
+      const path=JSON.stringify(change.path),current=uiPrefUnconfirmed.get(path);
+      if(current===change&&compareUiPrefStamp(next[UI_PREF_STAMPS]?.[path],change.stamp)>=0)uiPrefUnconfirmed.delete(path);
+    }
+    completed=true;
+  }).catch(error=>{console.warn("ui prefs repair failed",error)}).finally(()=>{uiPrefRepair=null;if(completed||generation!==uiPrefRepairGeneration)repairUiPrefs()});
+}
+async function flushUiPrefs(){
+  repairUiPrefs();
+  while(uiPrefRepair){const repair=uiPrefRepair;await repair;if(uiPrefRepair===repair)break}
+}
 function updateUiPrefs(update){
   if(installTransferMutationFrozen())return false;
-  const live=loadUiPrefs(),next=update(live);
   try{
-    if(JSON.stringify(next)!==JSON.stringify(live))localStorage.setItem(UIKEY,JSON.stringify(next));
-    uiPrefs=next;return true}
-  catch(e){console.warn("ui prefs save failed",e);return false}}
+    stageUiPrefRepairs();
+    const live=loadUiPrefs(),changes=uiPrefChanges(live,update(live));
+    if(changes.length){
+      if(uiPrefWriter===null)uiPrefWriter=Array.from(crypto.getRandomValues(new Uint8Array(16)),byte=>byte.toString(16).padStart(2,"0")).join("");
+      uiPrefClock=Math.max(Date.now(),uiPrefClock+1,...Object.values(live[UI_PREF_STAMPS]||{}).filter(Array.isArray).map(stamp=>stamp[0]+1));
+      for(const change of changes)change.stamp=[uiPrefClock,uiPrefWriter];
+      // Publication is synchronous. The lock only confirms or repairs it later.
+      publishUiPrefChanges(changes);
+      for(const change of changes){
+        const path=JSON.stringify(change.path);uiPrefOwned.set(path,change);uiPrefUnconfirmed.set(path,change);
+      }
+    }else uiPrefs=live;
+    repairUiPrefs();return true
+  }catch(error){console.warn("ui prefs save failed",error);return false}}
+window.addEventListener("storage",event=>{
+  if(event.storageArea!==localStorage||event.key!==null&&event.key!==UIKEY)return;
+  if(event.key===null||event.newValue===null||installTransferMutationFrozen())resetUiPrefRepairs();
+  stageUiPrefRepairs();
+  if(uiPrefUnconfirmed.size&&!installTransferMutationFrozen()){
+    try{publishUiPrefChanges([...uiPrefUnconfirmed.values()])}catch(error){console.warn("ui prefs repair failed",error)}
+    repairUiPrefs();
+  }else uiPrefs=loadUiPrefs();
+  observeUiPrefClock(uiPrefs);
+  repaintForTheme();
+  if(document.body.classList.contains("is-settings"))renderSettings();
+});
+
 function setUiPref(k,v){return updateUiPrefs(prefs=>({...prefs,[k]:v}))}
 const INSTALL_PREF_DEFAULTS=Object.freeze({installLastOfferedMilestone:null,installLastOfferedAt:null,
   installDismissedMilestone:null,installDismissedAt:null});
 function ensureInstallPolicyPrefs(){
-  updateUiPrefs(prefs=>({...INSTALL_PREF_DEFAULTS,...prefs}))}
+  return updateUiPrefs(prefs=>({...INSTALL_PREF_DEFAULTS,...prefs}))}
 function ensureGuidePrefs({persist=true}={}){
   if(!GuideRegistry?.migrateLegacyTourDone)return;
-  if(persist)updateUiPrefs(prefs=>({...GuideRegistry.migrateLegacyTourDone(prefs)}));
+  if(persist)return updateUiPrefs(prefs=>({...GuideRegistry.migrateLegacyTourDone(prefs)}));
   else uiPrefs={...GuideRegistry.migrateLegacyTourDone(loadUiPrefs())}}
 
 /* ---- Appearance ----
@@ -24509,8 +24631,9 @@ function applyTheme(){
 /* The chart is painted into a canvas, so it is the one surface a token swap
    cannot reach on its own — it has already sampled the old palette. */
 function repaintForTheme(){applyTheme();redrawChart()}
-function setTheme(v){const next=normalizeTheme(v),changed=next!==currentTheme();setUiPref("theme",next);repaintForTheme();
-  if(changed)captureEvent("settings_changed",{setting:"theme"})}
+function setTheme(v){const next=normalizeTheme(v),changed=next!==currentTheme(),saved=setUiPref("theme",next);
+  repaintForTheme();
+  if(saved&&changed)captureEvent("settings_changed",{setting:"theme"});return saved}
 function watchSystemTheme(){
   const q=darkQuery();
   if(!q?.addEventListener)return;
@@ -26639,7 +26762,7 @@ function guideStored(id){return uiPrefs.guideState?.[id]||null}
 function saveGuideTransition(id,status){
   const guide=guideDefinition(id);if(!guide||!GuideRegistry?.recordGuideTransition)return false;
   return updateUiPrefs(prefs=>({...GuideRegistry.recordGuideTransition(
-    GuideRegistry.migrateLegacyTourDone(prefs),id,status,{version:guide.version,nowMs:Date.now()})}))}
+    prefs,id,status,{version:guide.version,nowMs:Date.now()})}))}
 function guideDialogElement(){
   let el=$("#guideDialog");
   if(el)return el;
@@ -26663,7 +26786,7 @@ function removeContextualGuide(){
 function dismissContextualGuide(){
   if(!activeGuideId)return false;
   const after=activeGuideAfter;
-  saveGuideTransition(activeGuideId,"dismissed");
+  if(saveGuideTransition(activeGuideId,"dismissed")===false)return false;
   if(document.body.classList.contains("is-workout"))focusGuideHeld=true;
   // Closing restores focus first, so the tap the guide held lands where the lifter aimed it.
   removeContextualGuide();
@@ -26718,7 +26841,7 @@ function maybeShowContextualGuides(ids=GuideRegistry?.PLAN_054_GUIDE_IDS||[]){
 function replayContextualGuide(id){
   const guide=guideDefinition(id);if(!guide||!GuideRegistry?.replayGuideState)return false;
   if(activeGuideId===id)removeContextualGuide();
-  if(!updateUiPrefs(prefs=>({...GuideRegistry.replayGuideState(prefs,id,{version:guide.version,nowMs:Date.now()})})))return false;
+  if(updateUiPrefs(prefs=>({...GuideRegistry.replayGuideState(prefs,id,{version:guide.version,nowMs:Date.now()})}))===false)return false;
   captureEvent("guide_replay",{guideId:id});
   const returnFocus=document.activeElement;
   queueMicrotask(()=>showContextualGuide(id,{returnFocus,persistDeferred:true}));return true}
@@ -26840,7 +26963,7 @@ window.__repforgeFocus={
 };
 window.__repforgeLeaveWorkout=leaveWorkout;
 window.__repforgeShowSettings=showSettings;
-window.__repforgeUi={loadUiPrefs,isStandalone,isIOS,showInstallBanner,currentTheme,resolvedTheme,setTheme,
+window.__repforgeUi={flushPrefs:flushUiPrefs,loadUiPrefs,isStandalone,isIOS,showInstallBanner,currentTheme,resolvedTheme,setTheme,
   installPolicyDecision:()=>installPolicyDecision(),guideState:contextualGuideState,
   replayGuide:replayContextualGuide,showGuide:showContextualGuide,
   openInstallTransferState:stateName=>openIosInstallSheet(stateName),openPrivacy:()=>openPrivacySheet(),
