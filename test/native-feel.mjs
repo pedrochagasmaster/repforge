@@ -487,6 +487,11 @@ async function restStepperRelease(page) {
       const keyboardStart = await shorter.evaluate(button => ({ disabled: button.disabled, focused: button === document.activeElement,
         value: document.querySelector('#restSec').value, stored: JSON.parse(localStorage.getItem('repforge_v1')).settings.restSec }));
       await page.keyboard.press('Enter');
+      if (iteration === 10) {
+        await page.reload({ waitUntil: 'domcontentloaded' });
+        await waitForApp(page);
+        await page.click('#openSettings');
+      }
       await page.waitForFunction(() => JSON.parse(localStorage.getItem('repforge_v1')).settings.restSec === 15).catch(async error => {
         console.error('Rest keyboard boundary:', { before: keyboardStart, after: await shorter.evaluate(button => ({ disabled: button.disabled,
           focused: button === document.activeElement, value: document.querySelector('#restSec').value, stored: JSON.parse(localStorage.getItem('repforge_v1')).settings.restSec })) });
