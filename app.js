@@ -4356,7 +4356,7 @@ function renderWeekCard(){
     `<button type="button" class="text-link" id="weekCardReview">${esc(t("review.week.open"))}</button>`+
     `<button type="button" class="text-link" id="weekCardDismiss">${esc(t("review.week.dismiss"))}</button></div>`;
   $("#weekCardReview").onclick=()=>{setUiPref("weekCardSeen",id);renderWeekCard();navTo("stats");setStatsSeg("review")};
-  $("#weekCardDismiss").onclick=()=>{if(setUiPref("weekCardSeen",id))renderWeekCard()};
+  $("#weekCardDismiss").onclick=async()=>{if(await setUiPref("weekCardSeen",id))renderWeekCard()};
 }
 
 let weeklyAdaptationView=null,weeklyAdaptationBusy=false,weeklyEvaluationPending=false;
@@ -8282,7 +8282,7 @@ function validProfileScope(record){
 function saveProfileScope(record){
   return updateUiPrefs(prefs=>({...(GuideRegistry?.migrateLegacyTourDone?.(prefs)||prefs),profileScope:record}))}
 function observeProfileScope(profile){
-  const record=loadUiPrefs().profileScope;
+  const record=projectUiPrefs().profileScope;
   if(record===undefined||validProfileScope(record)&&!record.acknowledged&&!record.scope.length){
     const next={v:1,scope:profile.scope,acknowledged:false};
     if(JSON.stringify(next)!==JSON.stringify(record))saveProfileScope(next);
@@ -8426,8 +8426,8 @@ function renderOverviewProfile(){
       return `<li class="profile-signal"><span>${esc(exerciseDisplayName(ex))}</span><span>${esc(t("profile.history_sets",{n}))}</span></li>`}).join("")}</ul>`+
     `<div class="ovsec"><h3 class="ovsec__title">${esc(t("calib.recent"))}</h3></div><ul class="calchecks">${rows}</ul>`;
   el.querySelectorAll("[data-profile-lift]").forEach(button=>button.onclick=()=>openProfilePage({kind:"lift",key:button.dataset.profileLift}));
-  const accept=el.querySelector("#profileScopeContinue");if(accept)accept.onclick=()=>{
-    if(!saveProfileScope({v:1,scope:change.now,acknowledged:true}))return;
+  const accept=el.querySelector("#profileScopeContinue");if(accept)accept.onclick=async()=>{
+    if(!await saveProfileScope({v:1,scope:change.now,acknowledged:true}))return;
     render();window.scrollTo({top:0});focusRoute($("#overviewProfileTitle"))};
   const back=$("#summaryProfileBack");if(back)back.onclick=returnFromSummaryProfile}
 /* "Not now" closes the prompt for that exercise in this workout. */
@@ -24462,21 +24462,37 @@ window.closeOnboarding=closeOnboarding;window.startOnboarding=startOnboarding;
 const UIKEY=INSTALL_UI_KEY;
 function loadUiPrefs(){try{const o=JSON.parse(localStorage.getItem(UIKEY));return o&&typeof o==="object"?o:{}}catch{return{}}}
 let uiPrefs=loadUiPrefs();
+const pendingUiPrefUpdates=[];
+let uiPrefWriteTail=Promise.resolve();
+function projectUiPrefs(){
+  return pendingUiPrefUpdates.reduce((prefs,pending)=>pending.update(prefs),loadUiPrefs())}
+async function flushUiPrefs(){
+  for(;;){const tail=uiPrefWriteTail;await tail;if(tail===uiPrefWriteTail)return}}
 function updateUiPrefs(update){
   if(installTransferMutationFrozen())return false;
-  const live=loadUiPrefs(),next=update(live);
-  try{
+  const pending={update};pendingUiPrefUpdates.push(pending);
+  // Keep immediate UI feedback; only the locked read/modify/write is durable.
+  uiPrefs=projectUiPrefs();
+  const written=withStorageLock(storageIO,()=>{
+    const live=loadUiPrefs(),next=update(live);
     if(JSON.stringify(next)!==JSON.stringify(live))localStorage.setItem(UIKEY,JSON.stringify(next));
-    uiPrefs=next;return true}
-  catch(e){console.warn("ui prefs save failed",e);return false}}
+    return true;
+  }).then(result=>result===true).catch(error=>{
+    console.warn("ui prefs save failed",error);return false;
+  }).finally(()=>{
+    pendingUiPrefUpdates.splice(pendingUiPrefUpdates.indexOf(pending),1);
+    uiPrefs=projectUiPrefs();
+  });
+  uiPrefWriteTail=Promise.all([uiPrefWriteTail,written]).then(()=>undefined);
+  return written}
 function setUiPref(k,v){return updateUiPrefs(prefs=>({...prefs,[k]:v}))}
 const INSTALL_PREF_DEFAULTS=Object.freeze({installLastOfferedMilestone:null,installLastOfferedAt:null,
   installDismissedMilestone:null,installDismissedAt:null});
 function ensureInstallPolicyPrefs(){
-  updateUiPrefs(prefs=>({...INSTALL_PREF_DEFAULTS,...prefs}))}
+  return updateUiPrefs(prefs=>({...INSTALL_PREF_DEFAULTS,...prefs}))}
 function ensureGuidePrefs({persist=true}={}){
   if(!GuideRegistry?.migrateLegacyTourDone)return;
-  if(persist)updateUiPrefs(prefs=>({...GuideRegistry.migrateLegacyTourDone(prefs)}));
+  if(persist)return updateUiPrefs(prefs=>({...GuideRegistry.migrateLegacyTourDone(prefs)}));
   else uiPrefs={...GuideRegistry.migrateLegacyTourDone(loadUiPrefs())}}
 
 /* ---- Appearance ----
@@ -24509,8 +24525,10 @@ function applyTheme(){
 /* The chart is painted into a canvas, so it is the one surface a token swap
    cannot reach on its own — it has already sampled the old palette. */
 function repaintForTheme(){applyTheme();redrawChart()}
-function setTheme(v){const next=normalizeTheme(v),changed=next!==currentTheme();setUiPref("theme",next);repaintForTheme();
-  if(changed)captureEvent("settings_changed",{setting:"theme"})}
+function setTheme(v){const next=normalizeTheme(v),changed=next!==currentTheme(),written=setUiPref("theme",next);
+  repaintForTheme();
+  return Promise.resolve(written).then(saved=>{
+    repaintForTheme();if(saved&&changed)captureEvent("settings_changed",{setting:"theme"});return saved})}
 function watchSystemTheme(){
   const q=darkQuery();
   if(!q?.addEventListener)return;
@@ -26660,10 +26678,11 @@ function removeContextualGuide(){
   if(!el?.open)return;
   closeModal(el);
   if(el.open)try{el.close()}catch{}}
-function dismissContextualGuide(){
+async function dismissContextualGuide(){
   if(!activeGuideId)return false;
-  const after=activeGuideAfter;
-  saveGuideTransition(activeGuideId,"dismissed");
+  const id=activeGuideId,after=activeGuideAfter;
+  if(!await saveGuideTransition(id,"dismissed"))return false;
+  if(activeGuideId!==id)return true;
   if(document.body.classList.contains("is-workout"))focusGuideHeld=true;
   // Closing restores focus first, so the tap the guide held lands where the lifter aimed it.
   removeContextualGuide();
@@ -26715,10 +26734,10 @@ function maybeShowContextualGuides(ids=GuideRegistry?.PLAN_054_GUIDE_IDS||[]){
     if(id==="first-set"){if(firstSetGuideEligible()){firstSetGuideArmed=true;return true}continue}
     if(showContextualGuide(id))return true}
   return false}
-function replayContextualGuide(id){
+async function replayContextualGuide(id){
   const guide=guideDefinition(id);if(!guide||!GuideRegistry?.replayGuideState)return false;
   if(activeGuideId===id)removeContextualGuide();
-  if(!updateUiPrefs(prefs=>({...GuideRegistry.replayGuideState(prefs,id,{version:guide.version,nowMs:Date.now()})})))return false;
+  if(!await updateUiPrefs(prefs=>({...GuideRegistry.replayGuideState(prefs,id,{version:guide.version,nowMs:Date.now()})})))return false;
   captureEvent("guide_replay",{guideId:id});
   const returnFocus=document.activeElement;
   queueMicrotask(()=>showContextualGuide(id,{returnFocus,persistDeferred:true}));return true}
@@ -26840,7 +26859,7 @@ window.__repforgeFocus={
 };
 window.__repforgeLeaveWorkout=leaveWorkout;
 window.__repforgeShowSettings=showSettings;
-window.__repforgeUi={loadUiPrefs,isStandalone,isIOS,showInstallBanner,currentTheme,resolvedTheme,setTheme,
+window.__repforgeUi={flushPrefs:flushUiPrefs,loadUiPrefs,isStandalone,isIOS,showInstallBanner,currentTheme,resolvedTheme,setTheme,
   installPolicyDecision:()=>installPolicyDecision(),guideState:contextualGuideState,
   replayGuide:replayContextualGuide,showGuide:showContextualGuide,
   openInstallTransferState:stateName=>openIosInstallSheet(stateName),openPrivacy:()=>openPrivacySheet(),
@@ -26858,11 +26877,11 @@ window.__repforgeOnboarding={
   flushDraft:()=>setupDraftWriteQueue,
   clearDraft:clearSetupDraft};
 
-function init(){
+async function init(){
   if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
   renderBuildRelease();
-  ensureInstallPolicyPrefs();
-  ensureGuidePrefs({persist:currentEntryLanding()==="generic"});
+  await ensureInstallPolicyPrefs();
+  await ensureGuidePrefs({persist:currentEntryLanding()==="generic"});
   // The pre-paint snippet in index.html has already done this for a dark
   // device; re-running it is what covers the light case and a snippet that
   // could not read storage.
@@ -27718,7 +27737,7 @@ async function boot(){
       state.programMeta=normalizeProgramMeta(state.programMeta,state.log,state.program);
       resetPersistenceBase(state);day=days()[0]||"Day 1";
       if(I18N)I18N.setLang(resolveLang())}
-    init();
+    await init();
     const failureState=transferResult.code==="destination-meaningful"?"destination"
       :transferResult.state==="terminalUnavailable"||["service-unavailable","transfer-cookie-missing","claim-credential-invalid"].includes(transferResult.code)?"terminal"
       :"interrupted";
@@ -27745,7 +27764,7 @@ async function boot(){
   const draftBoot=await initializeWorkoutDraft({restoreDay:true});
   if(draftBoot.status==="ready")hydrateWorkoutDraft({restoreDay:true});
   void resumeProgramEditFollowUp().catch(()=>{});
-  init();
+  await init();
   restoreRest(draftBoot.status==="ready"?activeWorkoutDraft.draftId:null);
   if(transferResult.transferResult?.localOk===true){
     openIosInstallSheet(transferResult.transferResult.cleanup?.ok===true?"success":"cleanup")}

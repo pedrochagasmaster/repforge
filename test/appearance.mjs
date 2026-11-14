@@ -556,6 +556,8 @@ async function runConcurrentPreferences(browser) {
       localStorage.setItem(key, JSON.stringify({ ...prefs, theme: "light", findingsSeen: ["existing"],
         collapsedProgramDays: ["Existing day"], installDismissedMilestone: 3, installDismissedAt: 12345,
         futurePreference: { keep: ["unknown", "record"] }, guideState: { ...prefs.guideState,
+          entry: { version: 2, status: "completed", lastTransitionAt: 120 },
+          "first-set": { version: 1, status: "deferred", lastTransitionAt: 121 },
           futureGuide: { version: 9, status: "dismissed", lastTransitionAt: 123 } } }));
     }, UIKEY);
     for (const page of [a, b]) { await page.reload(); await waitForApp(page); await page.evaluate(() => window.__repforgeUi.flushPrefs?.()); }
@@ -588,7 +590,7 @@ async function runConcurrentPreferences(browser) {
         const held = await read();
         const settled = await Promise.all([a, b].map(page => page.evaluate(() => window.__prefSettled)));
         assert(JSON.stringify(held) === JSON.stringify(before) && settled.every(value => !value),
-          `${test.label}: both writes wait for the held cross-tab lock`, { held, settled });
+          `${test.label}: both writes wait for the held cross-tab lock`, JSON.stringify({ held, settled }));
       } finally {
         await a.evaluate(async () => { window.__releasePrefLock(); await window.__prefLock; });
       }
@@ -597,11 +599,11 @@ async function runConcurrentPreferences(browser) {
       const after = await read();
       assert(outcomes.every(value => value === true), `${test.label}: both writes acknowledge persistence`, outcomes);
       assert(Object.entries(test.changes).every(([key, value]) => JSON.stringify(after[key]) === JSON.stringify(value)),
-        `${test.label}: both changes survive, with last-write-wins on the same key`, after);
+        `${test.label}: both changes survive, with last-write-wins on the same key`, JSON.stringify(after));
       const kept = Object.entries(before).every(([key, value]) => key in test.changes || test.guideIds && key === "guideState" || JSON.stringify(after[key]) === JSON.stringify(value));
       const guidesKept = Object.entries(before.guideState).every(([id, value]) => test.guideIds?.includes(id) || JSON.stringify(after.guideState[id]) === JSON.stringify(value));
       assert(kept && guidesKept && (!test.guideIds || test.guideIds.every(id => after.guideState[id].status === "deferred" && Number.isFinite(after.guideState[id].lastTransitionAt))),
-        `${test.label}: every other preference and guide record is retained`, { before, after });
+        `${test.label}: every other preference and guide record is retained`, JSON.stringify({ before, after }));
       for (const page of [a, b]) { await page.reload(); await waitForApp(page); await page.evaluate(() => window.__repforgeUi.flushPrefs?.()); }
       assert(JSON.stringify(await read()) === JSON.stringify(after), `${test.label}: the entire preference record survives reload`);
     }

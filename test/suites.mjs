@@ -255,7 +255,7 @@ export const FULL_SUITES = {
     s("test/journeys-out.mjs", ["--seeded"], { domains: ["entry", "settings", "install", "privacy", "transition"], seconds: 10 }),
     s("test/i18n.mjs", [], { seconds: 3 }),
     s("test/notifications.mjs", [], { domains: ["today", "settings"], seconds: 39 }),
-    s("test/appearance.mjs", [], { seconds: 17 }),
+    s("test/appearance.mjs", [], { seconds: 82 }),
     s("test/direction-d-gate.mjs", [], { domains: RENDERED_DOMAINS, cost: "normal", tier: "feedback", seconds: 333 }),
     s("test/rules-only-gate.mjs", [], { domains: RENDERED_DOMAINS, cost: "normal", tier: "feedback", seconds: 53 }),
     s("test/accessibility.mjs", [], { seconds: 144 }),
