@@ -1060,6 +1060,29 @@ async function runFaultMatrix(browser, envelope) {
   }
 }
 
+async function runFreshDestinationReloads(browser, envelope) {
+  for (const reloads of [0, 1, 2]) {
+    const context = await browser.newContext({ guides: "live" });
+    try {
+      const page = await context.newPage();
+      page.on("dialog", dialog => dialog.dismiss().catch(() => {}));
+      await page.goto(BASE, { waitUntil: "domcontentloaded" });
+      await waitForAppBoot(page, { base: BASE });
+      for (let count = 0; count < reloads; count++) {
+        await page.reload({ waitUntil: "domcontentloaded" });
+        await waitForAppBoot(page, { base: BASE });
+      }
+      const before = await readStorageBytes(page);
+      const result = await importInto(page, envelope);
+      check(result?.ok === true, `fresh destination accepts transfer after ${reloads} reloads`, { result, before });
+      if (result?.ok === true) {
+        const actual = await readLogical(page);
+        assertImportedLogical(actual, await readIdb(page), envelope, `fresh destination after ${reloads} reloads`);
+      }
+    } finally { await context.close(); }
+  }
+}
+
 async function runMeaningfulDestinationMatrix(browser, envelope, only = null) {
   console.log("\nPlan 053-P4b meaningful-destination refusal matrix");
   const cases = [
@@ -2327,6 +2350,10 @@ async function main() {
     check(sameValue(envelope.workoutDraft, sourceObservation.draft.logical), "envelope DraftV2 equals the real production logical clone");
     check(sameValue(envelope.programEntryDraft, sourceObservation.candidate), "envelope candidate equals the production persisted candidate");
 
+    await runFreshDestinationReloads(browser, envelope);
+    if (process.env.INSTALL_TRANSFER_IMPORT_ONLY === "destination") {
+      await runMeaningfulDestinationMatrix(browser, envelope);
+    } else {
     await runCanonicalPreferenceImport(browser, envelope);
     if (process.env.INSTALL_TRANSFER_IMPORT_ONLY !== "preferences") {
     await runPreBootImportCase(browser, envelope);
@@ -2432,6 +2459,7 @@ async function main() {
       await runP4cRollbackPhasePersistence(browser, envelope);
       await runP4cRemoteDeletionClearsMirrors(browser, envelope);
       await runP4cMalformedMarkerPreTelemetryBoundary(browser);
+    }
     }
     }
   } finally {
