@@ -1266,24 +1266,24 @@ document.addEventListener("click",event=>{
   copy.classList.remove("is-push-over","is-push-under","active");
   historySnap={copy,at:performance.now(),scroll:window.scrollY,session:view.classList.contains("is-session-page")}},true);
 function watchRouteSurfaces(){
-  const main=$("main"),history=$("#history");
+  const main=$("main"),historyView=$("#history");
   if(main)new MutationObserver(scheduleEdgeSwipeSync).observe(main,{attributes:true,attributeFilter:["class"],subtree:true});
   // The library, preview and exercise routes are body classes.
   new MutationObserver(scheduleBodyRouteHistorySync).observe(document.body,{attributes:true,attributeFilter:["class"],attributeOldValue:true});
   // A reload starts with no page pushed, so an entry left by the last session is no longer one.
   try{const st=history.state;if(st&&typeof st==="object"&&st[ROUTE_HISTORY_KEY]){const{[ROUTE_HISTORY_KEY]:_,...rest}=st;history.replaceState(rest,"",location.href)}}catch{}
-  if(history){
-    historySessionOpen=history.classList.contains("is-session-page");
+  if(historyView){
+    historySessionOpen=historyView.classList.contains("is-session-page");
     new MutationObserver(()=>{
-      const open=history.classList.contains("is-session-page");
+      const open=historyView.classList.contains("is-session-page");
       if(open===historySessionOpen)return;
       historySessionOpen=open;
       const snap=historySnap;historySnap=null;
       // The list as it was, kept while a session page is open: the page a back swipe reveals beneath it (ADR 0023).
       historyListCopy=open&&snap&&!snap.session?snap.copy.cloneNode(true):null;
       if(!snap||snap.session===open||performance.now()-snap.at>1500)return;
-      routePushBegin(open?"in":"out",{pushed:history,ghost:snap.copy,offset:-Math.round(snap.scroll)})?.()
-    }).observe(history,{attributes:true,attributeFilter:["class"]})}
+      routePushBegin(open?"in":"out",{pushed:historyView,ghost:snap.copy,offset:-Math.round(snap.scroll)})?.()
+    }).observe(historyView,{attributes:true,attributeFilter:["class"]})}
   scheduleEdgeSwipeSync()}
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",watchRouteSurfaces,{once:true});
 else watchRouteSurfaces();
