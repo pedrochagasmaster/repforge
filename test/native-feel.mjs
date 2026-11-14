@@ -2656,7 +2656,7 @@ async function scrollerPress(browser) {
 
 // NATIVE_FEEL_ONLY=press runs the held scroller-press regression, =rest runs the ten-cycle held Settings probe, =large runs just phase 5, =shelf just its addendum, =wheel just the wheel picker and =swipe just the
 // history and back-swipe phases, =refresh just the catalog layout regressions, and =core the remaining phases.
-// refresh + core + large + shelf partitions the complete suite for machines that cannot finish one run within its limit; CI runs everything.
+// refresh + core + large covers the complete suite, including the shelf addendum, within separate runner limits; CI runs everything.
 const ONLY = process.env.NATIVE_FEEL_ONLY || "";
 const browser = await launchChromium();
 try {
