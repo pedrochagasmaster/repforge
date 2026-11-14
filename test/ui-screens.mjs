@@ -13,9 +13,9 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, w
 import { basename, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
-import { deflateSync } from "node:zlib";
+import { deflateSync, inflateSync } from "node:zlib";
 import { replaceCatalog } from "../tools/capture-ui-screens.mjs";
-import { compareCatalog, comparePngBuffers } from "../tools/compare-ui-screens.mjs";
+import { compareCatalog, comparePngBuffers, CI_STRICT_THRESHOLDS } from "../tools/compare-ui-screens.mjs";
 import { checkCatalog } from "../tools/check-ui-screens.mjs";
 import { expandCaptures, loadManifest, variantSlug } from "../tools/ui-screens/manifest.mjs";
 import { APP_SCENARIOS } from "../tools/ui-screens/screens-app.mjs";
@@ -487,6 +487,51 @@ assert.equal(fontRasterComparison.ok, true,
 const layoutComparison = comparePngBuffers(syntheticBaseline, syntheticLayoutChange);
 assert.equal(layoutComparison.ok, false, `a layout shift must fail the PNG evidence gate: ${JSON.stringify(layoutComparison)}`);
 assert.ok(layoutComparison.reasons.length > 0, "layout changes report actionable PNG comparator reasons");
+// At DPR 2, compositing changes can cover several pixels across a glyph's edge. Disconnected fringes must not
+// become a structural failure simply because their total pixel count is large (CI run 43563575943).
+const wideRasterFringes = rgbPng(860, 1864, (x, y) => x % 60 < 5 && y % 80 < 40
+  ? [255, 255, 255] : [239, 239, 239]);
+const rasterGround = rgbPng(860, 1864, () => [239, 239, 239]);
+assert.equal(comparePngBuffers(rasterGround, wideRasterFringes, CI_STRICT_THRESHOLDS).ok, true,
+  "separate glyph fringes pass even when several device pixels wide and numerous");
+// Low-contrast text seen through glass can change its shape without leaving a large solid interior.
+const faintLetter = (left) => rgbPng(860, 1864, (x, y) => (x >= left && x < left + 16 && y >= 1000 && y < 1004)
+  || (x >= left + 6 && x < left + 10 && y >= 1000 && y < 1024) ? [227, 227, 227] : [239, 239, 239]);
+assert.equal(comparePngBuffers(faintLetter(400), faintLetter(440), CI_STRICT_THRESHOLDS).ok, false,
+  "a moved low-contrast glyph fails even when its thin strokes have no large filled interior");
+const sizeGlyph = JSON.parse(readFileSync(join(root, "test/fixtures/catalog/changed-size-glyph.json"), "utf8"));
+const fixtureFrame = (fixture, key) => {
+  const pixels = inflateSync(Buffer.from(fixture[key], "base64"));
+  return rgbPng(fixture.frameWidth, fixture.frameHeight, (x, y) => {
+    const dx = x - fixture.bounds[0], dy = y - fixture.bounds[1];
+    return dx >= 0 && dx < fixture.width && dy >= 0 && dy < fixture.height
+      ? [...pixels.subarray((dy * fixture.width + dx) * 3, (dy * fixture.width + dx) * 3 + 3)] : [239, 239, 239];
+  });
+};
+assert.equal(comparePngBuffers(fixtureFrame(sizeGlyph, "baseline"), fixtureFrame(sizeGlyph, "current"), CI_STRICT_THRESHOLDS).ok, false,
+  "the real 162-to-163 KB glyph change fails without relying on a large changed region");
+for (const fixture of JSON.parse(readFileSync(join(root, "test/fixtures/catalog/raster-fringe-glyphs.json"), "utf8"))) {
+  const comparison = comparePngBuffers(fixtureFrame(fixture, "baseline"), fixtureFrame(fixture, "current"), CI_STRICT_THRESHOLDS);
+  assert.equal(comparison.ok, true, `real CI raster variation passes: ${fixture.meaning}: ${JSON.stringify(comparison)}`);
+}
+// CI must inspect the whole frame, including the corners and the bottom rows beyond the last grid sample.
+for (const [left, top] of [[0, 0], [844, 1848], [418, 1682]]) {
+  const blank = rgbPng(860, 1864, () => [239, 239, 239]);
+  const changed = rgbPng(860, 1864, (x, y) => x >= left && x < left + 16 && y >= top && y < top + 16
+    ? [255, 255, 255] : [239, 239, 239]);
+  assert.equal(comparePngBuffers(blank, changed).ok, true, "a tiny control change is below the legacy aggregate limit");
+  const strict = comparePngBuffers(blank, changed, CI_STRICT_THRESHOLDS);
+  assert.equal(strict.ok, false, `CI rejects a changed interior at (${left}, ${top})`);
+  assert.deepEqual(strict.firstChangedInterior, { x: left + 1, y: top + 1 });
+}
+const fringe = rgbPng(192, 256, (x, y) => {
+  const base = scenePixel(x, y);
+  return x === 95 && y >= 100 && y < 120 ? base.map(c => c - 16) : base;
+});
+assert.equal(comparePngBuffers(syntheticBaseline, fringe, CI_STRICT_THRESHOLDS).ok, true,
+  "CI retains tolerance for isolated one-pixel antialiasing fringes");
+assert.equal(comparePngBuffers(syntheticBaseline, syntheticNoise, CI_STRICT_THRESHOLDS).ok, true,
+  "CI retains tolerance for small raster noise");
 const dimensionComparison = comparePngBuffers(syntheticBaseline, rgbPng(193, 256, (x, y) => scenePixel(x, y)));
 assert.equal(dimensionComparison.ok, false, "dimension drift must fail the evidence gate");
 assert.match(dimensionComparison.reasons[0], /dimensions changed/);

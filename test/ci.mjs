@@ -515,6 +515,40 @@ test("verify mode compares a staged capture with the committed catalog and keeps
   assert.deepEqual(readFileSync(capturePath(real, victim, committedRoot)), committedBytes, "the committed catalog is never rewritten");
 });
 
+test("catalog verify rejects the stale 430 execution-mode endpoint control (#779)", (t) => {
+  const real = loadManifest();
+  const dir = scratch(t), baselineRoot = join(dir, "baseline"), stagingRoot = join(dir, "staging");
+  const committedRoot = join(process.cwd(), real.artifactRoot);
+  const frames = expandCaptures(real);
+  const victim = frames.find(c => captureKey(c) === "onboarding-recommend/review-sheet-execution-mode__phone-430-light-en");
+  assert.ok(victim, "the 430 EN variant is registered");
+  const visual = FULL_SUITES["full-browser"].filter(s => s.file === "tools/capture-ui-screens.mjs");
+  assert.equal(visual.flatMap(s => selectCaptures({ shard: parseShard(s.args[2]) }))
+    .filter(c => captureKey(c) === captureKey(victim)).length, 1, "exactly one verify shard renders this variant");
+  for (const frame of frames) {
+    for (const targetRoot of [baselineRoot, stagingRoot]) {
+      const target = capturePath(real, frame, targetRoot);
+      mkdirSync(dirname(target), { recursive: true });
+      symlinkSync(capturePath(real, frame, committedRoot), target);
+    }
+  }
+  const baselineSemanticPath = join(process.cwd(), "docs/ui-screens/entry-semantics.json");
+  const semanticArtifact = JSON.parse(readFileSync(baselineSemanticPath, "utf8"));
+  const artifactDir = join(dir, "artifacts");
+  const options = { stagingRoot, semanticArtifact, artifactDir, manifest: real, baselineRoot, baselineSemanticPath };
+  const stalePath = capturePath(real, victim, baselineRoot);
+  rmSync(stalePath);
+  // The current CI frame with only y=1670..1697, x=350..839 restored from e16f48a50's old two-stepper baseline.
+  // All artwork and every other pixel stay current, isolating the small control change the sampled grid missed.
+  cpSync(join(process.cwd(), "test/fixtures/catalog/stale-execution-mode-430.png"), stalePath);
+  assert.equal(verifyCatalog(options), false, "a stale endpoint control must fail the real catalog verify gate");
+  const report = JSON.parse(readFileSync(join(artifactDir, "visual-report.json"), "utf8"));
+  assert.deepEqual(report.comparison.failures.map(f => f.path), [relative(baselineRoot, stalePath)]);
+  cpSync(capturePath(real, victim, committedRoot), stalePath);
+  assert.equal(verifyCatalog(options), true, "repairing only the deliberately stale fixture restores green");
+});
+
+
 // -------------------------------------------------------------------- CI plan
 
 test("nothing the app, its tests or its tools load depends on the design mocks the selectors skip", () => {

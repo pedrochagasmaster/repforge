@@ -6,8 +6,8 @@
  * rasterisation and anti-aliasing can change without changing the rendered
  * layout or copy. This comparator therefore checks the PNG dimensions
  * exactly, then compares deterministic low-resolution colour, luminance-edge,
- * and histogram features. The thresholds are deliberately kept here and
- * covered by synthetic tests in test/ui-screen-catalogue.mjs.
+ * and histogram features. CI also checks full-resolution changed interiors.
+ * Thresholds live here and are covered by test/ui-screens.mjs.
  */
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
@@ -36,11 +36,12 @@ export const DEFAULT_THRESHOLDS = Object.freeze({
   materialMeanCellDelta: 0.035,
   materialHistogramDelta: 0.16,
 });
-// CI renders the catalog on one pinned runner image, so a committed frame is a CI render and a fresh render of an
-// unchanged state is the same frame. The perceptual ratio above let real but small changes (a corner radius, an arrow
-// moved, a lighter weight) keep stale frames, so 1,007 frames drifted. CI verification therefore allows no changed cell
-// beyond the per-cell delta: a frame whose cells changed must be recaptured. The aggregate limits stay as they are.
-export const CI_STRICT_THRESHOLDS = Object.freeze({ ...DEFAULT_THRESHOLDS, maxChangedCellRatio: 0 });
+// CI keeps the existing zero-changed-cell gate and scans the full-resolution image for coherent changed regions.
+// A 3×3 difference alone is not structural: DPR-2 glyph fringes can be that wide. Retain connected interiors only
+// when they cover at least 128 pixels and span 8 pixels in both axes (4 CSS pixels in the phone catalog).
+export const CI_STRICT_THRESHOLDS = Object.freeze({ ...DEFAULT_THRESHOLDS, maxChangedCellRatio: 0,
+  changedPixelDelta: 8, minChangedRegionPixels: 128, minChangedRegionSpan: 8, maxChangedInteriorPixels: 0,
+  edgeMatchRadius: 3, minChangedEdgeRegionPixels: 64, maxUnmatchedEdgePixels: 0 });
 
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
@@ -156,32 +157,25 @@ function readPngChunks(buffer, label = "PNG") {
   return { header, channels, idat };
 }
 
-function parsePng(buffer, label = "PNG") {
+function parsePng(buffer, label = "PNG", fullResolution = false) {
   const { header, channels, idat } = readPngChunks(buffer, label);
   const rowBytes = header.width * channels;
   const inflated = inflateSync(Buffer.concat(idat));
   const expected = header.height * (rowBytes + 1);
   if (inflated.length < expected) throw new Error(`${label}: truncated scanline data`);
 
-  /*
-   * Decode straight into the feature grid.
-   *
-   * The grid reads four pixels per cell — 96×128×4 — so materialising every
-   * pixel of a 780×1688 frame first threw away about 96% of the work, and the
-   * per-byte filter branch made the rest slower than it needed to be. Rows are
-   * still unfiltered in order because each one is defined against the row above
-   * it, but only the sampled columns of sampled rows are ever composited, and
-   * the branch is hoisted into one specialised loop per filter type.
-   */
+  // Default comparisons decode only sampled rows/columns into the feature grid. CI also retains composited
+  // pixels through the last row for its interior check; filter decoding remains shared between the two paths.
   const { columns, rowPlan, lastRow } = sampleGrid(header.width, header.height);
   const cells = GRID_WIDTH * GRID_HEIGHT;
   const totals = new Float64Array(cells * 4);
   const pixel = [0, 0, 0];
+  const pixels = fullResolution ? new Uint8Array(header.width * header.height * 3) : null;
   let current = new Uint8Array(rowBytes);
   let previous = new Uint8Array(rowBytes);
   let sourceOffset = 0;
 
-  for (let y = 0; y <= lastRow; y++) {
+  for (let y = 0; y <= (fullResolution ? header.height - 1 : lastRow); y++) {
     const filterType = inflated[sourceOffset++];
     const base = sourceOffset;
     sourceOffset += rowBytes;
@@ -206,6 +200,13 @@ function parsePng(buffer, label = "PNG") {
       throw new Error(`${label}: unsupported PNG filter ${filterType}`);
     }
 
+    if (pixels) {
+      for (let x = 0; x < header.width; x++) {
+        compositePixel(current, x * channels, channels, pixel);
+        const target = (y * header.width + x) * 3;
+        pixels[target] = pixel[0]; pixels[target + 1] = pixel[1]; pixels[target + 2] = pixel[2];
+      }
+    }
     const sampling = rowPlan.get(y);
     if (sampling) {
       for (const gy of sampling) {
@@ -240,7 +241,7 @@ function parsePng(buffer, label = "PNG") {
   }
   for (let i = 0; i < histogram.length; i++) histogram[i] /= cells;
 
-  return { width: header.width, height: header.height, features: { values, histogram } };
+  return { width: header.width, height: header.height, features: { values, histogram }, pixels };
 }
 
 function luma(red, green, blue) {
@@ -313,7 +314,124 @@ function compareFeatures(first, second, thresholds = DEFAULT_THRESHOLDS) {
   };
 }
 
+// Erode the difference mask by one pixel to discard raster fringes, then measure each connected interior separately.
+// Summing disconnected glyph edges would turn a long paragraph into a structural failure. Coherent regions retain
+// small controls, changed corner shapes, fills and shadows even when the sampled grid misses them (#779).
+function compareInteriors(first, second, thresholds) {
+  const { width, height } = first;
+  const { changedPixelDelta, minChangedRegionPixels, minChangedRegionSpan } = thresholds;
+  const rows = Array.from({ length: 3 }, () => new Uint8Array(width));
+  const mask = new Uint8Array(width * height);
+  let rasterInteriorPixels = 0;
+  for (let y = 0; y < height; y++) {
+    const row = rows[y % 3];
+    let run = 0;
+    for (let x = 0; x < width; x++) {
+      const i = (y * width + x) * 3;
+      row[x] = Math.max(Math.abs(first.pixels[i] - second.pixels[i]),
+        Math.abs(first.pixels[i + 1] - second.pixels[i + 1]), Math.abs(first.pixels[i + 2] - second.pixels[i + 2])) > changedPixelDelta ? 1 : 0;
+      run = y >= 2 && rows[0][x] && rows[1][x] && rows[2][x] ? run + 1 : 0;
+      if (run >= 3) { mask[(y - 1) * width + x - 1] = 1; rasterInteriorPixels++; }
+    }
+  }
+  const result = measureRegions(mask, width, minChangedRegionPixels, minChangedRegionSpan);
+  return { changedInteriorPixels: result.pixels, firstChangedInterior: result.first, changedInteriorRegions: result.regions, rasterInteriorPixels };
+}
+
+function measureRegions(mask, width, minChangedRegionPixels, minChangedRegionSpan, minDensity = 0) {
+  const regions = [];
+  let total = 0, first = null;
+  for (let start = 0; start < mask.length; start++) {
+    if (!mask[start]) continue;
+    const stack = [start];
+    mask[start] = 0;
+    let pixels = 0, left = start % width, right = left, top = Math.floor(start / width), bottom = top;
+    while (stack.length) {
+      const position = stack.pop(), x = position % width, y = Math.floor(position / width);
+      pixels++;
+      left = Math.min(left, x); right = Math.max(right, x); top = Math.min(top, y); bottom = Math.max(bottom, y);
+      for (const neighbour of [x > 0 ? position - 1 : -1, x + 1 < width ? position + 1 : -1,
+        position - width, position + width]) {
+        if (mask[neighbour]) { mask[neighbour] = 0; stack.push(neighbour); }
+      }
+    }
+    const bounds = { x: left, y: top, width: right - left + 1, height: bottom - top + 1 };
+    if (pixels < minChangedRegionPixels || Math.min(bounds.width, bounds.height) < minChangedRegionSpan
+      || pixels / (bounds.width * bounds.height) < minDensity) continue;
+    regions.push({ pixels, bounds });
+    total += pixels;
+    first ||= { x: start % width, y: Math.floor(start / width) };
+  }
+  return { pixels: total, first, regions };
+}
+// A local colour edge records shape, not its exact antialiasing colour. Matching within three device pixels
+// tolerates the DPR-2 raster fringe; an unmatched connected outline still catches thin or low-contrast content.
+function edgeMask({ pixels, width, height }, delta) {
+  const edges = new Uint8Array(width * height);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      let edge = false;
+      for (let channel = 0; channel < 3 && !edge; channel++) {
+        let low = 255, high = 0;
+        for (let row = Math.max(0, y - 1); row <= Math.min(height - 1, y + 1); row++) {
+          for (let column = Math.max(0, x - 1); column <= Math.min(width - 1, x + 1); column++) {
+            const value = pixels[(row * width + column) * 3 + channel];
+            low = Math.min(low, value); high = Math.max(high, value);
+          }
+        }
+        edge = high - low > delta;
+      }
+      edges[y * width + x] = edge ? 1 : 0;
+    }
+  }
+  return edges;
+}
+
+function dilateMask(mask, width, height, radius) {
+  const dilated = new Uint8Array(mask.length), columns = new Uint32Array(width);
+  for (let y = 0; y < Math.min(radius, height); y++) {
+    for (let x = 0; x < width; x++) columns[x] += mask[y * width + x];
+  }
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      if (y + radius < height) columns[x] += mask[(y + radius) * width + x];
+      if (y > radius) columns[x] -= mask[(y - radius - 1) * width + x];
+    }
+    let count = 0;
+    for (let x = 0; x < Math.min(radius, width); x++) count += columns[x];
+    for (let x = 0; x < width; x++) {
+      if (x + radius < width) count += columns[x + radius];
+      if (x > radius) count -= columns[x - radius - 1];
+      dilated[y * width + x] = count ? 1 : 0;
+    }
+  }
+  return dilated;
+}
+
+function compareStructuralEdges(first, second, thresholds) {
+  const { width, height } = first;
+  const before = edgeMask(first, thresholds.changedPixelDelta), after = edgeMask(second, thresholds.changedPixelDelta);
+  const regions = [];
+  for (const profile of [
+    { radius: thresholds.edgeMatchRadius, pixels: thresholds.minChangedEdgeRegionPixels, span: thresholds.minChangedRegionSpan, density: 0 },
+    // Compact edge discrepancies distinguish a changed digit from a nearby outline. Long thin raster fringes and
+    // sparse edge flecks cannot meet this density, even when they cover many pixels in total.
+    { radius: 1, pixels: 9, span: 3, density: 0.7 },
+  ]) {
+    const nearBefore = dilateMask(before, width, height, profile.radius);
+    const nearAfter = dilateMask(after, width, height, profile.radius);
+    const unmatched = new Uint8Array(before.length);
+    for (let i = 0; i < unmatched.length; i++) unmatched[i] = (before[i] && !nearAfter[i]) || (after[i] && !nearBefore[i]) ? 1 : 0;
+    const result = measureRegions(unmatched, width, profile.pixels, profile.span, profile.density);
+    regions.push(...result.regions.map(region => ({ ...region, matchRadius: profile.radius })));
+  }
+  return { unmatchedEdgePixels: regions.reduce((sum, region) => sum + region.pixels, 0), changedEdgeRegions: regions };
+}
+
+
 export function comparePngBuffers(baselineBuffer, currentBuffer, thresholds = DEFAULT_THRESHOLDS) {
+  const effectiveThresholds = { ...DEFAULT_THRESHOLDS, ...(thresholds || {}) };
+  const fullResolution = Number.isFinite(effectiveThresholds.maxChangedInteriorPixels);
   let baseline;
   let current;
   /*
@@ -343,8 +461,8 @@ export function comparePngBuffers(baselineBuffer, currentBuffer, thresholds = DE
     }
   }
   try {
-    baseline = parsePng(baselineBuffer, "baseline");
-    current = parsePng(currentBuffer, "current");
+    baseline = parsePng(baselineBuffer, "baseline", fullResolution);
+    current = parsePng(currentBuffer, "current", fullResolution);
   } catch (error) {
     return { ok: false, reasons: [error.message] };
   }
@@ -358,12 +476,26 @@ export function comparePngBuffers(baselineBuffer, currentBuffer, thresholds = DE
       reasons: [`dimensions changed from ${baseline.width}×${baseline.height} to ${current.width}×${current.height}`],
     };
   }
-  const effectiveThresholds = { ...DEFAULT_THRESHOLDS, ...(thresholds || {}) };
   const features = compareFeatures(baseline.features, current.features, effectiveThresholds);
+  const interiors = fullResolution ? compareInteriors(baseline, current, effectiveThresholds) : {};
+  // A difference consisting entirely of one-pixel fringes has no changed interior to explain with a new shape.
+  const structuralEdges = interiors.rasterInteriorPixels && !interiors.changedInteriorPixels
+    ? compareStructuralEdges(baseline, current, effectiveThresholds) : { unmatchedEdgePixels: 0, changedEdgeRegions: [] };
+  if (structuralEdges.unmatchedEdgePixels > effectiveThresholds.maxUnmatchedEdgePixels) {
+    features.reasons.push(`${structuralEdges.unmatchedEdgePixels} unmatched full-resolution edge pixels in ${structuralEdges.changedEdgeRegions.length} structural regions`);
+    features.ok = false;
+  }
+  if (interiors.changedInteriorPixels > effectiveThresholds.maxChangedInteriorPixels) {
+    const { x, y } = interiors.firstChangedInterior;
+    features.reasons.push(`${interiors.changedInteriorPixels} full-resolution structural interior pixels changed; first at (${x}, ${y})`);
+    features.ok = false;
+  }
   return {
     width: current.width,
     height: current.height,
     ...features,
+    ...interiors,
+    ...structuralEdges,
   };
 }
 
