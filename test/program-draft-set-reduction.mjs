@@ -258,6 +258,8 @@ async function fillSet(page, set, load, reps, rir, { beforeRir } = {}) {
       return target && draft?.exercises?.[target.exerciseInstanceId]?.sets?.[target.setId]?.edited?.[field] === value;
     }, { key, field, value: String(value) });
   }
+  // A suggested value can already match while its input command is still queued.
+  await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
 }
 
 async function waitForDraftValue(page, loadKey, expected, timeout = 5000) {
