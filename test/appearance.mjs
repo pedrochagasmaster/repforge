@@ -685,6 +685,15 @@ async function runPreferenceJournalLifecycle(browser) {
   const page = await context.newPage(), holder = await context.newPage();
   try {
     for (const tab of [page, holder]) { await tab.goto(BASE); await waitForApp(tab); await tab.evaluate(() => window.__repforgeUi.flushPrefs()); }
+    const identityCalls = await page.evaluate(async () => {
+      const next = crypto.randomUUID.bind(crypto);
+      let calls = 0;
+      crypto.randomUUID = () => { calls++; return next(); };
+      try { await window.__repforgeUi.setPref("weekCardSeen", "independent-preference-id"); }
+      finally { crypto.randomUUID = next; }
+      return calls;
+    });
+    assert(identityCalls === 0, "preference intent keys do not consume program/draft identity UUIDs", identityCalls);
     await holder.evaluate(() => {
       const gate = new Promise(resolve => { window.__releaseClearLock = resolve; });
       window.__clearLock = navigator.locks.request("repforge:state-write", async () => {

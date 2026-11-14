@@ -1027,6 +1027,7 @@ async function run() {
 
       const replayResult = await page.evaluate(
         async ({ dataKey, uiKey, seedData, seedUi }) => {
+          await window.__repforgeUi.flushPrefs();
           localStorage.setItem(dataKey, JSON.stringify(seedData));
           localStorage.setItem(uiKey, JSON.stringify(seedUi));
 
@@ -1063,6 +1064,12 @@ async function run() {
         true // Expected baseline RED on current head before P8 production changes
       );
 
+      await page.evaluate(() => window.__repforgeUi.flushPrefs());
+      const replaySettled = await page.evaluate(() => window.__repforgeUi.loadUiPrefs());
+      assert(replaySettled.guideState.entry.status === "completed" &&
+        replaySettled.guideState.entry.version === 1 && replaySettled.guideState.privacy.status === "completed",
+        "a replay's later shown/deferred transition preserves every unrelated guide record, including older versions",
+        JSON.stringify(replaySettled.guideState));
       await context.close();
     }
   } finally {
