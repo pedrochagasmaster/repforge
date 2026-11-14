@@ -303,7 +303,7 @@ async function runSettingsRow(browser) {
 
 async function runPrePaint(browser) {
   console.log("\n4. The stored theme reaches the page before app.js");
-  const context = await browser.newContext({ colorScheme: "light" });
+  const context = await browser.newContext({ colorScheme: "light", serviceWorkers: "block" });
   try {
     const page = await context.newPage();
     await page.goto(BASE, { waitUntil: "domcontentloaded" });
@@ -571,6 +571,19 @@ async function runConcurrentPreferences(browser) {
     });
     assert(nested === "nested-lock", "a preference merges immediately inside an already-owned storage lock", nested);
     await a.evaluate(() => window.__nestedPrefWrite);
+    const ordered = await a.evaluate(async () => {
+      const durable = window.RepForgeDurableState;
+      let older, newer, owner;
+      await navigator.locks.request("repforge:state-write", () => {
+        owner = durable.withStorageLock(durable.storageIO, () => {
+          newer = window.__repforgeUi.setPref("theme", "light");
+        });
+        older = window.__repforgeUi.setPref("theme", "dark");
+      });
+      await owner; await older; await newer;
+      return JSON.parse(localStorage.getItem("repforge_ui_v1")).theme;
+    });
+    assert(ordered === "light", "a newer write inside an owned lock cannot be undone by an older queued preference", ordered);
     const cases = [
       { label: "theme and collapsed days", first: ["setTheme", "dark"], second: ["setPref", "collapsedProgramDays", ["Other day"]], changes: { theme: "dark", collapsedProgramDays: ["Other day"] } },
       { label: "findings and theme", first: ["setPref", "findingsSeen", ["existing", "new"]], second: ["setPref", "theme", "system"], changes: { findingsSeen: ["existing", "new"], theme: "system" } },
@@ -591,7 +604,8 @@ async function runConcurrentPreferences(browser) {
         for (const [page, operation] of [[a, test.first], [b, test.second]]) {
           await page.evaluate(([method, ...args]) => {
             window.__prefSettled = false;
-            window.__prefResult = Promise.resolve(window.__repforgeUi[method](...args)).then(result => {
+            window.__prefResult = Promise.resolve(window.__repforgeUi[method](...args)).then(async result => {
+              await window.__repforgeUi.flushPrefs();
               window.__prefSettled = true; return result;
             });
           }, operation);
