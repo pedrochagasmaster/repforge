@@ -920,6 +920,10 @@ async function seedMeaningfulDestination(page, kind, envelope) {
       localStorage.setItem(uiKey, JSON.stringify(prefs));
       return { ok: true };
     }
+    if (kind === "malformed-pref-intent") {
+      localStorage.setItem(`${uiKey}:pending:unknown`, "{unreadable-intent");
+      return { ok: true };
+    }
     if (kind === "prefs-only") {
       await window.__repforgeUi.setTheme("dark");
       return { ok: window.__repforgeUi?.loadUiPrefs?.()?.theme === "dark" };
@@ -1059,6 +1063,7 @@ async function runMeaningfulDestinationMatrix(browser, envelope) {
   console.log("\nPlan 053-P4b meaningful-destination refusal matrix");
   const cases = [
     ["prefs-only", "prefs-only"],
+    ["malformed preference intent", "malformed-pref-intent"],
     ["effort choice", "effort-choice"],
     ["malformed effort choice", "effort-choice-malformed"],
     ["seen findings only", "findings-seen"],
@@ -2223,6 +2228,49 @@ async function runP4cMarkerRecoveryBeforeHealing(browser, envelope) {
   }
 }
 
+async function runPendingPreferenceImport(browser, envelope) {
+  console.log("\nPending device preferences cannot override transfer replacement or rollback");
+  for (const rollback of [false, true]) {
+    const { context, page } = await openFreshContext(browser);
+    try {
+      await flush(page);
+      const seeded = await page.evaluate(async () => {
+        const before = window.__repforgeUi.loadUiPrefs();
+        const base = JSON.parse(localStorage.getItem("repforge_ui_v1"));
+        delete base.entryLandingSeen;
+        localStorage.setItem("repforge_ui_v1", JSON.stringify(base));
+        const write = Storage.prototype.setItem;
+        Storage.prototype.setItem = function(key, value) {
+          if (key === "repforge_ui_v1") throw new DOMException("held preference merge", "QuotaExceededError");
+          return write.call(this, key, value);
+        };
+        try { await window.__repforgeUi.setPref("entryLandingSeen", true); }
+        finally { Storage.prototype.setItem = write; }
+        return { before, logical: window.__repforgeUi.loadUiPrefs(),
+          count: Object.keys(localStorage).filter(key => key.startsWith("repforge_ui_v1:pending:")).length };
+      });
+      check(seeded.count > 0 && seeded.logical.entryLandingSeen === true,
+        `${rollback ? "rollback" : "replace"}: automatic destination metadata is pending before import`, seeded);
+      if (rollback) await setImportFault(page, { point: "before-readback" });
+      const result = await importInto(page, envelope);
+      if (rollback) {
+        await removeImportFault(page);
+        check(result?.ok === false, "pending preference rollback: the held import interrupts before commit", result);
+      } else check(result?.ok === true, "pending automatic metadata does not make a fresh destination ineligible", result);
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await waitForAppBoot(page, { base: BASE });
+      await flush(page);
+      const actual = await readLogical(page);
+      const expected = rollback ? seeded.logical : envelope.uiPreferences;
+      check(sameValue(normalizeAutomaticUi(actual.uiPreferences), normalizeAutomaticUi(expected)),
+        `${rollback ? "rollback" : "replace"}: after reload preferences match the intended clone without stale local replay`,
+        { actual: actual.uiPreferences, expected });
+      check(await page.evaluate(() => !Object.keys(localStorage).some(key => key.startsWith("repforge_ui_v1:pending:"))),
+        `${rollback ? "rollback" : "replace"}: no pre-import intent survives to override the clone`);
+    } finally { await context.close(); }
+  }
+}
+
 async function main() {
   console.log("Plan 053-P4a/P4b: production-backed install-transfer import oracle");
   await assertServingApp(BASE);
@@ -2289,6 +2337,7 @@ async function main() {
     check(sameValue(envelope.workoutDraft, sourceObservation.draft.logical), "envelope DraftV2 equals the real production logical clone");
     check(sameValue(envelope.programEntryDraft, sourceObservation.candidate), "envelope candidate equals the production persisted candidate");
 
+    await runPendingPreferenceImport(browser, envelope);
     await runPreBootImportCase(browser, envelope);
 
     destinationContext = await browser.newContext();
