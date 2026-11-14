@@ -584,7 +584,7 @@ async function runConcurrentPreferences(browser) {
       await owner; await older; await newer;
       return JSON.parse(localStorage.getItem("repforge_ui_v1")).theme;
     });
-    assert(ordered === "light", "a newer write inside an owned lock cannot be undone by an older queued preference", ordered);
+    assert(ordered === "dark", "same-key writes persist in synchronous call order even while the state lock is owned", ordered);
     const cases = [
       { label: "theme and collapsed days", first: ["setTheme", "dark"], second: ["setPref", "collapsedProgramDays", ["Other day"]], changes: { theme: "dark", collapsedProgramDays: ["Other day"] } },
       { label: "findings and theme", first: ["setPref", "findingsSeen", ["existing", "new"]], second: ["setPref", "theme", "system"], changes: { findingsSeen: ["existing", "new"], theme: "system" } },
@@ -614,8 +614,8 @@ async function runConcurrentPreferences(browser) {
         if (test.first[0] === "setTheme") assert(await themeOf(a) === "dark", "Appearance paints immediately while persistence is held");
         const held = await read();
         const settled = await Promise.all([a, b].map(page => page.evaluate(() => window.__prefSettled)));
-        assert(JSON.stringify(held) === JSON.stringify(before) && settled.every(value => !value),
-          `${test.label}: canonical merges wait for the held cross-tab lock`, JSON.stringify({ held, settled }));
+        assert(Object.entries(test.changes).every(([key, value]) => JSON.stringify(held[key]) === JSON.stringify(value)) && settled.every(Boolean),
+          `${test.label}: the canonical record acknowledges both changes before the held state lock is released`, JSON.stringify({ held, settled }));
       } finally {
         await a.evaluate(async () => { window.__releasePrefLock(); await window.__prefLock; });
       }
