@@ -4356,7 +4356,7 @@ function renderWeekCard(){
     `<button type="button" class="text-link" id="weekCardReview">${esc(t("review.week.open"))}</button>`+
     `<button type="button" class="text-link" id="weekCardDismiss">${esc(t("review.week.dismiss"))}</button></div>`;
   $("#weekCardReview").onclick=()=>{setUiPref("weekCardSeen",id);renderWeekCard();navTo("stats");setStatsSeg("review")};
-  $("#weekCardDismiss").onclick=async()=>{if(await setUiPref("weekCardSeen",id))renderWeekCard()};
+  $("#weekCardDismiss").onclick=()=>{if(setUiPref("weekCardSeen",id)!==false)renderWeekCard()};
 }
 
 let weeklyAdaptationView=null,weeklyAdaptationBusy=false,weeklyEvaluationPending=false;
@@ -8426,8 +8426,8 @@ function renderOverviewProfile(){
       return `<li class="profile-signal"><span>${esc(exerciseDisplayName(ex))}</span><span>${esc(t("profile.history_sets",{n}))}</span></li>`}).join("")}</ul>`+
     `<div class="ovsec"><h3 class="ovsec__title">${esc(t("calib.recent"))}</h3></div><ul class="calchecks">${rows}</ul>`;
   el.querySelectorAll("[data-profile-lift]").forEach(button=>button.onclick=()=>openProfilePage({kind:"lift",key:button.dataset.profileLift}));
-  const accept=el.querySelector("#profileScopeContinue");if(accept)accept.onclick=async()=>{
-    if(!await saveProfileScope({v:1,scope:change.now,acknowledged:true}))return;
+  const accept=el.querySelector("#profileScopeContinue");if(accept)accept.onclick=()=>{
+    if(saveProfileScope({v:1,scope:change.now,acknowledged:true})===false)return;
     render();window.scrollTo({top:0});focusRoute($("#overviewProfileTitle"))};
   const back=$("#summaryProfileBack");if(back)back.onclick=returnFromSummaryProfile}
 /* "Not now" closes the prompt for that exercise in this workout. */
@@ -24465,7 +24465,7 @@ let uiPrefs=loadUiPrefs();
 const pendingUiPrefUpdates=[];
 let uiPrefWriteTail=Promise.resolve();
 function projectUiPrefs(){
-  return pendingUiPrefUpdates.reduce((prefs,pending)=>pending.update(prefs),loadUiPrefs())}
+  return pendingUiPrefUpdates.reduce((prefs,pending)=>pending.persisted?prefs:pending.update(prefs),loadUiPrefs())}
 async function flushUiPrefs(){
   for(;;){const tail=uiPrefWriteTail;await tail;if(tail===uiPrefWriteTail)return}}
 function updateUiPrefs(update){
@@ -24473,11 +24473,21 @@ function updateUiPrefs(update){
   const pending={update};pendingUiPrefUpdates.push(pending);
   // Keep immediate UI feedback; only the locked read/modify/write is durable.
   uiPrefs=projectUiPrefs();
-  const written=withStorageLock(storageIO,()=>{
-    const live=loadUiPrefs(),next=update(live);
-    if(JSON.stringify(next)!==JSON.stringify(live))localStorage.setItem(UIKEY,JSON.stringify(next));
+  const persist=async()=>{
+    // An owned transaction may precede older queued preference requests. Apply
+    // those first, then let their later callbacks acknowledge without replaying.
+    for(const item of pendingUiPrefUpdates){
+      if(!item.persisted){
+        const live=loadUiPrefs(),next=item.update(live);
+        if(JSON.stringify(next)!==JSON.stringify(live))localStorage.setItem(UIKEY,JSON.stringify(next));
+        item.persisted=true;
+      }
+      if(item===pending)break;
+    }
     return true;
-  }).then(result=>result===true).catch(error=>{
+  };
+  const written=(DurableState.ownsStorageLock()?persist():withStorageLock(storageIO,persist))
+    .then(result=>result===true).catch(error=>{
     console.warn("ui prefs save failed",error);return false;
   }).finally(()=>{
     pendingUiPrefUpdates.splice(pendingUiPrefUpdates.indexOf(pending),1);
@@ -26678,11 +26688,10 @@ function removeContextualGuide(){
   if(!el?.open)return;
   closeModal(el);
   if(el.open)try{el.close()}catch{}}
-async function dismissContextualGuide(){
+function dismissContextualGuide(){
   if(!activeGuideId)return false;
-  const id=activeGuideId,after=activeGuideAfter;
-  if(!await saveGuideTransition(id,"dismissed"))return false;
-  if(activeGuideId!==id)return true;
+  const after=activeGuideAfter;
+  if(saveGuideTransition(activeGuideId,"dismissed")===false)return false;
   if(document.body.classList.contains("is-workout"))focusGuideHeld=true;
   // Closing restores focus first, so the tap the guide held lands where the lifter aimed it.
   removeContextualGuide();
@@ -26734,10 +26743,10 @@ function maybeShowContextualGuides(ids=GuideRegistry?.PLAN_054_GUIDE_IDS||[]){
     if(id==="first-set"){if(firstSetGuideEligible()){firstSetGuideArmed=true;return true}continue}
     if(showContextualGuide(id))return true}
   return false}
-async function replayContextualGuide(id){
+function replayContextualGuide(id){
   const guide=guideDefinition(id);if(!guide||!GuideRegistry?.replayGuideState)return false;
   if(activeGuideId===id)removeContextualGuide();
-  if(!await updateUiPrefs(prefs=>({...GuideRegistry.replayGuideState(prefs,id,{version:guide.version,nowMs:Date.now()})})))return false;
+  if(updateUiPrefs(prefs=>({...GuideRegistry.replayGuideState(prefs,id,{version:guide.version,nowMs:Date.now()})}))===false)return false;
   captureEvent("guide_replay",{guideId:id});
   const returnFocus=document.activeElement;
   queueMicrotask(()=>showContextualGuide(id,{returnFocus,persistDeferred:true}));return true}
@@ -26877,11 +26886,11 @@ window.__repforgeOnboarding={
   flushDraft:()=>setupDraftWriteQueue,
   clearDraft:clearSetupDraft};
 
-async function init(){
+function init(){
   if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
   renderBuildRelease();
-  await ensureInstallPolicyPrefs();
-  await ensureGuidePrefs({persist:currentEntryLanding()==="generic"});
+  ensureInstallPolicyPrefs();
+  ensureGuidePrefs({persist:currentEntryLanding()==="generic"});
   // The pre-paint snippet in index.html has already done this for a dark
   // device; re-running it is what covers the light case and a snippet that
   // could not read storage.
@@ -27429,7 +27438,7 @@ async function init(){
   // The one signal that the whole boot pipeline — replica recovery, first-run
   // persistence, the first render — has finished. Test gates used to wait for a
   // day tab, which a device with no program never grows.
-  window.__repforgeBooted=true;
+  void flushUiPrefs().then(()=>{window.__repforgeBooted=true});
 }
 function applyGotoParam(){
   try{
@@ -27737,7 +27746,7 @@ async function boot(){
       state.programMeta=normalizeProgramMeta(state.programMeta,state.log,state.program);
       resetPersistenceBase(state);day=days()[0]||"Day 1";
       if(I18N)I18N.setLang(resolveLang())}
-    await init();
+    init();
     const failureState=transferResult.code==="destination-meaningful"?"destination"
       :transferResult.state==="terminalUnavailable"||["service-unavailable","transfer-cookie-missing","claim-credential-invalid"].includes(transferResult.code)?"terminal"
       :"interrupted";
@@ -27764,7 +27773,7 @@ async function boot(){
   const draftBoot=await initializeWorkoutDraft({restoreDay:true});
   if(draftBoot.status==="ready")hydrateWorkoutDraft({restoreDay:true});
   void resumeProgramEditFollowUp().catch(()=>{});
-  await init();
+  init();
   restoreRest(draftBoot.status==="ready"?activeWorkoutDraft.draftId:null);
   if(transferResult.transferResult?.localOk===true){
     openIosInstallSheet(transferResult.transferResult.cleanup?.ok===true?"success":"cleanup")}

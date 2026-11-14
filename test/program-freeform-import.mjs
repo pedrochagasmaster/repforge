@@ -61,6 +61,26 @@ const REPLY = [
   "Let me know if you want a fourth day!",
 ].join("\n");
 
+async function switchDoorWhilePrefsHeld(page, trigger, destination) {
+  await page.evaluate(() => {
+    const gate = new Promise(resolve => { window.__releaseDoorPrefLock = resolve; });
+    window.__doorPrefLockHeld = false;
+    window.__doorPrefLock = navigator.locks.request("repforge:state-write", async () => {
+      window.__doorPrefLockHeld = true; await gate;
+    });
+  });
+  await page.waitForFunction(() => window.__doorPrefLockHeld);
+  try {
+    await page.click(trigger);
+    await page.waitForSelector(destination, { timeout: 20000 });
+    assert(await page.locator(trigger).count() === 0,
+      "switching doors removes its triggering control before the held preference write can finish");
+  } finally {
+    await page.evaluate(async () => { window.__releaseDoorPrefLock(); await window.__doorPrefLock; });
+  }
+  await page.evaluate(() => window.__repforgeUi.flushPrefs());
+}
+
 async function reset(page) {
   await page.evaluate(async ({ k, d, setup, ui }) => {
     try { window.closeOnboarding?.(); } catch {}
@@ -347,8 +367,7 @@ async function main() {
 
     dialogAction = "accept";
     lastDialog = null;
-    await page.click("#entryFreeformFile");
-    await page.waitForSelector("#entryImportPick", { timeout: 20000 });
+    await switchDoorWhilePrefsHeld(page, "#entryFreeformFile", "#entryImportPick");
     const switchedToFile = await page.evaluate(() => ({
       mode: JSON.parse(localStorage.getItem("repforge_ui_v1") || "{}").importSourceMode,
       route: document.querySelector("#onbBody")?.classList.contains("entry-route--import"),
@@ -369,8 +388,7 @@ async function main() {
       "the File-to-Freeform switch is a one-shot navigation button without selected ARIA state",
       JSON.stringify(fileSwitchSemantics));
     lastDialog = null;
-    await page.click("#entryFreeformSwitch");
-    await page.waitForSelector("#entryFreeformIn", { timeout: 20000 });
+    await switchDoorWhilePrefsHeld(page, "#entryFreeformSwitch", "#entryFreeformIn");
     const switchedToFreeform = await page.evaluate(() => ({
       mode: JSON.parse(localStorage.getItem("repforge_ui_v1") || "{}").importSourceMode,
       route: document.querySelector("#onbBody")?.classList.contains("entry-route--import"),

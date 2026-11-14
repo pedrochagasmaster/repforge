@@ -547,6 +547,8 @@ async function nativeControls(browser) {
   assert(hasSegments === 1, "Appearance is a radiogroup");
   if (hasSegments) {
     await segmented.locator('[data-value="light"]').click();
+    assert(await segmented.locator('[data-value="light"]').getAttribute('aria-checked') === 'true', 'the selected default is acknowledged on screen immediately');
+    await page.evaluate(() => window.__repforgeUi.flushPrefs());
     assert(await page.evaluate(() => JSON.parse(localStorage.getItem('repforge_ui_v1') || '{}').theme) === 'light', 'explicitly choosing the selected default records the device preference');
     await segmented.locator('[data-value="dark"]').click();
     assert(await page.locator('html').getAttribute('data-theme') === 'dark', "a tap applies Appearance immediately");
@@ -2678,7 +2680,7 @@ async function scrollerPress(browser) {
 }
 
 // NATIVE_FEEL_ONLY=press runs the held scroller-press regression, =rest runs the ten-cycle held Settings probe, =large runs just phase 5, =shelf just its addendum, =wheel just the wheel picker and =swipe just the
-// history and back-swipe phases, =refresh just the catalog layout regressions, and =core the remaining phases.
+// history and back-swipe phases, =controls just native control behaviour, =refresh just the catalog layout regressions, and =core the remaining phases.
 // refresh + core + large covers the complete suite, including the shelf addendum, within separate runner limits; CI runs everything.
 const ONLY = process.env.NATIVE_FEEL_ONLY || "";
 const browser = await launchChromium();
@@ -2865,6 +2867,7 @@ try {
     await restStepperRelease(page);
     await context.close();
   }
+  if (ONLY === "controls") await nativeControls(browser);
   if (ONLY === "wheel") {
     await wheelPicker(browser);
     await wheelPhysics(browser);
@@ -2878,7 +2881,7 @@ try {
     await autoSwipe(browser);
     await standaloneSwipe(browser);
   }
-  if (!["wheel", "swipe", "rest", "refresh", "press", "core"].includes(ONLY)) await concentricShelf(browser);
+  if (!["wheel", "swipe", "rest", "refresh", "press", "core", "controls"].includes(ONLY)) await concentricShelf(browser);
 } finally {
   await browser.close();
 }

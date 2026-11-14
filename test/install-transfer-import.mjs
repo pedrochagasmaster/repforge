@@ -266,6 +266,7 @@ async function flush(page) {
     await window.__repforgeStorage?.flush?.();
     await window.__repforgeWorkoutDraft?.flush?.();
     await window.__repforgeOnboarding?.flushDraft?.();
+    await window.__repforgeUi.flushPrefs();
   });
 }
 
@@ -434,12 +435,11 @@ async function createCandidate(page) {
 }
 
 async function setDeviceSections(page) {
-  return page.evaluate(() => {
+  return page.evaluate(async () => {
     const before = localStorage.getItem("repforge_telemetry_identity_v1");
-    window.__repforgeUi?.setTheme?.("dark");
-    window.__repforgeUi?.setPref?.("effortChosen", true);
-    const prefs = window.__repforgeUi.loadUiPrefs();
-    localStorage.setItem("repforge_ui_v1", JSON.stringify({ ...prefs, findingsSeen: ["first_check", "first_target"] }));
+    await window.__repforgeUi.setTheme("dark");
+    await window.__repforgeUi.setPref("effortChosen", true);
+    await window.__repforgeUi.setPref("findingsSeen", ["first_check", "first_target"]);
     const consent = window.RepForgeTelemetry?.setEnabled?.(false);
     return {
       consent,
@@ -911,7 +911,7 @@ async function seedMeaningfulDestination(page, kind, envelope) {
     };
     if (["effort-choice", "effort-choice-malformed"].includes(kind)) {
       const value = kind === "effort-choice" ? true : "yes";
-      window.__repforgeUi.setPref("effortChosen", value);
+      await window.__repforgeUi.setPref("effortChosen", value);
       return { ok: window.__repforgeUi.loadUiPrefs().effortChosen === value };
     }
     if (["findings-seen", "findings-unknown", "findings-malformed"].includes(kind)) {
@@ -921,7 +921,7 @@ async function seedMeaningfulDestination(page, kind, envelope) {
       return { ok: true };
     }
     if (kind === "prefs-only") {
-      window.__repforgeUi?.setTheme?.("dark");
+      await window.__repforgeUi.setTheme("dark");
       return { ok: window.__repforgeUi?.loadUiPrefs?.()?.theme === "dark" };
     }
     if (["unknown-guide", "wrong-version-guide", "missing-version-guide", "extra-field-guide", "invalid-timestamp-guide"].includes(kind)) {
