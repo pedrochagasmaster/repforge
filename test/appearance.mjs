@@ -659,6 +659,25 @@ async function runConcurrentPreferences(browser) {
   } finally { await context.close(); }
 }
 
+async function runPreferencesWithoutLocks(browser) {
+  const context = await browser.newContext({ serviceWorkers: "block" });
+  await context.addInitScript(() => Object.defineProperty(navigator, "locks", { value: undefined }));
+  const a = await context.newPage(), b = await context.newPage();
+  try {
+    for (const page of [a, b]) { await page.goto(BASE); await waitForApp(page); }
+    await Promise.all([
+      a.evaluate(() => window.__repforgeUi.setPref("theme", "dark")),
+      b.evaluate(() => window.__repforgeUi.setPref("weekCardSeen", "without-locks")),
+    ]);
+    assert(await a.evaluate(() => Object.keys(localStorage).some(key => key.startsWith("repforge_ui_v1:pending:"))),
+      "without a cross-tab lock, durable intents remain available instead of unsafe compaction");
+    for (const page of [a, b]) { await page.reload(); await waitForApp(page); }
+    const prefs = await a.evaluate(() => window.__repforgeUi.loadUiPrefs());
+    assert(prefs.theme === "dark" && prefs.weekCardSeen === "without-locks",
+      "different tabs' preferences also survive reload when Web Locks are unavailable", prefs);
+  } finally { await context.close(); }
+}
+
 async function main() {
   console.log("Appearance / dark theme");
   console.log(`Target: ${BASE}`);
@@ -666,6 +685,7 @@ async function main() {
   const browser = await launchChromium();
   try {
     await runConcurrentPreferences(browser);
+    await runPreferencesWithoutLocks(browser);
     if (process.env.APPEARANCE_ONLY !== "preferences") {
     await runLightDefault(browser);
     await runFollowsSystemLive(browser);
