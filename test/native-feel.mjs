@@ -1714,6 +1714,29 @@ async function routeHistory(browser) {
   await page.goBack({ waitUntil: "commit" }).catch(() => {});
   await page.waitForFunction(() => !document.body.classList.contains("is-library"), undefined, { timeout: 3000 }).catch(() => {});
   assert((await page.evaluate(() => window.__pushes.length)) === 0, "the library leaves without the app animating it again");
+
+  phase("reloading a pushed page clears its stale route entry without losing other history state");
+  await page.waitForFunction(() => !document.body.classList.contains("is-pushing"));
+  await page.evaluate(() => {
+    history.replaceState({ ...history.state, reloadProbe: "preserved" }, "", location.href);
+    window.openLibrary();
+  });
+  await page.waitForFunction(() => history.state?.tauriferRoute?.view === "library" && !document.body.classList.contains("is-pushing"));
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForApp(page);
+  const reloaded = await page.evaluate(() => ({
+    route: history.state?.tauriferRoute,
+    probe: history.state?.reloadProbe,
+    library: document.body.classList.contains("is-library"),
+  }));
+  assert(!reloaded.route && !reloaded.library && reloaded.probe === "preserved",
+    "reload removes the old pushed-route marker and preserves unrelated history state", JSON.stringify(reloaded));
+  await page.evaluate(() => window.openLibrary());
+  await page.waitForFunction(() => history.state?.tauriferRoute?.view === "library" && !document.body.classList.contains("is-pushing"));
+  await page.goBack({ waitUntil: "commit" });
+  const backAfterReload = await page.waitForFunction(() => window.__repforgeBooted === true && !document.body.classList.contains("is-library") &&
+    !history.state?.tauriferRoute && history.state?.reloadProbe === "preserved", undefined, { timeout: 3000 }).then(() => true, () => false);
+  assert(backAfterReload, "after reload one browser Back closes a newly pushed page without a dead press", JSON.stringify(await routeState(page)));
   await context.close();
 }
 
