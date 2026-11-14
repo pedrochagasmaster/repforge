@@ -942,6 +942,22 @@ async function seedMeaningfulDestination(page, kind, envelope) {
       localStorage.setItem(uiKey, JSON.stringify(prefs));
       return { ok: JSON.stringify(parse(localStorage.getItem(uiKey))?.guideState?.[id]) === JSON.stringify(record) };
     }
+    if (kind === "explicit-consent" || kind === "disabled-consent") {
+      window.RepForgeTelemetry.setEnabled(kind === "explicit-consent");
+      return { ok: localStorage.getItem(consentKey) === String(kind === "explicit-consent") };
+    }
+    if (kind === "changed-identity") {
+      const identity = parse(localStorage.getItem(identityKey));
+      localStorage.setItem(identityKey, JSON.stringify({ ...identity, installationId: crypto.randomUUID() }));
+      return { ok: true };
+    }
+    if (kind === "malformed-identity" || kind === "unknown-identity-field") {
+      const raw = localStorage.getItem(identityKey);
+      const identity = parse(raw);
+      localStorage.setItem(identityKey, kind === "malformed-identity" ? "{broken" :
+        JSON.stringify({ ...identity, futureField: "keep" }));
+      return { ok: raw !== null };
+    }
     if (kind === "consent-identity-only") {
       window.RepForgeTelemetry?.setEnabled?.(false);
       const identity = parse(localStorage.getItem(identityKey)) || {
@@ -1074,7 +1090,7 @@ async function runFreshDestinationReloads(browser, envelope) {
       }
       const before = await readStorageBytes(page);
       const result = await importInto(page, envelope);
-      check(result?.ok === true, `fresh destination accepts transfer after ${reloads} reloads`, { result, before });
+      check(result?.ok === true, `fresh destination accepts transfer after ${reloads} reloads`, { result, device: { prefs: before.local[UI_KEY], consent: before.local[CONSENT_KEY], identity: before.local[IDENTITY_KEY] } });
       if (result?.ok === true) {
         const actual = await readLogical(page);
         assertImportedLogical(actual, await readIdb(page), envelope, `fresh destination after ${reloads} reloads`);
@@ -1098,6 +1114,11 @@ async function runMeaningfulDestinationMatrix(browser, envelope, only = null) {
     ["missing-version-guide-only", "missing-version-guide"],
     ["extra-field-guide-only", "extra-field-guide"],
     ["invalid-timestamp-guide-only", "invalid-timestamp-guide"],
+    ["explicit enabled consent", "explicit-consent"],
+    ["explicit disabled consent", "disabled-consent"],
+    ["changed valid identity", "changed-identity"],
+    ["malformed identity after reload", "malformed-identity"],
+    ["unknown identity field after reload", "unknown-identity-field"],
     ["consent/identity-only", "consent-identity-only"],
     ["DraftV2-only", "draft-only"],
     ["candidate-only", "candidate-only"],
@@ -1111,6 +1132,10 @@ async function runMeaningfulDestinationMatrix(browser, envelope, only = null) {
     try {
       const seeded = await seedMeaningfulDestination(page, kind, envelope);
       check(seeded.ok === true, `${label}: deterministic meaningful state is seeded through current APIs`, seeded);
+      if (["explicit-consent", "disabled-consent", "malformed-identity", "unknown-identity-field"].includes(kind)) {
+        await page.reload({ waitUntil: "domcontentloaded" });
+        await waitForAppBoot(page, { base: BASE });
+      }
       const before = await readStorageBytes(page);
       let result;
       try { result = await importInto(page, envelope); }

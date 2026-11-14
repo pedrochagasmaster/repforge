@@ -707,6 +707,7 @@
     getSchemaVersion: () => SCHEMA_VERSION,
     hasEmittedLateInstallTransfer,
     isEnabled: () => runtime.enabled,
+    isValidIdentity: validIdentity,
     markLateInstallTransferEmitted,
     recordLateInstallTransfer,
     setEnabled,

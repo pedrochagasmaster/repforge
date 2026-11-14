@@ -5260,8 +5260,14 @@ function installTransferDeviceMeaningful(){
   if(installTransferInitialDevice.consent!==null||
     consent!==null&&consent!==installTransferBootDevice?.consent)return true;
   const identity=installTransferReadRaw(TELEMETRY_IDENTITY_KEY);
-  return installTransferInitialDevice.identity!==null||
-    identity!==null&&identity!==installTransferBootDevice?.identity}
+  // Telemetry creates this identity automatically, even before setup. Reloading
+  // does not turn it into a user choice. Preserve malformed pre-boot bytes too:
+  // telemetry may already have replaced them with a fresh valid identity.
+  for(const raw of [installTransferInitialDevice.identity,identity]){
+    if(raw===null)continue;
+    try{if(!window.RepForgeTelemetry?.isValidIdentity?.(JSON.parse(raw)))return true}
+    catch{return true}}
+  return identity!==null&&identity!==(installTransferBootDevice?.identity??installTransferInitialDevice.identity)}
 async function ensureInstallTransferModules(){
   if(!installTransferModulePromise){
     installTransferModulePromise=Promise.resolve().then(()=>{
