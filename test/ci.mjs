@@ -1446,6 +1446,60 @@ test("runner retains output beyond the terminal excerpt bound", async (t) => {
   assert.ok(result.tail.length <= 12 * 1024);
 });
 
+test("existing runner evidence exits without leaking preview files or the outer lock", async (t) => {
+  const temp = scratch(t), cwd = join(temp, "repo");
+  mkdirSync(cwd);
+  for (const file of ["tools/run-tests.mjs", "tools/local-preview.mjs", "tools/test-selection.mjs",
+    "tools/ci-captures.mjs", "tools/visual-domains.mjs", "tools/revision-diff.mjs",
+    "tools/ui-screens/manifest.mjs", "test/suites.mjs", "scripts/generate-posthog-config.mjs"]) {
+    mkdirSync(dirname(join(cwd, file)), { recursive: true });
+    cpSync(file, join(cwd, file));
+  }
+  const originalIndex = '  <script src="posthog-init.js"></script>\n';
+  writeFileSync(join(cwd, "index.html"), originalIndex);
+  writeFileSync(join(cwd, ".gitignore"), ".ci-results/\nposthog-config.js\n");
+  writeFileSync(join(cwd, "test/workout-draft-parity.mjs"), 'console.log("fixture suite ran");\n');
+  const git = (...args) => execFileSync("git", args, { cwd, encoding: "utf8", stdio: "pipe" });
+  git("init", "--quiet");
+  git("config", "user.name", "Runner fixture");
+  git("config", "user.email", "runner@example.invalid");
+  git("config", "commit.gpgsign", "false");
+  git("config", "core.hooksPath", "/dev/null");
+  git("add", "."); git("commit", "-qm", "runner fixture");
+  const evidence = join(temp, "existing.json"), lock = join(temp, "browser.lock");
+  const originalEvidence = '{"preserve":"existing evidence"}\n';
+  writeFileSync(evidence, originalEvidence);
+  const launcher = join(temp, "locked-runner.mjs");
+  writeFileSync(launcher, `import { spawnSync } from "node:child_process";
+const result = spawnSync("flock", [process.argv[2], process.execPath, "tools/run-tests.mjs", ...process.argv.slice(3)], { stdio: "inherit" });
+process.exitCode = result.status ?? 1;
+`);
+  const result = await execute({ file: launcher, args: [lock, "workout", "--suite-id", "test-workout-draft-parity-mjs", "--evidence", evidence] }, {
+    cwd, outputDir: join(temp, "output"), timeoutMs: 5000, env: { ...process.env, REPFORGE_URL: "" },
+  });
+  assert.match(result.tail, /EEXIST/);
+  assert.equal(existsSync(join(cwd, ".ci-results/workout/test-workout-draft-parity-mjs/initial/output.log")), false);
+  assert.equal(readFileSync(evidence, "utf8"), originalEvidence);
+  assert.equal(readFileSync(join(cwd, "index.html"), "utf8"), originalIndex);
+  assert.equal(existsSync(join(cwd, "posthog-config.js")), false);
+  execFileSync("flock", ["-n", lock, "true"]);
+  assert.equal(result.timedOut, false, "EEXIST must exit without intervention and release its preview child and outer lock");
+  assert.equal(result.exitCode, 1);
+
+  const freshEvidence = join(temp, "fresh.json");
+  const fresh = await execute({ file: launcher, args: [lock, "workout", "--suite-id", "test-workout-draft-parity-mjs", "--evidence", freshEvidence] }, {
+    cwd, outputDir: join(temp, "fresh-output"), timeoutMs: 5000, env: { ...process.env, REPFORGE_URL: "" },
+  });
+  assert.equal(fresh.status, "passed", fresh.tail);
+  const report = JSON.parse(readFileSync(freshEvidence, "utf8"));
+  assert.match(report.execution.initial.tail, /fixture suite ran/);
+  assert.equal(report.outcome, "command-passed");
+  assert.deepEqual(report.sourceAfter, report.sourceBefore);
+  assert.equal(readFileSync(join(cwd, "index.html"), "utf8"), originalIndex);
+  assert.equal(existsSync(join(cwd, "posthog-config.js")), false);
+  execFileSync("flock", ["-n", lock, "true"]);
+});
+
 test("temporary preview disables analytics and restores generated files on interruption", async (t) => {
   const cwd = scratch(t);
   const indexPath = join(cwd, "index.html");
