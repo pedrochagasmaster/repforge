@@ -24518,6 +24518,8 @@ function uiPrefChanges(before,after){
   };
   compare(before,after,[]);return changes}
 function consolidateUiPrefs(){
+  // Without cross-tab serialization the durable journal remains authoritative.
+  if(!navigator.locks?.request)return true;
   const entries=readUiPrefJournal().filter(entry=>entry.changes);
   const next=entries.reduce((prefs,entry)=>applyUiPrefChanges(prefs,entry.changes),readUiPrefBase());
   if(!uiPrefEqual(next,readUiPrefBase()))localStorage.setItem(UIKEY,JSON.stringify(next));
