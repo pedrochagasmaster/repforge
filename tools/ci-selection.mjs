@@ -8,7 +8,7 @@ import { visualDomains, screensForDomains } from "./visual-domains.mjs";
 import { isCacheRevisionOnlyServiceWorkerChange } from "./revision-diff.mjs";
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
-const PROSE = /(^|\/)(README|AGENTS|CLAUDE|CONTEXT)\.md$|^(docs|plans|advisor-plans)\/.+\.md$/;
+const PROSE = /(^|\/)(README|AGENTS|CLAUDE|CONTEXT)\.md$|^(docs|plans)\/.+\.md$/;
 // Only shared-setup.mjs is imported by the production screen-capture scenarios.
 const DESIGN_REFERENCE = /^docs\/design\/native-fidelity-mocks\//;
 const VISUAL_FIXTURE = /^test\/fixtures\/shared-setup\.mjs$/;

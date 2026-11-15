@@ -20,6 +20,7 @@ import { domainsForAppDiff, visualDomains } from "../tools/visual-domains.mjs";
 import { stabilizeShareUrlForCapture } from "../tools/ui-screens/screens-app.mjs";
 import { changedFilesForTests, changedFilesForEdit, changedFilesForPacket, fullLaneEntries, fullShardCount, selectAffected, selectEdit, selectFullLane, selectPacket } from "../tools/test-selection.mjs";
 import { execute, maybeStartLocalPreview, runLane, shardPlan } from "../tools/run-tests.mjs";
+import { checkRemovedReferences } from "../tools/check-doc-references.mjs";
 import { summarizeBenchmark } from "../tools/benchmark-tests.mjs";
 import { parseArgs as parseRevisionArgs, planRevision, revisionOf } from "../tools/next-revision.mjs";
 
@@ -766,7 +767,7 @@ test("share-link visual fixtures pin random preview origins without changing the
 });
 
 test("local visual selection ignores non-rendering tests/tools but remains conservative for real inputs", () => {
-  for (const file of ["README.md", "docs/backlog.md", "plans/060.md", "advisor-plans/001-example.md", "test/accessibility.mjs", "test/ci.mjs", "tools/run-tests.mjs", "tools/test-selection.mjs", "tools/ci-plan.mjs", "tools/check-production-syntax.mjs", "tools/check-test-syntax.mjs", ".github/workflows/ci.yml"]) {
+  for (const file of ["README.md", "docs/backlog.md", "plans/060.md", "docs/example.md", "test/accessibility.mjs", "test/ci.mjs", "tools/run-tests.mjs", "tools/test-selection.mjs", "tools/ci-plan.mjs", "tools/check-production-syntax.mjs", "tools/check-test-syntax.mjs", ".github/workflows/ci.yml"]) {
     assert.equal(selectVisuals([file], manifest).mode, "none", file);
   }
   for (const file of ["app.js", "index.html", "styles.css", "i18n-en.json", "sw.js", "shared-setup.js", "fonts/new.woff2", "assets/exercises/foo.png", "test/browser.mjs", "test/fixtures/shared-setup.mjs", "tools/ui-screens/session.mjs", "tools/ui-screens/screens-app.mjs", "tools/capture-ui-screens.mjs", "docs/ui-screens/manifest.json", "docs/ui-screens/entry-semantics.json", "unknown.txt"]) {
@@ -1371,7 +1372,7 @@ test("substantive or unprovable service-worker changes retain the full SW owner 
 
 test("affected selection is narrow when proven and fail-safe when it is not", () => {
   assert.equal(selectAffected(["docs/ci.md"]).mode, "none");
-  assert.equal(selectAffected(["advisor-plans/README.md"]).mode, "none");
+  assert.equal(selectAffected(["docs/backlog.md"]).mode, "none");
   const direct = selectAffected(["test/focus-pending-field.mjs"]);
   assert.equal(direct.mode, "selected");
   assert.ok(direct.entries.some(({ suite }) => suite.file === "test/focus-pending-field.mjs"));
@@ -1855,4 +1856,31 @@ test("next-revision: the CLI prints the plan from a recorded state without calli
   assert.equal(json.next, 631);
   assert.throws(() => parseRevisionArgs(["--pr", "x"]), /--pr needs a PR number/);
   assert.throws(() => parseRevisionArgs(["--bogus"]), /unknown argument/);
+});
+
+
+test("document removals reject live relative and code references, then accept repaired consumers", () => {
+  const root = mkdtempSync(join(tmpdir(), "taurifer-doc-references-"));
+  const git = (...args) => execFileSync("git", args, { cwd: root, stdio: "pipe" });
+  try {
+    mkdirSync(join(root, "docs", "nested"), { recursive: true });
+    writeFileSync(join(root, "docs", "retired.md"), "Old work list\n");
+    writeFileSync(join(root, "docs", "backlog.md"), "Current work\n");
+    git("init", "-q");
+    git("add", ".");
+    git("-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-qm", "fixture");
+    rmSync(join(root, "docs", "retired.md"));
+    writeFileSync(join(root, "docs", "nested", "consumer.md"), "[work](../retired.md#queue)\n");
+    writeFileSync(join(root, "consumer.mjs"), 'const source = "docs/retired.md";\n');
+    const bad = checkRemovedReferences(root, "HEAD");
+    assert.equal(bad.removed, 1);
+    assert.equal(bad.problems.length, 2);
+    assert.ok(bad.problems.some(problem => problem.includes("docs/nested/consumer.md:1")));
+    assert.ok(bad.problems.some(problem => problem.includes("consumer.mjs:1")));
+    writeFileSync(join(root, "docs", "nested", "consumer.md"), "[work](../backlog.md)\n");
+    writeFileSync(join(root, "consumer.mjs"), 'const source = "docs/backlog.md";\n');
+    assert.deepEqual(checkRemovedReferences(root, "HEAD"), { removed: 1, problems: [] });
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });

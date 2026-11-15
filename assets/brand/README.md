@@ -75,7 +75,7 @@ referenced any more. They live in git history only:
 - `landing-workout-{en,pt}-{light,dark}.webp`: four Form iPhone Studio renders of the
   Focus screen (iphone15, Soft Studio, near-frontal, 759x1566, WebP quality 88) from the
   Plan 054 landing. Their sources came from the retired `tools/capture-landing-proof.mjs --source`
-  and `render/scene.json` (see `docs/pr-proof/premium-landing`).
+  and `render/scene.json` (historical render evidence is retained in git).
 - the 28 sectioned renders `{today-ready,entry-hub,recommend-result,program-overview,
   focus,why-this-weight,session-summary}-{en,pt}-{light,dark}.webp`, retired with the
   Plan 054 landing (see above).

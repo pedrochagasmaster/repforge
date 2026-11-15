@@ -41,11 +41,7 @@ export function gateManifest(manifest) {
   return { ...manifest, viewports: { ...manifest.viewports, "phone-360": { ...GATE_VIEWPORT } } };
 }
 
-/**
- * The 35 screens whose treatment is `redesign (D)` in the "Surface treatment
- * table" of docs/design/plan-064-reconciliation.md. An R3 sub-slice flips its
- * states to `implemented` in the commit that lands them.
- */
+/** Direction D coverage is owned by this executable inventory and the live catalog. */
 const D_STATE_KEYS = [
   "today/ready", "today/rest-bar", "today/day-picker", "today/done", "today/draft-resume",
   "workout/focus", "workout/focus-glossary", "workout/exercise-note", "workout/why-this-weight", "workout/session",

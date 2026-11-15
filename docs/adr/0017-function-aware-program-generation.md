@@ -6,7 +6,7 @@
 
 ## Context
 
-The quantitative [program-generation audit](../audits/program-generation-2026-10-03/README.md) and [coaching-quality audit](../audits/program-generation-2026-10-03/coaching/README.md) ran on 3 October 2026. Their findings and the resulting implementation are recorded in [Plan 065](../../plans/065-program-generation-engine-overhaul.md).
+The quantitative program-generation and coaching-quality audits ran on 3 October 2026; their reports remain in git history. Their findings and the resulting implementation are recorded in [Plan 065](../../plans/065-program-generation-engine-overhaul.md).
 
 ## Decision
 

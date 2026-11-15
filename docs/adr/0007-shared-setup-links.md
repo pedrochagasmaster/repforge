@@ -9,10 +9,8 @@ persisted until the recipient starts the program.
 The active contract is the v4 protocol described below and in Plan 067.
 [Plan 073](../../plans/073-generator-rule-parity.md) owns the current
 deterministic generation and recipe-version rules. The
-older implementation plan at
-[`docs/superpowers/plans/2026-08-17-shared-setup-links.md`](../superpowers/plans/2026-08-17-shared-setup-links.md)
-records the original interface and is retained as history; its v1/v2 codec and
-permanent-decoding requirements are superseded.
+original interface and superseded v1/v2 permanent-decoding requirements
+remain in git history. Current open sharing work is in [the backlog](../backlog.md).
 
 ## The proposal carries the complete program definition
 

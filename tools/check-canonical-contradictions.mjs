@@ -1,10 +1,5 @@
-// Canonical contradiction, path, and schema-consumer checks for the UI
-// overhaul Phase 0 contract. Scans current-tense governing documents for
-// stale live-policy phrases, verifies required canonical anchors, asserts
-// downstream schema-consumer vocabularies, and resolves relative doc links.
-// Frozen source-evidence reports (docs/ui-screen-audit-*, docs/ui-audit-opus-*,
-// docs/taurifer-ui-audit-*, decision registers, old numbered plans outside
-// 047–049) are intentionally out of scope: quoting history there is their job.
+// Canonical contract, plan-number and relative-link checks. Work scheduling
+// lives only in docs/backlog.md; plans retain historical implementation contracts.
 // Usage:
 //   node tools/check-canonical-contradictions.mjs [--check]
 import { existsSync, readFileSync, readdirSync } from "node:fs";
@@ -19,7 +14,6 @@ const SCOPE = [
   "AGENTS.md",
   "README.md",
   "docs/backlog.md",
-  "docs/post-058-open-pr-clearance-sequence.md",
   "docs/brand-guide.md",
   "docs/adr/0005-install-promotion-by-capability.md",
   "docs/adr/0006-first-run-ethos-hero.md",
@@ -30,27 +24,17 @@ const SCOPE = [
   "docs/adr/0013-temporary-install-transfer.md",
   "docs/program-entry-flow.md",
   "docs/progression-strategy-contract.md",
-  "docs/ui-audit.md",
-  "docs/ui-overhaul-implementation-sequence.md",
   "plans/README.md",
   "plans/049-ui-overhaul-canonical-reconciliation.md",
   "plans/047-taurifer-program-families-compiler.md",
   "plans/048-program-entry-onboarding-redesign.md",
   "plans/064-unified-redesign-convergence.md",
-  "docs/design/plan-064-reconciliation.md",
   "docs/design/onboarding-g-brief.md",
-  "docs/ui-overhaul-disposition-register.md",
   "docs/recovery-week-policy.md",
   "docs/block-transition-provenance.md",
   "docs/ui-screens/README.md",
   "tools/README.md",
 ];
-
-const REGISTER_HOME = new Set([
-  "docs/ui-overhaul-disposition-register.md",
-  "docs/ui-overhaul-implementation-sequence.md",
-  "docs/ui-audit.md",
-]);
 
 const failures = [];
 const check = (cond, message) => {
@@ -123,7 +107,6 @@ const R_CORES = [
   "every English exercise",
 ];
 for (const p of SCOPE) {
-  if (REGISTER_HOME.has(p)) continue;
   for (const core of R_CORES) {
     check(!docs.get(p).includes(core), `${p}: rejected claim reintroduced ("${core}")`);
   }
@@ -131,7 +114,6 @@ for (const p of SCOPE) {
 
 // Five-tab live policy may be described only by the audit's finding.
 for (const p of SCOPE) {
-  if (p === "docs/ui-audit.md") continue;
   check(
     !/five (equal |primary )?tabs|five-tab (layout|navigation|bar)/i.test(docs.get(p)),
     `${p}: stale five-tab policy`,
@@ -142,9 +124,9 @@ for (const p of SCOPE) {
 const required = (file, substrings) => {
   for (const s of substrings) check(docs.get(file).includes(s), `${file}: missing anchor "${s}"`);
 };
-required("plans/README.md", ["049", "OWNER REVIEW", "IMPLEMENTED"]);
+required("plans/README.md", ["049", "history", "backlog.md"]);
 check(!/PLANNED — START FIRST/.test(docs.get("plans/README.md")), "plans/README.md: stale 049 planned-first state");
-required("docs/backlog.md", ["Plans 049–059", "ui-overhaul-disposition-register"]);
+required("docs/backlog.md", ["## Now (before alpha)", "## Waiting on owner", "## After alpha (Next)", "## Bugs after alpha", "## Paid tier (gated)", "## After paid-beta economics", "## Later / evidence-only", "## Engineering"]);
 required("AGENTS.md", ["adr/0013-temporary-install-transfer", "task-only"]);
 required("README.md", ["repforge_transfer_v1", "Privacy page"]);
 required("docs/brand-guide.md", ["adr/0012-ui-overhaul-canonical-reconciliation", "task-only"]);
@@ -418,7 +400,6 @@ required("docs/recovery-week-policy.md", [
   );
   // Negative checks: the current exclusivity sentences must not reappear.
   for (const p of SCOPE) {
-    if (p === "docs/ui-audit.md") continue;
     const text = docs.get(p);
     check(
       !/Only if unsealing genuinely fails does Safari enter unknown-outcome/i.test(text),
@@ -499,11 +480,8 @@ required("docs/recovery-week-policy.md", [
 }
 
 // Deletion happens only on verified import-commit, never on claim binding.
-// (Owner-approved ui-audit shorthand is reconciled openly in ADR 0013 and
-// excluded here by its refinement marker. G-85 row text is checked against
-// its reconciled phrasing rather than exempted: a re-drifted row fails.)
+// ADR 0013 records the authoritative import-commit lifecycle.
 for (const p of SCOPE) {
-  if (p === "docs/ui-audit.md") continue;
   linesOf(p).forEach((line, i) => {
     if (/refin|shorthand/.test(line)) return;
     check(
@@ -537,85 +515,11 @@ for (const p of ["AGENTS.md", "README.md", "docs/adr/0007-shared-setup-links.md"
   check(docs.get(p).includes("v3."), `${p}: shipped v3 setup format not documented`);
 }
 
-// Backlog status honesty: Next remains the long-term queue, with exactly the
-// owner-authorized already-open #255/#257/#258 exception allowed into the
-// post-058 candidate-construction window. Nothing here authorizes leakage into
-// Plan 058 or pulls unrelated Next work forward.
+// The backlog stays a short work list, without a second history or status table.
 {
   const backlog = docs.get("docs/backlog.md");
-  const clearance = docs.get("docs/post-058-open-pr-clearance-sequence.md");
-  const headings = [...backlog.matchAll(/^## \d+\. (.+)$/gm)];
-  const section = (status) => {
-    const i = headings.findIndex((heading) => heading[1].split(/\W/u)[0] === status);
-    return i < 0 ? "" : backlog.slice(headings[i].index, headings[i + 1]?.index ?? backlog.length);
-  };
-  const now = section("Now");
-  const next = section("Next");
-  const nextIntro = next.split(/^\| (?:Pre-059 PR|Order) \|/m)[0].replace(/\s+/g, " ");
-  check(!!now && !!next, "backlog: Now and Next sections must exist");
-  check(
-    /default post-launch-validation queue/i.test(nextIntro),
-    "backlog: Next must remain the default post-launch-validation queue",
-  );
-  for (const pr of ["#255", "#257", "#258"]) {
-    check(nextIntro.includes(pr), `backlog: pre-059 exception missing ${pr}`);
-    check(clearance.includes(pr), `post-058 sequence: missing authorized workfront ${pr}`);
-  }
-  check(
-    /No other Next item is pulled forward/i.test(nextIntro),
-    "backlog: pre-059 exception must stay bounded to the named workfronts",
-  );
-  check(
-    /nothing here may\s+leak into Plan 058/i.test(nextIntro),
-    "backlog: Next work must remain outside Plan 058",
-  );
-  check(!/^\|\s*Next\s*\|/mi.test(now), "backlog: Next status row appears in Now section");
-  check(!/^\|\s*Now\s*\|/mi.test(backlog.replace(now, "")), "backlog: Now status row appears outside Now section");
-
-  const normalize = (value) => value.replace(/[*`]/g, "").replace(/\s+/g, " ").trim().toLowerCase();
-  const nextWork = [...next.matchAll(/^\|\s*\d+\s*\|\s*([^|]+?)\s*\|/gm)].map((row) => row[1].trim());
-  check(nextWork.length > 0, "backlog: Next queue has no ordered work rows");
-  // PR identities are the explicit owner decision; work titles come from the
-  // canonical backlog, so renaming a work item does not require a second enum.
-  const authorizedPRs = new Set(["#255", "#257", "#258"]);
-  const mappingTable = next.match(/^\| Pre-059 PR \| Next work \|\r?\n\|[-| :]+\|\r?\n((?:\|[^\n]+\|\r?\n)+)/m)?.[1] ?? "";
-  const mappings = [...mappingTable.matchAll(/^\|\s*(#[0-9]+)\s*\|\s*([^|]+?)\s*\|$/gm)]
-    .map((row) => ({ pr: row[1], work: row[2].trim() }));
-  check(mappings.length === authorizedPRs.size, "backlog: pre-059 mapping must contain exactly three exceptions");
-  check(new Set(mappings.map(({ pr }) => pr)).size === mappings.length, "backlog: duplicate pre-059 PR mapping");
-  check(new Set(mappings.map(({ work }) => normalize(work))).size === mappings.length, "backlog: duplicate pre-059 Next mapping");
-  for (const pr of authorizedPRs) {
-    check(mappings.some((entry) => entry.pr === pr), `backlog: pre-059 exception mapping missing ${pr}`);
-  }
-  const sequenceRows = [...clearance.matchAll(/^\|\s*\d+\s*\|\s*([^|]+)\|[^\n]+$/gm)]
-    .map((row) => normalize(row[1]));
-  for (const { pr, work } of mappings) {
-    check(authorizedPRs.has(pr), `backlog: unauthorized pre-059 PR ${pr}`);
-    check(nextWork.some((item) => normalize(item) === normalize(work)), `backlog: pre-059 mapping is not an ordered Next item ("${work}")`);
-    const stages = sequenceRows.filter((row) => new RegExp(`${pr}(?![0-9])`).test(row));
-    check(stages.length === 1 && stages[0].includes(normalize(work)), `post-058 sequence: missing or incorrect stage mapping for ${pr}`);
-  }
-  const allowedPre059 = new Set(mappings.filter(({ pr }) => authorizedPRs.has(pr)).map(({ work }) => normalize(work)));
-  // Include engineering Next rows too; adding another queue cannot bypass the
-  // default boundary. Unapproved titles are rejected without reliance on bold.
-  const statusNextWork = [...backlog.matchAll(/^\|\s*Next\s*\|\s*([^|]+?)\s*\|/gm)].map((row) => row[1].trim());
-  const overhaulPlans = readdirSync(join(ROOT, "plans")).filter((name) => /^0(49|5[0-8])-.*\.md$/.test(name));
-  for (const work of new Set([...nextWork, ...statusNextWork])) {
-    check(!now.includes(work), `backlog: Next work is also scheduled as a Now table row ("${work}")`);
-    for (const name of overhaulPlans) {
-      const plan = `plans/${name}`;
-      check(!read(plan).includes(work), `backlog: Next work appears in ${plan} ("${work}")`);
-    }
-    if (!allowedPre059.has(normalize(work))) {
-      check(!normalize(clearance).includes(normalize(work)), `post-058 sequence: unapproved Next work pulled forward ("${work}")`);
-    }
-  }
-  check(
-    docs.get("plans/059-public-launch-ui-validation.md")?.includes("post-058-open-pr-clearance-sequence.md") ??
-      read("plans/059-public-launch-ui-validation.md").includes("post-058-open-pr-clearance-sequence.md"),
-    "Plan 059: post-058 candidate-construction dependency is not recorded",
-  );
-  check(!/already Now|under Now|Now-tier/.test(backlog), "backlog: stale Now-scoped claim");
+  check(backlog.trimEnd().split("\n").length < 120, "backlog: keep the work list under 120 lines");
+  check(!/^## .*Completed|^\|/mi.test(backlog), "backlog: use one line per item, without history tables");
 }
 
 // The slot mapping and exercise diff are exhaustive, deterministic, and

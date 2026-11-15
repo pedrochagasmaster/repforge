@@ -1,391 +1,94 @@
-# Taurifer canonical backlog
-
-**Status:** Living source of truth, reconciled through Q602, the August 2026
-deferred-work review, and the Q603–Q621 advisor-plan triage (September 2026).
-
-**Active initiative:** the owner-approved UI overhaul (Plans 049–059) precedes
-the noncommercial alpha for polish purposes (G-04). It is specified by
-[`docs/ui-audit.md`](ui-audit.md), mapped by
-[`docs/ui-overhaul-implementation-sequence.md`](ui-overhaul-implementation-sequence.md),
-and contracted per decision and finding in
-[`docs/ui-overhaul-disposition-register.md`](ui-overhaul-disposition-register.md).
-Unrelated roadmap items below stay deferred; none may be pulled into an
-overhaul PR to "complete" a surface.
-
-**Owner sequencing amendment (2026-09-28; refreshed 2026-09-29; topology
-amended 2026-09-30):** Plan 058 / PR #256 is complete and merged. Taurifer now
-constructs the actual pre-059 alpha candidate through the bounded sequence in
-[`docs/post-058-open-pr-clearance-sequence.md`](post-058-open-pr-clearance-sequence.md):
-post-058 truth/safety cleanup, the standalone alpha-readiness work developed
-concurrently and integrated one at a time, then one unified redesign PR
-([Plan 064](../plans/064-unified-redesign-convergence.md)) that delivers the
-landing redesign, Direction D / Plan 063 and the onboarding redesign as one
-product, and any owner-selected already-open Next work that clears its own
-gates. Plan 059 remains the final same-SHA launch-validation boundary. This
-amendment does not authorize unrelated Later/Gated work or allow a Next
-feature to leak into Plan 058 itself.
-
-**Governing product sources:**
-[`business-product-thesis.md`](business-product-thesis.md),
-[`ADR 0010`](adr/0010-product-business-thesis-and-validation-sequencing.md),
-[`ADR 0011`](adr/0011-managed-taurifer-ai.md), and the
-[`decision register`](product-grilling-decision-register.md).
-
-This is the repository's only backlog. Plans and specifications explain how a
-bounded piece of work should be built; they do not create a second queue. When
-a plan finishes, its status belongs in [`plans/README.md`](../plans/README.md).
-When a new product idea is accepted, add it here or explicitly reject it.
-
-## Status language
-
-- **Now:** required before the rolling noncommercial alpha or already in the
-  active release-readiness path.
-- **Next:** approved work that follows the current foundation.
-- **Gated:** approved, but starting it before its stated evidence/dependency
-  would create avoidable waste.
-- **Later:** valid work with no current sequencing claim.
-- **Evidence only:** not scheduled; reopen only after observed user or technical
-  evidence makes the problem material.
-- **Completed / superseded / rejected:** not backlog.
-
-Priority is read top to bottom inside a status. The solo founder handles work
-as it arrives; these labels describe dependency and product importance, not
-separate teams or synchronized delivery dates.
-
----
-
-## 1. Now — make the deterministic alpha credible
-
-### Owner triage sequence — 2026-10-28
-
-The owner authorized the October 27 issue-triage addressing order on October
-28. This is the active order within the pre-059 candidate work above; it does
-not release Plan 059 or evidence-gated infrastructure.
-
-| Order | Work and smallest observable success | Dependencies / status |
-|---:|---|---|
-| 1 | #304 installed Android launch, #528 next-workout default, #300 Focus keyboard acceptance; then #529 startup-event delivery, first-working-set milestone and live privacy verification. Launch reaches the shell, next-day reopening starts the next active-program session, and eligible early events reach ingestion with privacy controls verified. | Now. #304's implementation already merged in #305: its issue comment records only physical WebAPK acceptance remaining. Both #304 and #300 still require physical devices. #529 is an umbrella with bounded implementation slices, not one infrastructure project. |
-| 2 | #519 floating rest timer, #521 obscured shelf, #524 set-table readability, #525 audit navigation and #526 date-input clipping. Each control is readable/reachable and opens the promised destination. | Now, after the reliability slices; retain each issue's acceptance contract. |
-| 3 | Design #517 completed-set access, #518 first recommendation explanation and #523 cue hierarchy together, then implement bounded slices. Focus makes the next instruction and prior set accessible and explains the recommendation. | Now, after interaction defects; one coherent Focus design. |
-| 4 | Investigate #527 lossless recipe-plus-edits sharing before server-backed sharing; keep #515 durable session metadata separate. | Next; existing data/privacy contracts apply. #387 remains evidence for #527. |
-
-Run targeted acceptance for older closure candidates #314, #318, #323 and
-#456 alongside this sequence; close only with evidence. Review #487 against
-the current wheel test before retaining it. #315 remains owner-led content
-review; #425 remains release acceptance with transfer deliberately disabled;
-#458 requires a naming decision and does not authorize uniqueness validation.
-#411/#462 and #516/#520 remain bounded maintenance after the sequence above.
-
-This amendment replaces the triage report as an execution queue. GitHub labels
-remain metadata; this file continues to own ordering.
-
-
-| Work | Required outcome | Governing detail |
-|---|---|---|
-| Deliver the owner-approved UI overhaul | Execute Plans 049–059 in DAG order with owner gates honored: reconciled contracts, verified defect fixes, DraftV2/transition/transfer foundations, landing/entry, Focus-only workout, truthful Progress, converged management surfaces, system migration, and same-SHA launch validation. The [post-058 audit](ui-overhaul-plans-049-057-audit.md) closes A01 through PR #284 and keeps A02–A04 open for narrow stage-4 evidence and focus fixes before #255. It assigns N01/N02 to Direction D acceptance and closes A05 with Plan 058 typography proof. No governing current-tense document contradicts G-01–G-88. | [Plan 049](../plans/049-ui-overhaul-canonical-reconciliation.md), [sequence](ui-overhaul-implementation-sequence.md), [dispositions](ui-overhaul-disposition-register.md) |
-| Construct the post-058 pre-059 alpha candidate | With Plan 058 merged, clear stale/duplicate open PRs, reconcile repository truth, land live data-safety/audit blockers and the standalone alpha-readiness work (developed concurrently, integrated one at a time), then integrate the owner-selected landing, Direction D and onboarding redesigns as one unified production PR plus explicitly pulled-forward mature work without weakening their gates. Plan 059 starts only after this candidate can be frozen on one SHA. | [post-058 clearance sequence](post-058-open-pr-clearance-sequence.md), [Plan 064](../plans/064-unified-redesign-convergence.md) |
-| Mobile viewport, touch, and scroll stabilization | Implementation authorized on 4 October 2026 and delivered for verification in PR #308 before the Plan 059 candidate freeze. Restores accessible zoom under ADR 0018, gates hover by capability, completes tap/long-press treatment, contains root/nested overscroll, and caps overlays to the shared visible viewport. Automated evidence is tracked in PR #308; real-device behavior remains unverified and is held by Plan 059. Integrate shared shell/CSS/cache changes serially. | [Plan 066](../plans/066-mobile-native-platform-polish.md), [ADR 0018](adr/0018-accessible-mobile-viewport.md), [interaction device matrix](design/interaction-runtime-device-matrix.md) |
-| Replace generation, catalog ontology and adaptive prescriptions | Owner-authorized on 5 October 2026, before Plan 059 freezes its candidate. Generator 067.2 and its catalog/entry/consumer implementation are present on main at `d0242c46`; this records code presence, not closure of every acceptance gate. Preserve catalog-to-log-to-reload and final launch/device proofs. The owner-approved Plan 073 now governs staged, evidence-gated convergence of generation rules; unaffected progression remains under 067. | [Plan 067](../plans/067-engine-replacement.md), [evidence package](../plans/067/README.md), [Plan 073](../plans/073-generator-rule-parity.md) |
-| Finish launch-readiness evidence | Complete the remaining real-device iOS/VoiceOver and Android/TalkBack cells, with the exact release-candidate build and evidence required by Plan 041. The implementation itself landed in PR #114. | [Plan 041](../plans/041-prelaunch-all-findings-remediation.md) |
-| Alpha data-safety fixes | A lifter's only copy of their data must not be lost or corrupted by a storage failure, a restored backup, or a deploy window. In this order: (1) a failed crash-journal update during a lock-held rebase aborts the write instead of being swallowed; (2) activation on every entry route archives any existing program content instead of discarding it (Q607, Q619); (3) the service worker never stores an error response over a good cached copy. Each lands with its regression test. Standalone PRs, per Q604. | Q604, Q607, Q609; advisor plans [003](../advisor-plans/003-durable-state-rebase-journal-write.md), [001](../advisor-plans/001-setup-link-eligibility-decision.md), [002](../advisor-plans/002-sw-never-cache-error-responses.md) |
-| Truthful session outcomes | The outcome word on a lift must state what the logged sets show. Today a prescribed load increase with the expected rep drop reads "Regressou" beside its own load PR, and a same-load session with one rep fewer reads "Carga alterada" although the load did not change. Replace the `buildSessionDelta` branch order with the owner-approved rule in [`CONTEXT.md`](../CONTEXT.md) "Session outcome" (same load: total reps decide; load up: best-set e1RM decides at ±1 %; load down: Melhorou only on more strength or more volume at similar effort, otherwise not comparable). In the same PR, "Why this weight" names the performed anchor reps instead of capacity reps, and the EN pause label stops saying "Hold". Outcomes are derived at read time, so no history is rewritten. Depends on nothing; replaces nothing. Ported by content from #272 `e43bcb2` into the Plan 064 workfront (#295), ahead of the Direction D surfaces that print these words on every screen; the PT labels move to the Direction D strings with those surfaces. | Owner grilling on PR #264's open questions, 2026-09-25 |
-| Accurate Build and per-side explanations | Make Focus, Today and Why truthful for Build's non-adaptive targets and generated per-side slots. S1 is a data-accuracy fix that separates manual from configuration-required without inventing a load or claiming the lifter selected a silent default. S2–S4 followed in order: per-side History/Progress/CSV reading (#378), per-side engine support (#381), and Build's per-slot load-suggestion opt-in. Each slice stopped at owner review. | [Plan 069](../plans/069-adaptive-build-and-per-side.md) |
-| Alpha measurement producers | The alpha must be able to measure whether lifters follow and understand recommendations. Emit the already-approved `set_saved`, `recommendation_explained`, `exercise_skipped`, and `block_review_viewed` using the Q616–Q618 definitions, and add a CI guard that fails when an approved event has neither a producer nor a reserved reason. No new event or property. Finish before Plan 059's evidence gate. | Q610, Q616–Q618; advisor plan [023](../advisor-plans/023-wire-alpha-trust-telemetry.md) |
-| Browser-persistence mitigation | Pilot data lives only in evictable browser storage. Request persistent storage once after the first completed session (never at first boot), and show in Settings whether the browser keeps Taurifer's data, advising regular backups when it does not. Replaces the deferred pilot-data-protection row; the proactive backup reminder stays Later. | Q606, Q620; advisor plan [024](../advisor-plans/024-pilot-data-durability.md) |
-| The coach layer, Free, before the alpha | Owner decisions of 2026-11-08 ([coach-layer strategy](coach-layer-strategy-2026-11-08.md) §10–§11), one plan each and in this order, all on for every alpha participant: (1) **the effort ladder** ([Plan 078](../plans/078-effort-ladder.md)): words by default with one onboarding question, reps left and RIR merged into one numeric stage (0–4, 5+ stored as 5), the B→C tip retired (D-3, D-15); (2) **session zero** ([Plan 079](../plans/079-session-zero.md)): a guided first session that finds starting loads in words for programs without them, skippable and skipped when loads are known, with a published, versioned priors table (D-2, D-5); (3) **the estimator** ([Plan 080](../plans/080-estimator.md)): `ENGINE_VERSION` 078.x, a per-lift estimate with uncertainty, standing words in the target and Why, test sets requested when unsure under Plan 077's safety ceilings (D-4); (4) **the profile and the thirty-day cadence** ([Plan 081](../plans/081-profile-and-findings.md)): the 0–100 gauge dissolved into counts and standing words, the designed sequence of findings (D-6, D-8); (5) **the weekly review** ([Plan 082](../plans/082-weekly-review.md)): the week's facts and a bounded, approved proposal, both on in the alpha (D-9); (6) the landing's additive change ([Plan 083](../plans/083-landing-test-set.md)): a proof chapter, one band, two FAQ entries, headline and structure kept, no coach comparison in copy (D-1, D-14). The Free/Pro line on (4) and (5), Plan 077 OD-21, the Pro presentation point and the trial's shape are decided after the alpha (D-7 to D-11). | [coach-layer strategy](coach-layer-strategy-2026-11-08.md), [Plan 077 amendments](../plans/077-calibration-free-layer.md) |
-| CI and documentation drift | Agents act on stale orientation docs and on generated files CI never re-checks. Run `build-i18n --check` in CI, with diagnostics that name the drift; guard the install-transfer client against contract drift; correct CLAUDE.md's drifted facts; reconcile the plan index with implemented Plans 055–058 and the post-058 candidate window (Q621). | Q612, Q614, Q621; advisor plans [011](../advisor-plans/011-i18n-generator-check-in-ci.md), [006](../advisor-plans/006-install-transfer-constant-drift-guard.md), [005](../advisor-plans/005-claude-md-stale-architecture-table.md), [004](../advisor-plans/004-reconcile-plan-index-status.md) |
-
-> Advisor-plan items (Q603–Q621) ship as standalone PRs and are never pulled into an overhaul PR (Q604). Most advisor plans edit the shared cache revision: develop them concurrently if useful, but integrate them one at a time, allocating the revision from the then-live `main` at merge time (owner decision, 2026-09-30; clearance sequence decision 6).
-
-> The remaining PR #239 architecture findings are not a second queue. They are absorbed into Plans 054–059 as explicit implementation/acceptance deltas: entry/lifecycle ownership in 054/057; workout-session and gesture ownership in 055; historical projections in 056; release/cache, presentation and obsolete-path convergence in 058; and final architecture/evidence closure in 059.
-
-The measurement foundation, shared progression engine, program families, and
-entry/onboarding flow (Plans 045–048) are implemented; their rows moved to
-Completed below. Do not re-add them as Now work.
-
-The rolling alpha starts organically, one participant at a time, after these
-foundations are credible. There is no synchronized cohort, special research
-onboarding, individual program audit, payment, fake door, or stable entitlement
-promise.
-
-
-## 2. Next — post-overhaul adoption and real-life execution validation
-
-This remains the default post-launch-validation queue. The 2026-09-28 owner
-sequencing amendment creates one bounded exception for the already-open PRs
-#255 (unsupported-grammar measurement), #257 (Free one-offs), and #258
-(historical migration): after Plan 058 merges, they may be completed before
-Plan 059 at the stages and with the STOP conditions recorded in
-[`docs/post-058-open-pr-clearance-sequence.md`](post-058-open-pr-clearance-sequence.md).
-No other Next item is pulled forward by that exception, and nothing here may
-leak into Plan 058. The ordering below remains the product-priority order for
-work that is not being opportunistically cleared under that explicit exception:
-remove switching friction first, then validate how often real-life constraints
-break an otherwise good program before paying the complexity cost of broader
-execution models.
-
-The complete authorized exception mapping is below. Work names refer to the
-ordered Next rows, not a separate product queue. The canonical checker derives
-the workfront mapping from this table and checks it against the clearance stages.
-
-| Pre-059 PR | Next work |
-|---|---|
-| #255 | Unsupported workout-grammar measurement |
-| #257 | Free one-off sessions |
-| #258 | Historical migration foundation — Hevy, Strong, generic CSV |
-
-| Order | Work | User problem / business risk | Smallest observable success condition | Depends on | Scheduling effect |
-|---:|---|---|---|---|---|
-| 1 | Historical migration foundation — Hevy, Strong, generic CSV | An experienced lifter can prefer Taurifer's progression model and still refuse to switch because years of training history are stranded elsewhere. Program import does not solve that switching cost. | Import real Hevy, Strong, and generic CSV histories through a previewable pipeline with source provenance, identity reconciliation, explicit unresolved rows, partial-failure reporting, and no silent merging of non-comparable movements. Imported sessions remain truthful History records. Use the shipped Plan 061 matcher and pull the systematic alias pass into this work only where the migration corpus proves vocabulary gaps. | Plan 061 import matching; History performed-identity contract; a dedicated history-import plan that settles source schemas, duplicate handling, units, dates, eligibility, and rollback before code; [advisor plan 027](../advisor-plans/027-competitor-history-import-spike.md) is that specification spike (Q615). | Replaces the Later `Strong/Sheets CSV import` item. A Sheets export is handled as generic CSV; additional vendor formats remain Later until demand is observed. |
-| 2 | Free one-off sessions | Real training weeks contain travel, limited time, crowded gyms, friend sessions, and extra sessions. Requiring every workout to be a program day makes Taurifer brittle exactly where a gym logger must be useful. | Ship the ratified Free one-off semantics: manual, classic, muscle-focus, and user-directed planned-session adaptation with time/equipment constraints, deterministic review, and honest History/program/progression eligibility. Completing a pure one-off must not complete/reorder/edit the program, inflate block adherence, or advance automatic program progression. | The existing one-off specification; post-overhaul Today/Workout/History contracts; existing draft and durable-state guarantees. | Moves the existing deferred Free one-off work to Next. Pro program-aware one-off planning remains Gated and cannot be sold before it works. |
-| 3 | Ephemeral equipment-context validation through one-offs | Equipment availability changes by gym, travel, crowding, and session. Building persistent multi-gym identity before proving this is common would front-load one of Taurifer's most complex history-comparability problems. | The one-off/adaptation flow can express exact available equipment, deterministic compatible substitutions, and `Minimize equipment changes` without creating a named persistent gym. Collect only approved privacy-safe categorical evidence needed to learn whether users repeatedly switch contexts or hit substitution friction. | Free one-off sessions; canonical equipment vocabulary; substitution identity semantics; telemetry allowlist approval for any new event. | Full persistent equipment contexts/sibling program instances stay Later until this experiment shows repeated need. |
-| 4 | Unsupported workout-grammar measurement | Imported programs contain concepts Taurifer does not execute today. Blindly adding supersets, rest prescriptions, tempo, cardio, or additional set kinds risks turning the product into a generic logger without evidence that those constructs block adoption. | Record privacy-safe categorical counts for unsupported concepts surfaced by the free-form import path — initially `supersets`, `rest_times`, `rir_rpe`, `tempo`, `warmups`, `cardio`, `progression_rules`, and `deload` — without storing source text. The resulting distribution must be sufficient to rank which, if any, executable-model extension deserves a plan. | Shipped free-form import; telemetry/privacy review; the existing unsupported-concept sidecar or an equivalent reviewed categorical contract. | Replaces the vague Later `Free-form import: measure and widen` item. Measurement moves Next; executable grammar expansion remains Evidence only. Measurement is implemented by PR #255 (`program_import_unsupported_concept`, closed category enum, counted once per accepted review); the categorical distribution has not yet been collected. |
-
-Historical migration should not become an importer arms race. After the initial
-three source shapes work, add another vendor only from observed switching demand.
-Likewise, the one-off equipment experiment is intentionally not a shortcut to
-persistent multi-gym: the latter still needs explicit history-comparability and
-machine-identity semantics.
-
-Engineering work that follows the Now data-safety fixes (Q612). These are test
-and tooling changes, not post-overhaul product work, so under Q604 they may
-start as standalone PRs once the crash-journal fix lands:
-
-| Work | Required outcome | Governing detail |
-|---|---|---|
-| DraftV2 store model search | Generated save, stale-save, removal, fault, quota, and reboot sequences never lose or invent a workout draft. Counterexamples become regressions, not in-plan fixes. A bounded slice of the deferred generative expansion. Starts after the crash-journal fix lands. | Q612; advisor plan [009](../advisor-plans/009-generative-draft-store-model.md) |
-| Durable-state fault hook through the host adapter | `durable-state.js` takes its draft fault-injection hook through `configureHost` instead of an undeclared `app.js` global, so Node harnesses can drive every draft path. | Q612; advisor plan [016](../advisor-plans/016-durable-state-fault-hook-via-host.md) |
-
-## 3. Gated — working Pro and paid beta
-
-Payment is blocked until all three Pro jobs and the full commerce lifecycle work.
-
-| Work | Required outcome | Gate |
-|---|---|---|
-| Advanced first-program generation | Specialize one of Taurifer's supported families around priorities and constraints, explain trade-offs, and compile a normal executable program. | Shared engine, families, time/volume allocation specification. |
-| History-aware next program | Use complete or partial history and the exit review to recommend resume, repair, rebase, or switch; select and personalize a supported family with visible confidence. | Lifecycle/history semantics and real transition data. |
-| Bounded within-program adaptation | Detect recurring skips, stalls, overrides, overruns, and schedule mismatch; ask why; propose the smallest cause-matched versioned change; require approval and evaluate the result. | Intervention catalogue and versioned program changes. |
-| Program-aware one-off planning | Recommend the best use of a disrupted session from the active program, recent work, time, and equipment, while leaving the program unchanged and allowing override. | Free one-off semantics working first. Approved Pro extension, not a purchase promise until shipped. |
-| Multi-gym Pro intelligence | Recommend/contextualize sibling mappings and program changes across equipment contexts without merging incomparable machines. | Core equipment-context identity working first. Approved Pro extension, not a purchase promise until shipped. |
-| Capability and entitlement system | Capability-based checks; twelve-month annual/monthly terms; expiry, restoration, cancellation, refunds, purchase reconciliation, and lapse behavior with no clawback. A dedicated ADR records the lifecycle (provider, Pix and card, device-side token, restoration, refunds, reconciliation) before any funnel work (owner, 2026-11-08, D-13). Where Pro is first presented and the trial's shape are decided after the alpha (D-10, D-11); the [coach-layer strategy](coach-layer-strategy-2026-11-08.md) §6 records the proposed target. | Working Pro capabilities. |
-| Paid commercial beta | Offer R$24.90/month and R$179.90/year; report purchase, attempt, complementary research access, and product use separately. | Complete Pro MVP and commerce lifecycle. |
-
-## 4. Gated — after paid-beta economics
-
-| Work | Required outcome | Trigger |
-|---|---|---|
-| Managed Taurifer AI | Managed, adult, PT-BR-first contextual proposals and explanations under ADR 0011: evaluated providers, zero retention, EU service data, consented/redacted research, memory controls, allowances, support controls, numeric release gates, and emergency shutdown. | Deterministic paid beta proves credible economics. |
-| Full cross-program dashboards | Useful comparison across program versions/blocks without turning raw history into decorative analytics. | Enough multi-program history and renewal evidence. |
-| Multi-block planning and long-horizon analysis | Plan and evaluate several blocks while preserving bounded user-approved decisions. | Cross-program evidence and demonstrated demand. |
-| Optional synchronization | Additive sync that never makes core training or record ownership depend on the server. | Retained users demonstrate a real multi-device/durability problem. |
-| Native shell | Wrap, not rewrite: native persistence, billing, lifecycle, notifications, and links around the tested web core. | Retention/monetization or measured PWA limitations justify it. |
-| Creator conveniences and broader acquisition | Publisher dashboards, larger creator pilots, paid acquisition, and other scalable distribution work. | Retention and monetization work first. |
-
-## 5. Product and UX debt
-
-These are real but do not outrank the foundation above.
-
-| Status | Item | Decision needed / done condition |
-|---|---|---|
-| Completed | Import exercise matching | Implemented by [Plan 061](../plans/061-import-exercise-matching.md) in PR #230: stopword/equipment/containment scoring, up to three ranked candidates per review row, fixture-gated aliases, and identity-preserving regressions for historical movement IDs. |
-| Later | Pound display and actionable increments | Design one end-to-end lb contract for stored historical values, editable targets, load steps, `minJump`, entry parsing, and “Why this weight?” copy. Never falsify history to make a target look loadable. |
-| Later | Truthful early workout finish | Let the user finish with incomplete planned work while preserving completed sets and explicitly classifying omitted work; do not pretend the whole prescription was completed. |
-| Later | PT-BR bundled/default day labels | Localize Taurifer-authored day labels or deliberately model them as user-owned data with authored PT-BR defaults. Do not mix English `Day N` into a Portuguese first-run program by accident. |
-| Later | Swapped-workout headings | Keep the immutable performed/program title separate from a temporary swap annotation; do not rewrite durable history labels to explain a one-session substitution. |
-| Later | Manual-slot authored load | Direction D draws a manual slot's program-authored load (Plan 064 RF-4, owner decision on #295). Add it as a program field end to end: schema and boot sanitizer, editor, free-form import, the setup-link codec with its released-format compatibility (ADR 0007), and the Today, Program and Focus rows that would show it. Until then manual rows show sets × range and "manual" with no load. |
-| Later | Refused setup-link cookie | A refused or invalid setup link leaves the `repforge_setup_v1` cookie set (Plan 064 R7 J N-5, recorded on #295). ADR 0007 does not say whether refusal clears it. Decide that in ADR 0007 before changing it: the cookie is setup-link storage, not a display detail. |
-| Later | Remaining native confirmations | Move destructive/discard confirmations into the shared accessible dialog policy without changing their transaction semantics. |
-| Later | ~~Focus/List preference~~ → Superseded | Superseded by G-22: Focus is the sole workout-logging experience. No List preference persists. |
-| Later | “View exercises” contract | Owned by the overhaul (G-44, UI-25; Plans 055/057): Today's secondary action becomes a real read-only preview. Do not rename it as a stopgap. |
-| Later | Progress drill-down and table affordance | Owned by the overhaul (G-34–G-36, UI-08; Plan 056): summary rows with drill-in detail; full tables only as secondary or export views. |
-| Later | Volume-signal explanation | Owned by the overhaul (G-30–G-31, G-35; Plan 056): weekly status separated from actionable evidence with neutral baselines. |
-| Later | Full factory reset | If added, explicitly distinguish clearing logs, deleting all local Taurifer data, and resetting the installation identifier. Preserve export warnings. |
-| Later | One-tap `+1 rep` | Test whether it materially improves active-set speed without creating accidental commits. |
-| Later | Client-side encrypted export | Use a separately reviewed Web Crypto/passphrase design with recovery and failure behavior. Bad crypto is worse than none. |
-| Later | Additional historical migration sources | After the Next Hevy/Strong/generic-CSV foundation is in real use, add another vendor format only when switching research or failed-import evidence shows material demand. Preserve the same provenance, identity-reconciliation, preview, duplicate, unit/date, and partial-failure guarantees; do not chase format count as a feature metric. |
-| Later | Publisher attribution (deferred) | Unrelated to the overhaul: versioned publisher name, handle, description, and referral id with safe creator-specific acquisition events. Attribution is provenance, never engine input. Reopen only before creator pilots with a new scheduling decision. First step when scheduled: the versioning and URL-size spike, [advisor plan 026](../advisor-plans/026-publisher-attribution-spike.md) (Q615). |
-| Later | Equipment contexts and sibling program instances (deferred) | Persistent two- or three-gym contexts, curated sibling mappings, comparable free-weight history, separate non-comparable machine histories, and explicit crowded-gym substitutions. Do not schedule from competitive parity alone: first use the Next one-off equipment experiment to establish repeated context switching/substitution demand, then require a new scheduling decision for persistent identity. |
-| Later | Cause-routed interventions (deferred) | Unrelated to the overhaul: per-issue evidence, diagnosis question, permitted change, cooldown/ignore behavior, and reassessment window. Reopen with a new scheduling decision. |
-| Later | General lifecycle/friction observability (deferred) | Only the Phase 049-approved telemetry allowlist is scheduled (see Completed: Plans 045–048 are done; the overhaul row governs). Persisting general transition/skip/override/friction/reason catalogues beyond that needs a new product decision. Submitted free text stays on the separate consented research path, never PostHog. The owner approved adoption and friction coverage on 2026-10-11 ([Plan 071](../plans/071-telemetry-coverage.md)): the onboarding funnel, editor actions, landing and install, block transitions and settings, all as closed enums. Reason catalogues and free text remain excluded. |
-| Later | Program lifecycle and next-program transition (deferred) | Broader than the audit-bounded transition work owned by Plans 052/056: archiving, starting another program of any authorship, and honest partial-history interpretation as general lifecycle. Reopen with a new scheduling decision once the overhaul lifecycle is in place. |
-| Gated | Existing-user shared-program handoff | A reviewed, non-destructive replacement/transition flow for setup links, preserving ADR 0007's released payload contracts and reusing the entry hub's archive-and-replace activation. Gate: an owner-approved design ([advisor plan 025](../advisor-plans/025-existing-user-setup-link-handoff.md), Phase 1) before any participant receives a second coach program (Q615). Product/UX work, so it waits for the overhaul (Q604). |
-| Later | Generative/model-based journey expansion (deferred) | Exercise onboarding, generation, strategies, long histories, skips, stalls, overrides, interruptions, abandonment, transitions, and version migrations as a general program. Overhaul plans specify their own required test evidence; broader expansion needs a new scheduling decision. Keep seeds and minimize failures. |
-| Later | Proactive backup reminder | The remainder of pilot-data protection after the Now browser-persistence mitigation (Q606, Q620): an action-linked backup cue through the guide registry that does not nag. Needs an owner-approved design before building. Must not make a fresh device ineligible for install transfer. Do not turn it into premature cloud sync. |
-| Later | Bodyweight and relative-strength trends | Add only when enough users log bodyweight and the view answers a real question; never turn bodyweight-normalized strength into a universal training score. |
-| Evidence only | Larger chart ranges/global period | Reopen 12/26/52-week selection or one global Progress period only if users cannot answer real questions with the current scoped controls. |
-| Evidence only | Landscape-specific layout | Keep responsive correctness; build a dedicated landscape treatment only after real use shows value. |
-| Evidence only | History virtualization beyond current gate | Current linear index is tested at 5,000 sessions/20,000 rows. Add pagination/virtualization only when measured devices cross a performance budget. |
-| Evidence only | Web Push and extra reminder types | Reopen a server sidecar, backup/block-end reminders, or explicit schedule UI only when installed-PWA/local notifications fail a demonstrated retention or safety need. A proactive backup cue is the Later "Proactive backup reminder" item above, not a push notification. Unrelated to the one-hour install-transfer exception ([ADR 0013](adr/0013-temporary-install-transfer.md)), which is not a notification or reminder path. |
-| Evidence only | Encrypted server-backed setup links | The released self-contained setup formats remain canonical. A setup link carries a generated program as its regeneration recipe, and an edited generated one as that recipe plus its edits while the current generator still regenerates it (#527: light and typical review edits fit); a Build or imported program, or a generated one from an earlier generator, must carry its full definition, which exceeds the link limit (about 12,500 characters against 3,072). Since PR #312 the sheet then offers **Share as file** instead of a dead end. Candidate design if evidence reopens it: encrypt the setup payload in the browser and keep the key only in the URL fragment, so the server stores ciphertext it cannot read; store it in the existing EU-jurisdiction install-transfer service ([ADR 0013](adr/0013-temporary-install-transfer.md)) rather than a new database; cap payload size, expire links (30–90 days), rate-limit creation, name the processor in the share consent and the Privacy page; record a new ADR because it amends [ADR 0007](adr/0007-shared-setup-links.md)'s "no hosted program store". A smaller alternative is a recipe-plus-edits link form. **Reopen when** production `share_setup_outcome` (see [dashboard recipe](measurement/posthog-dashboard-recipes.md#dashboard-program-sharing)) shows, over at least 50 installations attempting a link on the current release: `link_refused` on 10% or more of attempts, or refused attempts that do not reach `file_shared` within an hour on half or more of installations. Use `program_kind` and `size_vs_limit` to pick the fix: refusals that are mostly `generated_edited` point to the recipe-plus-edits form; refused `manual` or `other` programs, or anything `over_4x`, point to the server store; refusals only just `over_limit` may need no more than a leaner full form. The install-transfer token is a separate one-hour claim object, not a setup-link format. |
-| Evidence only | Per-exercise units or plate calculator | First solve the end-to-end lb/load-step contract. Add equipment-specific loading tools only from observed logging friction. |
-| Evidence only | Executable workout-grammar expansion | Add a currently unsupported construct only when the Next categorical measurement plus direct user evidence shows it blocks meaningful program adoption or execution. Candidate concepts include supersets, explicit rest prescriptions, tempo, additional set kinds, timed/cardio work, or imported progression/deload rules. Extend the executable/history/progression model deliberately per construct; do not accept richer import JSON that the engine cannot truthfully execute. |
-| Evidence only | ~~Opener fallback/backdrop dismissal/coach marks~~ → Superseded in part | Superseded in part by G-40: the global tour is removed in favor of action-linked contextual cues (Plans 054–057 own the registry and anchors). Reopen per cue only with a reproduced accessibility or comprehension problem. |
-| Evidence only | ~~Broad Focus/Program/Block redesign~~ → Superseded | Superseded by the owner-approved overhaul (G-02–G-04): whole-product polish, not partial cleanup. File specific observed problems against the overhaul contracts instead. |
-| Completed | Free-form program import | "I already have a program" almost never meant a Taurifer file. The import route now has a paste door: the lifter's free-form program is wrapped in a reviewed prompt and handed to their own ChatGPT or Claude through a link they tap, and the reply comes back through the existing import review. No key, account, backend or LLM dependency, and no front-running of ADR 0011. See [ADR 0014](adr/0014-free-form-program-import-handoff.md). |
-| Completed | No bundled program before onboarding | Backing out of setup used to leave a bundled three-day program presented as the lifter's own. A device that has not been through onboarding now holds no program, and Today and Program say so and offer the entry hub. |
-| Completed | Catalog the two no-program screens | `today/no-program` and `program/no-program` now use the empty-entry fixture and have localized light/dark reference frames generated with the pinned browser. |
-| Completed | Program generation engine overhaul (Plan 065) | Compiler 3 adds authored function-aware exercise selection, week-aware ranking and explicit dose fitting; documented with the audited residuals in ADR 0017 (PR #306). |
-
-## 6. Engineering debt
-
-> The former draft-result-contract and persistence-extraction debt items were promoted by owner decision into the post-Plan053 architecture bridge in the Now sequence. They are no longer independent Later work.
-
-### Post-overhaul modularity rule
-
-Modularity is a standing implementation constraint, **not** a new standalone
-refactor programme. Plans 055–059 already own the remaining accepted
-architecture-audit work: workout-session ownership, gesture lifetime, entry and
-management workflow ownership, earned historical projections/vocabulary reuse,
-release/source coverage, obsolete-facade removal, and final proof that there is
-one authority per responsibility. Finish those dispositions through the normal
-overhaul sequence before inventing a second architecture queue.
-
-After Plan 059, preserve the architecture review's target: a statically deployed
-application composed from a **small number of deep JavaScript modules with
-outcome-oriented interfaces**. `app.js` should increasingly act as the
-application host/composition layer — boot, wiring, routing of user intent, and
-render coordination — rather than becoming the default home for new domain
-algorithms or lifecycle protocols.
-
-Apply a strangler rule to post-overhaul work:
-
-1. New substantial domain behavior starts behind an owned module/interface when
-   it has a real boundary; do not first grow a large implementation inside
-   `app.js` with a promise to extract it later.
-2. Historical migration must keep source parsing/normalization, provenance,
-   reconciliation, duplicate/unit/date policy, and import outcomes behind an
-   importer boundary that reuses the existing identity matcher rather than
-   scattering vendor conditionals through the application host.
-3. One-off planning must keep deterministic time/equipment/focus planning and
-   program-versus-one-off eligibility semantics outside the renderer/host; the
-   accepted session result is consumed by the existing workout-session owner
-   rather than creating a second workout store or lifecycle.
-4. Future persistent equipment-context intelligence, if evidence earns it,
-   receives its own domain ownership and must not become a collection of
-   cross-cutting `app.js` conditionals.
-5. Existing code moves only when extraction materially reduces coupling,
-   establishes one authority, makes scheduled work safer, or earns reuse from
-   real consumers. Moving helpers into more files without hiding implementation
-   details is not progress.
-6. When a new owner replaces an old path, migrate callers and delete the old
-   implementation/facade once its compatibility duty is finished. Do not leave
-   dual authorities.
-7. Do not introduce a framework rewrite, repository/service-container layer,
-   event bus, global dependency-injection system, package-manager migration, or
-   one-file-per-helper architecture merely to make the tree look conventional.
-
-Success is measured by **ownership and caller knowledge, not `app.js` line
-count**. A smaller host with callers that still understand draft receipts,
-replica settlement, recovery timing, transition internals, or another module's
-lifecycle is not a successful refactor. The governing rationale and accepted
-owner map remain
-[the architecture refactoring plan](taurifer-architecture-refactoring-plan.md).
-
-| Status | Item | Boundary |
-|---|---|---|
-| Gated | Converge deterministic generation on recovered rules | Owner-approved contract, 15 October 2026. [Spec](generator-rule-parity-spec.md) and [Plan 073](../plans/073-generator-rule-parity.md): Upper/Lower/Full first, then all identified divisions and configurations. No variable hidden seed; independent muscle priorities; duration as budget. Each change waits for its recovered rules and end-to-end proof. No backward-compatibility requirement; preserve readable data and require explicit reset of incompatible data. Generator 073.4 implements the 13 split identities, 17 frequency variants, three goals/experiences, six budgets, four periods and an additional first/last deload. The previous generation path is removed. Implementation and independent source/consumer review are complete; [A01–A10/G01–G14 evidence](../plans/073/implementation-status.md) records the exercised contracts. Acceptance requires green `ci` on the final head of [PR #422](https://github.com/pedrochagasmaster/repforge/pull/422/checks), with the delivered visual evidence reviewed. The PR Checks are the canonical result; this entry does not anticipate it. No new launch deadline imposed. |
-| Next | Systematic exercise alias pass | Supporting slice of the Next historical-migration work, not an isolated vocabulary project. Extend `tools/exercise-curation.json` with gym vernacular, acronyms and morphological variants in EN/PT from the migration/import corpus, prioritizing observed names over speculative synonym enumeration. Plan 061's fixture-gated identity rules remain authoritative: aliases add ways to reach an entry and never repoint a `libraryId` at a different movement. |
-| Later | Centralize browser-test helpers | Unify app boot, lock fixtures, state seeding, and common browser assertions without hiding test intent. |
-| Later | Render and search history scans | Today recomputes each recommendation several times per render, and the exercise picker rescans history per keystroke. Memoize within one render and cache per log identity, proven by deterministic row-visit counts with unchanged output. After the overhaul (Q611). See [advisor plans 007](../advisor-plans/007-today-render-history-scans.md) and [008](../advisor-plans/008-exercise-picker-keystroke-cost.md). |
-| Later | Replace fixed test sleeps | ~399 `waitForTimeout` calls; start with `test/simulation.mjs` (127, ≥ 20.8 s per run). Wait on observable state instead; no assertion weakened (Q612). See [advisor plan 015](../advisor-plans/015-replace-fixed-sleeps-in-simulation.md). |
-| Later | Small correctness hardening | Reachable fallbacks for dynamically built i18n keys; the usual training hour computed across midnight; setup-link URL helpers that fail closed without ever widening the cookie path (Q613). See [advisor plans 012](../advisor-plans/012-i18n-dynamic-key-fallbacks.md), [017](../advisor-plans/017-usual-hour-circular.md), [020](../advisor-plans/020-shared-setup-url-parse-hardening.md). |
-| Later | Vendored-runtime build tool refresh | Bump the build-time esbuild pin, with runtime-budget and browser equivalence evidence (Q613). See [advisor plan 014](../advisor-plans/014-bump-vendor-build-esbuild.md). |
-| Evidence only | CI browser-install cache | Measured at 19–26 s per parallel job. Reopen when browser lanes approach their timeout or CI cost becomes a problem (Q608). See [advisor plan 010](../advisor-plans/010-ci-playwright-browser-cache.md). |
-| Evidence only | Single-language i18n catalogs | EN is the mandatory fallback and the market is PT-first. Reopen for an English-first launch or measured boot-time complaints, starting with the measurement spike (Q608). See [advisor plan 021](../advisor-plans/021-i18n-catalog-split-spike.md). |
-
-> Duplicate `app.js`/`durable-state.js` validators and thirteen unreferenced `app.js` functions fold into Plan 058's obsolete-path removal rather than a separate item (Q613); see [advisor plans 013](../advisor-plans/013-dedupe-durable-state-validators.md) and [019](../advisor-plans/019-remove-dead-app-functions.md).
-| Completed | History identity/search contract | Current History matching uses performed library/movement identity for aliases and preserves immutable performed labels; focused tests hold the rule. |
-| Completed | Fast-check foundation | The framework exists. The remaining work is expanding domain/state-machine coverage listed under deferred generative expansion, not choosing another property-testing library. |
-
-## 7. Completed, superseded, or rejected
-
-Do not re-add these as backlog without new owner evidence.
-
-### Completed or absorbed
-
-- The post-Plan053 durable-state architecture bridge is implemented in PR
-  #240 and merged at `3710f34bb677c59674a3677c03d2fc1427e07cef`.
-  `durable-state.js` owns the normalized outcome, settlement, recovery, WAL,
-  replica, and DraftV2 transaction-sidecar contracts. Plan 054 followed this
-  bridge; the current workfront is governed by the post-058 clearance sequence.
-
-- Plans 045–048 are implemented (measurement foundation, shared progression
-  engine, program families/compiler, program entry/onboarding). Their former
-  Now rows above are closed; follow-up work belongs to the overhaul or a new
-  scheduling decision, not to these plans.
-
-- Plans 001–028, 030–037, 039, 042, and 043 are implemented. Plan 024's mesocycle
-  lifecycle/build work also shipped; its old draft banner was documentation
-  drift, not unfinished product work.
-- The pre-launch findings in Plan 041 shipped in PR #114. Only the physical-
-  device evidence cells remain.
-- The mic emoji was replaced by the current icon system.
-- The short “essentials” idea is covered by the shipped trim behavior and the
-  approved time-constrained one-off design; it is not a separate readiness
-  generator.
-- Progression-rule explanation is covered by the shipped “Why this weight?”
-  surface and the maintained mechanics documents; there is no separate
-  “export rules document” task.
-- Import merge, warm-up flags, PR ledger, mesocycle fields/lifecycle,
-  substitutions, notifications, and setup links all shipped; their old plan
-  “backlog” notes describe pre-implementation context.
-- The old feature tracker described a much earlier application and is removed.
-  Executable tests and current specs are the source of behavioral truth.
-
-### Superseded
-
-- BYOK/browser-direct AI, provider keys, Ollama/custom endpoints, ADR 0002, and
-  Plan 038 are superseded by managed Taurifer AI under ADR 0011.
-- Copied/named classic program templates and program-specific progression
-  engines are superseded by Taurifer-owned families plus the shared engine.
-- Plan 029's old four-phase roadmap and the old Wave/backlog narrative in the
-  plan index are superseded by this backlog and the Q602 strategy.
-- Fake doors, annual-only/three-price experiments, manual timeless Pro codes,
-  special research onboarding, individual participant program audits, and a
-  synchronized cohort are superseded by the rolling-alpha/working-Pro sequence.
-- A separate missed-day/rigid-calendar overhaul is not currently authorized;
-  current program order, Choose another day, one-offs, and transition behavior
-  own the real cases. Reopen only from user evidence.
-- Coach snapshots/log sharing, a two-athlete buddy optimizer, reusable one-off
-  templates, and automatic progression credit for pure one-offs are not
-  authorized follow-ups. They require a new product decision rather than an
-  old specification's “deferred” label.
-- Changing recover/stall windows, fatigue thresholds, or adding set-collapse
-  heuristics is model-tuning work only after real evidence; it is not standing
-  feature scope.
-- The pre-overhaul alpha-before-polish ordering is superseded by G-04: broader
-  visual and structural overhaul work moves ahead of the noncommercial alpha,
-  with the measurement, engine, family, and entry foundations continuing in
-  parallel.
-
-### Rejected
-
-- Powerlifting/meet preparation in the initial product.
-- Social feed, leaderboards, streaks, badges, XP, and PR-sharing community.
-- Full coach CRM/SaaS, billing/scheduling/nutrition/messaging for trainers.
-- Wearable/HRV/readiness dashboards or injury diagnosis.
-- Form-check video empire, a launch marketplace, a sixth navigation tab, or a
-  default white-label product.
-- Mandatory accounts/cloud storage for Free/core training.
-- A root `.editorconfig` (advisor plan 018): the tree has no whitespace
-  problem; re-propose only if whitespace churn appears in reviews (Q608).
-
----
-
-## 8. Maintenance rule
-
-Every new backlog entry must state:
-
-1. the user problem or business risk;
-2. the smallest observable success condition;
-3. what it depends on;
-4. whether it is Now, Next, Gated, Later, or Evidence only; and
-5. which existing item it replaces, if any.
-
-For substantial post-overhaul implementation work, the plan must also identify
-the domain owner/interface it extends or justify a new deep module boundary.
-Defaulting new domain behavior into `app.js`, or extracting code only to reduce
-file size, is not an acceptable architecture rationale.
-
-Do not preserve an idea merely because an old audit mentioned it. Do not delete
-an accepted decision merely because implementation is inconvenient.
+# Taurifer backlog
+
+The only list of open, deferred and paused work. Order is top to bottom within each section; plans are implementation history and contracts, not another queue.
+
+## Now (before alpha)
+
+- Plan 059: validate one release candidate end to end on one commit, including accessibility, privacy, telemetry, offline and update behavior.
+- Owner pre-launch actions, #425: publish the release note asking senders to re-share old program links, provision `TRANSFER_ALERT_GITHUB_TOKEN`, and decide when Plan 059 starts.
+- Run one current real-phone pass: install, install transfer, a full workout with the keyboard and 200% text, a setup link opened into the installed app, Android installed-app launch, program generation and Your profile, plus wheel/sheet/dock behavior; include iOS/VoiceOver and Android/TalkBack on the release candidate.
+
+## Waiting on owner
+
+- #762 dumbbell weight ladder: built and green; choose the lb ladder and confirm whether a movement's own load step overrides the ladder while the global step does not.
+- #315 Portuguese exercise names: use the existing review tool, resume progress from `backup/2026-10-15/pt-name-review-progress`, and publish approved names and aliases.
+
+## After alpha (Next)
+
+- Import Hevy, Strong and generic CSV history with preview, source provenance, movement reconciliation, duplicate/unit/date rules, partial failures and rollback.
+- Free one-off sessions: manual, classic, muscle-focus and time/equipment adaptation; pure one-offs never advance or reorder the active program or its progression.
+- Validate temporary equipment contexts through one-offs: exact available equipment, compatible substitutions and fewer equipment changes; measure repeated switching before adding persistent gyms.
+- Collect alpha data on unsupported import concepts; categorical measurement shipped in #255, and executable grammar expansion waits for evidence of blocked adoption.
+
+## Bugs after alpha
+
+- #692: after another tab commits, Review → Confirm → Try again repeats stale errors until reload; with a pending reduce-volume journal and a removed typed set, retry keeps the successor while reload rolls back; reproduce both and reconcile settlement without losing draft bytes, including read-throw/corrupt journals that claim settled then refuse retry.
+- #698: hold a rest-preset save, tap a later preset, then fail the held save; the old write still announces a storage error although the latest preset owns the clock; decide whether that error should be silent.
+- #704: reproduce Escape leaving History's delete confirmation open, Library reload adding Back entries with no visible change, text inputs dragging sheets about 8 px, a second finger taking over a held stepper, and an ended rest returning after both remove/write fail and the tab is lost; fix only cases still present.
+- #314: large archived blocks still take about 290 KB; per-set metric definitions were deduplicated, so measure repeated provenance and long set IDs before a reviewed compact-schema migration and size proof.
+
+## Paid tier (gated)
+
+- Advanced first-program generation: specialize supported families around priorities and constraints, explain trade-offs and produce an executable program; requires the shared engine and allocation rules.
+- History-aware next program: recommend resume, repair, rebase or switch from complete or partial history; requires lifecycle semantics and real transition data.
+- Bounded within-program adaptation: go beyond Free's shipped Plan 082 weekly-review adaptations; ask why, propose one cause-matched versioned change, require approval and evaluate it.
+- Program-aware one-off planning: suggest a disrupted session from recent work, time and equipment without changing the program; requires working Free one-offs.
+- Multi-gym intelligence: suggest equipment mappings without merging incomparable machine histories; requires proven persistent equipment-context identity.
+- Entitlements: record the provider, Pix/card, expiry, restoration, cancellation, refunds, reconciliation and no-clawback behavior in an ADR before funnel work; requires working Pro capabilities.
+- Your profile paywall design: the owner's post-alpha choice; everything stays Free in alpha, and payment, lapse or refusal never changes saved evidence or ring fill.
+- Paid beta: offer R$24.90/month and R$179.90/year only after all three Pro jobs and the full commerce lifecycle work; distinguish paid, attempted and research access.
+
+## After paid-beta economics
+
+- Managed Taurifer AI under ADR 0011: contextual, approved proposals with privacy, provider evaluation, allowances and shutdown controls; no account or LLM dependency in core.
+- Cross-program dashboards: add comparisons only when multi-program history and renewal evidence show a useful question.
+- Multi-block planning: preserve bounded user-approved changes; requires cross-program evidence and demand.
+- Optional sync: core training and record ownership stay independent of the server; requires a demonstrated multi-device or durability problem.
+- Native shell: retain the tested web core and add native persistence, billing, lifecycle, notifications and links only when retention, monetization or measured PWA limits justify it.
+- Creator publishing conveniences, larger pilots and paid acquisition: wait for retention and monetization evidence.
+
+## Later / evidence-only
+
+- Pound display: settle one truthful lb contract for history, targets, increments, `minJump`, parsing and Why; equipment-specific units and a plate calculator wait for observed friction.
+- PT default day labels: localize app-authored names or explicitly treat them as user data with PT defaults.
+- Swapped-workout headings: keep immutable performed/program titles separate from temporary swap annotations.
+- Manual-slot authored load: carry the field through schema, sanitizer, editor, import, setup links and Today/Program/Focus without inventing a load for manual rows.
+- Refused setup-link cookie: decide in ADR 0007 whether refusal clears the proposal cookie before changing its behavior.
+- Native confirmations: replace remaining destructive/discard `confirm()` calls with the accessible dialog policy while preserving transaction semantics.
+- Factory reset: distinguish deleting history, all device data and the installation identifier, with export warnings.
+- One-tap +1 rep: test whether faster logging outweighs accidental commits.
+- Encrypted export: review passphrase, recovery and failure behavior before implementing client-side encryption.
+- More history-import vendors: add only after the Hevy/Strong/CSV foundation sees real switching demand.
+- Publisher attribution: version publisher name, handle, description and referral id before creator pilots; provenance never affects recommendations or restyles the app.
+- Persistent gym contexts and sibling programs: wait for repeated equipment switching; specify machine identity and comparable history before building.
+- Cause-routed interventions beyond weekly review: define evidence, diagnosis, permitted change, cooldown and reassessment only after a new scheduling decision.
+- General friction/reason telemetry: closed-enum adoption coverage shipped; broader reason catalogs require a product decision and free text stays outside telemetry.
+- Broader program lifecycle: revisit archiving and next-program transitions across authorship only from unmet cases beyond the shipped block lifecycle.
+- Existing-user setup links: design non-destructive archive-and-replace before a participant receives a second coach program; retain released payload compatibility.
+- Backup reminder: design an action-linked, non-nagging cue that preserves fresh-device transfer eligibility; no cloud sync shortcut.
+- Bodyweight and relative-strength trends: add only when enough logged bodyweight answers a real user question; no universal strength score.
+- #387 larger-program setup links: use refusal/file-share data to reassess demand; Build/manual programs already have Share as file, so no hosted store is authorized without evidence and a new ADR.
+- Managed-import validation: build an independently annotated, consented real-program holdout and measure completion, activation and cost before promoting prompt/configuration changes; keep source text out of telemetry.
+- Explain "e1RM" in plain language on Progress without changing the figure or its limits; owner option.
+- Larger chart ranges or a global period: reopen only when scoped controls fail real questions.
+- Landscape layout and history virtualization: preserve responsive behavior; add dedicated layout or paging only after observed value or measured device limits.
+- Web Push and extra reminders: require installed-PWA notification failures that affect retention or safety; backup cues remain separate.
+- Executable workout grammar: add supersets, rest, tempo, set kinds, timed/cardio or imported rules only when measured omissions block adoption and the engine can execute them truthfully.
+- Contextual guides and further visual changes: require a reproduced accessibility/comprehension problem and current owner-approved design; do not revive old audit batches or change approved modal tips from an old proposal.
+- Exercise illustration style, former #296: owner chooses replacement scope, figure, licensed pose sources and thumbnail crop; approve six representative drawings before replacing any of the 96 licensed images.
+- Social recruitment, former #282: after alpha opens, decide founder channels and capacity, use real shipped proof in PT-BR posts and recruit one participant at a time; no invented users or claims.
+
+## Engineering
+
+- DraftV2 store model search: generate save, stale-save, removal, fault, quota and reboot commands through production interfaces; turn minimized counterexamples into regressions.
+- Durable-state fault hook: inject draft faults through `configureHost`, replacing the undeclared host global and updating the model harness.
+- Transfer-client constant drift: verify or add endpoint and size/identifier-limit assertions against the shared contract; the existing parity suite does not prove every duplicated constant.
+- Browser-test helpers: share boot, locks, seeding and common assertions without hiding test intent.
+- Render/history scans: memoize recommendations per render and picker lookups per log identity, with deterministic row-visit counts and unchanged output.
+- Fixed test sleeps: replace waits with observable state, starting with the simulation; preserve every valid assertion.
+- Small correctness hardening: reachable dynamic-i18n fallbacks, usual training hour across midnight, and setup URL parsing that fails closed without widening cookie paths.
+- Vendored build tooling: refresh the build-time esbuild pin with payload and browser-equivalence evidence; no application dependencies.
+- Browser-install caching and split-language catalogs: reopen only from CI cost/time or boot complaints; EN remains the mandatory fallback.
+- Generative journeys: expand production-backed onboarding, long histories, skips, overrides, interruptions, transitions and migrations with seeds and minimized failures when scheduled.
+- Paused architecture migration, former #447/#448/#467: no automatic resume; remeasure current main and get owner scheduling before native ESM, strict JS checking and named commands; preserve durable/offline/transfer protocols, old-worker upgrades and rollback, port retained suites and validate the assembled release before cutover.
+- If architecture migration resumes, recheck its unvalidated restored-suite ports, Program Lab native imports, editor/guide catalog states and migration-only answer-rebuild, superseded-motion and import-copy defects; none is a proven main defect.

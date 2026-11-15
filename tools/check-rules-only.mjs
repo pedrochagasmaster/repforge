@@ -2,8 +2,7 @@
 /**
  * Rules-only audit (Plan 064 R6a).
  *
- * The treatment table in docs/design/plan-064-reconciliation.md classes 64
- * states `rules only`: Direction D does not draw them, so each keeps its layout
+ * RULES_ONLY_STATES owns the retained shared-rule coverage. Each state keeps its layout
  * and follows the shared rules (Plan 064 section 8) and nothing else. This
  * audit renders every one of them in PT and EN at 360 CSS px and checks:
  *
@@ -25,7 +24,7 @@
  *   node tools/check-rules-only.mjs --onboarding            the accent budget over every onboarding-* state (R7 V-12)
  *   options: --locale pt|en  --theme light|dark  --evidence <file.json>  --verbose
  */
-import { readFileSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ROOT, loadManifest } from "./ui-screens/manifest.mjs";
 import { APP_CLOCK, APP_SCENARIOS, APP_USER_AGENT, appState } from "./ui-screens/screens-app.mjs";
@@ -36,7 +35,7 @@ import {
   ORANGE_ALLOWLIST, ORANGE_CATEGORIES, OVERFLOW_EXCEPTIONS, checkOrange, checkOverflow, checkTargets, gateManifest, gatherEvidence, validateGateConfig,
 } from "./check-direction-d.mjs";
 
-/** The 62 screens whose treatment is `rules only` in the "Surface treatment table". */
+/** Retained shared-rule coverage; new states belong in the catalog metadata. */
 export const RULES_ONLY_STATES = Object.freeze([
   "today/no-program",
   "workout/stale-draft", "workout/persist-retry", "workout/invalid-draft",
@@ -90,7 +89,7 @@ export const NON_SHEET_DIALOGS = Object.freeze([
   { selector: "dialog.importchoice, dialog.storage-recovery, dialog.program-editor-leave", reason: "centred modal questions that stay native" },
 ]);
 
-export function validateRulesOnlyList(states, manifest, treatment = null) {
+export function validateRulesOnlyList(states, manifest) {
   const problems = [];
   const live = new Set(manifest.screens.map((screen) => `${screen.flow}/${screen.id}`));
   const seen = new Set();
@@ -99,19 +98,7 @@ export function validateRulesOnlyList(states, manifest, treatment = null) {
     if (seen.has(key)) problems.push(`duplicate rules-only state ${key}`);
     seen.add(key);
   }
-  if (treatment) {
-    for (const key of treatment) if (!seen.has(key)) problems.push(`the treatment table classes ${key} \`rules only\` but the audit does not list it`);
-    for (const key of states) if (!treatment.includes(key)) problems.push(`the audit lists ${key} but the treatment table does not class it \`rules only\``);
-  }
   return problems;
-}
-
-/** The states the reconciliation's treatment table classes `rules only` (its Treatment column, not the D section 3 column). */
-export function readRulesOnlyTreatment() {
-  const doc = readFileSync(join(ROOT, "docs/design/plan-064-reconciliation.md"), "utf8");
-  return doc.split("\n").map((line) => line.split("|").map((cell) => cell.trim()))
-    .filter((cells) => cells.length >= 8 && /^`[a-z-]+\/[a-z-]+`$/.test(cells[1]) && cells[4] === "`rules only`")
-    .map((cells) => cells[1].replaceAll("`", ""));
 }
 
 /**

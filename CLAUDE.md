@@ -6,7 +6,7 @@ Fast orientation for coding agents. `AGENTS.md` owns repository operating rules.
 
 - [`AGENTS.md`](AGENTS.md) for the static-app architecture, privacy and storage rules, generated-file sources, cache/revision procedure, UI catalog, and current execution constraints.
 - [`CONTEXT.md`](CONTEXT.md) for domain terms and language to use in code and copy.
-- [`docs/backlog.md`](docs/backlog.md) for the only ordered work queue. For the current post-058 candidate sequence, follow its linked clearance sequence.
+- [`docs/backlog.md`](docs/backlog.md) for the only list of open, deferred and paused work. Plans are implementation history and contracts; issues and draft PRs do not create another queue.
 - [`plans/README.md`](plans/README.md) before executing an existing plan. The plans directory is history and bounded implementation guidance, not a roadmap.
 - [`docs/ci.md`](docs/ci.md) and [`test/suites.mjs`](test/suites.mjs) for current verification commands and test ownership.
 - Relevant records in [`docs/adr/`](docs/adr/) for settled decisions. Managed Taurifer AI follows ADR 0011; the superseded BYOK plan is not an implementation path.

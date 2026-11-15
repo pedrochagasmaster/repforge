@@ -604,8 +604,7 @@ inferred from a prototype or a recommendation:
 - OG-1, OG-2, OG-3 and OG-5: [owner decisions recorded, 2026-10-01](https://github.com/pedrochagasmaster/repforge/pull/295#issuecomment-5923279555)
   (for the landing bands, OG-3).
 
-The review that framed these choices is the "Contract review for Direction D
-content jobs" section of `docs/design/plan-064-reconciliation.md`. Every value
+The historical contract review that framed these choices remains in git history. Every value
 below is either an existing palette value or token, or comes verbatim from the
 pinned sources named in the tables: the Direction D review page at `2f2fc044`
 (`docs/design/main-screen-directions/phone.css`) and the landing final page at

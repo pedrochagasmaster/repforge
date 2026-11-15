@@ -2,6 +2,7 @@
 // Read-only audit of the real compiler; artifacts are not runtime assets.
 import fs from 'node:fs';
 import path from 'node:path';
+import {tmpdir} from 'node:os';
 import {fileURLToPath} from 'node:url';
 import {createRequire} from 'node:module';
 import {createHash} from 'node:crypto';
@@ -16,7 +17,7 @@ const E = require(path.join(root, 'program-entry.js'));
 const A = require(path.join(root, 'program-entry-adapter.js'));
 const {EXERCISE_LIBRARY: library} = require(path.join(root, 'exercises.js'));
 const contract = JSON.parse(fs.readFileSync(path.join(root, 'test/fixtures/program-family-contract-v1.json')));
-const out = path.resolve(root, process.argv[2] || 'docs/audits/program-generation-2026-10-03');
+const out = path.resolve(root, process.argv[2] || path.join(tmpdir(), 'taurifer-generation-audit'));
 const clone = x => structuredClone(x);
 const same = (a,b) => JSON.stringify(a) === JSON.stringify(b);
 const intersect = (a,b) => a.some(x => b.includes(x));
