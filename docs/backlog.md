@@ -4,13 +4,11 @@ The only list of open, deferred and paused work. Order is top to bottom within e
 
 ## Now (before alpha)
 
-- Plan 059: validate one release candidate end to end on one commit, including accessibility, privacy, telemetry, offline and update behavior.
-- Owner pre-launch actions, #425: publish the release note asking senders to re-share old program links, provision `TRANSFER_ALERT_GITHUB_TOKEN`, and decide when Plan 059 starts.
-- Run one current real-phone pass: install, install transfer, a full workout with the keyboard and 200% text, a setup link opened into the installed app, Android installed-app launch, program generation and Your profile, plus wheel/sheet/dock behavior; include iOS/VoiceOver and Android/TalkBack on the release candidate.
+- Plan 059: starts once the owner's real-phone testing below is done (owner, 2026-11-15). Validate one release candidate end to end on one commit, including accessibility, privacy, telemetry, offline and update behavior.
+- Real-phone pass (owner testing over several days from 2026-11-15): install, install transfer, a full workout with the keyboard and 200% text, a setup link opened into the installed app, Android installed-app launch, program generation and Your profile, plus wheel/sheet/dock behavior; include iOS/VoiceOver and Android/TalkBack on the release candidate.
 
 ## Waiting on owner
 
-- #762 dumbbell weight ladder: built and green; choose the lb ladder and confirm whether a movement's own load step overrides the ladder while the global step does not.
 - #315 Portuguese exercise names: use the existing review tool, resume progress from `backup/2026-10-15/pt-name-review-progress`, and publish approved names and aliases.
 
 ## After alpha (Next)
