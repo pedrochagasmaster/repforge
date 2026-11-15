@@ -4,9 +4,7 @@
 - **Contract version:** 2 (Plan 058 semantic foundation: field/adjustment roles and role-facet clarification)
 - **Contract owner:** Plan 049
 - **Consumers:** Plans 050–059 (see per-role and per-surface owners below)
-- **Product direction:** [`docs/ui-audit.md`](../ui-audit.md) (authoritative)
-- **Dispositions:** [`docs/ui-overhaul-disposition-register.md`](../ui-overhaul-disposition-register.md)
-- **Execution map:** [`docs/ui-overhaul-implementation-sequence.md`](../ui-overhaul-implementation-sequence.md)
+- **Work queue:** [backlog](../backlog.md); this ADR retains the design-system contract.
 
 Later phases may add UI only through the semantic roles named here. Meanings
 cannot change per feature. Phase 7 (Plan 058) owns the full inventory and
@@ -16,9 +14,9 @@ the release matrix below.
 
 ## Context
 
-The owner-approved audit (`docs/ui-audit.md`, decisions G-01–G-88, findings
-UI-01–UI-32) changes several contracts that current canonical documents still
-describe differently. This ADR establishes the replacement design-system
+The owner-approved overhaul decisions G-01–G-88 and findings UI-01–UI-32
+changed several earlier contracts. The original work registers are retained
+in git history; open work lives only in the backlog. This ADR establishes the replacement design-system
 contract and the release-evidence matrix. It does not rewrite history:
 superseded sections stay readable and are marked, never deleted. The remaining
 reconciliation (backlog priority, ADRs 0005–0007/0010 pointers, entry and

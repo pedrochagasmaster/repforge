@@ -306,7 +306,7 @@ state, and the tabs switch it.
 
 ## The motion vocabulary
 
-Nine named settings in `motion-layer.js`, and nothing else. A spring literal at a
+Ten named settings in `motion-layer.js`, and nothing else. A spring literal at a
 call site is how a codebase ends up with four slightly different settles nobody
 chose, so the runtime contract test fails if one appears.
 
@@ -320,7 +320,8 @@ chose, so the runtime contract test fails if one appears.
 | `revealIn` | 200ms `cubic-bezier(.2,.7,.2,1)` | Content measuring itself open |
 | `revealOut` | 150ms `cubic-bezier(.4,0,.8,.2)` | The same content closing — faster, because the system is responding rather than offering |
 | `restRoll` | 150ms `cubic-bezier(.2,.7,.2,1)` | The rest clock's new second settling up into place (the tab's time and the dial's) |
-| `restFlick` | 600ms; on the dial `cubic-bezier(.16,.84,.3,1)`; along the shelf's edge a 260ms ease-out-cubic sweep, a 140ms rise and a ^2.2 decay, settling from 300ms into the 0.2 rim | The bell's one soft light flick: along the shelf's contour, out from the clock (the rest-glow prototype, owner 2026-10-28), or on the dial when the sheet is open. The one tween over 300ms, by the owner's brief (500–700ms) |
+| `profileFill` | 500ms linear | One successful save changes the profile arc, Plan 084; no run on unchanged evidence, return, reduced motion or failed/cancelled save |
+| `restFlick` | 600ms; on the dial `cubic-bezier(.16,.84,.3,1)`; along the shelf's edge a 260ms ease-out-cubic sweep, a 140ms rise and a ^2.2 decay, settling from 300ms into the 0.2 rim | The bell's one soft light flick: along the shelf's contour, out from the clock (the rest-glow prototype, owner 2026-10-28), or on the dial when the sheet is open. One of two owner-approved tweens over 300ms (500–700ms) |
 
 Two findings shaped these:
 
@@ -697,3 +698,22 @@ cross-fade. Scope comparisons live inside Overview’s tab panel, so Strength
 and Review remain reachable without acknowledgment. The two static rings
 acknowledge only the displayed identity set. Today and Overview paint the new reading directly;
 there is no fill tween or backward drain in PR 2. Finish motion stays in PR 3.
+
+
+## Plan 084 saved-profile finish
+
+The existing #736 finish/finding slot adds the same saved-profile projection on
+both sides of the acknowledged save. Its arc moves once, linearly over 500ms,
+through `RepForgeMotion.fillSavedProfile`, with the saved evidence reason beside
+it. The final arc is already in markup; Web Animations only overlays the old
+reading while it moves forward. This is evidence continuity, without a colour
+reward, overshoot, sound, or another block reveal. The totals keep their existing
+separate 600ms ramp. No vendored runtime export changes.
+
+Reduced motion, an unavailable layer, a hidden document, unchanged evidence and
+a return from Overview show the final arc immediately. Closing or redrawing the
+summary cancels its run and reveals that final arc. A WeakSet of in-memory summary
+objects prevents return-path replay; no preference or durable record is added.
+The only motion trigger is a successful save receipt. Findings remain adjacent
+and never enter the projection. The production-save proofs live in
+`test/profile-finish-browser.mjs`, composed into the existing profile owner.

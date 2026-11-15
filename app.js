@@ -1266,24 +1266,24 @@ document.addEventListener("click",event=>{
   copy.classList.remove("is-push-over","is-push-under","active");
   historySnap={copy,at:performance.now(),scroll:window.scrollY,session:view.classList.contains("is-session-page")}},true);
 function watchRouteSurfaces(){
-  const main=$("main"),history=$("#history");
+  const main=$("main"),historyView=$("#history");
   if(main)new MutationObserver(scheduleEdgeSwipeSync).observe(main,{attributes:true,attributeFilter:["class"],subtree:true});
   // The library, preview and exercise routes are body classes.
   new MutationObserver(scheduleBodyRouteHistorySync).observe(document.body,{attributes:true,attributeFilter:["class"],attributeOldValue:true});
   // A reload starts with no page pushed, so an entry left by the last session is no longer one.
   try{const st=history.state;if(st&&typeof st==="object"&&st[ROUTE_HISTORY_KEY]){const{[ROUTE_HISTORY_KEY]:_,...rest}=st;history.replaceState(rest,"",location.href)}}catch{}
-  if(history){
-    historySessionOpen=history.classList.contains("is-session-page");
+  if(historyView){
+    historySessionOpen=historyView.classList.contains("is-session-page");
     new MutationObserver(()=>{
-      const open=history.classList.contains("is-session-page");
+      const open=historyView.classList.contains("is-session-page");
       if(open===historySessionOpen)return;
       historySessionOpen=open;
       const snap=historySnap;historySnap=null;
       // The list as it was, kept while a session page is open: the page a back swipe reveals beneath it (ADR 0023).
       historyListCopy=open&&snap&&!snap.session?snap.copy.cloneNode(true):null;
       if(!snap||snap.session===open||performance.now()-snap.at>1500)return;
-      routePushBegin(open?"in":"out",{pushed:history,ghost:snap.copy,offset:-Math.round(snap.scroll)})?.()
-    }).observe(history,{attributes:true,attributeFilter:["class"]})}
+      routePushBegin(open?"in":"out",{pushed:historyView,ghost:snap.copy,offset:-Math.round(snap.scroll)})?.()
+    }).observe(historyView,{attributes:true,attributeFilter:["class"]})}
   scheduleEdgeSwipeSync()}
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",watchRouteSurfaces,{once:true});
 else watchRouteSurfaces();
@@ -4356,7 +4356,7 @@ function renderWeekCard(){
     `<button type="button" class="text-link" id="weekCardReview">${esc(t("review.week.open"))}</button>`+
     `<button type="button" class="text-link" id="weekCardDismiss">${esc(t("review.week.dismiss"))}</button></div>`;
   $("#weekCardReview").onclick=()=>{setUiPref("weekCardSeen",id);renderWeekCard();navTo("stats");setStatsSeg("review")};
-  $("#weekCardDismiss").onclick=()=>{if(setUiPref("weekCardSeen",id))renderWeekCard()};
+  $("#weekCardDismiss").onclick=()=>{if(setUiPref("weekCardSeen",id)!==false)renderWeekCard()};
 }
 
 let weeklyAdaptationView=null,weeklyAdaptationBusy=false,weeklyEvaluationPending=false;
@@ -5224,6 +5224,7 @@ function installTransferUiMeaningful(uiRaw,ui){
   if(uiRaw===null)return false;
   if(!ui)return true;
   const remaining={...ui};
+  if(validUiPrefStamps(remaining[UI_PREF_STAMPS]))delete remaining[UI_PREF_STAMPS];
   if(remaining.entryLandingSeen===true)delete remaining.entryLandingSeen;
   if(validProfileScope(remaining.profileScope)&&!remaining.profileScope.acknowledged&&!remaining.profileScope.scope.length)delete remaining.profileScope;
   for(const[key,value]of Object.entries({installLastOfferedMilestone:null,installLastOfferedAt:null,
@@ -5251,14 +5252,22 @@ function installTransferUiMeaningful(uiRaw,ui){
     else delete remaining.guideState}
   return Object.keys(remaining).length>0}
 function installTransferDeviceMeaningful(){
-  const uiRaw=installTransferReadRaw(UIKEY),ui=installTransferReadJson(UIKEY);
+  const storedRaw=installTransferReadRaw(UIKEY);
+  if(storedRaw!==null&&!uiPrefObject(installTransferReadJson(UIKEY)))return true;
+  const ui=loadUiPrefs(),uiRaw=storedRaw;
   if(installTransferUiMeaningful(uiRaw,ui))return true;
   const consent=installTransferReadRaw(TELEMETRY_ENABLED_KEY);
   if(installTransferInitialDevice.consent!==null||
     consent!==null&&consent!==installTransferBootDevice?.consent)return true;
   const identity=installTransferReadRaw(TELEMETRY_IDENTITY_KEY);
-  return installTransferInitialDevice.identity!==null||
-    identity!==null&&identity!==installTransferBootDevice?.identity}
+  // Telemetry creates this identity automatically, even before setup. Reloading
+  // does not turn it into a user choice. Preserve malformed pre-boot bytes too:
+  // telemetry may already have replaced them with a fresh valid identity.
+  for(const raw of [installTransferInitialDevice.identity,identity]){
+    if(raw===null)continue;
+    try{if(!window.RepForgeTelemetry?.isValidIdentity?.(JSON.parse(raw)))return true}
+    catch{return true}}
+  return identity!==null&&identity!==(installTransferBootDevice?.identity??installTransferInitialDevice.identity)}
 async function ensureInstallTransferModules(){
   if(!installTransferModulePromise){
     installTransferModulePromise=Promise.resolve().then(()=>{
@@ -5297,7 +5306,7 @@ function installTransferSections(durableSnapshot=state,{storedDraft=false}={}){
       const record=readSetupDraftRecord();
       if(!record.ok)throw new Error("program-entry-draft-unavailable");
       return record.envelope?.state||null},
-    uiPreferences:()=>installTransferReadJson(UIKEY)||{},
+    uiPreferences:()=>loadUiPrefs(),
     analytics:()=>({enabled:window.RepForgeTelemetry?.isEnabled?.()!==false&&
       localStorage.getItem(TELEMETRY_ENABLED_KEY)!=="false"}),
     telemetryIdentity:()=>installTransferReadJson(TELEMETRY_IDENTITY_KEY),
@@ -5821,6 +5830,7 @@ function installTransferWriteCandidate(logical){
     return{ok:true,envelope}}))}
 function installTransferWriteDeviceSections(envelope){
   try{
+    resetUiPrefRepairs();
     const prefs=cloneSnapshot(envelope.uiPreferences);
     delete prefs.repforge_freeform_session_v1;delete prefs.repforge_import_source_v1;
     localStorage.setItem(UIKEY,JSON.stringify(prefs));uiPrefs=loadUiPrefs();
@@ -5834,6 +5844,7 @@ function installTransferWriteDeviceSections(envelope){
   }catch{return{ok:false,code:"device-section-write-failed"}}}
 function installTransferRestoreDeviceSections(previous,presence={}){
   try{
+    resetUiPrefRepairs();
     const prefs=cloneSnapshot(previous.uiPreferences||{});
     if(presence.ui===false){
       if(!installTransferWriteRaw(UIKEY,null))return{ok:false,code:"device-prefs-rollback-failed"};
@@ -8299,21 +8310,21 @@ function profileFindingsHtml(){
 /* Saved-evidence profile (Plan 084). The projection owns arithmetic; this adapter supplies current
  * canonical capacity descriptors. Neither live drafts nor presentation acknowledgments feed it. */
 let savedProfileCache={key:"",value:null},profilePageState=null;
-function savedProfileLoadingContext(slot){
+function savedProfileLoadingContext(slot,log){
   const projection=slotLoadingProjection(slot),coefficient=materialBodyweightCoefficient(slot.loadingModel?.bodyweightCoefficient,projection.loadingConvention);
-  const measured=state.log.filter(row=>Number(row.loadingContext?.bodyweightKg??row.bodyweight)>0).slice().sort(compareLogChronology).at(-1);
+  const measured=log.filter(row=>Number(row.loadingContext?.bodyweightKg??row.bodyweight)>0).slice().sort(compareLogChronology).at(-1);
   const bodyweight=Number(measured?.loadingContext?.bodyweightKg??measured?.bodyweight)||interpretedProfile(state.profile).weightKg||null;
   return{...projection,equipmentId:null,bodyweightKg:bodyweight,bodyweightContributionEnabled:coefficient>0&&bodyweight>0}}
-function savedProfile(){
-  const key=JSON.stringify([state.log,state.program,state.programMeta,state.settings,state.profile,today(),I18N.getLang()]);
+function savedProfile(log=state.log,asOf=today()){
+  const key=JSON.stringify([log,state.program,state.programMeta,state.settings,state.profile,asOf,I18N.getLang()]);
   if(savedProfileCache.key===key)return savedProfileCache.value;
   const compiler=window.RepForgeProgramCompiler,definition=state.programMeta?.programDefinition;
   const prescriptions=definition?compiler.prescriptionsForCycle(definition,1):[];
   const lifts=days().flatMap(day=>state.program.filter(ex=>ex.day===day)).map(ex=>{
     const slot=canonicalPrescriptionSlot(ex)?.slot,first=prescriptions.find(item=>item.slotId===slot?.id);
     return{...first,exerciseId:first?.exerciseId||ex.libraryId||ex.id,name:exerciseDisplayName(ex),
-      context:slot?savedProfileLoadingContext(slot):null}});
-  const value=RepForgeProgressModel.buildSavedProfile({log:state.log,lifts,now:today()});
+      context:slot?savedProfileLoadingContext(slot,log):null}});
+  const value=RepForgeProgressModel.buildSavedProfile({log,lifts,now:asOf});
   savedProfileCache={key,value};return value}
 function validProfileScope(record){
   return isPlainStateObject(record)&&Object.keys(record).length===3&&record.v===1&&
@@ -8336,8 +8347,8 @@ function profileRingHtml(fill,large=false){
     `<circle cx="32" cy="32" r="27" pathLength="100"/><circle class="profile-ring__fill${fill?"":" is-empty"}" cx="32" cy="32" r="27" pathLength="100" style="stroke-dasharray:${fill*100} 100"/></svg>`}
 function profileTotals(profile){return profile.lifts.reduce((sum,lift)=>({observations:sum.observations+lift.depthDates.length,
   stages:sum.stages+lift.transitions.length}),{observations:0,stages:0})}
-function profileReadingHtml(profile){
-  const sessions=new Set(state.log.filter(row=>!row.warmup&&row.origin!=="ramp").map(row=>row.session)).size;
+function profileReadingHtml(profile,log=state.log){
+  const sessions=new Set(log.filter(row=>!row.warmup&&row.origin!=="ramp").map(row=>row.session)).size;
   return `<div class="profile-reading">${profileRingHtml(profile.fill,true)}<div><p class="profile-reading__title">${esc(t("profile.ring.built"))}</p>`+
     `<p class="profile-caption">${esc(t("profile.ring.scope",{n:profile.scope.length,sessions,liftWord:tOne("profile.ring.lifts",profile.scope.length),sessionWord:tp(sessions,"session")}))}</p>`+
     `<p class="profile-caption">${esc(t("profile.ring.rest"))}</p></div></div>`}
@@ -8468,7 +8479,7 @@ function renderOverviewProfile(){
     `<div class="ovsec"><h3 class="ovsec__title">${esc(t("calib.recent"))}</h3></div><ul class="calchecks">${rows}</ul>`;
   el.querySelectorAll("[data-profile-lift]").forEach(button=>button.onclick=()=>openProfilePage({kind:"lift",key:button.dataset.profileLift}));
   const accept=el.querySelector("#profileScopeContinue");if(accept)accept.onclick=()=>{
-    if(!saveProfileScope({v:1,scope:change.now,acknowledged:true}))return;
+    if(saveProfileScope({v:1,scope:change.now,acknowledged:true})===false)return;
     render();window.scrollTo({top:0});focusRoute($("#overviewProfileTitle"))};
   const back=$("#summaryProfileBack");if(back)back.onclick=returnFromSummaryProfile}
 /* "Not now" closes the prompt for that exercise in this workout. */
@@ -12348,6 +12359,7 @@ function buildSessionSummary({rows,prevLog,session,date,day:sessDay,startedAt}){
   const strength=strengthGainedThisBlock(rows,prevLog);
   return{session,date,day:sessDay,
     ...sessionFinding(rows,prevLog,date),
+    profileChange:sessionProfileChange(rows,prevLog),
     strength,
     reps:sum(performedWorkingRows(rows).map(row=>+row.reps)),
     tiles:summaryTiles({strength,records:prs.length}),
@@ -12612,7 +12624,7 @@ async function saveWorkoutV2(operation){
     toast(t("toast.workout_forged",{n:rows.length,sets:tp(rows.length,"set")}));
     maybeShowInstallBanner()};
   let summary;
-  try{summary=buildSessionSummary({rows,prevLog,session,date,day:savedDay,startedAt})}
+  try{summary=buildSessionSummary({rows,prevLog,session,date,day:savedDay,startedAt});summary.animateProfile=true}
   catch{savedFallback();return result}
   render();
   try{if(!openSessionSummary(summary))savedFallback()}
@@ -12708,6 +12720,42 @@ function summaryLiftHtml(lift,s){
       `<span class="sum-grp__next"${lift.exerciseId?` data-parity-target="${esc(lift.exerciseId)}"`:""}>`+
       `${verdictMarkHtml(lift.next.glyph)}<span>${esc(lift.next.line)}</span></span></p>`:"")+`</div>`}
 
+/** The same performed identities and projection on both sides of this acknowledged save. */
+function sessionProfileChange(rows,prevLog){
+  const log=[...prevLog,...rows],asOf=today(),before=savedProfile(prevLog,asOf),after=savedProfile(log,asOf);
+  const changes=after.lifts.filter(lift=>lift.active).map(lift=>{
+    const previous=before.lifts.find(item=>item.key===lift.key);
+    return{lift,stages:lift.transitions.slice(previous?.transitions.length||0),
+      dates:lift.depthDates.length-(previous?.depthDates.length||0)}});
+  return{before,after,log,changes,stages:sum(changes.map(item=>item.stages.length)),dates:sum(changes.map(item=>item.dates))}}
+function summaryProfileHtml(s){
+  const change=s.profileChange;if(!change?.after.scope.length)return "";
+  const featured=change.changes.find(item=>item.stages.length)||change.changes.find(item=>item.dates>0);
+  const lift=featured?.lift,stage=featured?.stages.at(-1)?.stage,check=lift?.checks.at(-1);
+  const reason=stage==="solid"?t("profile.finish.solid")
+    :stage==="checked"&&check?t("profile.finish.checked",{guess:check.guess,did:check.reps})
+    :stage==="calibrated"&&check?t("profile.finish.agreeing",{n:lift.checks.length,guess:check.guess,did:check.reps}):"";
+  return `<section class="sum-profile" id="sumProfile" aria-labelledby="sumProfileTitle">`+
+    `<h3 class="profile-heading" id="sumProfileTitle">${esc(t("profile.ring.title"))}</h3>`+
+    `<button type="button" id="sumProfileOpen" class="sum-profile__open">${profileReadingHtml(change.after,change.log)}`+
+    `<span class="profile-caption">${esc(t("profile.finish.open"))}</span></button>`+
+    (lift?`<h4 class="sum-profile__lift">${esc(profileLiftName(lift))} · ${esc(profileStageName(lift.stage))}</h4>`:"")+
+    (reason?`<p class="profile-intro">${esc(reason)}</p>`:"")+
+    (change.after.units>change.before.units?`<p class="profile-caption">${esc(change.dates?tOne("profile.finish.dates",change.dates):"")}`+
+    `${change.stages?`${change.dates?" ":""}${esc(tOne("profile.finish.stages",change.stages))}`:!change.dates?esc(t("profile.finish.depth")):""}</p>`:"")+
+    (lift?`<button type="button" id="sumProfileLift" class="sum-profile__reader" data-lift="${esc(lift.key)}">${esc(t("profile.finish.reader"))}</button>`:"")+
+    `</section>`}
+let summaryProfileFill=null;
+const summaryProfilePlayed=new WeakSet();
+function stopSummaryProfileFill(){summaryProfileFill?.cancel();summaryProfileFill=null}
+function playSummaryProfileFill(s){
+  stopSummaryProfileFill();
+  if(!s.animateProfile||summaryProfilePlayed.has(s))return;
+  summaryProfilePlayed.add(s);
+  const change=s.profileChange;
+  if(!change||JSON.stringify(change.before.scope)!==JSON.stringify(change.after.scope)||change.after.fill<=change.before.fill)return;
+  summaryProfileFill=window.RepForgeMotion?.fillSavedProfile?.($("#sumProfile .profile-ring__fill"),change.before.fill,change.after.fill)||null}
+
 function summaryUnseenFinding(s){
   const seen=loadUiPrefs().findingsSeen;
   return s.finding&&!(Array.isArray(seen)&&seen.includes(s.finding.id))?s.finding:null}
@@ -12723,6 +12771,7 @@ function sessionSummaryHtml(s){
   out.push(`<h2 class="sum-hero" id="sumTitle" tabindex="-1">${esc(dayLabel(s.day))}</h2>`);
   out.push(`<p class="sum-sub">${esc(summarySubLine(s))}</p>`);
   out.push(summaryCardsHtml(s));
+  out.push(summaryProfileHtml(s));
   out.push(summaryFindingHtml(s));
   // The session figures. The counts ramp (motion amendment M2); a signed margin does not.
   out.push(`<div class="sum-stats sum-tiles">${summaryTileValues(s).map(tile=>`<div class="sum-tile" data-tile="${tile.id}">`+
@@ -12757,8 +12806,8 @@ function sessionSummaryHtml(s){
   return out.join("")}
 
 /** The summary's totals count up to their figures over 600 ms (motion amendment M2, owner decision on #295).
- *  They are the reward, so they are the one thing on the screen that moves by itself, and nothing else on
- *  the page does: no row stagger, no overshoot, no odometer digits. The ramp always lands on exactly the
+ *  They have a separate bounded run from Plan 084's saved-profile arc: no row stagger, overshoot or odometer.
+ *  The ramp always lands on exactly the
  *  figure the markup already rendered, so a reader who never sees the motion reads the same page. The
  *  motion layer owns the reduced-motion decision: under it, or in a tab with no screen to animate onto,
  *  the finished figures the markup carries stay put and nothing is repainted. */
@@ -12798,7 +12847,7 @@ function clearSummaryProfileReturn(){
 async function openSummaryProfile(summary){
   const sheet=$("#sessionSummary");
   const returning={summary,view:currentViewId(),scroll:sheet.scrollTop};
-  stopSummaryRamp();await closeModal(sheet);
+  stopSummaryRamp();stopSummaryProfileFill();await closeModal(sheet);
   sessionSummaryProfileReturn=returning;
   navTo("stats");setStatsSeg("overview");syncRouteHistory();
   const profile=$("#overviewProfile");
@@ -12808,13 +12857,16 @@ function returnFromSummaryProfile(){
   clearSummaryProfileReturn();returnToTab(returning.view);render();syncRouteHistory();
   openSessionSummary(returning.summary);
   $("#sessionSummary").scrollTop=returning.scroll;
-  $("#sumFinding")?.focus({preventScroll:true})}
+  $("#sumProfileOpen,#sumFinding")?.focus({preventScroll:true})}
 
 function renderSessionSummary(s){
   const body=$("#sessionSummaryBody");if(!body)return;
-  stopSummaryRamp();
+  stopSummaryRamp();stopSummaryProfileFill();
   body.innerHTML=sessionSummaryHtml(s);
   const finding=$("#sumFinding");if(finding)finding.onclick=()=>openSummaryProfile(s);
+  const profile=$("#sumProfileOpen");if(profile)profile.onclick=()=>openSummaryProfile(s);
+  const reader=$("#sumProfileLift");if(reader)reader.onclick=async()=>{
+    await openSummaryProfile(s);openProfilePage({key:reader.dataset.lift})};
   paintSummaryCards(s);
   const done=$("#sumDone");if(done)done.onclick=()=>closeSessionSummary();
   const share=$("#sumShare");if(share)share.onclick=()=>openShareSheet(share);
@@ -12825,7 +12877,7 @@ function renderSessionSummary(s){
 function clearSessionSummaryView(){
   clearSummaryProfileReturn();syncRouteHistory();
   sessionSummaryCurrent=null;
-  stopSummaryRamp();
+  stopSummaryRamp();stopSummaryProfileFill();
   const el=$("#sessionSummary");
   if(el&&activeModal?.el===el)closeModal(el);
   $("#sessionSummaryBody")?.replaceChildren();
@@ -12843,9 +12895,10 @@ function openSessionSummary(s){
   if(finding){
     updateUiPrefs(prefs=>({...prefs,findingsSeen:[...new Set([
       ...(Array.isArray(prefs.findingsSeen)?prefs.findingsSeen:[]),finding.id])]}))}
-  // The blocks are all present and opaque on the first frame; only the totals count up. The ramp starts
+  // All blocks are present and opaque. The totals and saved-profile arc have separate bounded runs. The ramp starts
   // before the first paint, so the finished figures are never seen and then reset to zero.
   rampSessionStats(el.querySelector(".sum-stats"));
+  playSummaryProfileFill(s);
   el.scrollTop=0;
   captureEvent("session_summary_viewed",{});
   return true}
@@ -12854,7 +12907,7 @@ function closeSessionSummary(opts={}){
   clearSummaryProfileReturn();
   const el=$("#sessionSummary");
   sessionSummaryCurrent=null;
-  stopSummaryRamp();
+  stopSummaryRamp();stopSummaryProfileFill();
   if(el&&activeModal?.el===el)closeModal(el);
   // Finishing a session ends it: the shell steps back to Today either way.
   workoutLeft=true;focusEdit=null;setWorkoutActive(false);document.body.classList.remove("is-focus-wo");
@@ -17599,7 +17652,7 @@ const exerciseMediaBg=e=>(e&&typeof e.mediaBg==="string"&&HEX_COLOR.test(e.media
    definition they point at. A custom entry resolves too and simply has none. */
 const exerciseRefEntry=ref=>ref?.libraryId!=null?libraryEntry(ref.libraryId):ref;
 const emptyThumb=({size="md"}={})=>
-  `<span class="exthumb exthumb--${esc(size)} exthumb--empty" aria-hidden="true"><span class="icon-mask icon-mask--dumbbell"></span></span>`;
+  `<span class="exthumb exthumb--${esc(size)} exthumb--empty" aria-hidden="true"></span>`;
 function exerciseThumb(e,{size="md"}={}){
   const src=exerciseMedia(e);
   if(!src)return emptyThumb({size});
@@ -18723,10 +18776,13 @@ function renderLibraryBrowse({through=null}={}){
     ?rows.slice(0,first).map(e=>libraryRowHtml(e)).join("")
     :`<p class="pick__empty">${esc(t("picker.empty",{q:libFlow.query}))}</p>`;
   let next=first;
+  list.setAttribute("aria-busy",String(next<rows.length));
   const appendChunk=()=>{
     if(!libFlow||render!==libraryRenderToken||!list.isConnected||next>=rows.length)return;
     list.insertAdjacentHTML("beforeend",rows.slice(next,next+LIBRARY_CHUNK_ROWS).map(e=>libraryRowHtml(e)).join(""));
-    next+=LIBRARY_CHUNK_ROWS;requestAnimationFrame(appendChunk)};
+    next+=LIBRARY_CHUNK_ROWS;
+    if(next>=rows.length)list.setAttribute("aria-busy","false");
+    else requestAnimationFrame(appendChunk)};
   // The rest waits until the view's push has settled, so it never competes
   // with the transition for frames.
   if(next<rows.length)setTimeout(()=>requestAnimationFrame(appendChunk),LIBRARY_DEFER_MS);
@@ -18912,7 +18968,7 @@ function renderExercisePreview(){
     // rather than hidden; the empty tile has nothing to describe.
     (exerciseMedia(e)
       ?`<img class="exthumb exthumb--lg" src="${esc(exerciseMedia(e))}" alt="${esc(t("preview.art_alt",{name:libraryName(e)}))}" decoding="async" width="768" height="768">`
-      :`<span class="exthumb exthumb--lg exthumb--empty" aria-hidden="true"><span class="icon-mask icon-mask--dumbbell"></span></span>`)+
+      :emptyThumb({size:"lg"}))+
     `<h3 class="preview__head">${esc(t("preview.muscles"))}</h3>`+
     `<dl class="preview__rows">`+
       `<div class="preview__row"><dt>${esc(t("program.exercise.primary"))}</dt><dd>${esc(prim||"—")}</dd></div>`+
@@ -24472,25 +24528,142 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
   return result}
 window.closeOnboarding=closeOnboarding;window.startOnboarding=startOnboarding;
 
-// ---- UI prefs (kept separate from training data so they never touch export/import) ----
+// ---- Device UI prefs (ordinary backups exclude them; install transfer carries the logical value) ----
 const UIKEY=INSTALL_UI_KEY;
-function loadUiPrefs(){try{const o=JSON.parse(localStorage.getItem(UIKEY));return o&&typeof o==="object"?o:{}}catch{return{}}}
-let uiPrefs=loadUiPrefs();
+const UI_PREF_STAMPS="__repforgePrefWrites";
+const uiPrefObject=value=>!!value&&typeof value==="object"&&!Array.isArray(value);
+const uiPrefEqual=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+function validUiPrefStamps(value){
+  return uiPrefObject(value)&&Object.entries(value).every(([path,stamp])=>{
+    try{const parts=JSON.parse(path);return Array.isArray(parts)&&parts.length>=1&&parts.length<=2&&
+      parts.every(part=>typeof part==="string")&&parts[0]!==UI_PREF_STAMPS&&
+      Array.isArray(stamp)&&stamp.length===2&&Number.isSafeInteger(stamp[0])&&stamp[0]>0&&
+      typeof stamp[1]==="string"&&/^[a-f0-9]{32}$/.test(stamp[1])}catch{return false}})}
+function loadUiPrefs(){try{const value=JSON.parse(localStorage.getItem(UIKEY));return uiPrefObject(value)?value:{}}catch{return{}}}
+function uiPrefChanges(before,after){
+  const changes=[];
+  for(const key of new Set([...Object.keys(before),...Object.keys(after)])){
+    if(key===UI_PREF_STAMPS||uiPrefEqual(before[key],after[key]))continue;
+    if(["findingsSeen","collapsedProgramDays"].includes(key)&&
+      (before[key]===undefined||Array.isArray(before[key]))&&Array.isArray(after[key])&&
+      [...(before[key]||[]),...after[key]].every(value=>typeof value==="string")){
+      for(const member of new Set([...(before[key]||[]),...after[key]])){
+        const value=after[key].includes(member);
+        if(value!==(before[key]||[]).includes(member))changes.push({path:[key,member],kind:"member",value});
+      }
+    }else if(["guideState","stageTip"].includes(key)&&uiPrefObject(after[key])){
+      const previous=uiPrefObject(before[key])?before[key]:{};
+      for(const member of new Set([...Object.keys(previous),...Object.keys(after[key])]))
+        if(!uiPrefEqual(previous[member],after[key][member]))changes.push({path:[key,member],
+          kind:Object.hasOwn(after[key],member)?"set":"remove",value:after[key][member]});
+    }else changes.push({path:[key],kind:Object.hasOwn(after,key)?"set":"remove",value:after[key]});
+  }
+  return changes}
+const compareUiPrefStamp=(a,b)=>!b?1:a[0]-b[0]||(a[1]<b[1]?-1:a[1]>b[1]?1:0);
+function applyUiPrefChanges(prefs,changes){
+  const next={...prefs},stamps={...(prefs[UI_PREF_STAMPS]||{})};
+  for(const change of changes){
+    const path=JSON.stringify(change.path);
+    if(compareUiPrefStamp(change.stamp,stamps[path])<=0)continue;
+    const[key,member]=change.path;
+    if(change.kind==="member"){
+      const values=new Set(Array.isArray(next[key])?next[key]:[]);
+      change.value?values.add(member):values.delete(member);next[key]=[...values];
+    }else{
+      const target=member===undefined?next:{...(uiPrefObject(next[key])?next[key]:{})};
+      const field=member===undefined?key:member;
+      if(change.kind==="remove")delete target[field];else target[field]=change.value;
+      if(member!==undefined)next[key]=target;
+    }
+    stamps[path]=change.stamp;
+  }
+  if(changes.length)next[UI_PREF_STAMPS]=stamps;
+  return next}
+let uiPrefs=loadUiPrefs(),uiPrefClock=0,uiPrefWriter=null;
+const uiPrefUnconfirmed=new Map(),uiPrefOwned=new Map();
+let uiPrefRepair=null,uiPrefRepairGeneration=0;
+function resetUiPrefRepairs(){uiPrefUnconfirmed.clear();uiPrefOwned.clear();uiPrefRepairGeneration++}
+function observeUiPrefClock(prefs){
+  for(const stamp of Object.values(prefs[UI_PREF_STAMPS]||{}))
+    if(Array.isArray(stamp)&&Number.isSafeInteger(stamp[0]))uiPrefClock=Math.max(uiPrefClock,stamp[0]);
+}
+function stageUiPrefRepairs(){
+  if(!uiPrefOwned.size)return;
+  try{if(localStorage.getItem(UIKEY)===null){resetUiPrefRepairs();return}}catch{return}
+  const live=loadUiPrefs();observeUiPrefClock(live);
+  // A metadata-free record is a legacy replacement, not a stamped race.
+  if(!Object.hasOwn(live,UI_PREF_STAMPS)){resetUiPrefRepairs();uiPrefs=live;return}
+  if(Object.hasOwn(live,UI_PREF_STAMPS)&&!validUiPrefStamps(live[UI_PREF_STAMPS]))return;
+  for(const[path,change]of uiPrefOwned){
+    const order=compareUiPrefStamp(change.stamp,live[UI_PREF_STAMPS]?.[path]);
+    if(order>0)uiPrefUnconfirmed.set(path,change);
+    else if(order<0){uiPrefOwned.delete(path);uiPrefUnconfirmed.delete(path)}
+  }
+}
+function publishUiPrefChanges(changes){
+  const live=loadUiPrefs();
+  if(Object.hasOwn(live,UI_PREF_STAMPS)&&!validUiPrefStamps(live[UI_PREF_STAMPS]))throw new Error("invalid UI preference stamps");
+  const next=applyUiPrefChanges(live,changes);
+  if(!uiPrefEqual(live,next))localStorage.setItem(UIKEY,JSON.stringify(next));
+  uiPrefs=next;observeUiPrefClock(next);return next}
+function repairUiPrefs(){
+  stageUiPrefRepairs();
+  if(uiPrefRepair||!uiPrefUnconfirmed.size||installTransferMutationFrozen()||!navigator.locks?.request)return;
+  const generation=uiPrefRepairGeneration;let completed=false;
+  uiPrefRepair=withStorageLock(storageIO,()=>{
+    if(generation!==uiPrefRepairGeneration||installTransferMutationFrozen())return;
+    stageUiPrefRepairs();
+    const changes=[...uiPrefUnconfirmed.values()];
+    const next=publishUiPrefChanges(changes);
+    for(const change of changes){
+      const path=JSON.stringify(change.path),current=uiPrefUnconfirmed.get(path);
+      if(current===change&&compareUiPrefStamp(next[UI_PREF_STAMPS]?.[path],change.stamp)>=0)uiPrefUnconfirmed.delete(path);
+    }
+    completed=true;
+  }).catch(error=>{console.warn("ui prefs repair failed",error)}).finally(()=>{uiPrefRepair=null;if(completed||generation!==uiPrefRepairGeneration)repairUiPrefs()});
+}
+async function flushUiPrefs(){
+  repairUiPrefs();
+  while(uiPrefRepair){const repair=uiPrefRepair;await repair;if(uiPrefRepair===repair)break}
+}
 function updateUiPrefs(update){
   if(installTransferMutationFrozen())return false;
-  const live=loadUiPrefs(),next=update(live);
   try{
-    if(JSON.stringify(next)!==JSON.stringify(live))localStorage.setItem(UIKEY,JSON.stringify(next));
-    uiPrefs=next;return true}
-  catch(e){console.warn("ui prefs save failed",e);return false}}
+    stageUiPrefRepairs();
+    const live=loadUiPrefs(),changes=uiPrefChanges(live,update(live));
+    if(changes.length){
+      if(uiPrefWriter===null)uiPrefWriter=Array.from(crypto.getRandomValues(new Uint8Array(16)),byte=>byte.toString(16).padStart(2,"0")).join("");
+      uiPrefClock=Math.max(Date.now(),uiPrefClock+1,...Object.values(live[UI_PREF_STAMPS]||{}).filter(Array.isArray).map(stamp=>stamp[0]+1));
+      for(const change of changes)change.stamp=[uiPrefClock,uiPrefWriter];
+      // Publication is synchronous. The lock only confirms or repairs it later.
+      publishUiPrefChanges(changes);
+      for(const change of changes){
+        const path=JSON.stringify(change.path);uiPrefOwned.set(path,change);uiPrefUnconfirmed.set(path,change);
+      }
+    }else uiPrefs=live;
+    repairUiPrefs();return true
+  }catch(error){console.warn("ui prefs save failed",error);return false}}
+window.addEventListener("storage",event=>{
+  if(event.storageArea!==localStorage||event.key!==null&&event.key!==UIKEY)return;
+  if(event.key===null||event.newValue===null||installTransferMutationFrozen())resetUiPrefRepairs();
+  stageUiPrefRepairs();
+  if(uiPrefUnconfirmed.size&&!installTransferMutationFrozen()){
+    try{publishUiPrefChanges([...uiPrefUnconfirmed.values()])}catch(error){console.warn("ui prefs repair failed",error)}
+    repairUiPrefs();
+  }else uiPrefs=loadUiPrefs();
+  observeUiPrefClock(uiPrefs);
+  repaintForTheme();
+  if(document.body.classList.contains("is-settings"))renderSettings();
+});
+
 function setUiPref(k,v){return updateUiPrefs(prefs=>({...prefs,[k]:v}))}
 const INSTALL_PREF_DEFAULTS=Object.freeze({installLastOfferedMilestone:null,installLastOfferedAt:null,
   installDismissedMilestone:null,installDismissedAt:null});
 function ensureInstallPolicyPrefs(){
-  updateUiPrefs(prefs=>({...INSTALL_PREF_DEFAULTS,...prefs}))}
+  return updateUiPrefs(prefs=>({...INSTALL_PREF_DEFAULTS,...prefs}))}
 function ensureGuidePrefs({persist=true}={}){
   if(!GuideRegistry?.migrateLegacyTourDone)return;
-  if(persist)updateUiPrefs(prefs=>({...GuideRegistry.migrateLegacyTourDone(prefs)}));
+  if(persist)return updateUiPrefs(prefs=>({...GuideRegistry.migrateLegacyTourDone(prefs)}));
   else uiPrefs={...GuideRegistry.migrateLegacyTourDone(loadUiPrefs())}}
 
 /* ---- Appearance ----
@@ -24523,8 +24696,9 @@ function applyTheme(){
 /* The chart is painted into a canvas, so it is the one surface a token swap
    cannot reach on its own — it has already sampled the old palette. */
 function repaintForTheme(){applyTheme();redrawChart()}
-function setTheme(v){const next=normalizeTheme(v),changed=next!==currentTheme();setUiPref("theme",next);repaintForTheme();
-  if(changed)captureEvent("settings_changed",{setting:"theme"})}
+function setTheme(v){const next=normalizeTheme(v),changed=next!==currentTheme(),saved=setUiPref("theme",next);
+  repaintForTheme();
+  if(saved&&changed)captureEvent("settings_changed",{setting:"theme"});return saved}
 function watchSystemTheme(){
   const q=darkQuery();
   if(!q?.addEventListener)return;
@@ -26657,7 +26831,7 @@ function guideStored(id){return uiPrefs.guideState?.[id]||null}
 function saveGuideTransition(id,status){
   const guide=guideDefinition(id);if(!guide||!GuideRegistry?.recordGuideTransition)return false;
   return updateUiPrefs(prefs=>({...GuideRegistry.recordGuideTransition(
-    GuideRegistry.migrateLegacyTourDone(prefs),id,status,{version:guide.version,nowMs:Date.now()})}))}
+    prefs,id,status,{version:guide.version,nowMs:Date.now()})}))}
 function guideDialogElement(){
   let el=$("#guideDialog");
   if(el)return el;
@@ -26681,7 +26855,7 @@ function removeContextualGuide(){
 function dismissContextualGuide(){
   if(!activeGuideId)return false;
   const after=activeGuideAfter;
-  saveGuideTransition(activeGuideId,"dismissed");
+  if(saveGuideTransition(activeGuideId,"dismissed")===false)return false;
   if(document.body.classList.contains("is-workout"))focusGuideHeld=true;
   // Closing restores focus first, so the tap the guide held lands where the lifter aimed it.
   removeContextualGuide();
@@ -26736,7 +26910,7 @@ function maybeShowContextualGuides(ids=GuideRegistry?.PLAN_054_GUIDE_IDS||[]){
 function replayContextualGuide(id){
   const guide=guideDefinition(id);if(!guide||!GuideRegistry?.replayGuideState)return false;
   if(activeGuideId===id)removeContextualGuide();
-  if(!updateUiPrefs(prefs=>({...GuideRegistry.replayGuideState(prefs,id,{version:guide.version,nowMs:Date.now()})})))return false;
+  if(updateUiPrefs(prefs=>({...GuideRegistry.replayGuideState(prefs,id,{version:guide.version,nowMs:Date.now()})}))===false)return false;
   captureEvent("guide_replay",{guideId:id});
   const returnFocus=document.activeElement;
   queueMicrotask(()=>showContextualGuide(id,{returnFocus,persistDeferred:true}));return true}
@@ -26858,7 +27032,7 @@ window.__repforgeFocus={
 };
 window.__repforgeLeaveWorkout=leaveWorkout;
 window.__repforgeShowSettings=showSettings;
-window.__repforgeUi={loadUiPrefs,isStandalone,isIOS,showInstallBanner,currentTheme,resolvedTheme,setTheme,
+window.__repforgeUi={flushPrefs:flushUiPrefs,loadUiPrefs,isStandalone,isIOS,showInstallBanner,currentTheme,resolvedTheme,setTheme,
   installPolicyDecision:()=>installPolicyDecision(),guideState:contextualGuideState,
   replayGuide:replayContextualGuide,showGuide:showContextualGuide,
   openInstallTransferState:stateName=>openIosInstallSheet(stateName),openPrivacy:()=>openPrivacySheet(),

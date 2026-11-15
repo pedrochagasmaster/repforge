@@ -11,11 +11,11 @@
   candidate, in parallel with Plan 064. It touches the engine, the exercise
   catalogue, copy strings, the app's code-to-copy table, tests, fixtures and
   docs only. Merges serialize with Plan 064 under the cache discipline in
-  `docs/post-058-open-pr-clearance-sequence.md` (*Merge/cache discipline*).
+  `docs/backlog.md` (*Merge/cache discipline*).
 - **Depends on:** nothing. **Blocks:** Plan 059's credible-first-program claim;
   the Gated *Advanced first-program generation* row.
-- **Audits acted on:** [structural audit F01–F06](../docs/audits/program-generation-2026-10-03/README.md)
-  and [coaching audit Q01–Q09](../docs/audits/program-generation-2026-10-03/coaching/README.md).
+- **Audits acted on:** [backlog](../docs/backlog.md)
+  and [backlog](../docs/backlog.md).
 - **Executor profile:** written for low-cost models. Do not re-decide anything
   in this file. If reality differs from what this plan predicts, stop and
   report (see *Stop conditions*) instead of improvising.
@@ -497,8 +497,8 @@ After PR 1 merges:
    `exercise-compiler-data.json` (strict, one block per id, vocabularies above).
 4. New `docs/adr/0017-function-aware-program-generation.md` recording D1–D22
    as decisions, with status Accepted, date 3 October 2026.
-5. Re-run both audits into `docs/audits/program-generation-<date>/` with
-   `node tools/audit-program-generation.mjs docs/audits/program-generation-<date>`.
+5. Re-run both audits into `/tmp/taurifer-program-generation-<date>/` with
+   `node tools/audit-program-generation.mjs /tmp/taurifer-program-generation-<date>`.
    The structural audit's slot-intent checks assume compiler-2 patterns; record
    any check that no longer applies instead of editing the evaluator to pass.
 6. `plans/README.md`: Plan 065 → IMPLEMENTED with the PR number;

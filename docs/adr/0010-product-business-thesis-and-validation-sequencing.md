@@ -5,7 +5,7 @@
 **Strategic source of truth:**
 [`docs/business-product-thesis.md`](../business-product-thesis.md)
 
-**Execution order:** [`docs/backlog.md`](../backlog.md)
+**Execution order:** [backlog](../backlog.md)
 
 **Measurement/commercialization plan:**
 [`plans/044-posthog-measurement-experiments-paywall.md`](../../plans/044-posthog-measurement-experiments-paywall.md)
@@ -251,7 +251,7 @@ door, annual-only pricing, BYOP-first cohort, universal double-progression, and
 ## Consequences
 
 - [`docs/business-product-thesis.md`](../business-product-thesis.md),
-  [`docs/backlog.md`](../backlog.md), and
+  [backlog](../backlog.md), and
   [`Plan 044`](../../plans/044-posthog-measurement-experiments-paywall.md)
   express this reconciliation. ADR 0011 governs managed AI; ADR 0002 and Plan
   038 are historical superseded records.
@@ -274,8 +274,7 @@ door, annual-only pricing, BYOP-first cohort, universal double-progression, and
 The validation sequence above is current except for one priority change: the
 owner-approved UI overhaul (G-04) moves broader visual and structural polish
 ahead of the noncommercial alpha, recorded in
-[`docs/backlog.md`](../backlog.md) and mapped by the
-[implementation sequence](../ui-overhaul-implementation-sequence.md). Retained:
+[backlog](../backlog.md). Retained:
 the evidence-gated commercialization path, the rolling-alpha discipline,
 Pro/commerce prerequisites, and every platform/native evidence gate — none of
 which the overhaul satisfies early. Phase 8 (Plan 059) is the overhaul's only

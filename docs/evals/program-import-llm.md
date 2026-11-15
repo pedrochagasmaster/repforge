@@ -172,21 +172,11 @@ insufficient for production.
   a **proposed** decision under ADR 0011/0014, not a settled policy.
 - The core product's matching review and explicit activation are unchanged.
 
-## Remaining production evidence
+## Production boundary
 
-1. Independently annotated, consented human-written real-world programs,
-   with privacy review and a genuinely protected external holdout.
-2. Live API smoke and cost measurement once authorized direct credentials
-   are configured; mocked requests prove serialization, not provider availability.
-3. Provider data handling, region and retention contract; per-installation
-   abuse limits, founder-funded budgets, kill switch, and production endpoint.
-4. A staged PT-BR pilot with measured import completion and activation
-   outcomes, not only synthetic lexical fidelity.
-5. Owner-approved decision on managed import scope, its timing, and its
-   relationship to the later general Taurifer AI capability.
-
-Do not automatically copy a benchmark-winning prompt into production.
-Review actual user source and imported outcome before ratifying any change.
+ADR 0025 governs the shipped managed-import boundary. The benchmark remains
+synthetic evidence; current validation work is listed only in
+[`docs/backlog.md`](../backlog.md).
 
 ## Completed 2026-11-08 Haiku effort sweep
 

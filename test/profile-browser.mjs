@@ -10,6 +10,7 @@
  *
  * Run: node test/profile-browser.mjs   (REPFORGE_URL points at a static server)
  */
+import { profileFinishProofs } from "./profile-finish-browser.mjs";
 import { profileRingProofs } from "./profile-ring-browser.mjs";
 import { launchChromium } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
@@ -95,8 +96,9 @@ const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
 const errors = [];
 page.on("pageerror", (e) => errors.push(String(e)));
 try {
-  await profileRingProofs(browser,assert,BASE);
-  if(process.env.REPFORGE_PROFILE_RING_ONLY!=="1"){
+  if(process.env.REPFORGE_PROFILE_RING_ONLY!=="1")await profileFinishProofs(browser,assert,BASE);
+  if(process.env.REPFORGE_PROFILE_FINISH_ONLY!=="1")await profileRingProofs(browser,assert,BASE);
+  if(process.env.REPFORGE_PROFILE_RING_ONLY!=="1"&&process.env.REPFORGE_PROFILE_FINISH_ONLY!=="1"){
   phase("The profile replaces the gauge, including on a first session");
   await boot(page, { history: [] });
   assert(await page.locator("#todayCalRing, #todayCalRingBar").count() === 0,

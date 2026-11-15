@@ -434,12 +434,11 @@ async function createCandidate(page) {
 }
 
 async function setDeviceSections(page) {
-  return page.evaluate(() => {
+  return page.evaluate(async () => {
     const before = localStorage.getItem("repforge_telemetry_identity_v1");
-    window.__repforgeUi?.setTheme?.("dark");
-    window.__repforgeUi?.setPref?.("effortChosen", true);
-    const prefs = window.__repforgeUi.loadUiPrefs();
-    localStorage.setItem("repforge_ui_v1", JSON.stringify({ ...prefs, findingsSeen: ["first_check", "first_target"] }));
+    await window.__repforgeUi.setTheme("dark");
+    await window.__repforgeUi.setPref("effortChosen", true);
+    await window.__repforgeUi.setPref("findingsSeen", ["first_check", "first_target"]);
     const consent = window.RepForgeTelemetry?.setEnabled?.(false);
     return {
       consent,
@@ -568,6 +567,7 @@ async function captureObservedLogical(observation) {
 function normalizeAutomaticUi(prefs) {
   if (!prefs || typeof prefs !== "object") return prefs;
   const next = { ...prefs };
+  delete next.__repforgePrefWrites;
   if (next.entryLandingSeen === true) delete next.entryLandingSeen;
   if (next.guideState && typeof next.guideState === "object" && !Array.isArray(next.guideState)) {
     const kept = Object.entries(next.guideState).filter(([id, record]) => {
@@ -668,9 +668,6 @@ async function openFreshContext(browser, { guides } = {}) {
   const page = await context.newPage();
   page.on("dialog", (dialog) => dialog.dismiss().catch(() => {}));
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
-  await waitForAppBoot(page, { base: BASE });
-  await clearProfile(page);
-  await page.reload({ waitUntil: "domcontentloaded" });
   await waitForAppBoot(page, { base: BASE });
   return { context, page };
 }
@@ -911,7 +908,7 @@ async function seedMeaningfulDestination(page, kind, envelope) {
     };
     if (["effort-choice", "effort-choice-malformed"].includes(kind)) {
       const value = kind === "effort-choice" ? true : "yes";
-      window.__repforgeUi.setPref("effortChosen", value);
+      await window.__repforgeUi.setPref("effortChosen", value);
       return { ok: window.__repforgeUi.loadUiPrefs().effortChosen === value };
     }
     if (["findings-seen", "findings-unknown", "findings-malformed"].includes(kind)) {
@@ -920,8 +917,13 @@ async function seedMeaningfulDestination(page, kind, envelope) {
       localStorage.setItem(uiKey, JSON.stringify(prefs));
       return { ok: true };
     }
+    if (kind === "invalid-pref-stamps") {
+      const prefs = parse(localStorage.getItem(uiKey)) || {};
+      localStorage.setItem(uiKey, JSON.stringify({ ...prefs, __repforgePrefWrites: { unknown: 7 } }));
+      return { ok: true };
+    }
     if (kind === "prefs-only") {
-      window.__repforgeUi?.setTheme?.("dark");
+      await window.__repforgeUi.setTheme("dark");
       return { ok: window.__repforgeUi?.loadUiPrefs?.()?.theme === "dark" };
     }
     if (["unknown-guide", "wrong-version-guide", "missing-version-guide", "extra-field-guide", "invalid-timestamp-guide"].includes(kind)) {
@@ -936,6 +938,22 @@ async function seedMeaningfulDestination(page, kind, envelope) {
       prefs.guideState[id] = record;
       localStorage.setItem(uiKey, JSON.stringify(prefs));
       return { ok: JSON.stringify(parse(localStorage.getItem(uiKey))?.guideState?.[id]) === JSON.stringify(record) };
+    }
+    if (kind === "explicit-consent" || kind === "disabled-consent") {
+      window.RepForgeTelemetry.setEnabled(kind === "explicit-consent");
+      return { ok: localStorage.getItem(consentKey) === String(kind === "explicit-consent") };
+    }
+    if (kind === "changed-identity") {
+      const identity = parse(localStorage.getItem(identityKey));
+      localStorage.setItem(identityKey, JSON.stringify({ ...identity, installationId: crypto.randomUUID() }));
+      return { ok: true };
+    }
+    if (kind === "malformed-identity" || kind === "unknown-identity-field") {
+      const raw = localStorage.getItem(identityKey);
+      const identity = parse(raw);
+      localStorage.setItem(identityKey, kind === "malformed-identity" ? "{broken" :
+        JSON.stringify({ ...identity, futureField: "keep" }));
+      return { ok: raw !== null };
     }
     if (kind === "consent-identity-only") {
       window.RepForgeTelemetry?.setEnabled?.(false);
@@ -1055,10 +1073,39 @@ async function runFaultMatrix(browser, envelope) {
   }
 }
 
-async function runMeaningfulDestinationMatrix(browser, envelope) {
+async function runFreshDestinationReloads(browser, envelope) {
+  for (const reloads of [0, 1, 2]) {
+    const context = await browser.newContext({ guides: "live" });
+    try {
+      const page = await context.newPage();
+      page.on("dialog", dialog => dialog.dismiss().catch(() => {}));
+      await page.goto(BASE, { waitUntil: "domcontentloaded" });
+      await waitForAppBoot(page, { base: BASE });
+      for (let count = 0; count < reloads; count++) {
+        await page.reload({ waitUntil: "domcontentloaded" });
+        await waitForAppBoot(page, { base: BASE });
+      }
+      const before = await readStorageBytes(page);
+      const result = await importInto(page, envelope);
+      check(result?.ok === true, `fresh destination accepts transfer after ${reloads} reloads`, { result, device: { prefs: before.local[UI_KEY], consent: before.local[CONSENT_KEY], identity: before.local[IDENTITY_KEY] } });
+      if (result?.ok === true) {
+        const actual = await readLogical(page);
+        assertImportedLogical(actual, await readIdb(page), envelope, `fresh destination after ${reloads} reloads`);
+        if (reloads === 0) {
+          check(result?.ok === true, "ordinary first boot stays eligible without initializing findingsSeen", result);
+          check(sameValue(actual.uiPreferences.findingsSeen, envelope.uiPreferences.findingsSeen),
+            "install transfer carries seen finding ids to the fresh device");
+        }
+      }
+    } finally { await context.close(); }
+  }
+}
+
+async function runMeaningfulDestinationMatrix(browser, envelope, only = null) {
   console.log("\nPlan 053-P4b meaningful-destination refusal matrix");
   const cases = [
     ["prefs-only", "prefs-only"],
+    ["malformed preference stamps", "invalid-pref-stamps"],
     ["effort choice", "effort-choice"],
     ["malformed effort choice", "effort-choice-malformed"],
     ["seen findings only", "findings-seen"],
@@ -1069,12 +1116,17 @@ async function runMeaningfulDestinationMatrix(browser, envelope) {
     ["missing-version-guide-only", "missing-version-guide"],
     ["extra-field-guide-only", "extra-field-guide"],
     ["invalid-timestamp-guide-only", "invalid-timestamp-guide"],
+    ["explicit enabled consent", "explicit-consent"],
+    ["explicit disabled consent", "disabled-consent"],
+    ["changed valid identity", "changed-identity"],
+    ["malformed identity after reload", "malformed-identity"],
+    ["unknown identity field after reload", "unknown-identity-field"],
     ["consent/identity-only", "consent-identity-only"],
     ["DraftV2-only", "draft-only"],
     ["candidate-only", "candidate-only"],
     ["unreadable state", "unreadable-state"],
   ];
-  for (const [label, kind] of cases) {
+  for (const [label, kind] of cases.filter(([, kind]) => !only || kind === only)) {
     const { context, page } = await openFreshContext(browser);
     const network = [];
     const onRequest = (request) => network.push({ method: request.method(), url: request.url() });
@@ -1082,6 +1134,10 @@ async function runMeaningfulDestinationMatrix(browser, envelope) {
     try {
       const seeded = await seedMeaningfulDestination(page, kind, envelope);
       check(seeded.ok === true, `${label}: deterministic meaningful state is seeded through current APIs`, seeded);
+      if (["explicit-consent", "disabled-consent", "malformed-identity", "unknown-identity-field"].includes(kind)) {
+        await page.reload({ waitUntil: "domcontentloaded" });
+        await waitForAppBoot(page, { base: BASE });
+      }
       const before = await readStorageBytes(page);
       let result;
       try { result = await importInto(page, envelope); }
@@ -2223,6 +2279,38 @@ async function runP4cMarkerRecoveryBeforeHealing(browser, envelope) {
   }
 }
 
+async function runCanonicalPreferenceImport(browser, envelope) {
+  console.log("\nCanonical device preferences follow transfer replacement or rollback");
+  for (const rollback of [false, true]) {
+    const { context, page } = await openFreshContext(browser);
+    try {
+      await flush(page);
+      const seeded = await page.evaluate(() => {
+        window.__repforgeUi.setPref("entryLandingSeen", true);
+        return { logical: JSON.parse(localStorage.getItem("repforge_ui_v1")) };
+      });
+      check(seeded.logical.entryLandingSeen === true,
+        `${rollback ? "rollback" : "replace"}: automatic destination metadata is canonical before import`, seeded);
+      if (rollback) await setImportFault(page, { point: "before-readback", mode: "readback" });
+      const result = await importInto(page, envelope);
+      if (rollback) {
+        await removeImportFault(page);
+        check(result?.ok === false, "preference rollback: the held import interrupts before commit", result);
+      } else check(result?.ok === true, "automatic metadata does not make a fresh destination ineligible", result);
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await waitForAppBoot(page, { base: BASE });
+      await flush(page);
+      const actual = await readLogical(page);
+      const expected = rollback ? seeded.logical : envelope.uiPreferences;
+      check(sameValue(normalizeAutomaticUi(actual.uiPreferences), normalizeAutomaticUi(expected)),
+        `${rollback ? "rollback" : "replace"}: after reload preferences match the intended clone without stale local replay`,
+        { actual: actual.uiPreferences, expected });
+      check(await page.evaluate(() => !Object.keys(localStorage).some(key => key.startsWith("repforge_ui_v1:pending:"))),
+        `${rollback ? "rollback" : "replace"}: import creates no auxiliary preference records`);
+    } finally { await context.close(); }
+  }
+}
+
 async function main() {
   console.log("Plan 053-P4a/P4b: production-backed install-transfer import oracle");
   await assertServingApp(BASE);
@@ -2289,6 +2377,12 @@ async function main() {
     check(sameValue(envelope.workoutDraft, sourceObservation.draft.logical), "envelope DraftV2 equals the real production logical clone");
     check(sameValue(envelope.programEntryDraft, sourceObservation.candidate), "envelope candidate equals the production persisted candidate");
 
+    await runFreshDestinationReloads(browser, envelope);
+    if (process.env.INSTALL_TRANSFER_IMPORT_ONLY === "destination") {
+      await runMeaningfulDestinationMatrix(browser, envelope);
+    } else {
+    await runCanonicalPreferenceImport(browser, envelope);
+    if (process.env.INSTALL_TRANSFER_IMPORT_ONLY !== "preferences") {
     await runPreBootImportCase(browser, envelope);
 
     destinationContext = await browser.newContext();
@@ -2360,18 +2454,6 @@ async function main() {
       check(sameValue(refusalAfter.local, refusalBefore.local) && sameValue(refusalAfter.idb, refusalBefore.idb),
         "meaningful-destination refusal leaves storage bytes/logical state unchanged");
       await refusal.close();
-      const bootDestination = await browser.newContext({ guides: "live" });
-      try {
-        const bootPage = await bootDestination.newPage();
-        bootPage.on("dialog", dialog => dialog.dismiss().catch(() => {}));
-        await bootPage.goto(BASE, { waitUntil: "domcontentloaded" });
-        await waitForAppBoot(bootPage, { base: BASE });
-        const importedAtBoot = await importInto(bootPage, envelope);
-        check(importedAtBoot?.ok === true, "ordinary first boot stays eligible without initializing findingsSeen", importedAtBoot);
-        const bootLogical = await readLogical(bootPage);
-        check(sameValue(bootLogical.uiPreferences.findingsSeen, envelope.uiPreferences.findingsSeen),
-          "install transfer carries seen finding ids to the fresh device");
-      } finally { await bootDestination.close(); }
       await runFaultMatrix(browser, envelope);
       await runProfileDestinationProtection(browser, envelope);
       await runMalformedProfileSettings(browser);
@@ -2392,6 +2474,8 @@ async function main() {
       await runP4cRollbackPhasePersistence(browser, envelope);
       await runP4cRemoteDeletionClearsMirrors(browser, envelope);
       await runP4cMalformedMarkerPreTelemetryBoundary(browser);
+    }
+    }
     }
   } finally {
     await refusalContext?.close().catch(() => {});

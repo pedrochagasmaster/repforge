@@ -9,7 +9,7 @@ and owner gates only.
 - **Phase:** 8 — Public-launch validation
 - **Status:** Refreshed (2026-10-30); owner decisions recorded below. Implementation has not started and stays on hold (#425) until #527 lands and install transfer is re-enabled; then 059-P1 pins the candidate SHA.
 - **Owner approval state:** Validation method is approved; final launch sign-off belongs to the owner
-- **Depends on:** Plans 049–058, the durable-state bridge, their architecture acceptance deltas, all existing owner gates, and completion or explicit owner disposition of the post-058 candidate-construction work selected in [`docs/post-058-open-pr-clearance-sequence.md`](../docs/post-058-open-pr-clearance-sequence.md), including the merged unified redesign ([Plan 064](./064-unified-redesign-convergence.md)). Plan 059 validates the resulting candidate; it does not authorize any implementation plan early by itself, and Plan 064 produces pre-059 implementation evidence only.
+- **Depends on:** Plans 049–058, the durable-state bridge, their architecture acceptance deltas, all existing owner gates, and completion or explicit owner disposition of the post-058 candidate-construction work selected in [backlog](../docs/backlog.md), including the merged unified redesign ([Plan 064](./064-unified-redesign-convergence.md)). Plan 059 validates the resulting candidate; it does not authorize any implementation plan early by itself, and Plan 064 produces pre-059 implementation evidence only.
 - **Blocks:** Public-launch UI/UX acceptance; it does not authorize release/merge by itself
 - **Governing G decisions:** G-01, G-05–G-06, G-59, G-74–G-76, G-83
 - **Architecture-audit ownership:** Candidate F final-SHA release/cache verification; Candidate G complete runtime/test-scope closure; R9 final architecture/evidence closure; verification of every owner-ratified PR239 disposition.
@@ -324,7 +324,7 @@ Run, at minimum, current equivalents of:
 
 - `git diff --check`
 - `node tools/build-i18n.mjs --check`
-- `node tools/extract-ui-audit-findings.mjs --check`
+- `node tools/check-canonical-contradictions.mjs --check`
 - `node tools/check-ui-screens.mjs`
 - `node tools/compare-ui-screens.mjs`
 - Plan 050/058 copy, overflow, matrix, role, and contrast checks

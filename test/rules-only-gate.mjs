@@ -16,7 +16,7 @@ import { dismissChrome, setCaptureBase, launchChromium, openPage, settle } from 
 import { ORANGE_CATEGORIES, gateManifest } from "../tools/check-direction-d.mjs";
 import {
   CHECKS, NON_SHEET_DIALOGS, RULES_ONLY_EXTRA_ALLOWLIST, RULES_ONLY_ORANGE_ALLOWLIST, RULES_ONLY_STATES,
-  ONBOARDING_ACCENT_SCOPE, checkSheetBand, gatherRulesOnlyEvidence, readRulesOnlyTreatment, runOnboardingOrange, runRulesOnly, validateRulesOnlyConfig, validateRulesOnlyList,
+  ONBOARDING_ACCENT_SCOPE, checkSheetBand, gatherRulesOnlyEvidence, runOnboardingOrange, runRulesOnly, validateRulesOnlyConfig, validateRulesOnlyList,
 } from "../tools/check-rules-only.mjs";
 
 const results = { passed: 0, failed: 0 };
@@ -33,17 +33,13 @@ const gate = gateManifest(manifest);
 // ---------------------------------------------------------------- the list
 console.log("\nThe rules-only state list");
 {
-  const treatment = readRulesOnlyTreatment();
-  check(treatment.length === 62, "the treatment table classes 62 screens `rules only`", `found ${treatment.length}`);
   check(RULES_ONLY_STATES.length === 62 && new Set(RULES_ONLY_STATES).size === 62, "the audit lists 62 distinct states");
-  const problems = validateRulesOnlyList(RULES_ONLY_STATES, manifest, treatment);
-  check(problems.length === 0, "the audit's list is the treatment table's `rules only` set and every state is in the live manifest", show(problems));
+  const problems = validateRulesOnlyList(RULES_ONLY_STATES, manifest);
+  check(problems.length === 0, "every listed state is in the live manifest", show(problems));
   check(!RULES_ONLY_STATES.some((key) => /^onboarding-/.test(key)), "no onboarding screen is listed (their treatment is the landing or the onboarding direction)");
   check(validateRulesOnlyList([...RULES_ONLY_STATES, "today/not-a-state"], manifest).some((item) => item.includes("today/not-a-state") && item.includes("manifest")),
     "a listed state missing from the live manifest is rejected (the list cannot rot)");
   check(validateRulesOnlyList(["today/no-program", "today/no-program"], manifest).some((item) => item.includes("duplicate")), "a duplicated state is rejected");
-  check(validateRulesOnlyList(RULES_ONLY_STATES.slice(1), manifest, treatment).some((item) => item.includes("treatment table")),
-    "a `rules only` screen missing from the audit is rejected");
   check(validateRulesOnlyConfig().length === 0, "the rules-only allowlist and overflow exceptions are valid", show(validateRulesOnlyConfig()));
   check(RULES_ONLY_ORANGE_ALLOWLIST.every((entry) => ORANGE_CATEGORIES.includes(entry.category)) &&
     RULES_ONLY_EXTRA_ALLOWLIST.every((entry) => ORANGE_CATEGORIES.includes(entry.category)),

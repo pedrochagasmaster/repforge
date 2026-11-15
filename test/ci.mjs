@@ -20,6 +20,7 @@ import { domainsForAppDiff, visualDomains } from "../tools/visual-domains.mjs";
 import { stabilizeShareUrlForCapture } from "../tools/ui-screens/screens-app.mjs";
 import { changedFilesForTests, changedFilesForEdit, changedFilesForPacket, fullLaneEntries, fullShardCount, selectAffected, selectEdit, selectFullLane, selectPacket } from "../tools/test-selection.mjs";
 import { execute, maybeStartLocalPreview, runLane, shardPlan } from "../tools/run-tests.mjs";
+import { checkRemovedReferences } from "../tools/check-doc-references.mjs";
 import { summarizeBenchmark } from "../tools/benchmark-tests.mjs";
 import { parseArgs as parseRevisionArgs, planRevision, revisionOf } from "../tools/next-revision.mjs";
 
@@ -300,6 +301,17 @@ test("full-lane shards partition every full browser command apart from the PR sh
   assert.ok(FULL_SUITES["full-fast"].every((suite) => !BROWSER_LANES.has("full-fast") && suite.file), "full-fast is a pure-node lane");
 });
 
+test("Focus geometry sections are independent full-lane commands with headroom (#765)", () => {
+  const expected = ["stability", "large", "smallest", "context", "effort", "test-set", "guess", "dismissal", "gestures"];
+  const entries = FULL_SUITES["full-browser"].filter(suite => suite.file === "test/focus-geometry.mjs");
+  assert.deepEqual(entries.map(suite => suite.args), expected.map(section => ["--only", section]),
+    "every section runs exactly once; smallest retains its standing-ledger checks");
+  assert.ok(entries.every(suite => suiteSeconds(suite) < 300), "each section has a separate sub-300s planner weight");
+  assert.ok(entries.every(suite => (suite.timeoutMs || 600000) === 600000), "the existing command cap stays unchanged");
+  const selection = selectFullLane(["test/focus-geometry.mjs"]);
+  assert.deepEqual([...selection.ids].sort(), entries.map(suiteId).sort(), "a geometry change selects all sections");
+});
+
 test("the entire declared critical matrix is required, with source and failure provenance", (t) => {
   const keys = criticalCaptures().map(captureKey), source = "a".repeat(40);
   const report = { schemaVersion: 1, kind: "critical-ui", source, status: "passed",
@@ -503,6 +515,40 @@ test("verify mode compares a staged capture with the committed catalog and keeps
   assert.deepEqual(report.comparison.failures.map((f) => f.path), [relativePath]);
   assert.deepEqual(readFileSync(capturePath(real, victim, committedRoot)), committedBytes, "the committed catalog is never rewritten");
 });
+
+test("catalog verify rejects the stale 430 execution-mode endpoint control (#779)", (t) => {
+  const real = loadManifest();
+  const dir = scratch(t), baselineRoot = join(dir, "baseline"), stagingRoot = join(dir, "staging");
+  const committedRoot = join(process.cwd(), real.artifactRoot);
+  const frames = expandCaptures(real);
+  const victim = frames.find(c => captureKey(c) === "onboarding-recommend/review-sheet-execution-mode__phone-430-light-en");
+  assert.ok(victim, "the 430 EN variant is registered");
+  const visual = FULL_SUITES["full-browser"].filter(s => s.file === "tools/capture-ui-screens.mjs");
+  assert.equal(visual.flatMap(s => selectCaptures({ shard: parseShard(s.args[2]) }))
+    .filter(c => captureKey(c) === captureKey(victim)).length, 1, "exactly one verify shard renders this variant");
+  for (const frame of frames) {
+    for (const targetRoot of [baselineRoot, stagingRoot]) {
+      const target = capturePath(real, frame, targetRoot);
+      mkdirSync(dirname(target), { recursive: true });
+      symlinkSync(capturePath(real, frame, committedRoot), target);
+    }
+  }
+  const baselineSemanticPath = join(process.cwd(), "docs/ui-screens/entry-semantics.json");
+  const semanticArtifact = JSON.parse(readFileSync(baselineSemanticPath, "utf8"));
+  const artifactDir = join(dir, "artifacts");
+  const options = { stagingRoot, semanticArtifact, artifactDir, manifest: real, baselineRoot, baselineSemanticPath };
+  const stalePath = capturePath(real, victim, baselineRoot);
+  rmSync(stalePath);
+  // The current CI frame with only y=1670..1697, x=350..839 restored from e16f48a50's old two-stepper baseline.
+  // All artwork and every other pixel stay current, isolating the small control change the sampled grid missed.
+  cpSync(join(process.cwd(), "test/fixtures/catalog/stale-execution-mode-430.png"), stalePath);
+  assert.equal(verifyCatalog(options), false, "a stale endpoint control must fail the real catalog verify gate");
+  const report = JSON.parse(readFileSync(join(artifactDir, "visual-report.json"), "utf8"));
+  assert.deepEqual(report.comparison.failures.map(f => f.path), [relative(baselineRoot, stalePath)]);
+  cpSync(capturePath(real, victim, committedRoot), stalePath);
+  assert.equal(verifyCatalog(options), true, "repairing only the deliberately stale fixture restores green");
+});
+
 
 // -------------------------------------------------------------------- CI plan
 
@@ -721,7 +767,7 @@ test("share-link visual fixtures pin random preview origins without changing the
 });
 
 test("local visual selection ignores non-rendering tests/tools but remains conservative for real inputs", () => {
-  for (const file of ["README.md", "docs/backlog.md", "plans/060.md", "advisor-plans/001-example.md", "test/accessibility.mjs", "test/ci.mjs", "tools/run-tests.mjs", "tools/test-selection.mjs", "tools/ci-plan.mjs", "tools/check-production-syntax.mjs", "tools/check-test-syntax.mjs", ".github/workflows/ci.yml"]) {
+  for (const file of ["README.md", "docs/backlog.md", "plans/060.md", "docs/example.md", "test/accessibility.mjs", "test/ci.mjs", "tools/run-tests.mjs", "tools/test-selection.mjs", "tools/ci-plan.mjs", "tools/check-production-syntax.mjs", "tools/check-test-syntax.mjs", ".github/workflows/ci.yml"]) {
     assert.equal(selectVisuals([file], manifest).mode, "none", file);
   }
   for (const file of ["app.js", "index.html", "styles.css", "i18n-en.json", "sw.js", "shared-setup.js", "fonts/new.woff2", "assets/exercises/foo.png", "test/browser.mjs", "test/fixtures/shared-setup.mjs", "tools/ui-screens/session.mjs", "tools/ui-screens/screens-app.mjs", "tools/capture-ui-screens.mjs", "docs/ui-screens/manifest.json", "docs/ui-screens/entry-semantics.json", "unknown.txt"]) {
@@ -1326,7 +1372,7 @@ test("substantive or unprovable service-worker changes retain the full SW owner 
 
 test("affected selection is narrow when proven and fail-safe when it is not", () => {
   assert.equal(selectAffected(["docs/ci.md"]).mode, "none");
-  assert.equal(selectAffected(["advisor-plans/README.md"]).mode, "none");
+  assert.equal(selectAffected(["docs/backlog.md"]).mode, "none");
   const direct = selectAffected(["test/focus-pending-field.mjs"]);
   assert.equal(direct.mode, "selected");
   assert.ok(direct.entries.some(({ suite }) => suite.file === "test/focus-pending-field.mjs"));
@@ -1433,6 +1479,60 @@ test("runner retains output beyond the terminal excerpt bound", async (t) => {
   assert.equal(result.status, "passed");
   assert.equal(log.length, outputSize);
   assert.ok(result.tail.length <= 12 * 1024);
+});
+
+test("existing runner evidence exits without leaking preview files or the outer lock", async (t) => {
+  const temp = scratch(t), cwd = join(temp, "repo");
+  mkdirSync(cwd);
+  for (const file of ["tools/run-tests.mjs", "tools/local-preview.mjs", "tools/test-selection.mjs",
+    "tools/ci-captures.mjs", "tools/visual-domains.mjs", "tools/revision-diff.mjs",
+    "tools/ui-screens/manifest.mjs", "test/suites.mjs", "scripts/generate-posthog-config.mjs"]) {
+    mkdirSync(dirname(join(cwd, file)), { recursive: true });
+    cpSync(file, join(cwd, file));
+  }
+  const originalIndex = '  <script src="posthog-init.js"></script>\n';
+  writeFileSync(join(cwd, "index.html"), originalIndex);
+  writeFileSync(join(cwd, ".gitignore"), ".ci-results/\nposthog-config.js\n");
+  writeFileSync(join(cwd, "test/workout-draft-parity.mjs"), 'console.log("fixture suite ran");\n');
+  const git = (...args) => execFileSync("git", args, { cwd, encoding: "utf8", stdio: "pipe" });
+  git("init", "--quiet");
+  git("config", "user.name", "Runner fixture");
+  git("config", "user.email", "runner@example.invalid");
+  git("config", "commit.gpgsign", "false");
+  git("config", "core.hooksPath", "/dev/null");
+  git("add", "."); git("commit", "-qm", "runner fixture");
+  const evidence = join(temp, "existing.json"), lock = join(temp, "browser.lock");
+  const originalEvidence = '{"preserve":"existing evidence"}\n';
+  writeFileSync(evidence, originalEvidence);
+  const launcher = join(temp, "locked-runner.mjs");
+  writeFileSync(launcher, `import { spawnSync } from "node:child_process";
+const result = spawnSync("flock", [process.argv[2], process.execPath, "tools/run-tests.mjs", ...process.argv.slice(3)], { stdio: "inherit" });
+process.exitCode = result.status ?? 1;
+`);
+  const result = await execute({ file: launcher, args: [lock, "workout", "--suite-id", "test-workout-draft-parity-mjs", "--evidence", evidence] }, {
+    cwd, outputDir: join(temp, "output"), timeoutMs: 5000, env: { ...process.env, REPFORGE_URL: "" },
+  });
+  assert.match(result.tail, /EEXIST/);
+  assert.equal(existsSync(join(cwd, ".ci-results/workout/test-workout-draft-parity-mjs/initial/output.log")), false);
+  assert.equal(readFileSync(evidence, "utf8"), originalEvidence);
+  assert.equal(readFileSync(join(cwd, "index.html"), "utf8"), originalIndex);
+  assert.equal(existsSync(join(cwd, "posthog-config.js")), false);
+  execFileSync("flock", ["-n", lock, "true"]);
+  assert.equal(result.timedOut, false, "EEXIST must exit without intervention and release its preview child and outer lock");
+  assert.equal(result.exitCode, 1);
+
+  const freshEvidence = join(temp, "fresh.json");
+  const fresh = await execute({ file: launcher, args: [lock, "workout", "--suite-id", "test-workout-draft-parity-mjs", "--evidence", freshEvidence] }, {
+    cwd, outputDir: join(temp, "fresh-output"), timeoutMs: 5000, env: { ...process.env, REPFORGE_URL: "" },
+  });
+  assert.equal(fresh.status, "passed", fresh.tail);
+  const report = JSON.parse(readFileSync(freshEvidence, "utf8"));
+  assert.match(report.execution.initial.tail, /fixture suite ran/);
+  assert.equal(report.outcome, "command-passed");
+  assert.deepEqual(report.sourceAfter, report.sourceBefore);
+  assert.equal(readFileSync(join(cwd, "index.html"), "utf8"), originalIndex);
+  assert.equal(existsSync(join(cwd, "posthog-config.js")), false);
+  execFileSync("flock", ["-n", lock, "true"]);
 });
 
 test("temporary preview disables analytics and restores generated files on interruption", async (t) => {
@@ -1756,4 +1856,31 @@ test("next-revision: the CLI prints the plan from a recorded state without calli
   assert.equal(json.next, 631);
   assert.throws(() => parseRevisionArgs(["--pr", "x"]), /--pr needs a PR number/);
   assert.throws(() => parseRevisionArgs(["--bogus"]), /unknown argument/);
+});
+
+
+test("document removals reject live relative and code references, then accept repaired consumers", () => {
+  const root = mkdtempSync(join(tmpdir(), "taurifer-doc-references-"));
+  const git = (...args) => execFileSync("git", args, { cwd: root, stdio: "pipe" });
+  try {
+    mkdirSync(join(root, "docs", "nested"), { recursive: true });
+    writeFileSync(join(root, "docs", "retired.md"), "Old work list\n");
+    writeFileSync(join(root, "docs", "backlog.md"), "Current work\n");
+    git("init", "-q");
+    git("add", ".");
+    git("-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-qm", "fixture");
+    rmSync(join(root, "docs", "retired.md"));
+    writeFileSync(join(root, "docs", "nested", "consumer.md"), "[work](../retired.md#queue)\n");
+    writeFileSync(join(root, "consumer.mjs"), 'const source = "docs/retired.md";\n');
+    const bad = checkRemovedReferences(root, "HEAD");
+    assert.equal(bad.removed, 1);
+    assert.equal(bad.problems.length, 2);
+    assert.ok(bad.problems.some(problem => problem.includes("docs/nested/consumer.md:1")));
+    assert.ok(bad.problems.some(problem => problem.includes("consumer.mjs:1")));
+    writeFileSync(join(root, "docs", "nested", "consumer.md"), "[work](../backlog.md)\n");
+    writeFileSync(join(root, "consumer.mjs"), 'const source = "docs/backlog.md";\n');
+    assert.deepEqual(checkRemovedReferences(root, "HEAD"), { removed: 1, problems: [] });
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });

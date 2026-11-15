@@ -50,7 +50,7 @@ and Git HEAD/tree/status before and after execution. Use it for focused proof
 after committing a coherent slice. Run ordinary checks before committing too.
 
 ```bash
-node tools/record-verification.mjs --output /tmp/taurifer-audit-proof.json -- node tools/extract-ui-audit-findings.mjs --check
+node tools/record-verification.mjs --output /tmp/taurifer-audit-proof.json -- node docs/backlog.md --check
 node --test test/verification-recorder.mjs
 ```
 
@@ -128,34 +128,6 @@ node tools/build-icon-masks.mjs --check   # fail if the block has drifted
 
 Never edit between the markers by hand; `test/ui-system-checker.mjs` fails when the block
 differs from the generator's output or a G name is defined twice.
-
-## extract-ui-audit-findings.mjs
-
-Prints the headings and first-column table labels from the four source UI
-audits that [`docs/ui-audit.md`](../docs/ui-audit.md) consolidates.
-
-```bash
-node tools/extract-ui-audit-findings.mjs
-node tools/extract-ui-audit-findings.mjs --check
-```
-
-`--check` verifies that all four source reports still exist, the consolidated
-report cites each source, is marked final and owner-approved, and contains all
-32 finding IDs and all 88 grilling-decision IDs without duplicates. It also
-prints the current screen and frame counts so the report baseline can be
-checked after the catalog changes.
-
-## check-ui-overhaul-disposition.mjs
-
-Verifies [`docs/ui-overhaul-disposition-register.md`](../docs/ui-overhaul-disposition-register.md):
-every G-01–G-88 decision and UI-01–UI-32 finding appears exactly once with a
-valid disposition, a plan-number contract owner, and named consumers on `split`
-rows. Also checks the 11 rejected-claim guardrails.
-
-```bash
-node tools/check-ui-overhaul-disposition.mjs
-node tools/check-ui-overhaul-disposition.mjs --check
-```
 
 ## check-ui-semantic-roles.mjs
 
@@ -521,10 +493,25 @@ PNG bytes are intentionally not compared: Chromium font rasterisation and
 anti-aliasing can differ between hosted runners while the rendered UI remains
 the same. A cell counts as changed only above an 8% colour delta; the default
 gate rejects broad changes (more than 4.5% of cells or a 3.5% mean colour
-delta), coordinated edge changes, and a 16% luminance-histogram delta. The
-thresholds are covered by the self-test, which proves small deterministic pixel
-noise passes while a broad panel/content change, a layout shift and any
-dimension drift fail.
+delta), coordinated edge changes, and a 16% luminance-histogram delta.
+CI uses stricter thresholds: no cell above the 8% delta may change. It also
+checks the full-resolution difference after a one-pixel erosion, using an
+8/255 channel threshold. A four-connected interior must contain at least
+128 pixels and span 8 pixels in both axes to fail (4 CSS pixels at catalog
+DPR 2). Disconnected text edges are never added together.
+
+For differences with an interior but no large filled region, CI compares
+local edge positions. It allows a three-pixel raster fringe, rejecting
+unmatched regions of at least 64 pixels spanning 8 pixels in both axes.
+A second, one-pixel match catches compact digit changes: at least 9 unmatched
+pixels spanning 3 pixels in both axes and covering 70% of their bounding box.
+Long thin fringes and sparse edge flecks do not qualify. Reports include each
+retained region's bounds, pixel count and edge-match radius. These checks catch
+small controls, changed corners, fills, shadows and thin content changes while
+tolerating glyph rasterisation. Default comparisons keep the aggregate
+thresholds above. The self-tests retain the deliberately stale 430 px
+execution-mode control and small RGB glyph crops from CI run 43563575943 in
+`test/fixtures/catalog/`; the crops are test fixtures, not catalog baselines.
 
 ```bash
 baseline="$(mktemp -d)"
@@ -608,3 +595,17 @@ from the committed one, CI publishes it (`ci-captures.mjs`) as a
 them with `gh`, refuses frames rendered from another commit than `HEAD` and any
 path that is not a registered catalog frame, and writes them under
 `docs/ui-screens/screens/` for review. `--dry-run` only lists them.
+
+## check-doc-references.mjs
+
+After removing documentation, reject working-tree links and code pointers to
+removed files. The check scans tracked and untracked text consumers, resolves
+relative paths, and derives removals from the supplied base without storing a
+second document inventory.
+
+```bash
+node tools/check-doc-references.mjs --base origin/main
+```
+
+`test/ci.mjs` proves that stale Markdown and code references fail and that
+redirecting them to a retained document passes.

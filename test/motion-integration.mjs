@@ -149,6 +149,42 @@ async function vocabularyHelpers(browser, { reducedMotion = "no-preference" } = 
   assert(Math.abs(travel.end.left - 40) < 0.5 && Math.abs(travel.end.width - 60) < 0.5 && travel.endInline === "" && !travel.hint && !travel.origin,
     "it lands on its final box with no inline transform, origin or layer hint", JSON.stringify(travel));
 
+  phase(`profileFill connects saved readings with one bounded ink transition${tag}`);
+  const profile = await page.evaluate(async () => {
+    const host = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    const arc = document.createElementNS(host.namespaceURI, "circle");
+    arc.setAttribute("cx", "32"); arc.setAttribute("cy", "32"); arc.setAttribute("r", "27");
+    arc.setAttribute("pathLength", "100"); arc.style.strokeDasharray = "60 100";
+    host.append(arc); document.getElementById("vocabStage").append(host);
+    const run = window.RepForgeMotion.fillSavedProfile(arc, 0.2, 0.6);
+    const initial = { fill: parseFloat(getComputedStyle(arc).strokeDasharray), animations: arc.getAnimations().length };
+    const timing = run?.effect.getTiming();
+    if (run) await run.finished;
+    await window.__vocab.frames();
+    const final = { fill: parseFloat(getComputedStyle(arc).strokeDasharray), animations: arc.getAnimations().length,
+      layers: [host, arc].map(el => ({ transform: getComputedStyle(el).transform, hint: getComputedStyle(el).willChange,
+        inlineTransform: el.style.transform, inlineHint: el.style.willChange })) };
+    const cancelled = window.RepForgeMotion.fillSavedProfile(arc, 0.2, 0.6);
+    cancelled?.cancel();
+    const afterCancel = { fill: parseFloat(getComputedStyle(arc).strokeDasharray), animations: arc.getAnimations().length };
+    host.remove();
+    return { vocabulary: window.RepForgeMotion.vocabulary.profileFill, initial, timing, final, afterCancel };
+  });
+  assert(profile.vocabulary.duration === 0.5 && profile.vocabulary.ease === "linear",
+    "profileFill's vocabulary budget is exactly 500ms and its curve is linear", JSON.stringify(profile.vocabulary));
+  if (reduced) {
+    assert(!profile.timing && profile.initial.fill === 60 && profile.initial.animations === 0,
+      "reduced motion shows the saved final ink immediately without an animation", JSON.stringify(profile));
+  } else {
+    assert(profile.timing.duration === 500 && profile.timing.easing === "linear" && profile.initial.animations === 1,
+      "the live profile fill uses exactly one 500ms linear animation", JSON.stringify(profile.timing));
+  }
+  assert(profile.final.fill === 60 && profile.final.animations === 0 &&
+    profile.final.layers.every(el => el.transform === "none" && el.hint === "auto" && !el.inlineTransform && !el.inlineHint),
+    "the final profile arc and its host retain no animation, transform or layer hint", JSON.stringify(profile.final));
+  assert(profile.afterCancel.fill === 60 && profile.afterCancel.animations === 0,
+    "cancelling a profile fill reveals its saved final ink without a leftover animation", JSON.stringify(profile.afterCancel));
+
   phase(`animateSlot swaps content in a measured slot and reverses from the live height${tag}`);
   const slot = await page.evaluate(async () => {
     const el = document.querySelector("#vocabSlot"), body = document.querySelector("#vocabBody");
@@ -2519,7 +2555,7 @@ async function run() {
   assert(boot.runtime, "the vendored Motion bundle exposes animate and motionValue");
   assert(boot.layer, "the integration layer reports the runtime available");
   assert(boot.reduced === false, "reduced motion is off in this context", String(boot.reduced));
-  assert(boot.vocabulary.length === 9 && boot.vocabulary.includes("restRoll") && boot.vocabulary.includes("restFlick") && boot.vocabulary.includes("navPush") && boot.vocabulary.includes("pressRelease"),
+  assert(boot.vocabulary.join(",") === "gestureSettle,gestureExit,layoutShift,navPush,pressRelease,profileFill,revealIn,revealOut,restRoll,restFlick",
     "the motion vocabulary is published for inspection", boot.vocabulary.join(", "));
 
   // A spring that ignored the velocity handed to it would be a fixed-duration

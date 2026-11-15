@@ -24,7 +24,6 @@ function assert(cond, name, detail) {
 
 /* Still unversioned, each for a reason; a new first-party asset is versioned or named here. */
 const UNVERSIONED = Object.freeze({
-  "telemetry.js": "the closed event boundary; deployment injects posthog-config.js beside it",
   "posthog-init.js": "scripts/generate-posthog-config.mjs inserts the generated config before this exact tag",
   "unsupported-workout-grammar.js": "loaded before telemetry-dependent modules; a follow-up may version it",
   "schedule.js": "small stable helpers; a follow-up may version it",

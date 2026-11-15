@@ -93,8 +93,8 @@ a separate engineering queue or permission to implement this plan early.
 6. Preserve legacy readers, durable formats/keys/locks, progression semantics, exact exercise identity, backup/setup/transfer scope, and all accepted Plan 051–053 invariants. Historical compatibility is not an obsolete path merely because current UI no longer writes its format.
 7. Record every retained delegate/exception with its real consumer, reason and existing plan owner; a broad allowlist or unowned deferral does not satisfy convergence. Plan 059 verifies the final authority and executable-release result on its candidate SHA.
 
-P6's concrete adoption evidence and retained-consumer register are recorded in
-[`docs/design/plan-058-pr239-adoption-evidence.md`](../docs/design/plan-058-pr239-adoption-evidence.md).
+P6's historical adoption evidence and retained-consumer register remain in git history.
+Current work lives only in [the backlog](../docs/backlog.md).
 
 ### Re-runnable role inventory
 

@@ -26,7 +26,7 @@ The planning baseline is `origin/main` at `09772f91b86549f71a5d845a7c74849569d59
 
 ## Approved direction
 
-`docs/ui-audit.md` is the current product-direction source. Phase 0 must:
+`docs/backlog.md` is the current product-direction source. Phase 0 must:
 
 - make every G-01–G-88 decision discoverable and non-contradictory;
 - preserve the protected Taurifer identity, core loop, safety language, explicit activation, local-first boundary, and screen catalog;
@@ -291,7 +291,7 @@ This phase defines schemas only. Approved future measurements are comprehension/
 
 | Invariant | Evidence |
 |---|---|
-| Audit source is intact | `node tools/extract-ui-audit-findings.mjs --check` |
+| Audit source is intact | `node tools/check-canonical-contradictions.mjs --check` |
 | Every G/UI item has one disposition | A repository check parses G-01–G-88 and UI-01–UI-32 against the new register and rejects duplicates without an explicit `split` owner |
 | No canonical contradiction remains | Phrase/link checker plus manual review of the conflict matrix above |
 | All referenced files exist | Link/path checker over Plans 049–059 and the sequence document |
@@ -345,7 +345,7 @@ Each documentation commit is independently revertible. Reverting Plan 049 restor
 
 | # | Exact commit message | Contract delivered | Likely files | Prerequisite | Focused proof | Broader regression | Catalog impact | PR-body update | Rollback boundary |
 |---|---|---|---|---|---|---|---|---|---|
-| 1 | `docs(ui): establish overhaul decision disposition register` | One owner/disposition for G-01–G-88 and UI-01–UI-32; protected/rejected claims recorded | `docs/ui-audit.md` companion/register, `plans/README.md` | Approved planning PR | Disposition-count checker; audit extraction check | `git diff --check` | None | Mark row pushed; link register and SHA | Revert removes only register/index entry |
+| 1 | `docs(ui): establish overhaul decision disposition register` | One owner/disposition for G-01–G-88 and UI-01–UI-32; protected/rejected claims recorded | `docs/backlog.md` companion/register, `plans/README.md` | Approved planning PR | Disposition-count checker; audit extraction check | `git diff --check` | None | Mark row pushed; link register and SHA | Revert removes only register/index entry |
 | 2 | `docs(architecture): specify semantic UI roles and release matrix` | Preliminary elevation/type/radius/control/progress/color roles and responsive/accessibility matrix | brand guide, UI-screen/tool docs, new/current ADR | Commit 1 | Role inventory has unique meanings; matrix examples resolve | Path/link check | No frames; future matrix specified | Record role decisions and consumers | Revert restores prior visual policy and blocks UI work |
 | 3 | `docs(state): specify workout and transition foundation contracts` | DOM-not-state rule, transition provenance schema, ownership/dependency boundaries | state/progression/program docs, ADR | Commit 1 | Schema examples; stale-preview and atomic-archive tabletop | Audit extraction check | None | Record schema/version choices | Revert blocks Plans 051/052/055/056 |
 | 4 | `docs(recovery): publish approved recovery-week policy` | Eligibility, bounded volume-only overlay, provenance, reassessment, version-2 constants and allowlist | progression docs, ADR | Commit 3; policy version 2 is recorded before recovery implementation | Representative family fixtures, eligibility negatives, and invariant table | Link/check suite | None | Record policy version and exact proofs | Revert removes recovery authorization only |

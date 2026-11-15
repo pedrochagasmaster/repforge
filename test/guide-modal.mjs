@@ -108,6 +108,37 @@ async function openReplay(page, id) {
   await page.click(`[data-guide-replay="${id}"]`);
 }
 
+// A closing page cannot wait for the preference lock to become available.
+{
+  const { context, page } = await freshPage();
+  const holder = await context.newPage();
+  await holder.goto(BASE, { waitUntil: "domcontentloaded" });
+  await waitForAppBoot(holder, { base: BASE });
+  await openProgress(page);
+  await expectGuideDialog(page, "progress", "Immediate reload");
+
+  await holder.evaluate(() => {
+    const gate = new Promise(resolve => { window.__releaseGuideLock = resolve; });
+    window.__guideLockHeld = false;
+    window.__guideLock = navigator.locks.request("repforge:state-write", async () => {
+      window.__guideLockHeld = true; await gate;
+    });
+  });
+  await holder.waitForFunction(() => window.__guideLockHeld);
+  try {
+    await page.click("#guideDialogOk");
+    await page.reload({ waitUntil: "domcontentloaded" });
+  } finally {
+    await holder.evaluate(async () => { window.__releaseGuideLock(); await window.__guideLock; });
+  }
+  await waitForAppBoot(page, { base: BASE });
+  await openProgress(page);
+  ok(await guideStatus(page, "progress") === "dismissed",
+    "a guide dismissal survives immediate reload while another page owns the preference lock");
+  await context.close();
+}
+
+if (process.env.GUIDE_MODAL_ONLY !== "reload") {
 // Progress: the arrival guide opens as the modal, traps focus, "Got it"
 // dismisses it back to its anchor, the dismissal survives a reload, and Replay
 // shows it again on the next visit.
@@ -396,6 +427,7 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 375, height: 667 }
   }
 }
 
+}
 await browser.close();
 assert.deepEqual(errors, [], "no page errors during guide dialog journeys");
 console.log(`guide modal: ${passed} passed, 0 failed`);

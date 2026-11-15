@@ -1,11 +1,10 @@
-# Opt-in through a change to the benchmark report. Both complete inventories
+# Opt-in through changes to benchmark tooling. Both complete inventories
 # run in each worker, sequentially, with the same dependencies and seed.
 name: Paired test benchmark
 
 on:
   pull_request:
     paths:
-      - docs/test-reduction.md
       - tools/benchmark-tests.mjs
       - .github/workflows/test-benchmark.yml
   workflow_dispatch:

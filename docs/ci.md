@@ -106,7 +106,7 @@ selection with `fullLaneEntries`, so nothing is decided twice. The mapping is:
 
 | Changed file | Full lane |
 | --- | --- |
-| Prose (`*.md`, `*.txt`, …) | Nothing, except the full-lane inputs `DESIGN.md` (`check-design-md`), `docs/design/plan-064-reconciliation.md` (`direction-d-gate`) and `README.md` (simulation). |
+| Prose (`*.md`, `*.txt`, …) | Nothing, except the full-lane inputs `DESIGN.md` (`check-design-md`) and `README.md` (simulation). |
 | A full-lane suite | That command. A PR-lane suite already ran in `ci`: nothing. |
 | A test/tool helper | The full-lane commands that import it (the same dependency graph local selection uses). One that reaches a catalog sweep, or nothing scheduled at all, runs everything. |
 | `app.js`, `styles.css` | The domains of the reviewed `@ci-domain` regions its hunks touch (`// @ci-domain a,b` in app.js, `/* @ci-domain a,b */` in styles.css; `tools/visual-domains.mjs`). A hunk outside a region, in a `global` region, or that moves a marker runs everything; so does a patch GitHub does not show. |
@@ -123,9 +123,8 @@ program/entry/library; and the onboarding entry-card/choice styles are scoped
 to entry/program. Nearby code is explicitly returned to global: schedule
 commit operations, the exercise-picker/search helpers, the navigation dock,
 generic radio states, and exercise-detail header styles. Changing one of
-those remains a complete full-lane run. See
-[the source-ownership audit](audits/ci-source-ownership-2026-10-27.md)
-for the measured selector impact, historical counterexamples and guard tests.
+those remains a complete full-lane run. `test/ci.mjs` guards the source-ownership
+and selector boundaries.
 
 A domain selects the catalog states of the flows with that name (an onboarding
 flow counts as `entry`; `session` is the Session summary) and every full-lane
@@ -223,7 +222,7 @@ downloading every historical screenshot and other blob on every runner.
 Git fetches missing old blobs on demand; the repository is public and
 persist-credentials: false remains enabled. The planner, service and fast
 jobs stay on shallow checkouts. This changes transfer/setup, not coverage.
-See [the October 27 efficiency audit](audits/ci-runner-efficiency-2026-10-27.md).
+The original efficiency measurements remain in git history.
 
 PR-browser weights were refreshed from complete per-suite timings
 of three successful October 27 CI runs (40489481892, 40491459346,
@@ -234,8 +233,8 @@ observed maxima, rounded up. The native gesture gate was underbudgeted:
 run exactly once, and the five recalibrated shards each budget 431–434s.
 A fixed-duration four-run replay predicts 17–63s less PR-browser
 makespan, including 56s on the holdout. These are simulations, **not
-observed GitHub wall-clock savings**. See the
-[packing audit](audits/ci-pr-browser-packing-2026-10-27.md).
+observed GitHub wall-clock savings**. The original packing measurements remain
+in git history.
 
 Full-lane Focus weights were refreshed from run 43280026294 on November 12:
 `focus-geometry` measured 379.84 s after its expanded dock/guess matrix, so its
@@ -244,9 +243,21 @@ The twelve bins now estimate 1,342–1,345 s each. Shard 1's cancellation in tha
 run came from diagnostic replays of two stale assertions, rather than longer
 initial commands; correcting those assertions removes that replay work.
 
+Focus geometry is now scheduled as nine independent `--only` commands (#765):
+`stability`, `large`, `smallest`, `context`, `effort`, `test-set`, `guess`,
+`dismissal` and `gestures`. The `smallest` section also retains both standing-ledger
+checks. The original combined command reached 553s on main and the 600s cap on
+an unrelated History PR. The split keeps every geometry assertion, the existing
+600s per-command cap, shard counts and job budgets. Each command has its own
+planner weight and artifact id, so the planner can distribute the work. Initial
+weights use locked local section timings (13.45–189.14s), rounded up with 15%
+headroom; CI measurements can refine them. A local
+full run remains available with `node tools/run-tests.mjs full-browser --suite test/focus-geometry.mjs` (all nine commands), or the existing
+`FOCUS_GEOMETRY_ONLY` selector for a direct invocation.
+
 The PR lane keeps five runners within the account's concurrency limit.
 The complete full lane still uses twelve runners with approximately
-1,090s of estimated browser work per runner and remains staged after
+1,400s of estimated browser work per runner and remains staged after
 the PR lane.
 
 The browser jobs cache the Chromium

@@ -29,6 +29,7 @@
        a fifth of a pixel on a 54px button. Its rest thresholds are in the
        curve's 0–1 units. */
     pressRelease: { type: "spring", stiffness: 900, damping: 42, mass: 1, restDelta: 0.001, restSpeed: 0.01 },
+    profileFill: { duration: 0.5, ease: "linear" },
     revealIn: { duration: 0.2, ease: [0.2, 0.7, 0.2, 1] },
     revealOut: { duration: 0.15, ease: [0.4, 0, 0.8, 0.2] },
     /* The rest clock's second (rest timer redesign, owner 2026-10-23): the new figures settle up into place, quietly. */
@@ -2055,7 +2056,18 @@
     return run;
   }
 
+  /** One saved-evidence change, over the final arc already present in markup. Cancellation reveals that final arc. */
+  function fillSavedProfile(arc, from, to) {
+    if (!arc || reducedMotion() || document.hidden || !(to > from) || typeof arc.animate !== "function") return null;
+    const { duration, ease } = VOCABULARY.profileFill;
+    const run = arc.animate([{ strokeDasharray: `${from * 100} 100` }, { strokeDasharray: `${to * 100} 100` }],
+      { duration: duration * 1000, easing: ease });
+    run.id = "profile-fill";
+    return run;
+  }
+
   global.RepForgeMotion = {
+    fillSavedProfile,
     rollValue,
     flickRestLight,
     syncNativeControls,

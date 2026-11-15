@@ -112,28 +112,8 @@ if (process.argv.includes("--progress-reader-only")) {
 // ---------------------------------------------------------------- the list
 console.log("\nD-owned state list");
 {
-  const doc = readFileSync(join(ROOT, "docs/design/plan-064-reconciliation.md"), "utf8");
-  const owned = doc.split("\n").map((line) => line.split("|").map((cell) => cell.trim()))
-    .filter((cells) => cells.length >= 8 && /^`[a-z-]+\/[a-z-]+`$/.test(cells[1]) && cells[4] === "`redesign (D)`")
-    .map((cells) => cells[1].replaceAll("`", ""));
-  check(owned.length === 35, "the treatment table has 35 `redesign (D)` screens", `found ${owned.length}`);
-  // The reconciliation's "Retire and add list": states R3 adds to the catalog are D states from the day they exist.
-  const added = doc.split("\n").filter((line) => /^\| Add \|/.test(line) && /\| R3 \|/.test(line))
-    .flatMap((line) => [...line.matchAll(/`([a-z-]+\/[a-z-]+)`/g)].map((match) => match[1]));
-  check(added.length >= 8, "the add list names the new R3 catalog states", `found ${added.join(", ")}`);
-  // Plan 067 retired the per-exercise progression strategies (rep_goal, anchor_backoff) the
-  // mixed-strategies day existed to demonstrate: the adaptive engine now recommends sets
-  // uniformly, so these four treatment-table/add-list states no longer exist as screens.
-  const RETIRED_D_STATES = new Set([
-    "today/mixed-strategies", "workout/why-rep-goal", "workout/why-anchor", "session/summary-mixed",
-  ]);
-  const ownedCurrent = owned.filter((key) => !RETIRED_D_STATES.has(key));
-  const addedCurrent = added.filter((key) => !RETIRED_D_STATES.has(key));
   const listed = DIRECTION_D_STATES.map((item) => item.key);
-  check(ownedCurrent.every((key) => listed.includes(key)) && listed.every((key) => ownedCurrent.includes(key) || addedCurrent.includes(key)) &&
-    new Set(listed).size === listed.length,
-  "the gate's list is the 35 treatment-table states, minus Plan 067's retired strategy-engine states, plus only states the add list names",
-  `${listed.length} listed`);
+  check(new Set(listed).size === listed.length, "the executable state inventory has no duplicates");
   const built = ["workout/focus", "workout/focus-glossary", "workout/correction", "workout/rest-running", "workout/rest-done",
     "workout/session", "workout/early-finish", "workout/exercise-note", "workout/warmup-actions",
     "workout/reorder", "workout/skipped-actions", "workout/substituted-actions", "history/list", "history/session",

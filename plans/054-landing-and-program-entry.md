@@ -8,7 +8,7 @@ live SHAs, thread ID, server origin, and PID before dispatch.
 
 - **Plan number:** 054
 - **Phase:** 3 — Landing and program entry
-- **Status:** Implemented in PR #241 and merged at `87833ded1e92ba3bc68308860d40939c5ca9b1c6` on 2026-09-16. See [final visual evidence](../docs/pr-proof/landing-final-pass/README.md).
+- **Status:** Implemented in PR #241 and merged at `87833ded1e92ba3bc68308860d40939c5ca9b1c6` on 2026-09-16. See [backlog](../docs/backlog.md).
 - **Owner approval state:** Product flow and the original landing target were approved. On 2026-09-15 the owner authorized the product-led refinement recorded in `docs/design/plan-054-landing-directions.md`; owner merge on 2026-09-16 closed the Plan 054 merge gate. Launch-wide physical-device validation remains allocated to Plan 059.
 - **Depends on:** Plan 049; Plan 050; accepted Plans 051–053; and the post-Plan053 durable-state architecture bridge, implemented in PR #240 and merged at current main `3710f34bb677c59674a3677c03d2fc1427e07cef`. Plan 050's shipped expert-control and copy/overflow components remain the starting point; the landing visual-selection gate remains mandatory.
 - **Blocks:** Relevant Plan 057 Settings/Privacy integration, Plan 058 full-system migration, and Plan 059 launch validation

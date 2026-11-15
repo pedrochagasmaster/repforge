@@ -1150,23 +1150,6 @@ async function run() {
         await page.addInitScript(() => {
           const mode = sessionStorage.getItem("test-followup-mode");
           if (!mode) return;
-          const request = navigator.locks.request.bind(navigator.locks);
-          navigator.locks.request = (name, ...args) => {
-            const cleanup = name === "repforge:state-write" && Object.keys(localStorage).some(key => {
-              if (!key.startsWith("repforge_pending_v1:")) return false;
-              const journal = JSON.parse(localStorage.getItem(key));
-              return journal.base?._storageFollowUp?.kind === "onboarding-edit" && !journal.proposal?._storageFollowUp;
-            });
-            if (!cleanup || window.__cleanupReached) return request(name, ...args);
-            window.__cleanupReached = true;
-            if (mode === "rejected") {
-              window.__cleanupSettled = true;
-              return Promise.reject(new Error("Injected optional cleanup rejection"));
-            }
-            const enter = () => request(name, ...args).finally(() => { window.__cleanupSettled = true; });
-            if (mode === "held") return new Promise(resolve => { window.__releaseCleanup = resolve; }).then(enter);
-            return enter();
-          };
           if (mode === "failed") {
             const set = Storage.prototype.setItem, put = IDBObjectStore.prototype.put;
             Storage.prototype.setItem = function(key, value) {
@@ -1178,6 +1161,29 @@ async function run() {
               return put.call(this, value, key);
             };
           }
+        });
+        await page.route(/\/durable-state\.js(?:\?|$)/, async route => {
+          const response = await route.fetch();
+          const installCleanupFault = () => {
+            const mode = sessionStorage.getItem("test-followup-mode");
+            if (!mode) return;
+            const durable = window.RepForgeDurableState;
+            const enqueue = durable.enqueueStateChange;
+            durable.enqueueStateChange = function(base, proposal, ...args) {
+              const cleanup = base?._storageFollowUp?.kind === "onboarding-edit" && !proposal?._storageFollowUp;
+              if (!cleanup || window.__cleanupReached) return enqueue.call(this, base, proposal, ...args);
+              window.__cleanupReached = true;
+              if (mode === "rejected") {
+                window.__cleanupSettled = true;
+                return Promise.reject(new Error("Injected optional cleanup rejection"));
+              }
+              const enter = () => enqueue.call(this, base, proposal, ...args)
+                .finally(() => { window.__cleanupSettled = true; });
+              if (mode === "held") return new Promise(resolve => { window.__releaseCleanup = resolve; }).then(enter);
+              return enter();
+            };
+          };
+          await route.fulfill({ response, body: `${await response.text()}\n;(${installCleanupFault.toString()})();` });
         });
         await page.goto(BASE, { waitUntil: "domcontentloaded" });
         await page.waitForFunction(() => window.__repforgeBooted === true);

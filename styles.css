@@ -2455,9 +2455,7 @@ body.is-sheet-open{overflow:hidden}
 .exthumb--sm{width:52px;height:52px}
 .exthumb--md{width:72px;height:72px}
 .exthumb--lg{width:100%;height:auto;aspect-ratio:1;border-radius:var(--radius-surface)}
-/* A movement with no illustration yet shows the G dumbbell, quiet, in its tile (the native UI kit), not a blank box. */
 .exthumb--empty{display:grid;place-items:center;background:var(--well);color:var(--ink-faint)}
-.exthumb--empty .icon-mask{width:40%;height:40%;opacity:.5}
 
 /* Browsing a library is not a confirmation prompt: the picker takes the whole
    visible viewport instead of the default 74dvh band, so search, filters and
@@ -4011,6 +4009,14 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
 .sum-cards .sharecard:only-child{width:calc(100% - var(--sum-pad-l) - var(--sum-pad-r))}
 .sharecard__img{display:block;width:100%;height:100%}
 /* The four numbers: Sans with tabular numerals (Mono's comma opens a gap in "6,453"), the unit once, small. */
+/* Saved evidence changes only in the final finish/finding slot. */
+.sum-profile{margin-top:var(--space-18);padding:var(--space-14) 0;border-block:1px solid var(--boundary-decorative)}
+.sum-profile__open{display:block;width:100%;padding:var(--space-12) 0;min-height:var(--control-target);border:0;background:none;color:var(--control-quiet-ink);text-align:left;font-family:var(--font-language)}
+.sum-profile__open .profile-reading{margin:0;padding:0;border:0}
+.sum-profile__open>.profile-caption{display:block;margin-top:var(--space-8)}
+.sum-profile__lift{margin:var(--space-12) 0 var(--space-4);font-size:var(--font-size-body-small);line-height:var(--line-standard);font-weight:var(--weight-semibold);overflow-wrap:anywhere}
+.sum-profile__reader{display:block;min-height:var(--control-target);padding:var(--space-8) 0;background:none;border:0;color:var(--control-quiet-ink);text-align:left;font:inherit;font-size:var(--font-size-body-small);text-decoration:underline;text-underline-offset:3px}
+.sum-profile__open:focus-visible,.sum-profile__reader:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .sum-finding{display:block;width:100%;min-height:var(--control-target);margin-top:var(--space-18);padding:var(--space-14) 0;border:0;border-block:1px solid var(--boundary-decorative);background:var(--control-quiet-bg);color:var(--control-quiet-ink);text-align:left;font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-reading);overflow-wrap:anywhere}
 .sum-finding__label{font-weight:var(--weight-semibold);margin-right:var(--space-8)}
 .sum-finding:hover{background:var(--well)}
@@ -5667,18 +5673,19 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
 .evrow--d .evrow__spark{grid-area:s;align-self:center;justify-self:end}
 #stats .evrow--d .evrow__detail,#stats .evrow__detail{padding:0 0 var(--space-8);border-bottom:1px solid var(--boundary-decorative);overflow-x:visible}
 .evrow__detail .lede{margin:0 0 var(--space-4)}
-.evtable{width:100%;min-width:0;table-layout:fixed;border-collapse:collapse;margin-top:var(--space-8)}
+.evtable{width:100%;min-width:0;table-layout:auto;border-collapse:collapse;margin-top:var(--space-8)}
 .evtable th:last-child{white-space:nowrap;font-size:min(var(--font-size-label),var(--large-cap-caption));letter-spacing:normal;text-transform:none}
 .evtable th,.evtable td{
-  padding:var(--space-8) 0;border-bottom:1px solid var(--boundary-decorative);text-align:right;white-space:normal;overflow-wrap:anywhere;
+  padding:var(--space-8) 0;border-bottom:1px solid var(--boundary-decorative);text-align:right;white-space:normal;overflow-wrap:normal;
   font-family:var(--font-training-data);font-size:var(--font-size-body-small);font-weight:var(--weight-regular);line-height:var(--line-standard);color:var(--color-ink);
 }
 .evtable th{
   padding-top:0;font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);
-  letter-spacing:var(--track-label);text-transform:uppercase;color:var(--color-ink-secondary);
+  letter-spacing:normal;text-transform:none;color:var(--color-ink-secondary);
 }
-.evtable th:first-child,.evtable td:first-child{width:26%;text-align:left;font-family:var(--font-language)}
-.evtable th + th,.evtable td + td{padding-left:var(--space-2)}
+.evtable td:not(:first-child){white-space:nowrap}
+.evtable th:first-child,.evtable td:first-child{width:auto;text-align:left;font-family:var(--font-language)}
+.evtable th + th,.evtable td + td{padding-left:var(--space-8)}
 .evtable tbody tr:last-child td{border-bottom:0}
 
 /* A narrow screen or enlarged text: the rows stack instead of squeezing the words. */
@@ -5843,13 +5850,26 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
 #history .histpage__title:focus-visible{outline:var(--control-focus-outline);outline-offset:2px;border-radius:var(--radius-control)}
 #history .histpage__lede{margin:var(--space-8) 0 0;font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-reading);color:var(--color-ink-secondary)}
 #history .histpage__totals{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,6rem),1fr));gap:var(--space-12);margin-top:var(--space-18);padding:var(--space-12) 0;border-top:1px solid var(--boundary-decorative);border-bottom:1px solid var(--boundary-decorative)}
-#history .histpage__totals b{display:block;font-family:var(--font-language);font-weight:var(--weight-semibold);letter-spacing:-.02em;font-variant-numeric:tabular-nums;font-size:var(--font-size-metric);line-height:var(--line-tight);white-space:nowrap;color:var(--color-ink)}
-#history .histpage__totals span{display:block;margin-top:var(--space-4);font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+#history .histpage__totals b{display:block;font-family:var(--font-language);font-weight:var(--weight-semibold);letter-spacing:-.02em;font-variant-numeric:tabular-nums;font-size:var(--font-size-metric);line-height:var(--line-standard);white-space:normal;overflow-wrap:normal;color:var(--color-ink)}
+#history .histpage__totals .histpage__total-group{display:inline-block;white-space:nowrap}
+#history .histpage__totals>div>span{display:block;margin-top:var(--space-4);font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
 #history .histpage__cols{margin-top:var(--space-26);min-height:var(--control-target);align-items:center}
-#history .histpage__cols,#history .histlift__sets .ledgerline{grid-template-columns:3rem minmax(0,1fr)}
+/* Share tracks across headings and rows; heading wrapping yields before a value ever has to scroll. */
+#history .histlift__ledger-frame{--history-ledger-gap:var(--space-8)}
+#history .histlift__overflow{display:none;text-align:right;font-size:var(--font-size-subtitle);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+#history .is-overflowing .histlift__overflow{display:block}
+#history .is-compact-ledger{--history-ledger-gap:var(--space-4)}
+#history .is-compact-ledger .histpage__cols>span:first-child{grid-column:1/-1}
+#history .is-compact-ledger .histpage__cols .history-metric-grid{grid-row:2}
+#history .is-value-fit .histpage__cols .fx-col{contain:inline-size;overflow-wrap:anywhere}
+#history .histlift__ledger{display:grid;grid-template-columns:max-content repeat(var(--history-metric-count,3),minmax(min-content,1fr));column-gap:var(--history-ledger-gap);overflow-x:auto}
+#history .histlift__ledger .history-metric{display:flex;justify-content:flex-end;align-items:baseline;gap:var(--space-4)}
+#history .histlift__ledger:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+#history .histpage__cols,#history .histlift__sets,#history .histlift__sets .ledgerline{display:grid;grid-column:1/-1;grid-template-columns:subgrid;column-gap:var(--history-ledger-gap)}
+#history .histpage__cols,#history .histlift__sets .ledgerline{padding-inline:0}
 #history .histpage__cols .ledgerline__vals{letter-spacing:0}
 #history .histpage__cols .ledgerline__vals,#history .histlift__sets .ledgerline__vals{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr) minmax(0,1fr);gap:var(--space-8)}
-#history .histpage__cols .history-metric-grid,#history .histlift__sets .history-metric-grid{display:grid;grid-template-columns:repeat(var(--history-metric-count,3),minmax(0,1fr));gap:var(--space-8);min-width:0}
+#history .histpage__cols .history-metric-grid,#history .histlift__sets .history-metric-grid{display:grid;grid-column:2/-1;grid-template-columns:subgrid;column-gap:var(--history-ledger-gap);min-width:0}
 #history .histpage__cols .ledgerline__vals>.fx-col,#history .histlift__sets .ledgerline__vals>.fx-col{min-width:0}
 #history .histpage__cols .ledgerline__vals{font-family:inherit;font-size:inherit;font-weight:inherit;line-height:inherit;letter-spacing:inherit;text-transform:inherit;color:inherit}
 #history .histlift{padding:var(--space-12) 0;border-bottom:1px solid var(--boundary-decorative)}

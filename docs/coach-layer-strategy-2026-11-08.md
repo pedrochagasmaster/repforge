@@ -1,7 +1,6 @@
 # The coach layer: calibration from day zero, a thirty-day cadence, and the Pro funnel
 
-**Status:** owner decisions recorded (2026-11-08, §10). The decided items govern the plans
-in §11; the items the owner deferred to after the alpha stay open and are marked so. Agents
+**Status:** owner decisions recorded (2026-11-08, §10). The decided items explain Plans 078–083; the items the owner deferred to after the alpha stay open and are marked so. Agents
 do not amend the thesis, ADR 0010, PRODUCT.md or Plan 077 on the strength of this note; the
 owner does, or instructs it explicitly, per §8.
 **Source:** the owner's statements of 2026-11-08 (§1) and the discussion that followed.
@@ -283,31 +282,11 @@ analogy to apps with brands.
   move day-thirty retention at all. If they do not, they deserve no paywall anywhere.
 - **The documents.** §8 lists what this amends. None of it is agent-amendable.
 
-## 8. What this amends, if approved
+## 8. Decision-record scope
 
-| Document | Change |
-| --- | --- |
-| `docs/business-product-thesis.md` §8.3 | Pro MVP gains the weekly review as the visible form of job 3; the profile across programs is named; the trial-as-first-program and the day-zero presentation are recorded |
-| `docs/business-product-thesis.md` §8.4, ADR 0010 | Unchanged until the alpha decides D-10 and D-11; the entitlement ADR (D-13) is written first |
-| `docs/adr/` | A new ADR for the entitlement lifecycle (D-13): provider, Pix and card, device-side token, restoration, refunds, reconciliation |
-| `PRODUCT.md` | The coach-function frame is recorded as an engineering frame with the D-1 limits (subtle in marketing, never the selling point, CREF-registered professional before commercialization); the gauge is recorded as dissolved into the profile (D-6) |
-| `plans/077-calibration-free-layer.md` | OD-12's calendar cadence becomes a ceiling under the estimator; OD-20's percentage is dissolved into the profile; OD-21 stays open, to be decided after the alpha |
-| `app.js` `DEFAULTS` | `rirMode:"effort"`, `effortScale:"feel"` for new installs (existing installs keep their setting) |
-| `plans/077-calibration-free-layer.md` OD-3, OD-4, OD-6 | Two stages instead of three: words and reps left (0–4, 5+ stored as 5); the B→C tip and `effortScale` are retired or kept for compatibility |
-| `docs/progressive-overload-mechanics.md` §4 | The estimator, the standing words, and the declared priors table |
-| `docs/backlog.md` | A Now row for session zero and the ladder default, Next rows for the estimator, the cadence and the profile, a Gated row for the funnel behind entitlement |
-| `CONTEXT.md` | Terms: *session zero*, *standing* (of an estimate), *finding*, *profile*, *weekly review*; the coach is the human comparison only, never a product name |
-
-**Applied on 2026-11-08, on the owner's instruction, in PR #667:** PRODUCT.md (the engineering
-frame with the D-1 limits; the coach layer under approved-and-unimplemented); the thesis (a
-v1.4 amendment note, §3.5 and §8.3); Plan 077 (an amendments block for OD-3/4/6, OD-12,
-OD-20, OD-21 and the new work) and its row in `plans/README.md`; the backlog (a Now row for
-the six plans; the entitlement row in Gated); CONTEXT.md (reps left, test set, session zero,
-standing, finding, profile, weekly review, coach).
-**Deliberately not applied:** ADR 0010 (unchanged by decision, D-10/D-11); the entitlement ADR
-(D-13, written before funnel work, not now); the mechanics doc (it describes shipped
-behaviour, so the estimator and the priors enter it with their plans); `DEFAULTS` (code,
-with Settings, catalog and test consequences, so it belongs to the ladder plan).
+The owner decisions below record the rationale behind Plans 078–083.
+Current open commercial decisions and all remaining work live only in
+[`docs/backlog.md`](backlog.md). This record schedules no implementation.
 
 ## 9. Examined and rejected
 
@@ -351,32 +330,3 @@ is decided from alpha evidence; agents treat it as undecided.
 | D-14 | Does the landing wait for the alpha, or change additively now? | **Additive now, small**, with the coach comparison kept out of the copy (D-1). |
 | D-15 | Do reps left and RIR merge into one numeric stage? | **Yes**: chips 0 · 1 · 2 · 3 · 4 · 5+, with 5+ stored as 5; RIR becomes a glossary word. |
 | D-16 | May `landing_action.chapter` widen from 1–4 to 1–5 for the test-set proof chapter (Plan 083 §3.5, a Plan 071 closed-enum change)? | **Yes** (2026-11-08). The property stays a closed integer range; no new event or property. |
-
-## 11. Sequencing
-
-The decided items, in the order they should be built. Each needs its own plan under
-`plans/`, within the backlog's authority.
-
-1. The owner amends, or instructs the amendment of, the documents in §8 for the decided
-   items (D-1 to D-6, D-12 to D-15). The deferred items (D-7 to D-11) are recorded as open.
-2. **Plan: the effort ladder** (D-3, D-15): [`plans/078-effort-ladder.md`](../plans/078-effort-ladder.md).
-   Words by default with one onboarding question; two stages instead of three; `effortScale`
-   retired; the B→C tip retired. Small, Free, before the alpha.
-3. **Plan: session zero** (D-2, D-5): [`plans/079-session-zero.md`](../plans/079-session-zero.md).
-   A ramp per lift inside the first session, the declared priors table in the mechanics doc, the
-   skip rules. Free, before the alpha.
-4. **Plan: the estimator** (D-4): [`plans/080-estimator.md`](../plans/080-estimator.md).
-   `ENGINE_VERSION` 078.x: per-lift estimate and uncertainty, standing words in the target and Why,
-   uncertainty-driven test sets under OD-12's ceilings.
-5. **Plan: the profile and the thirty-day cadence** (D-6, D-8):
-   [`plans/081-profile-and-findings.md`](../plans/081-profile-and-findings.md). The gauge dissolved;
-   the findings designed; everything Free in the alpha.
-6. **Plan: the weekly review** (D-9): [`plans/082-weekly-review.md`](../plans/082-weekly-review.md).
-   Facts and proposals, both on in the alpha; the proposal path reuses the within-block adaptation
-   contract from thesis §8.3 job 3.
-7. **The landing's additive change** (D-14): [`plans/083-landing-test-set.md`](../plans/083-landing-test-set.md),
-   small, at any point after step 2 so the proof can show the words stage.
-8. **The alpha** runs with steps 2 to 6 on for every participant. Its funnel and retention
-   evidence decides D-7 to D-11.
-9. **An ADR for the entitlement lifecycle** (D-13), then and only then the funnel work of §6
-   as the alpha evidence shapes it.

@@ -487,17 +487,24 @@ async function restStepperRelease(page) {
       const keyboardStart = await shorter.evaluate(button => ({ disabled: button.disabled, focused: button === document.activeElement,
         value: document.querySelector('#restSec').value, stored: JSON.parse(localStorage.getItem('repforge_v1')).settings.restSec }));
       await page.keyboard.press('Enter');
+      if (iteration === 10) {
+        await page.reload({ waitUntil: 'domcontentloaded' });
+        await waitForApp(page);
+        await page.click('#openSettings');
+      }
       await page.waitForFunction(() => JSON.parse(localStorage.getItem('repforge_v1')).settings.restSec === 15).catch(async error => {
         console.error('Rest keyboard boundary:', { before: keyboardStart, after: await shorter.evaluate(button => ({ disabled: button.disabled,
           focused: button === document.activeElement, value: document.querySelector('#restSec').value, stored: JSON.parse(localStorage.getItem('repforge_v1')).settings.restSec })) });
         throw error;
       });
-      assert(await page.locator('#restSec').inputValue() === '15', 'the keyboard can still step after a held repeat');
+      assert(await page.locator('#restSec').inputValue() === '15', iteration === 10
+        ? 'the last held-repeat and Enter value persists across immediate reload'
+        : 'the keyboard can still step after a held repeat');
     }
   }
 }
 
-async function nativeControls(browser) {
+async function nativeControls(browser, { appearanceOnly = false } = {}) {
   const { context, page, touch } = await todayPage(browser);
   phase("Phase 4: the off switch has a light track and a required ring");
   await page.click('#openSettings');
@@ -547,6 +554,8 @@ async function nativeControls(browser) {
   assert(hasSegments === 1, "Appearance is a radiogroup");
   if (hasSegments) {
     await segmented.locator('[data-value="light"]').click();
+    assert(await segmented.locator('[data-value="light"]').getAttribute('aria-checked') === 'true', 'the selected default is acknowledged on screen immediately');
+
     assert(await page.evaluate(() => JSON.parse(localStorage.getItem('repforge_ui_v1') || '{}').theme) === 'light', 'explicitly choosing the selected default records the device preference');
     await segmented.locator('[data-value="dark"]').click();
     assert(await page.locator('html').getAttribute('data-theme') === 'dark', "a tap applies Appearance immediately");
@@ -567,6 +576,7 @@ async function nativeControls(browser) {
     assert(await page.locator('#unitSegments [data-value="lb"]').getAttribute('aria-checked') === 'true', "Units persists and restores its selected segment");
     assert(await page.locator('#themeSegments [data-value="dark"]').getAttribute('aria-checked') === 'true', "Appearance restores from device UI preferences");
   }
+  if (appearanceOnly) { await context.close(); return; }
   phase("Taste round 2: the segmented thumb is a raised paper thumb on a soft track");
   for (const theme of ["light", "dark"]) {
     await page.evaluate(value => { document.documentElement.dataset.theme = value; }, theme);
@@ -1714,6 +1724,29 @@ async function routeHistory(browser) {
   await page.goBack({ waitUntil: "commit" }).catch(() => {});
   await page.waitForFunction(() => !document.body.classList.contains("is-library"), undefined, { timeout: 3000 }).catch(() => {});
   assert((await page.evaluate(() => window.__pushes.length)) === 0, "the library leaves without the app animating it again");
+
+  phase("reloading a pushed page clears its stale route entry without losing other history state");
+  await page.waitForFunction(() => !document.body.classList.contains("is-pushing"));
+  await page.evaluate(() => {
+    history.replaceState({ ...history.state, reloadProbe: "preserved" }, "", location.href);
+    window.openLibrary();
+  });
+  await page.waitForFunction(() => history.state?.tauriferRoute?.view === "library" && !document.body.classList.contains("is-pushing"));
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForApp(page);
+  const reloaded = await page.evaluate(() => ({
+    route: history.state?.tauriferRoute,
+    probe: history.state?.reloadProbe,
+    library: document.body.classList.contains("is-library"),
+  }));
+  assert(!reloaded.route && !reloaded.library && reloaded.probe === "preserved",
+    "reload removes the old pushed-route marker and preserves unrelated history state", JSON.stringify(reloaded));
+  await page.evaluate(() => window.openLibrary());
+  await page.waitForFunction(() => history.state?.tauriferRoute?.view === "library" && !document.body.classList.contains("is-pushing"));
+  await page.goBack({ waitUntil: "commit" });
+  const backAfterReload = await page.waitForFunction(() => window.__repforgeBooted === true && !document.body.classList.contains("is-library") &&
+    !history.state?.tauriferRoute && history.state?.reloadProbe === "preserved", undefined, { timeout: 3000 }).then(() => true, () => false);
+  assert(backAfterReload, "after reload one browser Back closes a newly pushed page without a dead press", JSON.stringify(await routeState(page)));
   await context.close();
 }
 
@@ -2604,13 +2637,65 @@ async function refreshLayout(browser) {
   }
 }
 
-// NATIVE_FEEL_ONLY=rest runs the ten-cycle held Settings probe, =large runs just phase 5, =shelf just its addendum, =wheel just the wheel picker and =swipe just the
-// history and back-swipe phases, =refresh just the catalog layout regressions, for a local red/green; CI runs everything.
+async function scrollerPress(browser) {
+  phase("A control in a scroller waits before it shows the press");
+  {
+    const scrolling = await todayPage(browser);
+    const { context, page, touch } = scrolling;
+    await page.locator("#chooseAnotherDay").scrollIntoViewIfNeeded();
+    await page.evaluate(() => {
+      const el = document.querySelector("#chooseAnotherDay");
+      window.__pressSeen = [];
+      new MutationObserver(() => window.__pressSeen.push(el.classList.contains("is-pressed"))).observe(el, { attributes: true, attributeFilter: ["class"] });
+    });
+    let p = await center(page, "#chooseAnotherDay");
+    await touch("touchStart", [{ x: p.x, y: p.y }]);
+    await touch("touchMove", [{ x: p.x, y: p.y - 40 }]);
+    await touch("touchMove", [{ x: p.x, y: p.y - 120 }]);
+    await touch("touchEnd");
+    const flashed = await page.evaluate(() => window.__pressSeen.some(Boolean));
+    assert(!flashed, "a scroll that starts on the control never shows its press");
+
+    // Hold a real viewport scroll after the swipe until the next touch is pending.
+    await page.evaluate(() => {
+      window.__priorScrollFinished = new Promise(resolve => {
+        window.__releasePriorScroll = () => {
+          document.addEventListener("scrollend", () => resolve(), { once: true });
+          document.addEventListener("scroll", event => { window.__priorScrollTrusted = event.isTrusted; }, { once: true });
+          window.scrollTo({ top: scrollY === 0 ? 1 : 0, behavior: "instant" });
+        };
+      });
+    });
+    // The swipe and the held tap are independent gestures; prior scroll work must stay on its own page.
+    const tap = await todayPage(browser);
+    await tap.page.locator("#chooseAnotherDay").scrollIntoViewIfNeeded();
+    p = await center(tap.page, "#chooseAnotherDay");
+    await tap.touch("touchStart", [{ x: p.x, y: p.y }]);
+    const early = await pressState(tap.page, "#chooseAnotherDay");
+    assert(early.pending && !early.pressed, "at touch-down the press is pending", JSON.stringify(early));
+    await page.evaluate(async () => { window.__releasePriorScroll(); await window.__priorScrollFinished; });
+    assert(await page.evaluate(() => window.__priorScrollTrusted === true), "the held step releases a real viewport scroll after touch-down");
+    const held = await tap.page.waitForFunction(() => document.querySelector("#chooseAnotherDay").classList.contains("is-pressed"), undefined, { timeout: 2000 })
+      .then(() => true, () => false);
+    assert(held, "a held touch shows the press once the wait is over");
+    await tap.touch("touchEnd");
+    await tap.page.waitForFunction(() => document.querySelector("#dayPickSheet")?.classList.contains("is-open"), undefined, { timeout: 5000 });
+    assert(!(await pressState(tap.page, "#chooseAnotherDay")).pressed, "the tap activates the control and the press is released");
+    await tap.context.close();
+    await context.close();
+  }
+
+}
+
+// NATIVE_FEEL_ONLY=press runs the held scroller-press regression, =rest runs the ten-cycle held Settings probe, =large runs just phase 5, =shelf just its addendum, =wheel just the wheel picker and =swipe just the
+// history and back-swipe phases, =appearance just Appearance control behaviour, =controls all native controls, =refresh just the catalog layout regressions, and =core the remaining phases.
+// refresh + core + large covers the complete suite, including the shelf addendum, within separate runner limits; CI runs everything.
 const ONLY = process.env.NATIVE_FEEL_ONLY || "";
 const browser = await launchChromium();
 try {
+ if (ONLY === "press") await scrollerPress(browser);
  if (!ONLY || ONLY === "refresh") await refreshLayout(browser);
- if (!ONLY) {
+ if (!ONLY || ONLY === "core") {
   phase("A primary action is pressed on touch-down");
   {
     const { context, page, touch } = await todayPage(browser);
@@ -2688,36 +2773,7 @@ try {
     await context.close();
   }
 
-  phase("A control in a scroller waits before it shows the press");
-  {
-    const { context, page, touch } = await todayPage(browser);
-    await page.locator("#chooseAnotherDay").scrollIntoViewIfNeeded();
-    await page.evaluate(() => {
-      const el = document.querySelector("#chooseAnotherDay");
-      window.__pressSeen = [];
-      new MutationObserver(() => window.__pressSeen.push(el.classList.contains("is-pressed"))).observe(el, { attributes: true, attributeFilter: ["class"] });
-    });
-    let p = await center(page, "#chooseAnotherDay");
-    await touch("touchStart", [{ x: p.x, y: p.y }]);
-    await touch("touchMove", [{ x: p.x, y: p.y - 40 }]);
-    await touch("touchMove", [{ x: p.x, y: p.y - 120 }]);
-    await touch("touchEnd");
-    const flashed = await page.evaluate(() => window.__pressSeen.some(Boolean));
-    assert(!flashed, "a scroll that starts on the control never shows its press");
-
-    await page.locator("#chooseAnotherDay").scrollIntoViewIfNeeded();
-    p = await center(page, "#chooseAnotherDay");
-    await touch("touchStart", [{ x: p.x, y: p.y }]);
-    const early = await pressState(page, "#chooseAnotherDay");
-    assert(early.pending && !early.pressed, "at touch-down the press is pending", JSON.stringify(early));
-    const held = await page.waitForFunction(() => document.querySelector("#chooseAnotherDay").classList.contains("is-pressed"), undefined, { timeout: 2000 })
-      .then(() => true, () => false);
-    assert(held, "a held touch shows the press once the wait is over");
-    await touch("touchEnd");
-    await page.waitForFunction(() => document.querySelector("#dayPickSheet")?.classList.contains("is-open"), undefined, { timeout: 5000 });
-    assert(!(await pressState(page, "#chooseAnotherDay")).pressed, "the tap activates the control and the press is released");
-    await context.close();
-  }
+  await scrollerPress(browser);
 
   phase("The keyboard shows the same press");
   {
@@ -2819,6 +2875,8 @@ try {
     await restStepperRelease(page);
     await context.close();
   }
+  if (ONLY === "appearance") await nativeControls(browser, { appearanceOnly: true });
+  if (ONLY === "controls") await nativeControls(browser);
   if (ONLY === "wheel") {
     await wheelPicker(browser);
     await wheelPhysics(browser);
@@ -2832,7 +2890,7 @@ try {
     await autoSwipe(browser);
     await standaloneSwipe(browser);
   }
-  if (!["wheel", "swipe", "rest", "refresh"].includes(ONLY)) await concentricShelf(browser);
+  if (!["wheel", "swipe", "rest", "refresh", "press", "core", "appearance", "controls"].includes(ONLY)) await concentricShelf(browser);
 } finally {
   await browser.close();
 }

@@ -1,5 +1,8 @@
 # Verification by risk
 
+This is a verification contract and historical measurement record. All open
+work is listed only in [`docs/backlog.md`](backlog.md).
+
 The owner explicitly authorized a ground-up redesign on 2026-10-18. Important
 failure detection is the contract; historical test executables, snapshots and
 cross-products are not. This supersedes the old requirement to freshly verify
@@ -54,12 +57,6 @@ Important known data-loss, migration, security and recovery negatives remain
 in production-backed proofs. No assertion threshold or expected product value
 is relaxed to make a retained test pass.
 
-Guide-modal and corrected device-pixel sampling behavior owned by #435, the
-held finding #441, and focused browser-Back editing owned by #445 remain
-protected incoming work. Program Lab #432's behavior and selection mappings
-must be preserved when integrating. Their current tests are implementation
-choices; their failure-detection requirements are not disposable.
-
 ## Measurement
 
 Compare the untouched complete original inventory with the complete redesigned
@@ -76,20 +73,6 @@ complete CI and a successful paired comparison are required before claiming
 either numeric target. Optional extended property campaigns retain their
 existing separately named budgets; retired scheduled tests are not hidden in
 them. Until measured, these are targets, not achieved results.
-
-## First slice
-
-Keep inexpensive production-module proofs, retain a bounded set of real
-browser protocol journeys, replace the historical UI self-test/layout sweep
-with one critical matrix owner, and move the already-pure transfer recovery
-state-machine oracle from the browser lane to the fast lane. Consolidate the
-critical editor reorder/delete proof into its existing mutation-recovery
-journey, reusing its actual editor state. Preserve the text-field owner path
-so #445's focused Back negatives can integrate directly.
-
-The aggregate must reject missing/duplicate/foreign-source critical cells,
-failed initial journeys and failed comparisons. Injected defective artifacts
-must fail the actual replacement checker before the healthy slice is accepted.
 
 ## Implemented risk owners and evidence
 
@@ -139,42 +122,7 @@ malformed SHA identities fail. The focused Why, guide replay and retained entry
 accessibility protocols pass locally; the guide's Chromium-151 pixel mismatch
 remains separately recorded, with normal CI comparison unchanged.
 
-## Overlap provenance and integration
-
-The product fixes below belong to existing work; this task contributes their
-retained consolidation proofs and the redesigned execution architecture.
-
-| Existing owner | Provenance | Reconciliation |
-| --- | --- | --- |
-| [#434](https://github.com/pedrochagasmaster/repforge/issues/434), Plan074 S1 removal | `37ddc40852c800a52bb45b3d797cfcc6ad2b71eb` on `feat/program-editor-a-s1` | Use that canonical renumbering hunk; preserve the moved-first deletion/Done/replica/reload proof when porting to Plan074's renderer. |
-| #434 cross-day move | `a99f22389f612e44fe051e60e75779af01614d8c` | Use the existing all-days renumbering follow-up. The retained journey independently fails before that fix when moving a non-last slot across days. |
-| #439, approved fix carried by [#435](https://github.com/pedrochagasmaster/repforge/pull/435) | `65ac8a7e6089e0f0744d543a76086661156e3956` | Adopt that exact screenshot sampler implementation; retain the independent DPR2 glass failure proof. No competing sampler fork or unique-fix claim. |
-
-Plan074 owns its renderer, grouped intent reachability, week-specific targets,
-Apply/Cancel/Undo, empty-day validation and S2 day-reorder/shape/next-workout
-requirements. This PR does not claim those forthcoming changes are certified.
-When integrating, move retained editor tests to its controls without weakening
-identity, canonical/replica, cancellation or conflict assertions; preserve its
-additional important negatives and reconcile cache URLs above current main.
-
-#435 owns native guide timing, first-tap hold/replay, one guide per Focus visit,
-all-guide dismissal/replay/focus and anchor-placement behavior. Preserve those
-proof requirements when the guide owner joins this architecture; adapt the
-current replay cell from inline cue to native dialog. Preserve #441's exact
-issue/state/measurement exemption and rejection self-tests; the retired full
-selector-never-rendered rule is not implicitly restored. The current 21 cells
-do not certify every new guide state. Recompute the ledger, counts and fair
-baseline after incoming #432/#435/Plan074 work reaches main; do not silently
-reintroduce full render sweeps or discard their meaningful new coverage.
-
-Reconciliation evidence: the cross-day case failed before the existing Plan074
-fix (73.449s) and passed after the exact selective port (73.696s); the upstream sampler
-passes the same independent DPR2 contrast/image/role fault proof. Both product
-fixes were already owned by their originating work. The final benchmark measures
-the entire candidate, so its speedup is not attributed exclusively to harness
-changes. #435's shared launcher must also preserve live-guide fresh transfer
-destinations and clone eligibility; do not seed dismissed guides into those
-fresh-destination proofs.
+## Retained privacy evidence
 
 A final targeted adequacy review found that the generic alpha-event inventory
 excludes the transfer phase. The retained fast telemetry owner now includes the

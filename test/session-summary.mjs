@@ -517,10 +517,37 @@ async function run() {
   });
   assert(
     // Tab order follows the screen: profile, the session in History, then Share and Done.
-    trap.stops.join(",") === "sumFinding,sumSee,sumShare,sumDone" && trap.last === "sumSee",
+    trap.stops.join(",") === "sumProfileOpen,sumFinding,sumSee,sumShare,sumDone" && trap.last === "sumSee",
     "every action is reachable by keyboard",
     JSON.stringify(trap)
   );
+
+  // Chromium also tabs into the two horizontal card strips for keyboard scrolling.
+  // Name those waypoints explicitly instead of skipping unidentified focus stops.
+  const forwardOrder = ["sum-cards", "sumProfileOpen", "sumFinding", "sum-rtiles", "sumSee", "sumShare", "sumDone"];
+  const backwardOrder = ["sumShare", "sumSee", "sum-rtiles", "sumFinding", "sumProfileOpen"];
+  const focused = () => page.evaluate(() => document.activeElement?.id || document.activeElement?.className);
+  await page.locator("#sumTitle").focus();
+  const forward = [];
+  for (let i = 0; i < forwardOrder.length; i++) {
+    await page.keyboard.press("Tab");
+    forward.push(await focused());
+  }
+  assert(forward.join(",") === forwardOrder.join(","),
+    "Tab reaches every action from the title through Share and Done in document order", JSON.stringify(forward));
+  const backward = [];
+  for (let i = 0; i < backwardOrder.length; i++) {
+    await page.keyboard.press("Shift+Tab");
+    backward.push(await focused());
+  }
+  assert(backward.join(",") === backwardOrder.join(","),
+    "Shift+Tab returns through every action in reverse document order", JSON.stringify(backward));
+  await page.keyboard.press("Shift+Tab");
+  assert(await page.evaluate(() => document.activeElement?.id) === "sumDone",
+    "Shift+Tab from the first action stays in the summary and wraps to Done");
+  await page.keyboard.press("Tab");
+  assert(await page.evaluate(() => document.activeElement?.id) === "sumProfileOpen" && await appInert(page),
+    "Tab from Done wraps to the profile while the underlying app remains inert");
 
   // ---- 3 — Escape ends the session ---------------------------------------------
   phase("Leaving the summary ends the session");

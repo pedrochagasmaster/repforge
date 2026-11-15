@@ -162,7 +162,7 @@ const DUMBBELL_KG = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 18, 20, 22, 24, 
 test("the dumbbell ladder: 1 kg steps to 10 kg, then 2 kg steps to 60 kg", () => {
   assert.deepEqual([...Loads.DUMBBELL_LADDER_KG], DUMBBELL_KG);
   assert.deepEqual([...Loads.dumbbellLoadsKg("kg")], DUMBBELL_KG);
-  // lb (owner question): 5 lb steps from 5 to 130 lb, held in kg so the engine reads one unit.
+  // lb (owner approved, 2026-11-15): 5 lb steps from 5 to 130 lb, held in kg so the engine reads one unit.
   const lb = Loads.dumbbellLoadsKg("lb").map(kg => Math.round(kg / 0.45359237 * 1000) / 1000);
   assert.deepEqual(lb, Array.from({ length: 26 }, (_, i) => (i + 1) * 5));
 });

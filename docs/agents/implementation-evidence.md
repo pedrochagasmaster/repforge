@@ -3,7 +3,7 @@
 Use this protocol when implementing or reviewing a UI-overhaul plan, changing a
 durable schema, or introducing a checker used as completion evidence. It adds
 verification discipline to the existing branch, commit, PR, and owner gates.
-Product direction remains in `docs/ui-audit.md`. It creates no new product or
+Product direction remains in `docs/backlog.md`. It creates no new product or
 owner-approval gate.
 
 ## Start with an acceptance contract

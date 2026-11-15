@@ -15,6 +15,10 @@ import { applyInstalledEditor, openInstalledEditor } from "./fixtures/installed-
 import { launchChromium } from "./browser.mjs";
 import { installSeedProgram } from "./fixtures/seed-program.mjs";
 
+import { loadManifest } from "../tools/ui-screens/manifest.mjs";
+import { APP_SCENARIOS, appState } from "../tools/ui-screens/screens-app.mjs";
+import { dismissChrome, openPage } from "../tools/ui-screens/session.mjs";
+
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
 const DRAFT = "repforge_draft_v1";
@@ -81,6 +85,55 @@ const toggleRow = (page, name) => page.evaluate((n) => {
   row.querySelector("[data-lib-toggle]").click();
   return true;
 }, name);
+
+async function assertBlankArtwork(page, selector, surface) {
+  const tiles = await page.locator(selector).evaluateAll(nodes => nodes.map(node => {
+    const style = getComputedStyle(node), box = node.getBoundingClientRect();
+    const generatedContent = ["::before", "::after"].some(pseudo => {
+      const content = getComputedStyle(node, pseudo).content;
+      return !["none", "normal", '""'].includes(content);
+    });
+    return { blank: node.childElementCount === 0 && !node.textContent.trim() && !node.getAttribute("src") &&
+        style.backgroundImage === "none" && style.maskImage === "none" && !generatedContent,
+      hidden: node.getAttribute("aria-hidden") === "true", width: box.width, height: box.height };
+  }));
+  assert(tiles.length > 0 && tiles.every(tile => tile.blank && tile.hidden && tile.width > 0 && tile.height > 0),
+    `${surface}: missing artwork is a sized, decorative, completely empty tile`, JSON.stringify({ count: tiles.length, invalid: tiles.filter(tile => !tile.blank || !tile.hidden || tile.width <= 0 || tile.height <= 0).slice(0, 3) }));
+}
+
+async function checkFocusAndExerciseArtwork(browser) {
+  const manifest = loadManifest(), state = "workout/swap-alternates";
+  const capture = { flow: "workout", screen: "swap-alternates", viewport: "phone-390", theme: "light", locale: "en", text: "normal", motion: "normal" };
+  const opened = await openPage(browser, manifest, capture, appState(state, "en"));
+  const page = opened.page;
+  try {
+    await dismissChrome(page);
+    await APP_SCENARIOS[state](page);
+    await assertBlankArtwork(page, "#exPickSheet.is-open .exthumb--empty", "Focus swap picker");
+    await page.locator("#exPickCancel").click();
+    await page.locator("#exPickSheet.is-open").waitFor({ state: "hidden" });
+    const targets = await page.evaluate(() => {
+      const program = JSON.parse(localStorage.getItem("repforge_v1")).program;
+      const mapped = program.find(row => window.__repforgeLibraryEntry(row.libraryId)?.media);
+      const missing = program.find(row => row.libraryId && !window.__repforgeLibraryEntry(row.libraryId)?.media);
+      if (!mapped || !missing) throw new Error("Artwork fixture needs both mapped and unmapped program exercises");
+      return { mapped, missing };
+    });
+    await page.evaluate(id => window.openExerciseView(id, "log"), targets.missing.id);
+    await page.locator("#exercise.active #exDetail").waitFor();
+    const missing = await page.evaluate(() => ({
+      artwork: document.querySelectorAll("#exDetail .exdet-art, #exDetail .exthumb, #exDetail .icon-mask--dumbbell").length,
+      title: document.querySelector("#exDetail .exdet__name")?.textContent,
+    }));
+    assert(missing.artwork === 0 && missing.title === targets.missing.name,
+      "an unillustrated exercise page omits the artwork area and adds no substitute icon", JSON.stringify(missing));
+    await page.evaluate(id => window.openExerciseView(id, "log"), targets.mapped.id);
+    const art = page.locator("#exDetail .exdet-art__img");
+    await art.waitFor();
+    assert(!!await art.getAttribute("src") && !!await art.getAttribute("alt"),
+      "a mapped exercise page retains its licensed image and descriptive alt");
+  } finally { await opened.context.close(); }
+}
 
 async function main() {
   const browser = await launchChromium();
@@ -166,16 +219,15 @@ async function main() {
       empties: document.querySelectorAll("#libList span.exthumb--empty").length,
       emptyHasNoSrc: [...document.querySelectorAll("#libList span.exthumb--empty")].every((s) => !s.getAttribute("src")),
       emptyIsHidden: [...document.querySelectorAll("#libList span.exthumb--empty")].every((s) => s.getAttribute("aria-hidden") === "true"),
-      // The native UI kit (owner, 2026-10-24): an empty tile carries only the decorative G dumbbell, never text or an image.
       emptyIsBlank: [...document.querySelectorAll("#libList span.exthumb--empty")].every((s) => !s.textContent.trim() && !s.querySelector("img") &&
-        s.children.length === 1 && s.firstElementChild.matches(".icon-mask.icon-mask--dumbbell")),
+        s.children.length === 0),
       lazy: [...document.querySelectorAll("#libList img.exthumb")].every((i) => i.loading === "lazy"),
     }));
     assert(media.images === MAPPED, "exactly the mapped exercises show artwork", `${media.images} of ${media.rows}`);
     assert(media.empties === media.rows - MAPPED, "every other row shows an empty tile",
       `${media.empties} empties, ${media.rows} rows`);
     assert(media.emptyHasNoSrc && media.emptyIsBlank,
-      "the empty tile has no src, no image and no text, only the decorative G dumbbell");
+      "missing library artwork leaves an empty tile with no icon, image or text");
     assert(media.emptyIsHidden, "the empty tile is hidden from screen readers");
     assert(media.lazy, "artwork decodes lazily in a long list");
     await settle(page, 800);
@@ -185,12 +237,18 @@ async function main() {
       JSON.stringify(badRequests.slice(0, 4))
     );
 
+    // A preview uses a separate large-artwork renderer from the library rows.
+    const missingPreviewId = await page.locator("#libList .librow").filter({ has: page.locator(".exthumb--empty") }).first().locator("[data-lib-preview]").getAttribute("data-lib-preview");
+    await page.locator(`[data-lib-preview="${missingPreviewId}"]`).click();
+    await page.locator("#exercisePreview.active").waitFor();
+    assert(await page.evaluate(id => !window.__repforgeLibraryEntry(id).media, missingPreviewId),
+      "the missing-artwork preview uses an unmapped catalog exercise");
+    await assertBlankArtwork(page, "#previewBody .exthumb--empty", "library preview");
+    await page.locator("#previewBack").click();
+    await page.locator("#library.active").waitFor();
+
     // ---- preview ----
-    await page.evaluate(() => {
-      const row = [...document.querySelectorAll("#libList .librow")]
-        .find((r) => (r.querySelector(".librow__name")?.textContent || "").trim() === "Chin-up");
-      row?.querySelector("[data-lib-preview]")?.click();
-    });
+    await page.locator(`#libList [data-lib-preview="${CHIN_UP}"]`).click();
     await page.waitForSelector("#exercisePreview.active", { timeout: 5000 });
     const preview = await page.evaluate(() => ({
       title: document.querySelector(".preview__title")?.textContent?.trim(),
@@ -526,6 +584,7 @@ async function main() {
       const io = window.RepForgeDurableState.storageIO;
       if (window.__libraryWriteIdb) io.writeIdb = window.__libraryWriteIdb;
     });
+    await checkFocusAndExerciseArtwork(browser);
   } finally {
     await context.close();
     await browser.close();

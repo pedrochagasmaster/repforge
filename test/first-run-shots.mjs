@@ -10,12 +10,12 @@
  * is the manual tool for looking at a new viewport.
  */
 import { mkdirSync, writeFileSync } from "fs";
-import { dirname, join } from "path";
-import { fileURLToPath } from "url";
+import { join } from "path";
+import { tmpdir } from "node:os";
 import { launchChromium } from "./browser.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
-const OUT = join(dirname(fileURLToPath(import.meta.url)), "..", "docs", "pr-proof");
+const OUT = join(tmpdir(), "taurifer-first-run-shots");
 const IOS_UA =
   "Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1";
 const VIEWPORTS = [
