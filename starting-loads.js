@@ -33,6 +33,22 @@
     if (/machine|cable|pin-loaded|plate-loaded|leg press|hack squat|pec deck/i.test(name)) return 3;
     return null;
   }
+  /* The dumbbells a gym stocks, per hand (owner rule, 2026-11-13): 1 kg steps to 10 kg, then 2 kg steps, to 60 kg.
+   * Every dumbbell load the app suggests or offers comes from this ladder: the engine's available loads (so its
+   * calibration bounds step along it too), the opening loads, the Focus wheel and the ± steppers. */
+  const DUMBBELL_MAX_KG = 60;
+  const DUMBBELL_LADDER_KG = Object.freeze([
+    ...Array.from({ length: 10 }, (_, i) => i + 1),
+    ...Array.from({ length: (DUMBBELL_MAX_KG - 10) / 2 }, (_, i) => 12 + i * 2),
+  ]);
+  // In pounds (an owner question, not yet decided): 5 lb steps from 5 to 130 lb, held in kg so the engine reads one unit.
+  const KG_PER_LB = 0.45359237;
+  const DUMBBELL_LADDER_LB_KG = Object.freeze(Array.from({ length: 26 }, (_, i) => Math.round((i + 1) * 5 * KG_PER_LB * 1e6) / 1e6));
+  const dumbbellLoadsKg = unit => (unit === "lb" ? DUMBBELL_LADDER_LB_KG : DUMBBELL_LADDER_KG);
+  /** Whether a movement is loaded with dumbbells: its chosen equipment, else every equipment it offers. */
+  function isDumbbell({ exercise = null, lookup = () => null, equipmentName = null } = {}) {
+    return parameters({ exercise, lookup, equipmentName, convention: "external" }).equipmentIndex === 2;
+  }
   function parameters({ exercise = null, lookup = () => null, equipmentName = null, experience = "beginner", convention, grid = [] } = {}) {
     const options = (exercise?.resistanceEquipmentGroupIds || []).map(id => lookup(id)).filter(Boolean);
     const equipment = equipmentName ? [options.find(entry => entry.name === equipmentName) || equipmentName] : options;
@@ -93,7 +109,8 @@
         old.fraction !== next.fraction || !next.loads.length || next.loads[0] > anchorLoadKg) return openingLoad(to);
     return { loadKg: roundedLoad(anchorLoadKg, next.loads.filter(load => load <= anchorLoadKg)), basis: "ratio" };
   }
-  const api = Object.freeze({ PRIORS_VERSION, PRIORS, openingLoad, nextRampLoad, ratioLoad });
+  const api = Object.freeze({ PRIORS_VERSION, PRIORS, openingLoad, nextRampLoad, ratioLoad,
+    DUMBBELL_LADDER_KG, DUMBBELL_MAX_KG, dumbbellLoadsKg, isDumbbell });
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   if (root) root.RepForgeStartingLoads = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

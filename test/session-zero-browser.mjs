@@ -253,7 +253,7 @@ async function openingChanges(browser){
   await swapOpening(page,"Barbell bench press");await offer(22.5,"prior","machine squat to free-bar press");
   await page.reload();await waitForAppBoot(page,{base:BASE});await offer(22.5,"prior","reload after changing movement");
   await startOpening(page);
-  await swapOpening(page,"Low incline dumbbell press");await offer(7.5,"prior","total load to per-hand load");
+  await swapOpening(page,"Low incline dumbbell press");await offer(8,"prior","total load to per-hand load (the dumbbell ladder)");
   await startOpening(page);await answer(page,"easy");await waitWarmups(page,2);
   check((await waitForOpening(page)).startingLoad.ramps===1,"the new movement counts its own ramp trial");
   await swapOpening(page,"Barbell bench press");await offer(22.5,"prior","per-hand load back to total load");

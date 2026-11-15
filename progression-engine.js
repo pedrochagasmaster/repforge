@@ -1,7 +1,7 @@
 (function (root) {
   "use strict";
 
-  const ENGINE_VERSION = "078.1";
+  const ENGINE_VERSION = "078.2";
   const STANDING_VERSION = "standing@078.1";
   // Reps in reserve are reliable near failure and guesses far from it, so a performed set earns capacity for at most
   // this many (owner, 2026-11-05; Plan 077 OD-23b). Targets keep their own 0–6 bound.
