@@ -66,8 +66,14 @@ async function pad(page, metricId, dir) {
 }
 async function wheelValues(page, metricId) {
   const field = `${CURRENT} .focus-shelf [data-shelf-field="metric_${metricId}"]`;
+  await page.waitForSelector("#wheelSheet", { state: "hidden" });
+  // Selection is synchronous; the opening animation class arrives on a later frame.
+  if (await page.locator(field).getAttribute("aria-pressed") !== "true") {
+    await tap(page, field);
+    await page.waitForSelector(`${field}[aria-pressed="true"]`);
+  }
   await tap(page, field);
-  if (!(await page.locator("#wheelSheet.is-open").count())) await tap(page, field);
+  await page.waitForSelector("#wheelSheet", { state: "visible" });
   await page.evaluate(() => window.__releaseWheelOpeningFrame?.());
   await page.waitForSelector("#wheelSheet.is-open", { timeout: 5000 });
   const values = await page.evaluate(() => [...document.querySelectorAll("#wheelCol .wheel__item")].map((item) => Number(item.dataset.wheelV)));
