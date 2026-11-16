@@ -1,7 +1,7 @@
 # UI screen catalog
 
 Phone-frame captures of every user-visible Taurifer surface — 287 screens,
-1737 frames. This folder is the visual reference for UI and Brand Designers.
+1743 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -267,7 +267,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Session summary — maintained](screens/session/summary-maintained__phone-390-light-en.png) | 8 | A finished Day 2 whose Romanian deadlift is maintained, with its other lifts improved and an e1RM record leading the card row. |
 | [Session summary — declined](screens/session/summary-declined__phone-390-light-en.png) | 8 | A finished Day 3 with no record and nothing improved: the stats card is the only card, and declined lifts read in ink without turning into a prescription. |
 | [Session summary — records and every lift](screens/session/summary-lifts__phone-390-light-en.png) | 8 | The Day 1 finish screen scrolled past its card row and tiles: the record tiles, then every lift with its outcome word, sets, record and next target. |
-| [Session summary — share sheet](screens/session/summary-share__phone-390-light-en.png) | 12 | Share on the Day 1 finish screen: Highlight, Story, dark, Background and Record choices, and Save and Share. The selected record also appears on the finish Highlight. |
+| [Session summary — share sheet](screens/session/summary-share__phone-390-light-en.png) | 18 | Share on the Day 1 finish screen: Highlight, Story, dark, Background and Record choices, and Save and Share. The selected record also appears on the finish Highlight. |
 | [Session summary — share over a photo](screens/session/summary-share-photo__phone-390-light-en.png) | 8 | The share sheet's Photo style after a picture is chosen: the record poster drawn over the dimmed photo, Change photo, the line that the photo isn't kept, and Share and Save. |
 | [Session summary — share editor](screens/session/summary-share-edit__phone-390-light-en.png) | 8 | The share sheet's editor open on the Sticker over the chosen photo: the card in its frame with the drag and pinch hint, the size slider, Darken photo, Reset, and Cancel and Done. |
 | [Session summary — Line sticker on clear](screens/session/summary-share-line__phone-390-light-en.png) | 8 | The share sheet on the Line sticker with the clear background: the transparent card over the preview's check, its formats and grounds, and Save and Share. |
