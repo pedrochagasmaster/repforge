@@ -474,6 +474,48 @@
         "locale": "pt",
         "text": "normal",
         "motion": "normal"
+      },
+      {
+        "viewport": "phone-390",
+        "theme": "dark",
+        "locale": "en",
+        "text": "text200",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-390",
+        "theme": "dark",
+        "locale": "pt",
+        "text": "text200",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-320",
+        "theme": "light",
+        "locale": "en",
+        "text": "text200",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-320",
+        "theme": "light",
+        "locale": "pt",
+        "text": "text200",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-320",
+        "theme": "dark",
+        "locale": "en",
+        "text": "text200",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-320",
+        "theme": "dark",
+        "locale": "pt",
+        "text": "text200",
+        "motion": "normal"
       }
     ]
   },

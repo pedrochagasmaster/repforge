@@ -110,6 +110,32 @@ try {
       check(await page.locator("#shareRecords").isVisible(), "multiple records offer a picker on Highlight");
       const records = page.locator("#shareRecords [data-record]");
       check(await records.count() >= 2, "one chip per record");
+      const layout = await records.first().evaluate(el => {
+        const row = el.parentElement, style = getComputedStyle(el);
+        return { pill: getComputedStyle(el, "::before").borderRadius, nowrap: style.whiteSpace,
+          wraps: getComputedStyle(row).flexWrap, labelHidden: getComputedStyle(document.querySelector("#shareRecordLabel")).position };
+      });
+      check(layout.pill !== "0px" && layout.nowrap === "nowrap" && layout.wraps === "nowrap" && layout.labelHidden === "absolute",
+        "records use one scrolling pill line with a hidden group label", layout);
+      for (const [width, scale] of [[390, 1], [320, 1], [390, 2], [320, 2]]) {
+        await page.setViewportSize({ width, height: width === 320 ? 568 : 844 });
+        await page.evaluate(scale => document.documentElement.style.fontSize = `${scale * 100}%`, scale);
+        const geometry = await page.evaluate(() => {
+          const row = document.querySelector("#shareRecordRow"), stage = document.querySelector(".sharesheet__stage");
+          const shown = stage.getBoundingClientRect().height;
+          row.hidden = true;
+          const hidden = stage.getBoundingClientRect().height;
+          row.hidden = false;
+          const note = document.querySelector(".sharesheet__note").getBoundingClientRect();
+          const actions = document.querySelector(".sharesheet__actions").getBoundingClientRect();
+          return { shown, hidden, noteBottom: note.bottom, actionsTop: actions.top,
+            rowBottom: row.getBoundingClientRect().bottom, controlsBottom: document.querySelector(".sharesheet").getBoundingClientRect().bottom };
+        });
+        check(geometry.shown >= geometry.hidden * .95 && geometry.noteBottom <= geometry.actionsTop + 1 && (scale === 2 || geometry.rowBottom <= geometry.controlsBottom + 1),
+          `record line preserves preview and privacy note at ${width}px / ${scale * 100}% text`, geometry);
+      }
+      await page.evaluate(() => document.documentElement.style.fontSize = "");
+      await page.setViewportSize({ width: 390, height: 844 });
       const picked = await records.nth(1).textContent();
       const firstFile = s.file.size;
       await records.nth(1).click();

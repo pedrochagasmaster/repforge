@@ -6912,7 +6912,7 @@
     },
     {
       "id": "sharerecords",
-      "selector": "#shareRecords .sharesheet__ground",
+      "selector": "#shareRecords .pchip",
       "roles": {
         "control": "selection",
         "boundary": "state-cues"
