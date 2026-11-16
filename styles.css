@@ -4066,6 +4066,15 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
 /* The card area does not grow with the text size (the slide is sized from the stage): a 16rem floor doubled at 200%
    and pushed the format, backgrounds and note below the fold. */
 .sharesheet__stage{flex:1 1 0;min-height:clamp(200px,62vw,256px);display:flex;flex-direction:column;justify-content:center;margin:0 calc(-1 * var(--space-16))}
+#shareRecordRow{flex:none}
+.sharesheet__records{display:flex;flex-wrap:nowrap;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x mandatory;scrollbar-width:none;margin-inline:calc(-1 * var(--space-16));padding-inline:var(--space-12)}
+.sharesheet__records::-webkit-scrollbar{display:none}
+.sharesheet__records .pchip{scroll-snap-align:start;gap:var(--space-4);font-weight:var(--weight-medium)}
+.sharesheet__records .pchip.is-active{font-weight:var(--weight-semibold)}
+.sheet--sharecard .sharesheet{padding-bottom:0}
+.sheet--sharecard > .sharesheet__note{padding:var(--space-12) var(--space-16) var(--space-8)}
+.sheet--sharecard:has(#shareRecordRow:not([hidden])) > .sharesheet__note{padding-top:0}
+.sheet--sharecard:has(#shareRecordRow:not([hidden])){height:calc(var(--sheet-max-height) + var(--control-target) + var(--space-12));max-height:var(--vvh,100dvh)}
 .sharesheet__rail{flex:none;display:flex;align-items:center;gap:16px;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x mandatory;scrollbar-width:none;
   padding:6px calc((100% - var(--slide-w,15rem)) / 2) 10px}
 .sharesheet__rail::-webkit-scrollbar{display:none}

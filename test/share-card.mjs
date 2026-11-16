@@ -107,6 +107,55 @@ try {
       check((await pixel(page, 8, 8)).hex === "#141310", "the dark ground", await pixel(page, 8, 8));
       check(!s.stats.includes("volume") && !s.row.includes("volume"), "no card number is volume", s.stats);
 
+      check(await page.locator("#shareRecords").isVisible(), "multiple records offer a picker on Highlight");
+      const records = page.locator("#shareRecords [data-record]");
+      check(await records.count() >= 2, "one chip per record");
+      const layout = await records.first().evaluate(el => {
+        const row = el.parentElement, style = getComputedStyle(el);
+        return { pill: getComputedStyle(el, "::before").borderRadius, nowrap: style.whiteSpace,
+          wraps: getComputedStyle(row).flexWrap, labelHidden: getComputedStyle(document.querySelector("#shareRecordLabel")).position };
+      });
+      check(layout.pill !== "0px" && layout.nowrap === "nowrap" && layout.wraps === "nowrap" && layout.labelHidden === "absolute",
+        "records use one scrolling pill line with a hidden group label", layout);
+      for (const [width, scale] of [[390, 1], [320, 1], [390, 2], [320, 2]]) {
+        await page.setViewportSize({ width, height: width === 320 ? 568 : 844 });
+        await page.evaluate(scale => document.documentElement.style.fontSize = `${scale * 100}%`, scale);
+        const geometry = await page.evaluate(() => {
+          const row = document.querySelector("#shareRecordRow"), stage = document.querySelector(".sharesheet__stage");
+          const shown = stage.getBoundingClientRect().height;
+          row.hidden = true;
+          const hidden = stage.getBoundingClientRect().height;
+          row.hidden = false;
+          const note = document.querySelector(".sharesheet__note").getBoundingClientRect();
+          const actions = document.querySelector(".sharesheet__actions").getBoundingClientRect();
+          return { shown, hidden, noteBottom: note.bottom, actionsTop: actions.top,
+            rowBottom: row.getBoundingClientRect().bottom, controlsBottom: document.querySelector(".sharesheet").getBoundingClientRect().bottom };
+        });
+        check(geometry.shown >= geometry.hidden * .95 && geometry.noteBottom <= geometry.actionsTop + 1 && (scale === 2 || geometry.rowBottom <= geometry.controlsBottom + 1),
+          `record line preserves preview and privacy note at ${width}px / ${scale * 100}% text`, geometry);
+      }
+      await page.evaluate(() => document.documentElement.style.fontSize = "");
+      await page.setViewportSize({ width: 390, height: 844 });
+      const picked = await records.nth(1).textContent();
+      const firstFile = s.file.size;
+      await records.nth(1).click();
+      await page.waitForFunction((size) => { const s = window.__repforgeShareSheet.state(); return s.file.size !== size && !s.shareDisabled; }, firstFile);
+      check((await page.locator("#shareRail figure").first().getAttribute("aria-label")).includes(picked),
+        "the shared Highlight names the selected record");
+      await page.waitForFunction((name) => document.querySelector("#sessionSummary .sharecard").getAttribute("aria-label").includes(name), picked);
+      check(true, "the finish Highlight names the selected record");
+      await showTemplate(page, "badge");
+      check(await page.locator("#shareRecords").isVisible(), "Badge offers the picker");
+      await showTemplate(page, "stats");
+      check(!await page.locator("#shareRecords").isVisible(), "Numbers hides the picker");
+      await showTemplate(page, "sticker");
+      check(!await page.locator("#shareRecords").isVisible(), "Line sticker hides the picker");
+      await showTemplate(page, "hero");
+      await page.focus('#shareRecords [aria-checked="true"]');
+      await page.keyboard.press("ArrowLeft");
+      await page.keyboard.press("Enter");
+      await page.waitForFunction(() => document.querySelector('#shareRecords [data-record="0"]').getAttribute("aria-checked") === "true");
+
       // Every template, on every ground it offers.
       const seen = [];
       for (const template of s.templates) {
@@ -462,6 +511,26 @@ try {
       const [download] = await Promise.all([page.waitForEvent("download", { timeout: 10000 }), page.click("#shareCardSave")]);
       check(download.suggestedFilename() === "taurifer-2026-08-31-hero-story.png", "Save downloads the PNG in view", download.suggestedFilename());
       check(!errors.length, "no page errors", errors);
+    } finally { await context.close(); }
+  }
+
+  console.log("\nA session with one record");
+  {
+    const { context, page } = await openSummary(browser, "session/summary", { canShare: true });
+    try {
+      await page.evaluate(() => {
+        const log = JSON.parse(localStorage.getItem("repforge_v1")).log;
+        const session = "dd-2026-08-31-day1", all = log.filter(row => row.session === session);
+        const rows = all.filter(row => row.exerciseId === all[0].exerciseId);
+        const summary = window.__repforgeSessionSummary.build({ rows, prevLog: log.filter(row => row.session !== session),
+          session, date: rows[0].date, day: rows[0].day, startedAt: 0 });
+        if (summary.prs.length !== 1) throw new Error("one-record fixture must earn exactly one record");
+        window.__repforgeSessionSummary.open(summary);
+      });
+      await openSheet(page);
+      check(!await page.locator("#shareRecords").isVisible(), "one record hides the picker on Highlight");
+      await showTemplate(page, "badge");
+      check(!await page.locator("#shareRecords").isVisible(), "one record hides the picker on Badge");
     } finally { await context.close(); }
   }
 

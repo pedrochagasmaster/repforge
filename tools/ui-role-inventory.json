@@ -8263,7 +8263,10 @@
         "workout/abandon",
         "workout/swap-alternates",
         "workout/swap-reason",
-        "workout/pain-swap"
+        "workout/pain-swap",
+        "session/summary-share",
+        "session/summary-share-photo",
+        "history/session-share"
       ]
     },
     {
