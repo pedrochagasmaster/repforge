@@ -68,6 +68,7 @@ async function wheelValues(page, metricId) {
   const field = `${CURRENT} .focus-shelf [data-shelf-field="metric_${metricId}"]`;
   await tap(page, field);
   if (!(await page.locator("#wheelSheet.is-open").count())) await tap(page, field);
+  await page.evaluate(() => window.__releaseWheelOpeningFrame?.());
   await page.waitForSelector("#wheelSheet.is-open", { timeout: 5000 });
   const values = await page.evaluate(() => [...document.querySelectorAll("#wheelCol .wheel__item")].map((item) => Number(item.dataset.wheelV)));
   await page.keyboard.press("Escape");
@@ -146,6 +147,22 @@ try {
       // A lift with no history yet has no engine assumptions to read; when it has them they keep the step too.
       check(/\+ ?2\.5 kg/.test(s.pads[1]) && /− ?2\.5 kg/.test(s.pads[0]) && (!s.available || s.available.every((kg, i, all) => i === 0 || Math.abs(kg - all[i - 1] - 2.5) < 1e-9)),
         "its steppers (and any engine assumptions) keep the 2.5 kg step", { pads: s.pads, head: s.available?.slice(0, 6) });
+      // Hold the opening frame: modal visibility precedes its animation class.
+      // A second field tap during this interval hits the already open dialog.
+      await page.evaluate(() => {
+        const raf = window.requestAnimationFrame.bind(window);
+        window.requestAnimationFrame = (callback) => {
+          if (!document.querySelector("#wheelSheet").hidden) {
+            window.requestAnimationFrame = raf;
+            window.__releaseWheelOpeningFrame = () => {
+              delete window.__releaseWheelOpeningFrame;
+              raf(callback);
+            };
+            return 0;
+          }
+          return raf(callback);
+        };
+      });
       const values = await wheelValues(page, other.metric);
       check(Math.abs(values[1] - values[0] - 2.5) < 1e-9 && values[0] === 0, "its wheel still steps by 2.5 kg from zero", values.slice(0, 6));
     }
