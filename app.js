@@ -13137,7 +13137,7 @@ function syncShareControls(st){
     const focusedRecord=document.activeElement?.closest?.("#shareRecords [data-record]")?.dataset.record;
     records.innerHTML=showRecords?st.summary.prs.map((pr,i)=>{
       const on=i===(st.summary.leadIndex||0);
-      return `<button type="button" class="pchip ${on?"is-active":""}" role="radio" data-record="${i}" aria-checked="${on}" tabindex="${on?0:-1}">${esc(liftDisplayName(pr.name,pr.liftKey))}</button>`}).join(""):"";
+      return `<button type="button" class="pchip ${on?"is-active":""}" role="radio" data-record="${i}" aria-checked="${on}" tabindex="${on?0:-1}">${on?'<span class="icon-mask icon-mask--check icon-mask--sm" aria-hidden="true"></span>':""}${esc(liftDisplayName(pr.name,pr.liftKey))}</button>`}).join(""):"";
     if(focusedRecord)records.querySelector(`[data-record="${focusedRecord}"]`)?.focus({preventScroll:true})}
   const note=$("#shareCardSheet .sharesheet__note");if(note)note.textContent=t(ground==="photo"?"share.photo_note":"share.note");
   window.RepForgeMotion?.syncNativeControls?.($("#shareCardSheet"))}

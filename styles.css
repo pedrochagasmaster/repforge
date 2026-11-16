@@ -4069,7 +4069,8 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
 #shareRecordRow{flex:none}
 .sharesheet__records{display:flex;flex-wrap:nowrap;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x mandatory;scrollbar-width:none;margin-inline:calc(-1 * var(--space-16));padding-inline:var(--space-12)}
 .sharesheet__records::-webkit-scrollbar{display:none}
-.sharesheet__records .pchip{scroll-snap-align:start}
+.sharesheet__records .pchip{scroll-snap-align:start;gap:var(--space-4);font-weight:var(--weight-medium)}
+.sharesheet__records .pchip.is-active{font-weight:var(--weight-semibold)}
 .sheet--sharecard .sharesheet{padding-bottom:0}
 .sheet--sharecard > .sharesheet__note{padding:var(--space-12) var(--space-16) var(--space-8)}
 .sheet--sharecard:has(#shareRecordRow:not([hidden])) > .sharesheet__note{padding-top:0}
