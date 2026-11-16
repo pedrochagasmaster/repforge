@@ -4066,6 +4066,8 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
 /* The card area does not grow with the text size (the slide is sized from the stage): a 16rem floor doubled at 200%
    and pushed the format, backgrounds and note below the fold. */
 .sharesheet__stage{flex:1 1 0;min-height:clamp(200px,62vw,256px);display:flex;flex-direction:column;justify-content:center;margin:0 calc(-1 * var(--space-16))}
+.sharesheet:has(#shareRecordRow:not([hidden])) .sharesheet__stage{min-height:clamp(120px,36vw,200px)}
+#shareRecordLabel{font-size:var(--font-size-caption);color:var(--color-ink-secondary);margin-bottom:var(--space-8)}
 .sharesheet__rail{flex:none;display:flex;align-items:center;gap:16px;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x mandatory;scrollbar-width:none;
   padding:6px calc((100% - var(--slide-w,15rem)) / 2) 10px}
 .sharesheet__rail::-webkit-scrollbar{display:none}
