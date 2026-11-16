@@ -6911,6 +6911,31 @@
       "neverDisabledReason": "Every background a card offers can always be chosen."
     },
     {
+      "id": "sharerecords",
+      "selector": "#shareRecords .sharesheet__ground",
+      "roles": {
+        "control": "selection",
+        "boundary": "state-cues"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "selected"
+      ],
+      "rationale": "Chooses the record shown on Highlight and Badge for this session.",
+      "owner": "finish-share",
+      "catalogStates": [
+        "session/summary-share",
+        "session/summary-share-photo",
+        "history/session-share"
+      ],
+      "neverDisabledReason": "Each record can always be chosen."
+    },
+    {
       "id": "sharesheet-swatch",
       "selector": "#shareGrounds .sharesheet__swatch",
       "roles": {

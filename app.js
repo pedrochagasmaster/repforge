@@ -12320,9 +12320,10 @@ function summaryTiles(facts){
   const backed={strength:!!facts.strength,records:facts.records>0,volume:true,sets:true,reps:true};
   const fallbacks=SUMMARY_TILE_FALLBACKS.filter(id=>backed[id]);
   return SUMMARY_TILES.map(id=>backed[id]?id:fallbacks.shift()).filter(Boolean)}
-/** The card the row opens on: the session's heaviest record, else its first improved lift; none otherwise. */
-function summaryLeadCard(prs,liftGroups){
-  if(prs.length)return{kind:"record",name:prs[0].name,liftKey:prs[0].liftKey,load:prs[0].load,reps:prs[0].reps,pr:prs[0]};
+/** The selected record (first by default), else the first improved lift; none otherwise. */
+function summaryLeadCard(prs,liftGroups,leadIndex=0){
+  const pr=prs[leadIndex]||prs[0];
+  if(pr)return{kind:"record",name:pr.name,liftKey:pr.liftKey,load:pr.load,reps:pr.reps,pr};
   const lift=liftGroups.find(group=>group.state.kind==="outcome"&&group.state.outcome==="improved");
   if(!lift)return null;
   const top=lift.sets.reduce((a,b)=>b.load>a.load||(sameLoad(b.load,a.load)&&b.reps>a.reps)?b:a);
@@ -12363,6 +12364,7 @@ function buildSessionSummary({rows,prevLog,session,date,day:sessDay,startedAt}){
     strength,
     reps:sum(performedWorkingRows(rows).map(row=>+row.reps)),
     tiles:summaryTiles({strength,records:prs.length}),
+    leadIndex:0,
     lead:summaryLeadCard(prs,liftGroups),
     sets:rows.length,
     volume:movedTonnage(rows),
@@ -13040,6 +13042,7 @@ async function paintSummaryCards(s){
   if(sessionSummaryCurrent!==s)return;
   for(const figure of $$("#sessionSummary .sum-cards .sharecard")){
     const out=TauriferShareCards.render(model,{template:figure.dataset.template,size:"square",ground:"dark",mark});
+    figure.setAttribute("aria-label",shareCardLabel(model,figure.dataset.template));
     const canvas=figure.querySelector("canvas");
     if(out&&canvas)canvas.getContext("2d").drawImage(out.canvas,0,0)}}
 /** The template in view in the finish screen's row: the Highlight when the row is at its start. */
@@ -13127,11 +13130,20 @@ function syncShareControls(st){
       return `<button type="button" class="sharesheet__ground" role="radio" data-ground="${g}" aria-checked="${on}" tabindex="${on?0:-1}">${swatch}<span>${esc(label)}</span></button>`}).join("");
     // Rebuilding the swatches keeps the keyboard where it was.
     if(focused)grounds.querySelector(`[data-ground="${focused}"]`)?.focus({preventScroll:true})}
+  const records=$("#shareRecords"),recordRow=$("#shareRecordRow");
+  const showRecords=st.summary.prs.length>=2&&["hero","badge"].includes(template);
+  if(recordRow)recordRow.hidden=!showRecords;
+  if(records){
+    const focusedRecord=document.activeElement?.closest?.("#shareRecords [data-record]")?.dataset.record;
+    records.innerHTML=showRecords?st.summary.prs.map((pr,i)=>{
+      const on=i===(st.summary.leadIndex||0);
+      return `<button type="button" class="sharesheet__ground" role="radio" data-record="${i}" aria-checked="${on}" tabindex="${on?0:-1}">${esc(liftDisplayName(pr.name,pr.liftKey))}</button>`}).join(""):"";
+    if(focusedRecord)records.querySelector(`[data-record="${focusedRecord}"]`)?.focus({preventScroll:true})}
   const note=$("#shareCardSheet .sharesheet__note");if(note)note.textContent=t(ground==="photo"?"share.photo_note":"share.note");
   window.RepForgeMotion?.syncNativeControls?.($("#shareCardSheet"))}
 /** Everything the card in view is drawn from. Share and Save hand over the file only while it matches. */
 const shareViewKey=st=>{const template=shareTemplate(st);
-  return JSON.stringify([template,st.size,shareGroundFor(st,template),st.photoSerial,shareEditsFor(st,template)])};
+  return JSON.stringify([template,st.size,shareGroundFor(st,template),st.photoSerial,st.summary.leadIndex||0,shareEditsFor(st,template)])};
 function syncShareAvailability(st){
   const ready=!!st.file&&st.fileKey===shareViewKey(st);
   const share=$("#shareCardShare"),save=$("#shareCardSave");
@@ -13312,6 +13324,18 @@ function bindShareSheet(){
       const st=shareSheet,slide=event.target.closest(".sharesheet__slide");if(!st||!slide)return;
       const i=[...rail.children].indexOf(slide);
       if(i!==st.index)rail.scrollTo({left:i*(slide.offsetWidth+16),behavior:reducedMotion()?"auto":"smooth"})})}
+  $("#shareRecords")?.addEventListener("keydown",event=>{
+    const buttons=$$("#shareRecords [data-record]"),i=buttons.indexOf(document.activeElement);
+    const step={ArrowRight:1,ArrowDown:1,ArrowLeft:-1,ArrowUp:-1}[event.key];
+    if(i<0||!step)return;
+    event.preventDefault();buttons[(i+step+buttons.length)%buttons.length].focus()});
+  $("#shareRecords")?.addEventListener("click",event=>{
+    const st=shareSheet,button=event.target.closest("[data-record]");if(!st||!button)return;
+    const index=Number(button.dataset.record);if(!st.summary.prs[index])return;
+    st.summary.leadIndex=index;
+    st.summary.lead=summaryLeadCard(st.summary.prs,st.summary.liftGroups,index);
+    st.model=shareCardModel(st.summary);
+    paintShareRow();paintSummaryCards(st.summary)});
   $("#shareGrounds")?.addEventListener("keydown",event=>{
     const buttons=$$("#shareGrounds [data-ground]"),i=buttons.indexOf(document.activeElement);
     const step={ArrowRight:1,ArrowDown:1,ArrowLeft:-1,ArrowUp:-1}[event.key];
@@ -13372,6 +13396,7 @@ function historyShareSummary(sid,{week=null}={}){
   return{session:id,date,day:first.day,strength,
     reps:sum(work.map(row=>+row.reps)),
     tiles:summaryTiles({strength,records:prs.length}),
+    leadIndex:0,
     lead:summaryLeadCard(prs,liftGroups),
     sets:rows.length,volume:movedTonnage(rows),prs,liftGroups,
     minutes:mins>=1&&mins<=480?mins:null,
