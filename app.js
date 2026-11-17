@@ -11307,7 +11307,7 @@ document.addEventListener("focusin",event=>{
   el.addEventListener("blur",()=>el.removeAttribute("data-quiet-focus"),{once:true})},true);
 function focusWorkoutControl(el){
   try{el.focus({preventScroll:true})}catch{return false}
-  if(workoutInputModality==="pointer"&&!isEditableFocusTarget(el)){
+  if(workoutInputModality==="pointer"){
     el.setAttribute("data-quiet-focus","");
     el.addEventListener("blur",()=>el.removeAttribute("data-quiet-focus"),{once:true})}
   return document.activeElement===el}

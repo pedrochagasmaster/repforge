@@ -901,6 +901,8 @@ input:not(:where([type=checkbox],[type=radio])):focus-visible,select:focus-visib
 [tabindex="-1"]:focus,[tabindex="-1"]:focus-visible{outline:none}
 /* ID-scoped control focus rules require this override for pointer handoffs. */
 [data-quiet-focus][data-quiet-focus]:focus-visible{outline:none!important}
+/* Workout logging moves focus to its next field programmatically; that handoff stays visual-free. */
+[data-quiet-focus]:is(input,select,textarea):focus{box-shadow:none}
 /* iOS gives a date or time field an intrinsic width wider than a phone's column, and collapses its value
    element once the field is restyled; both hold here. */
 input:is([type=date],[type=time]){min-width:0;max-width:100%;box-sizing:border-box}
