@@ -9655,7 +9655,7 @@ body.is-entry-editor #entryProgramName,
 [data-hdir="2"] #history .hx-week__rows .session__open{padding:var(--space-12) var(--space-16) var(--space-12) 0}
 [data-hdir="2"] #history .hx-trail{flex:none;display:flex;flex-direction:column;align-items:flex-end;font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary);white-space:nowrap}
 [data-hdir="2"] #history .hx-card{border-radius:var(--radius-surface);background:var(--surface)}
-[data-hdir="2"] #history .hx-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin-top:var(--space-18)}
+[data-hdir="2"] #history .hx-tiles{display:grid;grid-template-columns:repeat(var(--hx-tiles,3),minmax(0,1fr));margin-top:var(--space-18)}
 [data-hdir="2"] #history .hx-tile{padding:var(--space-12) var(--space-16)}
 [data-hdir="2"] #history .hx-tile+.hx-tile{border-left:1px solid var(--boundary-decorative)}
 [data-hdir="2"] #history .hx-tile b{display:block;font-size:var(--font-size-metric);font-weight:var(--weight-semibold);font-variant-numeric:tabular-nums}
@@ -9683,4 +9683,48 @@ body.is-entry-editor #entryProgramName,
 [data-hdir="3"] #history .hx-then{color:var(--color-ink-secondary)}
 [data-hdir="3"] #history .hx-cmp__row.is-up .hx-now{font-weight:var(--weight-semibold)}
 [data-hdir="3"] #history .is-none{color:var(--ink-faint)}
+/* r1 */
+#history>.pagehead #historyExportBtn{border:0;border-radius:var(--radius-control);background:transparent}
+@media (max-width:374px){[data-hdir] #historyTopbar{justify-content:flex-start;padding-left:var(--space-16)}}
+[data-hdir="2"] #history .hx-meta{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-4) var(--space-12);margin-top:var(--space-4);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+[data-hdir="2"] #history .hx-row .session__open{align-items:center}
+[data-hdir="2"] #history .histfreq__plots:not(.histfreq__plots--stack){grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:var(--space-16)}
+[data-hdir="2"] #history .hx-lift .histlift__head{flex-direction:column;align-items:flex-start;gap:var(--space-4)}
+[data-hdir="2"] #history .hx-lift .histlift__name{flex:none;font-weight:var(--weight-semibold)}
+[data-hdir="2"] #history .hx-lift .histlift__tags{font-size:var(--font-size-body-small)}
+[data-hdir="2"] #history .hx-tr{column-gap:var(--space-12)}
+[data-hdir="2"] #history .hx-tr>span{min-width:0;overflow-wrap:anywhere}
+[data-hdir="2"] #history .histpage__actions{margin-top:var(--space-26);padding-bottom:var(--space-8);border:0}
+:root[data-theme="dark"][data-hdir="2"] #history :is(.hx-card,.hx-week__rows,.histfreq){box-shadow:var(--boundary-card-hairline-shadow)}
+[data-hdir] #history .hx-empty{display:flex;flex-direction:column;align-items:center;gap:var(--space-8);margin-top:var(--space-32);padding:var(--space-32) var(--space-16);text-align:center}
+[data-hdir="2"] #history .hx-empty{border-radius:var(--radius-surface);background:var(--surface)}
+[data-hdir] #history .hx-empty__icon{width:32px;height:32px;margin-bottom:var(--space-4);background:var(--color-ink-secondary)}
+[data-hdir] #history .hx-empty h3{margin:0;font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);color:var(--color-ink)}
+[data-hdir] #history .hx-empty p{margin:0;max-width:18rem;font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
+/* r2 */
+[data-hdir="2"] #history .hx-page{border-bottom:0}
+[data-hdir="2"] #history .hx-tr--head>span{overflow-wrap:normal;white-space:nowrap}
+[data-hdir="2"] #history .hx-tr{grid-template-columns:1.5rem minmax(min-content,1.5fr) minmax(min-content,1fr) minmax(max-content,1fr)}
+[data-hdir="2"] #history .hx-table{overflow-x:auto}
+[data-hdir="2"] #history .hx-tr>span{overflow-wrap:normal;white-space:nowrap}
+[data-hdir="2"] #history .hx-tr--head{font-size:var(--font-size-body-small)}
+[data-hdir="2"] #history .hist-month{margin-top:var(--space-32);font-size:var(--font-size-subtitle)}
+[data-hdir="2"] #history .hist-month+.hx-week .hx-week__head{margin-top:var(--space-12)}
+/* r2b */
+[data-hdir="2"] #history>.pagehead #historyExportBtn{display:none}
+[data-hdir="2"] #history .hx-tr:not(.hx-tr--head){font-family:var(--font-language);font-variant-numeric:tabular-nums}
+[data-hdir="2"] #history .histlift__tags{gap:var(--space-8);align-items:center}
+[data-hdir="2"] #history .histlift__tags .verdictmark{font-weight:var(--weight-medium)}
+[data-hdir="2"] #history .hx-out--improved .verdictmark:not(.verdictmark--record){font-weight:var(--weight-semibold);color:var(--color-ink)}
+[data-hdir="2"] #history .hx-out--regressed .verdictmark:not(.verdictmark--record){font-weight:var(--weight-regular);color:var(--color-ink)}
+[data-hdir="2"] #history .hx-out--flat .verdictmark:not(.verdictmark--record){font-weight:var(--weight-regular);color:var(--color-ink-secondary)}
+[data-hdir="2"] #history .freqcount__label,[data-hdir="2"] #history .freqcount__n{font-family:var(--font-language)}
+[data-hdir="2"] #history .freqcount__bar--now .freqcount__fill{background:var(--color-action)}
+[data-hdir="2"] #history .advanced{margin-top:var(--space-26);padding:0 var(--space-16);border:0;border-radius:var(--radius-surface);background:var(--surface)}
+[data-hdir="2"] #history .advanced[open]{padding-bottom:var(--space-16)}
+[data-hdir="2"] #history .hx-export{display:flex;align-items:center;gap:var(--space-12);width:100%;min-height:var(--control-target);margin:var(--space-12) 0 var(--space-8);padding:var(--space-12) var(--space-16);border:0;border-radius:var(--radius-surface);background:var(--surface);font:inherit;font-weight:var(--weight-medium);color:var(--color-ink);text-align:left;cursor:pointer}
+[data-hdir="2"] #history .hx-export .icon-mask{width:20px;height:20px;color:var(--color-ink-secondary)}
+:root[data-theme="dark"][data-hdir="2"] #history :is(.advanced,.hx-export,.hx-empty){box-shadow:var(--boundary-card-hairline-shadow)}
+@media (max-width:374px){[data-hdir="2"] #historyTopbar{justify-content:center;padding-left:0}}
+#history.is-session-page .hx-export,#history.is-session-edit .hx-export{display:none}
 /* ==== /HILLCLIMB EXPLORATION ==== */
