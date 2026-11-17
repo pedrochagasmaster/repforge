@@ -112,11 +112,13 @@ try {
       check(await records.count() >= 2, "one chip per record");
       const layout = await records.first().evaluate(el => {
         const row = el.parentElement, style = getComputedStyle(el);
-        return { pill: getComputedStyle(el, "::before").borderRadius, nowrap: style.whiteSpace,
+        return { gutter: el.getBoundingClientRect().left, fade: getComputedStyle(row).maskImage, shadow: getComputedStyle(document.querySelector(".sharesheet__slide")).boxShadow, pill: getComputedStyle(el, "::before").borderRadius, nowrap: style.whiteSpace,
           wraps: getComputedStyle(row).flexWrap, labelHidden: getComputedStyle(document.querySelector("#shareRecordLabel")).position };
       });
       check(layout.pill !== "0px" && layout.nowrap === "nowrap" && layout.wraps === "nowrap" && layout.labelHidden === "absolute",
         "records use one scrolling pill line with a hidden group label", layout);
+      check(layout.gutter >= 16 && layout.fade !== "none" && layout.shadow === "none",
+        "record chips keep the phone gutter and fade at the edge, with no clipped preview shadow", layout);
       for (const [width, scale] of [[390, 1], [320, 1], [390, 2], [320, 2]]) {
         await page.setViewportSize({ width, height: width === 320 ? 568 : 844 });
         await page.evaluate(scale => document.documentElement.style.fontSize = `${scale * 100}%`, scale);
