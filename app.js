@@ -11298,6 +11298,11 @@ document.addEventListener("pointerdown",()=>{workoutInputModality="pointer"},tru
 document.addEventListener("keydown",event=>{
   if(event.key!=="Tab"&&event.target instanceof Element&&event.target.matches("textarea,input:not([type]),input:is([type=text],[type=search],[type=tel],[type=url],[type=email],[type=password],[type=number])"))return;
   workoutInputModality="keyboard";document.activeElement?.removeAttribute?.("data-quiet-focus")},true);
+document.addEventListener("focusin",event=>{
+  const el=event.target;
+  if(workoutInputModality!=="pointer"||!(el instanceof HTMLElement)||el.hasAttribute("data-quiet-focus"))return;
+  el.setAttribute("data-quiet-focus","");
+  el.addEventListener("blur",()=>el.removeAttribute("data-quiet-focus"),{once:true})},true);
 function focusWorkoutControl(el){
   try{el.focus({preventScroll:true})}catch{return false}
   if(workoutInputModality==="pointer"){
