@@ -862,7 +862,10 @@
     let need = null;
     if (pending) {
       need = { lift: lift.name, key: lift.key };
-      if (pending === "weights_found") need.m = lifts.filter((ex) => !weights(rows, current).has(ex.key)).length;
+      if (pending === "weights_found") {
+        need.lifts = lifts.filter((ex) => !weights(rows, current).has(ex.key)).map(ex => ({ key: ex.key, name: ex.name, standing: current.find(fact => fact.key === ex.key)?.standing }));
+        need.m = need.lifts.length;
+      }
       if (pending === "effort_read") {
         const closest = current.slice().sort((a, b) => (b.calibration?.n || 0) - (a.calibration?.n || 0))[0] || lift;
         need = { key: closest.key, lift: closest.name, k: Math.max(0, 3 - (closest.calibration?.n || 0)),

@@ -8364,12 +8364,28 @@ function profileNextLine(profile,change){
   if(!profile.lifts.some(lift=>lift.active&&lift.depthDates.length))return t("profile.ring.first");
   const next=profileFindings().next;
   return next?.need?findingNeedText(next):t("profile.reader.growing")}
+let todayEstimateNotice=null;
+function openTodayEstimateInfo(){
+  if(!todayEstimateNotice)return;
+  const sheet=$("#todayEstimateSheet"),scrim=$("#todayEstimateScrim"),close=$("#todayEstimateClose");
+  $("#todayEstimateTitle").textContent=findingNeedText(todayEstimateNotice);
+  $("#todayEstimateBody").innerHTML=`<ul class="profile-scope-list">${todayEstimateNotice.need.lifts.map(lift=>
+    `<li><b>${esc(localizedMovementName(lift.name,lift.key))}</b><p>${esc(profileStandingReason(lift.standing))}</p></li>`).join("")}</ul>`;
+  const dismiss=()=>closeModal(sheet);
+  close.onclick=dismiss;scrim.onclick=dismiss;
+  document.body.classList.add("is-sheet-open");
+  openModal(sheet,{initialFocus:close,returnFocus:$("#todayEstimateInfo"),onEscape:dismiss,scrim,delayHide:reducedMotion()?0:280});
+  requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim.classList.add("is-open")})}
 function renderTodayProfile(){
   const button=$("#todayProfile"),need=$("#todayProfileNeed"),hasProgram=hasProgramContent();
   if(!button||!need)return;
   const profile=savedProfile(),change=observeProfileScope(profile);
   button.classList.toggle("hidden",!hasProgram);need.classList.toggle("hidden",!hasProgram);
+  todayEstimateNotice=null;
   if(!hasProgram)return;
+  const next=profileFindings().next;
+  if(!change&&profile.lifts.some(lift=>lift.active&&lift.depthDates.length)&&next?.id==="weights_found"&&next.need?.m>0){
+    todayEstimateNotice=next;need.classList.add("hidden")}
   button.innerHTML=profileRingHtml(profile.fill)+`<span>${esc(t("profile.ring.title"))}</span>`;
   button.setAttribute("aria-label",t("profile.ring.open"));button.onclick=openProfileOverview;
   need.innerHTML=change?`<button type="button" class="profile-scope-link">${esc(profileNextLine(profile,change))}</button>`:esc(profileNextLine(profile,null));
@@ -9584,10 +9600,11 @@ function renderToday(){renderTodayProfile();const dateEl=$("#todayDate");if(date
   renderWeekCard();
   const week=weeklySnapshot();
   const mc=mesocycleWeek(),nm=state.programMeta?.name,progEl=$("#todayProgram");
-  if(progEl){if(nm||mc.current!=null||mc.isComplete){progEl.classList.remove("hidden");
+  if(progEl){if(nm||mc.current!=null||mc.isComplete||todayEstimateNotice){progEl.classList.remove("hidden");
     const segs=mc.total||6,cur=mc.current||0,weekCopy=mesocycleWeekCopy(mc);
     progEl.innerHTML=`<div class="today-prog__name">${esc(nm||t("untitled_program"))}</div>`+
       (weekCopy?`<div class="today-prog__week">${esc(weekCopy)}</div>`:"")+
+      (todayEstimateNotice?`<button type="button" id="todayEstimateInfo" class="icon-btn icon-btn--ghost" aria-haspopup="dialog" aria-label="${esc(findingNeedText(todayEstimateNotice))}"><span aria-hidden="true">ⓘ</span></button>`:"")+
       (isProgramDeloadWeek(mc)?`<div class="today-prog__deload">${esc(t("today.deload_week"))}</div>`:"")+
       `<div class="segbar" data-progress-dimension="block" data-progress-scope="active-program-week">${Array.from({length:segs},(_,i)=>`<span class="segbar__seg${i<Math.min(cur,segs)?" is-done":""}${i===Math.min(cur,segs)-1?" is-current":""}"></span>`).join("")}</div>`}
     else{progEl.classList.add("hidden");progEl.innerHTML=""}}
@@ -9647,6 +9664,7 @@ function renderToday(){renderTodayProfile();const dateEl=$("#todayDate");if(date
     lc.textContent=hasCtx?programWeekContext(nm2,mc2):t("log.context.today");
     // Kept as a hidden deep-link hook; Today shows the program strip instead.
     lc.classList.add("hidden")}
+  const estimateInfo=$("#todayEstimateInfo");if(estimateInfo)estimateInfo.onclick=event=>{event.stopPropagation();openTodayEstimateInfo()};
   // Program strip also jumps to Progress → Review (legacy #logContext affordance).
   const progClick=$("#todayProgram");if(progClick&&!progClick.classList.contains("hidden")){
     progClick.style.cursor="pointer";progClick.onclick=()=>{navTo("stats");setStatsSeg("review")}}
