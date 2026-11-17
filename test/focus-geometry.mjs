@@ -350,6 +350,12 @@ async function checkTestSetPrompt(browser) {
           }));
         if (actions.length !== 2 || actions.some(action => action.width < 44 || action.height < 44 || !action.whole || !action.reachable))
           failures.push(`${label}: both invitation actions must be visible 44px targets: ${JSON.stringify(actions)}`);
+        const treatment = await opened.page.locator('.exercise.is-current [data-maxset-guess]').evaluate(button => ({
+          action: getComputedStyle(button).backgroundColor,
+          dismiss: getComputedStyle(button.parentElement.querySelector("[data-maxset-no]")).backgroundColor
+        }));
+        if (treatment.action === treatment.dismiss)
+          failures.push(`${label}: the test-set action needs a visible button fill distinct from dismiss`);
         const copy = await opened.page.locator('.exercise.is-current [data-maxset-guess]').evaluate(button => {
           const style = getComputedStyle(button), box = button.getBoundingClientRect();
           const walker = document.createTreeWalker(button, NodeFilter.SHOW_TEXT);
