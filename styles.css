@@ -899,7 +899,7 @@ input:not(:where([type=checkbox],[type=radio])):focus-visible,select:focus-visib
 /* `tabindex=-1` lets scripts or pointer actions move focus without adding a Tab
    stop. Keep those focus changes visual-free; regular keyboard stops retain rings. */
 [tabindex="-1"]:focus,[tabindex="-1"]:focus-visible{outline:none}
-[data-quiet-focus][data-quiet-focus]:focus-visible{outline:none}
+[data-quiet-focus][data-quiet-focus]:focus-visible{outline:none!important}
 [data-quiet-focus]:is(input,select,textarea):focus{box-shadow:none}
 /* iOS gives a date or time field an intrinsic width wider than a phone's column, and collapses its value
    element once the field is restyled; both hold here. */
@@ -5850,6 +5850,10 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
    hairline group per lift: outcome and record, the previous exposure, and the
    numbered sets on the shared ledger. Groups are bands, never cards. */
 #history.is-session-page>.pagehead{display:none}
+#history .histpage__toolbar{width:100%;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:var(--space-8)}
+#history .histpage__tools{margin-left:auto;display:flex;align-items:center;gap:var(--space-8)}
+#history .histpage__tools button{min-width:var(--control-target);min-height:var(--control-target);color:var(--control-quiet-ink)}
+#history .histpage__tools button:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 #history .histpage__head{display:flex;flex-direction:column;align-items:flex-start}
 #history .histpage__head .back-link{margin-left:calc(-1 * var(--space-4))}
 /* The editor, delete and conflict heads share a row with the date: the way back keeps its width and the date wraps under it at large text. */
@@ -5891,10 +5895,9 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
 #history .histlift__sets .ledgerline:last-child{border-bottom:0}
 #history .histlift__sets .ledgerline__idx{color:var(--color-ink-secondary)}
 #history .histpage__actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,9rem),1fr));gap:var(--space-12);align-items:center;margin-top:var(--space-26)}
-#history .histpage__actions .btn{width:100%;min-height:var(--control-target);white-space:normal}
 #history .histpage__actions .session__del{padding:0 var(--space-8)}
-/* With Share beside Edit, Delete takes its own row under them, centred, rather than a stray half column. */
-#history .histpage__actions:has([data-history-share]) .session__del{grid-column:1/-1;justify-self:center}
+/* Delete remains centred at the bottom of the session. */
+#history .histpage__actions .session__del{grid-column:1/-1;justify-self:center}
 
 #historyCalSheet{height:auto}
 #historyCalSheet .sheetband{flex:none;touch-action:none}
