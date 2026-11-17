@@ -10235,7 +10235,7 @@
     },
     {
       "id": "rest-tip-actions",
-      "selector": ".resttip__acts > button",
+      "selector": ".resttip__acts > button:not([data-maxset-guess])",
       "roles": {
         "control": "quiet-navigation"
       },
@@ -10246,13 +10246,34 @@
         "pressed",
         "focus-visible"
       ],
-      "rationale": "The tip's two answers, Not now and its offer, as quiet text buttons; neither commits training data on its own.",
+      "rationale": "The stage-tip offer and dismiss answers remain quiet text buttons.",
       "owner": "plan-077",
       "catalogStates": [
         "workout/stage-tip",
         "workout/max-set-prompt",
         "workout/max-set-recheck",
         "workout/max-set-guess"
+      ],
+      "neverDisabledReason": "A tip shows only while both answers apply."
+    },
+    {
+      "id": "test-set-invitation",
+      "selector": ".resttip__acts > button[data-maxset-guess]",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "The test-set invitation is a bordered secondary button beside the quiet dismiss.",
+      "owner": "plan-077",
+      "catalogStates": [
+        "workout/max-set-prompt",
+        "workout/max-set-recheck"
       ],
       "neverDisabledReason": "A tip shows only while both answers apply."
     },
@@ -15970,18 +15991,6 @@
           "property": "font-weight",
           "value": "var(--weight-focus-cue)"
         }
-      ]
-    },
-    {
-      "selector": "#shareRail figure.sharesheet__slide",
-      "role": "share card artwork preview",
-      "rationale": "Each slide is the PNG Share will send, lifted off the sheet like a photo on a table so its own ground (dark, orange, photo, clear) reads as a picture, not as part of the sheet; it is not a control surface and nothing nests on it.",
-      "owner": "finish-share",
-      "catalogStates": [
-        "session/summary-share",
-        "session/summary-share-photo",
-        "session/summary-share-line",
-        "history/session-share"
       ]
     }
   ],
