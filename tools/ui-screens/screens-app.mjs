@@ -2186,6 +2186,8 @@ export const APP_SCENARIOS = {
       window.__repforgeUi.setPref('profileScope',{v:1,scope:scope.slice(0,-2),acknowledged:true});
     });
     await progressSegment(page,"profile");await page.waitForSelector('#overviewProfile .profile-scope-rings');
+    // The state's subject is the scope change and its Continue, so the frame ends with Continue in view above the dock.
+    await page.evaluate(()=>{const go=document.querySelector("#profileScopeContinue");if(go)go.scrollIntoView({block:"center"})});
   },
   "workout/focus-ramp": async page=>{await rampFixture(page)},
   "workout/focus-ramp-ratio": async page=>{await rampFixture(page,{ratio:true})},

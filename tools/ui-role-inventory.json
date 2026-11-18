@@ -13091,7 +13091,8 @@
         "progress/review-evaluated",
         "progress/overview-profile",
         "progress/overview-profile-first",
-        "progress/prs-drill-in"
+        "progress/prs-drill-in",
+        "progress/profile-scope"
       ]
     },
     {
