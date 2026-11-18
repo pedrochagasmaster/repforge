@@ -1133,14 +1133,14 @@ const ROUTE_PUSH_DEADLINE_MS=1500;
    route does not push it a second time. While a pull is live the page it returns
    to is mounted beneath it (History has none to mount: its list is rendered
    over the session page, so the pull shows the paper beneath). */
-const EDGE_BACK={profilePage:"#profilePageBack",stats:"#summaryProfileBack",exercise:"#exBack",library:"#libBack",exercisePreview:"#previewBack",history:"[data-history-back]"};
+const EDGE_BACK={profilePage:"#profilePageBack",stats:"#statsBack:not([hidden]),#summaryProfileBack",exercise:"#exBack",library:"#libBack",exercisePreview:"#previewBack",history:"[data-history-back]"};
 let routeEdge=null,routeEdgeFrame=0;
 function edgeBackPage(){
   if(document.body.classList.contains("is-focus-wo"))return null;
   const view=$(".view.active");
   if(!view||!EDGE_BACK[view.id])return null;
   if(view.id==="history"&&!view.classList.contains("is-session-page"))return null;
-  if(view.id==="stats"&&!sessionSummaryProfileReturn)return null;
+  if(view.id==="stats"&&!sessionSummaryProfileReturn&&!statsSubOpen())return null;
   return view}
 function syncEdgeSwipe(){
   routeEdgeFrame=0;
@@ -1206,7 +1206,8 @@ function openPushedRoutes(){
   if(body.contains("is-preview"))open.push("exercisePreview");
   if(body.contains("is-exercise"))open.push("exercise");
   if(history?.classList.contains("active")&&HistoryUi.hasPushedPage())open.push("history");
-  if(sessionSummaryProfileReturn&&($("#stats")?.classList.contains("active")||body.contains("is-profile")))open.push("stats");
+  const statsActive=$("#stats")?.classList.contains("active");
+  if(sessionSummaryProfileReturn&&(statsActive||body.contains("is-profile"))||statsActive&&statsSubOpen())open.push("stats");
   if(body.contains("is-profile"))open.push("profilePage");
   return open}
 function syncRouteHistory(){
@@ -3589,7 +3590,7 @@ let settingsEditRevision=0;
 // tasks; Strength/Volume/PRs are a labelled Evidence group. Old one-level seg
 // values keep working: evidence keys map onto the Evidence view and unknown
 // values fall back to Overview.
-const STATS_SEG={overview:"segOverview",review:"segReview"};
+const STATS_SEG={overview:"segOverview",review:"segReview",profile:"segProfile"};
 const EVIDENCE_SEG={strength:"segStrength",volume:"segVolume",prs:"segPRs"};
 
 function migrateLogSnapshot(snapshot){let changed=false;const lookup=snapshotLookup(snapshot.customExercises);
@@ -4997,7 +4998,7 @@ function finishBlockAndStart(strategy,expectedOldId){
 // single Progress → Review lifecycle. There is no separate competing dialog.
 function promptEndBlock(){
   navTo("stats");setStatsSeg("review");
-  const seg=$('#statsSeg button[data-seg="review"]');if(seg)seg.focus()}
+  focusRoute($("#statsTitle"))}
 async function dismissBlockPrompt(){
   const proposal=cloneSnapshot(state);
   if(!proposal.programMeta)proposal.programMeta=defaultProgramMeta(proposal.log);
@@ -6447,23 +6448,22 @@ function renderEvidenceView(){
   if(!evidenceView)return;
   const fn=evidenceRenderers()[evidenceView];
   if(fn)fn()}
-/** One row of five tabs (Plan 064 R3i): the selected tab is the Evidence view when
- *  one is open, otherwise the primary task. Selection is exclusive. */
+/** Progress is one Summary page (overview) with pushed pages beneath it: Strength, Volume and Records (the Evidence
+ *  views), Review and the profile. A pushed page takes the page title and shows Back to Progress; the Summary shows
+ *  neither. The returning session-summary profile keeps its own Back (#summaryProfileBack). */
+const STATS_PAGE_TITLE={review:"stats.review",profile:"profile.ring.title",strength:"stats.strength",volume:"stats.volume",prs:"stats.records"};
+const STATS_PAGE_SUBTITLE={strength:"stats.page.strength_sub",prs:"stats.prs.lede"};
+function statsPage(){return evidenceView||(statsSeg!=="overview"&&STATS_SEG[statsSeg]?statsSeg:null)}
+function statsSubOpen(){return !!statsPage()}
 function paintStatsTabs(){
-  const on=evidenceView||statsSeg,row=$("#statsSeg");
-  // N3: where the 2px indicator is drawn now (or, if one is still travelling, where it is on screen).
-  const was=row?.querySelector('.tabrow__tab[aria-selected="true"]'),liveRing=row?.querySelector(".tabrow__ring");
-  const fromRect=tabIndicatorRect(liveRing||was,!!liveRing),scrolled=row?row.scrollLeft:0;
-  $$("#statsSeg button").forEach(b=>{const sel=b.dataset.seg===on;
-    b.classList.toggle("active",sel);b.setAttribute("aria-selected",sel?"true":"false");
-    b.tabIndex=sel?0:-1;
-    // A row that scrolls keeps its selected tab in view.
-    if(sel&&b.parentElement&&b.parentElement.scrollWidth>b.parentElement.clientWidth){
-      const row=b.parentElement,left=b.offsetLeft-row.offsetLeft;
-      if(left<row.scrollLeft||left+b.offsetWidth>row.scrollLeft+row.clientWidth)row.scrollLeft=Math.max(0,left-16)}});
-  const now=row?.querySelector('.tabrow__tab[aria-selected="true"]');
-  if(fromRect&&was&&now&&now!==was){fromRect.left-=row.scrollLeft-scrolled;travelTabIndicator(now,fromRect)}
-  syncTabrowOverflow(row)}
+  const page=statsPage(),view=$("#stats");
+  if(view)view.dataset.page=page||"summary";
+  const text=t(page?STATS_PAGE_TITLE[page]:"stats.title");
+  const title=$("#statsTitle"),bar=$("#statsTopbarTitle"),back=$("#statsBack"),sub=$("#statsSubtitle");
+  if(title)title.textContent=text;
+  if(bar)bar.textContent=text;
+  if(back){back.hidden=!page||!!sessionSummaryProfileReturn;back.innerHTML=`<span class="chevron" aria-hidden="true"></span>${esc(t("stats.title"))}`}
+  if(sub){const key=page&&STATS_PAGE_SUBTITLE[page];sub.hidden=!key;sub.textContent=key?t(key):""}}
 /** Which side of a scrolling tab row hides tabs: the stylesheet fades that edge. Empty when all tabs fit. */
 function syncTabrowOverflow(row){
   if(!row)return;
@@ -6634,32 +6634,21 @@ function setEvidenceView(view){
   for(const [k,id] of Object.entries(STATS_SEG)){const el=$("#"+id);if(el)el.classList.remove("active")}
   for(const [k,id] of Object.entries(EVIDENCE_SEG)){const el=$("#"+id);if(el)el.classList.toggle("active",k===view)}
   renderEvidenceView()}
-/* The WAI tabs pattern on the Progress row (R7 J-20): each tab names the panel it controls and each panel
-   is labelled by its tab; the selected tab is the only tab stop; Left/Right (wrapping), Home and End move
-   focus and select, as a tap does. The window, filter and day segments are toggle groups, not tabs: they
-   change one region and have no panel of their own. */
+/* The Summary's section links open their page; Back returns to the Summary at the link that opened it. */
+function openStatsPage(page){
+  if(EVIDENCE_SEG[page])setEvidenceView(page);else setStatsSeg(page);
+  window.scrollTo({top:0});focusRoute($("#statsTitle"))}
+function closeStatsPage(){
+  const was=statsPage();
+  setStatsSeg("overview");window.scrollTo({top:0});
+  const link=was&&$(`#segOverview [data-open-page="${was}"]`);
+  if(link){link.scrollIntoView({block:"center"});link.focus({preventScroll:true})}else focusRoute($("#statsTitle"))}
 function wireStatsTabs(){
-  const row=$("#statsSeg");if(!row)return;
-  const tabs=$$("#statsSeg button");
-  tabs.forEach(b=>{
-    b.id=`statsTab-${b.dataset.seg}`;
-    const panel=$("#"+(b.getAttribute("aria-controls")||""));
-    if(panel)panel.setAttribute("aria-labelledby",b.id);
-    b.onclick=()=>setStatsSeg(b.dataset.seg)});
-  // The fade follows the scroll, the row's width and the labels' (language, text size).
-  row.addEventListener("scroll",()=>syncTabrowOverflow(row),{passive:true});
-  if(typeof ResizeObserver==="function"){
-    const observer=new ResizeObserver(()=>syncTabrowOverflow(row));
-    observer.observe(row);tabs.forEach(tab=>observer.observe(tab))}
-  syncTabrowOverflow(row);
-  row.onkeydown=e=>{
-    if(e.altKey||e.ctrlKey||e.metaKey||e.shiftKey)return;
-    const at=tabs.indexOf(document.activeElement);if(at<0)return;
-    const to=e.key==="ArrowRight"?(at+1)%tabs.length:e.key==="ArrowLeft"?(at+tabs.length-1)%tabs.length:
-      e.key==="Home"?0:e.key==="End"?tabs.length-1:-1;
-    if(to<0)return;
-    e.preventDefault();
-    setStatsSeg(tabs[to].dataset.seg);tabs[to].focus()}}
+  const back=$("#statsBack");if(back)back.onclick=closeStatsPage;
+  const summary=$("#segOverview");
+  if(summary)summary.addEventListener("click",e=>{
+    const link=e.target instanceof Element?e.target.closest("[data-open-page]"):null;
+    if(link&&summary.contains(link))openStatsPage(link.dataset.openPage)})}
 function setStatsSeg(seg){
   // Legacy one-level values route to their Evidence view (Plan 056 migration).
   if(EVIDENCE_SEG[seg])return setEvidenceView(seg);
@@ -8375,7 +8364,7 @@ function renderTodayProfile(){
   need.innerHTML=change?`<button type="button" class="profile-scope-link">${esc(profileNextLine(profile,change))}</button>`:esc(profileNextLine(profile,null));
   const scope=need.querySelector("button");if(scope)scope.onclick=openProfileOverview}
 function openProfileOverview(){
-  navTo("stats");setStatsSeg("overview");
+  navTo("stats");setStatsSeg("profile");
   if($("#stats")?.classList.contains("active")){
     window.scrollTo({top:0});focusRoute($("#overviewProfileTitle"))}}
 function profileLiftName(lift){return lift.active?lift.name:localizedMovementName(lift.name,JSON.parse(lift.key)[0])}
@@ -12851,12 +12840,12 @@ async function openSummaryProfile(summary){
   const returning={summary,view:currentViewId(),scroll:sheet.scrollTop};
   stopSummaryRamp();stopSummaryProfileFill();await closeModal(sheet);
   sessionSummaryProfileReturn=returning;
-  navTo("stats");setStatsSeg("overview");syncRouteHistory();
+  navTo("stats");setStatsSeg("profile");syncRouteHistory();
   const profile=$("#overviewProfile");
   if(profile){profile.setAttribute("tabindex","-1");profile.scrollIntoView({block:"start"});profile.focus({preventScroll:true})}}
 function returnFromSummaryProfile(){
   const returning=sessionSummaryProfileReturn;if(!returning)return;
-  clearSummaryProfileReturn();returnToTab(returning.view);render();syncRouteHistory();
+  clearSummaryProfileReturn();statsSeg="overview";returnToTab(returning.view);render();syncRouteHistory();
   openSessionSummary(returning.summary);
   $("#sessionSummary").scrollTop=returning.scroll;
   $("#sumProfileOpen,#sumFinding")?.focus({preventScroll:true})}
@@ -13517,22 +13506,18 @@ function renderStrengthDash(){const el=$("#strengthDash");if(!el)return;
   if(!keys.size){el.innerHTML=`<div class="empty">${esc(t("stats.empty.no_lifts"))}</div>`;return}
   const nameOf=k=>dash.find(r=>r.key===k)?.exercise||prog.exercises.find(ex=>(exerciseLiftKey(ex)||`slot:${ex.id}`)===k)?.name||k;
   const shownName=k=>liftDisplayName(nameOf(k),k);
-  el.innerHTML=[...keys].sort((a,b)=>shownName(a).localeCompare(shownName(b),locTag())).map(k=>{
+  el.innerHTML=`<div class="sumcard">`+[...keys].sort((a,b)=>shownName(a).localeCompare(shownName(b),locTag())).map(k=>{
     const series=projection.series.get(k),detail=strengthDetailTable(k,projection);
     const panel=`<div class="evrow__detail" data-evdetail="${esc(k)}" hidden>${detail}</div>`;
     // A slot with no history in this scope keeps its shipped row: nothing is drawn for it.
     if(series.presentation==="empty")
-      return `<button type="button" class="evrow" data-evkey="${esc(k)}" aria-expanded="false">`+
+      return `<button type="button" class="liftrow liftrow--empty evrow" data-evkey="${esc(k)}" aria-expanded="false">`+
         `<div class="listrow__main"><div class="listrow__title">${esc(liftDisplayName(nameOf(k),k))}</div>`+
         `<div class="listrow__sub">${esc(t("stats.evidence.empty"))}${esc(` · ${t("stats.evidence.baseline")}`)}</div></div>`+
-        `<span class="evrow__val" aria-hidden="true"></span><span class="chevron" aria-hidden="true"></span></button>${panel}`;
-    const latest=projection.sessions.filter(x=>x.liftKey===k).at(-1),word=strengthOutcomeWord(k,series,latest),change=strengthChangeText(series);
-    return `<button type="button" class="evrow evrow--d" data-evkey="${esc(k)}" aria-expanded="false">`+
-      `<b class="evrow__name">${esc(liftDisplayName(nameOf(k),k))}</b>`+
-      `<span class="evrow__fig"><span class="evrow__figtext"><span class="evrow__val">${esc(strengthFigure(series))}</span>${perSideQualifier(series.perSideLoad)}</span><span class="chevron is-down" aria-hidden="true"></span></span>`+
-      `<span class="evrow__out${word.soft?" is-soft":""}">${word.html}${change?esc(` · ${change}`):""}</span>`+
-      `<span class="evrow__kind">${esc(strengthKindText(series))}</span>`+
-      `<span class="evrow__spark">${sparklineSvg(series.points.map(point=>point.value))}</span></button>${panel}`}).join("");
+        `<span class="chevron is-down" aria-hidden="true"></span></button>${panel}`;
+    const latest=projection.sessions.filter(x=>x.liftKey===k).at(-1);
+    return `<button type="button" class="liftrow evrow evrow--d" data-evkey="${esc(k)}" aria-expanded="false">`+
+      `${liftRowBody(liftDisplayName(nameOf(k),k),series,latest)}<span class="chevron is-down" aria-hidden="true"></span></button>${panel}`}).join("")+`</div>`;
   $$("#strengthDash [data-evkey]").forEach(b=>b.onclick=()=>{
     const detail=$(`[data-evdetail="${b.dataset.evkey}"]`);if(!detail)return;
     const open=detail.hidden;detail.hidden=!open;b.setAttribute("aria-expanded",open?"true":"false");b.classList.toggle("is-open",open);
@@ -13571,27 +13556,112 @@ function renderThisWeek(){const el=$("#thisWeek");if(!el)return;
     cell("sets",w.completedWorkingSets,w.plannedWorkingSets,t("stats.this_week.working_sets"))+
     (baselineN>0?cell("baseline",baselineN,0,t("stats.this_week.baseline")):"")+`</div>`+
     `<p class="ovweekline">${esc(weekLine)}</p>`}
-/** Strength this block: a row per lift that has a session, in program order. A
- *  row with two or more sessions opens that lift's chart; one session is a dot
- *  with no chart behind it. */
+/** A lift's line across a Summary or Strength row: the polyline is drawn in a stretched box so it spans the row, and
+ *  its points are placed over it in percentages so they stay round. The last point is the current value: green when
+ *  the line ends above where it started, ink otherwise. */
+function liftLineHtml(values){
+  const nums=values.map(Number).filter(Number.isFinite);
+  if(nums.length<2)return"";
+  const min=Math.min(...nums),span=Math.max(...nums)-min,h=30,pad=5;
+  const pts=nums.map((v,i)=>[i*100/(nums.length-1),span?pad+(h-2*pad)*(1-(v-min)/span):h/2]);
+  const up=nums.at(-1)>nums[0];
+  return `<span class="liftline${up?" is-up":""}" aria-hidden="true"><svg class="liftline__svg" viewBox="0 0 100 ${h}" preserveAspectRatio="none">`+
+    `<polyline class="liftline__path" points="${pts.map(([x,y])=>`${x.toFixed(2)},${y.toFixed(1)}`).join(" ")}"/></svg>`+
+    pts.map(([x,y],i)=>`<i class="liftline__pt${i===pts.length-1?" liftline__pt--end":""}" style="--pt-x:${x.toFixed(2)}%;--pt-y:${y.toFixed(1)}px"></i>`).join("")+`</span>`}
+/** The block change under a lift's line: the gain is green, no change is "±0", a loss is ink. */
+function liftDeltaHtml(series){
+  const pts=series.points;if(pts.length<2)return"";
+  const d=pts.at(-1).value-pts[0].value,u=unitLabel();
+  const text=d>0?`+${fmtLoad(d)} ${u}`:d<0?`${fmtLoad(d)} ${u}`:`±0 ${u}`;
+  return `<span class="liftrow__delta${d>0?" is-up":""}">${esc(text)}</span>`}
+function liftSinceText(series,latest){
+  const pts=series.points;
+  if(pts.length<2)return latest?t("stats.row.first",{date:shortDate(latest.date)}):"";
+  return t("stats.row.since",{load:`${fmtLoad(pts[0].value)} ${unitLabel()}`,n:pts.length})}
+/** One lift on the Summary or the Strength page: name and current top load, its line, then where it started and
+ *  the change this block. */
+function liftRowBody(name,series,latest){
+  const pts=series.points,value=pts.length?`${fmtLoad(pts.at(-1).value)}`:"—";
+  return `<span class="liftrow__body"><span class="liftrow__l1"><b class="liftrow__name">${esc(name)}</b>`+
+    `<span class="liftrow__fig"><span class="liftrow__val">${esc(value)}</span> <span class="liftrow__unit">${esc(unitLabel())}</span>${perSideQualifier(series.perSideLoad)}</span></span>`+
+    liftLineHtml(pts.map(point=>point.value))+
+    `<span class="liftrow__l2"><span class="liftrow__since">${esc(liftSinceText(series,latest))}</span>${liftDeltaHtml(series)}</span></span>`}
+const SUMMARY_LIFTS=4,SUMMARY_RECORDS=3,SUMMARY_MUSCLES=4;
+const summaryHead=(title,page,linkKey)=>`<div class="sumhead"><h3 class="sumhead__title">${esc(title)}</h3>`+
+  (page?`<button type="button" class="sumhead__link" data-open-page="${page}">${esc(t(linkKey))}<span class="chevron" aria-hidden="true"></span></button>`:"")+`</div>`;
+/** Strength on the Summary: the lifts trained most recently this block, each opening its chart; the Strength page
+ *  holds them all. A lift with one session is a row with no line and nothing behind it. */
 function renderOverviewStrength(){const el=$("#overviewStrength");if(!el)return;
   const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;
   if(!Model){el.innerHTML="";return}
-  const projection=strengthProjection("current-block"),order=prog.exercises.map(ex=>exerciseLiftKey(ex)||`slot:${ex.id}`);
+  const projection=strengthProjection("current-block");
+  const latestOf=k=>projection.sessions.filter(x=>x.liftKey===k).at(-1);
   const keys=[...projection.series.keys()].filter(k=>projection.series.get(k).evidenceCount>0)
-    .sort((a,b)=>{const ia=order.indexOf(a),ib=order.indexOf(b);return(ia<0?1e6:ia)-(ib<0?1e6:ib)});
+    .sort((a,b)=>compareLogChronology(latestOf(b)||{},latestOf(a)||{}));
   if(!keys.length){el.innerHTML="";return}
   const nameOf=k=>projection.dashboard.find(r=>r.key===k)?.exercise||prog.exercises.find(ex=>(exerciseLiftKey(ex)||`slot:${ex.id}`)===k)?.name||k;
-  el.innerHTML=`<div class="ovsec"><h3 class="ovsec__title">${esc(t("stats.overview.strength"))}</h3><span class="ovsec__meta">${esc(t("stats.metric.top_load"))}</span></div>`+
-    keys.map(k=>{
-      const series=projection.series.get(k),latest=projection.sessions.filter(x=>x.liftKey===k).at(-1),word=strengthOutcomeWord(k,series,latest);
-      const body=`<span class="strrow__main"><b class="strrow__name">${esc(liftDisplayName(nameOf(k),k))}</b>`+
-        `<span class="strrow__sub${word.soft?" is-soft":""}">${word.html}${latest?esc(` · ${shortDate(latest.date)}`):""}</span></span>`+
-        `${sparklineSvg(series.points.map(point=>point.value))}<span class="strrow__fig"><span class="strrow__val">${esc(strengthFigure(series))}</span>${perSideQualifier(series.perSideLoad)}</span>`;
+  el.innerHTML=summaryHead(t("stats.overview.strength"),"strength","stats.overview.see_strength")+`<div class="sumcard">`+
+    keys.slice(0,SUMMARY_LIFTS).map(k=>{
+      const series=projection.series.get(k),body=liftRowBody(liftDisplayName(nameOf(k),k),series,latestOf(k));
       return series.evidenceCount>1
-        ?`<button type="button" class="strrow" data-ovkey="${esc(k)}">${body}</button>`
-        :`<div class="strrow strrow--snap" data-ovkey="${esc(k)}">${body}</div>`}).join("");
+        ?`<button type="button" class="liftrow" data-ovkey="${esc(k)}">${body}<span class="chevron" aria-hidden="true"></span></button>`
+        :`<div class="liftrow liftrow--snap" data-ovkey="${esc(k)}">${body}</div>`}).join("")+`</div>`;
   $$("#overviewStrength button[data-ovkey]").forEach(b=>b.onclick=()=>openExerciseView(b.dataset.ovkey,"stats"))}
+/** The block at a glance, first on the Summary: how many lifts went up, the block's records, sessions and this week,
+ *  the week track, and the way into Review. A lifter with no comparison yet reads what they have logged, never a zero. */
+function renderProgressHero(){const el=$("#progressHero");if(!el)return;
+  const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;
+  if(!Model||!hasProgramContent()||!state.log.some(isWork)){el.innerHTML="";return}
+  const meta=progressEvidenceMeta(),program=prog.toJSON(),rows=readLogRows(),now=today();
+  const projection=strengthProjection("current-block"),all=[...projection.series.values()].filter(s=>s.points.length);
+  const compared=all.filter(s=>s.points.length>1),up=compared.filter(s=>s.points.at(-1).value>s.points[0].value).length;
+  const big=n=>`<b class="phero__n">${esc(fmt(n))}</b>`;
+  const withBig=(key,n,vars)=>esc(t(key,{...vars,n:"\u0000"})).replace("\u0000",big(n));
+  const headline=compared.length===1&&up===1?esc(t("stats.hero.up_single"))
+    :up>0?withBig(up===1?"stats.hero.up_one":"stats.hero.up",up,{total:compared.length})
+    :compared.length?withBig(compared.length===1?"stats.hero.held_one":"stats.hero.held",compared.length)
+    :withBig(all.length===1?"stats.hero.first_one":"stats.hero.first",all.length);
+  const started=state.programMeta?.started||"";
+  const records=started?detectPRs(state.log).filter(ev=>String(ev.date||"")>=started).length:0;
+  const volume=Model.buildVolumeEvidence("block-to-date",program,meta,rows,now);
+  const week=Model.buildWeekStatus(program,meta,rows,now),life=mesocycleLifecycle(state.programMeta||{});
+  const planned=volume.period?.plannedSessions||volume.plannedSessions;
+  const stat=(value,of,caption)=>`<div class="phero__stat"><b class="phero__val">${esc(fmt(value))}${of?`<i class="phero__of">/${esc(fmt(of))}</i>`:""}</b><span class="phero__cap">${esc(caption)}</span></div>`;
+  const stats=[records>0?stat(records,0,t(records===1?"stats.hero.records_one":"stats.hero.records")):"",
+    planned>0?stat(volume.completedSessions,planned,t("stats.hero.sessions")):"",
+    week.plannedSessions>0?stat(week.completedSessions,week.plannedSessions,t("stats.hero.this_week")):""].filter(Boolean);
+  const track=life.current!=null?`<div class="phero__week"><span class="phero__weeklabel">${esc(t("review.week_of",{n:life.current,total:life.total}))}</span>`+
+    `<span class="phero__track" aria-hidden="true">${Array.from({length:life.total},(_,i)=>`<i class="phero__seg${i<life.current-1?" is-done":i===life.current-1?" is-current":""}"></i>`).join("")}</span></div>`:"";
+  const last=life.current>1?Model.buildWeekStatus(program,meta,rows,shiftDate(weekStart(now),-7)):null;
+  const reviewTitle=life.isComplete||life.isFinalWeek?t("stats.hero.review_block"):last?t("stats.hero.review_last"):t("stats.hero.review_open");
+  const reviewSub=last&&last.plannedSessions>0&&!life.isComplete?t("stats.hero.last_week",{done:last.completedSessions,planned:last.plannedSessions})
+    :life.current!=null?t("review.week_of",{n:life.current,total:life.total}):"";
+  const review=state.programMeta?.started?`<button type="button" class="phero__review" data-open-page="review"><span class="phero__reviewtext">`+
+    `<b>${esc(reviewTitle)}</b>${reviewSub?`<span>${esc(reviewSub)}</span>`:""}</span><span class="chevron" aria-hidden="true"></span></button>`:"";
+  el.innerHTML=`<section class="sumcard phero" aria-labelledby="progressHeroTitle"><p class="phero__eyebrow">${esc(t("stats.hero.eyebrow"))}</p>`+
+    `<h3 class="phero__headline" id="progressHeroTitle">${headline}</h3>`+
+    (stats.length?`<div class="phero__stats">${stats.join("")}</div>`:"")+track+review+`</section>`}
+/** Recent records on the Summary: the last few sets that set one, each with the gain it set. */
+function renderOverviewRecords(){const el=$("#overviewRecords");if(!el)return;
+  const sets=prRecordSets(prTimeline("all")).slice(0,SUMMARY_RECORDS);
+  if(!sets.length){el.innerHTML="";return}
+  el.innerHTML=summaryHead(t("stats.overview.records"),"prs","stats.overview.see_records")+
+    `<div class="sumcard">${sets.map(group=>`<button type="button" class="recrow" data-open-page="prs">${recordRowBody(group,true)}<span class="chevron" aria-hidden="true"></span></button>`).join("")}</div>`}
+/** Sets per muscle on the Summary: the muscles furthest from this week's plan, as bars toward it. */
+function renderOverviewVolume(){const el=$("#overviewVolume");if(!el)return;
+  const rows=overviewVolumeProjection().filter(row=>row.planned>0).slice(0,SUMMARY_MUSCLES);
+  if(!rows.length){el.innerHTML="";return}
+  el.innerHTML=summaryHead(t("stats.overview.volume"),"volume","stats.overview.see_volume")+
+    `<div class="sumcard">${rows.map(row=>`<div class="musrow"><span class="musrow__l"><span class="musrow__name">${esc(muscleLabel(row.muscle))}</span>`+
+      `<span class="musrow__n">${esc(t("stats.overview.sets_of",{done:fmt(row.completed7),planned:fmt(row.planned)}))}</span></span>`+
+      `<span class="musrow__bar" aria-hidden="true"><i class="musrow__fill" style="--fill:${Math.min(100,row.pct)}%"></i></span></div>`).join("")}</div>`}
+/** The way into the profile, last on the Summary: its ring and what it needs next. */
+function renderOverviewProfileLink(){const el=$("#overviewProfileLink");if(!el)return;
+  if(!hasProgramContent()){el.innerHTML="";return}
+  const profile=savedProfile(),change=observeProfileScope(profile);
+  el.innerHTML=`<button type="button" class="sumcard profilelink" data-open-page="profile">${profileRingHtml(profile.fill)}`+
+    `<span class="profilelink__text"><b>${esc(t("profile.ring.title"))}</b><span>${esc(profileNextLine(profile,change))}</span></span>`+
+    `<span class="chevron" aria-hidden="true"></span></button>`}
 function overviewBarPct(planned,completed7){return planned>0?Math.min(100,Math.round(completed7/planned*100)):0}
 function volumeStatusKey(planned,completed){
   if(!planned)return completed>0?"high":"on-target";
@@ -13633,10 +13703,11 @@ function renderStats(){
       `<p class="emptystate__body">${esc(t("stats.empty.body"))}</p>`+
       `<button type="button" class="btn btn--cta" id="statsIntroGo">${esc(t("stats.empty.cta"))}</button>`;
     const go=$("#statsIntroGo");if(go)go.onclick=()=>navTo("log");
-    for(const sel of["#thisWeek","#attention","#overviewStrength"]){const el=$(sel);if(el)el.classList.toggle("hidden",!hasLog)}
+    for(const sel of["#progressHero","#attention","#overviewStrength","#overviewRecords","#overviewVolume"]){const el=$(sel);if(el)el.classList.toggle("hidden",!hasLog)}
   }
-  renderThisWeek();
-  renderAttention();renderOverviewStrength();renderOverviewProfile();renderReview();
+  paintStatsTabs();
+  renderProgressHero();renderAttention();renderOverviewStrength();renderOverviewRecords();renderOverviewVolume();
+  renderOverviewProfileLink();renderOverviewProfile();renderReview();
   if(statsSeg==="review")renderReview();
   renderEvidenceView();
   if($("#stats")?.classList.contains("active")&&!evidenceView)
@@ -14230,36 +14301,44 @@ function prTimeline(filter){
   return events.sort((a,b)=>compareLogChronology(b,a))}
 window.__repforgePrTimeline=prTimeline;
 
+/** Records grouped one row per set (refinement audit A7): a set that raised more than one record carries each kind and
+ *  its gain, in the same order, rather than repeating the set once per record. */
+function prRecordSets(events){
+  const sets=new Map();
+  for(const ev of events){const key=[ev.liftKey,ev.date,ev.session??"",ev.load,ev.reps].join("|");
+    if(!sets.has(key))sets.set(key,[]);sets.get(key).push(ev)}
+  return[...sets.values()]}
+const prKindLabel=k=>k==="load"?t("stats.pr.load"):k==="reps"?t("stats.pr.reps"):t("stats.pr.e1rm");
+function prDeltaText(ev){
+  return ev.kind==="load"?(ev.deltaLoad!=null?`+${fmtLoad(ev.deltaLoad)} ${unitLabel()}`:"")
+    :ev.kind==="reps"?(ev.deltaReps!=null?`+${ev.deltaReps}`:"")
+    :(ev.deltaE1rm!=null?`+${fmt(Math.round(toDisplay(ev.deltaE1rm)))} ${unitLabel()}`:"")}
+const prDateText=d=>{const p=String(d||"").split("-");return p.length===3?`${t("month."+(+p[1]-1))} ${+p[2]}`:String(d||"")};
+/** A record set: the lift and the set, then its first record's gain in green and any others beside it. */
+function recordRowBody(group,withDate){
+  const ev=group[0];
+  const kinds=group.map((item,i)=>{const d=prDeltaText(item);
+    return `<span class="recrow__rec pr-kind--${item.kind}"${i?"":` data-first="true"`}>`+(d?`<b class="recrow__gain">${esc(d)}</b> `:"")+
+      `<span class="recrow__kind">${esc(prKindLabel(item.kind))}</span></span>`}).join(`<span class="recrow__sep" aria-hidden="true"> · </span>`);
+  return `<span class="recrow__body"><span class="recrow__l1"><b class="recrow__name">${esc(liftDisplayName(ev.exerciseName,ev.liftKey))}</b>`+
+    `<span class="recrow__set">${esc(`${fmtLoad(ev.load)} ${unitLabel()} × ${ev.reps}`)}</span></span>`+
+    `<span class="recrow__l2"><span class="recrow__recs">${kinds}</span>${withDate?`<span class="recrow__date">${esc(prDateText(ev.date))}</span>`:""}</span></span>`}
 function renderPRTimeline(){const el=$("#prTimeline");if(!el)return;
   $$("#prFilterSeg button").forEach(b=>{const on=b.dataset.prf===prFilter;b.classList.toggle("active",on);b.setAttribute("aria-pressed",on?"true":"false");
     b.onclick=()=>{prFilter=b.dataset.prf;renderPRTimeline()}});
   const events=prTimeline(prFilter);
   if(!events.length){el.innerHTML=`<div class="empty">${esc(t("stats.empty.no_pr_filter"))}</div>`;return}
-  const prDate=d=>{const p=String(d||"").split("-");return p.length===3?`${t("month."+(+p[1]-1))} ${+p[2]}`:String(d||"")};
-  const kindLbl=k=>k==="load"?t("stats.pr.load"):k==="reps"?t("stats.pr.reps"):t("stats.pr.e1rm");
-  const delta=ev=>ev.kind==="load"?(ev.deltaLoad!=null?`+${fmtLoad(ev.deltaLoad)}${unitLabel()}`:"")
-    :ev.kind==="reps"?(ev.deltaReps!=null?`+${ev.deltaReps}`:"")
-    :(ev.deltaE1rm!=null?`+${fmt(Math.round(toDisplay(ev.deltaE1rm)))}${unitLabel()}`:"");
-  // One row per set (refinement audit A7): a set that raised more than one record carries each kind and its gain, in
-  // the same order, rather than repeating the set once per record.
-  const sets=new Map();
-  for(const ev of events){const key=[ev.liftKey,ev.date,ev.session??"",ev.load,ev.reps].join("|");
-    if(!sets.has(key))sets.set(key,[]);sets.get(key).push(ev)}
-  el.innerHTML=[...sets.values()].map((group,i)=>{const ev=group[0];
-    // Each record with its own gain beside it: "LOAD +2.5kg", "E1RM +3kg".
-    const records=group.map(item=>{const d=delta(item);
-      return `<span class="prtl__rec"><span class="pr-kind ${item.kind==="load"?"pr-kind--load":item.kind==="reps"?"pr-kind--reps":"pr-kind--e1rm"}">${esc(kindLbl(item.kind))}</span>`+
-        (d?`<span class="prtl__delta">${esc(d)}</span>`:"")+`</span>`}).join("");
-    return `<button type="button" class="prtl__row" data-prrow="${i}" aria-expanded="false"><span class="prtl__date">${esc(prDate(ev.date))}</span>`+
-      `<span class="prtl__ex">${esc(liftDisplayName(ev.exerciseName,ev.liftKey))}</span>`+
-      `<span class="prtl__records">${records}</span>`+
-      `<span class="prtl__set">${esc(fmtLoad(ev.load))}${unitLabel()} × ${esc(ev.reps)}</span>`+
-      `<span class="chevron" aria-hidden="true"></span></button>`+
-      `<div class="evrow__detail" data-prdetail="${i}" hidden><p class="lede">${esc(longDate(ev.date))}</p>`+
-      group.map(item=>{const d=delta(item);return `<p class="lede">${esc(`${kindLbl(item.kind)} · ${fmtLoad(item.load)}${unitLabel()} × ${item.reps}`)}${d?` · ${esc(d)}`:""}</p>`}).join("")+`</div>`}).join("");
+  // Records by day, newest first: the day is the group's heading, each set a row beneath it.
+  const days=new Map();
+  prRecordSets(events).forEach((group,i)=>{const d=group[0].date;if(!days.has(d))days.set(d,[]);days.get(d).push([group,i])});
+  el.innerHTML=[...days].map(([date,list])=>`<h3 class="recday">${esc(longDate(date))}</h3><div class="sumcard">`+list.map(([group,i])=>
+    `<button type="button" class="recrow prtl__row" data-prrow="${i}" aria-expanded="false">${recordRowBody(group,false)}<span class="chevron is-down" aria-hidden="true"></span></button>`+
+    `<div class="evrow__detail recrow__detail" data-prdetail="${i}" hidden>`+
+      group.map(item=>{const d=prDeltaText(item);return `<p class="lede">${esc(`${prKindLabel(item.kind)} · ${fmtLoad(item.load)} ${unitLabel()} × ${item.reps}`)}${d?` · ${esc(d)}`:""}</p>`}).join("")+`</div>`).join("")+`</div>`).join("");
   $$("#prTimeline [data-prrow]").forEach(b=>b.onclick=()=>{
     const detail=$(`[data-prdetail="${b.dataset.prrow}"]`);if(!detail)return;
-    const open=detail.hidden;detail.hidden=!open;b.setAttribute("aria-expanded",open?"true":"false")})}
+    const open=detail.hidden;detail.hidden=!open;b.setAttribute("aria-expanded",open?"true":"false");
+    const chev=b.querySelector(".chevron");if(chev){chev.classList.toggle("is-down",!open);chev.classList.toggle("is-up",open)}})}
 
 // Needs action is derived only from canonical sufficient evidence records.
 function attentionGroups(){
@@ -27002,6 +27081,9 @@ function dockRetap(b){
   if(document.body.classList.contains("is-workout")||document.body.classList.contains("is-settings"))return false;
   if(b.dataset.view==="history"&&$("#history")?.classList.contains("is-session-page")){
     $("#history [data-history-back]")?.click();
+    return true}
+  if(b.dataset.view==="stats"&&statsSubOpen()){
+    $(EDGE_BACK.stats)?.click();
     return true}
   if(window.scrollY>0)window.scrollTo({top:0,behavior:scrollBehavior()});
   return true}

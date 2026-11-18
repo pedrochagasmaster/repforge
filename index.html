@@ -227,46 +227,42 @@
     </section>
 
     <section id="stats" class="view" data-i18n-aria="stats.aria" aria-label="Stats">
-      <div class="topbar" id="statsTopbar" aria-hidden="true"><div class="topbar__bg"></div><span class="topbar__title" data-i18n="stats.title">Progress</span></div>
+      <div class="topbar" id="statsTopbar" aria-hidden="true"><div class="topbar__bg"></div><span class="topbar__title" id="statsTopbarTitle" data-i18n="stats.title">Progress</span></div>
+      <button type="button" class="back-link stats-back" id="statsBack" hidden data-i18n="stats.title">Progress</button>
       <div class="pagehead">
         <div class="pagehead__titles">
-          <h2 class="page-title" data-i18n="stats.title">Progress</h2>
+          <h2 class="page-title" id="statsTitle" tabindex="-1" data-i18n="stats.title">Progress</h2>
+          <p class="page-date stats-subtitle" id="statsSubtitle" hidden></p>
         </div>
         <div class="pagehead__actions"></div>
       </div>
-      <div class="stats-tabs">
-      <div id="statsSeg" class="tabrow" role="tablist" data-i18n-aria="stats.sections_aria" aria-label="Stats sections">
-        <button type="button" role="tab" class="tabrow__tab active" data-seg="overview" aria-selected="true" aria-controls="segOverview" tabindex="0" data-i18n="stats.overview">Overview</button>
-        <button type="button" role="tab" class="tabrow__tab" data-seg="strength" aria-selected="false" aria-controls="segStrength" tabindex="-1" data-i18n="stats.strength">Strength</button>
-        <button type="button" role="tab" class="tabrow__tab" data-seg="volume" aria-selected="false" aria-controls="segVolume" tabindex="-1" data-i18n="stats.volume">Volume</button>
-        <button type="button" role="tab" class="tabrow__tab" data-seg="prs" aria-selected="false" aria-controls="segPRs" tabindex="-1" data-i18n="stats.prs">PRs</button>
-        <button type="button" role="tab" class="tabrow__tab" data-seg="review" aria-selected="false" aria-controls="segReview" tabindex="-1" data-i18n="stats.review">Review</button>
-      </div>
-      </div>
-      <div id="segOverview" role="tabpanel" class="stats-seg active">
+      <div id="segOverview" class="stats-seg active">
         <div id="statsIntro" class="emptystate hidden"></div>
-        <div id="overviewProfile" class="ovprofile hidden"></div>
-        <div id="thisWeek" class="ovweek"></div>
+        <div id="progressHero" class="phero"></div>
         <div id="attention" class="attention"></div>
         <div id="overviewStrength" class="ovstrength"></div>
+        <div id="overviewRecords" class="ovrecords"></div>
+        <div id="overviewVolume" class="ovvolume"></div>
+        <div id="overviewProfileLink" class="ovprofile-link"></div>
       </div>
-      <div id="segStrength" role="tabpanel" class="stats-seg">
+      <div id="segProfile" class="stats-seg">
+        <div id="overviewProfile" class="ovprofile hidden"></div>
+      </div>
+      <div id="segStrength" class="stats-seg">
         <div id="strengthScopeSeg" class="seg seg--window" role="group" data-i18n-aria="stats.scope_aria" aria-label="Strength scope">
           <button type="button" data-scope="current-block" class="active" aria-pressed="true" data-i18n="stats.scope.current_block">Current block</button>
           <button type="button" data-scope="all-history" aria-pressed="false" data-i18n="stats.scope.all_history">All history</button>
         </div>
-        <div class="ovsec"><h3 class="ovsec__title" data-i18n="stats.strength">Strength</h3><span class="ovsec__meta" data-i18n="stats.metric.top_load">Top load</span></div><div id="strengthDash"></div></div>
-      <div id="segVolume" role="tabpanel" class="stats-seg">
+        <div id="strengthDash"></div></div>
+      <div id="segVolume" class="stats-seg">
         <div id="volumeScopeSeg" class="seg seg--window" role="group" data-i18n-aria="stats.volume_scope_aria" aria-label="Volume period">
           <button type="button" data-vscope="this-week" class="active" aria-pressed="true" data-i18n="stats.volume.scope.this_week">This week</button>
           <button type="button" data-vscope="block-to-date" aria-pressed="false" data-i18n="stats.volume.scope.block_to_date">Block to date</button>
         </div>
-        <h3 class="subhead" data-i18n="stats.volume">Volume</h3>
         <div id="volumePeriod" class="lede" role="text"></div>
         <div id="volumeDash"></div>
       </div>
-      <div id="segPRs" role="tabpanel" class="stats-seg">
-        <p class="lede" data-i18n="stats.prs.lede">Your load, rep, and estimated one-rep-max records.</p>
+      <div id="segPRs" class="stats-seg">
         <div id="prFilterSeg" class="seg seg--window" role="group" data-i18n-aria="stats.pr_filter_aria" aria-label="PR kind filter">
           <button type="button" data-prf="all" class="active" aria-pressed="true" data-i18n="stats.pr_filter.all">All</button>
           <button type="button" data-prf="load" aria-pressed="false" data-i18n="stats.pr_filter.load">Load</button>
@@ -276,7 +272,7 @@
         </div>
         <div id="prTimeline" class="prtimeline"></div>
       </div>
-      <div id="segReview" role="tabpanel" class="stats-seg"><h3 class="subhead" data-i18n="stats.review">Review</h3><div id="reviewPanel"></div></div>
+      <div id="segReview" class="stats-seg"><div id="reviewPanel"></div></div>
     </section>
 
     <section id="history" class="view" data-i18n-aria="history.aria" aria-label="History">
