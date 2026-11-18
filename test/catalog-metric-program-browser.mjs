@@ -736,7 +736,7 @@ async function main() {
     if (!sessionId || String(untouchedBefore?.session) !== String(sessionId) ||
       String(removedBefore?.session) !== String(sessionId)) throw new Error("History edit fixture rows must share one saved session");
     await source.locator(`#sessions .hist-row[data-sess="${sessionId}"] .session__open`).click();
-    await source.locator(`.session--read[data-reading="${sessionId}"] [data-history-edit]`).click();
+    await source.locator(`#history [data-history-edit="${sessionId}"]`).click();
     // Several movements share a metric UUID (Weight), so address the row by
     // its rendered movement before choosing the metric cell.
     const rowMetric = (movement, metricId) =>

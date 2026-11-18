@@ -11335,15 +11335,22 @@ function workoutFocusKey(el){
 /* A hand-off moves focus without the lifter having moved it: after a tap, the control it lands on must not light a
    focus ring the tap never asked for (and the orange budget has no place for one). Whoever last used a key still
    gets the ring. */
-let workoutInputModality="pointer";
+let workoutInputModality="initial";
 document.addEventListener("pointerdown",()=>{workoutInputModality="pointer"},true);
 // Keys typed into a text field are entry, not navigation (the motion layer's rule): only a key outside one, or Tab, is the keyboard.
 document.addEventListener("keydown",event=>{
   if(event.key!=="Tab"&&event.target instanceof Element&&event.target.matches("textarea,input:not([type]),input:is([type=text],[type=search],[type=tel],[type=url],[type=email],[type=password],[type=number])"))return;
   workoutInputModality="keyboard";document.activeElement?.removeAttribute?.("data-quiet-focus")},true);
+function isEditableFocusTarget(el){
+  return el.matches("input,select,textarea")||el.isContentEditable}
+document.addEventListener("focusin",event=>{
+  const el=event.target;
+  if(workoutInputModality!=="pointer"||!(el instanceof HTMLElement)||isEditableFocusTarget(el)||el.hasAttribute("data-quiet-focus"))return;
+  el.setAttribute("data-quiet-focus","");
+  el.addEventListener("blur",()=>el.removeAttribute("data-quiet-focus"),{once:true})},true);
 function focusWorkoutControl(el){
   try{el.focus({preventScroll:true})}catch{return false}
-  if(workoutInputModality==="pointer"){
+  if(workoutInputModality!=="keyboard"){
     el.setAttribute("data-quiet-focus","");
     el.addEventListener("blur",()=>el.removeAttribute("data-quiet-focus"),{once:true})}
   return document.activeElement===el}

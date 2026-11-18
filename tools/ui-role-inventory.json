@@ -15431,6 +15431,56 @@
       ]
     },
     {
+      "id": "history-toolbar-share",
+      "selector": "[data-history-share]",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [
+        "icon-only"
+      ],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Session toolbar action beside Back, per the owner phone pass.",
+      "owner": "phone-pass-front-b",
+      "catalogStates": [
+        "history/session",
+        "history/per-side-session",
+        "history/ramp-rows",
+        "history/metric-overflow"
+      ]
+    },
+    {
+      "id": "history-toolbar-edit",
+      "selector": "[data-history-edit]",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Session toolbar action beside Back, per the owner phone pass.",
+      "owner": "phone-pass-front-b",
+      "catalogStates": [
+        "history/session",
+        "history/per-side-session",
+        "history/ramp-rows",
+        "history/metric-overflow"
+      ]
+    },
+    {
       "id": "today-estimate-info",
       "selector": "#todayEstimateInfo",
       "roles": {

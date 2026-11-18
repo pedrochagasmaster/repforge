@@ -479,8 +479,8 @@ try {
     } finally { await finish.context.close(); }
     const { context, page, errors, foreign } = await openSummary(browser, "history/session", { canShare: true });
     try {
-      const share = page.locator("[data-history-share]");
-      check(await share.count() === 1 && (await share.textContent()).trim() === "Share", "the session's page offers Share", await share.count());
+      const share = page.locator(".histpage__tools").getByRole("button", { name: "Share", exact: true });
+      check(await share.count() === 1 && await share.getAttribute("data-history-share") !== null, "the session's page offers Share", await share.count());
       await openSheet(page, "[data-history-share]");
       const s = await state(page);
       check(s.template === "hero" && s.size === "story" && s.ground === "dark" && s.file.name === finishCard.file.name,
