@@ -3745,6 +3745,32 @@
       ]
     },
     {
+      "id": "history-inset-group",
+      "selector": "#history :is(.hist-group,.histfreq,.hist-empty,.histpage__totals,.histlift:not(.histedit__lift),details.advanced)",
+      "roles": {
+        "elevation": "flat",
+        "boundary": "decorative"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "History's inset groups (owner-pending, History hill-climb 2026-11): each week's sessions, the frequency counts, the empty note, the session's summary strip, each lift and Every set sit on the surface ground with the surface radius and no shadow; dark adds a decorative hairline edge. Rows inside a group are separated by hairlines; the groups are content, never controls.",
+      "owner": "plan-058",
+      "catalogStates": [
+        "history/list",
+        "history/list-scrolled",
+        "history/minibar-rest",
+        "history/empty",
+        "history/session",
+        "history/session-share",
+        "history/per-side-session",
+        "history/metric-overflow",
+        "history/ramp-rows"
+      ]
+    },
+    {
       "id": "historysearchbtn",
       "selector": "#historySearchBtn",
       "roles": {
@@ -9267,7 +9293,8 @@
         "today/profile-first",
         "today/profile-scope",
         "progress/profile-scope",
-        "history/metric-overflow"
+        "history/metric-overflow",
+        "history/empty"
       ]
     },
     {
@@ -9356,7 +9383,8 @@
         "today/profile-first",
         "today/profile-scope",
         "progress/profile-scope",
-        "history/metric-overflow"
+        "history/metric-overflow",
+        "history/empty"
       ]
     },
     {
@@ -9454,7 +9482,8 @@
         "today/profile-first",
         "today/profile-scope",
         "progress/profile-scope",
-        "history/metric-overflow"
+        "history/metric-overflow",
+        "history/empty"
       ]
     },
     {
@@ -9630,7 +9659,10 @@
         "session/profile-finish-solid",
         "session/profile-finish-checked",
         "session/profile-finish-agreeing",
-        "history/metric-overflow"
+        "history/metric-overflow",
+        "history/list",
+        "history/list-scrolled",
+        "history/minibar-rest"
       ]
     },
     {

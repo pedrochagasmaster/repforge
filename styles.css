@@ -5845,7 +5845,8 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
 
 #history .histfreq{margin:var(--space-16) 0 0;padding:var(--space-14) var(--space-16) var(--space-16)}
 #history .histfreq__title{margin:0;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink)}
-#history .histfreq__plots{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-16);margin-top:var(--space-12)}
+/* Side by side down to a 320px phone; stacked once enlarged text needs the width. */
+#history .histfreq__plots{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,7rem),1fr));gap:var(--space-16);margin-top:var(--space-12)}
 #history .histfreq__plots--stack{grid-template-columns:minmax(0,1fr)}
 #history .histfreq__col{min-width:0}
 #history .histfreq__cap{margin:0 0 var(--space-4);font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
