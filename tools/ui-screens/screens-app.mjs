@@ -304,6 +304,7 @@ const D_FIXTURE_STATES = new Set([
   "workout/abandon", "workout/swap-reason", // Plan 071 §10: end-without-saving and the swap reason chips
   "history/list", "history/list-scrolled", "history/session", "history/session-share", "history/edit-dirty", "history/edit-invalid", // R3j, R3j2
   "program/overview", // R3k
+  "today/estimate-info",
   "today/done", // R3x: the finished day, on the lifter whose Monday session is in the log
   "today/deload-week", // Plan 072 S4: the deload cue in Today
   "today/draft-resume", // R3b2: the unfinished-session band, on the same lifter as Today
@@ -2151,6 +2152,11 @@ async function showShareTemplate(page, template) {
   await page.waitForFunction((name) => { const s = window.__repforgeShareSheet.state(); return s?.template === name && s.fileTemplate === name; }, template, { timeout: 20000 });
 }
 export const APP_SCENARIOS = {
+  "today/estimate-info": async page=>{
+    await view(page,"log");
+    await page.click("#todayEstimateInfo");
+    await page.waitForSelector("#todayEstimateSheet.is-open");
+  },
   "today/profile-first": page=>view(page,"log"),
   "today/profile": page=>view(page,"log"),
   "today/profile-scope": async page=>{

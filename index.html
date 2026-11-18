@@ -1346,6 +1346,15 @@ Triceps pushdown 3x12-15</pre>
     <div class="sheet__body review-sheet__body" id="reviewSheetBody"></div>
     <div class="sheet__foot review-sheet__foot" id="reviewSheetFoot"></div>
   </div>
+  <div id="todayEstimateScrim" class="sheet-scrim hidden"></div>
+  <div id="todayEstimateSheet" class="sheet sheet--review hidden ph-no-capture" role="dialog" aria-modal="true" aria-labelledby="todayEstimateTitle" hidden>
+    <div class="sheetband">
+      <span class="sheetband__handle" aria-hidden="true"></span>
+      <h2 class="sheetband__title" id="todayEstimateTitle"></h2>
+      <button type="button" class="sheetband__close" id="todayEstimateClose" data-i18n-aria="dialog.close" aria-label="Close"><span class="icon-mask icon-mask--close" aria-hidden="true"></span></button>
+    </div>
+    <div class="sheet__body review-sheet__body" id="todayEstimateBody"></div>
+  </div>
   <div id="dayPickScrim" class="sheet-scrim hidden"></div>
   <div id="dayPickSheet" class="sheet sheet--daypick hidden" role="dialog" aria-modal="true" aria-labelledby="dayPickTitle" hidden>
     <div class="sheetband">
@@ -1635,7 +1644,7 @@ Triceps pushdown 3x12-15</pre>
   <script src="guide-registry.js?v=423"></script>
   <script src="rest-timer.js?v=678"></script>
   <script src="durable-state.js?v=750"></script>
-  <script src="progress-model.js?v=736"></script>
+  <script src="progress-model.js?v=762"></script>
   <script src="history-ui.js?v=755"></script>
   <script src="share-cards.js?v=728"></script>
   <script src="app.js?v=763"></script>
