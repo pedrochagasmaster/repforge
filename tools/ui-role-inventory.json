@@ -1442,6 +1442,11 @@
       "owner": "plan-084",
       "content": "flat",
       "scenario": "Saved-profile change in the successful-save finish/finding slot."
+    },
+    "today/estimate-info": {
+      "owner": "phone-pass-front-a",
+      "scenario": "Estimate explanation opened explicitly from Today.",
+      "content": "flat"
     }
   },
   "components": [
@@ -9711,7 +9716,8 @@
         "onboarding-start/effort-choice",
         "workout/pain-swap",
         "session/summary-share-edit",
-        "session/summary-share-line"
+        "session/summary-share-line",
+        "today/estimate-info"
       ]
     },
     {
@@ -15422,6 +15428,104 @@
         "session/profile-finish-solid",
         "session/profile-finish-checked",
         "session/profile-finish-agreeing"
+      ]
+    },
+    {
+      "id": "today-estimate-info",
+      "selector": "#todayEstimateInfo",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [
+        "icon-only"
+      ],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Explains the existing estimate notice on explicit request.",
+      "owner": "phone-pass-front-a",
+      "catalogStates": [
+        "today/no-program",
+        "today/ready",
+        "today/dock-viewer",
+        "today/ready-scrolled",
+        "today/rest-bar",
+        "today/day-picker",
+        "today/done",
+        "today/deload-week",
+        "today/draft-resume",
+        "today/context-menu",
+        "today/skipped",
+        "today/in-progress",
+        "today/week-card",
+        "today/profile-first",
+        "today/profile",
+        "today/profile-scope",
+        "today/estimate-info",
+        "install/banner",
+        "workout/invalid-draft"
+      ]
+    },
+    {
+      "id": "today-estimate-close",
+      "selector": "#todayEstimateClose",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": "sheet-header-band",
+      "facets": [
+        "icon-only"
+      ],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Explains the existing estimate notice on explicit request.",
+      "owner": "phone-pass-front-a",
+      "catalogStates": [
+        "today/estimate-info"
+      ]
+    },
+    {
+      "id": "today-estimate-sheet",
+      "selector": "#todayEstimateSheet",
+      "roles": {
+        "elevation": "modal"
+      },
+      "variant": "bottom-sheet",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Explains the existing estimate notice on explicit request.",
+      "owner": "phone-pass-front-a",
+      "catalogStates": [
+        "today/estimate-info"
+      ]
+    },
+    {
+      "id": "today-estimate-scrim",
+      "selector": "#todayEstimateScrim",
+      "roles": {
+        "elevation": "modal"
+      },
+      "variant": "scrim",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Explains the existing estimate notice on explicit request.",
+      "owner": "phone-pass-front-a",
+      "catalogStates": [
+        "today/estimate-info"
       ]
     }
   ],
