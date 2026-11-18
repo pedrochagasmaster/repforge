@@ -6490,7 +6490,7 @@
     },
     {
       "id": "stats-button-aria-pressed",
-      "selector": "#stats button[aria-pressed]:not(.tabrow__tab):not(#strengthScopeSeg > button):not([data-adaptation-cause])",
+      "selector": "#stats button[aria-pressed]:not(:is(#strengthScopeSeg,#volumeScopeSeg,#prFilterSeg) > button):not([data-adaptation-cause])",
       "roles": {
         "control": "selection",
         "elevation": [
@@ -6509,7 +6509,7 @@
         "selected",
         "disabled"
       ],
-      "rationale": "Changes the visible evidence panel or scope without committing data. The five section tabs are the shared tab row (.tabrow__tab); this row covers the remaining in-panel scope and filter controls, which are toggle buttons (aria-pressed) in a group, not tabs (R7 J-20).",
+      "rationale": "Changes the visible evidence or scope without committing data. Progress is one Summary with pushed pages (Progress hill-climb); this row covers the in-page scope and filter controls that are not segmented controls, toggle buttons (aria-pressed) in a group (R7 J-20).",
       "owner": "plan-058",
       "catalogStates": [
         "progress/exercise-chart",
@@ -6517,8 +6517,6 @@
         "progress/overview",
         "progress/overview-action",
         "progress/overview-baseline",
-        "progress/prs",
-        "progress/prs-drill-in",
         "progress/recovery-active",
         "progress/recovery-ineligible",
         "progress/recovery-preview",
@@ -6531,14 +6529,6 @@
         "progress/schedule-diagnosis",
         "progress/sibling-lower-frequency",
         "progress/sibling-shorter-session",
-        "progress/strength",
-        "progress/strength-all-history",
-        "progress/strength-comparison",
-        "progress/strength-current-block",
-        "progress/strength-sparse",
-        "progress/volume",
-        "progress/volume-block",
-        "progress/volume-drill-in",
         "progress/volume-reduction-preview",
         "progress/minibar",
         "progress/review-proposal",
@@ -6550,7 +6540,7 @@
     },
     {
       "id": "strength-scope-segment",
-      "selector": "#strengthScopeSeg > button",
+      "selector": ":is(#strengthScopeSeg,#volumeScopeSeg,#prFilterSeg) > button",
       "roles": {
         "control": "selection",
         "elevation": [
@@ -6569,14 +6559,19 @@
         "selected",
         "disabled"
       ],
-      "rationale": "Chooses the Strength scope (Current block, All history) on the native segmented recipe (UI kit S5, owner 2026-10-24): a soft track and the chosen segment a raised thumb with a semibold label (contract: state cues); aria-pressed carries the choice.",
+      "rationale": "Chooses the Strength scope, the Volume period or the Records kind on the native segmented recipe (UI kit S5, owner 2026-10-24): a soft track and the chosen segment a raised thumb with a semibold label (contract: state cues); aria-pressed carries the choice. The three Progress pages share one control (Progress hill-climb).",
       "owner": "kit-b",
       "catalogStates": [
         "progress/strength",
         "progress/strength-all-history",
         "progress/strength-comparison",
         "progress/strength-current-block",
-        "progress/strength-sparse"
+        "progress/strength-sparse",
+        "progress/volume",
+        "progress/volume-block",
+        "progress/volume-drill-in",
+        "progress/prs",
+        "progress/prs-drill-in"
       ]
     },
     {
@@ -9950,66 +9945,6 @@
       ]
     },
     {
-      "id": "tabrow-tab",
-      "selector": ".tabrow__tab",
-      "roles": {
-        "control": "selection",
-        "elevation": [
-          "flat",
-          "selected"
-        ],
-        "boundary": "required"
-      },
-      "variant": "tab-row-ink-indicator",
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "selected",
-        "disabled"
-      ],
-      "rationale": "Changes the visible evidence panel or scope without committing data. The selected tab carries a 2px indicator in the quiet selected boundary (ink), 3:1 or better on the page ground and the surface in both themes (OG-4); the Progress tabs carry runtime ids only so their panels can name them (aria-labelledby, R7 J-20). Progress renders it (R3i): Overview, Strength, Volume, PRs and Review.",
-      "owner": "plan-064/r1b",
-      "catalogStates": [
-        "progress/guided-repair",
-        "progress/overview",
-        "progress/overview-action",
-        "progress/overview-baseline",
-        "progress/prs",
-        "progress/prs-drill-in",
-        "progress/recovery-active",
-        "progress/recovery-ineligible",
-        "progress/recovery-preview",
-        "progress/recovery-questions",
-        "progress/recovery-reassessment",
-        "progress/review",
-        "progress/review-active",
-        "progress/review-complete",
-        "progress/review-insufficient",
-        "progress/schedule-diagnosis",
-        "progress/sibling-lower-frequency",
-        "progress/sibling-shorter-session",
-        "progress/strength",
-        "progress/strength-all-history",
-        "progress/strength-comparison",
-        "progress/strength-current-block",
-        "progress/strength-sparse",
-        "progress/volume",
-        "progress/volume-block",
-        "progress/volume-drill-in",
-        "progress/volume-reduction-preview",
-        "progress/minibar",
-        "progress/review-proposal",
-        "progress/review-evaluated",
-        "progress/overview-profile",
-        "progress/overview-profile-first",
-        "session/summary-profile",
-        "progress/profile-scope"
-      ]
-    },
-    {
       "id": "freqcount",
       "selector": ".freqcount",
       "roles": {
@@ -11053,33 +10988,6 @@
         "workout/why-in-session",
         "workout/why-calibration",
         "workout/why-standing"
-      ]
-    },
-    {
-      "id": "strrow-not-id",
-      "selector": "button.strrow:not([id])",
-      "roles": {
-        "control": "quiet-navigation"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled"
-      ],
-      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state. Strength this block (R3i): a lift with two or more sessions opens its chart; the row carries the outcome word, the sparkline and the top-load change.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "progress/overview",
-        "progress/overview-action",
-        "progress/minibar",
-        "progress/overview-profile",
-        "progress/overview-profile-first",
-        "session/summary-profile",
-        "progress/profile-scope"
       ]
     },
     {
@@ -13182,7 +13090,8 @@
         "progress/review-proposal",
         "progress/review-evaluated",
         "progress/overview-profile",
-        "progress/overview-profile-first"
+        "progress/overview-profile-first",
+        "progress/prs-drill-in"
       ]
     },
     {
@@ -15577,6 +15486,335 @@
       "catalogStates": [
         "today/estimate-info"
       ]
+    },
+    {
+      "id": "progress-back",
+      "selector": "#statsBack",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": "back",
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state. Back from a Progress page (Strength, Volume, Records, Review, the profile) to the Summary, focusing the link that opened it.",
+      "owner": "progress-hillclimb",
+      "catalogStates": [
+        "progress/strength",
+        "progress/strength-all-history",
+        "progress/strength-comparison",
+        "progress/strength-current-block",
+        "progress/strength-sparse",
+        "progress/volume",
+        "progress/volume-block",
+        "progress/volume-drill-in",
+        "progress/prs",
+        "progress/prs-drill-in",
+        "progress/guided-repair",
+        "progress/recovery-active",
+        "progress/recovery-ineligible",
+        "progress/recovery-preview",
+        "progress/recovery-questions",
+        "progress/recovery-reassessment",
+        "progress/review",
+        "progress/review-active",
+        "progress/review-complete",
+        "progress/review-insufficient",
+        "progress/schedule-diagnosis",
+        "progress/sibling-lower-frequency",
+        "progress/sibling-shorter-session",
+        "progress/volume-reduction-preview",
+        "progress/review-proposal",
+        "progress/review-evaluated",
+        "progress/overview-profile",
+        "progress/overview-profile-first",
+        "progress/profile-scope"
+      ],
+      "neverDisabledReason": "The Summary is always there to return to."
+    },
+    {
+      "id": "summary-section-link",
+      "selector": ".sumhead__link",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state. A Summary section's See all / Details, in quiet ink with a chevron: opens that section's page.",
+      "owner": "progress-hillclimb",
+      "catalogStates": [
+        "progress/overview",
+        "progress/overview-action",
+        "progress/overview-baseline",
+        "progress/overview-guide",
+        "progress/minibar"
+      ]
+    },
+    {
+      "id": "summary-lift-row",
+      "selector": "button.liftrow:not(.evrow)",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state. A lift on the Summary with two or more sessions this block: name and top load, its line, where it started and the block change; opens its chart.",
+      "owner": "progress-hillclimb",
+      "catalogStates": [
+        "progress/overview",
+        "progress/overview-action",
+        "progress/overview-baseline",
+        "progress/overview-guide",
+        "progress/minibar"
+      ]
+    },
+    {
+      "id": "summary-record-row",
+      "selector": "button.recrow:not(.prtl__row)",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state. A recent record on the Summary: the set and the gain it set; opens Records.",
+      "owner": "progress-hillclimb",
+      "catalogStates": [
+        "progress/overview",
+        "progress/overview-action",
+        "progress/overview-baseline",
+        "progress/overview-guide",
+        "progress/minibar"
+      ]
+    },
+    {
+      "id": "summary-review-row",
+      "selector": ".phero__review",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state. The block card's way into Review: last week's sessions, or the block when it is ending.",
+      "owner": "progress-hillclimb",
+      "catalogStates": [
+        "progress/overview",
+        "progress/overview-action",
+        "progress/overview-baseline",
+        "progress/overview-guide",
+        "progress/minibar"
+      ]
+    },
+    {
+      "id": "summary-profile-link",
+      "selector": "button.profilelink",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state. The Summary's last row: the profile ring and what it needs next; opens the profile page.",
+      "owner": "progress-hillclimb",
+      "catalogStates": [
+        "progress/overview",
+        "progress/overview-action",
+        "progress/overview-baseline",
+        "progress/overview-guide",
+        "progress/minibar"
+      ]
+    },
+    {
+      "id": "summary-block-card",
+      "selector": "section.phero",
+      "roles": {
+        "boundary": "decorative",
+        "elevation": "flat"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "The Summary's block card: a grouped surface with the block headline, its counts and the week track.",
+      "owner": "progress-hillclimb",
+      "catalogStates": [
+        "progress/overview",
+        "progress/overview-action",
+        "progress/overview-baseline",
+        "progress/overview-guide",
+        "progress/minibar"
+      ]
+    },
+    {
+      "id": "summary-group",
+      "selector": "div.sumcard",
+      "roles": {
+        "boundary": "decorative",
+        "elevation": "flat"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "A grouped surface on Progress (Summary sections, the Strength and Records pages, the exercise chart and its sessions): --surface with an inset hairline, rows separated by hairlines inside it.",
+      "owner": "progress-hillclimb",
+      "catalogStates": [
+        "progress/overview",
+        "progress/overview-action",
+        "progress/overview-baseline",
+        "progress/overview-guide",
+        "progress/minibar",
+        "progress/strength",
+        "progress/strength-all-history",
+        "progress/strength-comparison",
+        "progress/strength-current-block",
+        "progress/strength-sparse",
+        "progress/prs",
+        "progress/prs-drill-in",
+        "progress/exercise-chart"
+      ]
+    },
+    {
+      "id": "summary-week-track",
+      "selector": ".phero__track",
+      "roles": {
+        "progress": "block",
+        "boundary": "decorative"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "The block's weeks in the block card: done weeks ink, the current week the accent; the label beside it names the week, so the track is not the sole cue.",
+      "owner": "progress-hillclimb",
+      "catalogStates": [
+        "progress/overview",
+        "progress/overview-action",
+        "progress/overview-baseline",
+        "progress/overview-guide",
+        "progress/minibar"
+      ],
+      "progressScopes": {
+        "active-program-week": "block"
+      }
+    },
+    {
+      "id": "lift-line",
+      "selector": ".liftline",
+      "roles": {
+        "boundary": "decorative"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "A lift's top load across its sessions, drawn under the row's figures; the figures and the block change carry the values, so the line is a picture of them.",
+      "owner": "progress-hillclimb",
+      "catalogStates": [
+        "progress/overview",
+        "progress/overview-action",
+        "progress/overview-baseline",
+        "progress/overview-guide",
+        "progress/minibar",
+        "progress/strength",
+        "progress/strength-all-history",
+        "progress/strength-comparison",
+        "progress/strength-current-block",
+        "progress/strength-sparse"
+      ]
+    },
+    {
+      "id": "lift-line-point",
+      "selector": ".liftline__pt",
+      "roles": {
+        "boundary": "decorative"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "A session on a lift's line; the last one green when the block went up.",
+      "owner": "progress-hillclimb",
+      "catalogStates": [
+        "progress/overview",
+        "progress/overview-action",
+        "progress/overview-baseline",
+        "progress/overview-guide",
+        "progress/minibar",
+        "progress/strength",
+        "progress/strength-all-history",
+        "progress/strength-comparison",
+        "progress/strength-current-block",
+        "progress/strength-sparse"
+      ]
+    },
+    {
+      "id": "summary-muscle-bar",
+      "selector": ".musrow__bar",
+      "roles": {
+        "boundary": "decorative",
+        "progress": "week"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Sets per muscle toward this week's plan; the count beside it carries the value.",
+      "owner": "progress-hillclimb",
+      "catalogStates": [
+        "progress/overview",
+        "progress/overview-action",
+        "progress/overview-baseline",
+        "progress/overview-guide",
+        "progress/minibar"
+      ],
+      "progressScopes": {
+        "current-week-muscle-sets": "week"
+      }
     }
   ],
   "contextualVariants": [

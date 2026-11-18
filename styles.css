@@ -9618,8 +9618,7 @@ body.is-entry-editor #entryProgramName,
 #stats:not([data-page="summary"])>.pagehead{margin-top:var(--space-4);margin-bottom:var(--space-16)}
 #stats .stats-subtitle{margin-top:var(--space-4)}
 .sumcard{
-  display:block;background:var(--surface);border-radius:var(--radius-surface);padding:0 var(--space-16);
-  box-shadow:inset 0 0 0 1px var(--rule-on-surface);
+  display:block;background:var(--surface);border:1px solid var(--rule-on-surface);border-radius:var(--radius-surface);padding:0 var(--space-16);
 }
 .sumhead{display:flex;align-items:center;justify-content:space-between;gap:var(--space-12);margin:var(--space-26) 2px var(--space-4)}
 .sumhead__title{margin:0;font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--ink)}
@@ -9679,9 +9678,9 @@ body.is-entry-editor #entryProgramName,
 .liftline__path{fill:none;stroke:var(--color-ink-secondary);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
 .liftline__pt{
   position:absolute;left:var(--pt-x);top:var(--pt-y);width:5px;height:5px;margin:-2.5px 0 0 -2.5px;border-radius:var(--radius-round);
-  background:var(--surface);box-shadow:inset 0 0 0 1.5px var(--color-ink-secondary);
+  background:var(--surface);border:1.5px solid var(--color-ink-secondary);
 }
-.liftline__pt--end{width:8px;height:8px;margin:-4px 0 0 -4px;background:var(--ink);box-shadow:none}
+.liftline__pt--end{width:8px;height:8px;margin:-4px 0 0 -4px;border:0;background:var(--ink)}
 .liftline.is-up .liftline__pt--end{background:var(--positive)}
 
 /* A record set: the lift and the set, then the gain it set (the first in green) and the date. */

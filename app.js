@@ -13681,7 +13681,7 @@ function renderProgressHero(){const el=$("#progressHero");if(!el)return;
     planned>0?stat(volume.completedSessions,planned,t("stats.hero.sessions")):"",
     week.plannedSessions>0?stat(week.completedSessions,week.plannedSessions,t("stats.hero.this_week")):""].filter(Boolean);
   const track=life.current!=null?`<div class="phero__week"><span class="phero__weeklabel">${esc(t("review.week_of",{n:life.current,total:life.total}))}</span>`+
-    `<span class="phero__track" aria-hidden="true">${Array.from({length:life.total},(_,i)=>`<i class="phero__seg${i<life.current-1?" is-done":i===life.current-1?" is-current":""}"></i>`).join("")}</span></div>`:"";
+    `<span class="phero__track" data-progress-dimension="block" data-progress-scope="active-program-week" aria-hidden="true">${Array.from({length:life.total},(_,i)=>`<i class="phero__seg${i<life.current-1?" is-done":i===life.current-1?" is-current":""}"></i>`).join("")}</span></div>`:"";
   const last=life.current>1?Model.buildWeekStatus(program,meta,rows,shiftDate(weekStart(now),-7)):null;
   const reviewTitle=life.isComplete||life.isFinalWeek?t("stats.hero.review_block"):last?t("stats.hero.review_last"):t("stats.hero.review_open");
   const reviewSub=last&&last.plannedSessions>0&&!life.isComplete?t("stats.hero.last_week",{done:last.completedSessions,planned:last.plannedSessions})
@@ -13704,7 +13704,7 @@ function renderOverviewVolume(){const el=$("#overviewVolume");if(!el)return;
   el.innerHTML=summaryHead(t("stats.overview.volume"),"volume","stats.overview.see_volume")+
     `<div class="sumcard">${rows.map(row=>`<div class="musrow"><span class="musrow__l"><span class="musrow__name">${esc(muscleLabel(row.muscle))}</span>`+
       `<span class="musrow__n">${esc(t("stats.overview.sets_of",{done:fmt(row.completed7),planned:fmt(row.planned)}))}</span></span>`+
-      `<span class="musrow__bar" aria-hidden="true"><i class="musrow__fill" style="--fill:${Math.min(100,row.pct)}%"></i></span></div>`).join("")}</div>`}
+      `<span class="musrow__bar" data-progress-dimension="week" data-progress-scope="current-week-muscle-sets" aria-hidden="true"><i class="musrow__fill" style="--fill:${Math.min(100,row.pct)}%"></i></span></div>`).join("")}</div>`}
 /** The way into the profile, last on the Summary: its ring and what it needs next. */
 function renderOverviewProfileLink(){const el=$("#overviewProfileLink");if(!el)return;
   if(!hasProgramContent()){el.innerHTML="";return}

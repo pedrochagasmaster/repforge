@@ -2998,7 +2998,7 @@ export const APP_SCENARIOS = {
   "progress/overview": (page) => view(page, "stats"),
   // The profile is the subject here; the generic Overview state stays at its page title.
   "progress/overview-profile": async (page) => {
-    await view(page, "stats");
+    await progressSegment(page, "profile");
     await page.waitForSelector("#overviewProfile [data-finding=weights_found]");
     await page.waitForFunction(()=>document.querySelectorAll("#overviewProfile [data-finding]").length===2);
     await page.evaluate(() => {
@@ -3007,7 +3007,7 @@ export const APP_SCENARIOS = {
     });
   },
   "progress/overview-profile-first": async page => {
-    await view(page, "stats");
+    await progressSegment(page, "profile");
     await page.waitForSelector("#overviewProfile [data-finding=first_target]");
     await page.waitForFunction(()=>document.querySelectorAll("#overviewProfile [data-finding]").length===1);
     await page.evaluate(async () => {
