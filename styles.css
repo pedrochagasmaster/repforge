@@ -5821,9 +5821,9 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
 #history .hist-month span{font-size:var(--font-size-body-small);color:var(--color-ink-secondary)}
 #history .hist-week{margin:var(--space-18) 0 var(--space-8);padding:0 var(--space-16);font-family:var(--font-language);font-size:var(--font-size-body-small);font-weight:var(--weight-medium);line-height:var(--line-standard);color:var(--color-ink-secondary)}
 #history .hist-month+.hist-weekgroup .hist-week{margin-top:var(--space-12)}
-#history .hist-group,#history .histfreq,#history .hist-empty,#history .advanced,#history .hist-export,#history .histpage__totals,#history .histlift:not(.histedit__lift),#history .histpage__actions .session__del{border-radius:var(--radius-surface);background:var(--surface)}
+#history .hist-group,#history .histfreq,#history .hist-empty,#history .hist-tools,#history .histpage__totals,#history .histlift:not(.histedit__lift),#history .histpage__actions .session__del{border-radius:var(--radius-surface);background:var(--surface)}
 /* Dark surfaces sit one step above the page; a hairline keeps each group's edge. */
-:root[data-theme="dark"] #history :is(.hist-group,.histfreq,.hist-empty,.histpage__totals,.histlift:not(.histedit__lift),.histpage__actions .session__del){box-shadow:var(--boundary-card-hairline-shadow)}
+:root[data-theme="dark"] #history :is(.hist-group,.histfreq,.hist-empty,.hist-tools,.histpage__totals,.histlift:not(.histedit__lift),.histpage__actions .session__del){box-shadow:var(--boundary-card-hairline-shadow)}
 #history .hist-group{padding-left:var(--space-16)}
 #history .hist-row{display:block;min-height:0;padding:0;border:0;cursor:default}
 #history .hist-row+.hist-row{border-top:1px solid var(--boundary-decorative)}
@@ -5867,11 +5867,14 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
 #history .hist-empty__title{margin:0;font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink)}
 #history .hist-empty__body{max-width:18rem;margin:0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
 
-/* Every set and Export close the list as one group: the disclosure, then the action under a hairline. */
-#history .advanced{margin-top:var(--space-26);padding:0 var(--space-16);border:0;border-radius:var(--radius-surface) var(--radius-surface) var(--radius-none) var(--radius-none)}
-#history .advanced[open]{padding-bottom:var(--space-16)}
-#history .advanced.hidden+.hist-export{border-top:0;border-radius:var(--radius-surface)}
-#history .hist-export{display:flex;align-items:center;gap:var(--space-12);width:100%;min-height:var(--control-target);margin:0 0 var(--space-8);padding:var(--space-12) var(--space-16);border:0;border-top:1px solid var(--boundary-decorative);border-radius:var(--radius-none) var(--radius-none) var(--radius-surface) var(--radius-surface);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);color:var(--control-quiet-ink);text-align:left;cursor:pointer}
+/* Every set and Export close the list as one group: the disclosure, then the action under a hairline. The group
+   is drawn only while one of them is. */
+#history .hist-tools{margin:var(--space-26) 0 var(--space-8);overflow:hidden}
+#history .hist-tools:not(:has(>:not(.hidden))){display:none}
+#history .hist-tools>.advanced{margin:0;padding:0 var(--space-16);border:0;border-radius:var(--radius-none);background:transparent}
+#history .hist-tools>.advanced[open]{padding-bottom:var(--space-16)}
+#history .hist-export{display:flex;align-items:center;gap:var(--space-12);width:100%;min-height:var(--control-target);margin:0;padding:var(--space-12) var(--space-16);border:0;border-top:1px solid var(--boundary-decorative);border-radius:var(--radius-none);background:transparent;font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);color:var(--control-quiet-ink);text-align:left;cursor:pointer}
+#history .hist-tools>.hidden+.hist-export{border-top:0}
 #history .hist-export .icon-mask{width:20px;height:20px;color:var(--color-ink-secondary)}
 @media (hover: hover) and (pointer: fine){
 #history .hist-export:hover:not(:disabled){background:var(--well)}
@@ -5879,10 +5882,6 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
 #history .hist-export.is-pressed:not(:disabled){background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
 #history .hist-export:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
 #history .hist-export:disabled{color:var(--color-disabled-reason);cursor:not-allowed}
-:root[data-theme="dark"] #history .advanced{box-shadow:inset 1px 0 var(--boundary-decorative),inset -1px 0 var(--boundary-decorative),inset 0 1px var(--boundary-decorative)}
-:root[data-theme="dark"] #history .hist-export{box-shadow:inset 1px 0 var(--boundary-decorative),inset -1px 0 var(--boundary-decorative),inset 0 -1px var(--boundary-decorative)}
-:root[data-theme="dark"] #history .advanced.hidden+.hist-export{box-shadow:var(--boundary-card-hairline-shadow)}
-#history.is-session-page .hist-export,#history.is-session-edit .hist-export{display:none}
 
 /* ---- History session page (Plan 064 R3j; grouped, 2026-11 climb) ----
    Back, the day's name, the date, then its block week and duration. What the

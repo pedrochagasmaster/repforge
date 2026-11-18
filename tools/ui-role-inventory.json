@@ -3751,7 +3751,7 @@
     },
     {
       "id": "history-inset-group",
-      "selector": "#history :is(.hist-group,.histfreq,.hist-empty,.histpage__totals,.histlift:not(.histedit__lift),details.advanced)",
+      "selector": "#history :is(.hist-group,.histfreq,.hist-empty,.histpage__totals,.histlift:not(.histedit__lift),.hist-tools)",
       "roles": {
         "elevation": "flat",
         "boundary": "decorative"
@@ -3761,7 +3761,7 @@
       "states": [
         "default"
       ],
-      "rationale": "History's inset groups (owner-pending, History hill-climb 2026-11): each week's sessions, the frequency counts, the empty note, the session's summary strip, each lift and Every set sit on the surface ground with the surface radius and no shadow; dark adds a decorative hairline edge. Rows inside a group are separated by hairlines; the groups are content, never controls.",
+      "rationale": "History's inset groups (owner-pending, History hill-climb 2026-11): each week's sessions, the frequency counts, the empty note, the session's summary strip, each lift, and Every set with Export sit on the surface ground with the surface radius and no shadow; dark adds a decorative hairline edge. Rows inside a group are separated by hairlines; the groups are content, never controls.",
       "owner": "plan-058",
       "catalogStates": [
         "history/list",

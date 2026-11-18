@@ -298,11 +298,13 @@
       <section id="historyFreq" class="histfreq hidden" aria-labelledby="historyFreqTitle"></section>
       <h2 id="historyRecentLabel" class="visually-hidden" tabindex="-1" data-i18n="history.sessions">Sessions</h2>
       <div id="sessions" class="sessions ph-no-capture"></div>
-      <details class="advanced">
-        <summary data-i18n="history.every_set">Every set</summary>
-        <div id="historyTable" class="table"></div>
-      </details>
-      <button type="button" class="hist-export" id="historyExportBtn"><span class="icon-mask icon-mask--sheet" aria-hidden="true"></span><span data-i18n="history.export_aria">Export CSV</span></button>
+      <div class="hist-tools">
+        <details class="advanced">
+          <summary data-i18n="history.every_set">Every set</summary>
+          <div id="historyTable" class="table"></div>
+        </details>
+        <button type="button" class="hist-export" id="historyExportBtn"><span class="icon-mask icon-mask--sheet" aria-hidden="true"></span><span data-i18n="history.export_aria">Export CSV</span></button>
+      </div>
     </section>
 
     <section id="profilePage" class="view" aria-labelledby="profilePageTitle">
