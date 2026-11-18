@@ -970,8 +970,12 @@ function bindHistoryLedgers(){
     if(overflows())frame.classList.add("is-compact-ledger");
     // The final minimum belongs to the values, not a long heading. Keep all heading text by letting it wrap further.
     if(overflows())frame.classList.add("is-value-fit");
-    // If even the value minimum cannot fit, scroll with readable whole-word headings.
-    if(overflows())frame.classList.remove("is-value-fit");
+    // If even the value minimum cannot fit, or fits only by breaking a heading past two lines, scroll with readable
+    // whole-word headings.
+    const headingTooTall=()=>[...ledger.querySelectorAll(".histpage__cols .fx-col")].some(cell=>{
+      const line=parseFloat(getComputedStyle(cell).lineHeight);
+      return Number.isFinite(line)&&line>0&&cell.getBoundingClientRect().height>line*2+1});
+    if(overflows()||headingTooTall())frame.classList.remove("is-value-fit");
     frame.classList.toggle("is-overflowing",overflows());
   };
   const ledgers=$$(".histlift__ledger");
