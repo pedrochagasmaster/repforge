@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { openProgressPage } from "./browser.mjs";
 // Plan 056 P5 — unified Review lifecycle.
 // Active-block checkpoint is read-only with no structural confirms; a
 // completed block enables only evidence-valid actions; insufficient final
@@ -126,7 +127,7 @@ if (BROWSER) {
   async function openReview(page) {
     if (await page.locator("#settings.view.active").count()) await page.locator("#settingsBack").click();
     await page.locator('nav button[data-view="stats"]').click();
-    await page.locator('#statsSeg [data-seg="review"]').click();
+    await openProgressPage(page, "review");
     await page.locator("#reviewPanel").waitFor({ state: "visible" });
   }
 

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { openProgressPage } from "./browser.mjs";
 /**
  * What the running app actually emits.
  *
@@ -988,14 +989,14 @@ try {
       await page.waitForSelector("#stats.view.active", { timeout: 5000 });
       assert((await eventsNamed(page, "block_review_viewed")).length === 0,
         `${completion}: opening Progress on the overview reports no review`);
-      await page.click('#statsSeg button[data-seg="review"]');
+      await openProgressPage(page, "review");
       await page.waitForSelector("#segReview.active", { timeout: 5000 });
       assert(
         JSON.stringify(await eventsNamed(page, "block_review_viewed")) === JSON.stringify([{ completion }]),
         `a block ${startedDaysAgo} days in reports ${completion}`, JSON.stringify(await eventsNamed(page, "block_review_viewed")),
       );
       if (completion === "early") {
-        await page.click('#statsSeg button[data-seg="review"]');
+        await openProgressPage(page, "review");
         assert((await eventsNamed(page, "block_review_viewed")).length === 1,
           "tapping the segment that is already open reports nothing more");
         await page.click('nav button[data-view="history"]');
@@ -1157,7 +1158,7 @@ try {
     const { context, page } = await openApp(browser, { seed: loggableProgram({ started: dayIso(52) }) });
     await page.evaluate(() => window.closeFirstRun?.());
     await page.click('nav button[data-view="stats"]');
-    await page.click('#statsSeg button[data-seg="review"]');
+    await openProgressPage(page, "review");
     await page.waitForSelector('[data-review-action="repeat"]', { timeout: 5000 });
     assert((await eventsNamed(page, "block_transition_chosen")).length === 0, "showing the choice reports no transition");
     await page.click('[data-review-action="repeat"]');
@@ -1179,7 +1180,7 @@ try {
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { base: BASE });
     await page.click('nav button[data-view="stats"]');
-    await page.click('#statsSeg [data-seg="review"]');
+    await openProgressPage(page, "review");
     await page.locator('[data-review-action="reduce-volume"]').click();
     await page.locator("[data-volume-confirm]").click();
     await page.locator("[data-preview-confirm]").waitFor({ state: "visible", timeout: 15000 });

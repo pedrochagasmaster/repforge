@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { openProgressPage } from "./browser.mjs";
 /**
  * Plan 084 saved profile, Plan 081 signals and Plan 077 slow-rep answers.
  *
@@ -103,7 +104,7 @@ try {
   await boot(page, { history: [] });
   assert(await page.locator("#todayCalRing, #todayCalRingBar").count() === 0,
     "Today has no calibration ring before history exists");
-  await page.click('[data-view="stats"]');
+  await page.click('[data-view="stats"]');await openProgressPage(page, "profile");
   await page.waitForSelector("#overviewProfile .profile-lift");
   assert(await page.locator("#overviewProfile .profile-lift").count() === program.length,
     "the profile includes every active program slot before history exists");
@@ -116,7 +117,7 @@ try {
   assert(await page.locator("#todayCalRing, #todayCalRingBar").count() === 0, "Today has no ring after history either");
   await page.evaluate(() => window.scrollTo(0, 400));
   assert(await page.locator("#todayDash .calring").count() === 0, "the collapsed Today bar has no ring");
-  await page.click('[data-view="stats"]');
+  await page.click('[data-view="stats"]');await openProgressPage(page, "profile");
   await page.waitForSelector("#overviewProfile .profile-lift");
   const profile = await page.locator("#overviewProfile").innerText();
   const findings = await page.locator("#overviewProfile [data-finding]").evaluateAll(nodes => nodes.map(node => ({
@@ -160,7 +161,7 @@ try {
     return hit || row.scrollWidth > row.clientWidth + 1 ? [label.textContent] : [];
   }));
   await page.click("#exBack");
-  await page.click('[data-view="stats"]');
+  await page.click('[data-view="stats"]');await openProgressPage(page, "profile");
   const sizes = [];
   for (const [lang, width] of [["pt", 390], ["en", 390], ["pt", 320], ["en", 320]]) {
     await page.setViewportSize({ width, height: 844 });
@@ -193,7 +194,7 @@ try {
       if(!result.committed)throw new Error("finding fixture proposal refused");
       await window.__repforgeStorage.flush();
     },generated);
-    await findingPage.click('[data-view="stats"]');
+    await findingPage.click('[data-view="stats"]');await openProgressPage(findingPage, "profile");
     const items=await findingPage.locator("#overviewProfile [data-finding]").evaluateAll(nodes=>nodes.map(n=>n.dataset.finding));
     assert(items.length===6&&!items.includes("effort_read"),"adaptive history releases six truthful findings",items);
     assert((await findingPage.locator("#overviewProfile [data-finding-next=effort_read]").innerText()).includes("2 more test sets"),
@@ -239,7 +240,7 @@ try {
       if(!result.committed)throw new Error("finding edit proposal refused");
       await window.__repforgeStorage.flush();
     },generated);
-    await findingPage.click('[data-view="log"]');await findingPage.click('[data-view="stats"]');
+    await findingPage.click('[data-view="log"]');await findingPage.click('[data-view="stats"]');await openProgressPage(findingPage, "profile");
     const solid=await findingPage.locator('[data-finding=first_solid]').innerText();
     assert(solid.includes(ex.name)&&!solid.includes(original.name),"a swap credits the performed lift, never its source slot",solid);
     generated.log=[];
@@ -248,13 +249,13 @@ try {
       if(!result.committed)throw new Error("finding edit proposal refused");
       await window.__repforgeStorage.flush();
     },generated);
-    await findingPage.click('[data-view="log"]');await findingPage.click('[data-view="stats"]');
+    await findingPage.click('[data-view="log"]');await findingPage.click('[data-view="stats"]');await openProgressPage(findingPage, "profile");
     await findingPage.waitForFunction(()=>document.querySelectorAll("#overviewProfile [data-finding]").length===0);
     assert(await findingPage.locator("#overviewProfile [data-finding]").count()===0,
       "removing History rederives and removes every finding");
     await findingPage.reload({waitUntil:"domcontentloaded"});
     await findingPage.waitForFunction(()=>window.__repforgeBooted===true);
-    await findingPage.click('[data-view="stats"]');
+    await findingPage.click('[data-view="stats"]');await openProgressPage(findingPage, "profile");
     assert(await findingPage.locator("#overviewProfile [data-finding]").count()===0,
       "findings do not return from stored presentation state after reload");
   } finally {await findingsContext.close();}
@@ -263,7 +264,7 @@ try {
   const windowHistory = Array.from({length:12},(_,i)=>({...log[0],session:`recent-${i}`,date:day(12-i),
     created:`${day(12-i)}T10:00:00.000Z`,effortSource:i<2||i===11?"prefilled":"rir"}));
   await boot(page,{history:windowHistory});
-  await page.click('[data-view="stats"]');
+  await page.click('[data-view="stats"]');await openProgressPage(page, "profile");
   assert((await page.locator("#overviewProfile .profile-effort").innerText()).includes("9 of 10"),
     "prefilled effort and the two older sessions do not inflate chosen effort counts");
 
@@ -303,7 +304,7 @@ try {
       },{...generated,log:history});
       await rampPage.reload({waitUntil:"domcontentloaded"});
       await rampPage.waitForFunction(()=>window.__repforgeBooted===true);
-      await rampPage.click('nav [data-view="stats"]');
+      await rampPage.click('nav [data-view="stats"]');await openProgressPage(rampPage, "profile");
     }
     const rampWindow=Array.from({length:12},(_,i)=>{
       const date=day(12-i),session=`ramp-window-${i}`,created=`${date}T10:00:00.000Z`;
@@ -349,7 +350,7 @@ try {
     await swapPage.reload({waitUntil:"domcontentloaded"});
     await swapPage.waitForFunction(()=>window.__repforgeBooted===true);
     async function overview(){
-      await swapPage.locator('nav [data-view="stats"]').click();
+      await swapPage.locator('nav [data-view="stats"]').click();await openProgressPage(swapPage, "profile");
       if(await swapPage.locator("#profileScopeContinue").isVisible())await swapPage.click("#profileScopeContinue");
       const history=await swapPage.locator("#overviewProfile .profile-signal")
         .filter({has:swapPage.locator("span",{hasText:/^Hack squat$/})}).innerText();

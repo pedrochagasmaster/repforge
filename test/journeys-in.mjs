@@ -329,7 +329,7 @@ phase("Journey 5: first session -> summary -> Progress");
   await page.click('nav button[data-view="stats"]');
   const progress = await handoff(page, "Today -> Progress", { view: "stats", focus: "#guideDialogTitle", guide: "progress" });
   assert(progress.dock.join() === "stats", "the dock marks Progress", JSON.stringify(progress.dock));
-  await gotIt(page, "progress", '#statsSeg [data-seg="overview"]');
+  await gotIt(page, "progress", "#statsTitle");
   await page.click('nav button[data-view="log"]');
   await mark(page);
   await page.click('nav button[data-view="stats"]');

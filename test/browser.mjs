@@ -369,3 +369,17 @@ export async function answerEffortChoice(page, mode) {
     && window.__repforgeWorkoutDraft?.state()?.programMeta?.onboarded === true);
   await page.evaluate(() => window.__repforgeStorage.flush());
 }
+
+/** Open a Progress destination through its Summary link, or the public navigation seam. */
+export async function openProgressPage(page, destination) {
+  const target = destination === "overview" ? "summary" : destination;
+  if (target === "summary") {
+    if (await page.locator("#statsBack").isVisible()) await page.locator("#statsBack").click();
+    else await page.evaluate(() => window.__repforgeStatsNav.closeStatsPage());
+  } else {
+    const link = page.locator(`#segOverview [data-open-page="${target}"]`).first();
+    if (await link.isVisible()) await link.click();
+    else await page.evaluate(to => window.__repforgeStatsNav.openStatsPage(to), target);
+  }
+  await page.waitForSelector(`#stats[data-page="${target}"]`);
+}

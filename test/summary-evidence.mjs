@@ -188,7 +188,7 @@ try {
   if (await findingLine.count()) {
     await findingLine.click();
     check(await page.locator("#overviewProfile").isVisible() &&
-      await page.locator("#overviewProfile").evaluate(el => document.activeElement === el),
+      await page.locator("#statsTitle").evaluate(el => document.activeElement === el),
       "the finding opens Progress Overview and focuses the profile");
   } else check(false, "the finding opens Progress Overview and focuses the profile");
   await page.goBack();

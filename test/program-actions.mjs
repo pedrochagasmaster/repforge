@@ -345,7 +345,7 @@ try {
   check(oracle.loaded.every((entry) => rows.targets.find((row) => row.id === entry.id)?.text.includes(entry.text)),
     "every shown next load is the load its recommendation computes", { rows, oracle });
   await page.click("#reviewBlockLink");
-  await page.waitForSelector('#stats.view.active #statsSeg button[data-seg="review"].active', { timeout: 5000 });
+  await page.waitForSelector('#stats.view.active[data-page="review"]', { timeout: 5000 });
   check(await page.locator("#stats.view.active").count() === 1, "Review block routes through Progress Review", await page.locator("#stats.view.active").count());
 
   // #526: the Started date field stays inside the Program gutters, aligned with Program name, at every phone width,

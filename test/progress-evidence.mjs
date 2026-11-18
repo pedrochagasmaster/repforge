@@ -84,18 +84,6 @@ async function freshPage({ lang = "en", unit = "kg", seededLog = log, seededMeta
   return { context, page };
 }
 
-async function assertCanonicalOutcomeLabels(page, outcomes) {
-  for (const { key, outcome } of outcomes) {
-    const row = page.locator(`#strengthDash [data-evkey="${key}"]`);
-    // The word is the compareExerciseSession label the summary and History read.
-    const label = await page.evaluate((value) => window.RepForgeI18n.t(`delta.${{ improved: "improved", maintained: "flat", declined: "regressed" }[value]}.label`), outcome);
-    const status = row.locator(".evrow__out");
-    assert.ok(await status.isVisible(), `the ${outcome} outcome label stays visible in its evidence row`);
-    assert.ok((await status.textContent()).includes(label),
-      `the ${outcome} outcome keeps its localized text distinction in the rendered row`);
-  }
-}
-
 // #715: the effort column uses Focus's compact label and stays whole at narrow widths and enlarged text.
 {
   const failures = [];
@@ -188,7 +176,7 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
   const lateralBlockText = (await lateralBlock.textContent()).replace(/\s+/g, " ").trim();
   assert.match(lateralBlockText, /No evidence yet · Baseline building/,
     "current-block keeps the approved empty/baseline state when it excludes historical-only observations");
-  assert.equal((await lateralBlock.locator(".evrow__val").textContent()).trim(), "",
+  assert.equal(await lateralBlock.locator(".liftrow__val").count(), 0,
     "current-block renders no historical strength value");
   assert.doesNotMatch(lateralBlockText, /62\.5 kg|Improved|Maintained|Declined/,
     "current-block does not leak the historical load or outcome");
@@ -197,7 +185,7 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
   assert.equal(seamAll.points.length, 4, "all-history scope includes pre-block rows");
   assert.equal(seamAll.presentation, "trend");
   const lateralAll = page.locator(`#strengthDash [data-evkey="${keys.lateral}"]`);
-  assert.match(await lateralAll.locator(".evrow__val").textContent(), /62\.5 kg/, "all-history latest includes historical observations");
+  assert.match(await lateralAll.locator(".liftrow__fig").textContent(), /62\.5 kg/, "all-history latest includes historical observations");
   await lateralAll.click();
   assert.equal(await page.locator(`#strengthDash [data-evdetail="${keys.lateral}"] tbody tr`).count(), 1,
     "all-history drill-in includes the historical session");
@@ -209,7 +197,7 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
   const lateralBackText = (await lateralBack.textContent()).replace(/\s+/g, " ").trim();
   assert.match(lateralBackText, /No evidence yet · Baseline building/,
     "returning to current-block restores the approved empty/baseline state");
-  assert.equal((await lateralBack.locator(".evrow__val").textContent()).trim(), "",
+  assert.equal(await lateralBack.locator(".liftrow__val").count(), 0,
     "returning to current-block restores an empty strength value");
   assert.doesNotMatch(lateralBackText, /62\.5 kg|Improved|Maintained|Declined/,
     "returning to current-block does not leak the historical load or outcome");
@@ -295,8 +283,7 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
 // Outcome words stay visible beside their canonical improved/maintained/declined facts.
 // The declined lift repeats its load with a rep fewer: under the Session outcome rule a
 // lower load is never read as declined, so the decline must happen at the same load.
-// The final assertion deliberately hides those words: the rendered semantic
-// oracle must reject a presentation that leaves outcome meaning to color alone.
+// Strength now presents load history; Review retains the outcome wording.
 {
   const outcomeLog = [
     { session: "outcome-better-1", date: "2026-09-14", day: "Day 1", exerciseId: "seed-ex-3", name: "Incline chest press", load: 60, reps: 8, rir: 2, set: 1, work: true },
@@ -319,12 +306,7 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
   assert.deepEqual(outcomes.map(({ expected, outcome }) => [expected, outcome]), [
     ["improved", "improved"], ["maintained", "maintained"], ["declined", "declined"],
   ], "the production evidence producer supplies all three canonical outcomes");
-  await assertCanonicalOutcomeLabels(page, outcomes);
-
-  await page.addStyleTag({ content: "#strengthDash .evrow__out { visibility: hidden !important; }" });
-  await assert.rejects(() => assertCanonicalOutcomeLabels(page, outcomes),
-    /the improved outcome label stays visible in its evidence row/,
-    "the deliberate color-only presentation failure is rejected by the rendered outcome oracle");
+  // Strength rows now show load history; canonical outcomes remain proven above and in Review.
   await context.close();
 }
 
@@ -334,7 +316,7 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
   await en.page.evaluate(() => window.__repforgeStatsNav.setEvidenceView("strength"));
   const enKey = await en.page.evaluate(() => window.__repforgeProgressEvidence.keyForExerciseId("seed-ex-5"));
   await en.page.click('#strengthScopeSeg button[data-scope="all-history"]');
-  assert.match(await en.page.locator(`#strengthDash [data-evkey="${enKey}"] .evrow__val`).textContent(), /62\.5 kg/,
+  assert.match(await en.page.locator(`#strengthDash [data-evkey="${enKey}"] .liftrow__fig`).textContent(), /62\.5 kg/,
     "English kg renders the decimal once without reparsing it");
   await en.context.close();
 
@@ -342,7 +324,7 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
   await pt.page.evaluate(() => window.__repforgeStatsNav.setEvidenceView("strength"));
   const key = await pt.page.evaluate(() => window.__repforgeProgressEvidence.keyForExerciseId("seed-ex-5"));
   await pt.page.click('#strengthScopeSeg button[data-scope="all-history"]');
-  assert.match(await pt.page.locator(`#strengthDash [data-evkey="${key}"] .evrow__val`).textContent(), /62,5 kg/,
+  assert.match(await pt.page.locator(`#strengthDash [data-evkey="${key}"] .liftrow__fig`).textContent(), /62,5 kg/,
     "Portuguese kg renders the decimal once without reparsing it");
   await pt.context.close();
 
@@ -350,7 +332,7 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
   await lb.page.evaluate(() => window.__repforgeStatsNav.setEvidenceView("strength"));
   const lbKey = await lb.page.evaluate(() => window.__repforgeProgressEvidence.keyForExerciseId("seed-ex-5"));
   await lb.page.click('#strengthScopeSeg button[data-scope="all-history"]');
-  assert.match(await lb.page.locator(`#strengthDash [data-evkey="${lbKey}"] .evrow__val`).textContent(), /137\.79 lb/,
+  assert.match(await lb.page.locator(`#strengthDash [data-evkey="${lbKey}"] .liftrow__fig`).textContent(), /137\.79 lb/,
     "62.5 kg converts to pounds exactly once");
   await lb.context.close();
 }
@@ -538,8 +520,8 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
     const events = window.__repforgePrTimeline("all");
     const sets = new Set(events.map((ev) => [ev.liftKey, ev.date, ev.session ?? "", ev.load, ev.reps].join("|")));
     const rows = [...document.querySelectorAll("#prTimeline .prtl__row")].map((row) => ({
-      key: [row.querySelector(".prtl__ex")?.textContent, row.querySelector(".prtl__date")?.textContent, row.querySelector(".prtl__set")?.textContent].join("|"),
-      kinds: row.querySelectorAll(".pr-kind").length, recs: row.querySelectorAll(".prtl__rec").length }));
+      key: [row.querySelector(".recrow__name")?.textContent, row.parentElement.previousElementSibling?.textContent, row.querySelector(".recrow__set")?.textContent].join("|"),
+      kinds: row.querySelectorAll(".recrow__kind").length, recs: row.querySelectorAll(".recrow__rec").length }));
     return { sets: sets.size, events: events.length, rows: rows.length, unique: new Set(rows.map((r) => r.key)).size, paired: rows.every((r) => r.kinds === r.recs && r.kinds >= 1) };
   });
   assert.equal(rowsBySet.rows, rowsBySet.sets, `one PR row per set, not per record (${JSON.stringify(rowsBySet)})`);
