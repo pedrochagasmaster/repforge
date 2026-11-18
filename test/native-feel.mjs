@@ -2687,12 +2687,106 @@ async function scrollerPress(browser) {
 
 }
 
-// NATIVE_FEEL_ONLY=press runs the held scroller-press regression, =rest runs the ten-cycle held Settings probe, =large runs just phase 5, =shelf just its addendum, =wheel just the wheel picker and =swipe just the
+async function dockGuard(browser) {
+  const { context, page } = await todayPage(browser);
+  try {
+    await page.evaluate(() => {
+      window.dockViewport = { height: innerHeight, offsetTop: 0, scale: 1 };
+      for (const key of ["height", "offsetTop", "scale"])
+        Object.defineProperty(visualViewport, key, { configurable: true, get: () => window.dockViewport[key] });
+    });
+    const fire = async (event, height, offsetTop = 0, scale = 1) => {
+      await page.evaluate(({ event, height, offsetTop, scale }) => {
+        Object.assign(window.dockViewport, { height, offsetTop, scale });
+        const target = event === "visibilitychange" || event === "focusout" ? document
+          : event === "scroll" || event === "resize" ? visualViewport : window;
+        if (event === "visibilitychange") {
+          Object.defineProperty(document, "visibilityState", { configurable: true, value: "hidden" });
+          document.dispatchEvent(new Event(event));
+          Object.defineProperty(document, "visibilityState", { configurable: true, value: "visible" });
+        }
+        target.dispatchEvent(new Event(event));
+      }, { event, height, offsetTop, scale });
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    };
+    const aligned = async label => {
+      const error = await page.locator("nav").evaluate(nav =>
+        nav.getBoundingClientRect().bottom - (visualViewport.offsetTop + visualViewport.height - parseFloat(getComputedStyle(nav).bottom)));
+      assert(Math.abs(error) <= 1, label, String(error));
+    };
+    const height = await page.evaluate(() => innerHeight);
+    await aligned("normal dock is aligned");
+    for (const event of ["resize", "scroll", "pageshow", "visibilitychange", "orientationchange", "focusout", "scrollend"]) {
+      await fire(event, height - 260, 30);
+      await aligned(event + " repairs a stale viewport after the keyboard closes");
+      await fire(event, height, 0);
+      await aligned(event + " clears the correction when the viewport recovers");
+    }
+    await fire("resize", height - 260, 30);
+    await page.locator("nav").evaluate(nav => { nav.style.display = "none"; });
+    await fire("resize", height);
+    await page.locator("nav").evaluate(nav => nav.style.removeProperty("display"));
+    await aligned("a dock hidden during viewport recovery reappears without a stale correction");
+    await fire("resize", height - 260, 30);
+    await page.locator("nav").evaluate(nav => { nav.style.display = "none"; });
+    await fire("resize", height - 260, 30);
+    await page.locator("nav").evaluate(nav => nav.style.removeProperty("display"));
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    await aligned("a dock returning while the viewport is stale is measured again");
+    await fire("resize", height);
+    await page.evaluate(() => {
+      // Model a fixed containing viewport stuck 180px above the visible screen.
+      document.querySelector("nav").style.marginBottom = "180px";
+      document.querySelector("nav").style.bottom = "calc(var(--dock-gap) + 34px)";
+      window.dockInnerHeightDescriptor = Object.getOwnPropertyDescriptor(window, "innerHeight");
+      Object.defineProperty(window, "innerHeight", { configurable: true, value: 664 });
+    });
+    await fire("pageshow", height, 0);
+    await aligned("a shrunk layout viewport is corrected against the visible screen");
+    await page.evaluate(() => {
+      document.querySelector("nav").style.removeProperty("margin-bottom");
+      document.querySelector("nav").style.removeProperty("bottom");
+      if (window.dockInnerHeightDescriptor) Object.defineProperty(window, "innerHeight", window.dockInnerHeightDescriptor);
+      else delete window.innerHeight;
+    });
+    await fire("resize", height);
+    await page.evaluate(() => {
+      document.body.style.minHeight = "2400px";
+      window.scrollTo({ top: 120, behavior: "instant" });
+    });
+    await fire("scrollend", height - 200, 40);
+    await aligned("a deliberately scrolled page keeps the dock aligned");
+    assert(await page.evaluate(() => window.scrollY === 120), "guard preserves deliberate document scroll");
+    await page.evaluate(() => { document.body.style.removeProperty("min-height"); window.scrollTo({ top: 0, behavior: "instant" }); });
+    await fire("resize", height);
+    await fire("resize", height - 260, 30);
+    await fire("resize", height - 260, 30, 2);
+    const zoomBottom = await page.locator("nav").evaluate(nav => nav.getBoundingClientRect().bottom);
+    assert(Math.abs(zoomBottom - (height - await page.locator("nav").evaluate(nav => parseFloat(getComputedStyle(nav).bottom)))) <= 1,
+      "pinch zoom leaves the dock uncorrected");
+    await fire("resize", height);
+    await fire("resize", height - 260, 30);
+    await page.evaluate(() => {
+      const field = document.createElement("input"); field.id = "dockKeyboardField"; document.body.append(field); field.focus();
+    });
+    await fire("resize", height - 260);
+    assert(await page.evaluate(() => document.documentElement.dataset.keyboard === "up"), "keyboard fixture is up");
+    const keyboardBottom = await page.locator("nav").evaluate(nav => nav.getBoundingClientRect().bottom);
+    assert(Math.abs(keyboardBottom - zoomBottom) <= 1, "keyboard up keeps the existing dock position");
+    await page.evaluate(() => document.querySelector("#dockKeyboardField").remove());
+    await fire("focusout", height - 260, 30);
+    await aligned("keyboard close repairs the dock even before viewport recovery");
+    await fire("resize", height);
+  } finally { await context.close(); }
+}
+
+// NATIVE_FEEL_ONLY=dock runs the viewport guard regression; =press runs the held scroller-press regression, =rest runs the ten-cycle held Settings probe, =large runs just phase 5, =shelf just its addendum, =wheel just the wheel picker and =swipe just the
 // history and back-swipe phases, =appearance just Appearance control behaviour, =controls all native controls, =refresh just the catalog layout regressions, and =core the remaining phases.
-// refresh + core + large covers the complete suite, including the shelf addendum, within separate runner limits; CI runs everything.
+// dock + refresh + core + large covers the complete suite, including the shelf addendum, within separate runner limits; CI runs everything.
 const ONLY = process.env.NATIVE_FEEL_ONLY || "";
 const browser = await launchChromium();
 try {
+ if (!ONLY || ONLY === "dock") await dockGuard(browser);
  if (ONLY === "press") await scrollerPress(browser);
  if (!ONLY || ONLY === "refresh") await refreshLayout(browser);
  if (!ONLY || ONLY === "core") {
@@ -2890,7 +2984,7 @@ try {
     await autoSwipe(browser);
     await standaloneSwipe(browser);
   }
-  if (!["wheel", "swipe", "rest", "refresh", "press", "core", "appearance", "controls"].includes(ONLY)) await concentricShelf(browser);
+  if (!["dock", "wheel", "swipe", "rest", "refresh", "press", "core", "appearance", "controls"].includes(ONLY)) await concentricShelf(browser);
 } finally {
   await browser.close();
 }
