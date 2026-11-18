@@ -205,7 +205,8 @@ async function main() {
       const textField = page.locator('.session--edit input[data-ek^="rir|"]').first();
       await textField.click();
       assert(await textField.evaluate(el => !el.hasAttribute("data-quiet-focus") &&
-        getComputedStyle(el).boxShadow !== "none"),
+        getComputedStyle(el).outlineStyle !== "none" &&
+        parseFloat(getComputedStyle(el).outlineWidth) > 0),
       "tapped text field retains its editing focus style");
       const controls = await page.locator('.session--edit input[data-ek^="rir|"]').evaluateAll(inputs => inputs.map(input => ({
         label: input.getAttribute("aria-label"), type: input.type, mode: input.getAttribute("inputmode"),

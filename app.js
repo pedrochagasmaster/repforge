@@ -11292,7 +11292,7 @@ function workoutFocusKey(el){
 /* A hand-off moves focus without the lifter having moved it: after a tap, the control it lands on must not light a
    focus ring the tap never asked for (and the orange budget has no place for one). Whoever last used a key still
    gets the ring. */
-let workoutInputModality="pointer";
+let workoutInputModality="initial";
 document.addEventListener("pointerdown",()=>{workoutInputModality="pointer"},true);
 // Keys typed into a text field are entry, not navigation (the motion layer's rule): only a key outside one, or Tab, is the keyboard.
 document.addEventListener("keydown",event=>{
@@ -11307,7 +11307,7 @@ document.addEventListener("focusin",event=>{
   el.addEventListener("blur",()=>el.removeAttribute("data-quiet-focus"),{once:true})},true);
 function focusWorkoutControl(el){
   try{el.focus({preventScroll:true})}catch{return false}
-  if(workoutInputModality==="pointer"){
+  if(workoutInputModality!=="keyboard"){
     el.setAttribute("data-quiet-focus","");
     el.addEventListener("blur",()=>el.removeAttribute("data-quiet-focus"),{once:true})}
   return document.activeElement===el}
