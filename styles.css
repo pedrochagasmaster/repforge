@@ -9625,7 +9625,7 @@ body.is-entry-editor #entryProgramName,
 .sumhead__title{margin:0;font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--ink)}
 .sumhead__link{
   display:inline-flex;align-items:center;gap:2px;flex:none;min-height:var(--control-target);padding:0;border:0;background:none;
-  color:var(--accent-deep);font-family:var(--font-language);font-size:var(--font-size-body-small);font-weight:var(--weight-medium);cursor:pointer;
+  color:var(--control-quiet-ink);font-family:var(--font-language);font-size:var(--font-size-body-small);font-weight:var(--weight-medium);cursor:pointer;
 }
 .sumhead__link .chevron{color:inherit;width:14px;height:14px}
 .sumhead__link:focus-visible{outline:var(--control-focus-outline);outline-offset:2px;border-radius:var(--radius-compact)}

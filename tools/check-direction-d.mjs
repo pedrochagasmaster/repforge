@@ -138,6 +138,8 @@ export const ORANGE_ALLOWLIST = [
   { category: "current-exercise-segment", selector: "#woProgress .segbar__seg.is-current .segbar__bar" },
   // Today's week track marks the current week the same way (owner-approved hill-climb, 2026-11-10).
   { category: "current-exercise-segment", selector: "#todayProgram .segbar__seg.is-current" },
+  // Progress's block card marks the current week the way Today's week track does (Progress hill-climb, 2026-11).
+  { category: "current-exercise-segment", selector: "#progressHero .phero__seg.is-current" },
   { category: "chart-trend", selector: ".exchart__svg .ch-line" },
   { category: "chart-trend", selector: ".exchart__svg .ex-pt--sel" },
   { category: "chart-trend", selector: ".exchart__marker" },
