@@ -9647,3 +9647,9 @@ body.is-entry-editor #entryProgramName,
 .week-proposal__causes [aria-pressed="true"]{font-weight:var(--weight-semibold);box-shadow:var(--elevation-selected-shadow);border-color:var(--control-selection-boundary);background:var(--control-selection-active-bg);color:var(--control-selection-ink)}
 .week-proposal__actions{margin-top:var(--space-16);gap:var(--space-16)}
 .week-proposal__actions .text-link{min-height:44px}
+
+#todayProgram{align-items:center}
+#todayProgram #todayEstimateInfo{margin-left:auto;flex:none}
+#todayDash > #todayWeekCard{margin-top:var(--space-18)}
+#todayDash > #todaySessionLabel{margin-top:var(--space-18)}
+#todaySession:has(.today-dayhead){margin-top:var(--space-18)}

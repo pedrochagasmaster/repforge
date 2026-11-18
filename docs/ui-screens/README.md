@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 288 screens,
-1750 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 289 screens,
+1770 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -177,12 +177,12 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | Screen | Frames | What it shows |
 | --- | --- | --- |
 | [Today — no program](screens/today/no-program__phone-390-light-en.png) | 3 | A fresh device after leaving setup, with no program or workout controls. |
-| [Today — ready to start](screens/today/ready__phone-390-light-en.png) | 12 | The Direction D lifter before Day 1 starts: the prescription table reads recommendation() for every exercise, with the verdict tally above it. |
+| [Today — ready to start](screens/today/ready__phone-390-light-en.png) | 16 | The Direction D lifter before Day 1 starts: the prescription table reads recommendation() for every exercise, with the verdict tally above it. |
 | [Today — dock large-content viewer](screens/today/dock-viewer__phone-390-light-en.png) | 4 | A finger holds the dock's Progress tab. At 200% text the large-content viewer shows its icon and name large over Today, which keeps its one-row dock with capped labels; at the usual size (the canonical frame) the labels are whole, so the hold is only a press and no viewer is offered. |
 | [Today — ready to start, scrolled](screens/today/ready-scrolled__phone-390-light-en.png) | 3 | Plan 075 phase 3: the same ready state, scrolled past the large title, so the scroll-edge bar's material and its mirrored inline title are showing. |
 | [Today — running rest bar](screens/today/rest-bar__phone-390-light-en.png) | 8 | A rest running after leaving the workout: the live card's tag counts it down, and no rest pill floats above the dock. |
 | [Today — choose another day](screens/today/day-picker__phone-390-light-en.png) | 8 | The day picker sheet open. |
-| [Today — session complete](screens/today/done__phone-390-light-en.png) | 8 | The state after the day's session is logged. |
+| [Today — session complete](screens/today/done__phone-390-light-en.png) | 12 | The state after the day's session is logged. |
 | [Today — deload week](screens/today/deload-week__phone-390-light-en.png) | 3 | The active program's deload cycle shows its recovery note. |
 | [Resume saved draft](screens/today/draft-resume__phone-390-light-en.png) | 8 | Resume saved draft through production controls: the live card under the program block, one set filled. |
 | [Workout in progress](screens/today/in-progress__phone-390-light-en.png) | 8 | Option A's live card while a session is open: one lift done, one part done, one skipped and the next one current, each with its status mark. |
@@ -192,6 +192,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Today — first profile evidence](screens/today/profile-first__phone-390-light-en.png) | 8 | An onboarded program before saved evidence: the empty ink ring and factual first-saved-set line. |
 | [Today — well-tailored saved-evidence profile](screens/today/profile__phone-390-light-en.png) | 8 | Four comparable lifts after 48 saved dates and three agreeing checks per lift: earned well-tailored evidence, with the current session still dominant. |
 | [Today — profile scope changed](screens/today/profile-scope__phone-390-light-en.png) | 8 | A factual two-new-lifts line opens the before/now explanation; the current ring already uses its new denominator. |
+| [Today estimate explanation](screens/today/estimate-info__phone-390-light-en.png) | 12 | The estimate info control opens the existing sheet pattern with affected lifts and their evidence reason. |
 
 ### Workout logging
 

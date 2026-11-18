@@ -4,6 +4,8 @@ import assert from "node:assert/strict";
 import { assertServingApp, launchChromium } from "./browser.mjs";
 import { installSeedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 
+import { appState } from "../tools/ui-screens/screens-app.mjs";
+
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
 
@@ -38,6 +40,7 @@ try {
   const page = await context.newPage();
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
   await page.waitForFunction(() => window.__repforgeBooted === true, undefined, { timeout: 20000 });
+  assert.equal(await page.locator('#todayEstimateInfo').count(), 0, 'no-program Today has no estimate control');
   await installSeedProgram(page, { key: KEY, waitFor: async current => current.waitForFunction(() => window.__repforgeBooted === true, undefined, { timeout: 20000 }) });
   const state = await page.evaluate(key => JSON.parse(localStorage.getItem(key) || "{}"), KEY);
   const today = ymd();
@@ -73,6 +76,28 @@ try {
   assert.equal(observed.calendarLine, observed.expectedWeekly, "the surviving line uses weeklySnapshot calendar values");
   assert.equal(observed.blockText, observed.expectedBlock, "block position remains mesocycle-owned");
   assert.notEqual(observed.expectedBlock, observed.expectedWeekly, "the two week ranges stay distinguishable");
+  await page.evaluate(async value => {
+    const result = await window.__repforgeCommitProposedState(value);
+    if (!result.committed) throw new Error('fixture commit refused');
+    await window.__repforgeStorage.flush(); render();
+  }, appState('today/ready', 'en'));
+  await page.evaluate(() => {
+    window.__repforgeUi.setPref('profileScope', { v: 1, scope: window.__repforgeProgressEvidence.profile().scope, acknowledged: true });
+    render();
+  });
+  assert.equal(await page.locator('#todayEstimateInfo').isVisible(), true, `estimate notice is an info control beside the program; inline: ${await page.locator('#todayProfileNeed').textContent()}`);
+  assert.equal(await page.locator('#todayProfileNeed').isVisible(), false, 'estimate notice takes no inline space');
+  assert.equal(await page.locator('#todayEstimateSheet').isVisible(), false, 'estimate explanation never opens automatically');
+  await page.click('#todayEstimateInfo');
+  await page.waitForSelector('#todayEstimateSheet.is-open');
+  const estimateCount = Number((await page.locator('#todayEstimateInfo').getAttribute('aria-label')).match(/\d+/)?.[0]);
+  assert.ok(estimateCount > 0, 'info control announces affected exercise count');
+  assert.equal(await page.locator('#todayEstimateBody li').count(), estimateCount, 'sheet lists exactly the lifts counted by the notice');
+  assert.ok(await page.locator('#todayEstimateBody li p').allTextContents().then(lines => lines.every(Boolean)), 'each lift has an existing evidence explanation');
+  assert.equal(await page.locator('#stats').evaluate(el => el.classList.contains('active')), false, 'info does not trigger the program strip navigation');
+  assert.equal(await page.locator('#todayEstimateBody li b').first().innerText().then(Boolean), true, 'affected exercise has a name');
+  await page.click('#todayEstimateClose');
+  await page.waitForSelector('#todayEstimateSheet', { state: 'hidden' });
   await context.close();
 } finally {
   await browser.close();
