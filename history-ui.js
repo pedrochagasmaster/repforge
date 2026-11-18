@@ -1018,7 +1018,7 @@ function renderHistoryFrequency(index){
   if(!freq||(HDIR&&!index.sessions?.length)){el.classList.add("hidden");el.innerHTML="";return}
   el.classList.remove("hidden");
   if(HDIR&&hxFrequency(el,freq))return;
-  if(HDIR==="2")queueMicrotask(()=>{const cap=el.querySelector(".histfreq__cap");if(cap&&!cap.querySelector(".hx-plan"))cap.insertAdjacentHTML("beforeend",`<span class="hx-plan"><i aria-hidden="true"></i>${esc(hxL(`${freq.planned} planned`,`${freq.planned} planejados`))}</span>`)});
+  if(HDIR==="2")queueMicrotask(()=>{if(!el.querySelector(".hx-plan"))el.insertAdjacentHTML("beforeend",`<p class="hx-plan" aria-hidden="true"><i></i>${esc(hxL(`${freq.planned} sessions planned a week`,`${freq.planned} sessões planejadas por semana`))}</p>`)});
   // Many weeks leave no room for every label, so a long block names every fourth.
   const thin=freq.total>16;
   const weekBars=freq.weeks.map(w=>historyFreqBar({

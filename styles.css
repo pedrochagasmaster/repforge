@@ -9743,4 +9743,17 @@ body.is-entry-editor #entryProgramName,
 [data-hdir="2"] #history .histfreq__cap{display:flex;flex-wrap:wrap;align-items:center;gap:0 var(--space-8)}
 [data-hdir="2"] #history .hx-plan{display:inline-flex;align-items:center;gap:var(--space-4);font-size:var(--font-size-caption)}
 [data-hdir="2"] #history .hx-plan i{width:14px;border-top:1px dashed var(--boundary-required)}
+/* r4 */
+[data-hdir="2"] #history .hx-plan{display:flex;align-items:center;gap:var(--space-8);margin:var(--space-12) 0 0;font-size:var(--font-size-caption);color:var(--color-ink-secondary)}
+[data-hdir="2"] #history .histlift__tags .verdictmark:not(.verdictmark--record){font-weight:var(--weight-regular)!important}
+[data-hdir="2"] #history .hx-tiles{margin-top:var(--space-12)}
+[data-hdir="2"] #history .histpage__actions{display:block;margin-top:var(--space-18)}
+[data-hdir="2"] #history .histpage__actions .session__del{display:block;width:100%;min-height:var(--control-target);padding:var(--space-12) var(--space-16);border-radius:var(--radius-surface);background:var(--surface);text-align:center}
+:root[data-theme="dark"][data-hdir="2"] #history .histpage__actions .session__del{box-shadow:var(--boundary-card-hairline-shadow)}
+:root[data-theme="dark"][data-hdir="2"] #history .advanced:has(+.hx-export:not(.hidden)){box-shadow:inset 1px 0 var(--boundary-decorative),inset -1px 0 var(--boundary-decorative),inset 0 1px var(--boundary-decorative)}
+:root[data-theme="dark"][data-hdir="2"] #history .advanced+.hx-export{box-shadow:inset 1px 0 var(--boundary-decorative),inset -1px 0 var(--boundary-decorative),inset 0 -1px var(--boundary-decorative)}
+[data-hdir="2"] #history .hx-tr{grid-template-columns:1.5rem minmax(4rem,1fr) minmax(3rem,max-content) minmax(4.5rem,max-content)}
+[data-hdir="2"] #history .hx-tr--head>span:last-child{max-width:4.5rem}
+[data-hdir="2"] #history .hist-month{margin-top:var(--space-26)}
+@media (max-width:374px){[data-hdir="2"] #history .hist-month{margin-top:var(--space-18)}}
 /* ==== /HILLCLIMB EXPLORATION ==== */
