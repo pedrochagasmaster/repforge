@@ -899,7 +899,9 @@ input:not(:where([type=checkbox],[type=radio])):focus-visible,select:focus-visib
 /* `tabindex=-1` lets scripts or pointer actions move focus without adding a Tab
    stop. Keep those focus changes visual-free; regular keyboard stops retain rings. */
 [tabindex="-1"]:focus,[tabindex="-1"]:focus-visible{outline:none}
+/* ID-scoped control focus rules require this override for pointer handoffs. */
 [data-quiet-focus][data-quiet-focus]:focus-visible{outline:none!important}
+/* Workout logging moves focus to its next field programmatically; that handoff stays visual-free. */
 [data-quiet-focus]:is(input,select,textarea):focus{box-shadow:none}
 /* iOS gives a date or time field an intrinsic width wider than a phone's column, and collapses its value
    element once the field is restyled; both hold here. */
@@ -1802,12 +1804,12 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
   padding:0;margin:0;border:0;border-radius:var(--radius-none);box-shadow:none;
   background:var(--control-quiet-bg);color:var(--color-ink);font-size:min(var(--font-size-body-small),var(--large-cap-small));
 }
-.resttip[data-tip="max-set"] .resttip__acts{flex:1;min-width:0;justify-content:space-between;margin:0;gap:0}
+.resttip[data-tip="max-set"] .resttip__acts{flex:1;min-width:0;justify-content:space-between;margin:0;gap:var(--space-4)}
 .resttip[data-tip="max-set"] :is(.resttip__no,.resttip__yes){
   min-width:var(--control-target);padding:0 var(--space-4);white-space:nowrap;
   background:var(--control-quiet-bg);color:var(--control-quiet-ink);opacity:1;
 }
-.resttip[data-tip="max-set"] .resttip__yes{flex:1 1 0;text-align:left}
+.resttip[data-tip="max-set"] .resttip__yes{flex:1 1 0;text-align:center;border:1px solid var(--control-secondary-boundary);border-radius:var(--radius-button);background:var(--control-secondary-bg);color:var(--control-secondary-ink)}
 .resttip[data-tip="max-set"] .resttip__no{flex:none}
 .resttip[data-tip="max-set"] .resttip__full{position:fixed;left:0;top:0;width:max-content;visibility:hidden;pointer-events:none}
 .resttip[data-tip="max-set"] .resttip__acts > button:hover{background:var(--well)}
@@ -3695,7 +3697,7 @@ body:has(:is(#program,[data-copy-id="program"]).program-editor-installed) nav{di
    body's padding-bottom reserves --nav — so nothing important sits under it. */
 nav{
   position:fixed;z-index:25;
-  left:50%;transform:translateX(-50%);
+  left:50%;transform:translateX(-50%) translateY(var(--dock-offset,0px));
   bottom:calc(var(--dock-gap) + env(safe-area-inset-bottom));
   width:min(
     calc(100% - env(safe-area-inset-left) - env(safe-area-inset-right) - 2*var(--dock-inset)),
@@ -4067,7 +4069,7 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
    and pushed the format, backgrounds and note below the fold. */
 .sharesheet__stage{flex:1 1 0;min-height:clamp(200px,62vw,256px);display:flex;flex-direction:column;justify-content:center;margin:0 calc(-1 * var(--space-16))}
 #shareRecordRow{flex:none}
-.sharesheet__records{display:flex;flex-wrap:nowrap;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x mandatory;scrollbar-width:none;margin-inline:calc(-1 * var(--space-16));padding-inline:var(--space-12)}
+.sharesheet__records{display:flex;flex-wrap:nowrap;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x mandatory;scrollbar-width:none;margin-inline:calc(-1 * var(--space-16));padding-inline:var(--space-16);scroll-padding-inline:var(--space-16);mask-image:linear-gradient(to right,transparent,var(--color-ink) var(--space-12),var(--color-ink) calc(100% - var(--space-16)),transparent)}
 .sharesheet__records::-webkit-scrollbar{display:none}
 .sharesheet__records .pchip{scroll-snap-align:start;gap:var(--space-4);font-weight:var(--weight-medium)}
 .sharesheet__records .pchip.is-active{font-weight:var(--weight-semibold)}
@@ -4079,7 +4081,7 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
   padding:6px calc((100% - var(--slide-w,15rem)) / 2) 10px}
 .sharesheet__rail::-webkit-scrollbar{display:none}
 .sharesheet__slide{flex:none;margin:0;width:var(--slide-w,15rem);height:var(--slide-h,26.5rem);scroll-snap-align:center;border-radius:var(--radius-surface);overflow:hidden;
-  box-shadow:var(--elevation-share-slide-shadow);transform:scale(.92);opacity:.55;transition:transform .28s cubic-bezier(.2,.8,.2,1),opacity .28s}
+  box-shadow:none;transform:scale(.92);opacity:.55;transition:transform .28s cubic-bezier(.2,.8,.2,1),opacity .28s}
 .sharesheet__slide.is-current{transform:none;opacity:1}
 .sharesheet__slide.is-clear{background:repeating-conic-gradient(var(--share-checker-a) 0 25%,var(--share-checker-b) 0 50%) 0 0/14px 14px}
 .sharesheet__slide canvas{display:block;width:100%;height:100%}

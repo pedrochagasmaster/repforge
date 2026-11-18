@@ -118,7 +118,11 @@ const demandingScreens = new Set([
 for (const key of demandingScreens) {
   const screen = manifest.screens.find((item) => `${item.flow}/${item.id}` === key);
   assert.ok(screen, `${key} is a registered demanding screen`);
-  assert.equal(screen.variants, "demandingText", `${key} uses the named demanding text matrix`);
+  const variants = manifest.variantSets[screen.variants];
+  for (const required of manifest.variantSets.demandingText) {
+    assert.ok(variants.some(variant => variantSlug(variant) === variantSlug(required)),
+      `${key} retains demanding text axis ${variantSlug(required)}`);
+  }
 }
 const demandingSet = manifest.variantSets.demandingText;
 for (const priorAxis of manifest.variantSets.accessibility) {

@@ -8875,8 +8875,33 @@ function trackSheetViewport(){
     const focusWo=document.body.classList.contains("is-focus-wo");
     if(!zoomed&&focusWo&&(up||was)&&(window.scrollY||window.scrollX))settle=requestAnimationFrame(()=>{
       // The frame may land after Focus has closed or a pinch has begun; only Focus at rest scale gives the scroll back.
-      if(document.body.classList.contains("is-focus-wo")&&Math.abs((vv.scale||1)-1)<=.01)window.scrollTo(0,0)})};
+      if(document.body.classList.contains("is-focus-wo")&&Math.abs((vv.scale||1)-1)<=.01)window.scrollTo(0,0)})
+    queueDock()};
+  // WebKit can leave fixed positioning on a stale layout viewport after the
+  // keyboard or a background return. Measure the rendered dock, not innerHeight.
+  const dock=document.querySelector("nav");
+  let dockFrame=0,dockOffset=0;
+  const guardDock=()=>{
+    dockFrame=0;
+    if(!dock)return;
+    if((vv.scale||1)!==1||root.dataset.keyboard==="up"||!dock.getClientRects().length){
+      dockOffset=0;dock.style.removeProperty("--dock-offset");return}
+    const bottom=parseFloat(getComputedStyle(dock).bottom);
+    if(!Number.isFinite(bottom))return;
+    // At the document origin a same-position reset can release WebKit's stale
+    // pan without changing the lifter's scroll. Leave scrolled pages alone.
+    if(vv.offsetTop>1&&!window.scrollX&&!window.scrollY&&!document.activeElement?.matches?.("input,textarea,[contenteditable=true]"))
+      window.scrollTo({left:0,top:0,behavior:"instant"});
+    const target=vv.offsetTop+vv.height-bottom;
+    const naturalBottom=dock.getBoundingClientRect().bottom-dockOffset;
+    dockOffset=Math.abs(target-naturalBottom)>1?target-naturalBottom:0;
+    if(dockOffset)dock.style.setProperty("--dock-offset",`${dockOffset}px`);
+    else dock.style.removeProperty("--dock-offset")};
+  const queueDock=()=>{if(!dockFrame)dockFrame=requestAnimationFrame(guardDock)};
+  if(dock&&window.ResizeObserver)new ResizeObserver(queueDock).observe(dock);
   vv.addEventListener("resize",apply);vv.addEventListener("scroll",apply);
+  for(const event of ["scrollend","pageshow","orientationchange","resize"])window.addEventListener(event,queueDock);
+  document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")queueDock()});
   document.addEventListener("focusin",apply);
   // Focus leaves before it lands anywhere else, so read where it went once it has.
   document.addEventListener("focusout",()=>setTimeout(apply,0));
@@ -11292,20 +11317,22 @@ function workoutFocusKey(el){
 /* A hand-off moves focus without the lifter having moved it: after a tap, the control it lands on must not light a
    focus ring the tap never asked for (and the orange budget has no place for one). Whoever last used a key still
    gets the ring. */
-let workoutInputModality="pointer";
+let workoutInputModality="initial";
 document.addEventListener("pointerdown",()=>{workoutInputModality="pointer"},true);
 // Keys typed into a text field are entry, not navigation (the motion layer's rule): only a key outside one, or Tab, is the keyboard.
 document.addEventListener("keydown",event=>{
   if(event.key!=="Tab"&&event.target instanceof Element&&event.target.matches("textarea,input:not([type]),input:is([type=text],[type=search],[type=tel],[type=url],[type=email],[type=password],[type=number])"))return;
   workoutInputModality="keyboard";document.activeElement?.removeAttribute?.("data-quiet-focus")},true);
+function isEditableFocusTarget(el){
+  return el.matches("input,select,textarea")||el.isContentEditable}
 document.addEventListener("focusin",event=>{
   const el=event.target;
-  if(workoutInputModality!=="pointer"||!(el instanceof HTMLElement)||el.hasAttribute("data-quiet-focus"))return;
+  if(workoutInputModality!=="pointer"||!(el instanceof HTMLElement)||isEditableFocusTarget(el)||el.hasAttribute("data-quiet-focus"))return;
   el.setAttribute("data-quiet-focus","");
   el.addEventListener("blur",()=>el.removeAttribute("data-quiet-focus"),{once:true})},true);
 function focusWorkoutControl(el){
   try{el.focus({preventScroll:true})}catch{return false}
-  if(workoutInputModality==="pointer"){
+  if(workoutInputModality!=="keyboard"){
     el.setAttribute("data-quiet-focus","");
     el.addEventListener("blur",()=>el.removeAttribute("data-quiet-focus"),{once:true})}
   return document.activeElement===el}
