@@ -8469,7 +8469,7 @@ function renderOverviewProfile(){
     :`<li class="calcheck calcheck--empty">${esc(t("calib.empty"))}</li>`;
   const lifts=days().flatMap(day=>state.program.filter(ex=>ex.day===day)),profile=savedProfile(),totals=profileTotals(profile),change=observeProfileScope(profile);
   el.innerHTML=(sessionSummaryProfileReturn?`<button type="button" class="back-link" id="summaryProfileBack">${esc(t("exercise.back"))}</button>`:"")+
-    `<h3 class="profile-heading" id="overviewProfileTitle">${esc(t("profile.ring.title"))}</h3><p class="profile-intro">${esc(t("profile.title"))}</p>`+
+    `<h3 class="profile-heading visually-hidden" id="overviewProfileTitle">${esc(t("profile.ring.title"))}</h3><p class="profile-intro">${esc(t("profile.title"))}</p>`+
     (change?profileScopeHtml(profile,change):"")+profileReadingHtml(profile)+`<div class="profile-detail-counts"><span>${esc(tOne("profile.ring.observations",totals.observations))}</span><span>${esc(tOne("profile.ring.transitions",totals.stages))}</span></div>`+
     `<ul class="profile-lifts">${profile.lifts.filter(lift=>lift.active).map(profileLiftButtonHtml).join("")}</ul>`+
     (profile.lifts.some(lift=>!lift.active)?`<section class="profile-archive"><h4 class="section-label">${esc(t("profile.ring.archived"))}</h4><ul class="profile-lifts">${profile.lifts.filter(lift=>!lift.active).map(profileLiftButtonHtml).join("")}</ul></section>`:"")+profileFindingsHtml()+

@@ -9755,3 +9755,7 @@ body.is-entry-editor #entryProgramName,
   .sumhead{margin-top:var(--space-18)}
 }
 #exercise .exchart__card > .exchart__figs:first-child{border-top:0;padding-top:0;margin-top:0}
+/* The profile page is titled by the page; its own heading (.visually-hidden) stays for focus and assistive technology. */
+#segProfile .profile-intro{margin-top:0}
+/* Review opens under its page title, not a section gap below it. */
+#reviewPanel > :first-child,#reviewPanel > :first-child > .section-label:first-child{margin-top:0}

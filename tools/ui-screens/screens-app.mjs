@@ -2171,7 +2171,7 @@ export const APP_SCENARIOS = {
     await view(page,"log");
   },
   "progress/profile-reader": async page=>{
-    await view(page,"stats");
+    await progressSegment(page,"profile");
     const name=await page.evaluate(()=>{
       const lifts=window.__repforgeProgressEvidence.profile().lifts.filter(lift=>lift.active);
       return (lifts.find(lift=>lift.checks.length)||lifts[0]).name;
@@ -2185,7 +2185,7 @@ export const APP_SCENARIOS = {
       if(scope.length<3)throw new Error('scope catalog requires three comparable lifts');
       window.__repforgeUi.setPref('profileScope',{v:1,scope:scope.slice(0,-2),acknowledged:true});
     });
-    await view(page,"stats");await page.waitForSelector('#overviewProfile .profile-scope-rings');
+    await progressSegment(page,"profile");await page.waitForSelector('#overviewProfile .profile-scope-rings');
   },
   "workout/focus-ramp": async page=>{await rampFixture(page)},
   "workout/focus-ramp-ratio": async page=>{await rampFixture(page,{ratio:true})},
