@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { chooseRepsLeft, launchChromium, openShelfField, waitForAppBoot } from "./browser.mjs";
+import { exportedSessionTonnage } from "./fixtures/history-export.mjs";
 
 import { loadManifest } from "../tools/ui-screens/manifest.mjs";
 import { APP_SCENARIOS, appState } from "../tools/ui-screens/screens-app.mjs";
@@ -314,7 +315,6 @@ async function main() {
     await page.locator("#history [data-history-back]").click();
     const secondRead = await readSession(page, sessionTwo);
     observations.history = { first: firstRead, second: secondRead };
-    const total = read => Number(read.totals.find(item => /moved/i.test(item.label))?.value.replaceAll(",", ""));
     // Owner rule (History hill-climb, 2026-11): the session page never shows a weight total. Physical per-side
     // tonnage is still derived, and P069-S2-CSV below proves it in the export.
     const noWeightTotal = read => read.totals.length > 0 && read.totals.every(item => !/moved|kg|lb/i.test(`${item.label} ${item.value}`));
@@ -511,9 +511,14 @@ async function main() {
     const boundarySaved = await replicas(page);
     await page.locator('nav button[data-view="history"]').click();
     await page.waitForSelector("#history.view.active", { timeout: 10000 });
+    // History's page shows no weight total, so each session's tonnage is read from the CSV export.
+    const exportedTonnage = await exportedSessionTonnage(page, [firstExplicit, ambiguousEarlier, ambiguousLatest, totalAmbiguousEarlier,
+      totalAmbiguousLatest, persistentLegacyFallback].map(row => String(row.session)));
+    const exportedTotal = row => exportedTonnage[String(row.session)];
+    observations.exportedTonnage = exportedTonnage;
     const explicitRead = await readSession(page, String(firstExplicit.session));
     observations.explicit = explicitRead;
-    check(total(explicitRead) === 720,
+    check(exportedTotal(firstExplicit) === 720,
       "an explicit unilateral per-side convention expands side repetitions despite the current bilateral slot", explicitRead.totals);
     await page.locator("#history [data-history-back]").click();
     const noCrossModePr = await readSession(page, String(secondExplicit.session));
@@ -528,7 +533,7 @@ async function main() {
       currentSlotMode: currentAmbiguousSlot.executionMode };
     const ambiguousEarlierLift = ambiguousEarlierRead.lifts.find(section => section.exerciseId === AMBIGUOUS_ID);
     const ambiguousLatestLift = ambiguousLatestRead.lifts.find(section => section.exerciseId === AMBIGUOUS_ID);
-    check(Number.isNaN(total(ambiguousEarlierRead)) && Number.isNaN(total(ambiguousLatestRead)),
+    check(exportedTotal(ambiguousEarlier) === null && exportedTotal(ambiguousLatest) === null && noWeightTotal(ambiguousEarlierRead),
       "History leaves persistent B-stance tonnage unavailable when the historical execution mode was not captured",
       { earlier: ambiguousEarlierRead.totals, latest: ambiguousLatestRead.totals });
     check(ambiguousEarlierLift?.metrics.some(metric => metric.metricId === PERSISTENT_LOAD_SIDE_ID && metric.value === "25") &&
@@ -549,7 +554,7 @@ async function main() {
     const totalAmbiguousEarlierLift = totalAmbiguousEarlierRead.lifts.find(section => section.exerciseId === TOTAL_AMBIGUOUS_ID);
     const totalAmbiguousLatestLift = totalAmbiguousLatestRead.lifts.find(section => section.exerciseId === TOTAL_AMBIGUOUS_ID);
     const persistentLegacyLift = persistentLegacyRead.lifts.find(section => section.exerciseId === AMBIGUOUS_ID);
-    check(Number.isNaN(total(totalAmbiguousEarlierRead)) && Number.isNaN(total(totalAmbiguousLatestRead)) &&
+    check(exportedTotal(totalAmbiguousEarlier) === null && exportedTotal(totalAmbiguousLatest) === null &&
       !totalAmbiguousLatestLift?.record && totalAmbiguousLatestLift?.outcome === "Not comparable",
       "History leaves explicit total-load m=1 unavailable when B-stance historical mode is unknown despite today's bilateral slot",
       { earlier: totalAmbiguousEarlierRead, latest: totalAmbiguousLatestRead, currentSlotMode: currentAmbiguousSlot.executionMode });
@@ -563,7 +568,7 @@ async function main() {
     // the press slot's mode. The D7 fallback for a row whose movement is still
     // the slot's is proven in per-side-completion-summary-browser.mjs.
     check(persistentLegacyLift?.metrics.some(metric => metric.metricId === PERSISTENT_LOAD_SIDE_ID && metric.value === "22.5") &&
-      Number.isNaN(total(persistentLegacyRead)),
+      exportedTotal(persistentLegacyFallback) === null,
       "History leaves a legacy null-mode row unknown when its movement is not the slot's", persistentLegacyRead);
     check(noWeightTotal(unambiguousLateralityRead) && unambiguousLateralityRead.lifts.some(section => section.metrics.length > 0),
       "History reads a catalog-unilateral session after its slot changes to bilateral, without a weight total (tonnage: P069-S2-CSV)",
