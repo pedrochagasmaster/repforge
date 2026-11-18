@@ -84,6 +84,7 @@ The only list of open, deferred and paused work. Order is top to bottom within e
 - Browser-test helpers: share boot, locks, seeding and common assertions without hiding test intent.
 - Render/history scans: memoize recommendations per render and picker lookups per log identity, with deterministic row-visit counts and unchanged output.
 - Fixed test sleeps: replace waits with observable state, starting with the simulation; preserve every valid assertion.
+- Summary-share capture readiness, former #790: `session/summary-share` (phone-390 dark PT) once timed out in `page.waitForFunction` after 20 s during a catalog capture and passed on retry. Keep the full scenario exception so a missed sheet open can be told apart from render or file readiness; no longer timeouts or sleeps.
 - Small correctness hardening: reachable dynamic-i18n fallbacks, usual training hour across midnight, and setup URL parsing that fails closed without widening cookie paths.
 - Vendored build tooling: refresh the build-time esbuild pin with payload and browser-equivalence evidence; no application dependencies.
 - Browser-install caching and split-language catalogs: reopen only from CI cost/time or boot complaints; EN remains the mandatory fallback.
