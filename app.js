@@ -6663,7 +6663,7 @@ function setStatsSeg(seg){
   if(seg==="review")renderReview();
   if(opensReview)captureBlockReviewViewed();
   queueMicrotask(()=>maybeShowContextualGuides([seg==="review"?"block-transition":"progress"]))}
-window.__repforgeStatsNav={setStatsSeg,setEvidenceView};
+window.__repforgeStatsNav={setStatsSeg,setEvidenceView,openStatsPage,closeStatsPage};
 // Read-only evidence seam: suites assert the model-backed values the Evidence
 // views render, without scraping DOM markup.
 window.__repforgeProgressEvidence={
@@ -14381,7 +14381,9 @@ function renderAttention(){const el=$("#attention");if(!el)return;
     const slot=currentExerciseForLiftKey(entry.item.destinationId);
     return{...entry,group,slot,rec:slot?recommendation(slot):null}}))
     .filter(row=>{const move=attentionVerdict(row.rec);return move==="up"||move==="down"});
-  el.innerHTML=`<div class="ovsec"><h3 class="ovsec__title">${esc(t("stats.overview.attention",{n:rows.length}))}</h3></div>`+
+  // An empty board is no section: the Summary never shows a count of nothing.
+  if(!rows.length){el.innerHTML="";return}
+  el.innerHTML=summaryHead(t("stats.overview.attention",{n:rows.length}))+`<div class="sumcard">`+
     (rows.length?rows.map(({ex,item,group,slot,rec})=>{
       const series=projection.series.get(item.destinationId),last=series?.latest?.value,target=rec&&rec.load!=null?rec.load:null;
       const figure=target!=null
@@ -14395,7 +14397,7 @@ function renderAttention(){const el=$("#attention");if(!el)return;
         `<span class="attnrow__fig"><span${parity}>${esc(figure)}</span><span class="chevron" aria-hidden="true"></span></span>`+
         `<span class="attnrow__verdict">${verdict}</span>`+
         `<small class="attnrow__evidence">${esc(series?strengthKindText(series):"")}</small></button>`}).join("")
-      :`<p class="ovnone">${esc(t("stats.needs_action.none"))}</p>`);
+      :"")+`</div>`;
   $$("#attention [data-action-lift]").forEach(button=>button.onclick=()=>openExerciseView(button.dataset.actionLift,"stats"))}
 
 // Completed hard sets per muscle over a rolling window (load>0, reps>0, RIR within hardRir).
@@ -15017,7 +15019,7 @@ function chartRowHtml(model,i){
   const delta=pv==null?"–":Math.abs(v-pv)<.05?"0":`${v>pv?"+":"−"}${chartNum(Math.abs(v-pv),model.metric)}`;
   return `<button type="button" class="exrow${i===model.sel?" is-sel":""}${p.block?"":" is-old"}" data-pt="${i}" aria-pressed="${i===model.sel}">`+
     `<span>${esc(shortDate(p.date))}</span><span><span class="exchart__mono">${esc(fmtLoad(p.top))} × ${esc(p.reps)}</span></span>`+
-    `<span><span class="exchart__mono">${esc(fmt(Math.round(toDisplay(p.e1rm)*10)/10))}</span></span><span class="exchart__mono exchart__soft">${esc(delta)}</span></button>`}
+    `<span><span class="exchart__mono">${esc(fmt(Math.round(toDisplay(p.e1rm)*10)/10))}</span></span><span class="exchart__mono exchart__soft${pv!=null&&v-pv>=.05?" is-up":""}">${esc(delta)}</span></button>`}
 /** The chart's one statement of a per-side convention (refinement audit A6): loads, reps or both, said once under the
  *  toggles rather than after every figure, column and reading. */
 function chartPerSideHtml(model){
@@ -15047,12 +15049,12 @@ function renderExerciseChart(el,key,sessions,tmpl){
     [`${change<0?"−":"+"}${chartNum(Math.abs(change),metric)}`,t("exercise.chart.cap.change"),unitLabel()],
     [String(vals.length),t(vals.length===1?"plural.session.one":"plural.session.other")]];
   const metricLabel=`${metric==="top"?t("stats.metric.top_load"):t("stats.metric.best_e1rm")}${cue}`;
-  el.innerHTML=head+chartTogglesHtml(scope,metric)+chartPerSideHtml(model)+
+  el.innerHTML=head+chartTogglesHtml(scope,metric)+`<div class="sumcard exchart__card">`+chartPerSideHtml(model)+
     `<div class="exchart__figs">${figs.map(([v,l,unit])=>`<div><b>${esc(v)}${unit?`<small>${esc(unit)}</small>`:""}</b><span>${esc(l)}</span></div>`).join("")}</div>`+
     `<div class="exchart__plot" role="img" aria-label="${esc(t("exercise.chart.aria",{metric:metricLabel,name}))}" data-xs="${plot.xs.map(v=>v.toFixed(1)).join(",")}" data-w="${CHART_W}">${plot.svg}</div>`+
-    `<p class="exchart__readout" aria-live="polite">${chartReadout(model)}</p>`+
-    `<div class="exchart__cols"><span>${esc(t("stats.table.date"))}</span><span>${esc(t("ledger.col.top_set"))}</span><span>${esc(t("stats.table.e1rm"))}</span><span>${esc(t("exercise.chart.col.delta"))}</span></div>`+
-    model.pts.map((_,i)=>i).reverse().map(i=>chartRowHtml(model,i)).join("");
+    `<p class="exchart__readout" aria-live="polite">${chartReadout(model)}</p></div>`+
+    `<div class="sumcard exchart__ledger"><div class="exchart__cols"><span>${esc(t("stats.table.date"))}</span><span>${esc(t("ledger.col.top_set"))}</span><span>${esc(t("stats.table.e1rm"))}</span><span>${esc(t("exercise.chart.col.delta"))}</span></div>`+
+    model.pts.map((_,i)=>i).reverse().map(i=>chartRowHtml(model,i)).join("")+`</div>`;
   bindChartToggles();
   const surface=$("#exDetail .exchart__plot");
   const pick=e=>{const r=surface.getBoundingClientRect();if(!r.width)return;

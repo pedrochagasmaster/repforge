@@ -9601,7 +9601,7 @@ body.is-entry-editor #entryProgramName,
    The Summary groups the block on grouped surfaces: the block card, Strength, recent records, sets per muscle and
    the profile. Strength, Records, Volume, Review and the profile are pages pushed from it, each titled with its
    name under Back to Progress. Rows inside a group are separated by a hairline; the group itself is the surface. */
-#stats > .stats-back{display:inline-flex;align-items:center;gap:var(--space-4);margin:calc(var(--space-4) + env(safe-area-inset-top,0px) * 0) 0 0;padding:var(--space-8) 0;color:var(--control-quiet-ink)}
+#stats > .stats-back{display:inline-flex;align-items:center;gap:var(--space-4);margin:var(--space-4) 0 0;padding:var(--space-8) 0;color:var(--control-quiet-ink)}
 #stats > .stats-back .chevron{transform:rotate(180deg);color:inherit}
 #stats > .stats-back[hidden]{display:none}
 #stats:not([data-page="summary"])>.pagehead{margin-top:var(--space-4);margin-bottom:var(--space-16)}
@@ -9727,3 +9727,12 @@ body.is-entry-editor #entryProgramName,
 #stats #volumeScopeSeg > button.active,#stats #prFilterSeg > button.active{
   background:var(--segment-thumb-bg);box-shadow:var(--segment-thumb-shadow);color:var(--ink);font-weight:var(--weight-semibold);border-bottom-color:transparent;
 }
+
+/* Needs attention on the Summary: its rows on the group surface. */
+#attention .attnrow{border-bottom:0}
+#attention .sumcard > * + .attnrow{border-top:1px solid var(--rule-on-surface)}
+/* The exercise chart and its sessions on the same grouped surfaces as the Summary. */
+#exercise .exchart__card{margin-top:var(--space-12);padding-top:var(--space-12);padding-bottom:var(--space-4)}
+#exercise .exchart__ledger{margin-top:var(--space-16);padding:0;overflow:hidden}
+#exercise .exchart__ledger .exchart__cols,#exercise .exchart__ledger .exrow{padding-left:var(--space-16);padding-right:var(--space-16)}
+#exercise .exchart__soft.is-up{color:var(--positive);font-weight:var(--weight-semibold)}

@@ -1178,7 +1178,10 @@ async function openShare(page) {
 
 async function progressSegment(page, segment) {
   await view(page, "stats");
-  await page.click(`#statsSeg [data-seg="${segment}"]`);
+  // Progress opens its pages from the Summary (a section's link, or the block card's Review row).
+  const link = page.locator(`#segOverview [data-open-page="${segment}"]`).first();
+  if (await link.isVisible().catch(() => false)) await link.click();
+  else await page.evaluate((to) => window.__repforgeStatsNav.openStatsPage(to), segment);
   await sleep(page, 500);
 }
 
