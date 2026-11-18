@@ -15466,7 +15466,9 @@
         "today/profile-first",
         "today/profile",
         "today/profile-scope",
-        "today/estimate-info"
+        "today/estimate-info",
+        "install/banner",
+        "workout/invalid-draft"
       ]
     },
     {
