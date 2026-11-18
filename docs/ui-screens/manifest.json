@@ -1925,6 +1925,13 @@
       "variants": "demandingText"
     },
     {
+      "id": "empty",
+      "flow": "history",
+      "label": "History — nothing saved yet",
+      "scenario": "No session saved: one grouped note says where sessions come from; search, calendar, Every set and Export are hidden.",
+      "variants": "localized"
+    },
+    {
       "id": "minibar-rest",
       "flow": "history",
       "label": "Mini bar on History, rest running",

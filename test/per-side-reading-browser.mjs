@@ -315,8 +315,11 @@ async function main() {
     const secondRead = await readSession(page, sessionTwo);
     observations.history = { first: firstRead, second: secondRead };
     const total = read => Number(read.totals.find(item => /moved/i.test(item.label))?.value.replaceAll(",", ""));
-    check(total(firstRead) === 720 && total(secondRead) === 760,
-      "P069-S2-HISTORY shows physical per-side tonnage in both sessions (720 kg, then 760 kg)", { first: firstRead.totals, second: secondRead.totals });
+    // Owner rule (History hill-climb, 2026-11): the session page never shows a weight total. Physical per-side
+    // tonnage is still derived, and P069-S2-CSV below proves it in the export.
+    const noWeightTotal = read => read.totals.length > 0 && read.totals.every(item => !/moved|kg|lb/i.test(`${item.label} ${item.value}`));
+    check(noWeightTotal(firstRead) && noWeightTotal(secondRead),
+      "P069-S2-HISTORY summarises both per-side sessions without a weight total", { first: firstRead.totals, second: secondRead.totals });
     const pressSection = secondRead.lifts.find(section => section.exerciseId === PRESS_ID);
     check(!!pressSection?.record && /PR/.test(pressSection.record),
       "P069-S2-HISTORY labels the heavier per-side dumbbell press PR", pressSection);
@@ -562,8 +565,8 @@ async function main() {
     check(persistentLegacyLift?.metrics.some(metric => metric.metricId === PERSISTENT_LOAD_SIDE_ID && metric.value === "22.5") &&
       Number.isNaN(total(persistentLegacyRead)),
       "History leaves a legacy null-mode row unknown when its movement is not the slot's", persistentLegacyRead);
-    check(Number(unambiguousLateralityRead.totals.find(item => /moved/i.test(item.label))?.value.replaceAll(",", "")) === 320,
-      "History keeps catalog-unilateral total Weight plus per-side repetitions after its slot changes to bilateral",
+    check(noWeightTotal(unambiguousLateralityRead) && unambiguousLateralityRead.lifts.some(section => section.metrics.length > 0),
+      "History reads a catalog-unilateral session after its slot changes to bilateral, without a weight total (tonnage: P069-S2-CSV)",
       unambiguousLateralityRead);
 
     await page.locator('nav button[data-view="stats"]').click();

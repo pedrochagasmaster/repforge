@@ -663,6 +663,11 @@
       "content": "flat",
       "scenario": "The logged session list."
     },
+    "history/empty": {
+      "owner": "plan-057",
+      "content": "flat",
+      "scenario": "No session saved yet."
+    },
     "history/list-scrolled": {
       "owner": "plan-075",
       "content": "flat",
@@ -3722,9 +3727,7 @@
         "control": "secondary"
       },
       "variant": null,
-      "facets": [
-        "icon-only"
-      ],
+      "facets": [],
       "states": [
         "default",
         "hover",

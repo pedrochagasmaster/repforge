@@ -87,6 +87,10 @@
       :metric?.unit==="kg"?unitLabel():metric?.unit==="metres"?"m":metric?.unit==="seconds"?"s":String(metric?.unit||"");
     const historyMetricText=(value,metric)=>typeof metricDisplayValue==="function"
       ?metricDisplayValue(value,metric):String(value??"");
+    /** A metric value as the reader sees it: the editor's plain decimal, with the lifter's decimal separator. */
+    const historyMetricReadText=(value,metric)=>{
+      const text=historyMetricText(value,metric);
+      return/^-?\d+\.\d+$/.test(text)&&String(typeof deps.locTag==="function"?deps.locTag():"").toLowerCase().startsWith("pt")?text.replace(".",","):text};
     const isSourceMetricRow=row=>row?.metricType==="source_metrics@1"||Array.isArray(row?.metricIds)||Array.isArray(row?.metricValues);
     function historyMetricRecords(row){
       if(!isSourceMetricRow(row))return null;
@@ -112,9 +116,10 @@
       if(metric?.semantic==="loadKg")row.load=value;
       if(metric?.semantic==="reps")row.reps=value}
     function historyMetricCell(row,record){
-      const id=record.definition.id,label=historyMetricLabel(record.definition),unit=historyMetricUnit(record.definition),shown=historyMetricText(record.value,record.definition);
+      const id=record.definition.id,label=historyMetricLabel(record.definition),unit=historyMetricUnit(record.definition),shown=historyMetricReadText(record.value,record.definition);
       return`<span class="fx-col history-metric" data-history-metric-id="${esc(id)}" data-metric-value="${esc(record.value)}" data-metric-unit="${esc(record.unit||record.definition.unit||"")}" aria-label="${esc(`${label}: ${shown}${unit?` ${unit}`:""}`)}">`+
-        `<span class="history-metric__value">${esc(shown||"–")}</span><span class="history-metric__unit">${esc(unit)}</span></span>`}
+        // The unit is in the column's heading, so the cell shows only its figure; its accessible name keeps the unit.
+        `<span class="history-metric__value">${esc(shown||"–")}</span></span>`}
     function historyMetricHeader(records){
       return(records||[]).map(record=>{
         const unit=historyMetricUnit(record.definition),label=historyMetricLabel(record.definition);
@@ -123,7 +128,7 @@
       const records=historyMetricRecords(row);
       if(records===null)return"";
       return records.map(record=>{
-        const label=historyMetricLabel(record.definition),unit=historyMetricUnit(record.definition),shown=historyMetricText(record.value,record.definition);
+        const label=historyMetricLabel(record.definition),unit=historyMetricUnit(record.definition),shown=historyMetricReadText(record.value,record.definition);
         return`${label}: ${shown}${unit?` ${unit}`:""}`}).join(" · ")}
     /** The date of a set's session as the group head says it: the long weekday date, with the year when it is not this one. */
     function everySetDate(iso){
@@ -650,12 +655,7 @@ function historyOutcomeMark(group,sid){
   const parity=exerciseId?` data-parity-outcome="${esc(exerciseId)}" data-parity-session="${esc(sid)}"`:"";
   return`<span class="verdictmark${kind??" is-insufficient"}"${parity}>${esc(cmp.label)}</span>`}
 function historyReadingView(s,rows){
-  if(HDIR)return hxReading(s,rows);
   const sid=String(s.session),index=historyIndexFor(state.log);
-  const volumeRows=rows.map(row=>({row,reading:typeof deps.readLogRow==="function"?deps.readLogRow(row):row}))
-    .filter(entry=>isWork(entry.row)&&Number.isFinite(entry.reading.tonnage));
-  const volume=sum(volumeRows.map(entry=>entry.reading.tonnage));
-  const hasStrengthProjection=volumeRows.length>0;
   const prLifts=historyPrLifts(index).get(sid)||new Set();
   const groups=[],byLift=new Map();
   for(const row of rows){
@@ -673,7 +673,7 @@ function historyReadingView(s,rows){
     const showRir=metricRows?(historyHasStrengthMetrics(g.rows[0])||historyHasRir(g.rows)):true;
     const count=metricRows?records.length+(showRir?1:0):3;
     const headers=metricRows?historyMetricHeader(records)+(showRir?`<span class="fx-col">${esc(t("stats.table.rir"))}</span>`:""):
-      `<span class="fx-col">${esc(unitLabel())}</span><span class="fx-col">${esc(t("log.reps"))}</span><span class="fx-col">${esc(t("stats.table.rir"))}</span>`;
+      `<span class="fx-col">${esc(`${t("focus.metric.load_kg")} (${unitLabel()})`)}</span><span class="fx-col">${esc(t("log.reps"))}</span><span class="fx-col">${esc(t("stats.table.rir"))}</span>`;
     const firstWorking=g.rows.find(row=>!row.warmup),ramps=firstWorking?.startingLoad?.ramps||0;
     const setRows=g.rows.map(row=>{
       const cells=metricRows?(historyMetricRecords(row)||[]).map(record=>historyMetricCell(row,record)).join("")+
@@ -688,36 +688,34 @@ function historyReadingView(s,rows){
       `<span class="ledgerline__vals history-metric-grid" style="--history-metric-count:${count}">${headers}</span></div>`;
     return`<section class="histlift" data-lift="${esc(g.key)}" data-history-exercise-id="${esc(exerciseId)}"><div class="histlift__head"><h3 class="histlift__name">${esc(shownName(g.rows[0]))}</h3>`+
       `<span class="histlift__tags">${record}${historyOutcomeMark(g,sid)}</span></div>`+
-      (before?`<p class="histlift__before">${esc(before)}</p>`:"")+
       `<div class="histlift__ledger-frame"><span class="histlift__overflow" aria-hidden="true">↔</span><div class="histlift__ledger" style="--history-metric-count:${count}" tabindex="0" role="region" aria-label="${esc(shownName(g.rows[0]))}">`+
-      groupHeader+`<div class="histlift__sets">${setRows}</div></div></div></section>`}).join("");
-  // The figure in Sans with its unit once, small, as the finish screen draws it (#621).
-  const separator=new Intl.NumberFormat(historyLocale()).formatToParts(1000).find(part=>part.type==="group").value;
-  const total=(value,label,unit)=>{
-    const groups=value.split(separator);
-    const figure=groups.map((group,i)=>{
-      const last=i===groups.length-1;
-      return`<span class="histpage__total-group">${esc(group+(last?"":separator))}${last&&unit?`<small>${esc(unit)}</small>`:""}</span>`
-    }).join("<wbr>");
-    return`<div><b>${figure}</b><span>${esc(label)}</span></div>`};
-  const totals=total(historyInt(setCount),setCount===1?t("plural.set.one"):t("plural.set.other"))+
-    (hasStrengthProjection?total(historyInt(toDisplay(volume)),t("stats.cap.moved"),unitLabel())+
-      total(historyInt(prLifts.size),t("stats.metric.prs")):"");
+      groupHeader+`<div class="histlift__sets">${setRows}</div></div></div>`+
+      (before?`<p class="histlift__before">${esc(before)}</p>`:"")+`</section>`}).join("");
+  // What the session was, never how much it weighed: exercises, sets and, when there are any, records.
+  const total=(n,label,cls="")=>`<div${cls}><b>${esc(historyInt(n))}</b><span>${esc(label)}</span></div>`;
+  const totals=total(groups.length,groups.length===1?t("plural.exercise.one"):t("plural.exercise.other"))+
+    total(setCount,setCount===1?t("plural.set.one"):t("plural.set.other"))+
+    (prLifts.size?total(prLifts.size,prLifts.size===1?t("history.pr"):t("stats.metric.prs"),' class="histpage__total--record"'):"");
   return`<article class="session session--read histpage" data-reading="${esc(sid)}" data-sess="${esc(sid)}">`+
     `<div class="histpage__totals">${totals}</div>`+
     lifts+
     `<div class="histpage__actions">`+
     `<button type="button" class="session__del" data-del="${esc(sid)}">${esc(t("history.session.delete"))}</button></div></article>`}
 /** #515: the session's recorded wall-clock minutes, inside the summary's own
- *  window, as quiet metadata after the date. Unknown reads as nothing. */
-function historyDurationMeta(sid){
+ *  window. Unknown reads as nothing. */
+function historyDurationMinutes(sid){
   const seconds=state.sessionTiming?.[String(sid)]?.durationSeconds;
   const minutes=Number.isFinite(seconds)?Math.round(seconds/60):null;
-  if(!(minutes>=1&&minutes<=480))return"";
-  // Non-breaking inside "· 52 min", so a wrapping subtitle moves it as one piece.
-  return`<span aria-hidden="true"> ${esc(`· ${t("today.live.minutes",{n:minutes})}`.replace(/ /g,"\u00a0"))}</span>`+
-    `<span class="visually-hidden">, ${esc(`${minutes} ${minutes===1?t("plural.minute.one"):t("plural.minute.other")}`)}</span>`}
-/** Back, the day's name as the page title, and the date with its block week. */
+  return minutes>=1&&minutes<=480?minutes:null}
+/** The second line under the date: the block week and the duration, either of which may be unknown. */
+function historySessionMeta(week,sid){
+  const minutes=historyDurationMinutes(sid);
+  if(week==null&&minutes==null)return"";
+  const parts=[week!=null?esc(t("today.week_short",{n:week})):null,
+    // Non-breaking inside "42 min", so a wrapping line moves it as one piece.
+    minutes!=null?`<span aria-hidden="true">${esc(t("today.live.minutes",{n:minutes}).replace(/ /g,"\u00a0"))}</span><span class="visually-hidden">${esc(`${minutes} ${minutes===1?t("plural.minute.one"):t("plural.minute.other")}`)}</span>`:null].filter(Boolean);
+  return`<p class="histpage__lede histpage__meta">${parts.join(`<span aria-hidden="true"> · </span>`)}</p>`}
+/** Back, the day's name as the page title, the date, then its block week and duration. */
 function historySessionHead(record){
   const longDate=formatLongDate(String(record.date||"")),week=historyWeekOf(record.date);
   const sid=record.session;
@@ -726,8 +724,7 @@ function historySessionHead(record){
       `<button type="button" class="icon-btn" data-history-share="${esc(sid)}" aria-label="${esc(t("history.session.share"))}"><span class="icon-mask icon-mask--share" aria-hidden="true"></span></button>`:""}`+
     `<button type="button" class="text-link" data-history-edit="${esc(sid)}">${esc(t("history.session.edit"))}</button></div></div>`+
     `<h2 class="page-title histpage__title" data-history-selection-heading tabindex="-1">${esc(dayLabel(record.day))}</h2>`+
-    (HDIR==="2"?`<p class="histpage__lede">${esc(longDate)}</p>${week!=null||hxMinutes(record.session)?`<p class="histpage__lede hx-lede2">${esc([week!=null?hxL(`Week ${week}`,`Semana ${week}`):null,hxMinutes(record.session)?t("today.live.minutes",{n:hxMinutes(record.session)}):null].filter(Boolean).join(" · "))}</p>`:""}</div>`
-    :`<p class="histpage__lede">${esc(week!=null?t("history.saved_week",{date:longDate,n:week}):longDate)}${historyDurationMeta(record.session)}</p></div>`)}
+    `<p class="histpage__lede">${esc(longDate)}</p>${historySessionMeta(week,record.session)}</div>`}
 function historyDeleteView(s){
   return '<article class="session session--delete" data-deleting="'+esc(s.session)+'" role="alert">'+
     '<div class="history-delete__icon" aria-hidden="true">!</div><h3 data-history-delete-status tabindex="-1">'+esc(t("history.delete_title"))+'</h3>'+
@@ -837,173 +834,34 @@ function historyMonthHeading(index,date){
     `<span>${esc(t("history.month_summary",{sessions:historyCountText("sessions",bucket.sessions.size),sets:historyCountText("sets",bucket.sets)}))}</span></h3>`}
 
 function historyRowHtml(s,prLifts){
-  const sets=s.rows,work=sets.filter(isWork),volumeRows=work.filter(row=>!isSourceMetricRow(row)||historyHasLoadAndReps(row)),
-    vol=sum(volumeRows.map(x=>(+x.load||0)*(+x.reps||0)));
+  const work=s.rows.filter(isWork);
   const d=new Date(`${s.date}T12:00:00`),valid=!Number.isNaN(+d);
   const muscles=[...new Set(work.map(r=>String(r.primary||"").split(",")[0].trim()).filter(Boolean))].slice(0,3).map(muscleLabel);
-  const prs=prLifts.get(String(s.session))?.size||0;
-  // The card is the way in: one control per row, and it opens the session.
+  const prs=prLifts.get(String(s.session))?.size||0,minutes=historyDurationMinutes(s.session);
+  const meta=[historySetsText(s.rows.length),minutes!=null?t("today.live.minutes",{n:minutes}):null].filter(Boolean).join(" · ");
+  // The card is the way in: one control per row, and it opens the session. What it was, never how much it weighed.
   return`<article class="hist-row session" data-sess="${esc(s.session)}">`+
     `<button type="button" class="session__open" data-edit="${esc(s.session)}" aria-label="${esc(t("history.session_open_aria",{day:dayLabel(s.day)}))}">`+
     `<span class="hist-sess__d">${valid?`<small>${esc(t("weekday."+d.getDay()))}</small><b>${d.getDate()}</b>`:""}</span>`+
-    `<span class="hist-sess__m"><b>${esc(dayLabel(s.day))}</b>${muscles.length?`<small>${historyNameList(muscles)}</small>`:""}</span>`+
-    `<span class="hist-sess__n"><span>${esc(historySetsText(sets.length))}</span>`+
-    (volumeRows.length?`<span><b>${esc(historyInt(toDisplay(vol)))}</b> ${esc(unitLabel())}</span>`:"")+
-    (prs?`<span class="hist-sess__pr">${esc(historyPrText(prs))}</span>`:"")+`</span></button></article>`}
+    `<span class="hist-sess__m"><b>${esc(dayLabel(s.day))}</b>${muscles.length?`<small>${historyNameList(muscles)}</small>`:""}`+
+    `<span class="hist-sess__meta"><span>${esc(meta)}</span>`+
+    (prs?`<span class="hist-sess__pr verdictmark verdictmark--record"><span class="verdictmark__glyph" aria-hidden="true"></span>${esc(historyPrText(prs))}</span>`:"")+
+    `</span></span><span class="chevron hist-sess__chev" aria-hidden="true"></span></button></article>`}
 
-// ==== HILLCLIMB EXPLORATION (temporary): ?hdir=1|2|3 ====
-const HDIR=(()=>{try{const v=new URLSearchParams(location.search).get("hdir");if(v)document.documentElement.dataset.hdir=v;return v||""}catch{return""}})();
-const hxPt=()=>String(historyLocale()).toLowerCase().startsWith("pt");
-const hxL=(en,pt)=>hxPt()?pt:en;
-/** One set as load and reps (or its metric summary), plus its reps-in-reserve. */
-function hxSet(row){
-  let load=null,reps=null;
-  if(isSourceMetricRow(row)){
-    for(const r of historyMetricRecords(row)||[]){
-      if(r.definition.semantic==="loadKg")load=r.value;
-      if(r.definition.semantic==="reps")reps=r.value}
-    if(load==null||reps==null)return{text:historyMetricSummary(row),load:null,reps:null,rir:row.rir}}
-  else{load=+row.load;reps=row.reps}
-  return{load,reps,rir:row.rir,loadText:fmt(toDisplay(load)),unit:unitLabel(),text:`${fmt(toDisplay(load))} ${unitLabel()} × ${reps}`}}
-const hxRirText=rir=>rir==null||rir===""?"":hxL(`${fmt(rir)} left`,`${fmt(rir)} sobrando`);
-function hxGroups(rows){
-  const groups=[],by=new Map();
-  for(const row of rows){const key=liftKey(row);if(!by.has(key)){const g={key,rows:[]};by.set(key,g);groups.push(g)}by.get(key).rows.push(row)}
-  return groups}
-function hxBest(rows){
-  let best=null;
-  for(const row of rows){if(row.warmup)continue;const s=hxSet(row);if(s.load==null)continue;
-    if(!best||s.load>best.load||(s.load===best.load&&+s.reps>+best.reps))best=s}
-  return best}
-const hxMinutes=sid=>{const s=state.sessionTiming?.[String(sid)]?.durationSeconds;const m=Number.isFinite(s)?Math.round(s/60):null;return m>=1&&m<=480?m:null};
-const hxRecordMark=()=>`<span class="verdictmark verdictmark--record"><span class="verdictmark__glyph" aria-hidden="true"></span>${esc(t("history.pr"))}</span>`;
-function hxLiftTags(g,sid,prLifts){
-  const cmp=typeof deps.sessionOutcome==="function"?deps.sessionOutcome(g.rows):null;
-  return`<span class="histlift__tags${cmp?` hx-out--${esc(cmp.status)}`:""}">${prLifts.has(g.key)?hxRecordMark():""}${historyOutcomeMark(g,sid)}</span>`}
-function hxNames(rows,max=2){
-  const names=[...new Set(rows.filter(r=>!r.warmup).map(r=>shownName(r)))];
-  const shown=names.slice(0,max).join(", ");
-  return names.length>max?`${shown} ${hxL(`+${names.length-max} more`,`+${names.length-max}`)}`:shown}
-
-// ---- List rows ----
-function hxRow(s,prLifts){
-  const d=new Date(`${s.date}T12:00:00`),valid=!Number.isNaN(+d);
-  const prs=prLifts.get(String(s.session))?.size||0,mins=hxMinutes(s.session);
-  const work=s.rows.filter(isWork);
-  const muscles=[...new Set(work.map(r=>String(r.primary||"").split(",")[0].trim()).filter(Boolean))].slice(0,3).map(muscleLabel);
-  const open=`<button type="button" class="session__open" data-edit="${esc(s.session)}" aria-label="${esc(t("history.session_open_aria",{day:dayLabel(s.day)}))}">`;
-  const date=`<span class="hist-sess__d">${valid?`<small>${esc(t("weekday."+d.getDay()))}</small><b>${d.getDate()}</b>`:""}</span>`;
-  const meta=[historySetsText(s.rows.length),mins?t("today.live.minutes",{n:mins}):null].filter(Boolean).join(" · ");
-  const pr=prs?`<span class="hx-pr verdictmark verdictmark--record"><span class="verdictmark__glyph" aria-hidden="true"></span>${esc(historyPrText(prs))}</span>`:"";
-  if(HDIR==="1")return`<article class="hist-row session hx-row" data-sess="${esc(s.session)}">${open}${date}`+
-    `<span class="hx-main"><b>${esc(dayLabel(s.day))}</b><small class="hx-lifts">${esc(hxNames(s.rows))}</small>`+
-    `<span class="hx-meta"><span>${esc(meta)}</span>${pr}</span></span><span class="chevron hx-chev" aria-hidden="true"></span></button></article>`;
-  if(HDIR==="2")return`<article class="hist-row session hx-row" data-sess="${esc(s.session)}">${open}${date}`+
-    `<span class="hx-main"><b>${esc(dayLabel(s.day))}</b>${muscles.length?`<small>${historyNameList(muscles)}</small>`:""}`+
-    `<span class="hx-meta"><span>${esc(meta)}</span>${pr}</span></span><span class="chevron hx-chev" aria-hidden="true"></span></button></article>`;
-  // 3: one line, the day and its record count
-  return`<article class="hist-row session hx-row" data-sess="${esc(s.session)}">${open}${date}`+
-    `<span class="hx-main"><b>${esc(dayLabel(s.day))}</b><small>${esc(meta)}</small></span>`+
-    `<span class="hx-trail">${pr}</span><span class="chevron hx-chev" aria-hidden="true"></span></button></article>`}
-
-function hxList(index,shown){
-  const groups=historyWeekGroups({sessions:index.sessions,shown,blocks:historyBlocks(historyContext())});
-  const prLifts=historyPrLifts(index);
-  let out="",hxLastMonth="";
-  for(const group of groups){
-    if(group.kind==="archived")out+=`<h3 class="hist-block">${esc(group.name||t("untitled_program"))}</h3>`;
-    for(const week of group.weeks){
-      const ym=String(week.sessions[0]?.date||"").slice(0,7);
-      if(ym&&ym!==hxLastMonth){hxLastMonth=ym;out+=historyMonthHeading(index,week.sessions[0].date)}
-      const title=week.week!=null?t("history.week",{n:week.week,done:week.done,planned:week.planned}):t("history.week_of",{date:historyShortDate(week.monday)});
-      out+=`<section class="hx-week"><h3 class="hist-week hx-week__head">${esc(title)}</h3><div class="hx-week__rows">`+
-        week.sessions.map(s=>hxRow(s,prLifts)).join("")+`</div></section>`}}
-  return out}
-
-// ---- Frequency ----
-function hxFrequency(el,freq){
-  if(HDIR==="2")return false; // keeps the charts, in a card
-  const weeks=freq.weeks.map(w=>{
-    const n=Math.max(freq.planned,w.count),dots=Array.from({length:n},(_,i)=>`<i class="${w.reached&&i<w.count?"is-on":""}"></i>`).join("");
-    return`<span class="hx-wk${w.current?" is-now":""}${w.reached?"":" is-ahead"}"><span class="hx-dots">${dots}</span><small>${esc(t("history.freq.wk",{n:w.week}))}</small></span>`}).join("");
-  const head=`<div class="hx-block__head"><b>${esc(hxL(`Week ${freq.now} of ${freq.total}`,`Semana ${freq.now} de ${freq.total}`))}</b>`+
-    `<span>${esc(hxL(`${freq.done} of ${freq.plannedTotal} sessions`,`${freq.done} de ${freq.plannedTotal} treinos`))}</span></div>`;
-  el.innerHTML=`<h3 class="visually-hidden" id="historyFreqTitle">${esc(t("history.freq.title"))}</h3>`+
-    `<div class="hx-block" role="img" aria-label="${esc(t("history.freq.total",{done:freq.done,planned:freq.plannedTotal,n:freq.now,total:freq.total}))}">${head}<div class="hx-weeks" aria-hidden="true">${weeks}</div></div>`;
-  return true}
-
-// ---- Session page ----
-function hxReading(s,rows){
-  const sid=String(s.session),index=historyIndexFor(state.log);
-  const prLifts=historyPrLifts(index).get(sid)||new Set();
-  const groups=hxGroups(rows);
-  const work=rows.filter(r=>!r.warmup);
-  const exCount=groups.length;
-  const fallback=g=>{const before=(index.liftPred.get(`${sid}|${g.key}`)||[]);return before};
-  let lead="",lifts="";
-  if(HDIR==="1"){
-    const recs=groups.filter(g=>prLifts.has(g.key));
-    const outcomes=groups.map(g=>typeof deps.sessionOutcome==="function"?deps.sessionOutcome(g.rows):null).filter(Boolean);
-    const up=outcomes.filter(o=>o.status==="improved").length,flat=outcomes.filter(o=>o.status==="flat").length;
-    lead=`<div class="hx-sum"><span><b>${exCount}</b> ${esc(hxL(exCount===1?"exercise":"exercises",exCount===1?"exercício":"exercícios"))}</span>`+
-      `<span><b>${work.length}</b> ${esc(work.length===1?t("plural.set.one"):t("plural.set.other"))}</span>`+
-      (up?`<span><b>${up}</b> ${esc(hxL("improved",up===1?"melhorou":"melhoraram"))}</span>`:"")+`</div>`+
-      (recs.length?`<section class="hx-recs"><h3 class="hx-recs__title verdictmark--record"><span class="verdictmark__glyph" aria-hidden="true"></span>${esc(hxL(recs.length===1?"1 record":`${recs.length} records`,recs.length===1?"1 recorde":`${recs.length} recordes`))}</h3><ul>`+
-        recs.map(g=>{const b=hxBest(g.rows);return`<li><span>${esc(shownName(g.rows[0]))}</span><b>${esc(b?`${b.loadText} ${b.unit} × ${b.reps}`:"")}</b></li>`}).join("")+`</ul></section>`:"");
-    lifts=groups.map(g=>{
-      const pred=fallback(g);
-      const before=pred.length?t("history.before",{date:historyShortDate(pred[0].date),sets:historySetsLine(pred)}):"";
-      const sets=g.rows.map(r=>{const x=hxSet(r);
-        return`<li class="hx-chip${r.warmup?" is-warm":""}"><span class="hx-chip__v">${x.load==null?esc(x.text):`${esc(x.loadText)}<small>${esc(x.unit)}</small> × ${esc(x.reps)}`}</span>`+
-          `<span class="hx-chip__r">${esc(r.warmup?hxL("warm-up","aquecimento"):hxRirText(r.rir))}</span></li>`}).join("");
-      return`<section class="histlift hx-lift" data-lift="${esc(g.key)}"><div class="histlift__head"><h3 class="histlift__name">${esc(shownName(g.rows[0]))}</h3>${hxLiftTags(g,sid,prLifts)}</div>`+
-        `<ol class="hx-chips">${sets}</ol>${before?`<p class="histlift__before">${esc(before)}</p>`:""}</section>`}).join("")}
-  else if(HDIR==="2"){
-    const mins=hxMinutes(sid);
-    const tile=(n,l,cls="")=>`<div class="hx-tile${cls}"><b>${esc(n)}</b><span>${esc(l)}</span></div>`;
-    lead=`<div class="hx-card hx-tiles" style="--hx-tiles:${prLifts.size?3:2}">${tile(String(exCount),exCount===1?hxL("Exercise","Exercício"):hxL("Exercises","Exercícios"))}${tile(String(work.length),work.length===1?hxL("Set","Série"):hxL("Sets","Séries"))}${prLifts.size?tile(String(prLifts.size),prLifts.size===1?hxL("Record","Recorde"):hxL("Records","Recordes")," is-rec"):""}</div>`;
-    lifts=groups.map(g=>{
-      const pred=fallback(g);
-      const before=pred.length?t("history.before",{date:historyShortDate(pred[0].date),sets:historySetsLine(pred)}):"";
-      const head=`<div class="hx-tr hx-tr--head"><span>${esc(t("log.set"))}</span><span>${esc(hxL("Load","Carga"))} (${esc(unitLabel())})</span><span>${esc(hxL("Reps","Reps"))}</span><span>${esc(t("stats.table.rir"))}</span></div>`;
-      const body=g.rows.map(r=>{const x=hxSet(r);
-        return`<div class="hx-tr"><span class="hx-idx">${esc(r.warmup?"A":r.set)}</span>${x.load==null?`<span class="hx-span">${esc(x.text)}</span>`:`<span>${esc(x.loadText)}</span><span>${esc(x.reps)}</span>`}<span>${esc(r.rir==null?"–":fmt(r.rir))}</span></div>`}).join("");
-      return`<section class="hx-card hx-lift" data-lift="${esc(g.key)}"><div class="histlift__head"><h3 class="histlift__name">${esc(shownName(g.rows[0]))}</h3>${hxLiftTags(g,sid,prLifts)}</div>`+
-        `<div class="hx-table">${head}${body}</div>${before?`<p class="histlift__before">${esc(before)}</p>`:""}</section>`}).join("")}
-  else{
-    lead=`<div class="hx-sum"><span><b>${exCount}</b> ${esc(hxL(exCount===1?"exercise":"exercises",exCount===1?"exercício":"exercícios"))}</span><span><b>${work.length}</b> ${esc(work.length===1?t("plural.set.one"):t("plural.set.other"))}</span>`+
-      (prLifts.size?`<span class="hx-sum__rec"><b>${prLifts.size}</b> ${esc(prLifts.size===1?hxL("record","recorde"):hxL("records","recordes"))}</span>`:"")+`</div>`;
-    lifts=groups.map(g=>{
-      const pred=fallback(g).filter(r=>!r.warmup);
-      const today=g.rows;
-      const n=Math.max(today.length,pred.length);
-      const lines=Array.from({length:n},(_,i)=>{
-        const a=today[i],b=pred[i];
-        const ax=a?hxSet(a):null,bx=b?hxSet(b):null;
-        const cell=(x,cls)=>x?`<span class="${cls}">${x.load==null?esc(x.text):`${esc(x.loadText)} × ${esc(x.reps)}`}</span>`:`<span class="${cls} is-none">–</span>`;
-        const delta=ax&&bx&&ax.load!=null&&bx.load!=null?(ax.load>bx.load||(ax.load===bx.load&&+ax.reps>+bx.reps)?"up":ax.load===bx.load&&+ax.reps===+bx.reps?"same":"down"):"";
-        return`<div class="hx-cmp__row${delta?` is-${delta}`:""}"><span class="hx-idx">${esc(a?.warmup?"A":(a?.set??b?.set??i+1))}</span>${cell(ax,"hx-now")}<span class="hx-rir">${esc(a&&a.rir!=null?fmt(a.rir):"")}</span>${cell(bx,"hx-then")}</div>`}).join("");
-      const unit=unitLabel();
-      const head=`<div class="hx-cmp__row hx-cmp__head"><span></span><span>${esc(hxL(`Today · ${unit}`,`Hoje · ${unit}`))}</span><span>${esc(hxL("Left","Sobrando"))}</span><span>${esc(pred.length?historyShortDate(pred[0].date):hxL("Before","Antes"))}</span></div>`;
-      return`<section class="histlift hx-lift" data-lift="${esc(g.key)}"><div class="histlift__head"><h3 class="histlift__name">${esc(shownName(g.rows[0]))}</h3>${hxLiftTags(g,sid,prLifts)}</div>`+
-        `<div class="hx-cmp">${head}${lines}</div></section>`}).join("")}
-  return`<article class="session session--read histpage hx-page" data-reading="${esc(sid)}" data-sess="${esc(sid)}">`+lead+`<div class="hx-lifts">${lifts}</div>`+
-    `<div class="histpage__actions"><button type="button" class="session__del" data-del="${esc(sid)}">${esc(t("history.session.delete"))}</button></div></article>`}
-// ==== /HILLCLIMB EXPLORATION ====
+/** Month, then each week's sessions as one grouped list under the week's label. */
 function historyListHtml(index,shown){
-  if(HDIR)return hxList(index,shown);
   const groups=historyWeekGroups({sessions:index.sessions,shown,blocks:historyBlocks(historyContext())});
   const prLifts=historyPrLifts(index);
   let out="",lastMonth="";
-  const month=date=>{const key=String(date||"").slice(0,7);if(key===lastMonth)return"";lastMonth=key;return historyMonthHeading(index,date)};
   for(const group of groups){
     if(group.kind==="archived"){out+=`<h3 class="hist-block">${esc(group.name||t("untitled_program"))}</h3>`;lastMonth=""}
     for(const week of group.weeks){
-      out+=month(week.sessions[0].date);
-      out+=`<h3 class="hist-week">${esc(week.week!=null
+      const key=String(week.sessions[0]?.date||"").slice(0,7);
+      if(key&&key!==lastMonth){lastMonth=key;out+=historyMonthHeading(index,week.sessions[0].date)}
+      out+=`<section class="hist-weekgroup"><h3 class="hist-week">${esc(week.week!=null
         ?t("history.week",{n:week.week,done:week.done,planned:week.planned})
-        :t("history.week_of",{date:historyShortDate(week.monday)}))}</h3>`;
-      for(const s of week.sessions)out+=month(s.date)+historyRowHtml(s,prLifts)}}
+        :t("history.week_of",{date:historyShortDate(week.monday)}))}</h3><div class="hist-group">`+
+        week.sessions.map(s=>historyRowHtml(s,prLifts)).join("")+`</div></section>`}}
   return out}
 
 // ---- Frequency counts: two small tallies above the list ----
@@ -1015,10 +873,8 @@ function renderHistoryFrequency(index){
   const el=$("#historyFreq");if(!el)return;
   const ctx=historyContext();
   const freq=historyFrequency({sessions:index.sessions,started:ctx.started,weeks:ctx.weeks,planned:ctx.planned,today:ctx.today});
-  if(!freq||(HDIR&&!index.sessions?.length)){el.classList.add("hidden");el.innerHTML="";return}
+  if(!freq||!index.sessions?.length){el.classList.add("hidden");el.innerHTML="";return}
   el.classList.remove("hidden");
-  if(HDIR&&hxFrequency(el,freq))return;
-  if(HDIR==="2")queueMicrotask(()=>{if(!el.querySelector(".hx-plan"))el.insertAdjacentHTML("beforeend",`<p class="hx-plan" aria-hidden="true"><i></i>${esc(hxL(`${freq.planned} sessions planned a week`,`${freq.planned} sessões planejadas por semana`))}</p>`)});
   // Many weeks leave no room for every label, so a long block names every fourth.
   const thin=freq.total>16;
   const weekBars=freq.weeks.map(w=>historyFreqBar({
@@ -1034,7 +890,8 @@ function renderHistoryFrequency(index){
     `<div class="histfreq__col" aria-hidden="true"><p class="histfreq__cap">${esc(t("history.freq.per_week"))}</p>`+
     `<div class="freqcount freqcount--planned" style="--freq-plan:${plan}">${weekBars}</div></div>`+
     `<div class="histfreq__col" aria-hidden="true"><p class="histfreq__cap">${esc(t("history.freq.per_weekday"))}</p>`+
-    `<div class="freqcount">${dayBars}</div></div></div>`}
+    `<div class="freqcount">${dayBars}</div></div></div>`+
+    `<p class="histfreq__plan" aria-hidden="true"><span class="histfreq__plan-mark"></span>${esc(t("history.freq.planned",{n:freq.planned}))}</p>`}
 
 // ---- The calendar sheet ----
 function historyCalendarOpen(){const sheet=$("#historyCalSheet");return!!sheet&&!sheet.hidden}
@@ -1176,14 +1033,13 @@ function renderHistory(source=state.log){
   const sessions=searchHistoryIndex(index,q);
   syncHistorySearchChrome();
   $("#sessions").innerHTML=sessions.length?historyListHtml(index,sessions)
-    :HDIR&&!q?`<div class="hx-empty" data-hist-empty="none"><span class="icon-mask icon-mask--history hx-empty__icon" aria-hidden="true"></span><h3>${esc(hxL("No sessions yet","Nenhuma sessão ainda"))}</h3><p>${esc(hxL("Sessions you finish on Today appear here, with every set and how it compared.","As sessões que você concluir em Hoje aparecem aqui, com cada série e a comparação com a anterior."))}</p></div>`
-    :`<div class="table"><div class="empty" data-hist-empty="${q?"nomatch":"none"}">${esc(t(q?"history.empty.no_match":"history.empty.sessions"))}</div></div>`;
-  if(HDIR){tableDetails?.classList.toggle("hidden",!sessions.length&&!q);
-    if(!index.sessions.length)listControls.forEach(b=>b?.classList.add("hidden"));
-    if(HDIR==="2"&&tableDetails&&!$("#hxExportRow")){
-      tableDetails.insertAdjacentHTML("afterend",`<button type="button" class="hx-export" id="hxExportRow"><span class="icon-mask icon-mask--sheet" aria-hidden="true"></span><span>${esc(t("history.export_aria"))}</span></button>`);
-      $("#hxExportRow").onclick=()=>$("#historyExportBtn")?.click()}
-    $("#hxExportRow")?.classList.toggle("hidden",!index.sessions.length)}
+    :!q?`<div class="hist-empty" data-hist-empty="none"><span class="icon-mask icon-mask--history hist-empty__icon" aria-hidden="true"></span>`+
+      `<h3 class="hist-empty__title">${esc(t("history.empty.title"))}</h3><p class="hist-empty__body">${esc(t("history.empty.body"))}</p></div>`
+    :`<div class="table"><div class="empty" data-hist-empty="nomatch">${esc(t("history.empty.no_match"))}</div></div>`;
+  // With nothing saved there is nothing to search, page through, list set by set or export.
+  const none=!index.sessions.length;
+  [$("#historySearchBtn"),$("#historyCalBtn"),$("#historyExportBtn")].forEach(b=>b?.classList.toggle("hidden",none));
+  tableDetails?.classList.toggle("hidden",none);
   if(focusedSession){
     const next=$$("#sessions .session__open").find(btn=>btn.closest("[data-sess]")?.dataset.sess===focusedSession);
     if(next&&canTakeFocus(next)){try{next.focus({preventScroll:true})}catch{try{next.focus()}catch{}}}}

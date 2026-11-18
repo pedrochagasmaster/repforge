@@ -448,7 +448,7 @@ async function main() {
     aiVocabularyMisses.slice(0, 8).join(", ")
   );
 
-  const todayTabKeys = ["history.empty.sessions", "exercise.session_history.lede"];
+  const todayTabKeys = ["history.empty.body", "exercise.session_history.lede"];
   for (const [lang, dict] of Object.entries({ en, pt })) {
     const staleTabNames = todayTabKeys.filter((key) => !dict[key].includes(dict["nav.log"]));
     assert(
