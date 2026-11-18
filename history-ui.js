@@ -726,7 +726,8 @@ function historySessionHead(record){
       `<button type="button" class="icon-btn" data-history-share="${esc(sid)}" aria-label="${esc(t("history.session.share"))}"><span class="icon-mask icon-mask--share" aria-hidden="true"></span></button>`:""}`+
     `<button type="button" class="text-link" data-history-edit="${esc(sid)}">${esc(t("history.session.edit"))}</button></div></div>`+
     `<h2 class="page-title histpage__title" data-history-selection-heading tabindex="-1">${esc(dayLabel(record.day))}</h2>`+
-    `<p class="histpage__lede">${esc(week!=null?t("history.saved_week",{date:longDate,n:week}):longDate)}${historyDurationMeta(record.session)}</p></div>`}
+    (HDIR==="2"?`<p class="histpage__lede">${esc(longDate)}</p>${week!=null||hxMinutes(record.session)?`<p class="histpage__lede hx-lede2">${esc([week!=null?hxL(`Week ${week}`,`Semana ${week}`):null,hxMinutes(record.session)?t("today.live.minutes",{n:hxMinutes(record.session)}):null].filter(Boolean).join(" · "))}</p>`:""}</div>`
+    :`<p class="histpage__lede">${esc(week!=null?t("history.saved_week",{date:longDate,n:week}):longDate)}${historyDurationMeta(record.session)}</p></div>`)}
 function historyDeleteView(s){
   return '<article class="session session--delete" data-deleting="'+esc(s.session)+'" role="alert">'+
     '<div class="history-delete__icon" aria-hidden="true">!</div><h3 data-history-delete-status tabindex="-1">'+esc(t("history.delete_title"))+'</h3>'+
@@ -964,7 +965,7 @@ function hxReading(s,rows){
     lifts=groups.map(g=>{
       const pred=fallback(g);
       const before=pred.length?t("history.before",{date:historyShortDate(pred[0].date),sets:historySetsLine(pred)}):"";
-      const head=`<div class="hx-tr hx-tr--head"><span>${esc(t("log.set"))}</span><span>${esc(hxL("Load","Carga"))} (${esc(unitLabel())})</span><span>${esc(hxL("Reps","Reps"))}</span><span>${esc(hxL("Reps left","Sobrando"))}</span></div>`;
+      const head=`<div class="hx-tr hx-tr--head"><span>${esc(t("log.set"))}</span><span>${esc(hxL("Load","Carga"))} (${esc(unitLabel())})</span><span>${esc(hxL("Reps","Reps"))}</span><span>${esc(t("stats.table.rir"))}</span></div>`;
       const body=g.rows.map(r=>{const x=hxSet(r);
         return`<div class="hx-tr"><span class="hx-idx">${esc(r.warmup?"A":r.set)}</span>${x.load==null?`<span class="hx-span">${esc(x.text)}</span>`:`<span>${esc(x.loadText)}</span><span>${esc(x.reps)}</span>`}<span>${esc(r.rir==null?"–":fmt(r.rir))}</span></div>`}).join("");
       return`<section class="hx-card hx-lift" data-lift="${esc(g.key)}"><div class="histlift__head"><h3 class="histlift__name">${esc(shownName(g.rows[0]))}</h3>${hxLiftTags(g,sid,prLifts)}</div>`+
@@ -1017,6 +1018,7 @@ function renderHistoryFrequency(index){
   if(!freq||(HDIR&&!index.sessions?.length)){el.classList.add("hidden");el.innerHTML="";return}
   el.classList.remove("hidden");
   if(HDIR&&hxFrequency(el,freq))return;
+  if(HDIR==="2")queueMicrotask(()=>{const cap=el.querySelector(".histfreq__cap");if(cap&&!cap.querySelector(".hx-plan"))cap.insertAdjacentHTML("beforeend",`<span class="hx-plan"><i aria-hidden="true"></i>${esc(hxL(`${freq.planned} planned`,`${freq.planned} planejados`))}</span>`)});
   // Many weeks leave no room for every label, so a long block names every fourth.
   const thin=freq.total>16;
   const weekBars=freq.weeks.map(w=>historyFreqBar({
