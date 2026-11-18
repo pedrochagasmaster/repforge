@@ -336,7 +336,8 @@ async function tapAt(page, selector) {
   const seg = () => page.evaluate(() => document.querySelector("#stats")?.dataset.page);
   const before = await seg();
   await tapAt(page, "#statsTitle");
-  await tapAt(page, '#segOverview [data-open-page="strength"]');
+  // A Summary link where the fixture has one (a fresh install may have none), else the Summary itself.
+  await tapAt(page, await page.locator("#segOverview [data-open-page]").count() ? "#segOverview [data-open-page]" : "#segOverview");
   await page.keyboard.press("Enter");
   await page.keyboard.press("Space");
   await settle(page);
