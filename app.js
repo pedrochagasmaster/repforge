@@ -14318,7 +14318,7 @@ const prDateText=d=>{const p=String(d||"").split("-");return p.length===3?`${t("
 function recordRowBody(group,withDate){
   const ev=group[0];
   const kinds=group.map((item,i)=>{const d=prDeltaText(item);
-    return `<span class="recrow__rec pr-kind--${item.kind}"${i?"":` data-first="true"`}>`+(d?`<b class="recrow__gain">${esc(d)}</b> `:"")+
+    return `<span class="recrow__rec" data-kind="${item.kind}"${i?"":` data-first="true"`}>`+(d?`<b class="recrow__gain">${esc(d)}</b> `:"")+
       `<span class="recrow__kind">${esc(prKindLabel(item.kind))}</span></span>`}).join(`<span class="recrow__sep" aria-hidden="true"> · </span>`);
   return `<span class="recrow__body"><span class="recrow__l1"><b class="recrow__name">${esc(liftDisplayName(ev.exerciseName,ev.liftKey))}</b>`+
     `<span class="recrow__set">${esc(`${fmtLoad(ev.load)} ${unitLabel()} × ${ev.reps}`)}</span></span>`+
@@ -15049,10 +15049,10 @@ function renderExerciseChart(el,key,sessions,tmpl){
     [`${change<0?"−":"+"}${chartNum(Math.abs(change),metric)}`,t("exercise.chart.cap.change"),unitLabel()],
     [String(vals.length),t(vals.length===1?"plural.session.one":"plural.session.other")]];
   const metricLabel=`${metric==="top"?t("stats.metric.top_load"):t("stats.metric.best_e1rm")}${cue}`;
-  el.innerHTML=head+chartTogglesHtml(scope,metric)+`<div class="sumcard exchart__card">`+chartPerSideHtml(model)+
+  el.innerHTML=head+chartTogglesHtml(scope,metric)+`<div class="sumcard exchart__card">`+
     `<div class="exchart__figs">${figs.map(([v,l,unit])=>`<div><b>${esc(v)}${unit?`<small>${esc(unit)}</small>`:""}</b><span>${esc(l)}</span></div>`).join("")}</div>`+
     `<div class="exchart__plot" role="img" aria-label="${esc(t("exercise.chart.aria",{metric:metricLabel,name}))}" data-xs="${plot.xs.map(v=>v.toFixed(1)).join(",")}" data-w="${CHART_W}">${plot.svg}</div>`+
-    `<p class="exchart__readout" aria-live="polite">${chartReadout(model)}</p></div>`+
+    `<p class="exchart__readout" aria-live="polite">${chartReadout(model)}</p>${chartPerSideHtml(model)}</div>`+
     `<div class="sumcard exchart__ledger"><div class="exchart__cols"><span>${esc(t("stats.table.date"))}</span><span>${esc(t("ledger.col.top_set"))}</span><span>${esc(t("stats.table.e1rm"))}</span><span>${esc(t("exercise.chart.col.delta"))}</span></div>`+
     model.pts.map((_,i)=>i).reverse().map(i=>chartRowHtml(model,i)).join("")+`</div>`;
   bindChartToggles();

@@ -9736,3 +9736,11 @@ body.is-entry-editor #entryProgramName,
 #exercise .exchart__ledger{margin-top:var(--space-16);padding:0;overflow:hidden}
 #exercise .exchart__ledger .exchart__cols,#exercise .exchart__ledger .exrow{padding-left:var(--space-16);padding-right:var(--space-16)}
 #exercise .exchart__soft.is-up{color:var(--positive);font-weight:var(--weight-semibold)}
+#exercise .exchart__card .exchart__readout{font-size:var(--font-size-body-small)}
+#exercise .exchart__card .exchart__per-side{margin:var(--space-8) 0 var(--space-8);padding-top:var(--space-8);border-top:1px solid var(--rule-on-surface)}
+@media (max-width:360px){
+  .phero{padding-top:var(--space-12)}
+  .phero__stats{gap:var(--space-8);margin-top:var(--space-8)}
+  .phero__week,.phero__review{margin-top:var(--space-8)}
+  .sumhead{margin-top:var(--space-18)}
+}
