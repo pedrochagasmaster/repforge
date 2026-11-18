@@ -304,6 +304,7 @@ const D_FIXTURE_STATES = new Set([
   "workout/abandon", "workout/swap-reason", // Plan 071 §10: end-without-saving and the swap reason chips
   "history/list", "history/list-scrolled", "history/session", "history/session-share", "history/edit-dirty", "history/edit-invalid", // R3j, R3j2
   "program/overview", // R3k
+  "today/estimate-info",
   "today/done", // R3x: the finished day, on the lifter whose Monday session is in the log
   "today/deload-week", // Plan 072 S4: the deload cue in Today
   "today/draft-resume", // R3b2: the unfinished-session band, on the same lifter as Today
@@ -2154,6 +2155,11 @@ async function showShareTemplate(page, template) {
   await page.waitForFunction((name) => { const s = window.__repforgeShareSheet.state(); return s?.template === name && s.fileTemplate === name; }, template, { timeout: 20000 });
 }
 export const APP_SCENARIOS = {
+  "today/estimate-info": async page=>{
+    await view(page,"log");
+    await page.click("#todayEstimateInfo");
+    await page.waitForSelector("#todayEstimateSheet.is-open");
+  },
   "today/profile-first": page=>view(page,"log"),
   "today/profile": page=>view(page,"log"),
   "today/profile-scope": async page=>{
@@ -3162,10 +3168,8 @@ export const APP_SCENARIOS = {
     // The session page rides in on a push (N4); the frame is its resting state, and the scroll below
     // belongs to the page, not to the layer it is riding in.
     await page.waitForFunction(() => !document.body.classList.contains("is-pushing"), undefined, { timeout: 5000 });
-    // The read actions are the destructive boundary at large text. Capture the
-    // scroll-end state so the fixed navigation cannot hide Edit or Delete in
-    // the PT+200 matrix.
-    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    // The session toolbar is the reading page's navigation and action boundary.
+    await page.evaluate(() => window.scrollTo(0, 0));
     await sleep(page, 400);
   },
   // Share from a past session's page (finish-share PR 4): the same sheet, on that session's Highlight.

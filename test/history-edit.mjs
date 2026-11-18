@@ -121,6 +121,14 @@ async function main() {
   try {
     const context = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: "block" });
     const page = await context.newPage();
+    const cdp = await context.newCDPSession(page);
+    await cdp.send("DOM.enable");
+    await cdp.send("CSS.enable");
+    async function forceVisible(selector, forced = true) {
+      const { root } = await cdp.send("DOM.getDocument");
+      const { nodeId } = await cdp.send("DOM.querySelector", { nodeId: root.nodeId, selector });
+      await cdp.send("CSS.forcePseudoState", { nodeId, forcedPseudoClasses: forced ? ["focus-visible"] : [] });
+    }
     // Plan 064 R3j2: the discard question is a sheet, so a native dialog is a regression. Any that opens is
     // dismissed (keep editing) and recorded; the run asserts there were none.
     const nativeDialogs = [];
@@ -169,11 +177,37 @@ async function main() {
       await page.locator('nav button[data-view="history"]').click();
       await page.locator('#sessions [data-sess="history-edit-a"] .session__open').click();
       await page.waitForSelector('.session--read[data-reading="history-edit-a"]', { timeout: 5000 });
+      assert(await page.locator('.histpage__head [data-history-edit]').count() === 1,
+        "session Edit action is in the top bar");
+      assert(await page.locator('.histpage__head [data-history-share][aria-label]').count() === 1,
+        "session Share is a named icon in the top bar");
+      // iOS can paint :focus-visible on a scripted touch handoff; force that state in Chromium.
+      await page.locator('[data-history-edit]').dispatchEvent("pointerdown", { pointerType: "touch" });
+      await page.locator('[data-history-edit]').evaluate(el => el.focus());
+      await forceVisible("[data-history-edit]");
+      assert(await page.locator('[data-history-edit]').evaluate(el => getComputedStyle(el).outlineStyle === "none"),
+        "touch programmatic focus has no ring");
+      await page.locator('[data-history-selection-heading]').evaluate(el => el.focus());
+      await forceVisible("[data-history-selection-heading]");
+      assert(await page.locator('[data-history-selection-heading]').evaluate(el => getComputedStyle(el).outlineStyle === "none"),
+        "touch navigation title has no ring");
+      await forceVisible("[data-history-edit]", false);
+      await forceVisible("[data-history-selection-heading]", false);
+      await page.keyboard.press("Tab");
+      await page.locator('[data-history-edit]').evaluate(el => el.focus());
+      assert(await page.locator('[data-history-edit]').evaluate(el => getComputedStyle(el).outlineStyle !== "none"),
+        "keyboard programmatic focus keeps its ring");
       const columns = await page.locator('.session--read .histpage__cols .fx-col:last-child').allTextContents();
       assert(columns.length > 0 && columns.every(value => value.trim() === label),
         `#708 ${lang}: History read columns say ${label}`, JSON.stringify(columns));
       await page.locator('[data-history-edit="history-edit-a"]').click();
       await page.waitForSelector('.session--edit[data-editing="history-edit-a"]', { timeout: 5000 });
+      const textField = page.locator('.session--edit input[data-ek^="rir|"]').first();
+      await textField.click();
+      assert(await textField.evaluate(el => !el.hasAttribute("data-quiet-focus") &&
+        getComputedStyle(el).outlineStyle !== "none" &&
+        parseFloat(getComputedStyle(el).outlineWidth) > 0),
+      "tapped text field retains its editing focus style");
       const controls = await page.locator('.session--edit input[data-ek^="rir|"]').evaluateAll(inputs => inputs.map(input => ({
         label: input.getAttribute("aria-label"), type: input.type, mode: input.getAttribute("inputmode"),
       })));
@@ -197,11 +231,11 @@ async function main() {
     await page.locator('#sessions [data-sess="history-edit-a"] .session__open').click();
     await page.waitForSelector('.session--read[data-reading="history-edit-a"]', { timeout: 5000 });
     await page.waitForFunction(() => !document.body.classList.contains("is-pushing"), undefined, { timeout: 5000 });
-    // R7 J-06: Edit may be pressed with the page scrolled (a long read page); the editor opens at its top.
+    // R7 J-06: exercise the scroll reset independently of the toolbar's new top position.
     await page.setViewportSize({ width: 390, height: 420 });
-    await page.locator('[data-history-edit="history-edit-a"]').scrollIntoViewIfNeeded();
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
     const readScroll = await page.evaluate(() => Math.round(window.scrollY));
-    await page.locator('[data-history-edit="history-edit-a"]').click();
+    await page.locator('[data-history-edit="history-edit-a"]').evaluate(button => button.click());
     await page.waitForSelector('.session--edit[data-editing="history-edit-a"]', { timeout: 5000 });
     const editEntry = await page.evaluate(() => {
       const el = document.activeElement, box = el?.getBoundingClientRect();

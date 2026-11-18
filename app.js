@@ -8353,12 +8353,28 @@ function profileNextLine(profile,change){
   if(!profile.lifts.some(lift=>lift.active&&lift.depthDates.length))return t("profile.ring.first");
   const next=profileFindings().next;
   return next?.need?findingNeedText(next):t("profile.reader.growing")}
+let todayEstimateNotice=null;
+function openTodayEstimateInfo(){
+  if(!todayEstimateNotice)return;
+  const sheet=$("#todayEstimateSheet"),scrim=$("#todayEstimateScrim"),close=$("#todayEstimateClose");
+  $("#todayEstimateTitle").textContent=findingNeedText(todayEstimateNotice);
+  $("#todayEstimateBody").innerHTML=`<ul class="profile-scope-list">${todayEstimateNotice.need.lifts.map(lift=>
+    `<li><b>${esc(localizedMovementName(lift.name,lift.key))}</b><p>${esc(profileStandingReason(lift.standing))}</p></li>`).join("")}</ul>`;
+  const dismiss=()=>closeModal(sheet);
+  close.onclick=dismiss;scrim.onclick=dismiss;
+  document.body.classList.add("is-sheet-open");
+  openModal(sheet,{initialFocus:close,returnFocus:$("#todayEstimateInfo"),onEscape:dismiss,scrim,delayHide:reducedMotion()?0:280});
+  requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim.classList.add("is-open")})}
 function renderTodayProfile(){
   const button=$("#todayProfile"),need=$("#todayProfileNeed"),hasProgram=hasProgramContent();
   if(!button||!need)return;
   const profile=savedProfile(),change=observeProfileScope(profile);
   button.classList.toggle("hidden",!hasProgram);need.classList.toggle("hidden",!hasProgram);
+  todayEstimateNotice=null;
   if(!hasProgram)return;
+  const next=profileFindings().next;
+  if(!change&&profile.lifts.some(lift=>lift.active&&lift.depthDates.length)&&next?.id==="weights_found"&&next.need?.m>0){
+    todayEstimateNotice=next;need.classList.add("hidden")}
   button.innerHTML=profileRingHtml(profile.fill)+`<span>${esc(t("profile.ring.title"))}</span>`;
   button.setAttribute("aria-label",t("profile.ring.open"));button.onclick=openProfileOverview;
   need.innerHTML=change?`<button type="button" class="profile-scope-link">${esc(profileNextLine(profile,change))}</button>`:esc(profileNextLine(profile,null));
@@ -8864,8 +8880,33 @@ function trackSheetViewport(){
     const focusWo=document.body.classList.contains("is-focus-wo");
     if(!zoomed&&focusWo&&(up||was)&&(window.scrollY||window.scrollX))settle=requestAnimationFrame(()=>{
       // The frame may land after Focus has closed or a pinch has begun; only Focus at rest scale gives the scroll back.
-      if(document.body.classList.contains("is-focus-wo")&&Math.abs((vv.scale||1)-1)<=.01)window.scrollTo(0,0)})};
+      if(document.body.classList.contains("is-focus-wo")&&Math.abs((vv.scale||1)-1)<=.01)window.scrollTo(0,0)})
+    queueDock()};
+  // WebKit can leave fixed positioning on a stale layout viewport after the
+  // keyboard or a background return. Measure the rendered dock, not innerHeight.
+  const dock=document.querySelector("nav");
+  let dockFrame=0,dockOffset=0;
+  const guardDock=()=>{
+    dockFrame=0;
+    if(!dock)return;
+    if((vv.scale||1)!==1||root.dataset.keyboard==="up"||!dock.getClientRects().length){
+      dockOffset=0;dock.style.removeProperty("--dock-offset");return}
+    const bottom=parseFloat(getComputedStyle(dock).bottom);
+    if(!Number.isFinite(bottom))return;
+    // At the document origin a same-position reset can release WebKit's stale
+    // pan without changing the lifter's scroll. Leave scrolled pages alone.
+    if(vv.offsetTop>1&&!window.scrollX&&!window.scrollY&&!document.activeElement?.matches?.("input,textarea,[contenteditable=true]"))
+      window.scrollTo({left:0,top:0,behavior:"instant"});
+    const target=vv.offsetTop+vv.height-bottom;
+    const naturalBottom=dock.getBoundingClientRect().bottom-dockOffset;
+    dockOffset=Math.abs(target-naturalBottom)>1?target-naturalBottom:0;
+    if(dockOffset)dock.style.setProperty("--dock-offset",`${dockOffset}px`);
+    else dock.style.removeProperty("--dock-offset")};
+  const queueDock=()=>{if(!dockFrame)dockFrame=requestAnimationFrame(guardDock)};
+  if(dock&&window.ResizeObserver)new ResizeObserver(queueDock).observe(dock);
   vv.addEventListener("resize",apply);vv.addEventListener("scroll",apply);
+  for(const event of ["scrollend","pageshow","orientationchange","resize"])window.addEventListener(event,queueDock);
+  document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")queueDock()});
   document.addEventListener("focusin",apply);
   // Focus leaves before it lands anywhere else, so read where it went once it has.
   document.addEventListener("focusout",()=>setTimeout(apply,0));
@@ -9573,10 +9614,11 @@ function renderToday(){renderTodayProfile();const dateEl=$("#todayDate");if(date
   renderWeekCard();
   const week=weeklySnapshot();
   const mc=mesocycleWeek(),nm=state.programMeta?.name,progEl=$("#todayProgram");
-  if(progEl){if(nm||mc.current!=null||mc.isComplete){progEl.classList.remove("hidden");
+  if(progEl){if(nm||mc.current!=null||mc.isComplete||todayEstimateNotice){progEl.classList.remove("hidden");
     const segs=mc.total||6,cur=mc.current||0,weekCopy=mesocycleWeekCopy(mc);
     progEl.innerHTML=`<div class="today-prog__name">${esc(nm||t("untitled_program"))}</div>`+
       (weekCopy?`<div class="today-prog__week">${esc(weekCopy)}</div>`:"")+
+      (todayEstimateNotice?`<button type="button" id="todayEstimateInfo" class="icon-btn icon-btn--ghost" aria-haspopup="dialog" aria-label="${esc(findingNeedText(todayEstimateNotice))}"><span aria-hidden="true">ⓘ</span></button>`:"")+
       (isProgramDeloadWeek(mc)?`<div class="today-prog__deload">${esc(t("today.deload_week"))}</div>`:"")+
       `<div class="segbar" data-progress-dimension="block" data-progress-scope="active-program-week">${Array.from({length:segs},(_,i)=>`<span class="segbar__seg${i<Math.min(cur,segs)?" is-done":""}${i===Math.min(cur,segs)-1?" is-current":""}"></span>`).join("")}</div>`}
     else{progEl.classList.add("hidden");progEl.innerHTML=""}}
@@ -9636,6 +9678,7 @@ function renderToday(){renderTodayProfile();const dateEl=$("#todayDate");if(date
     lc.textContent=hasCtx?programWeekContext(nm2,mc2):t("log.context.today");
     // Kept as a hidden deep-link hook; Today shows the program strip instead.
     lc.classList.add("hidden")}
+  const estimateInfo=$("#todayEstimateInfo");if(estimateInfo)estimateInfo.onclick=event=>{event.stopPropagation();openTodayEstimateInfo()};
   // Program strip also jumps to Progress → Review (legacy #logContext affordance).
   const progClick=$("#todayProgram");if(progClick&&!progClick.classList.contains("hidden")){
     progClick.style.cursor="pointer";progClick.onclick=()=>{navTo("stats");setStatsSeg("review")}}
@@ -11281,15 +11324,22 @@ function workoutFocusKey(el){
 /* A hand-off moves focus without the lifter having moved it: after a tap, the control it lands on must not light a
    focus ring the tap never asked for (and the orange budget has no place for one). Whoever last used a key still
    gets the ring. */
-let workoutInputModality="pointer";
+let workoutInputModality="initial";
 document.addEventListener("pointerdown",()=>{workoutInputModality="pointer"},true);
 // Keys typed into a text field are entry, not navigation (the motion layer's rule): only a key outside one, or Tab, is the keyboard.
 document.addEventListener("keydown",event=>{
   if(event.key!=="Tab"&&event.target instanceof Element&&event.target.matches("textarea,input:not([type]),input:is([type=text],[type=search],[type=tel],[type=url],[type=email],[type=password],[type=number])"))return;
   workoutInputModality="keyboard";document.activeElement?.removeAttribute?.("data-quiet-focus")},true);
+function isEditableFocusTarget(el){
+  return el.matches("input,select,textarea")||el.isContentEditable}
+document.addEventListener("focusin",event=>{
+  const el=event.target;
+  if(workoutInputModality!=="pointer"||!(el instanceof HTMLElement)||isEditableFocusTarget(el)||el.hasAttribute("data-quiet-focus"))return;
+  el.setAttribute("data-quiet-focus","");
+  el.addEventListener("blur",()=>el.removeAttribute("data-quiet-focus"),{once:true})},true);
 function focusWorkoutControl(el){
   try{el.focus({preventScroll:true})}catch{return false}
-  if(workoutInputModality==="pointer"){
+  if(workoutInputModality!=="keyboard"){
     el.setAttribute("data-quiet-focus","");
     el.addEventListener("blur",()=>el.removeAttribute("data-quiet-focus"),{once:true})}
   return document.activeElement===el}

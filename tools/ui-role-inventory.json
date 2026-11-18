@@ -1442,6 +1442,11 @@
       "owner": "plan-084",
       "content": "flat",
       "scenario": "Saved-profile change in the successful-save finish/finding slot."
+    },
+    "today/estimate-info": {
+      "owner": "phone-pass-front-a",
+      "scenario": "Estimate explanation opened explicitly from Today.",
+      "content": "flat"
     }
   },
   "components": [
@@ -9711,7 +9716,8 @@
         "onboarding-start/effort-choice",
         "workout/pain-swap",
         "session/summary-share-edit",
-        "session/summary-share-line"
+        "session/summary-share-line",
+        "today/estimate-info"
       ]
     },
     {
@@ -10235,7 +10241,7 @@
     },
     {
       "id": "rest-tip-actions",
-      "selector": ".resttip__acts > button",
+      "selector": ".resttip__acts > button:not([data-maxset-guess])",
       "roles": {
         "control": "quiet-navigation"
       },
@@ -10246,13 +10252,34 @@
         "pressed",
         "focus-visible"
       ],
-      "rationale": "The tip's two answers, Not now and its offer, as quiet text buttons; neither commits training data on its own.",
+      "rationale": "The stage-tip offer and dismiss answers remain quiet text buttons.",
       "owner": "plan-077",
       "catalogStates": [
         "workout/stage-tip",
         "workout/max-set-prompt",
         "workout/max-set-recheck",
         "workout/max-set-guess"
+      ],
+      "neverDisabledReason": "A tip shows only while both answers apply."
+    },
+    {
+      "id": "test-set-invitation",
+      "selector": ".resttip__acts > button[data-maxset-guess]",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "The test-set invitation is a bordered secondary button beside the quiet dismiss.",
+      "owner": "plan-077",
+      "catalogStates": [
+        "workout/max-set-prompt",
+        "workout/max-set-recheck"
       ],
       "neverDisabledReason": "A tip shows only while both answers apply."
     },
@@ -15402,6 +15429,154 @@
         "session/profile-finish-checked",
         "session/profile-finish-agreeing"
       ]
+    },
+    {
+      "id": "history-toolbar-share",
+      "selector": "[data-history-share]",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [
+        "icon-only"
+      ],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Session toolbar action beside Back, per the owner phone pass.",
+      "owner": "phone-pass-front-b",
+      "catalogStates": [
+        "history/session",
+        "history/per-side-session",
+        "history/ramp-rows",
+        "history/metric-overflow"
+      ]
+    },
+    {
+      "id": "history-toolbar-edit",
+      "selector": "[data-history-edit]",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Session toolbar action beside Back, per the owner phone pass.",
+      "owner": "phone-pass-front-b",
+      "catalogStates": [
+        "history/session",
+        "history/per-side-session",
+        "history/ramp-rows",
+        "history/metric-overflow"
+      ]
+    },
+    {
+      "id": "today-estimate-info",
+      "selector": "#todayEstimateInfo",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [
+        "icon-only"
+      ],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Explains the existing estimate notice on explicit request.",
+      "owner": "phone-pass-front-a",
+      "catalogStates": [
+        "today/no-program",
+        "today/ready",
+        "today/dock-viewer",
+        "today/ready-scrolled",
+        "today/rest-bar",
+        "today/day-picker",
+        "today/done",
+        "today/deload-week",
+        "today/draft-resume",
+        "today/context-menu",
+        "today/skipped",
+        "today/in-progress",
+        "today/week-card",
+        "today/profile-first",
+        "today/profile",
+        "today/profile-scope",
+        "today/estimate-info",
+        "install/banner",
+        "workout/invalid-draft"
+      ]
+    },
+    {
+      "id": "today-estimate-close",
+      "selector": "#todayEstimateClose",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": "sheet-header-band",
+      "facets": [
+        "icon-only"
+      ],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Explains the existing estimate notice on explicit request.",
+      "owner": "phone-pass-front-a",
+      "catalogStates": [
+        "today/estimate-info"
+      ]
+    },
+    {
+      "id": "today-estimate-sheet",
+      "selector": "#todayEstimateSheet",
+      "roles": {
+        "elevation": "modal"
+      },
+      "variant": "bottom-sheet",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Explains the existing estimate notice on explicit request.",
+      "owner": "phone-pass-front-a",
+      "catalogStates": [
+        "today/estimate-info"
+      ]
+    },
+    {
+      "id": "today-estimate-scrim",
+      "selector": "#todayEstimateScrim",
+      "roles": {
+        "elevation": "modal"
+      },
+      "variant": "scrim",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Explains the existing estimate notice on explicit request.",
+      "owner": "phone-pass-front-a",
+      "catalogStates": [
+        "today/estimate-info"
+      ]
     }
   ],
   "contextualVariants": [
@@ -15970,18 +16145,6 @@
           "property": "font-weight",
           "value": "var(--weight-focus-cue)"
         }
-      ]
-    },
-    {
-      "selector": "#shareRail figure.sharesheet__slide",
-      "role": "share card artwork preview",
-      "rationale": "Each slide is the PNG Share will send, lifted off the sheet like a photo on a table so its own ground (dark, orange, photo, clear) reads as a picture, not as part of the sheet; it is not a control surface and nothing nests on it.",
-      "owner": "finish-share",
-      "catalogStates": [
-        "session/summary-share",
-        "session/summary-share-photo",
-        "session/summary-share-line",
-        "history/session-share"
       ]
     }
   ],
