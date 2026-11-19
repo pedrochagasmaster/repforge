@@ -93,6 +93,14 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
     assert.ok(await status.isVisible(), `the ${outcome} outcome label stays visible in its evidence row`);
     assert.ok((await status.textContent()).includes(label),
       `the ${outcome} outcome keeps its localized text distinction in the rendered row`);
+    // The word is the last session's, on its own line, never beside the block's line and change it can contradict.
+    const scoped = await row.evaluate((el, label) => ({
+      line: el.querySelector(".liftrow__l3")?.textContent.trim() || "",
+      expected: window.RepForgeI18n.t("stats.row.last_session", { outcome: label }),
+      inBlockLine: !!el.querySelector(".liftrow__l2 .evrow__out"),
+    }), label);
+    assert.equal(scoped.line, scoped.expected, `the ${outcome} outcome is scoped to the last session`);
+    assert.equal(scoped.inBlockLine, false, `the ${outcome} outcome is not on the block-change line`);
   }
 }
 
@@ -891,6 +899,50 @@ async function openExerciseCanvas(page) {
     assert.ok(m.deltaShown && m.rows > 1, `${label}: the change column is whole on screen`);
   }
   await context.close();
+}
+
+// Follow-up polish to the Summary redesign: a first-session block card keeps green for gains, its three stats stack at
+// large text so no caption breaks a word per line, and the Volume page's muscles sit on the grouped surface.
+{
+  const seen = new Set();
+  const firstSessions = log.filter((row) => row.date >= started && !seen.has(row.exerciseId) && seen.add(row.exerciseId));
+  for (const lang of ["en", "pt"]) {
+    const { context, page } = await freshPage({ lang, seededLog: firstSessions });
+    await page.waitForSelector("#progressHero .phero__n", { state: "visible" });
+    const ink = await page.evaluate(() => {
+      const n = document.querySelector("#progressHero .phero__n"), headline = document.querySelector("#progressHero .phero__headline");
+      return { n: getComputedStyle(n).color, headline: getComputedStyle(headline).color, up: n.classList.contains("is-up") };
+    });
+    assert.equal(ink.up, false, `${lang}: a block with no comparison has no gain to mark`);
+    assert.equal(ink.n, ink.headline, `${lang}: the logged-lifts count is ink, not the gain green`);
+    for (const [width, scale] of [[390, 100], [390, 200], [320, 200]]) {
+      await page.setViewportSize({ width, height: width === 320 ? 568 : 844 });
+      await page.evaluate((scale) => { document.documentElement.style.fontSize = `${scale}%`; }, scale);
+      const stats = await page.evaluate(() => [...document.querySelectorAll("#progressHero .phero__stat")].map((stat) => {
+        const cap = stat.querySelector(".phero__cap"), range = document.createRange();
+        range.selectNodeContents(cap);
+        const lines = new Set([...range.getClientRects()].map((rect) => Math.round(rect.top))).size;
+        return { top: Math.round(stat.getBoundingClientRect().top), lines, words: cap.textContent.trim().split(/\s+/).length };
+      }));
+      assert.ok(stats.length >= 2, `${lang} ${width}px ${scale}%: the block card shows its stats`);
+      const rows = new Set(stats.map((stat) => stat.top)).size;
+      if (scale === 100) assert.equal(rows, 1, `${lang} ${width}px: the stats share one row at normal text`);
+      else {
+        assert.equal(rows, stats.length, `${lang} ${width}px ${scale}%: the stats stack at large text`);
+        for (const stat of stats) assert.ok(stat.words === 1 || stat.lines < stat.words,
+          `${lang} ${width}px ${scale}%: a caption never breaks one word per line (${JSON.stringify(stat)})`);
+      }
+    }
+    await page.evaluate(() => { document.documentElement.style.fontSize = ""; });
+    await page.evaluate(() => window.__repforgeStatsNav.setEvidenceView("volume"));
+    await page.waitForSelector("#volumeDash .vrow", { state: "visible" });
+    const volume = await page.evaluate(() => ({
+      rows: document.querySelectorAll("#volumeDash .vrow").length,
+      grouped: document.querySelectorAll("#volumeDash .sumcard > .vrow").length,
+    }));
+    assert.ok(volume.rows > 0 && volume.grouped === volume.rows, `${lang}: every Volume muscle row sits on the grouped surface`);
+    await context.close();
+  }
 }
 
 assert.deepEqual(errors, [], "no page errors during evidence journeys");
