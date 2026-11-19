@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { openProgressPage } from "./browser.mjs";
 /**
  * Plan 067: Progress planned volume follows the per-cycle ProgramDefinition
  * across a recovery week.
@@ -98,7 +99,7 @@ async function main() {
     const end = Date.parse(`${source.programMeta.started}T09:00:00.000Z`) + (source.programMeta.mesocycleLengthWeeks * 7 + 1) * DAY;
     await at(page, end);
     await page.locator('nav button[data-view="stats"]').click();
-    await page.locator('#statsSeg [data-seg="review"]').click();
+    await openProgressPage(page, "review");
     await page.locator('[data-review-action="recovery-week"]').click();
     await page.locator('[data-recovery-answer="Yes"]').click();
     await page.locator("[data-preview-confirm]").waitFor({ state: "visible", timeout: 15000 });

@@ -1,3 +1,4 @@
+import { openProgressPage } from "./browser.mjs";
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { waitForAppBoot } from './browser.mjs';
@@ -140,15 +141,15 @@ export async function profileRingProofs(browser, assert, base) {
 
     state.program=lifts.slice(0,3);await commit(state);
     await page.click('[data-view="stats"]');
-    const tabsVisible=await page.locator('#statsSeg').isVisible();
+    const tabsVisible=await page.locator('#statsTitle').isVisible();
     assert(tabsVisible,'pending scope growth keeps Progress tabs reachable',await page.evaluate(()=>({active:[...document.querySelectorAll('.view.active')].map(view=>view.id),scopePage:!!document.querySelector('#overviewProfile .profile-scope-rings')})));
     if(!tabsVisible)return;
-    await page.click('#statsSeg [data-seg="strength"]');
+    await openProgressPage(page, "strength");
     assert(await page.locator('#segStrength').isVisible(),'Strength stays reachable without acknowledging scope growth');
-    await page.click('#statsSeg [data-seg="review"]');
+    await openProgressPage(page, "review");
     assert(await page.locator('#segReview').isVisible(),'Review stays reachable without acknowledging scope growth');
     assert((await page.evaluate(()=>window.__repforgeUi.loadUiPrefs().profileScope)).scope.length===2,'switching Progress tabs never acknowledges an unseen scope');
-    await page.click('#statsSeg [data-seg="overview"]');
+    await openProgressPage(page, "profile");
     assert(await page.locator('#overviewProfile .profile-scope-inline').isVisible(),'first Overview visit shows the pending before/now comparison within its panel');
     await page.click('[data-view="log"]');
     assert((await page.locator('#todayProfileNeed').innerText()).includes('1 new lift'),'Today explains actual scope growth');
@@ -156,7 +157,7 @@ export async function profileRingProofs(browser, assert, base) {
     assert(expandedFill<Number(today),'current denominator applies immediately without a drain animation');
     await page.click('#todayProfile');await page.waitForSelector('#overviewProfile .profile-scope-rings');
     await page.waitForFunction(()=>!document.body.classList.contains('is-pushing'));
-    const scopeGeometry=await page.evaluate(()=>({tabs:document.querySelector('#statsSeg').getBoundingClientRect().top,title:document.querySelector('#profileScopeTitle').getBoundingClientRect().top}));
+    const scopeGeometry=await page.evaluate(()=>({tabs:document.querySelector('#statsTitle').getBoundingClientRect().top,title:document.querySelector('#profileScopeTitle').getBoundingClientRect().top}));
     assert(scopeGeometry.tabs>=0&&scopeGeometry.title>=0,'scope opens within Overview with Progress tabs above it',scopeGeometry);
     assert(await page.locator('.profile-scope-rings svg').count()===2,'first Overview visit shows static before/now scope rings');
     assert(!await page.locator('.profile-scope-rings svg').evaluateAll(nodes=>nodes.some(n=>n.getAnimations({subtree:true}).length)),'scope rings have no backward tween');

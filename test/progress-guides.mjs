@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { openProgressPage } from "./browser.mjs";
 // Plan 056 P8 — Progress contextual guides through the Plan 054 registry.
 // Covers the anchored dialog, dismissal, targeted replay, deferred replay,
 // keyboard focus restoration, and functional navigation without the registry.
@@ -52,7 +53,7 @@ async function openProgress(page) {
   await page.waitForSelector('dialog#guideDialog[open][data-guide="progress"]', { timeout: 5000 });
   const anchor = await page.evaluate(() => {
     const dialog = document.querySelector("dialog#guideDialog");
-    const target = document.querySelector('#statsSeg [data-seg="overview"]');
+    const target = document.querySelector("#statsTitle");
     return {
       modal: dialog?.matches(":modal"),
       targetVisible: Boolean(target?.getClientRects().length),
@@ -66,7 +67,7 @@ async function openProgress(page) {
   await page.waitForFunction(() => !document.querySelector("dialog#guideDialog[open]"));
   assert.equal(await page.evaluate(() => window.__repforgeUi.guideState().progress.status), "dismissed");
 
-  await page.click('#statsSeg [data-seg="review"]');
+  await openProgressPage(page, "review");
   await page.waitForSelector('dialog#guideDialog[open][data-guide="block-transition"]', { timeout: 5000 });
   await page.click("#guideDialogOk");
   assert.equal(await page.evaluate(() => window.__repforgeUi.guideState()["block-transition"].status), "dismissed");
@@ -95,14 +96,14 @@ async function openProgress(page) {
   await openProgress(page);
   await page.waitForSelector('dialog#guideDialog[open][data-guide="progress"]', { timeout: 5000 });
   await page.click("#guideDialogOk");
-  await page.click('#statsSeg [data-seg="review"]');
+  await openProgressPage(page, "review");
   await page.waitForSelector('dialog#guideDialog[open][data-guide="block-transition"]', { timeout: 5000 });
   await page.click("#guideDialogOk");
-  await page.focus('#statsSeg [data-seg="review"]');
+  await page.focus("#statsTitle");
   await page.evaluate(() => window.__repforgeUi.replayGuide("block-transition"));
   await page.waitForFunction(() => document.activeElement?.id === "guideDialogTitle");
   await page.keyboard.press("Escape");
-  assert.equal(await page.evaluate(() => document.activeElement === document.querySelector('#statsSeg [data-seg="review"]')), true,
+  assert.equal(await page.evaluate(() => document.activeElement === document.querySelector("#statsTitle")), true,
     "Escape dismisses replay and restores focus to its invoker");
   assert.equal(await page.evaluate(() => window.__repforgeUi.guideState()["block-transition"].status), "dismissed");
   await context.close();
@@ -113,7 +114,7 @@ async function openProgress(page) {
 {
   const { context, page } = await freshPage({ guides: false });
   await openProgress(page);
-  await page.click('#statsSeg [data-seg="review"]');
+  await openProgressPage(page, "review");
   assert.equal(await page.locator("#segReview.active").count(), 1);
   assert.equal(await page.locator("#reviewPanel").count(), 1);
   assert.equal(await page.locator("dialog#guideDialog").count(), 0);

@@ -332,7 +332,9 @@ nothing to it.
 2. **The current-exercise segment.** The current segment of the Focus exercise
    bar (`#woProgress .segbar__seg.is-current`). Done segments are ink.
    Today's week track marks the current week the same way
-   (`#todayProgram .segbar__seg.is-current`, owner, 2026-11-10).
+   (`#todayProgram .segbar__seg.is-current`, owner, 2026-11-10), and so does
+   the week track in Progress's block card (`#progressHero .phero__seg.is-current`,
+   Progress hill-climb, pending owner approval).
    The exercise chart's trend line, its points (the selected one filled) and the
    marker carry the accent too (`.ch-line`, `.ex-pt`, `.ex-pt--sel`,
    `.exchart__marker`, owner hill-climb,
@@ -698,13 +700,20 @@ commits through the one existing commit path, and when an exercise is complete t
 shelf shows the completion actions in place of the fields. It replaces the dock
 during a workout and never covers a recovery banner.
 
-### Tab row (`.tabrow`)
+### Progress Summary (`.sumcard`)
 
-A hairline-underlined row of selection controls, each at least 44 by 44, in the
-`control` role at 500 weight (600 selected). Unselected tabs are
-`--color-ink-secondary`; the selected indicator is 2px in `--boundary-selected-quiet`
-and travels between tabs. The row scrolls sideways without a scrollbar. Progress is
-one tab row of five.
+Progress is one Summary page with pages pushed from it (Progress hill-climb,
+pending owner approval; it replaced Progress's row of five tabs). The Summary
+leads with the block card (how many lifts went up in load, records, sessions
+this block and this week, the week track, and the way into Review), then
+Strength, recent records, Needs attention, sets per muscle and the profile.
+Each section is a grouped surface: `--surface` at `--radius-surface` with an
+inset hairline in `--rule-on-surface`, rows separated by hairlines inside it.
+This is the one place the reading column groups on surfaces; it answers "the
+Summary groups sections", and the ledger pages keep the flat rule. A section's
+link ("See all", "Details") is quiet ink with a chevron, never the accent. A
+pushed page shows Back to Progress above its large title, and a lift row draws
+its line in secondary ink with the last point green only when the block went up.
 
 ### Verdict mark (`.verdictmark`)
 
@@ -809,7 +818,8 @@ is redrawn in the set.
 These no longer exist, and a new rule does not reintroduce them: the rest timer sheet
 and its dial as the rest surface, Today's Preview action, the readiness line, Focus's
 "change since last session" delta line, the Progress overview's week bar, all-time
-tiles and volume block.
+tiles and volume block, and Progress's row of five tabs (`.tabrow`, replaced by the
+Summary and its pages).
 
 ## Motion
 

@@ -1179,8 +1179,12 @@ async function openShare(page) {
 
 async function progressSegment(page, segment) {
   await view(page, "stats");
-  await page.click(`#statsSeg [data-seg="${segment}"]`);
+  // Progress opens its pages from the Summary (a section's link, or the block card's Review row).
+  const link = page.locator(`#segOverview [data-open-page="${segment}"]`).first();
+  if (await link.isVisible().catch(() => false)) await link.click();
+  else await page.evaluate((to) => window.__repforgeStatsNav.openStatsPage(to), segment);
   await sleep(page, 500);
+  await statsBarSettled(page);
 }
 
 async function completeCompiledProgram(page, { days = 4, minutes = 90, edits = [] } = {}) {
@@ -1282,7 +1286,9 @@ async function openSiblingPreview(page, kind) {
   else await page.click('[data-diag-days="3"]');
   await page.click("[data-diag-continue]");
   await page.waitForSelector("[data-preview-confirm]", { timeout: 20000 });
-  await sleep(page, 400);
+  // The state's subject is the proposed plan and its confirm: end with the confirm in view above the dock.
+  await page.evaluate(() => document.querySelector("[data-preview-confirm]")?.scrollIntoView({ block: "center" }));
+  await statsBarSettled(page);
 }
 
 async function openRecoveryPreview(page) {
@@ -1323,6 +1329,7 @@ async function openRecoveryPreview(page) {
   });
   await openCompletedReview(page);
   await page.click('[data-review-action="recovery-week"]');
+  await statsBarSettled(page);
 }
 
 async function recoveryPreview(page) {
@@ -2168,7 +2175,7 @@ export const APP_SCENARIOS = {
     await view(page,"log");
   },
   "progress/profile-reader": async page=>{
-    await view(page,"stats");
+    await progressSegment(page,"profile");
     const name=await page.evaluate(()=>{
       const lifts=window.__repforgeProgressEvidence.profile().lifts.filter(lift=>lift.active);
       return (lifts.find(lift=>lift.checks.length)||lifts[0]).name;
@@ -2182,7 +2189,9 @@ export const APP_SCENARIOS = {
       if(scope.length<3)throw new Error('scope catalog requires three comparable lifts');
       window.__repforgeUi.setPref('profileScope',{v:1,scope:scope.slice(0,-2),acknowledged:true});
     });
-    await view(page,"stats");await page.waitForSelector('#overviewProfile .profile-scope-rings');
+    await progressSegment(page,"profile");await page.waitForSelector('#overviewProfile .profile-scope-rings');
+    // The state's subject is the scope change and its Continue, so the frame ends with Continue in view above the dock.
+    await page.evaluate(()=>{const go=document.querySelector("#profileScopeContinue");if(go)go.scrollIntoView({block:"center"})});
   },
   "workout/focus-ramp": async page=>{await rampFixture(page)},
   "workout/focus-ramp-ratio": async page=>{await rampFixture(page,{ratio:true})},
@@ -2993,26 +3002,20 @@ export const APP_SCENARIOS = {
   },
 
   "progress/overview": (page) => view(page, "stats"),
-  // The profile is the subject here; the generic Overview state stays at its page title.
+  // The profile is its own Progress page, so the state opens at that page's title.
   "progress/overview-profile": async (page) => {
-    await view(page, "stats");
+    await progressSegment(page, "profile");
     await page.waitForSelector("#overviewProfile [data-finding=weights_found]");
     await page.waitForFunction(()=>document.querySelectorAll("#overviewProfile [data-finding]").length===2);
-    await page.evaluate(() => {
-      const profile=document.querySelector("#overviewProfile"),bar=document.querySelector("#statsTopbar");
-      window.scrollBy(0,profile.getBoundingClientRect().top-bar.getBoundingClientRect().bottom-16);
-    });
   },
   "progress/overview-profile-first": async page => {
-    await view(page, "stats");
+    await progressSegment(page, "profile");
     await page.waitForSelector("#overviewProfile [data-finding=first_target]");
     await page.waitForFunction(()=>document.querySelectorAll("#overviewProfile [data-finding]").length===1);
     await page.evaluate(async () => {
       await document.fonts.ready;
       await Promise.all(document.getAnimations().filter(animation=>animation.effect?.getTiming().iterations!==Infinity)
         .map(animation=>animation.finished.catch(()=>{})));
-      const profile=document.querySelector("#overviewProfile"),bar=document.querySelector("#statsTopbar");
-      window.scrollTo({top:window.scrollY+profile.getBoundingClientRect().top-bar.offsetHeight-16,behavior:"instant"});
     });
   },
   "progress/overview-guide": async (page) => { await view(page, "stats"); await replayGuide(page, "progress"); },
@@ -3074,7 +3077,7 @@ export const APP_SCENARIOS = {
   "progress/strength-sparse": async (page) => { await progressSegment(page, "strength"); const row = page.locator(`#strengthDash [data-evkey="library:${DIRECTION_D_CANONICAL_ID_BY_LEGACY_ID.sqk_mc}"]`); await row.scrollIntoViewIfNeeded(); await row.click(); },
   "progress/volume": (page) => progressSegment(page, "volume"),
   "progress/volume-block": async (page) => { await progressSegment(page, "volume"); await page.click('#volumeScopeSeg [data-vscope="block-to-date"]'); },
-  "progress/volume-drill-in": async (page) => { await progressSegment(page, "volume"); await page.locator("#volumeDash [data-volume-muscle]").first().click(); },
+  "progress/volume-drill-in": async (page) => { await progressSegment(page, "volume"); await page.locator("#volumeDash [data-volume-muscle]").first().click(); await statsBarSettled(page); },
   "progress/prs": (page) => progressSegment(page, "prs"),
   "progress/prs-drill-in": async (page) => { await progressSegment(page, "prs"); await page.locator("#prTimeline .prtl__row").first().click(); },
   "progress/review": (page) => progressSegment(page, "review"),
@@ -3115,7 +3118,9 @@ export const APP_SCENARIOS = {
   "progress/sibling-lower-frequency": (page) => openSiblingPreview(page, "fewer_days"),
   "progress/sibling-shorter-session": (page) => openSiblingPreview(page, "sessions_too_long"),
   "progress/guided-repair": async (page) => { await openCompletedReview(page);await page.click('[data-review-action="guided-edit"]');await page.click('[data-diag-days="3"]');await page.click("[data-diag-continue]");await page.waitForSelector(".review__staged",{timeout:20000});await statsBarSettled(page); },
-  "progress/volume-reduction-preview": async (page) => { await completeCompiledProgram(page);await openCompletedReview(page);await page.click('[data-review-action="reduce-volume"]');await page.click("[data-volume-confirm]");await page.waitForSelector("[data-preview-confirm]",{timeout:20000}); },
+  "progress/volume-reduction-preview": async (page) => { await completeCompiledProgram(page);await openCompletedReview(page);await page.click('[data-review-action="reduce-volume"]');await page.click("[data-volume-confirm]");await page.waitForSelector("[data-preview-confirm]",{timeout:20000});
+    // The state's subject is the preview and its confirm: end with the confirm in view above the dock.
+    await page.evaluate(()=>document.querySelector("[data-preview-confirm]")?.scrollIntoView({block:"center"}));await statsBarSettled(page); },
   "progress/recovery-ineligible": async (page) => { await openRecoveryPreview(page);await page.click('[data-recovery-answer="Not sure"]'); },
   "progress/recovery-questions": openRecoveryPreview,
   "progress/recovery-preview": recoveryPreview,

@@ -1,3 +1,4 @@
+import { openProgressPage } from "./browser.mjs";
 /** Session-zero journeys, composed into the existing finish-boundary PR command. */
 import assert from "node:assert/strict";
 import { legacyRelease } from "./fixtures/legacy-release.mjs";
@@ -508,7 +509,7 @@ try{
     }};
   });
   await anchor.page.locator("#leaveWorkout").click();
-  await anchor.page.locator('nav [data-view="stats"]').click();await anchor.page.locator('#statsSeg [data-seg="review"]').click();
+  await anchor.page.locator('nav [data-view="stats"]').click();await openProgressPage(anchor.page, "review");
   await anchor.page.locator('[data-week-review="current"]').waitFor();
   const weeks=await waitForAsyncCondition(anchor.page,async id=>{await window.__repforgeWorkoutDraft.flush();const rows=window.__rampWeekInputs.filter(item=>item.exerciseId===id);return rows.length?rows:false;},anchor.target.libraryId);
   check(weeks.some(item=>item.history.length===1)&&weeks.every(item=>item.history.every(session=>session.sets.length===1&&session.sets[0].setIndex===0&&session.sets[0].metricValues.some(value=>value.value===40))),

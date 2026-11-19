@@ -2055,8 +2055,8 @@ async function perSideOverflow(browser) {
       await visit(`progress/${seg}`, () => page.evaluate((s) => window.__repforgeStatsNav.setStatsSeg(s), seg));
     // The per-side figures: inside their rows, and named with their qualifier.
     await page.evaluate(() => window.__repforgeStatsNav.setStatsSeg("overview"));
-    const rows = await page.evaluate(() => [...document.querySelectorAll("#overviewStrength .strrow"), ...document.querySelectorAll("#strengthDash .evrow--d")]
-      .map((row) => { const fig = row.querySelector(".strrow__fig, .evrow__val"), r = row.getBoundingClientRect(), f = fig?.getBoundingClientRect();
+    const rows = await page.evaluate(() => [...document.querySelectorAll("#overviewStrength .liftrow"), ...document.querySelectorAll("#strengthDash .evrow--d")]
+      .map((row) => { const fig = row.querySelector(".liftrow__fig"), r = row.getBoundingClientRect(), f = fig?.getBoundingClientRect();
         return { text: row.textContent.replace(/\s+/g, " ").trim().slice(0, 60), inside: !f || f.right <= r.right + 0.5, perSide: !!row.querySelector(".per-side") }; }));
     const qualified = await page.getByRole("button", { name: lang === "pt" ? /por lado/i : /per side/i }).count();
     await visit("exercise view", async () => { await page.evaluate((key) => window.openExerciseView(key, "stats"), PRESS); await page.waitForSelector("#exercise.view.active"); });

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { openProgressPage } from "./browser.mjs";
 /**
  * Plan 067 block-end Review transitions through the production UI.
  *
@@ -96,7 +97,7 @@ async function finishBlock(page) {
 async function openReview(page) {
   if (await page.locator("#settings.view.active").count()) await page.locator("#settingsBack").click();
   await page.locator('nav button[data-view="stats"]').click();
-  await page.locator('#statsSeg [data-seg="review"]').click();
+  await openProgressPage(page, "review");
   await page.locator("#reviewPanel").waitFor({ state: "visible" });
 }
 

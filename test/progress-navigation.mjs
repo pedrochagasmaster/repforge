@@ -1,9 +1,7 @@
 #!/usr/bin/env node
-// Plan 056 P3 / Plan 064 R3i — Progress navigation: one tab row of five.
-// Covers the old statsSeg migration map, exclusive selection across the five
-// tabs, and the Program End block route into the single Review surface.
+// Progress Summary, pushed pages, migration routing and Program Review entry.
 import assert from "node:assert/strict";
-import { assertServingApp, launchChromium } from "./browser.mjs";
+import { assertServingApp, launchChromium, openProgressPage } from "./browser.mjs";
 import { seedProgram, seedProgramMeta, installSeedProgram } from "./fixtures/seed-program.mjs";
 
 const base = process.env.REPFORGE_URL || "http://localhost:8000/";
@@ -26,6 +24,13 @@ async function freshPage() {
     for (const key of keys) await caches.delete(key);
     localStorage.clear();
   });
+  await page.evaluate(program => {
+    const exercise = program[0];
+    localStorage.setItem("repforge_v1", JSON.stringify({ log: [{
+      id: "navigation-set", session: "navigation-session", exerciseId: exercise.id,
+      name: exercise.name, day: exercise.day, set: 1, work: true, date: new Date().toISOString().slice(0, 10), load: 40, reps: 8, rir: 2, warmup: false
+    }] }));
+  }, seedProgram());
   await installSeedProgram(page);
   await page.waitForFunction(() => window.__repforgeBooted === true, null, { timeout: 20000 });
   // The tab bar can be display:none (landing/settings states); click via DOM.
@@ -36,10 +41,9 @@ async function freshPage() {
 
 function snapOf(page) {
   return page.evaluate(() => ({
-    tabs: [...document.querySelectorAll("#statsSeg button")].map((b) => ({
-      seg: b.dataset.seg, selected: b.getAttribute("aria-selected"), active: b.classList.contains("active"),
-    })),
+    page: document.querySelector("#stats").dataset.page,
     panels: {
+      profile: document.querySelector("#segProfile")?.classList.contains("active") ?? false,
       overview: document.querySelector("#segOverview")?.classList.contains("active") ?? false,
       review: document.querySelector("#segReview")?.classList.contains("active") ?? false,
       strength: document.querySelector("#segStrength")?.classList.contains("active") ?? false,
@@ -51,62 +55,40 @@ function snapOf(page) {
   }));
 }
 
-// One-view sanity: Progress is one tab row of five, and exactly one tab is selected at a time.
+// Summary links push exclusive pages and Back restores the opening control.
 {
   const { context, page } = await freshPage();
-  const nav = await snapOf(page);
-  assert.deepEqual(nav.tabs.map((b) => b.seg), ["overview", "strength", "volume", "prs", "review"], "one row carries Overview, Strength, Volume, PRs and Review");
-  assert.equal(nav.panels.overview, true, "Overview panel is the default");
-  const roles = await page.evaluate(() => ({
-    role: document.querySelector("#statsSeg")?.getAttribute("role"),
-    label: document.querySelector("#statsSeg")?.getAttribute("aria-label"),
-    legacyGroup: !!document.querySelector("#statsEvidence"),
-    tabRow: document.querySelector("#statsSeg")?.classList.contains("tabrow"),
-  }));
-  assert.equal(roles.role, "tablist");
-  assert.ok(roles.label, "the tab row is labelled");
-  assert.equal(roles.legacyGroup, false, "no second Evidence group remains");
-  assert.equal(roles.tabRow, true, "the row is the shared tab row");
-
-  // Every tab opens its own panel and deselects the others.
-  for (const seg of ["volume", "strength", "prs", "review", "overview"]) {
-    await page.click(`#statsSeg button[data-seg="${seg}"]`);
-    const s = await snapOf(page);
-    assert.equal(s.panels[seg], true, `${seg} opens its panel`);
-    assert.deepEqual(s.tabs.filter((b) => b.selected === "true").map((b) => b.seg), [seg], `${seg} is the only selected tab`);
-    assert.deepEqual(s.tabs.filter((b) => b.active).map((b) => b.seg), [seg], `${seg} is the only active tab`);
-    assert.equal(Object.entries(s.panels).filter(([, open]) => open).length, 1, `${seg} is the only open panel`);
+  assert.equal((await snapOf(page)).page, "summary");
+  assert.equal(await page.locator("#statsBack").isVisible(), false);
+  assert.equal(await page.locator("#stats [role=tab], #stats [role=tabpanel]").count(), 0);
+  for (const destination of ["strength", "volume", "prs", "review", "profile"]) {
+    const link = page.locator(`#segOverview [data-open-page="${destination}"]`).first();
+    const linked = await link.isVisible();
+    // A program that has not started has no block Review link yet.
+    if (destination !== "review") assert.equal(linked, true, `${destination} is discoverable on Summary`);
+    await openProgressPage(page, destination);
+    const state = await snapOf(page);
+    assert.equal(state.panels[destination], true);
+    assert.equal(Object.values(state.panels).filter(Boolean).length, 1);
+    assert.equal(await page.locator("#statsBack").isVisible(), true);
+    assert.ok((await page.locator("#statsTitle").innerText()).trim());
+    assert.equal(await page.locator("#statsTitle").evaluate(el => el === document.activeElement), true);
+    await page.locator("#statsBack").click();
+    await page.waitForSelector('#stats[data-page="summary"]');
+    if (linked) assert.equal(await link.evaluate(el => el === document.activeElement), true, "Back focuses the opening link");
   }
+  await openProgressPage(page, "strength");
+  await page.goBack();
+  await page.waitForSelector('#stats[data-page="summary"]');
+  await openProgressPage(page, "volume");
+  await page.click('nav button[data-view="stats"]');
+  await page.waitForSelector('#stats[data-page="summary"]');
   await context.close();
 }
 
-// R7 J-20: the Progress row is the WAI tabs pattern (tabpanels, roving tabindex, Left/Right/Home/End). The
-// window and filter segments (Strength scope, Volume period, PR kind) and the day picker change one region and
-// have no panels of their own, so they are toggle-button groups with aria-pressed, not tabs.
+// Filter groups retain their toggle-button semantics.
 {
   const { context, page } = await freshPage();
-  const model = await page.evaluate(() => [...document.querySelectorAll("#statsSeg [role=tab]")].map((tab) => {
-    const panel = document.getElementById(tab.getAttribute("aria-controls") || "");
-    return { seg: tab.dataset.seg, id: tab.id, tabindex: tab.getAttribute("tabindex"), controls: tab.getAttribute("aria-controls"),
-      panelRole: panel?.getAttribute("role"), panelLabelledBy: panel?.getAttribute("aria-labelledby") };
-  }));
-  assert.equal(model.length, 5, "five tabs");
-  assert.ok(model.every((tab) => tab.id && tab.controls && tab.panelRole === "tabpanel" && tab.panelLabelledBy === tab.id),
-    `every tab controls a tabpanel that it labels: ${JSON.stringify(model)}`);
-  assert.deepEqual(model.map((tab) => tab.tabindex), ["0", "-1", "-1", "-1", "-1"], "roving tabindex: only the selected tab is a tab stop");
-  const state = () => page.evaluate(() => ({
-    focus: document.activeElement?.dataset?.seg || document.activeElement?.id || "",
-    selected: [...document.querySelectorAll("#statsSeg [role=tab]")].filter((b) => b.getAttribute("aria-selected") === "true").map((b) => b.dataset.seg),
-    stops: [...document.querySelectorAll("#statsSeg [role=tab]")].filter((b) => b.tabIndex === 0).map((b) => b.dataset.seg),
-  }));
-  await page.focus('#statsSeg button[data-seg="overview"]');
-  for (const [key, expected] of [["ArrowRight", "strength"], ["ArrowRight", "volume"], ["End", "review"], ["ArrowRight", "overview"],
-    ["ArrowLeft", "review"], ["Home", "overview"]]) {
-    await page.keyboard.press(key);
-    const at = await state();
-    assert.deepEqual([at.focus, at.selected, at.stops], [expected, [expected], [expected]], `${key} moves focus, selection and the tab stop to ${expected}: ${JSON.stringify(at)}`);
-    assert.equal(await page.evaluate((seg) => document.getElementById(document.querySelector(`#statsSeg [data-seg="${seg}"]`).getAttribute("aria-controls")).classList.contains("active"), expected), true, `${expected}'s panel is the open one`);
-  }
   const groups = await page.evaluate(() => ["#strengthScopeSeg", "#volumeScopeSeg", "#prFilterSeg", "#dayTabs"].map((selector) => {
     const group = document.querySelector(selector);
     return { selector, role: group?.getAttribute("role"), tabs: group?.querySelectorAll("[role=tab]").length, selectedAttr: group?.querySelectorAll("[aria-selected]").length };
@@ -114,7 +96,7 @@ function snapOf(page) {
   assert.ok(groups.every((g) => g.role === "group" && g.tabs === 0 && g.selectedAttr === 0),
     `the window, filter and day segments are groups of toggle buttons, not tablists: ${JSON.stringify(groups)}`);
   for (const [seg, group, attr] of [["strength", "#strengthScopeSeg", "scope"], ["volume", "#volumeScopeSeg", "vscope"], ["prs", "#prFilterSeg", "prf"]]) {
-    await page.click(`#statsSeg button[data-seg="${seg}"]`);
+    await openProgressPage(page, seg);
     const buttons = await page.$$(`${group} button`);
     const pressed = () => page.evaluate((g) => [...document.querySelectorAll(`${g} button`)].map((b) => b.getAttribute("aria-pressed")), group);
     assert.deepEqual((await pressed()).filter((v) => v === "true").length, 1, `${group}: exactly one button is pressed`);
@@ -136,24 +118,24 @@ function snapOf(page) {
     for (const seg of ["strength", "volume", "prs"]) {
       window.__repforgeStatsNav.setStatsSeg(seg);
       out[seg] = {
-        tabActive: [...document.querySelectorAll("#statsSeg button")].filter((b) => b.classList.contains("active")).map((b) => b.dataset.seg).join() === seg,
+        tabActive: document.querySelector("#stats").dataset.page === seg,
         panel: document.querySelector(panelId[seg])?.classList.contains("active") ?? false,
       };
     }
     window.__repforgeStatsNav.setStatsSeg("unknown-legacy-value");
     out.unknown = {
-      overviewSelected: document.querySelector('#statsSeg button[data-seg="overview"]')?.classList.contains("active"),
+      overviewSelected: (document.querySelector("#stats")?.dataset.page === "summary"),
       overviewPanel: document.querySelector("#segOverview")?.classList.contains("active"),
     };
     window.__repforgeStatsNav.setStatsSeg("review");
     out.review = {
       reviewPanel: document.querySelector("#segReview")?.classList.contains("active"),
-      reviewSelected: document.querySelector('#statsSeg button[data-seg="review"]')?.classList.contains("active"),
+      reviewSelected: (document.querySelector("#stats")?.dataset.page === "review"),
     };
     return out;
   });
   for (const seg of ["strength", "volume", "prs"]) {
-    assert.equal(mapped[seg].tabActive, true, `legacy "${seg}" selects its tab`);
+    assert.equal(mapped[seg].tabActive, true, `legacy "${seg}" opens its page`);
     assert.equal(mapped[seg].panel, true, `legacy "${seg}" shows its panel`);
   }
   assert.equal(mapped.unknown.overviewSelected, true, "unknown seg value returns to Overview");
@@ -182,11 +164,11 @@ function snapOf(page) {
   await page.waitForSelector("#stats.view.active", { timeout: 5000 });
   const routed = await snapOf(page);
   assert.equal(routed.panels.review, true, "End block opens the single Review surface");
-  assert.equal(routed.tabs.find((b) => b.seg === "review").active, true, "Review is the active tab");
+  assert.equal(routed.page, "review", "Review is the active page");
   assert.equal(routed.confirmOpen, false, "the separate end-block confirm dialog does not open");
   assert.equal(routed.dialogOpen, false, "the separate block-review dialog does not open");
-  const focusOk = await page.evaluate(() => document.activeElement === document.querySelector('#statsSeg button[data-seg="review"]'));
-  assert.equal(focusOk, true, "focus lands on the Review tab");
+  const focusOk = await page.evaluate(() => document.activeElement === document.querySelector("#statsTitle"));
+  assert.equal(focusOk, true, "focus lands on the Review heading");
   await context.close();
 }
 
@@ -197,7 +179,7 @@ function snapOf(page) {
   await page.waitForSelector("#exercise.view.active #exDetail [data-metric]", { timeout: 5000 });
   for (const selector of ['[data-metric="e1rm"]', '[data-scope="all-history"]', '[data-metric="top"]', '[data-scope="current-block"]']) {
     await page.locator(`#exDetail ${selector}`).click();
-    await page.waitForTimeout(150);
+
     const held = await page.evaluate((sel) => {
       const el = document.activeElement;
       return { matches: !!el?.matches?.(`#exDetail ${sel}`), pressed: el?.getAttribute?.("aria-pressed"), tag: el?.tagName };
@@ -210,4 +192,4 @@ function snapOf(page) {
 
 assert.deepEqual(errors, [], "no page errors during navigation journeys");
 await browser.close();
-console.log("PASS: progress navigation (one tab row, migration map, End block route)");
+console.log("PASS: progress navigation (Summary pages, migration map, End block route)");
