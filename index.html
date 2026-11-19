@@ -284,7 +284,6 @@
         <div class="pagehead__actions">
           <button type="button" class="icon-btn icon-btn--ghost" id="historySearchBtn" data-i18n-aria="history.search_aria" aria-label="Search" aria-expanded="false" aria-controls="historySearchWrap"><span class="icon-mask icon-mask--search" aria-hidden="true"></span></button>
           <button type="button" class="icon-btn icon-btn--ghost" id="historyCalBtn" data-i18n-aria="history.calendar" aria-label="Open the calendar" aria-haspopup="dialog" aria-expanded="false" aria-controls="historyCalSheet"><span class="icon-mask icon-mask--cal" aria-hidden="true"></span></button>
-          <button type="button" class="icon-btn icon-btn--ghost" id="historyExportBtn" data-i18n-aria="history.export_aria" aria-label="Export CSV"><span class="icon-mask icon-mask--sheet" aria-hidden="true"></span></button>
         </div>
       </div>
       <div id="historySearchWrap" class="hist-search hidden">
@@ -295,10 +294,13 @@
       <section id="historyFreq" class="histfreq hidden" aria-labelledby="historyFreqTitle"></section>
       <h2 id="historyRecentLabel" class="visually-hidden" tabindex="-1" data-i18n="history.sessions">Sessions</h2>
       <div id="sessions" class="sessions ph-no-capture"></div>
-      <details class="advanced">
-        <summary data-i18n="history.every_set">Every set</summary>
-        <div id="historyTable" class="table"></div>
-      </details>
+      <div class="hist-tools">
+        <details class="advanced">
+          <summary data-i18n="history.every_set">Every set</summary>
+          <div id="historyTable" class="table"></div>
+        </details>
+        <button type="button" class="hist-export" id="historyExportBtn"><span class="icon-mask icon-mask--sheet" aria-hidden="true"></span><span data-i18n="history.export_aria">Export CSV</span></button>
+      </div>
     </section>
 
     <section id="profilePage" class="view" aria-labelledby="profilePageTitle">
@@ -1604,7 +1606,7 @@ Triceps pushdown 3x12-15</pre>
   <script src="posthog-init.js"></script>
   <script src="schedule.js"></script>
   <script src="notify.js"></script>
-  <script src="i18n.js?v=764"></script>
+  <script src="i18n.js?v=765"></script>
   <script src="exercises.js?v=728"></script>
   <script src="generation-identity.js?v=459"></script>
   <script src="exercise-catalog.js?v=459"></script>
@@ -1641,7 +1643,7 @@ Triceps pushdown 3x12-15</pre>
   <script src="rest-timer.js?v=678"></script>
   <script src="durable-state.js?v=750"></script>
   <script src="progress-model.js?v=762"></script>
-  <script src="history-ui.js?v=755"></script>
+  <script src="history-ui.js?v=765"></script>
   <script src="share-cards.js?v=728"></script>
   <script src="app.js?v=767"></script>
 </body>

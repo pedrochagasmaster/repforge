@@ -20,6 +20,7 @@ import { join } from "node:path";
 import { chooseRepsLeft, answerRecommend, launchChromium, openShelfField, waitForAppBoot } from "./browser.mjs";
 import { exerciseAction } from "./fixtures/focus-workout.mjs";
 import { openInstalledEditor } from "./adaptive-build-fixture.mjs";
+import { exportedSessionTonnage } from "./fixtures/history-export.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const CATALOG = JSON.parse(readFileSync(new URL("../assets/exercise-catalog.json", import.meta.url), "utf8"));
@@ -209,25 +210,12 @@ async function readTodayMoved(page) {
     ?.querySelector(".statrow__val")?.firstChild?.textContent.trim() ?? null));
 }
 
-/** History's "moved" total for each saved session, as rendered. */
+/** Each saved session's tonnage, as History's CSV export carries it (History's page shows no weight total). */
 async function readHistoryMoved(page, sessions) {
-  await page.locator('nav button[data-view="history"]').click();
-  await page.waitForSelector("#history.view.active", { timeout: 10000 });
-  const moved = {};
-  for (const session of sessions) {
-    await page.locator(`#sessions .hist-row[data-sess="${session}"] .session__open`).click();
-    const reading = page.locator(`.session--read[data-reading="${session}"]`);
-    await reading.waitFor({ state: "visible", timeout: 10000 });
-    moved[session] = movedNumber(await reading.evaluate(root => {
-      const cell = [...root.querySelectorAll(".histpage__totals > div")]
-        .find(cell => /moved/i.test(cell.querySelector(":scope > span")?.textContent || ""));
-      return cell?.querySelector("b")?.textContent.replace(cell.querySelector("small")?.textContent || "", "").trim() ?? null;
-    }));
-    await page.locator("#history [data-history-back]").click();
-  }
+  const moved = await exportedSessionTonnage(page, sessions);
   await page.locator('nav button[data-view="log"]').click();
   await page.waitForSelector("#log.view.active", { timeout: 10000 });
-  return moved;
+  return Object.fromEntries(Object.entries(moved).map(([session, value]) => [session, value ?? NaN]));
 }
 
 const browser = await launchChromium();
@@ -296,7 +284,7 @@ try {
   check(first.moved === 1200 && second.moved === 1300,
     "#398 each completion summary's moved total includes the per-side tonnage (1200 kg, then 1300 kg)", observations.moved);
   check(historyMoved[sessions[0]] === first.moved && historyMoved[sessions[1]] === second.moved,
-    "#398 each completion summary's moved total equals History's for the same session", observations.moved);
+    "#398 each completion summary's moved total equals the session's exported tonnage", observations.moved);
   check(todayMoved === 2500,
     "#398 Today's finished-day recap moves both sessions' per-side tonnage (2,500 kg)", observations.moved);
 
@@ -340,7 +328,7 @@ try {
     thirdRows[0].mode === null && thirdRows[0].multiplier === null,
   "#410 the renegade row swapped into a slot with an explicit mode saves no mode and no multiplier", observations.unknownMultiplier);
   check(third.liftCount === 3 && third.moved === 1000 && thirdToday === 1000 && thirdHistory[String(thirdRows[0]?.session)] === 1000,
-    "#410 the substituted unknown-multiplier row adds no tonnage to the summary, Today or History (1000 kg)", observations.unknownMultiplier);
+    "#410 the substituted unknown-multiplier row adds no tonnage to the summary, Today or the export (1000 kg)", observations.unknownMultiplier);
 
   // A heavier renegade session, swapped in the same way, has nothing comparable
   // to stand on: no PR or outcome in the summary or History, no Progress point.
@@ -380,7 +368,7 @@ try {
   check(fourthRows.length === 1 && fourthRows[0].multiplier === null && !!fourthGroup && /32\.5/.test(fourthGroup.sets),
     "#410 the heavier substituted renegade set is listed with its performed values", observations.substitutedComparison);
   check(fourth.moved === 520 && fourthToday === 520 && fourthHistory[fourthSession] === 520,
-    "#410 the heavier substituted row adds no tonnage to the summary, Today or History (520 kg)", observations.substitutedComparison);
+    "#410 the heavier substituted row adds no tonnage to the summary, Today or the export (520 kg)", observations.substitutedComparison);
   check(fourthGroup?.pr === false && fourthGroup?.outcome === null && !!historyRenegade &&
     historyRenegade.record === "" && /^not comparable$/i.test(historyRenegade.outcome),
   "#410 the substituted row sets no PR in the summary or History, which reads it as not comparable", observations.substitutedComparison);
