@@ -661,12 +661,14 @@ async function main() {
         const unit = visibleUnit(metric.unit);
         const label = unit && header.endsWith(` (${unit})`) ? header.slice(0, -(` (${unit})`).length) : header;
         return cell?.id === metric.metricId && cell.value === metric.value && cell.unit === metric.unit &&
-          cell.shownValue.includes(String(metric.value)) && cell.shownUnit === unit && label.length > 0 &&
-          cell.aria.startsWith(`${label}:`);
+          // The unit is shown once, in the column heading; the cell shows its figure and names the unit to assistive tech.
+          cell.shownValue.includes(String(metric.value).replace(".", saved.local.settings.lang === "pt" ? "," : ".")) &&
+          cell.shownUnit === "" && (!unit || header.endsWith(` (${unit})`)) && (!unit || cell.aria.endsWith(` ${unit}`)) &&
+          label.length > 0 && cell.aria.startsWith(`${label}:`);
       });
       check(!!group && same(metricCells.map((cell) => cell.id), sourceMetrics),
         `${movement.name} History displays metrics in the exact source UUID order`, metricCells.map((cell) => cell.id));
-      check(headerAndCellEvidence, `${movement.name} History shows each localized label, canonical value, and visible unit`, { expected, group });
+      check(headerAndCellEvidence, `${movement.name} History shows each localized label and canonical value, with the unit in its heading`, { expected, group });
     }
     check(renderedMetrics.reduce((count, group) => count + group.cells.length, 0) === PICKED.reduce((count, movement) => count + expectedMetrics(movement).length, 0),
       "opened History sessions present all saved source-metric cells", renderedMetrics.map((group) => group.cells.map((item) => item.id)));

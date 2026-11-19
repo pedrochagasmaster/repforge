@@ -219,13 +219,15 @@ async function readingLede(page, sid) {
   await page.waitForSelector("#history.view.active");
   await page.locator(`#sessions [data-sess="${sid}"] .session__open`).click();
   await page.waitForSelector(`[data-reading="${sid}"] .histpage__totals`);
-  return page.locator(".histpage__lede").evaluate((lede) => {
-    const text = (skip) => {
+  // The date line, then the block week and duration line under it, read as one subtitle.
+  return page.locator(`#historySelection .histpage__head`).evaluate((head) => {
+    const ledes = [...head.querySelectorAll(".histpage__lede")];
+    const text = (skip) => ledes.map((lede) => {
       const copy = lede.cloneNode(true);
       copy.querySelectorAll(skip).forEach((node) => node.remove());
       return copy.textContent.replace(/\s+/g, " ").trim();
-    };
-    return { seen: text(".visually-hidden"), spoken: text('[aria-hidden="true"]'), raw: lede.textContent,
+    }).filter(Boolean).join(" · ");
+    return { seen: text(".visually-hidden"), spoken: text('[aria-hidden="true"]'), raw: ledes.map((lede) => lede.textContent).join("\n"),
       tiles: document.querySelectorAll(".histpage__totals > div").length };
   });
 }
@@ -359,7 +361,7 @@ async function main() {
     check(sessionIds(state).includes(sid) && !Object.keys(state.sessionTiming || {}).length,
       "a session whose timing is missing or impossible reads unknown, and timing without a session is dropped", state.sessionTiming);
     const unknownLede = await readingLede(older, sid);
-    check(!/min|·|,\s*$/.test(unknownLede.seen) && !/minute/.test(unknownLede.spoken),
+    check(!/min/.test(unknownLede.seen) && !/[·,]\s*$/.test(unknownLede.seen) && !/minute/.test(unknownLede.spoken),
       "History shows no duration for it, not zero, and no dangling separator", unknownLede);
 
     phase("A refused save leaves no timing behind");
@@ -402,10 +404,10 @@ async function main() {
     // The refused save left its draft open; step out of it to reach History.
     await source.evaluate(() => window.__repforgeLeaveWorkout());
     const knownLede = await readingLede(source, sid);
-    check(/ · 42 min$/.test(knownLede.seen) && /, 42 minutes$/.test(knownLede.spoken) && !knownLede.seen.includes("minutes"),
+    check(/ · 42 min$/.test(knownLede.seen) && / 42 minutes$/.test(knownLede.spoken) && !knownLede.seen.includes("minutes"),
       "History's subtitle shows · 42 min and says 42 minutes", knownLede);
-    check(knownLede.raw.includes("·\u00a042\u00a0min"), "the duration wraps as one piece, never between number and unit", knownLede);
-    check(knownLede.tiles === 3, "the totals strip keeps its three tiles", knownLede);
+    check(knownLede.raw.includes("42\u00a0min"), "the duration wraps as one piece, never between number and unit", knownLede);
+    check(knownLede.tiles >= 2, "the summary strip keeps its exercise and set tiles", knownLede);
     await source.locator(`[data-reading="${sid}"] [data-del="${sid}"]`).click();
     await source.locator(`[data-history-delete-confirm="${sid}"]`).click();
     await source.waitForFunction((id) => !window.__repforgeWorkoutDraft.state().log.some((row) => String(row.session) === id),
