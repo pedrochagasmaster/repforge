@@ -13,6 +13,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { chooseRepsLeft, answerRecommend, launchChromium, openShelfField, waitForAppBoot } from "./browser.mjs";
 import { openInstalledEditor } from "./adaptive-build-fixture.mjs";
+import { exportedSessionTonnage } from "./fixtures/history-export.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const TARGET_ID = "2ee5c6f170d880c899dcdd917b32d865"; // B-stance dumbbell Romanian deadlift
@@ -29,18 +30,10 @@ function check(ok, label, detail) {
   }
 }
 
+/** The session's tonnage as History's CSV export carries it (History's page shows no weight total). */
 async function readHistorySession(page, sessionId) {
-  await page.locator('nav button[data-view="history"]').click();
-  await page.waitForSelector("#history.view.active", { timeout: 10000 });
-  await page.locator(`#sessions .hist-row[data-sess="${sessionId}"] .session__open`).click();
-  const reading = page.locator(`.session--read[data-reading="${sessionId}"]`);
-  await reading.waitFor({ state: "visible", timeout: 10000 });
-  const totals = await reading.evaluate(root => [...root.querySelectorAll(".histpage__totals > div")].map(cell => ({
-    value: cell.querySelector("b")?.textContent.replace(cell.querySelector("small")?.textContent || "", "").trim() || "",
-    label: cell.querySelector(":scope > span")?.textContent.trim() || "",
-  })));
-  await page.locator("#history [data-history-back]").click();
-  return { totals, moved: Number(totals.find(item => /moved/i.test(item.label))?.value.replaceAll(",", "")) };
+  const moved = await exportedSessionTonnage(page, [sessionId]);
+  return { moved: moved[String(sessionId)] ?? NaN };
 }
 
 function nextRecommendation(page, rowId) {
@@ -174,7 +167,7 @@ try {
   // 25 kg per side × 2 sides held × (8 reps per side × 2 sides) = 800 kg.
   const historyBefore = await readHistorySession(page, saved?.session);
   observations.historyBefore = historyBefore;
-  check(historyBefore.moved === 800, "History counts the captured unilateral row's tonnage (800 kg)", historyBefore);
+  check(historyBefore.moved === 800, "The export counts the captured unilateral row's tonnage (800 kg)", historyBefore);
 
   // The slot's mode changes later; the old row keeps its own captured mode.
   const editorRow = await openInstalledEditor(page, TARGET_NAME);
@@ -200,7 +193,7 @@ try {
   const historyAfter = await readHistorySession(page, saved?.session);
   observations.historyAfter = historyAfter;
   check(historyAfter.moved === 800,
-    "History still reads the old row as one side at a time after the slot changes (800 kg, not 400 kg)", historyAfter);
+    "The export still reads the old row as one side at a time after the slot changes (800 kg, not 400 kg)", historyAfter);
   check(pageErrors.length === 0, "the production journey has no page errors", pageErrors);
 } catch (error) {
   failures.push(String(error?.stack || error));

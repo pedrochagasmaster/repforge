@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 288 screens,
-1767 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 289 screens,
+1770 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -324,6 +324,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | Screen | Frames | What it shows |
 | --- | --- | --- |
 | [History](screens/history/list__phone-390-light-en.png) | 8 | The logged session list. |
+| [History — nothing saved yet](screens/history/empty__phone-390-light-en.png) | 3 | No session saved: one grouped note says where sessions come from; search, calendar, Every set and Export are hidden. |
 | [Mini bar on History, rest running](screens/history/minibar-rest__phone-390-light-en.png) | 3 | A rest running while a session is open: the bar is the rest timer, Rest 1:24 with the next set, +30s and Resume, and no separate rest pill. |
 | [History — list, scrolled](screens/history/list-scrolled__phone-390-light-en.png) | 3 | Plan 075 phase 3: the same session list, scrolled past the large title, so the scroll-edge bar's material and its mirrored inline title are showing. |
 | [History — expanded session](screens/history/session__phone-390-light-en.png) | 12 | One session expanded in place. |

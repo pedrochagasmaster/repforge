@@ -501,6 +501,12 @@ export function appState(key, lang) {
   if (key === "today/no-program" || key === "program/no-program") {
     return emptyEntryState(lang);
   }
+  if (key === "history/empty") {
+    // The lifter's program and block are in place, but nothing has been saved yet.
+    const drawn = localeState(directionDState(), lang);
+    drawn.log = [];
+    return drawn;
+  }
   if (key === "history/metric-overflow") {
     const drawn=directionDState(),exercise=drawn.program.find(row=>isWeightRepsSlot(definitionSlot(drawn.programMeta,row)));
     drawn.log=[metricLogRow(drawn.programMeta,exercise,{session:"history-metric-overflow",date:CAPTURE_NOW.slice(0,10),set:1,load:999.5,reps:999999999,rir:2})];
@@ -3128,6 +3134,10 @@ export const APP_SCENARIOS = {
   "progress/recovery-reassessment": async (page) => { await confirmRecovery(page);await page.evaluate(async()=>{const state=window.__repforgeWorkoutDraft.state();const date=new Date(`${state.programMeta.started}T12:00:00`);date.setDate(date.getDate()-8);state.programMeta.started=date.toISOString().slice(0,10);await window.__repforgeCommitProposedState(state);await window.__repforgeStorage.flush();});await page.reload({waitUntil:"domcontentloaded"});await page.waitForFunction(()=>window.__repforgeBooted===true,undefined,{timeout:20000});await progressSegment(page,"review"); },
 
   "history/list": (page) => view(page, "history"),
+  "history/empty": async (page) => {
+    await view(page, "history");
+    await page.waitForSelector('#sessions [data-hist-empty="none"]', { timeout: 20000 });
+  },
   // Plan 075 phase 3 (ADR 0023): the scroll-edge bar once History's own large
   // title has scrolled under it, scrolled all the way down from the list.
   "history/list-scrolled": async (page) => {
