@@ -335,7 +335,9 @@ try {
       rows: rows.map((row) => row.dataset.lrow || `done ${row.dataset.editn}`),
       more: more && { text: more.textContent.trim(), expanded: more.getAttribute("aria-expanded"), controls: more.getAttribute("aria-controls"),
         controlsLedger: !!more.getAttribute("aria-controls") && !!document.getElementById(more.getAttribute("aria-controls"))?.closest(".fcard__ledger") },
-      openWhole: !!open && open.top >= box.top - 0.5 && open.bottom <= box.bottom + 0.5,
+      // The region runs on under the shelf; its window ends at the shelf's top, or the rest tab's where it rises.
+      openWhole: !!open && open.top >= box.top - 0.5 && open.bottom <= Math.min(box.bottom,
+        ...[...art.querySelectorAll(":is(.focus-shelf, .resttab)")].map((el) => el.getBoundingClientRect().top)) + 0.5,
       cta: art.querySelector(".focus-shelf .saveset")?.textContent.trim(),
     };
   };

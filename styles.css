@@ -1386,9 +1386,9 @@ body.is-workout.is-focus-wo #workoutShell > :not(.wo-head):not(#logForm){
 :root[data-keyboard="up"] body.is-workout.is-focus-wo #workout > .deck{min-height:var(--focus-deck-floor,0px)}
 :root[data-keyboard="up"] body.is-workout.is-focus-wo #workoutShell,
 :root[data-keyboard="up"] body.is-workout.is-focus-wo #logForm{min-height:0}
-:root[data-keyboard="up"] body.is-workout.is-focus-wo article.exercise--focus .fcard__context{min-height:0}
+:root[data-keyboard="up"] body.is-workout.is-focus-wo article.exercise--focus .fcard__context{min-height:var(--focus-shelf-under,0px)}
 /* With the keyboard up the floors stand down, and so does the band the region leaves for the rest tab's rise (#550). */
-:root[data-keyboard="up"] body.is-workout.is-focus-wo article.exercise--focus:has(.resttab) .fcard__context{margin-bottom:0}
+:root[data-keyboard="up"] body.is-workout.is-focus-wo article.exercise--focus:has(.resttab){--focus-tab-band:0px}
 /* The keyboard covers the home indicator, so the shelf does not pay its inset again above the keyboard. */
 :root[data-keyboard="up"] body.is-workout.is-focus-wo .focus-shelf{padding-bottom:var(--space-16)}
 /* Docked to the keyboard the addendum's top inset comes back to 8 px.
@@ -1441,7 +1441,19 @@ article.exercise--focus input,article.exercise--focus textarea{-webkit-user-sele
 }
 /* The context region is focusable so a keyboard can scroll it, which hands it the shared 44px target floor; here the
    floor is the one the screen's budget allows (--focus-context-floor), and the selector outranks the shared rule. */
-article.exercise--focus .fcard__context{min-height:var(--focus-context-floor)}
+article.exercise--focus .fcard__context{min-height:calc(var(--focus-context-floor) + var(--focus-shelf-under,0px) + var(--focus-tab-band,0px))}
+/* The card scrolls behind the shelf, as content does under an iOS toolbar (owner, iPhone, 2026-11-19): the context
+   region runs on under the shelf (`--focus-shelf-under`, the shelf's measured height, published by fitFocusLedger) and
+   ends in a spacer as tall as the shelf plus the band the rest tab rises into (#550), so its last line still scrolls
+   clear of both and nothing is cut at a hard edge above the shelf. Its window is what lies above the shelf and the tab;
+   `sizeFocusCard` keeps the open set whole there, and scroll-padding keeps focus and scrollIntoView out from under it. */
+article.exercise--focus .fcard__context{
+  isolation:isolate;margin-bottom:calc(-1 * var(--focus-shelf-under,0px));
+  scroll-padding-bottom:calc(var(--focus-shelf-under,0px) + var(--focus-tab-band,0px));
+}
+article.exercise--focus .fcard__context::after{content:"";flex:none;height:calc(var(--focus-shelf-under,0px) + var(--focus-tab-band,0px))}
+/* Whatever the region stacks inside itself, the shelf paints over it. */
+article.exercise--focus > .focus-shelf{z-index:1}
 /* The task reads top-down from the prescription; the set rows take a roomier height so the list, not empty paper,
    fills the screen above the shelf. */
 /* The open set is the tall row (owner hill-climb); logged and upcoming rows keep their natural height so the window
@@ -3009,9 +3021,10 @@ textarea.sheetfield__input{
    every control. The tab is the only way in during a rest, so it is a full 44 px target. */
 /* The tab rises out of the shelf over the card's window: the window keeps room under its last line so the open set
    scrolls clear of it (sizeFocusCard keeps the row above the tab). */
-/* The context region ends above the rest tab's rise, so nothing in it ever sits beside or under the tab (owner review
-   of #550): `fitFocusLedger` publishes the measured rise, which grows with the tab at large text. */
-article.exercise--focus:has(.resttab) .fcard__context{margin-bottom:var(--rest-tab-rise,calc(var(--control-target) - var(--space-14)))}
+/* The context region's window ends above the rest tab's rise (owner review of #550): its end spacer adds the band, so
+   the last line scrolls clear of the tab and the tab never covers the set being worked on; scrolling, the card passes
+   behind the tab and the shelf. `fitFocusLedger` publishes the measured rise, which grows with the tab at large text. */
+article.exercise--focus:has(.resttab){--focus-tab-band:var(--rest-tab-rise,calc(var(--control-target) - var(--space-14)))}
 /* The tab is the contour's raised part (.restlight draws its surface), so it paints no box of its own. */
 .resttab{
   position:absolute;z-index:2;left:0;right:0;bottom:calc(100% - var(--space-14));width:max-content;margin:0 auto;

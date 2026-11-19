@@ -1053,9 +1053,11 @@ async function main() {
     "a long session never shrinks the shelf or spills the card", JSON.stringify({ longBefore, st }));
   const openInView = await page.evaluate(() => {
     const context = document.querySelector("#workout .exercise.is-current .fcard__context");
-    const ctx = context.getBoundingClientRect();
+    // The region runs on under the shelf; its window ends at the shelf's top, or the rest tab's where it rises.
+    const foot = Math.min(context.getBoundingClientRect().bottom,
+      ...[...document.querySelectorAll("#workout .exercise.is-current :is(.focus-shelf, .resttab)")].map((el) => el.getBoundingClientRect().top));
     const row = document.querySelector("#workout .exercise.is-current .ledgerline--open").getBoundingClientRect();
-    return { row: Math.round(row.bottom), ctx: Math.round(ctx.bottom), scrolls: context.scrollHeight > context.clientHeight + 1 };
+    return { row: Math.round(row.bottom), ctx: Math.round(foot), scrolls: context.scrollHeight > context.clientHeight + 1 };
   });
   assert(openInView.row <= openInView.ctx + 1, "the context scrolls so the open row stays in view", JSON.stringify(openInView));
   // Layout D (owner decision Q4(a)): the disclosure is the one fold, and opened it gives every set its row back.
@@ -1373,7 +1375,9 @@ async function main() {
         .filter((el) => el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).textOverflow !== "ellipsis").length;
       return {
         spill: card.scrollHeight - card.clientHeight,
-        ledger: Math.round(context.clientHeight),
+        // The window the region shows above the shelf (it runs on under it) and the rest tab.
+        ledger: Math.round(Math.min(context.getBoundingClientRect().bottom,
+          ...[...card.querySelectorAll(":is(.focus-shelf, .resttab)")].map((el) => el.getBoundingClientRect().top)) - context.getBoundingClientRect().top),
         ctaWhole: cta.bottom <= cardBox.bottom + 1 && cta.height >= 44,
         clipped,
         pageScrollsX: document.documentElement.scrollWidth > document.documentElement.clientWidth,
