@@ -156,7 +156,18 @@ async function main() {
         await idle();
       }
 
-      // A vertical drag on the content stays the scroller's: nothing claimed, the card scrolls, the exercise stays.
+      // A tap that wobbles a few pixels sideways is still a tap: Note opens its sheet and the exercise stays.
+      const note = await swipePage.locator("#focusDeck .exercise.is-current .fx-note-add").boundingBox();
+      await drag(Math.round(note.x + note.width / 2), Math.round(note.y + note.height / 2), [[-5, 1]]);
+      await swipePage.waitForFunction(() => {
+        const sheet = document.querySelector("#exNoteSheet");
+        return sheet && !sheet.hidden && !sheet.classList.contains("hidden");
+      });
+      assert(await swipePage.evaluate(() => window.__repforgeFocus.at()) === 0, `${viewport.width}px: a wobbly tap on Note does not move the deck`);
+      await swipePage.keyboard.press("Escape");
+      await swipePage.waitForFunction(() => { const sheet = document.querySelector("#exNoteSheet"); return sheet.hidden || sheet.classList.contains("hidden"); });
+      // A vertical drag on the content stays the scroller's: nothing claimed, the card scrolls, the exercise stays. It runs
+      // last, so no tap lands on its fling.
       const context = swipePage.locator("#focusDeck .exercise.is-current .fcard__context");
       const room = await context.evaluate((el) => el.scrollHeight - el.clientHeight);
       assert(room > 20, `${viewport.width}px: the card's content overflows, so a vertical drag has something to scroll`, String(room));
@@ -166,16 +177,7 @@ async function main() {
       await swipePage.waitForFunction(() => document.querySelector("#focusDeck .exercise.is-current .fcard__context").scrollTop > 0);
       assert(vertical.moves.every((m) => !m.prevented) && await swipePage.evaluate(() => window.__repforgeFocus.at()) === 0,
         `${viewport.width}px: a vertical drag scrolls the card and is never claimed by the deck`, JSON.stringify(vertical));
-      await context.evaluate((el) => { el.scrollTop = 0; });
 
-      // A tap that wobbles a few pixels sideways is still a tap: Note opens its sheet and the exercise stays.
-      const note = await swipePage.locator("#focusDeck .exercise.is-current .fx-note-add").boundingBox();
-      await drag(Math.round(note.x + note.width / 2), Math.round(note.y + note.height / 2), [[-5, 1]]);
-      await swipePage.waitForFunction(() => {
-        const sheet = document.querySelector("#exNoteSheet");
-        return sheet && !sheet.hidden && !sheet.classList.contains("hidden");
-      });
-      assert(await swipePage.evaluate(() => window.__repforgeFocus.at()) === 0, `${viewport.width}px: a wobbly tap on Note does not move the deck`);
       await touch.detach();
       await swipePage.close();
     }
