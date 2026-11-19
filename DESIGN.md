@@ -700,13 +700,6 @@ commits through the one existing commit path, and when an exercise is complete t
 shelf shows the completion actions in place of the fields. It replaces the dock
 during a workout and never covers a recovery banner.
 
-### Tab row (`.tabrow`)
-
-A hairline-underlined row of selection controls, each at least 44 by 44, in the
-`control` role at 500 weight (600 selected). Unselected tabs are
-`--color-ink-secondary`; the selected indicator is 2px in `--boundary-selected-quiet`
-and travels between tabs. The row scrolls sideways without a scrollbar.
-
 ### Progress Summary (`.sumcard`)
 
 Progress is one Summary page with pages pushed from it (Progress hill-climb,
@@ -825,7 +818,8 @@ is redrawn in the set.
 These no longer exist, and a new rule does not reintroduce them: the rest timer sheet
 and its dial as the rest surface, Today's Preview action, the readiness line, Focus's
 "change since last session" delta line, the Progress overview's week bar, all-time
-tiles and volume block.
+tiles and volume block, and Progress's row of five tabs (`.tabrow`, replaced by the
+Summary and its pages).
 
 ## Motion
 

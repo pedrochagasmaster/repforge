@@ -6489,56 +6489,6 @@
       ]
     },
     {
-      "id": "stats-button-aria-pressed",
-      "selector": "#stats button[aria-pressed]:not(:is(#strengthScopeSeg,#volumeScopeSeg,#prFilterSeg) > button):not([data-adaptation-cause])",
-      "roles": {
-        "control": "selection",
-        "elevation": [
-          "flat",
-          "selected"
-        ],
-        "boundary": "required"
-      },
-      "variant": "progress-tab",
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "selected",
-        "disabled"
-      ],
-      "rationale": "Changes the visible evidence or scope without committing data. Progress is one Summary with pushed pages (Progress hill-climb); this row covers the in-page scope and filter controls that are not segmented controls, toggle buttons (aria-pressed) in a group (R7 J-20).",
-      "owner": "plan-058",
-      "catalogStates": [
-        "progress/exercise-chart",
-        "progress/guided-repair",
-        "progress/overview",
-        "progress/overview-action",
-        "progress/overview-baseline",
-        "progress/recovery-active",
-        "progress/recovery-ineligible",
-        "progress/recovery-preview",
-        "progress/recovery-questions",
-        "progress/recovery-reassessment",
-        "progress/review",
-        "progress/review-active",
-        "progress/review-complete",
-        "progress/review-insufficient",
-        "progress/schedule-diagnosis",
-        "progress/sibling-lower-frequency",
-        "progress/sibling-shorter-session",
-        "progress/volume-reduction-preview",
-        "progress/minibar",
-        "progress/review-proposal",
-        "progress/review-evaluated",
-        "progress/overview-profile",
-        "progress/overview-profile-first",
-        "session/summary-profile"
-      ]
-    },
-    {
       "id": "strength-scope-segment",
       "selector": ":is(#strengthScopeSeg,#volumeScopeSeg,#prFilterSeg) > button",
       "roles": {
@@ -9891,57 +9841,6 @@
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
         "workout/pain-swap"
-      ]
-    },
-    {
-      "id": "tabrow",
-      "selector": ".tabrow",
-      "roles": {
-        "elevation": "flat",
-        "boundary": "decorative"
-      },
-      "variant": "tab-row-ink-indicator",
-      "facets": [],
-      "states": [
-        "default"
-      ],
-      "rationale": "The row of tabs sits on one decorative hairline; each tab's selected state, not the hairline, carries the required cue. The paper fade drawn while the row overflows is a gradient the rendered-role audit cannot measure, so it is not part of this component. Progress renders it (R3i): one row of five sections above every Progress tab.",
-      "owner": "plan-064/r1b",
-      "catalogStates": [
-        "progress/guided-repair",
-        "progress/overview",
-        "progress/overview-action",
-        "progress/overview-baseline",
-        "progress/prs",
-        "progress/prs-drill-in",
-        "progress/recovery-active",
-        "progress/recovery-ineligible",
-        "progress/recovery-preview",
-        "progress/recovery-questions",
-        "progress/recovery-reassessment",
-        "progress/review",
-        "progress/review-active",
-        "progress/review-complete",
-        "progress/review-insufficient",
-        "progress/schedule-diagnosis",
-        "progress/sibling-lower-frequency",
-        "progress/sibling-shorter-session",
-        "progress/strength",
-        "progress/strength-all-history",
-        "progress/strength-comparison",
-        "progress/strength-current-block",
-        "progress/strength-sparse",
-        "progress/volume",
-        "progress/volume-block",
-        "progress/volume-drill-in",
-        "progress/volume-reduction-preview",
-        "progress/minibar",
-        "progress/review-proposal",
-        "progress/review-evaluated",
-        "progress/overview-profile",
-        "progress/overview-profile-first",
-        "session/summary-profile",
-        "progress/profile-scope"
       ]
     },
     {

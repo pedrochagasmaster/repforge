@@ -6466,32 +6466,6 @@ function paintStatsTabs(){
   if(bar)bar.textContent=text;
   if(back){back.hidden=!page||!!sessionSummaryProfileReturn;back.innerHTML=`<span class="chevron" aria-hidden="true"></span>${esc(t("stats.title"))}`}
   if(sub){const key=page&&STATS_PAGE_SUBTITLE[page];sub.hidden=!key;sub.textContent=key?t(key):""}}
-/** Which side of a scrolling tab row hides tabs: the stylesheet fades that edge. Empty when all tabs fit. */
-function syncTabrowOverflow(row){
-  if(!row)return;
-  const max=row.scrollWidth-row.clientWidth;
-  const at=max<=1?"":row.scrollLeft<=1?"end":row.scrollLeft>=max-1?"start":"both";
-  if(at)row.dataset.overflow=at;else delete row.dataset.overflow}
-/** The rect of a tab's indicator: the 2px border along its foot, or a travelling indicator as drawn. */
-function tabIndicatorRect(el,isRing){
-  if(!el)return null;
-  const r=el.getBoundingClientRect();
-  if(!r.width)return null;
-  return isRing?{left:r.left,top:r.top,width:r.width,height:r.height}:{left:r.left,top:r.bottom-2,width:r.width,height:2}}
-/** N3: the indicator travels from the tab it left to the one that now carries it. The tab keeps its own
- *  2px border for the rest state and sets it aside while this one is in the air, so there is one
- *  indicator on screen. Selecting, the panel switch, focus and ARIA are already done and wait on nothing. */
-function travelTabIndicator(tab,fromRect){
-  const m=focusMotion(),row=tab.parentElement;
-  if(!m||!row)return false;
-  row.querySelectorAll(".tabrow__ring").forEach(r=>r.remove());
-  row.querySelectorAll(".is-ring-travel").forEach(x=>x.classList.remove("is-ring-travel"));
-  const ring=document.createElement("span");
-  ring.className="tabrow__ring";ring.setAttribute("aria-hidden","true");
-  tab.classList.add("is-ring-travel");tab.append(ring);
-  const done=()=>{ring.remove();if(!row.querySelector(".tabrow__ring"))tab.classList.remove("is-ring-travel")};
-  m.animateIndicator(ring,fromRect).then(done,done);
-  return true}
 /* ---- N1: the dock lens travels (Plan 064 rule 11) ----
    The selected tab sits in one lens: a single `aria-hidden` element that JS puts inside `nav` and places on the
    active button. While it is mounted the active button stops painting its own lens (`nav[data-lens]`); until

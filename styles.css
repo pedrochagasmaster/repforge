@@ -5422,44 +5422,13 @@ body.is-focus-wo .toast:not(.toast--top){bottom:calc(var(--toast-clear,0px) + va
 .is-danger{color:var(--danger)!important}
 
 /* @ci-domain progress */
-/* ---- Progress: one tab row, the overview and the Strength tab (Plan 064 R3i) ----
-   Direction D on the shared roles: the tab row is the R1b .tabrow, rows are
-   flat hairline-separated bands (never cards), figures are Mono, and the accent
-   appears only on an up verdict glyph. Nothing here animates but the tab indicator below. Every length is
-   a --space-* step or a multiple of --control-target. */
-/* Five tabs, one row (refine 2026-11, P2). At 390 and 430 the five labels fit when each tab pads 8px a side, so
-   none is clipped by a few pixels at the gutter. The row reaches the screen edges (its padding is the gutter), so where
-   it still overflows (320, enlarged text) the tab it hides is cut at the edge of the phone, as a scrolling row is, with
-   a 4px softening there (short, so the cut letters still show as the cue), never at the gutter, where a cut reads as a fault. The hairline belongs to the wrapper and
-   keeps the gutter's width, crisp, whatever the row does. app.js keeps data-overflow ("end", "start" or "both") in
-   step with the scroll position, and the selected tab in view. */
+/* ---- Progress: the Summary's rows and the Strength page (Plan 064 R3i, Summary since the Progress hill-climb) ----
+   Rows are flat hairline-separated bands inside their group, figures are tabular, and the accent appears only on an
+   up verdict glyph and the block card's current week. Every length is a --space-* step or a multiple of --control-target. */
 /* Progress clips sideways overflow at its own box (no page ever scrolls sideways), so it spans the screen and carries
    the gutter as padding: content sits where it did, and what reaches the gutter can reach the screen edge. */
 #stats{--stats-gut-l:max(var(--gut),env(safe-area-inset-left));--stats-gut-r:max(var(--gut),env(safe-area-inset-right));
   margin-inline:calc(-1 * var(--stats-gut-l)) calc(-1 * var(--stats-gut-r));padding-inline:var(--stats-gut-l) var(--stats-gut-r)}
-#stats .stats-tabs{position:relative;margin:var(--space-14) calc(-1 * var(--stats-gut-r)) 0 calc(-1 * var(--stats-gut-l));padding-bottom:1px}
-#stats .stats-tabs::after{content:"";position:absolute;left:var(--stats-gut-l);right:var(--stats-gut-r);bottom:0;height:1px;background:var(--boundary-decorative)}
-#stats .tabrow{margin:0;padding:0 var(--stats-gut-r) 0 var(--stats-gut-l);gap:0;border-bottom:0}
-#stats .tabrow__tab{padding:0 var(--space-8)}
-/* Below 360 the row cannot hold five; 6px a side leaves the fifth label's first letters on screen as the cue. */
-@media (max-width:359px){#stats .tabrow__tab{padding:0 6px}}
-#stats .tabrow[data-overflow="end"]{
-  -webkit-mask-image:linear-gradient(90deg,var(--color-ink) calc(100% - var(--space-4)),transparent);
-  mask-image:linear-gradient(90deg,var(--color-ink) calc(100% - var(--space-4)),transparent)}
-#stats .tabrow[data-overflow="start"]{
-  -webkit-mask-image:linear-gradient(90deg,transparent,var(--color-ink) var(--space-4));
-  mask-image:linear-gradient(90deg,transparent,var(--color-ink) var(--space-4))}
-#stats .tabrow[data-overflow="both"]{
-  -webkit-mask-image:linear-gradient(90deg,transparent,var(--color-ink) var(--space-4),var(--color-ink) calc(100% - var(--space-4)),transparent);
-  mask-image:linear-gradient(90deg,transparent,var(--color-ink) var(--space-4),var(--color-ink) calc(100% - var(--space-4)),transparent)}
-/* N3: the indicator in flight between tabs. Drawn by app.js only while `animateIndicator` carries it,
-   over the foot border of the tab it is going to (the shared `.tabrow` is left as drawn);
-   that tab sets its own border aside until it arrives. */
-#stats .tabrow__tab{position:relative}
-#stats .tabrow__ring{
-  position:absolute;left:0;right:0;bottom:-2px;height:2px;pointer-events:none;background:var(--boundary-selected-quiet);
-}
-#stats .tabrow__tab.is-ring-travel[aria-selected="true"]{border-bottom-color:transparent}
 
 .ovtotals{
   display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-12);
@@ -8814,7 +8783,7 @@ body.is-entry-editor #entryProgramName,
 .review__dot{display:inline-block;flex:none;width:7px;height:7px;border-radius:var(--radius-round);background:currentColor}
 .review__changes .text-link{min-height:var(--control-target);display:inline-flex;align-items:center;padding:0;font-size:var(--font-size-body-small)}
 /* The day tabs scroll horizontally with no visible scrollbar; the selected
-   tab carries its own quiet selected boundary, as every .tabrow does. */
+   tab carries its own quiet selected boundary. */
 .review__tabs{position:relative;display:flex;gap:var(--space-18);margin:var(--space-18) calc(-1 * var(--gut)) 0;padding:0 var(--gut);overflow-x:auto;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;scrollbar-width:none;border-bottom:1px solid var(--boundary-decorative)}
 .review__tabs::-webkit-scrollbar{display:none}
 .review__tab{flex:none;min-height:var(--control-target);display:inline-flex;align-items:center;padding:0;border:0;border-bottom:2px solid transparent;border-radius:var(--radius-none);background:var(--control-quiet-bg);font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-medium);line-height:var(--line-standard);color:var(--color-ink-secondary);white-space:nowrap;cursor:pointer}
@@ -9097,30 +9066,6 @@ body.is-entry-editor #entryProgramName,
   background:var(--well);box-shadow:var(--elevation-selected-quiet-shadow);
 }
 
-/* Tab row: a hairline-underlined row of selection controls, each at least 44
-   by 44. The selected tab carries a 2px indicator in the quiet selected
-   boundary, never orange. The row scrolls sideways without a scrollbar; the
-   paper fade that the drawing shows while it overflows is a gradient the
-   rendered-role audit cannot measure, so it is not drawn here. */
-.tabrow{
-  display:flex;gap:var(--space-4);overflow-x:auto;margin:0;padding:0;
-  border-bottom:1px solid var(--boundary-decorative);scrollbar-width:none;overscroll-behavior:contain;}
-.tabrow::-webkit-scrollbar{display:none}
-.tabrow__tab{
-  flex:none;min-width:var(--control-target);min-height:var(--control-target);margin:0;padding:0 var(--space-12);
-  border:0;border-bottom:2px solid transparent;border-radius:var(--radius-none);
-  background:var(--control-quiet-bg);color:var(--color-ink-secondary);cursor:pointer;white-space:nowrap;
-  font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);
-}
-.tabrow__tab[aria-selected="true"]{
-  border-bottom-color:var(--boundary-selected-quiet);color:var(--control-selection-ink);font-weight:var(--weight-semibold);
-}
-@media (hover: hover) and (pointer: fine){
-.tabrow__tab:hover:not(:disabled){background:var(--well)}
-}
-.tabrow__tab.is-pressed:not(:disabled){background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
-.tabrow__tab:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
-.tabrow__tab:disabled{color:var(--color-disabled-reason);cursor:not-allowed;transform:none}
 
 /* Frequency counts: small bars of sessions per week and per weekday, ink on
    the page ground. Not interactive: the host gives the block one image role
