@@ -1,3 +1,4 @@
+import { openProgressPage } from "./browser.mjs";
 import assert from "node:assert/strict";
 import {join} from "node:path";
 import {mkdirSync,readFileSync} from "node:fs";
@@ -123,7 +124,7 @@ async function runRoundThreeCases(browser,manifest){
   const check=async(name,proof)=>{try{await proof();console.log(`PASS round 3: ${name}`)}catch(error){failures.push(new Error(`${name}: ${error.message}`,{cause:error}))}};
   const capture=locale=>({flow:"progress",screen:"review-active",viewport:"phone-390",theme:"light",locale,text:"normal",motion:"normal"});
   async function verifyHistory(page,state,summary,hasTarget){
-    await page.locator('nav [data-view="stats"]').click();await page.locator('#statsSeg [data-seg="review"]').click();
+    await page.locator('nav [data-view="stats"]').click();await openProgressPage(page, "review");
     const last=page.locator('#stats [data-week-review="last"]');
     assert.equal(await last.locator("p").first().innerText(),summary,"historical count uses only an established full-week target");
     const text=await last.innerText();
@@ -304,7 +305,7 @@ async function runAdaptationCases(browser,manifest){
       await page.locator('[data-adaptation-card] [role="alert"]').waitFor({state:"visible"});
       assert.deepEqual(await page.evaluate(()=>window.__repforgeWorkoutDraft.state().programMeta.adaptations||[]),[],"a concurrent editor commit refuses the adaptation and its receipt together");
       assert.equal(await page.evaluate(()=>window.__repforgeWorkoutDraft.state().programMeta.name),"Concurrent edit","the other tab's program edit survives");
-      await page.locator('#statsSeg [data-seg="review"]').click();
+      await openProgressPage(page, "review");
       await page.locator('[data-adaptation-cause="equipment"]').click();
       await page.locator('[data-adaptation-action="accept"]').click();
       await page.waitForFunction(()=>window.__repforgeWorkoutDraft.state().programMeta.adaptations?.length===1);
@@ -641,7 +642,7 @@ export async function runWeekReviewBrowser(browser) {
         assert.equal(valid.ok,true,JSON.stringify(valid.issues));
         await seed(page,saved);
       }
-      await page.locator('nav [data-view="stats"]').click();await page.locator('#statsSeg [data-seg="review"]').click();
+      await page.locator('nav [data-view="stats"]').click();await openProgressPage(page, "review");
       const current=await page.locator('[data-week-review="current"]').innerText();
       assert.match(current,new RegExp(sequence==="replacement-discomfort"?replacementLabel:original.name));
       assert.equal(current.includes(sequence==="replacement-discomfort"?`Discomfort reported: ${original.name}`:"not-a-fact"),false);

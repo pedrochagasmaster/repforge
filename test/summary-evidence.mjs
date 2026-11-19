@@ -189,7 +189,7 @@ try {
     await findingLine.click();
     check(await page.locator("#overviewProfile").isVisible() &&
       await page.locator("#overviewProfile").evaluate(el => document.activeElement === el),
-      "the finding opens Progress Overview and focuses the profile");
+      "the finding opens the Progress profile page and focuses the profile");
   } else check(false, "the finding opens Progress Overview and focuses the profile");
   await page.goBack();
   const returned = await page.waitForFunction(() =>

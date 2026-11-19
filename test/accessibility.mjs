@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { openProgressPage } from "./browser.mjs";
 /** Focused Playwright checks for modal, disclosure, and live-status semantics. Requires the app HTTP server. */
 import { pathToFileURL } from "url";
 import { chooseRepsLeft, launchChromium, openShelfField } from "./browser.mjs";
@@ -455,36 +456,21 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
   await page.waitForSelector("#stats.view.active", { timeout: 5000 });
   const route = await page.evaluate(() => ({
     active: document.activeElement?.id || document.activeElement?.dataset?.seg || null,
-    activeIsReviewTab: document.activeElement === document.querySelector('#statsSeg button[data-seg="review"]'),
-    reviewSelected: document.querySelector('#statsSeg button[data-seg="review"]')?.getAttribute("aria-selected"),
+    activeIsReviewTab: document.activeElement === document.querySelector("#statsTitle"),
+    reviewSelected: String(document.querySelector("#stats")?.dataset.page === "review"),
     panelVisible: document.querySelector("#segReview")?.classList.contains("active"),
     confirmOpen: !!document.querySelector("#endBlockConfirm")?.open,
     dialogOpen: !!document.querySelector("#blockReview")?.open,
     leaked: [...document.body.children].filter((c) => c.inert && !c.matches('#legacyWorkoutShell[hidden][aria-hidden="true"]')).map((c) => c.id),
   }));
   assert(route.activeIsReviewTab && route.reviewSelected === "true" && route.panelVisible,
-    "End block: focus lands on the Review tab and the panel opens", JSON.stringify(route));
+    "End block: focus lands on the Review heading and the panel opens", JSON.stringify(route));
   assert(!route.confirmOpen && !route.dialogOpen && route.leaked.length === 0,
     "End block: no competing dialog opens and inertness is untouched", JSON.stringify(route));
-  // Progress is one labelled tablist of five tabs with correct tab semantics.
-  const progressTabs = await page.evaluate(() => {
-    const group = document.querySelector("#statsSeg");
-    return {
-      role: group?.getAttribute("role"),
-      label: group?.getAttribute("aria-label"),
-      tabs: [...(group?.querySelectorAll("button") || [])].map((b) => ({ seg: b.dataset.seg, role: b.getAttribute("role"), selected: b.getAttribute("aria-selected") })),
-    };
-  });
-  assert(progressTabs.role === "tablist" && progressTabs.label && progressTabs.tabs.length === 5
-    && progressTabs.tabs.every((t) => t.role === "tab" && t.selected === (t.seg === "review" ? "true" : "false")),
-  "Progress tabs are one labelled tablist of five with only Review selected", JSON.stringify(progressTabs));
-  await page.click('#statsSeg button[data-seg="volume"]');
-  const evSel = await page.evaluate(() => ({
-    selected: document.querySelector('#statsSeg button[data-seg="volume"]')?.getAttribute("aria-selected"),
-    reviewSelected: document.querySelector('#statsSeg button[data-seg="review"]')?.getAttribute("aria-selected"),
-    panel: document.querySelector("#segVolume")?.classList.contains("active"),
-  }));
-  assert(evSel.selected === "true" && evSel.reviewSelected === "false" && evSel.panel, "Tab selection exposes aria-selected and its panel", JSON.stringify(evSel));
+  assert(await page.locator("#statsBack").isVisible(), "Review page has a Back control");
+  await openProgressPage(page, "volume");
+  assert(await page.locator("#segVolume").isVisible() && !await page.locator("#segReview").isVisible(),
+    "Volume replaces Review exclusively");
   await context.close();
 }
 
@@ -499,17 +485,17 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
   await page.locator("#reviewBlockLink").click();
   await page.waitForSelector("#stats.view.active", { timeout: 5000 });
   const routed = await page.evaluate(() => ({
-    active: document.activeElement === document.querySelector('#statsSeg button[data-seg="review"]'),
+    active: document.activeElement === document.querySelector("#statsTitle"),
     panel: document.querySelector("#segReview")?.classList.contains("active"),
     confirmOpen: !!document.querySelector("#endBlockConfirm")?.open,
     dialogOpen: !!document.querySelector("#blockReview")?.open,
     leaked: [...document.body.children].filter((c) => c.inert && !c.matches('#legacyWorkoutShell[hidden][aria-hidden="true"]')).map((c) => c.id || c.tagName),
   }));
   assert(routed.active && routed.panel && !routed.confirmOpen && !routed.dialogOpen && routed.leaked.length === 0,
-    "Block Review route: focus lands on the Review tab, no dialogs, no inertness leak", JSON.stringify(routed));
+    "Block Review route: focus lands on the Review heading, no dialogs, no inertness leak", JSON.stringify(routed));
   // Opening Evidence and returning keeps the keyboard on a real control.
-  await page.click('#statsSeg button[data-seg="strength"]');
-  await page.click('#statsSeg button[data-seg="review"]');
+  await openProgressPage(page, "strength");
+  await openProgressPage(page, "review");
   const back = await page.evaluate(() => ({
     panel: document.querySelector("#segReview")?.classList.contains("active"),
     evidenceOpen: !!document.querySelector("#segStrength")?.classList.contains("active"),
@@ -2338,22 +2324,21 @@ console.log("\nVisual accessibility (UX-05 / UX-06 / A11Y-01 / A11Y-02)");
   });
   await page.waitForSelector("#stats.view.active");
   await page.evaluate(() => typeof setStatsSeg === "function" && setStatsSeg("overview"));
-  await page.waitForSelector('#statsSeg button[data-seg="strength"]', { state: "visible" });
-  // Keyboard modality: the row is a roving tablist (R7 J-20), so only the selected tab is a tab stop. Land on the
-  // Overview tab, then arrow to Strength, so :focus-visible applies to the tab the keyboard moved to.
-  await page.focus('#statsSeg button[data-seg="overview"]');
-  await page.keyboard.press("Tab");
+  // Every Progress page carries Back to the Summary (this fixture has no program, so the Summary has no links):
+  // open one and land keyboard focus on Back to check its visible focus ring.
+  await page.evaluate(() => window.__repforgeStatsNav.openStatsPage("strength"));
+  await page.waitForSelector("#statsBack", { state: "visible" });
+  await page.focus("#statsTitle");
   await page.keyboard.press("Shift+Tab");
-  await page.keyboard.press("ArrowRight");
   const strengthRing = await page.evaluate(() => {
     const el = document.activeElement;
-    if (!el || el.dataset?.seg !== "strength") return { missing: true, active: el?.id || el?.tagName };
+    if (!el || el.id !== "statsBack") return { missing: true, active: el?.id || el?.tagName };
     const st = getComputedStyle(el);
     return { outline: st.outlineStyle, outlineW: parseFloat(st.outlineWidth) || 0, shadow: st.boxShadow, outlineColor: st.outlineColor };
   });
   assert(
     !strengthRing.missing && ((strengthRing.outline !== "none" && strengthRing.outlineW > 0) || (strengthRing.shadow && strengthRing.shadow !== "none")),
-    "Progress tab shows a non-zero focus outline/ring",
+    "Progress page Back shows a non-zero focus outline/ring",
     JSON.stringify(strengthRing)
   );
   await context.close();

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { openProgressPage } from "./browser.mjs";
 // Contextual guides are a native modal <dialog> (owner decision, 2026-10-17).
 // Every guide reuses the entry dialog: its title and body, one "Got it", focus
 // on the title and kept inside, Escape and "Got it" record `dismissed`, which
@@ -151,22 +152,22 @@ if (process.env.GUIDE_MODAL_ONLY !== "reload") {
   await page.click("#guideDialogOk");
   await expectClosed(page, "Progress");
   ok(await guideStatus(page, "progress") === "dismissed", "Progress: Got it records dismissed");
-  ok(await page.evaluate(() => document.activeElement === document.querySelector('#statsSeg [data-seg="overview"]')),
+  ok(await page.evaluate(() => document.activeElement === document.querySelector("#statsTitle")),
     "Progress: focus returns to the guide's anchor");
 
   // Block transition, on the Review tab: Escape dismisses it too.
-  await page.click('#statsSeg [data-seg="review"]');
+  await openProgressPage(page, "review");
   await expectGuideDialog(page, "block-transition", "Block transition");
   await page.keyboard.press("Escape");
   await expectClosed(page, "Block transition");
   ok(await guideStatus(page, "block-transition") === "dismissed", "Block transition: Escape records dismissed");
-  ok(await page.evaluate(() => document.activeElement === document.querySelector('#statsSeg [data-seg="review"]')),
+  ok(await page.evaluate(() => document.activeElement === document.querySelector("#statsTitle")),
     "Block transition: focus returns to the Review tab");
 
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForAppBoot(page, { base: BASE });
   await openProgress(page);
-  await page.click('#statsSeg [data-seg="review"]');
+  await openProgressPage(page, "review");
   await settle(page);
   ok(await page.locator("dialog#guideDialog[open]").count() === 0, "Progress: dismissed guides stay dismissed across a reload");
 
@@ -175,7 +176,7 @@ if (process.env.GUIDE_MODAL_ONLY !== "reload") {
   ok(await page.locator("dialog#guideDialog[open]").count() === 0, "Progress: a replay with no anchor on screen waits for it");
   await openProgress(page);
   // Progress reopens on the Review tab it was left on; Overview is the progress guide's moment.
-  await page.click('#statsSeg [data-seg="overview"]');
+  await openProgressPage(page, "overview");
   await expectGuideDialog(page, "progress", "Progress replay");
   await page.keyboard.press("Escape");
   await expectClosed(page, "Progress replay");
@@ -332,10 +333,11 @@ async function tapAt(page, selector) {
   const { context, page } = await freshPage();
   await openProgress(page);
   await expectGuideDialog(page, "progress", "Inert Progress");
-  const seg = () => page.evaluate(() => document.querySelector("#statsSeg [aria-selected='true']")?.dataset.seg);
+  const seg = () => page.evaluate(() => document.querySelector("#stats")?.dataset.page);
   const before = await seg();
-  await tapAt(page, '#statsSeg [data-seg="overview"]');
-  await tapAt(page, '#statsSeg [data-seg="strength"]');
+  await tapAt(page, "#statsTitle");
+  // A Summary link where the fixture has one (a fresh install may have none), else the Summary itself.
+  await tapAt(page, await page.locator("#segOverview [data-open-page]").count() ? "#segOverview [data-open-page]" : "#segOverview");
   await page.keyboard.press("Enter");
   await page.keyboard.press("Space");
   await settle(page);

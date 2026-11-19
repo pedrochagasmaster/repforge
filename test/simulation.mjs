@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { openProgressPage } from "./browser.mjs";
 /**
  * RepForge year-of-usage browser simulation.
  * Run: node test/simulation.mjs
@@ -1683,9 +1684,10 @@ async function main() {
   })));
   const changesLoad = (m) => m.status === "add" || m.status === "add2" || (m.status === "reduce" && !m.stalled);
   const attnExpected = attnMoves.filter(changesLoad).map((m) => m.id).sort();
-  const attnHeading = await page.locator("#attention .ovsec__title").textContent();
+  const attnHeading = await page.locator("#attention").evaluate(el => el.querySelector(".sumhead__title")?.textContent || "");
+  assert(await page.locator("#attention").isVisible() === (attnRows.length > 0), "Attention is hidden when it has no rows");
   assert(
-    attnHeading.includes(`(${attnRows.length})`) && JSON.stringify(attnRows.map((r) => r.id).sort()) === JSON.stringify(attnExpected),
+    (!attnRows.length || attnHeading.includes(`(${attnRows.length})`)) && JSON.stringify(attnRows.map((r) => r.id).sort()) === JSON.stringify(attnExpected),
     "The attention heading counts the rows, and the rows are the queue lifts that change the load",
     `heading=${attnHeading} rows=${attnRows.map((r) => r.id)} expected=${attnExpected}`,
     "Stats Overview → heading count against __repforgeAttention and recommendation()"
@@ -2279,25 +2281,24 @@ async function main() {
   state = await getState(page);
   await nav(page, "stats");
 
-  // The overview carries two week totals and a strength row per lift with a session
+  // The Summary carries the block card and a strength row per lift with a session
   // this block; the all-time tiles, the trend card and the deep tables are retired.
   const overviewAudit = await page.evaluate(() => ({
-    sessions: document.querySelector('#thisWeek [data-week-metric="sessions"] .ovtotal__n')?.textContent?.trim(),
-    sets: document.querySelector('#thisWeek [data-week-metric="sets"] .ovtotal__n')?.textContent?.trim(),
-    rows: document.querySelectorAll("#overviewStrength .strrow").length,
-    retired: ["#metrics", "#statExercise", "#statsDeep", "#overviewVolume", "#chart"].filter((sel) => document.querySelector(sel)),
+    rows: document.querySelectorAll("#overviewStrength .liftrow").length,
+    hero: [...document.querySelectorAll("#progressHero .phero__val")].map((el) => el.textContent.trim()),
+    retired: ["#metrics", "#statExercise", "#statsDeep", "#chart"].filter((sel) => document.querySelector(sel)),
   }));
-  assert(
-    /^\d+$/.test(overviewAudit.sessions || "") && /^\d+$/.test(overviewAudit.sets || ""),
-    "Stats overview renders the week's session and set totals",
-    JSON.stringify(overviewAudit),
-    "Stats tab → two week totals"
-  );
   assert(
     overviewAudit.rows > 0 && overviewAudit.retired.length === 0,
     "Stats overview lists strength rows and none of the retired blocks",
     JSON.stringify(overviewAudit),
     "Stats tab → Strength this block"
+  );
+  assert(
+    overviewAudit.hero.length > 0 && overviewAudit.hero.every((value) => /^\d+(\/\d+)?$/.test(value)),
+    "Stats Summary renders the block card's counts (sessions this block and this week)",
+    JSON.stringify(overviewAudit.hero),
+    "Stats tab → block card counts"
   );
 
   // The canvas chart lives on the exercise page, drawn from a lift's second session.
@@ -2703,7 +2704,7 @@ async function main() {
   await nav(page, "stats");
   await page.evaluate(() => window.__repforgeStatsNav.setEvidenceView("prs"));
   await page.waitForSelector("#prTimeline .prtl__row", { timeout: 5000 });
-  const ledger = await page.evaluate(() => [...document.querySelectorAll("#prTimeline .pr-kind")].map((el) => el.textContent.trim()).join(" "));
+  const ledger = await page.evaluate(() => [...document.querySelectorAll("#prTimeline .recrow__kind")].map((el) => el.textContent.trim()).join(" "));
   assert(
     /load/i.test(ledger) && /e1RM/i.test(ledger),
     "PR timeline renders load and e1RM PRs",
@@ -4436,21 +4437,10 @@ async function main() {
 
   beginPhase("Phase: analytics shell (P10)");
   await nav(page, "stats");
-  const segBtnCount = await page.locator("#statsSeg button").count();
-  assert(
-    segBtnCount === 5,
-    "Stats has one tab row of five (Plan 064 R3i)",
-    `button count=${segBtnCount}`,
-    "Stats tab → inspect #statsSeg buttons"
-  );
-  const segLabels = await page.locator("#statsSeg button").allTextContents();
-  assert(
-    ["Overview", "Strength", "Volume", "PRs", "Review"].every((label) => segLabels.includes(label)),
-    "The tab row carries Overview, Strength, Volume, PRs and Review",
-    `labels=${segLabels.join(",")}`,
-    "Stats tab → tab labels"
-  );
-  await page.click('#statsSeg button[data-seg="strength"]');
+  const destinations = await page.locator("#segOverview [data-open-page]").evaluateAll(nodes => nodes.map(n => n.dataset.openPage));
+  assert(["strength", "volume", "prs", "review", "profile"].every(p => destinations.includes(p)),
+    "Summary exposes all Progress destinations", JSON.stringify(destinations));
+  await openProgressPage(page, "strength");
   await page.waitForTimeout(80);
   const strengthVisible = await page.evaluate(() => {
     const s = document.querySelector("#segStrength");
@@ -4463,7 +4453,7 @@ async function main() {
     `strengthVisible=${strengthVisible}`,
     "Stats → click Strength → #segStrength active, #segOverview not"
   );
-  await page.click('#statsSeg button[data-seg="overview"]');
+  await openProgressPage(page, "overview");
   await page.waitForTimeout(80);
   const overviewRestored = await page.evaluate(() => {
     const s = document.querySelector("#segOverview");
@@ -4519,23 +4509,9 @@ async function main() {
 
   beginPhase("Phase: this week (P11)");
   await nav(page, "stats");
-  await page.click('#statsSeg button[data-seg="overview"]');
+  await openProgressPage(page, "overview");
   await page.waitForTimeout(80);
-  const thisWeekVisible = await page.locator("#thisWeek").count();
-  assert(
-    thisWeekVisible === 1,
-    "This Week card exists in Overview",
-    `count=${thisWeekVisible}`,
-    "Stats → Overview → #thisWeek"
-  );
-  const thisWeekText = await page.locator("#thisWeek").innerText();
-  assert(
-    /week (\d+ of \d+ )?in progress|building baseline/i.test(thisWeekText) &&
-      !/\b(improved|stable|attention)\b/i.test(thisWeekText),
-    "This Week card shows neutral in-progress status",
-    `text=${thisWeekText.slice(0, 80)}`,
-    "Stats → Overview → #thisWeek shows current-week progress without an outcome label"
-  );
+  assert(await page.locator("#progressHero").isVisible(), "Summary displays the block card");
   const snap = await page.evaluate(() => window.__repforgeWeeklySnapshot());
   const validStatuses = [
     "On track",
@@ -4656,13 +4632,6 @@ async function main() {
         "Today → #todayWeek"
       );
       await nav(f2Page, "stats");
-      const progressText = await f2Page.locator('#thisWeek [data-week-metric="sessions"] .ovtotal__val').textContent();
-      assert(
-        progressText.replace(/\s+/g, "") === "3/5",
-        "F2: Progress This week shows the current program-week progress",
-        `progress="${progressText.replace(/\s+/g, " ").slice(0, 160)}"`,
-        "Stats → Overview → #thisWeek counts the three sessions in the current program week"
-      );
       await f2Page.evaluate(() => {
         document.body.classList.remove("is-settings", "is-exercise", "is-onboarding", "is-workout");
         document.querySelector('nav button[data-view="program"]')?.click();
@@ -5041,7 +5010,7 @@ async function main() {
       "Program editor context at week 8 of 6"
     );
     await nav(page, "stats");
-    await page.click('#statsSeg button[data-seg="review"]');
+    await openProgressPage(page, "review");
     await page.waitForTimeout(80);
     const reviewText = await page.locator("#reviewPanel").textContent();
     const summary = await page.evaluate(() => window.__repforgeBuildPlainSummary(window.__repforgeBlockSnapshot(state.programMeta, state.log)));
@@ -5065,14 +5034,14 @@ async function main() {
       await applyProgramEditor(page);
       await page.click("#reviewBlockLink");
       await page.waitForSelector("#stats.view.active", { timeout: 5000 });
-      await page.waitForFunction(() => document.querySelector('#statsSeg button[data-seg="review"]')?.classList.contains("active"), null, { timeout: 5000 });
+      await page.waitForFunction(() => (document.querySelector("#stats")?.dataset.page === "review"), null, { timeout: 5000 });
       await page.waitForFunction(() => !document.querySelector("#endBlockConfirm")?.open);
       return (await page.locator("#reviewPanel").textContent()) || "";
     };
     const routeOk = async () => {
       const st = await page.evaluate(() => ({
-        reviewSeg: document.querySelector('#statsSeg button[data-seg="review"]')?.classList.contains("active"),
-        overviewSeg: document.querySelector('#statsSeg button[data-seg="overview"]')?.classList.contains("active"),
+        reviewSeg: (document.querySelector("#stats")?.dataset.page === "review"),
+        overviewSeg: (document.querySelector("#stats")?.dataset.page === "summary"),
         panelVisible: document.querySelector("#segReview")?.classList.contains("active"),
         confirmOpen: !!document.querySelector("#endBlockConfirm")?.open,
         dialogOpen: !!document.querySelector("#blockReview")?.open,
@@ -5139,7 +5108,7 @@ async function main() {
     const todayDone = await page.locator("#todayProgram").textContent();
     const reviewDoneSummary = await page.evaluate(() => window.__repforgeBuildPlainSummary(window.__repforgeBlockSnapshot(state.programMeta, state.log)));
     await nav(page, "stats");
-    await page.click('#statsSeg button[data-seg="review"]');
+    await openProgressPage(page, "review");
     await page.waitForTimeout(80);
     const reviewDone = await page.locator("#reviewPanel").textContent();
     assert(
@@ -5307,7 +5276,7 @@ async function main() {
   await applyProgramEditor(page);
   await page.click("#reviewBlockLink");
   await page.waitForSelector("#stats.view.active", { timeout: 5000 });
-  await page.waitForFunction(() => document.querySelector('#statsSeg button[data-seg="review"]')?.classList.contains("active"), null, { timeout: 5000 });
+  await page.waitForFunction(() => (document.querySelector("#stats")?.dataset.page === "review"), null, { timeout: 5000 });
   assert(
     await page.evaluate(() => !document.querySelector("#endBlockConfirm")?.open && !document.querySelector("#blockReview")?.open),
     "P8: End block routes to Review with no competing dialog",
@@ -5680,12 +5649,12 @@ async function main() {
   await reloadApp(page);
   state = await getState(page);
   await nav(page, "stats");
-  await page.click('#statsSeg button[data-seg="review"]');
+  await openProgressPage(page, "review");
   await page.waitForTimeout(80);
   const reviewSegActive = await page.evaluate(() => {
     const seg = document.querySelector("#segReview");
-    const btn = document.querySelector('#statsSeg button[data-seg="review"]');
-    return seg?.classList.contains("active") && btn?.classList.contains("active");
+    const btn = document.querySelector("#statsTitle");
+    return seg?.classList.contains("active") && document.querySelector("#stats")?.dataset.page === "review";
   });
   assert(
     reviewSegActive,
@@ -5748,7 +5717,7 @@ async function main() {
   await seedHistoricalLog(page);
   await reloadApp(page);
   await nav(page, "stats");
-  await page.click('#statsSeg button[data-seg="strength"]');
+  await openProgressPage(page, "strength");
   await page.waitForTimeout(80);
   assert(
     (await page.locator("#strengthDash .evrow").count()) > 0,
@@ -5794,7 +5763,7 @@ async function main() {
 
   beginPhase("Phase: volume dashboard (P13)");
   await nav(page, "stats");
-  await page.click('#statsSeg button[data-seg="volume"]');
+  await openProgressPage(page, "volume");
   await page.waitForTimeout(80);
   const volSegActive = await page.evaluate(() => document.querySelector("#segVolume")?.classList.contains("active"));
   assert(
@@ -5835,7 +5804,7 @@ async function main() {
   );
 
   beginPhase("Phase: PR timeline (P14)");
-  await page.click('#statsSeg button[data-seg="prs"]');
+  await openProgressPage(page, "prs");
   await page.waitForTimeout(80);
   const prSegActive = await page.evaluate(() => document.querySelector("#segPRs")?.classList.contains("active"));
   assert(
@@ -5856,7 +5825,7 @@ async function main() {
   const loadFilterUi = await page.evaluate(() => {
     const rows = [...document.querySelectorAll("#prTimeline .prtl__row")];
     const active = document.querySelector('#prFilterSeg button[data-prf="load"]')?.classList.contains("active");
-    return { count: rows.length, allLoad: rows.length === 0 || rows.every((r) => !!r.querySelector(".pr-kind--load")), active };
+    return { count: rows.length, allLoad: rows.length === 0 || rows.every((r) => !!r.querySelector('.recrow__rec[data-kind="load"]')), active };
   });
   assert(
     loadFilterUi.active && loadFilterUi.count > 0 && loadFilterUi.allLoad,
@@ -7589,8 +7558,6 @@ async function main() {
       const w = window.__repforgeWeeklySnapshot();
       const groups = window.__repforgeAttention();
       const records = window.__repforgeProgressEvidence.records("current-block");
-      const metric = (name) =>
-        document.querySelector(`#thisWeek [data-week-metric="${name}"] .ovtotal__n`)?.textContent?.trim();
       const moves = groups.flatMap((g) => g.items.map((i) => {
         const rec = window.__repforgeRecommendation(i.ex);
         return { id: i.ex.id, status: rec.status, stalled: !!rec.stalled };
@@ -7606,10 +7573,8 @@ async function main() {
         groups: groups.map((g) => ({ key: g.key, ids: g.items.map((i) => i.ex.id) })),
         moves,
         records: records.map((r) => ({ id: r.exerciseId, state: r.evidenceState, outcome: r.outcome ?? null })),
-        baselineDom: metric("baseline"),
-        sessionsDom: metric("sessions"),
         chips,
-        countText: document.querySelector("#attention .ovsec__title")?.textContent?.trim() || "",
+        countText: document.querySelector("#attention .sumhead__title")?.textContent?.trim() || "",
         attentionText: document.querySelector("#attention")?.textContent || "",
         verdicts: [...document.querySelectorAll("#attention .attn__chip")]
           .map((row) => row.querySelector(".attnrow__verdict")?.textContent.trim() || ""),
@@ -7647,11 +7612,6 @@ async function main() {
       JSON.stringify(snap.records)
     );
     assert(
-      snap.baselineDom === String(baselineIds.length),
-      "the weekly baseline tally counts exactly the insufficient lifts",
-      JSON.stringify({ baselineDom: snap.baselineDom, want: baselineIds.length })
-    );
-    assert(
       !/\bAttention\b/.test(snap.attentionText) && !/\bBelow\b/.test(snap.attentionText),
       "no legacy Attention/Below wording survives on the Overview board",
       snap.attentionText.slice(0, 200)
@@ -7662,7 +7622,7 @@ async function main() {
     const changesLoad = (m) => m.status === "add" || m.status === "add2" || (m.status === "reduce" && !m.stalled);
     const shownIds = snap.moves.filter(changesLoad).map((m) => m.id);
     assert(
-      JSON.stringify(snap.chips.map((c) => c.id).sort()) === JSON.stringify([...shownIds].sort()) && snap.countText.includes(`(${shownIds.length})`),
+      JSON.stringify(snap.chips.map((c) => c.id).sort()) === JSON.stringify([...shownIds].sort()) && (!shownIds.length || snap.countText.includes(`(${shownIds.length})`)),
       "the Needs attention count equals the chips the board renders, and they are the lifts that change the load",
       JSON.stringify({ chips: snap.chips.map((c) => c.id), shown: shownIds, countText: snap.countText, moves: snap.moves })
     );
@@ -8633,17 +8593,17 @@ async function main() {
         width: `${r.pct}%`,
         fillBox: r.pct,
       }));
-      return { rows, more: hook.length > 8 ? hook.length - 8 : 0, hook, retired: !document.querySelector("#overviewVolume") };
+      return { rows, more: hook.length > 8 ? hook.length - 8 : 0, hook, volumeVisible: !!document.querySelector("#overviewVolume [data-open-page=volume]") };
     });
 
   const baseVol = await getState(page);
   await persistState(page, volumeAuditState(baseVol, "en"));
   await reloadApp(page);
   await nav(page, "stats");
-  await page.click('#statsSeg button[data-seg="overview"]');
-  await page.waitForSelector("#attention", { timeout: 5000 });
+  await openProgressPage(page, "overview");
+  await page.waitForSelector("#segOverview.active", { timeout: 5000 });
   const enVol = await readOverview();
-  assert(enVol.retired, "The overview no longer renders a volume block", "#overviewVolume is still in the DOM", "Stats → Overview");
+  assert(enVol.volumeVisible, "Summary links to the Volume page", "Volume link missing", "Stats → Summary");
   assert(
     enVol.rows.map((r) => r.muscle).join("|") ===
       "Quads|Rear delts|Adductors|Side delts|Chest|Glutes|Spinal erectors|Front delts",
@@ -8782,8 +8742,8 @@ async function main() {
   await persistState(page, volumeAuditState(await getState(page), "pt"));
   await reloadApp(page);
   await nav(page, "stats");
-  await page.click('#statsSeg button[data-seg="overview"]');
-  await page.waitForSelector("#attention", { timeout: 5000 });
+  await openProgressPage(page, "overview");
+  await page.waitForSelector("#segOverview.active", { timeout: 5000 });
   const ptVol = await readOverview();
   assert(
     ptVol.rows.map((r) => r.muscle).join("|") ===
@@ -8809,8 +8769,8 @@ async function main() {
   await persistState(page, highStatusState(await getState(page), "en"));
   await reloadApp(page);
   await nav(page, "stats");
-  await page.click('#statsSeg button[data-seg="overview"]');
-  await page.waitForSelector("#attention", { timeout: 5000 });
+  await openProgressPage(page, "overview");
+  await page.waitForSelector("#segOverview.active", { timeout: 5000 });
   const enHigh = await readOverview();
   const hsQuads = enHigh.rows.find((r) => r.muscle === "Quads");
   const hsChest = enHigh.rows.find((r) => r.muscle === "Chest");
@@ -8837,8 +8797,8 @@ async function main() {
   await persistState(page, highStatusState(await getState(page), "pt"));
   await reloadApp(page);
   await nav(page, "stats");
-  await page.click('#statsSeg button[data-seg="overview"]');
-  await page.waitForSelector("#attention", { timeout: 5000 });
+  await openProgressPage(page, "overview");
+  await page.waitForSelector("#segOverview.active", { timeout: 5000 });
   const ptHigh = await readOverview();
   assert(
     /construindo base/i.test(ptHigh.rows.find((r) => r.muscle === "Quads")?.status || "") &&

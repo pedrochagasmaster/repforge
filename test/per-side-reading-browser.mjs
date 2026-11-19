@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { openProgressPage } from "./browser.mjs";
 /** Plan 069 S2: production per-side logging, reading, Progress and CSV. */
 import assert from "node:assert/strict";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -353,8 +354,8 @@ async function main() {
     await page.waitForSelector("#segStrength.active", { timeout: 5000 });
     const strengthRow = page.locator('#strengthDash [data-evkey="' + pressKey + '"]');
     // The value and its quiet "per side" line share the figure cell; the value span holds the figure alone (#489).
-    check(/27\.5/.test(await strengthRow.locator(".evrow__val").textContent()) && /per side/i.test(await strengthRow.locator(".evrow__fig").textContent()),
-      "Progress labels the per-side strength value in the logged unit", await strengthRow.locator(".evrow__fig").textContent());
+    check(/27\.5/.test(await strengthRow.locator(".liftrow__val").textContent()) && /per side/i.test(await strengthRow.locator(".liftrow__fig").textContent()),
+      "Progress labels the per-side strength value in the logged unit", await strengthRow.locator(".liftrow__fig").textContent());
     await strengthRow.click();
     const detail = page.locator('[data-evdetail="' + pressKey + '"]');
     check(/35/.test(await detail.textContent()) && /Load per side/i.test(await detail.textContent()),
@@ -398,7 +399,7 @@ async function main() {
       return exercise && !exercise.classList.contains("active") && stats?.classList.contains("active") &&
         !document.body.classList.contains("is-pushing") && !stats.inert;
     }, undefined, { timeout: 10000 });
-    await page.locator('#statsSeg button[data-seg="review"]').click();
+    await openProgressPage(page, "review");
     await page.waitForSelector("#reviewPanel .review__outcomes", { state: "visible", timeout: 10000 });
     const reviewOutcome = (await page.locator("#reviewPanel .review__outcomes").innerText()).replace(/\s+/g, " ").trim();
     observations.reviewOutcome = reviewOutcome;

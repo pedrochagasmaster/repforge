@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { openProgressPage } from "./browser.mjs";
 /**
  * RF-10: a library exercise whose stored name is still the library's English name
  * reads as the library's Portuguese name, at display only.
@@ -452,25 +453,28 @@ async function visitHistory(page, { pt, label }) {
 async function visitProgress(page, { pt, label }) {
   const name = (id) => (pt ? LIB[id].pt : LIB[id].en);
   await goto(page, "stats");
-  await page.waitForSelector("#overviewStrength .strrow__name");
-  const overview = await joined(page, "#overviewStrength .strrow__name");
-  expectNames(`${label} Progress overview strength`, overview, {
-    shown: [...(pt ? ptShown() : LINKED.map((id) => LIB[id].en)), ...kept(), customShown(pt)],
+  await page.waitForSelector("#overviewStrength .liftrow__name");
+  // The Summary shows the most recent lifts, not all of them: each name it shows is the one the lifter reads.
+  const overviewNames = await texts(page, "#overviewStrength .liftrow__name");
+  const allowed = [...(pt ? ptShown() : LINKED.map((id) => LIB[id].en)), ...kept(), customShown(pt)];
+  assert(overviewNames.length > 0 && overviewNames.every((shown) => allowed.includes(shown)),
+    `${label} Progress overview strength: every lift reads its shown name`, JSON.stringify(overviewNames));
+  expectNames(`${label} Progress overview strength`, overviewNames.join(" | "), {
     gone: pt ? [...ptGone(), ...never(), ...customGone(pt)] : [],
   });
-  await page.locator('#statsSeg [data-seg="strength"]').click();
-  await page.waitForSelector("#strengthDash .evrow__name");
-  const strength = await joined(page, "#strengthDash .evrow__name");
+  await openProgressPage(page, "strength");
+  await page.waitForSelector("#strengthDash .liftrow__name");
+  const strength = await joined(page, "#strengthDash .liftrow__name");
   expectNames(`${label} Progress Strength list`, strength, {
     shown: [...(pt ? ptShown() : LINKED.map((id) => LIB[id].en)), ...kept(), customShown(pt)],
     gone: pt ? [...ptGone(), ...never(), ...customGone(pt)] : [],
   });
   // The list is alphabetical by the name the lifter reads, not by the stored English text.
-  const strengthOrder = await texts(page, "#strengthDash .evrow__name");
+  const strengthOrder = await texts(page, "#strengthDash .liftrow__name");
   const collated = [...strengthOrder].sort((a, b) => a.localeCompare(b, pt ? "pt-BR" : "en"));
   assert(strengthOrder.join("|") === collated.join("|"), `${label} Progress Strength list is in the order of the shown names`,
     strengthOrder.join(" | "));
-  await page.locator('#statsSeg [data-seg="volume"]').click();
+  await openProgressPage(page, "volume");
   await page.locator('#volumeScopeSeg [data-vscope="block-to-date"]').click();
   await page.waitForSelector("#volumeDash [data-volume-muscle]");
   await page.locator("#volumeDash [data-volume-muscle]").first().click();
@@ -478,21 +482,26 @@ async function visitProgress(page, { pt, label }) {
   const everyShown = (pt ? ptShown() : LINKED.map((id) => LIB[id].en));
   assert(everyShown.some((n) => drill.includes(n)), `${label} Progress volume drill-down lists the lifts by name`, drill.slice(0, 300));
   if (pt) expectNames(`${label} Progress volume drill-down`, drill, { gone: ptGone() });
-  await page.locator('#statsSeg [data-seg="prs"]').click();
-  await page.waitForSelector("#prTimeline .prtl__ex");
-  const prs = await joined(page, "#prTimeline .prtl__ex");
+  await openProgressPage(page, "prs");
+  await page.waitForSelector("#prTimeline .recrow__name");
+  const prs = await joined(page, "#prTimeline .recrow__name");
   expectNames(`${label} Progress records`, prs, { shown: [name("sq"), name("pr"), customShown(pt)], gone: pt ? [LIB.sq.en, LIB.pr.en, ...customGone(pt)] : [] });
-  await page.locator('#statsSeg [data-seg="review"]').click();
+  await openProgressPage(page, "review");
   await page.waitForTimeout(300);
   const review = await joined(page, ".review__outcomes");
   expectNames(`${label} Progress block review outcomes`, review, { shown: [name("sq")], gone: pt ? [LIB.sq.en] : [] });
-  await page.locator('#statsSeg [data-seg="overview"]').click();
-  await page.locator(`#overviewStrength button[data-ovkey="library:${LIB.sq.id}"]`).click();
+  await openProgressPage(page, "overview");
+  // Squat's chart when the Summary shows squat, else the first library lift it shows.
+  const chartId = await page.evaluate((ids) => ids.find((id) => document.querySelector(`#overviewStrength button[data-ovkey="library:${id}"]`)) || null,
+    [LIB.sq.id, ...LINKED.map((key) => LIB[key].id)]);
+  const chartKey = Object.keys(LIB).find((key) => LIB[key].id === chartId);
+  assert(!!chartKey, `${label} Progress overview opens a library lift's chart`, chartId);
+  await page.locator(`#overviewStrength button[data-ovkey="library:${chartId}"]`).click();
   await page.waitForSelector("#exercise.view.active .exchart__title");
   const chartTitle = await joined(page, "#exDetail .exchart__title");
   const chartAria = (await attrs(page, "#exDetail .exchart__plot", "aria-label")).join(" | ");
-  expectNames(`${label} Progress exercise chart title`, chartTitle, { shown: [name("sq")], gone: pt ? [LIB.sq.en] : [] });
-  expectNames(`${label} Progress exercise chart label`, chartAria, { shown: [name("sq")], gone: pt ? [LIB.sq.en] : [] });
+  expectNames(`${label} Progress exercise chart title`, chartTitle, { shown: [name(chartKey)], gone: pt && LIB[chartKey].pt !== LIB[chartKey].en ? [LIB[chartKey].en] : [] });
+  expectNames(`${label} Progress exercise chart label`, chartAria, { shown: [name(chartKey)], gone: pt && LIB[chartKey].pt !== LIB[chartKey].en ? [LIB[chartKey].en] : [] });
   await page.locator("#exBack").click();
   await page.waitForSelector("#stats.view.active");
 }
