@@ -1934,13 +1934,17 @@ async function reducedMotionPush(browser) {
   const frames = await page.evaluate(() => new Promise((resolve) => {
     const lib = document.querySelector("#library"), out = [], t0 = performance.now();
     window.openLibrary();
-    const fade = lib.getAnimations().map((a) => a.effect.getTiming().duration);
-    const tick = () => {
+    const animations = lib.getAnimations(), fade = animations.map((a) => a.effect.getTiming().duration);
+    let done = false;
+    const sample = () => {
       const s = getComputedStyle(lib);
       out.push({ fade, t: Math.round(performance.now() - t0), opacity: Number(s.opacity),
         x: Math.round(new DOMMatrixReadOnly(s.transform === "none" ? undefined : s.transform).m41) });
-      if (performance.now() - t0 < 400) requestAnimationFrame(tick); else resolve(out);
     };
+    // Sampled every frame until the fade itself has finished, not for a wall-clock budget: a stalled runner can spend
+    // 400ms on two frames while the animation's own clock has moved 50ms.
+    const tick = () => { if (done) return; sample(); requestAnimationFrame(tick); };
+    Promise.all(animations.map((a) => a.finished)).then(() => requestAnimationFrame(() => { done = true; sample(); resolve(out); }));
     requestAnimationFrame(tick);
   }));
   assert(frames.every((f) => f.x === 0), "the page never travels", JSON.stringify(frames.slice(0, 5)));
