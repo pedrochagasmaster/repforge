@@ -260,7 +260,7 @@ async function openWhy(page, { todayExerciseId = null } = {}) {
   } else {
     await page.locator("#workout .exercise.is-current [data-why]").first().click();
   }
-  await page.waitForSelector("#whySheet.is-open");
+  await page.locator("#whySheet.is-open").waitFor();
   await settle(page, 200);
   return page.evaluate(() => ({
     target: document.querySelector("#whyTarget")?.textContent?.trim() || "",
@@ -273,7 +273,7 @@ async function openWhy(page, { todayExerciseId = null } = {}) {
 
 async function closeWhy(page) {
   await page.click("#whyClose");
-  await page.waitForSelector("#whySheet", { state: "hidden" });
+  await page.locator("#whySheet").waitFor({ state: "hidden" });
 }
 
 /** The engine's own truth for the slot's current recommendation, read through
@@ -332,6 +332,9 @@ for (const { name, input } of standingCases) {
     JSON.stringify(batch.map(p => Engine.recommendSets([p], ...rest)[0])),
     `P080: batched results equal independent prescriptions for ${name}`);
 }
+// Waits here use locator.waitFor, never page.waitForSelector: the latter also adopts an element handle into the page's
+// main world after it finds the element, and on a loaded CI runner that step once stalled past its timeout with the
+// card already visible. Nothing here uses the handle.
 const browser = await launchChromium();
 try {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
@@ -364,7 +367,7 @@ try {
     "P069-S3-WHY: generated known-bilateral per-side work has no-history pick-load behavior", knownPerSideTruth);
 
   await perSidePage.evaluate((id) => window.__repforgeGoToLogExercise(id), perSideProgram.knownPerSide.rowId);
-  await perSidePage.waitForSelector("#workout.is-focus .exercise.is-current", { timeout: 10000 });
+  await perSidePage.locator("#workout.is-focus .exercise.is-current").waitFor({ timeout: 10000 });
   await perSidePage.waitForFunction((id) => document.querySelector("#workout .exercise.is-current")?.dataset.ex === id,
     perSideProgram.knownPerSide.rowId, { timeout: 10000 });
   const knownPerSideContext = await perSidePage.evaluate(() => {
@@ -389,7 +392,7 @@ try {
     perSideTruth.executionMode == null,
     "P069-S3-WHY: Review catalog-picked ambiguous B-stance work has no inferred execution mode or load", perSideTruth);
   await perSidePage.evaluate((id) => window.__repforgeGoToLogExercise(id), perSideProgram.perSide.rowId);
-  await perSidePage.waitForSelector("#workout.is-focus .exercise.is-current", { timeout: 10000 });
+  await perSidePage.locator("#workout.is-focus .exercise.is-current").waitFor({ timeout: 10000 });
   await perSidePage.waitForFunction((id) => document.querySelector("#workout .exercise.is-current")?.dataset.ex === id,
     perSideProgram.perSide.rowId, { timeout: 10000 });
   const perSideCue = await focusCue(perSidePage);
@@ -438,7 +441,7 @@ try {
     "P069-S3-WHY: known catalog laterality does not turn a generic configuration-required reason into missing execution mode",
     modeGuardTruth);
   await modeGuardPage.evaluate((id) => window.__repforgeGoToLogExercise(id), modeGuardProgram.knownPerSide.rowId);
-  await modeGuardPage.waitForSelector("#workout.is-focus .exercise.is-current", { timeout: 10000 });
+  await modeGuardPage.locator("#workout.is-focus .exercise.is-current").waitFor({ timeout: 10000 });
   await modeGuardPage.waitForFunction((id) => document.querySelector("#workout .exercise.is-current")?.dataset.ex === id,
     modeGuardProgram.knownPerSide.rowId, { timeout: 10000 });
   const modeGuardLoading = await modeGuardPage.evaluate(() => {
@@ -460,7 +463,7 @@ try {
   // A previous session with two different loads on its two sets, so the next
   // session's "What you showed" sentence has to name each one separately.
   if (!await page.evaluate((day) => window.__repforgeEnterWorkout({ day }), target.day)) throw new Error("could not enter day");
-  await page.waitForSelector("#workout.is-focus .exercise.is-current", { timeout: 10000 });
+  await page.locator("#workout.is-focus .exercise.is-current").waitFor({ timeout: 10000 });
   await logSet(page, target.slotId, 1, { load: 110, reps: 6, rir: 2 });
   await logSet(page, target.slotId, 2, { load: 100, reps: 8, rir: 1 });
   await finishEarly(page);
@@ -471,7 +474,7 @@ try {
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForAppBoot(page, { base: BASE });
   if (!await page.evaluate((day) => window.__repforgeEnterWorkout({ day }), target.day)) throw new Error("could not re-enter day");
-  await page.waitForSelector("#workout.is-focus .exercise.is-current", { timeout: 10000 });
+  await page.locator("#workout.is-focus .exercise.is-current").waitFor({ timeout: 10000 });
 
   const truthBefore = await engineTruth(page, target.slotId);
   assert(truthBefore.status !== "manual" && truthBefore.status !== "new",
@@ -615,7 +618,7 @@ try {
   "P069-S1-CUE: the English manual Today target fits at 200% text without horizontal overflow", buildLargeText);
   console.log(`  EN manual 200% target geometry: ${JSON.stringify(buildLargeText)}`);
   await buildPage.evaluate((day) => window.__repforgeEnterWorkout({ day }), buildRow.day);
-  await buildPage.waitForSelector("#workout.is-focus .exercise.is-current", { timeout: 10000 });
+  await buildPage.locator("#workout.is-focus .exercise.is-current").waitFor({ timeout: 10000 });
   const buildCue = await focusCue(buildPage);
   assert(buildCue.line1 === "Your targets" && buildCue.line2 === `${buildRow.min}–${buildRow.max} reps`,
     "P069-S1-CUE: Focus labels a Build slot's stored range as Your targets", JSON.stringify(buildCue));
@@ -654,7 +657,7 @@ try {
       assert(cue.line2 === range,
         `P080-R1: ${lang} manual Focus keeps its programmed rep range`, cue);
       await manual.page.locator("#woDayTitle [data-exopen]").click();
-      await manual.page.waitForSelector("#exDetail");
+      await manual.page.locator("#exDetail").waitFor();
       assert(await manual.page.locator("#exDetail .recblock__standing").count() === 0,
         `P080-R1: ${lang} manual exercise page never claims this is the first time`);
     } finally {
@@ -674,7 +677,7 @@ try {
     const ptPerSideRow = ptRows.find((row) => row.slotId === ptProgram.perSide.slotId);
     if (!ptPerSideRow) throw new Error("Portuguese setup-required target row is missing from the program");
     await setupPtPage.evaluate((id) => window.__repforgeGoToLogExercise(id), ptPerSideRow.id);
-    await setupPtPage.waitForSelector("#workout.is-focus .exercise.is-current", { timeout: 10000 });
+    await setupPtPage.locator("#workout.is-focus .exercise.is-current").waitFor({ timeout: 10000 });
     await setupPtPage.waitForFunction((id) => document.querySelector("#workout .exercise.is-current")?.dataset.ex === id,
       ptPerSideRow.id, { timeout: 10000 });
     await setupPtPage.evaluate(() => window.__repforgeLeaveWorkout());
@@ -739,7 +742,7 @@ try {
       })));
     await seedHistory(standingPage, snapshot);
     await standingPage.evaluate(day => window.__repforgeEnterWorkout({ day }), standingRow.day);
-    await standingPage.waitForSelector("#workout.is-focus .exercise.is-current");
+    await standingPage.locator("#workout.is-focus .exercise.is-current").waitFor();
     await standingPage.evaluate(id => window.__repforgeGoToLogExercise(id), standingRow.id);
     await standingPage.waitForFunction(id => document.querySelector("#workout .exercise.is-current")?.dataset.ex === id, standingRow.id);
     const truth = await engineTruth(standingPage, standingRow.slotId);
@@ -763,7 +766,7 @@ try {
     await closeWhy(standingPage);
     }
     await standingPage.locator("#woDayTitle [data-exopen]").click();
-    await standingPage.waitForSelector("#exDetail .recblock");
+    await standingPage.locator("#exDetail .recblock").first().waitFor();
     const detailLine = standingPage.locator("#exDetail .recblock__standing");
     assert(word === "solid" ? await detailLine.count() === 0 : await detailLine.count() === 1,
       `P080: exercise page shares the ${scenario} standing line`);
@@ -853,7 +856,7 @@ try {
   await closeWhy(swapPage);
   await swapPage.evaluate(id => window.__repforgeGoToLogExercise(id), hack.id);
   await swapPage.locator("#woDayTitle [data-exopen]").click();
-  await swapPage.waitForSelector("#exDetail .recblock");
+  await swapPage.locator("#exDetail .recblock").first().waitFor();
   assert(await swapPage.locator("#exDetail .recblock__standing").textContent() === "First time on this lift",
     "B1: exercise page does not inherit Hack squat standing");
   await swapPage.locator("#exBack").click();
@@ -865,7 +868,7 @@ try {
   await closeWhy(swapPage);
   assert(await swapPage.locator(`${focus} .fx-cue__standing`).textContent() === "Still learning this lift", "B1: restored Focus reads Hack squat standing");
   await swapPage.locator("#woDayTitle [data-exopen]").click();
-  await swapPage.waitForSelector("#exDetail .recblock");
+  await swapPage.locator("#exDetail .recblock").first().waitFor();
   assert(await swapPage.locator("#exDetail .recblock__standing").textContent() === "Still learning this lift",
     "B1: restored exercise page reads Hack squat standing");
   await swapContext.close();
