@@ -1083,8 +1083,27 @@
       id: event.pointerId, x: event.clientX, y: event.clientY, anchorX: event.clientX,
       dx: 0, axis: null, card, track, deck, baseX: 0,
       scrolls: [ledger, card.querySelector(".fcard__context")].some(el => el && el.scrollHeight > el.clientHeight + 1),
-      velocity: 0, lastX: event.clientX, lastT: event.timeStamp || performance.now(),
+      velocity: 0, lastX: event.clientX, lastT: event.timeStamp || performance.now(), claimed: false,
     };
+  }
+  /* The card's content is a vertical scroller with `touch-action: pan-y`. That only stops the browser panning
+     sideways; it may still start a vertical pan whenever the touch has a vertical component, and starting one cancels
+     the pointer. On iOS that happened partway through a sideways drag that wandered off level, so the card followed
+     the thumb and then sprang back unless the swipe ran dead straight. When the deck takes the drag (the same lock as
+     `focusPointerMove`, judged here from the touch itself so the order of pointer and touch events doesn't matter) it
+     takes the touch too: from then on every touchmove is prevented, so no native pan can start, wherever the swipe
+     began. A tap's wobble is under the lock, and a drag that leads vertically is never claimed and stays the
+     scroller's. */
+  function focusTouchMove(event) {
+    const gesture = focusGesture;
+    if (!gesture || !event.cancelable || event.touches.length !== 1) return;
+    if (!gesture.claimed && !gesture.axis) {
+      const point = event.touches[0];
+      const mx = point.clientX - gesture.x, my = point.clientY - gesture.y;
+      if (Math.abs(mx) < FOCUS_LOCK || Math.abs(mx) <= Math.abs(my)) return;
+    }
+    gesture.claimed = true;
+    event.preventDefault();
   }
   function focusPointerMove(event) {
     const gesture = focusGesture;
@@ -1408,6 +1427,7 @@
     }
 
     if (fDown && workout) workout.addEventListener("pointerdown", fDown);
+    if (useFluid && workout) workout.addEventListener("touchmove", focusTouchMove, { passive: false });
     if (fMove) global.addEventListener("pointermove", fMove, { passive: true });
     if (fEnd) {
       global.addEventListener("pointerup", fEnd);
@@ -1462,6 +1482,7 @@
         }
 
         if (fDown && workout) workout.removeEventListener("pointerdown", fDown);
+        if (useFluid && workout) workout.removeEventListener("touchmove", focusTouchMove, { passive: false });
         if (fMove) global.removeEventListener("pointermove", fMove);
         if (fEnd) {
           global.removeEventListener("pointerup", fEnd);
