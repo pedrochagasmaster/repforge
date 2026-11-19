@@ -476,6 +476,29 @@ export async function runHistoryOperabilityChecks(page, check = assert) {
   // A lift the current program no longer names: its rows keep the name it was performed under.
   const former = state.program.find((e) => e.day === "Day 3") || state.program.at(-1);
   // Saved rows in the shape a finished DraftV2 workout commits (metric composition and values).
+  // Nothing saved yet: one note says where sessions come from, and the list's tools have nothing to act on.
+  await persistState(page, { ...state, log: [] });
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForApp(page);
+  await page.evaluate(() => {
+    document.body.classList.remove("is-settings", "is-exercise", "is-onboarding");
+    document.querySelector('nav button[data-view="history"]')?.click();
+  });
+  await page.waitForSelector('#history.view.active #sessions [data-hist-empty="none"]', { timeout: 5000 });
+  const empty = await page.evaluate(() => {
+    const shown = (sel) => { const el = document.querySelector(sel); return !!el && el.getClientRects().length > 0; };
+    return {
+      title: document.querySelector('[data-hist-empty="none"] h3')?.textContent.trim() || "",
+      want: window.RepForgeI18n?.t?.("history.empty.title") || "",
+      body: document.querySelector('[data-hist-empty="none"] p')?.textContent.trim() || "",
+      tools: ["#historySearchBtn", "#historyCalBtn", "#historyExportBtn", "#history details.advanced", "#historyFreq"].filter(shown),
+    };
+  });
+  check(!!empty.title && empty.title === empty.want && empty.body.length > 0,
+    "With nothing saved, History shows a titled note saying where sessions come from", JSON.stringify(empty));
+  check(empty.tools.length === 0,
+    "With nothing saved, search, the calendar, Every set, Export and the frequency counts are not drawn", JSON.stringify(empty));
+
   const log = [
     metricLogRow(state.programMeta, day1, { session: "ui-a", date: "2026-03-03", set: 1, load: 80, reps: 8, rir: 1 }),
     metricLogRow(state.programMeta, day2, { session: "ui-b", date: "2026-03-02", set: 1, load: 60, reps: 10, rir: 2 }),
@@ -541,7 +564,7 @@ export async function runHistoryOperabilityChecks(page, check = assert) {
   await page.fill("#historySearch", "zzzz-no-session");
   await page.waitForTimeout(50);
   const noMatch = await page.locator('[data-hist-empty="nomatch"]').textContent();
-  const emptyFirst = await page.evaluate(() => window.RepForgeI18n?.t?.("history.empty.sessions"));
+  const emptyFirst = await page.evaluate(() => window.RepForgeI18n?.t?.("history.empty.title"));
   const emptyNone = await page.evaluate(() => window.RepForgeI18n?.t?.("history.empty.no_match"));
   check(
     !!noMatch && noMatch.trim() === (emptyNone || "").trim() && noMatch.trim() !== (emptyFirst || "").trim(),
@@ -601,6 +624,16 @@ export async function runHistoryOperabilityChecks(page, check = assert) {
     JSON.stringify(feed)
   );
   check(/session/i.test(feed.name), "the row names what it opens", feed.name);
+  // Owner rule: History says what a session was, never how much it weighed.
+  const rowsRead = await page.evaluate(() => [...document.querySelectorAll("#sessions .session__open")].map((b) => b.textContent));
+  check(rowsRead.every((text) => !/\d\s*(kg|lb)\b/i.test(text)) && rowsRead.every((text) => /\d/.test(text)),
+    "a session row shows its set count and no weight total", JSON.stringify(rowsRead));
+  const exportRow = await page.evaluate(() => {
+    const b = document.querySelector("#historyExportBtn");
+    return { text: b?.textContent.trim() || "", inBar: !!b?.closest(".pagehead"), drawn: !!b && b.getClientRects().length > 0 };
+  });
+  check(exportRow.drawn && !exportRow.inBar && exportRow.text.length > 0,
+    "Export CSV is a labelled row at the end of the list, not a bar icon", JSON.stringify(exportRow));
 
   const openRow = page.locator("#sessions [data-sess='ui-a'] .session__open");
   await openRow.focus();
@@ -655,14 +688,10 @@ async function runHistoryHeadAtLargeText(browser) {
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForApp(page);
     await installSeedProgram(page, { key: KEY, waitFor: waitForApp });
-    await page.evaluate(async (k) => {
-      const state = JSON.parse(localStorage.getItem(k));
-      state.settings = { ...(state.settings || {}), lang: "pt" };
-      localStorage.setItem(k, JSON.stringify(state));
-      const db = await new Promise((res, rej) => { const r = indexedDB.open("repforge", 1); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
-      await new Promise((res, rej) => { const tx = db.transaction("kv", "readwrite"); tx.objectStore("kv").put(state, k); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); });
-      db.close();
-    }, KEY);
+    // One saved session, so the bar carries its search and calendar actions.
+    const seeded = await page.evaluate((k) => JSON.parse(localStorage.getItem(k)), KEY);
+    await persistState(page, { ...seeded, settings: { ...(seeded.settings || {}), lang: "pt" },
+      log: [metricLogRow(seeded.programMeta, seeded.program[0], { session: "head-a", date: "2026-03-03", set: 1, load: 80, reps: 8, rir: 1 })] });
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForApp(page);
     await page.evaluate(() => { document.documentElement.style.fontSize = "200%"; document.querySelector('nav [data-view="history"]').click(); });
@@ -672,14 +701,14 @@ async function runHistoryHeadAtLargeText(browser) {
       const title = document.querySelector("#history .page-title"), range = document.createRange();
       range.selectNodeContents(title);
       const text = [...range.getClientRects()].filter((r) => r.width > 0);
-      const actions = [...document.querySelectorAll("#history .pagehead__actions .icon-btn")].map((b) => ({ id: b.id, box: b.getBoundingClientRect() }));
+      const actions = [...document.querySelectorAll("#history .pagehead__actions .icon-btn")].filter((b) => b.getClientRects().length).map((b) => ({ id: b.id, box: b.getBoundingClientRect() }));
       const hits = actions.filter(({ box }) => text.some((r) => Math.min(r.right, box.right) - Math.max(r.left, box.left) > 1 && Math.min(r.bottom, box.bottom) - Math.max(r.top, box.top) > 1)).map((a) => a.id);
       const column = title.closest(".pagehead__titles").getBoundingClientRect();
       return { lang: document.documentElement.lang, text: title.textContent.trim(), hits, spills: text.some((r) => r.right > column.right + 1 || r.left < column.left - 1),
         wide: document.documentElement.scrollWidth > innerWidth, actions: actions.length };
     });
-    assert(m.lang === "pt-BR" && m.actions === 3, "the History head is drawn in Portuguese with its three actions", JSON.stringify(m));
-    assert(m.hits.length === 0, "the History title does not overlap the search, calendar or export button", JSON.stringify(m));
+    assert(m.lang === "pt-BR" && m.actions === 2, "the History head is drawn in Portuguese with its two actions", JSON.stringify(m));
+    assert(m.hits.length === 0, "the History title does not overlap the search or calendar button", JSON.stringify(m));
     assert(!m.spills, "the History title stays inside its own column", JSON.stringify(m));
     assert(!m.wide, "the History head does not scroll the page sideways", JSON.stringify(m));
   } finally {
@@ -745,7 +774,9 @@ async function runSessionPageBackChecks(browser) {
     await installSeedProgram(page, { key: KEY, waitFor: waitForApp });
     const state = await page.evaluate((k) => JSON.parse(localStorage.getItem(k) || "null"), KEY);
     const day1 = state.program.find((e) => e.day === "Day 1") || state.program[0];
-    await persistState(page, { ...state, log: [metricLogRow(state.programMeta, day1, { session: "back-a", date: "2026-03-03", set: 1, load: 80, reps: 8, rir: 1 })] });
+    // Six sets, so at 200% text the page is taller than the phone whatever the layout and Delete starts below the fold.
+    await persistState(page, { ...state, log: [1, 2, 3, 4, 5, 6].map((set) =>
+      metricLogRow(state.programMeta, day1, { session: "back-a", date: "2026-03-03", set, load: 80, reps: 8, rir: 1 })) });
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForApp(page);
     await page.evaluate(() => document.querySelector('nav button[data-view="history"]')?.click());
@@ -1017,7 +1048,7 @@ async function runCatalogMetricFitChecks(browser) {
 }
 
 async function runSummaryGeometryChecks(browser) {
-  console.log("\nHistory summary totals at accepted numeric boundaries");
+  console.log("\nHistory summary tiles at accepted numeric boundaries");
   for (const width of [320, 390, 430]) for (const lang of ["en", "pt"]) for (const text of ["normal", "text200"]) {
     const label = `${width}px ${lang} ${text}`;
     const opened = await openCatalogState(browser, "history/metric-overflow", width, lang, text,
@@ -1076,8 +1107,10 @@ async function runSummaryGeometryChecks(browser) {
           pageWide: document.documentElement.scrollWidth > innerWidth + 1 };
       }, lang);
       console.log(`  ${label}: ${JSON.stringify(m)}`);
-      assert(m.figures.length === 3 && m.figures[1].value.replace(/\D/g, '') === '999499999001' && m.figures[2].value === '0',
-        `${label}: the summary shows the accepted boundary total beside the PR count`, JSON.stringify(m));
+      // Owner rule (no volume): the summary says what the session was. One exercise, one set, and no zero record tile.
+      assert(m.figures.length === 2 && m.figures[0].value === '1' && m.figures[1].value === '1'
+        && !/999/.test(JSON.stringify(m.figures)),
+        `${label}: the summary counts exercises and sets and never shows a weight total or a zero record count`, JSON.stringify(m));
       assert(!m.problems.length && !m.overlaps.length && !m.pageWide,
         `${label}: summary figures and labels never overlap or clip at the viewport or cell edge`, JSON.stringify(m));
       assert(!m.frameProblems.length,

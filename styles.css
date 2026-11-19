@@ -5773,53 +5773,90 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
 .exrow.is-old span:first-child{color:var(--color-ink-secondary)}
 
 /* @ci-domain history */
-/* ---- History list, frequency counts and calendar sheet (Plan 064 R3j) ----
+/* ---- History list, frequency counts and calendar sheet (Plan 064 R3j; grouped, 2026-11 climb) ----
    Weeks, not a calendar strip: sessions group under their block week, the
    calendar is one button away as a sheet, and two small counts sit above the
-   list. Flat reading content on hairlines; ink only, with no accent. */
+   list. Each week's sessions are one inset group on the page, as iOS lists are:
+   a raised surface with hairlines between rows, never a card per row. */
 #history>.pagehead{flex-wrap:wrap}
-/* The title asks for its own width: beside the three actions when they fit, and on the row above them when enlarged text
+/* The title asks for its own width: beside the two actions when they fit, and on the row above them when enlarged text
    makes it wider than the room they leave, so it never draws under the search button. */
 #history>.pagehead .pagehead__titles{flex:1 1 max-content}
 #history>.pagehead .pagehead__actions{margin-left:auto}
 #history>.pagehead .page-title{overflow-wrap:anywhere}
 #history .hist-block{margin:var(--space-32) 0 0;font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink);overflow-wrap:anywhere}
-#history .hist-month{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--space-4) var(--space-12);margin:var(--space-26) 0 0;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-regular);line-height:var(--line-standard);color:var(--color-ink)}
+#history .hist-month{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--space-4) var(--space-12);margin:var(--space-26) 0 0;font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-regular);line-height:var(--line-standard);color:var(--color-ink)}
 #history .hist-month b{font-weight:var(--weight-semibold)}
 #history .hist-month span{font-size:var(--font-size-body-small);color:var(--color-ink-secondary)}
-#history .hist-week{margin:var(--space-18) 0 0;padding-bottom:var(--space-8);border-bottom:1px solid var(--boundary-decorative);font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink)}
-#history .hist-row{display:block;min-height:0;padding:0;border-bottom:1px solid var(--boundary-decorative);cursor:default}
-#history .session__open{display:flex;flex-wrap:wrap;align-items:flex-start;gap:var(--space-4) var(--space-12);flex:none;width:100%;min-height:56px;margin:0;padding:var(--space-12) 0;background:var(--control-quiet-bg);border:0;border-radius:var(--radius-none);cursor:pointer;text-align:left;font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-standard);color:var(--control-quiet-ink)}
+#history .hist-week{margin:var(--space-18) 0 var(--space-8);padding:0 var(--space-16);font-family:var(--font-language);font-size:var(--font-size-body-small);font-weight:var(--weight-medium);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+#history .hist-month+.hist-weekgroup .hist-week{margin-top:var(--space-12)}
+#history .hist-group,#history .histfreq,#history .hist-empty,#history .hist-tools,#history .histpage__totals,#history .histlift:not(.histedit__lift),#history .histpage__actions .session__del{border-radius:var(--radius-surface);background:var(--surface)}
+/* Dark surfaces sit one step above the page; a hairline keeps each group's edge. */
+:root[data-theme="dark"] #history :is(.hist-group,.histfreq,.hist-empty,.hist-tools,.histpage__totals,.histlift:not(.histedit__lift),.histpage__actions .session__del){box-shadow:var(--boundary-card-hairline-shadow)}
+#history .hist-group{padding-left:var(--space-16)}
+#history .hist-row{display:block;min-height:0;padding:0;border:0;cursor:default}
+#history .hist-row+.hist-row{border-top:1px solid var(--boundary-decorative)}
+#history .session__open{display:flex;flex-wrap:nowrap;align-items:center;gap:var(--space-4) var(--space-12);flex:none;width:100%;min-height:56px;margin:0;padding:var(--space-12) var(--space-16) var(--space-12) 0;background:var(--control-quiet-bg);border:0;border-radius:var(--radius-none);cursor:pointer;text-align:left;font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-standard);color:var(--control-quiet-ink)}
 @media (hover: hover) and (pointer: fine){
 #history .session__open:hover:not(:disabled){background:var(--well)}
 }
 #history .session__open.is-pressed:not(:disabled){background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
 #history .session__open:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
 #history .hist-sess__d{flex:0 0 2.5rem;display:flex;flex-direction:column;align-items:flex-start;font-family:var(--font-training-data);font-size:var(--font-size-subtitle);font-weight:var(--weight-medium);line-height:var(--line-tight)}
-#history .hist-sess__d small{font-family:var(--font-language);font-size:var(--font-size-caption);font-weight:var(--weight-regular);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+#history .hist-sess__d small{font-family:var(--font-language);font-size:var(--font-size-body-small);font-weight:var(--weight-regular);line-height:var(--line-standard);color:var(--color-ink-secondary)}
 #history .hist-sess__m{flex:1 1 9rem;min-width:0}
 #history .hist-sess__m b{display:block;font-weight:var(--weight-medium);overflow-wrap:anywhere}
 #history .hist-sess__m small{display:block;font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary);overflow-wrap:anywhere}
-#history .hist-sess__n{flex:0 0 auto;margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary);white-space:nowrap}
-#history .hist-sess__n b{font-family:var(--font-training-data);font-weight:var(--weight-medium)}
-#history .hist-sess__pr{font-weight:var(--weight-medium);color:var(--color-improved)}
+#history .hist-sess__meta{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-4) var(--space-12);margin-top:var(--space-4);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+#history .hist-sess__pr{font-weight:var(--weight-medium)}
+#history .hist-sess__pr .verdictmark__glyph{width:14px;height:14px}
+#history .hist-sess__chev{margin-left:var(--space-4);color:var(--color-ink-secondary)}
 
-#history .histfreq{margin:var(--space-14) 0 0}
-#history .histfreq__title{margin:0;padding-bottom:var(--space-8);border-bottom:1px solid var(--boundary-decorative);font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink)}
-#history .histfreq__plots{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,8rem),1fr));gap:var(--space-18);margin-top:var(--space-12)}
-#history .histfreq__plots--stack{grid-template-columns:minmax(0,1fr);gap:var(--space-16)}
+#history .histfreq{margin:var(--space-16) 0 0;padding:var(--space-14) var(--space-16) var(--space-16)}
+#history .histfreq__title{margin:0;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink)}
+/* Side by side down to a 320px phone; stacked once enlarged text needs the width. */
+#history .histfreq__plots{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,7rem),1fr));gap:var(--space-16);margin-top:var(--space-12)}
+#history .histfreq__plots--stack{grid-template-columns:minmax(0,1fr)}
 #history .histfreq__col{min-width:0}
 #history .histfreq__cap{margin:0 0 var(--space-4);font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+#history .histfreq .freqcount__n{font-family:var(--font-language);color:var(--color-ink)}
+#history .histfreq .freqcount__label{font-family:var(--font-language)}
+/* The dashed line in the weekly plot, named once under both. */
+#history .histfreq__plan{display:flex;align-items:center;gap:var(--space-8);margin:var(--space-12) 0 0;font-family:var(--font-language);font-size:var(--font-size-caption);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+#history .histfreq__plan-mark{flex:none;width:14px;border-top:1px dashed var(--boundary-required)}
 
 /* The planned marker bridges the padding between bars in the shared recipe; here the bars touch, so
    it spans exactly its own track and the track has nothing to scroll. */
 #history .freqcount__bar{padding-inline:0}
 #history .freqcount--planned .freqcount__track::after{left:0;right:0}
 
-/* ---- History session page (Plan 064 R3j) ----
-   Back, the day's name, the date with its block week, three totals, then one
-   hairline group per lift: outcome and record, the previous exposure, and the
-   numbered sets on the shared ledger. Groups are bands, never cards. */
+/* Nothing saved yet: one quiet group that says where sessions come from. */
+#history .hist-empty{display:flex;flex-direction:column;align-items:center;gap:var(--space-8);margin-top:var(--space-26);padding:var(--space-32) var(--space-16);text-align:center}
+#history .hist-empty__icon{width:32px;height:32px;margin-bottom:var(--space-4);color:var(--color-ink-secondary)}
+#history .hist-empty__title{margin:0;font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink)}
+#history .hist-empty__body{max-width:18rem;margin:0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
+
+/* Every set and Export close the list as one group: the disclosure, then the action under a hairline. The group
+   is drawn only while one of them is. */
+#history .hist-tools{margin:var(--space-26) 0 var(--space-8);overflow:hidden}
+#history .hist-tools:not(:has(>:not(.hidden))){display:none}
+#history .hist-tools>.advanced{margin:0;padding:0 var(--space-16);border:0;border-radius:var(--radius-none);background:transparent}
+#history .hist-tools>.advanced[open]{padding-bottom:var(--space-16)}
+#history .hist-export{display:flex;align-items:center;gap:var(--space-12);width:100%;min-height:var(--control-target);margin:0;padding:var(--space-12) var(--space-16);border:0;border-top:1px solid var(--boundary-decorative);border-radius:var(--radius-none);background:transparent;font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);color:var(--control-quiet-ink);text-align:left;cursor:pointer}
+#history .hist-tools>.hidden+.hist-export{border-top:0}
+#history .hist-export .icon-mask{width:20px;height:20px;color:var(--color-ink-secondary)}
+@media (hover: hover) and (pointer: fine){
+#history .hist-export:hover:not(:disabled){background:var(--well)}
+}
+#history .hist-export.is-pressed:not(:disabled){background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
+#history .hist-export:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
+#history .hist-export:disabled{color:var(--color-disabled-reason);cursor:not-allowed}
+
+/* ---- History session page (Plan 064 R3j; grouped, 2026-11 climb) ----
+   Back, the day's name, the date, then its block week and duration. What the
+   session was in one strip (exercises, sets, records), then one group per lift:
+   the record and outcome under its name, the numbered sets, and the previous
+   exposure as the group's footer. */
 #history.is-session-page>.pagehead{display:none}
 #history .histpage__toolbar{width:100%;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:var(--space-8)}
 #history .histpage__tools{margin-left:auto;display:flex;align-items:center;gap:var(--space-8)}
@@ -5833,16 +5870,19 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
 #history .histpage__title{margin:var(--space-4) 0 0;font-family:var(--font-language);overflow-wrap:anywhere}
 #history .histpage__title:focus-visible{outline:var(--control-focus-outline);outline-offset:2px;border-radius:var(--radius-control)}
 #history .histpage__lede{margin:var(--space-8) 0 0;font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-reading);color:var(--color-ink-secondary)}
-#history .histpage__totals{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,6rem),1fr));gap:var(--space-12);margin-top:var(--space-18);padding:var(--space-12) 0;border-top:1px solid var(--boundary-decorative);border-bottom:1px solid var(--boundary-decorative)}
-#history .histpage__totals b{display:block;font-family:var(--font-language);font-weight:var(--weight-semibold);letter-spacing:-.02em;font-variant-numeric:tabular-nums;font-size:var(--font-size-metric);line-height:var(--line-standard);white-space:normal;overflow-wrap:normal;color:var(--color-ink)}
-#history .histpage__totals .histpage__total-group{display:inline-block;white-space:nowrap}
-#history .histpage__totals>div>span{display:block;margin-top:var(--space-4);font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
-#history .histpage__cols{margin-top:var(--space-26);min-height:var(--control-target);align-items:center}
+#history .histpage__lede.histpage__meta{margin-top:0}
+#history .histpage__totals{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,5.5rem),1fr));margin-top:var(--space-16)}
+#history .histpage__totals>div{padding:var(--space-12) var(--space-16)}
+#history .histpage__totals>div+div{border-left:1px solid var(--boundary-decorative)}
+#history .histpage__totals b{display:block;font-family:var(--font-language);font-weight:var(--weight-semibold);letter-spacing:-.02em;font-variant-numeric:tabular-nums;font-size:var(--font-size-metric);line-height:var(--line-standard);color:var(--color-ink)}
+#history .histpage__totals>div>span{display:block;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+#history .histpage__totals>.histpage__total--record b{color:var(--color-improved)}
+#history .histpage__cols{margin-top:var(--space-8);align-items:end}
 /* Share tracks across headings and rows; heading wrapping yields before a value ever has to scroll. */
-#history .histlift__ledger-frame{--history-ledger-gap:var(--space-8)}
+#history .histlift__ledger-frame{--history-ledger-gap:var(--space-16)}
 #history .histlift__overflow{display:none;text-align:right;font-size:var(--font-size-subtitle);line-height:var(--line-standard);color:var(--color-ink-secondary)}
 #history .is-overflowing .histlift__overflow{display:block}
-#history .is-compact-ledger{--history-ledger-gap:var(--space-4)}
+#history .is-compact-ledger{--history-ledger-gap:var(--space-8)}
 #history .is-compact-ledger .histpage__cols>span:first-child{grid-column:1/-1}
 #history .is-compact-ledger .histpage__cols .history-metric-grid{grid-row:2}
 #history .is-value-fit .histpage__cols .fx-col{contain:inline-size;overflow-wrap:anywhere}
@@ -5851,24 +5891,32 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
 #history .histlift__ledger:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 #history .histpage__cols,#history .histlift__sets,#history .histlift__sets .ledgerline{display:grid;grid-column:1/-1;grid-template-columns:subgrid;column-gap:var(--history-ledger-gap)}
 #history .histpage__cols,#history .histlift__sets .ledgerline{padding-inline:0}
-#history .histpage__cols .ledgerline__vals{letter-spacing:0}
+/* Headings in sentence case at the caption's size, bottom-aligned when one wraps. */
+#history .histpage__cols{padding-block:var(--space-4);border-bottom:0;font-size:var(--font-size-body-small);font-weight:var(--weight-medium);line-height:var(--line-standard);letter-spacing:0;text-transform:none}
+#history .histpage__cols .ledgerline__vals{letter-spacing:0;align-items:end}
 #history .histpage__cols .ledgerline__vals,#history .histlift__sets .ledgerline__vals{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr) minmax(0,1fr);gap:var(--space-8)}
 #history .histpage__cols .history-metric-grid,#history .histlift__sets .history-metric-grid{display:grid;grid-column:2/-1;grid-template-columns:subgrid;column-gap:var(--history-ledger-gap);min-width:0}
 #history .histpage__cols .ledgerline__vals>.fx-col,#history .histlift__sets .ledgerline__vals>.fx-col{min-width:0}
 #history .histpage__cols .ledgerline__vals{font-family:inherit;font-size:inherit;font-weight:inherit;line-height:inherit;letter-spacing:inherit;text-transform:inherit;color:inherit}
-#history .histlift{padding:var(--space-12) 0;border-bottom:1px solid var(--boundary-decorative)}
-#history .histlift:last-of-type{border-bottom:0}
-#history .histlift__head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:var(--space-12)}
-#history .histlift__name{flex:1 1 8rem;min-width:0;margin:0;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-medium);line-height:var(--line-standard);color:var(--color-ink);overflow-wrap:anywhere}
-#history .histlift__tags{display:flex;flex:none;align-items:baseline;gap:var(--space-12)}
+#history .histlift__sets .ledgerline{min-height:0;padding-block:var(--space-8);border-top:1px solid var(--boundary-decorative);border-bottom:0}
+#history .histlift__sets .ledgerline__vals,#history .histlift__sets .ledgerline__idx{font-family:var(--font-language);font-variant-numeric:tabular-nums}
+#history .histlift:not(.histedit__lift){margin-top:var(--space-12);padding:var(--space-14) var(--space-16) var(--space-12)}
+#history .histlift:not(.histedit__lift) .histlift__head{display:flex;flex-direction:column;align-items:flex-start;gap:var(--space-4)}
+/* The session editor keeps its hairline bands. */
+#history .histedit__lift{padding:var(--space-12) 0;border-bottom:1px solid var(--boundary-decorative)}
+#history .histedit__lift:last-of-type{border-bottom:0}
+#history .histedit__lift .histlift__head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:var(--space-12)}
+#history .histedit__lift .histlift__name{flex:1 1 8rem;font-weight:var(--weight-medium)}
+#history .histlift__name{min-width:0;margin:0;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink);overflow-wrap:anywhere}
+#history .histlift__tags{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-4) var(--space-8)}
+/* The outcome is a word, in ink: improved and declined in the same weight, held quieter (owner, 2026-11-01). */
+#history .histlift__tags .verdictmark:not(.verdictmark--record){font-weight:var(--weight-regular)}
 #history .verdictmark.is-insufficient{font-weight:var(--weight-regular);color:var(--color-ink-secondary)}
-#history .histlift__before{margin:var(--space-4) 0 var(--space-4);font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
-#history .histlift__sets .ledgerline:last-child{border-bottom:0}
+#history .histlift__before{margin:var(--space-8) 0 0;padding-top:var(--space-8);border-top:1px solid var(--boundary-decorative);font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
 #history .histlift__sets .ledgerline__idx{color:var(--color-ink-secondary)}
-#history .histpage__actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,9rem),1fr));gap:var(--space-12);align-items:center;margin-top:var(--space-26)}
-#history .histpage__actions .session__del{padding:0 var(--space-8)}
-/* Delete remains centred at the bottom of the session. */
-#history .histpage__actions .session__del{grid-column:1/-1;justify-self:center}
+/* Delete closes the page as its own group row, after every lift. */
+#history .histpage__actions{display:block;margin-top:var(--space-18)}
+#history .histpage__actions .session__del{display:block;width:100%;min-height:var(--control-target);padding:var(--space-12) var(--space-16);text-align:center}
 
 #historyCalSheet{height:auto}
 #historyCalSheet .sheetband{flex:none;touch-action:none}
@@ -8384,24 +8432,21 @@ body.is-entry-editor #entryProgramName,
 
 /* P4d History consumers keep their read, edit, and delete hierarchy flat.
    These rules apply the frozen control roles without changing History state. */
-#history #historyExportBtn{width:var(--control-target);height:var(--control-target);min-width:var(--control-target);min-height:var(--control-target);border:1px solid var(--control-secondary-boundary);border-radius:var(--radius-round);background:var(--control-secondary-bg);color:var(--control-secondary-ink)}
 #history :is(#calPrev,#calNext,#historySearchBtn){width:var(--control-target);height:var(--control-target);min-width:var(--control-target);min-height:var(--control-target);border:1px solid var(--control-quiet-boundary);border-radius:var(--radius-round);background:var(--control-quiet-bg);color:var(--control-quiet-ink)}
 @media (hover: hover) and (pointer: fine){
-#history #historyExportBtn:hover:not(:disabled){background:var(--well);border-color:var(--control-secondary-boundary);color:var(--control-secondary-ink)}
 }
 @media (hover: hover) and (pointer: fine){
 #history :is(#calPrev,#calNext,#historySearchBtn):hover:not(:disabled){background:var(--well);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink)}
 }
-#history #historyExportBtn.is-pressed:not(:disabled),#history :is(#calPrev,#calNext,#historySearchBtn).is-pressed:not(:disabled){transform:var(--control-pressed-transform)}
-#history :is(#historyExportBtn,#calPrev,#calNext,#historySearchBtn):focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
-#history #historyExportBtn:disabled{background:var(--control-secondary-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed}
+#history :is(#calPrev,#calNext,#historySearchBtn).is-pressed:not(:disabled){transform:var(--control-pressed-transform)}
+#history :is(#calPrev,#calNext,#historySearchBtn):focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 #history :is(#calPrev,#calNext,#historySearchBtn):disabled{background:var(--control-quiet-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed}
 #history .back-link{min-height:var(--control-target);background:var(--control-quiet-bg);color:var(--control-quiet-ink);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard)}
 @media (hover: hover) and (pointer: fine){
 #history .session__open:hover:not(:disabled){background:var(--well);color:var(--control-quiet-ink)}
 }
 #history .session__open.is-pressed:not(:disabled){background:var(--row-pressed-bg);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
-#history .session__open:focus-visible{outline:var(--control-focus-outline);outline-offset:2px;border-radius:var(--radius-none)}
+#history .session__open:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px;border-radius:var(--radius-none)}
 #history .session__open:disabled{background:var(--control-quiet-bg);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
 #history .btn--cta,#history .btn--steel,#history .btn--danger{border-radius:var(--radius-button);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard)}
 #history .btn--cta{border:1px solid var(--control-primary-boundary);background:var(--control-primary-bg);color:var(--control-primary-ink)}

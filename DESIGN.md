@@ -260,7 +260,11 @@ Taurifer looks like a warm paper record book that happens to compute. The page
 is unbleached paper (`--bg`), the type is near-black ink, and figures sit in
 aligned columns because `font-variant-numeric: tabular-nums` is set on `body`,
 so a column of loads never shifts under its own digits. Reading screens are flat
-paper separated by hairlines; groups are never cards. One colour, a burnt
+paper separated by hairlines; groups are never cards. History is the one
+exception, pending the owner's decision on the History hill-climb: each week's
+sessions, the session's summary and each lift sit in an inset group (`--surface`,
+the surface radius, no shadow), as iOS grouped lists do, with hairlines between the
+rows inside it. One colour, a burnt
 orange, is the only mark the hand makes, and it is rationed by a budget of five
 named uses (see Colors).
 
@@ -615,7 +619,8 @@ geometry: none (`--radius-none`, 0), compact 4px, control 8px, surface 12px,
 prominent 16px, pill 999px and round 50%.
 
 - **Control** (8px): buttons, fields, shelf fields and pads.
-- **Surface** (12px): the open ledger row, the toast, the landing's ink pill.
+- **Surface** (12px): the open ledger row, the toast, the landing's ink pill, and
+  History's inset groups.
 - **Prominent** (16px): sheets and dialogs on their top corners, and the workout
   shelf on its top corners with a square bottom.
 - **Compact** (4px): the sheet handle, the drain bar, frequency bars.

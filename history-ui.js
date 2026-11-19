@@ -87,6 +87,10 @@
       :metric?.unit==="kg"?unitLabel():metric?.unit==="metres"?"m":metric?.unit==="seconds"?"s":String(metric?.unit||"");
     const historyMetricText=(value,metric)=>typeof metricDisplayValue==="function"
       ?metricDisplayValue(value,metric):String(value??"");
+    /** A metric value as the reader sees it: the editor's plain decimal, with the lifter's decimal separator. */
+    const historyMetricReadText=(value,metric)=>{
+      const text=historyMetricText(value,metric);
+      return/^-?\d+\.\d+$/.test(text)&&String(typeof deps.locTag==="function"?deps.locTag():"").toLowerCase().startsWith("pt")?text.replace(".",","):text};
     const isSourceMetricRow=row=>row?.metricType==="source_metrics@1"||Array.isArray(row?.metricIds)||Array.isArray(row?.metricValues);
     function historyMetricRecords(row){
       if(!isSourceMetricRow(row))return null;
@@ -112,9 +116,10 @@
       if(metric?.semantic==="loadKg")row.load=value;
       if(metric?.semantic==="reps")row.reps=value}
     function historyMetricCell(row,record){
-      const id=record.definition.id,label=historyMetricLabel(record.definition),unit=historyMetricUnit(record.definition),shown=historyMetricText(record.value,record.definition);
+      const id=record.definition.id,label=historyMetricLabel(record.definition),unit=historyMetricUnit(record.definition),shown=historyMetricReadText(record.value,record.definition);
       return`<span class="fx-col history-metric" data-history-metric-id="${esc(id)}" data-metric-value="${esc(record.value)}" data-metric-unit="${esc(record.unit||record.definition.unit||"")}" aria-label="${esc(`${label}: ${shown}${unit?` ${unit}`:""}`)}">`+
-        `<span class="history-metric__value">${esc(shown||"–")}</span><span class="history-metric__unit">${esc(unit)}</span></span>`}
+        // The unit is in the column's heading, so the cell shows only its figure; its accessible name keeps the unit.
+        `<span class="history-metric__value">${esc(shown||"–")}</span></span>`}
     function historyMetricHeader(records){
       return(records||[]).map(record=>{
         const unit=historyMetricUnit(record.definition),label=historyMetricLabel(record.definition);
@@ -123,7 +128,7 @@
       const records=historyMetricRecords(row);
       if(records===null)return"";
       return records.map(record=>{
-        const label=historyMetricLabel(record.definition),unit=historyMetricUnit(record.definition),shown=historyMetricText(record.value,record.definition);
+        const label=historyMetricLabel(record.definition),unit=historyMetricUnit(record.definition),shown=historyMetricReadText(record.value,record.definition);
         return`${label}: ${shown}${unit?` ${unit}`:""}`}).join(" · ")}
     /** The date of a set's session as the group head says it: the long weekday date, with the year when it is not this one. */
     function everySetDate(iso){
@@ -651,10 +656,6 @@ function historyOutcomeMark(group,sid){
   return`<span class="verdictmark${kind??" is-insufficient"}"${parity}>${esc(cmp.label)}</span>`}
 function historyReadingView(s,rows){
   const sid=String(s.session),index=historyIndexFor(state.log);
-  const volumeRows=rows.map(row=>({row,reading:typeof deps.readLogRow==="function"?deps.readLogRow(row):row}))
-    .filter(entry=>isWork(entry.row)&&Number.isFinite(entry.reading.tonnage));
-  const volume=sum(volumeRows.map(entry=>entry.reading.tonnage));
-  const hasStrengthProjection=volumeRows.length>0;
   const prLifts=historyPrLifts(index).get(sid)||new Set();
   const groups=[],byLift=new Map();
   for(const row of rows){
@@ -672,7 +673,7 @@ function historyReadingView(s,rows){
     const showRir=metricRows?(historyHasStrengthMetrics(g.rows[0])||historyHasRir(g.rows)):true;
     const count=metricRows?records.length+(showRir?1:0):3;
     const headers=metricRows?historyMetricHeader(records)+(showRir?`<span class="fx-col">${esc(t("stats.table.rir"))}</span>`:""):
-      `<span class="fx-col">${esc(unitLabel())}</span><span class="fx-col">${esc(t("log.reps"))}</span><span class="fx-col">${esc(t("stats.table.rir"))}</span>`;
+      `<span class="fx-col">${esc(`${t("focus.metric.load_kg")} (${unitLabel()})`)}</span><span class="fx-col">${esc(t("log.reps"))}</span><span class="fx-col">${esc(t("stats.table.rir"))}</span>`;
     const firstWorking=g.rows.find(row=>!row.warmup),ramps=firstWorking?.startingLoad?.ramps||0;
     const setRows=g.rows.map(row=>{
       const cells=metricRows?(historyMetricRecords(row)||[]).map(record=>historyMetricCell(row,record)).join("")+
@@ -687,36 +688,34 @@ function historyReadingView(s,rows){
       `<span class="ledgerline__vals history-metric-grid" style="--history-metric-count:${count}">${headers}</span></div>`;
     return`<section class="histlift" data-lift="${esc(g.key)}" data-history-exercise-id="${esc(exerciseId)}"><div class="histlift__head"><h3 class="histlift__name">${esc(shownName(g.rows[0]))}</h3>`+
       `<span class="histlift__tags">${record}${historyOutcomeMark(g,sid)}</span></div>`+
-      (before?`<p class="histlift__before">${esc(before)}</p>`:"")+
       `<div class="histlift__ledger-frame"><span class="histlift__overflow" aria-hidden="true">↔</span><div class="histlift__ledger" style="--history-metric-count:${count}" tabindex="0" role="region" aria-label="${esc(shownName(g.rows[0]))}">`+
-      groupHeader+`<div class="histlift__sets">${setRows}</div></div></div></section>`}).join("");
-  // The figure in Sans with its unit once, small, as the finish screen draws it (#621).
-  const separator=new Intl.NumberFormat(historyLocale()).formatToParts(1000).find(part=>part.type==="group").value;
-  const total=(value,label,unit)=>{
-    const groups=value.split(separator);
-    const figure=groups.map((group,i)=>{
-      const last=i===groups.length-1;
-      return`<span class="histpage__total-group">${esc(group+(last?"":separator))}${last&&unit?`<small>${esc(unit)}</small>`:""}</span>`
-    }).join("<wbr>");
-    return`<div><b>${figure}</b><span>${esc(label)}</span></div>`};
-  const totals=total(historyInt(setCount),setCount===1?t("plural.set.one"):t("plural.set.other"))+
-    (hasStrengthProjection?total(historyInt(toDisplay(volume)),t("stats.cap.moved"),unitLabel())+
-      total(historyInt(prLifts.size),t("stats.metric.prs")):"");
+      groupHeader+`<div class="histlift__sets">${setRows}</div></div></div>`+
+      (before?`<p class="histlift__before">${esc(before)}</p>`:"")+`</section>`}).join("");
+  // What the session was, never how much it weighed: exercises, sets and, when there are any, records.
+  const total=(n,label,cls="")=>`<div${cls}><b>${esc(historyInt(n))}</b><span>${esc(label)}</span></div>`;
+  const totals=total(groups.length,groups.length===1?t("plural.exercise.one"):t("plural.exercise.other"))+
+    total(setCount,setCount===1?t("plural.set.one"):t("plural.set.other"))+
+    (prLifts.size?total(prLifts.size,prLifts.size===1?t("history.pr"):t("stats.metric.prs"),' class="histpage__total--record"'):"");
   return`<article class="session session--read histpage" data-reading="${esc(sid)}" data-sess="${esc(sid)}">`+
     `<div class="histpage__totals">${totals}</div>`+
     lifts+
     `<div class="histpage__actions">`+
     `<button type="button" class="session__del" data-del="${esc(sid)}">${esc(t("history.session.delete"))}</button></div></article>`}
 /** #515: the session's recorded wall-clock minutes, inside the summary's own
- *  window, as quiet metadata after the date. Unknown reads as nothing. */
-function historyDurationMeta(sid){
+ *  window. Unknown reads as nothing. */
+function historyDurationMinutes(sid){
   const seconds=state.sessionTiming?.[String(sid)]?.durationSeconds;
   const minutes=Number.isFinite(seconds)?Math.round(seconds/60):null;
-  if(!(minutes>=1&&minutes<=480))return"";
-  // Non-breaking inside "· 52 min", so a wrapping subtitle moves it as one piece.
-  return`<span aria-hidden="true"> ${esc(`· ${t("today.live.minutes",{n:minutes})}`.replace(/ /g,"\u00a0"))}</span>`+
-    `<span class="visually-hidden">, ${esc(`${minutes} ${minutes===1?t("plural.minute.one"):t("plural.minute.other")}`)}</span>`}
-/** Back, the day's name as the page title, and the date with its block week. */
+  return minutes>=1&&minutes<=480?minutes:null}
+/** The second line under the date: the block week and the duration, either of which may be unknown. */
+function historySessionMeta(week,sid){
+  const minutes=historyDurationMinutes(sid);
+  if(week==null&&minutes==null)return"";
+  const parts=[week!=null?esc(t("today.week_short",{n:week})):null,
+    // Non-breaking inside "42 min", so a wrapping line moves it as one piece.
+    minutes!=null?`<span aria-hidden="true">${esc(t("today.live.minutes",{n:minutes}).replace(/ /g,"\u00a0"))}</span><span class="visually-hidden">${esc(`${minutes} ${minutes===1?t("plural.minute.one"):t("plural.minute.other")}`)}</span>`:null].filter(Boolean);
+  return`<p class="histpage__lede histpage__meta">${parts.join(`<span aria-hidden="true"> · </span>`)}</p>`}
+/** Back, the day's name as the page title, the date, then its block week and duration. */
 function historySessionHead(record){
   const longDate=formatLongDate(String(record.date||"")),week=historyWeekOf(record.date);
   const sid=record.session;
@@ -725,7 +724,7 @@ function historySessionHead(record){
       `<button type="button" class="icon-btn" data-history-share="${esc(sid)}" aria-label="${esc(t("history.session.share"))}"><span class="icon-mask icon-mask--share" aria-hidden="true"></span></button>`:""}`+
     `<button type="button" class="text-link" data-history-edit="${esc(sid)}">${esc(t("history.session.edit"))}</button></div></div>`+
     `<h2 class="page-title histpage__title" data-history-selection-heading tabindex="-1">${esc(dayLabel(record.day))}</h2>`+
-    `<p class="histpage__lede">${esc(week!=null?t("history.saved_week",{date:longDate,n:week}):longDate)}${historyDurationMeta(record.session)}</p></div>`}
+    `<p class="histpage__lede">${esc(longDate)}</p>${historySessionMeta(week,record.session)}</div>`}
 function historyDeleteView(s){
   return '<article class="session session--delete" data-deleting="'+esc(s.session)+'" role="alert">'+
     '<div class="history-delete__icon" aria-hidden="true">!</div><h3 data-history-delete-status tabindex="-1">'+esc(t("history.delete_title"))+'</h3>'+
@@ -835,33 +834,34 @@ function historyMonthHeading(index,date){
     `<span>${esc(t("history.month_summary",{sessions:historyCountText("sessions",bucket.sessions.size),sets:historyCountText("sets",bucket.sets)}))}</span></h3>`}
 
 function historyRowHtml(s,prLifts){
-  const sets=s.rows,work=sets.filter(isWork),volumeRows=work.filter(row=>!isSourceMetricRow(row)||historyHasLoadAndReps(row)),
-    vol=sum(volumeRows.map(x=>(+x.load||0)*(+x.reps||0)));
+  const work=s.rows.filter(isWork);
   const d=new Date(`${s.date}T12:00:00`),valid=!Number.isNaN(+d);
   const muscles=[...new Set(work.map(r=>String(r.primary||"").split(",")[0].trim()).filter(Boolean))].slice(0,3).map(muscleLabel);
-  const prs=prLifts.get(String(s.session))?.size||0;
-  // The card is the way in: one control per row, and it opens the session.
+  const prs=prLifts.get(String(s.session))?.size||0,minutes=historyDurationMinutes(s.session);
+  const meta=[historySetsText(s.rows.length),minutes!=null?t("today.live.minutes",{n:minutes}):null].filter(Boolean).join(" · ");
+  // The card is the way in: one control per row, and it opens the session. What it was, never how much it weighed.
   return`<article class="hist-row session" data-sess="${esc(s.session)}">`+
     `<button type="button" class="session__open" data-edit="${esc(s.session)}" aria-label="${esc(t("history.session_open_aria",{day:dayLabel(s.day)}))}">`+
     `<span class="hist-sess__d">${valid?`<small>${esc(t("weekday."+d.getDay()))}</small><b>${d.getDate()}</b>`:""}</span>`+
-    `<span class="hist-sess__m"><b>${esc(dayLabel(s.day))}</b>${muscles.length?`<small>${historyNameList(muscles)}</small>`:""}</span>`+
-    `<span class="hist-sess__n"><span>${esc(historySetsText(sets.length))}</span>`+
-    (volumeRows.length?`<span><b>${esc(historyInt(toDisplay(vol)))}</b> ${esc(unitLabel())}</span>`:"")+
-    (prs?`<span class="hist-sess__pr">${esc(historyPrText(prs))}</span>`:"")+`</span></button></article>`}
+    `<span class="hist-sess__m"><b>${esc(dayLabel(s.day))}</b>${muscles.length?`<small>${historyNameList(muscles)}</small>`:""}`+
+    `<span class="hist-sess__meta"><span>${esc(meta)}</span>`+
+    (prs?`<span class="hist-sess__pr verdictmark verdictmark--record"><span class="verdictmark__glyph" aria-hidden="true"></span>${esc(historyPrText(prs))}</span>`:"")+
+    `</span></span><span class="chevron hist-sess__chev" aria-hidden="true"></span></button></article>`}
 
+/** Month, then each week's sessions as one grouped list under the week's label. */
 function historyListHtml(index,shown){
   const groups=historyWeekGroups({sessions:index.sessions,shown,blocks:historyBlocks(historyContext())});
   const prLifts=historyPrLifts(index);
   let out="",lastMonth="";
-  const month=date=>{const key=String(date||"").slice(0,7);if(key===lastMonth)return"";lastMonth=key;return historyMonthHeading(index,date)};
   for(const group of groups){
     if(group.kind==="archived"){out+=`<h3 class="hist-block">${esc(group.name||t("untitled_program"))}</h3>`;lastMonth=""}
     for(const week of group.weeks){
-      out+=month(week.sessions[0].date);
-      out+=`<h3 class="hist-week">${esc(week.week!=null
+      const key=String(week.sessions[0]?.date||"").slice(0,7);
+      if(key&&key!==lastMonth){lastMonth=key;out+=historyMonthHeading(index,week.sessions[0].date)}
+      out+=`<section class="hist-weekgroup"><h3 class="hist-week">${esc(week.week!=null
         ?t("history.week",{n:week.week,done:week.done,planned:week.planned})
-        :t("history.week_of",{date:historyShortDate(week.monday)}))}</h3>`;
-      for(const s of week.sessions)out+=month(s.date)+historyRowHtml(s,prLifts)}}
+        :t("history.week_of",{date:historyShortDate(week.monday)}))}</h3><div class="hist-group">`+
+        week.sessions.map(s=>historyRowHtml(s,prLifts)).join("")+`</div></section>`}}
   return out}
 
 // ---- Frequency counts: two small tallies above the list ----
@@ -873,7 +873,7 @@ function renderHistoryFrequency(index){
   const el=$("#historyFreq");if(!el)return;
   const ctx=historyContext();
   const freq=historyFrequency({sessions:index.sessions,started:ctx.started,weeks:ctx.weeks,planned:ctx.planned,today:ctx.today});
-  if(!freq){el.classList.add("hidden");el.innerHTML="";return}
+  if(!freq||!index.sessions?.length){el.classList.add("hidden");el.innerHTML="";return}
   el.classList.remove("hidden");
   // Many weeks leave no room for every label, so a long block names every fourth.
   const thin=freq.total>16;
@@ -890,7 +890,8 @@ function renderHistoryFrequency(index){
     `<div class="histfreq__col" aria-hidden="true"><p class="histfreq__cap">${esc(t("history.freq.per_week"))}</p>`+
     `<div class="freqcount freqcount--planned" style="--freq-plan:${plan}">${weekBars}</div></div>`+
     `<div class="histfreq__col" aria-hidden="true"><p class="histfreq__cap">${esc(t("history.freq.per_weekday"))}</p>`+
-    `<div class="freqcount">${dayBars}</div></div></div>`}
+    `<div class="freqcount">${dayBars}</div></div></div>`+
+    `<p class="histfreq__plan" aria-hidden="true"><span class="histfreq__plan-mark"></span>${esc(t("history.freq.planned",{n:freq.planned}))}</p>`}
 
 // ---- The calendar sheet ----
 function historyCalendarOpen(){const sheet=$("#historyCalSheet");return!!sheet&&!sheet.hidden}
@@ -969,8 +970,12 @@ function bindHistoryLedgers(){
     if(overflows())frame.classList.add("is-compact-ledger");
     // The final minimum belongs to the values, not a long heading. Keep all heading text by letting it wrap further.
     if(overflows())frame.classList.add("is-value-fit");
-    // If even the value minimum cannot fit, scroll with readable whole-word headings.
-    if(overflows())frame.classList.remove("is-value-fit");
+    // If even the value minimum cannot fit, or fits only by breaking a heading past two lines, scroll with readable
+    // whole-word headings.
+    const headingTooTall=()=>[...ledger.querySelectorAll(".histpage__cols .fx-col")].some(cell=>{
+      const line=parseFloat(getComputedStyle(cell).lineHeight);
+      return Number.isFinite(line)&&line>0&&cell.getBoundingClientRect().height>line*2+1});
+    if(overflows()||headingTooTall())frame.classList.remove("is-value-fit");
     frame.classList.toggle("is-overflowing",overflows());
   };
   const ledgers=$$(".histlift__ledger");
@@ -1032,7 +1037,13 @@ function renderHistory(source=state.log){
   const sessions=searchHistoryIndex(index,q);
   syncHistorySearchChrome();
   $("#sessions").innerHTML=sessions.length?historyListHtml(index,sessions)
-    :`<div class="table"><div class="empty" data-hist-empty="${q?"nomatch":"none"}">${esc(t(q?"history.empty.no_match":"history.empty.sessions"))}</div></div>`;
+    :!q?`<div class="hist-empty" data-hist-empty="none"><span class="icon-mask icon-mask--history hist-empty__icon" aria-hidden="true"></span>`+
+      `<h3 class="hist-empty__title">${esc(t("history.empty.title"))}</h3><p class="hist-empty__body">${esc(t("history.empty.body"))}</p></div>`
+    :`<div class="table"><div class="empty" data-hist-empty="nomatch">${esc(t("history.empty.no_match"))}</div></div>`;
+  // With nothing saved there is nothing to search, page through, list set by set or export.
+  const none=!index.sessions.length;
+  [$("#historySearchBtn"),$("#historyCalBtn"),$("#historyExportBtn")].forEach(b=>b?.classList.toggle("hidden",none));
+  tableDetails?.classList.toggle("hidden",none);
   if(focusedSession){
     const next=$$("#sessions .session__open").find(btn=>btn.closest("[data-sess]")?.dataset.sess===focusedSession);
     if(next&&canTakeFocus(next)){try{next.focus({preventScroll:true})}catch{try{next.focus()}catch{}}}}
