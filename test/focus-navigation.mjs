@@ -94,6 +94,92 @@ async function main() {
 
     await gesturePage.close();
 
+    /* A swipe starts wherever the thumb lands (owner, iPhone, 2026-11-19). The card's content is a vertical scroller
+       with `touch-action: pan-y`, so until something says otherwise the browser may still turn the touch into a
+       native pan and cancel the pointer; iOS did that partway through a sideways drag and the card sprang back. Once
+       the drag leans sideways the deck claims every touchmove (`defaultPrevented`), so no pan can take it, from any
+       start point. Chromium never cancels a sideways drag under pan-y, so the claim is what this proves. */
+    console.log("\nNavigation: a swipe from anywhere on the card advances; a vertical drag scrolls");
+    for (const viewport of [{ width: 390, height: 700 }, { width: 320, height: 568 }]) {
+      const swipePage = await browser.newPage({ viewport, isMobile: true, hasTouch: true });
+      swipePage.on("pageerror", (err) => pageErrors.push(`[PAGE ERROR ${viewport.width}] ${err.message}`));
+      await swipePage.goto(BASE_URL, { waitUntil: "domcontentloaded" });
+      await swipePage.waitForFunction(() => window.__repforgeBooted === true);
+      await installSeedProgram(swipePage, {
+        key: STATE_KEY,
+        waitFor: async (p) => p.waitForFunction(() => window.__repforgeBooted === true),
+      });
+      await swipePage.locator("#startWorkout").click();
+      await swipePage.waitForSelector("#workoutShell:not(.hidden)");
+      await swipePage.waitForFunction(() => !document.querySelector(".is-push-over,.is-push-under"));
+      await swipePage.evaluate(() => {
+        window.__swipeLog = { moves: [], cancels: 0 };
+        // Window, bubbling: it reads what the deck decided on the way up.
+        addEventListener("touchmove", (e) => window.__swipeLog.moves.push({ x: e.touches[0]?.clientX, y: e.touches[0]?.clientY, prevented: e.defaultPrevented }), { passive: true });
+        addEventListener("pointercancel", () => { window.__swipeLog.cancels += 1; }, true);
+      });
+      const touch = await swipePage.context().newCDPSession(swipePage);
+      const drag = async (x, y, path) => {
+        await swipePage.evaluate(() => { window.__swipeLog.moves = []; window.__swipeLog.cancels = 0; });
+        await touch.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
+        for (const [dx, dy] of path) {
+          await touch.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: x + dx, y: y + dy }] });
+        }
+        await touch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+        return swipePage.evaluate(() => structuredClone(window.__swipeLog));
+      };
+      const idle = () => swipePage.waitForFunction(() => {
+        const deck = document.querySelector("#focusDeck"), track = document.querySelector("#focusTrack");
+        return deck && !deck.classList.contains("is-swiping") && !track.classList.contains("is-settling");
+      });
+      // A thumb's sideways swipe: it leaves the start with a vertical drift, then runs left past half the card.
+      const far = Math.round(viewport.width * 0.6);
+      const swipeLeft = [[-3, 2], [-7, 4], [-12, 7], [-18, 9], [-30, 12], [-50, 15], [-far * 0.6, 17], [-far, 18]].map(([dx, dy]) => [Math.round(dx), dy]);
+      const starts = {
+        "the top line (prescription)": ".fx-head",
+        "the hero": ".fx-cue__l1",
+        "the reason copy": ".fx-cue__evidence",
+        "the set table": ".fcard__ledger .ledgerline--open",
+      };
+      for (const [where, selector] of Object.entries(starts)) {
+        const box = await swipePage.locator(`#focusDeck .exercise.is-current ${selector}`).first().boundingBox();
+        assert(box && box.height > 0, `${viewport.width}px: the card shows ${where}`);
+        const x = Math.round(viewport.width * 0.8), y = Math.round(box.y + Math.min(box.height / 2, 16));
+        const log = await drag(x, y, swipeLeft);
+        await swipePage.waitForFunction(() => window.__repforgeFocus.at() === 1);
+        const late = log.moves.filter((m) => x - m.x >= 10);
+        assert(late.length > 0 && late.every((m) => m.prevented) && log.cancels === 0,
+          `${viewport.width}px: a swipe from ${where} is claimed by the deck, so no native pan can cancel it`, JSON.stringify(log));
+        await idle();
+        assert(await swipePage.evaluate(() => window.__repforgeGestureHandle.navigate(-1)), "the deck walks back for the next start");
+        await swipePage.waitForFunction(() => window.__repforgeFocus.at() === 0);
+        await idle();
+      }
+
+      // A vertical drag on the content stays the scroller's: nothing claimed, the card scrolls, the exercise stays.
+      const context = swipePage.locator("#focusDeck .exercise.is-current .fcard__context");
+      const room = await context.evaluate((el) => el.scrollHeight - el.clientHeight);
+      assert(room > 20, `${viewport.width}px: the card's content overflows, so a vertical drag has something to scroll`, String(room));
+      const ledger = await swipePage.locator("#focusDeck .exercise.is-current .fcard__ledger").boundingBox();
+      const vx = Math.round(viewport.width * 0.5), vy = Math.round(ledger.y + 10);
+      const vertical = await drag(vx, vy, [[1, -4], [2, -9], [3, -16], [4, -30], [4, -50], [5, -80]]);
+      await swipePage.waitForFunction(() => document.querySelector("#focusDeck .exercise.is-current .fcard__context").scrollTop > 0);
+      assert(vertical.moves.every((m) => !m.prevented) && await swipePage.evaluate(() => window.__repforgeFocus.at()) === 0,
+        `${viewport.width}px: a vertical drag scrolls the card and is never claimed by the deck`, JSON.stringify(vertical));
+      await context.evaluate((el) => { el.scrollTop = 0; });
+
+      // A tap that wobbles a few pixels sideways is still a tap: Note opens its sheet and the exercise stays.
+      const note = await swipePage.locator("#focusDeck .exercise.is-current .fx-note-add").boundingBox();
+      await drag(Math.round(note.x + note.width / 2), Math.round(note.y + note.height / 2), [[-5, 1]]);
+      await swipePage.waitForFunction(() => {
+        const sheet = document.querySelector("#exNoteSheet");
+        return sheet && !sheet.hidden && !sheet.classList.contains("hidden");
+      });
+      assert(await swipePage.evaluate(() => window.__repforgeFocus.at()) === 0, `${viewport.width}px: a wobbly tap on Note does not move the deck`);
+      await touch.detach();
+      await swipePage.close();
+    }
+
     console.log("\nNavigation: bounds and next/previous controls");
     const segments = page.locator("#woProgress button[data-focusgo]");
     const nextRow = page.locator("#workout .exercise.is-current [data-fnextrow]");
