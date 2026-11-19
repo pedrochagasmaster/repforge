@@ -15599,7 +15599,7 @@
       "states": [
         "default"
       ],
-      "rationale": "A grouped surface on Progress (Summary sections, the Strength and Records pages, the exercise chart and its sessions): --surface with an inset hairline, rows separated by hairlines inside it.",
+      "rationale": "A grouped surface on Progress (Summary sections, the Strength, Records and Volume pages, the exercise chart and its sessions): --surface with an inset hairline, rows separated by hairlines inside it.",
       "owner": "progress-hillclimb",
       "catalogStates": [
         "progress/overview",
@@ -15614,7 +15614,10 @@
         "progress/strength-sparse",
         "progress/prs",
         "progress/prs-drill-in",
-        "progress/exercise-chart"
+        "progress/exercise-chart",
+        "progress/volume",
+        "progress/volume-block",
+        "progress/volume-drill-in"
       ]
     },
     {
