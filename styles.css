@@ -9673,11 +9673,11 @@ body.is-entry-editor #entryProgramName,
 .liftrow > .chevron{color:var(--color-ink-secondary)}
 .liftrow.evrow{border-bottom:0}
 .liftrow.is-open + .evrow__detail{padding-bottom:var(--space-12)}
-.liftline{position:relative;display:block;height:30px;margin:var(--space-8) 5px var(--space-4)}
-.liftline__svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.liftline{position:relative;display:block;height:30px;margin:var(--space-8) 0 var(--space-4)}
+.liftline__svg{position:absolute;top:0;bottom:0;left:var(--space-4);width:calc(100% - 2 * var(--space-4));height:100%;overflow:visible}
 .liftline__path{fill:none;stroke:var(--color-ink-secondary);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
 .liftline__pt{
-  position:absolute;left:var(--pt-x);top:var(--pt-y);width:5px;height:5px;margin:-2.5px 0 0 -2.5px;border-radius:var(--radius-round);
+  position:absolute;left:calc(var(--space-4) + (100% - 2 * var(--space-4)) * var(--pt-x));top:var(--pt-y);width:5px;height:5px;margin:-2.5px 0 0 -2.5px;border-radius:var(--radius-round);
   background:var(--surface);border:1.5px solid var(--color-ink-secondary);
 }
 .liftline__pt--end{width:8px;height:8px;margin:-4px 0 0 -4px;border:0;background:var(--ink)}
@@ -9759,3 +9759,7 @@ body.is-entry-editor #entryProgramName,
 #segProfile .profile-intro{margin-top:0}
 /* Review opens under its page title, not a section gap below it. */
 #reviewPanel > :first-child,#reviewPanel > :first-child > .section-label:first-child{margin-top:0}
+/* A lift's sessions table, opened in place, spans the group's full width: at 320 and large text it needs every column. */
+#strengthDash .sumcard > .evrow__detail{margin:0 calc(-1 * var(--space-16) - 1px);padding-left:0;padding-right:0;width:auto;max-width:none}
+/* The Strength page keeps the canonical outcome word on each lift, inline before where the line started. */
+.liftrow .evrow__out{display:inline;margin:0;font-size:inherit;line-height:inherit}

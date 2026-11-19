@@ -2324,20 +2324,21 @@ console.log("\nVisual accessibility (UX-05 / UX-06 / A11Y-01 / A11Y-02)");
   });
   await page.waitForSelector("#stats.view.active");
   await page.evaluate(() => typeof setStatsSeg === "function" && setStatsSeg("overview"));
-  await page.waitForSelector('#segOverview [data-open-page="strength"]', { state: "visible" });
-  // Enter keyboard modality on the Summary profile link to check its visible focus ring.
-  await page.focus('#segOverview [data-open-page="profile"]');
-  await page.keyboard.press("Tab");
+  // Every Progress page carries Back to the Summary (this fixture has no program, so the Summary has no links):
+  // open one and land keyboard focus on Back to check its visible focus ring.
+  await page.evaluate(() => window.__repforgeStatsNav.openStatsPage("strength"));
+  await page.waitForSelector("#statsBack", { state: "visible" });
+  await page.focus("#statsTitle");
   await page.keyboard.press("Shift+Tab");
   const strengthRing = await page.evaluate(() => {
     const el = document.activeElement;
-    if (!el || el.dataset?.openPage !== "profile") return { missing: true, active: el?.id || el?.tagName };
+    if (!el || el.id !== "statsBack") return { missing: true, active: el?.id || el?.tagName };
     const st = getComputedStyle(el);
     return { outline: st.outlineStyle, outlineW: parseFloat(st.outlineWidth) || 0, shadow: st.boxShadow, outlineColor: st.outlineColor };
   });
   assert(
     !strengthRing.missing && ((strengthRing.outline !== "none" && strengthRing.outlineW > 0) || (strengthRing.shadow && strengthRing.shadow !== "none")),
-    "Progress Summary link shows a non-zero focus outline/ring",
+    "Progress page Back shows a non-zero focus outline/ring",
     JSON.stringify(strengthRing)
   );
   await context.close();

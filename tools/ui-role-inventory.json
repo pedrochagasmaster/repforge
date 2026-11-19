@@ -13092,7 +13092,10 @@
         "progress/overview-profile",
         "progress/overview-profile-first",
         "progress/prs-drill-in",
-        "progress/profile-scope"
+        "progress/profile-scope",
+        "progress/volume-reduction-preview",
+        "progress/sibling-shorter-session",
+        "progress/sibling-lower-frequency"
       ]
     },
     {

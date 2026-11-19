@@ -1207,7 +1207,9 @@ function openPushedRoutes(){
   if(body.contains("is-exercise"))open.push("exercise");
   if(history?.classList.contains("active")&&HistoryUi.hasPushedPage())open.push("history");
   const statsActive=$("#stats")?.classList.contains("active");
-  if(sessionSummaryProfileReturn&&(statsActive||body.contains("is-profile"))||statsActive&&statsSubOpen())open.push("stats");
+  // A Progress page stays open beneath a page pushed from it (an exercise chart, a profile reader).
+  const overStats=(body.contains("is-profile")||body.contains("is-exercise"))&&routeUnderView==="stats";
+  if(sessionSummaryProfileReturn&&(statsActive||body.contains("is-profile"))||(statsActive||overStats)&&statsSubOpen())open.push("stats");
   if(body.contains("is-profile"))open.push("profilePage");
   return open}
 function syncRouteHistory(){
@@ -6637,10 +6639,12 @@ function setEvidenceView(view){
 /* The Summary's section links open their page; Back returns to the Summary at the link that opened it. */
 function openStatsPage(page){
   if(EVIDENCE_SEG[page])setEvidenceView(page);else setStatsSeg(page);
+  // The page's history entry exists before anything else can happen, so Back always finds it.
+  syncRouteHistory();
   window.scrollTo({top:0});focusRoute($("#statsTitle"))}
 function closeStatsPage(){
   const was=statsPage();
-  setStatsSeg("overview");window.scrollTo({top:0});
+  setStatsSeg("overview");syncRouteHistory();window.scrollTo({top:0});
   const link=was&&$(`#segOverview [data-open-page="${was}"]`);
   if(link){link.scrollIntoView({block:"center"});link.focus({preventScroll:true})}else focusRoute($("#statsTitle"))}
 function wireStatsTabs(){
@@ -13567,7 +13571,7 @@ function renderStrengthDash(){const el=$("#strengthDash");if(!el)return;
         `<span class="chevron is-down" aria-hidden="true"></span></button>${panel}`;
     const latest=projection.sessions.filter(x=>x.liftKey===k).at(-1);
     return `<button type="button" class="liftrow evrow evrow--d" data-evkey="${esc(k)}" aria-expanded="false">`+
-      `${liftRowBody(liftDisplayName(nameOf(k),k),series,latest)}<span class="chevron is-down" aria-hidden="true"></span></button>${panel}`}).join("")+`</div>`;
+      `${liftRowBody(liftDisplayName(nameOf(k),k),series,latest,{change:true,outcome:strengthOutcomeWord(k,series,latest)})}<span class="chevron is-down" aria-hidden="true"></span></button>${panel}`}).join("")+`</div>`;
   $$("#strengthDash [data-evkey]").forEach(b=>b.onclick=()=>{
     const detail=$(`[data-evdetail="${b.dataset.evkey}"]`);if(!detail)return;
     const open=detail.hidden;detail.hidden=!open;b.setAttribute("aria-expanded",open?"true":"false");b.classList.toggle("is-open",open);
@@ -13617,7 +13621,7 @@ function liftLineHtml(values){
   const up=nums.at(-1)>nums[0];
   return `<span class="liftline${up?" is-up":""}" aria-hidden="true"><svg class="liftline__svg" viewBox="0 0 100 ${h}" preserveAspectRatio="none">`+
     `<polyline class="liftline__path" points="${pts.map(([x,y])=>`${x.toFixed(2)},${y.toFixed(1)}`).join(" ")}"/></svg>`+
-    pts.map(([x,y],i)=>`<i class="liftline__pt${i===pts.length-1?" liftline__pt--end":""}" style="--pt-x:${x.toFixed(2)}%;--pt-y:${y.toFixed(1)}px"></i>`).join("")+`</span>`}
+    pts.map(([x,y],i)=>`<i class="liftline__pt${i===pts.length-1?" liftline__pt--end":""}" style="--pt-x:${(x/100).toFixed(4)};--pt-y:${y.toFixed(1)}px"></i>`).join("")+`</span>`}
 /** The block change under a lift's line: the gain is green, no change is "±0", a loss is ink. */
 function liftDeltaHtml(series){
   const pts=series.points;if(pts.length<2)return"";
@@ -13630,12 +13634,16 @@ function liftSinceText(series,latest){
   return t("stats.row.since",{load:`${fmtLoad(pts[0].value)} ${unitLabel()}`,n:pts.length})}
 /** One lift on the Summary or the Strength page: name and current top load, its line, then where it started and
  *  the change this block. */
-function liftRowBody(name,series,latest){
+function liftRowBody(name,series,latest,{change=false,outcome=null}={}){
   const pts=series.points,value=pts.length?`${fmtLoad(pts.at(-1).value)}`:"—";
   return `<span class="liftrow__body"><span class="liftrow__l1"><b class="liftrow__name">${esc(name)}</b>`+
     `<span class="liftrow__fig"><span class="liftrow__val">${esc(value)}</span> <span class="liftrow__unit">${esc(unitLabel())}</span>${perSideQualifier(series.perSideLoad)}</span></span>`+
     liftLineHtml(pts.map(point=>point.value))+
-    `<span class="liftrow__l2"><span class="liftrow__since">${esc(liftSinceText(series,latest))}</span>${liftDeltaHtml(series)}</span></span>`}
+    `<span class="liftrow__l2"><span class="liftrow__since">${outcome?`<span class="evrow__out${outcome.soft?" is-soft":""}">${outcome.html}</span> · `:""}${esc(liftSinceText(series,latest))}</span>${change?liftChangeHtml(series):liftDeltaHtml(series)}</span></span>`}
+/** The Strength page's change: the model's comparison, absolute and as a percentage ("+7.5 kg (+7.89%)"). */
+function liftChangeHtml(series){
+  const text=strengthChangeText(series);
+  return text?`<span class="liftrow__delta${series.comparison.absolute>0?" is-up":""}">${esc(text)}</span>`:liftDeltaHtml(series)}
 const SUMMARY_LIFTS=4,SUMMARY_RECORDS=3,SUMMARY_MUSCLES=4;
 const summaryHead=(title,page,linkKey)=>`<div class="sumhead"><h3 class="sumhead__title">${esc(title)}</h3>`+
   (page?`<button type="button" class="sumhead__link" data-open-page="${page}">${esc(t(linkKey))}<span class="chevron" aria-hidden="true"></span></button>`:"")+`</div>`;
@@ -13686,7 +13694,8 @@ function renderProgressHero(){const el=$("#progressHero");if(!el)return;
   const reviewTitle=life.isComplete||life.isFinalWeek?t("stats.hero.review_block"):last?t("stats.hero.review_last"):t("stats.hero.review_open");
   const reviewSub=last&&last.plannedSessions>0&&!life.isComplete?t("stats.hero.last_week",{done:last.completedSessions,planned:last.plannedSessions})
     :life.current!=null?t("review.week_of",{n:life.current,total:life.total}):"";
-  const review=state.programMeta?.started?`<button type="button" class="phero__review" data-open-page="review"><span class="phero__reviewtext">`+
+  // Review is always reachable from the Summary, as its tab was: before a block starts it says so itself.
+  const review=hasProgramContent()?`<button type="button" class="phero__review" data-open-page="review"><span class="phero__reviewtext">`+
     `<b>${esc(reviewTitle)}</b>${reviewSub?`<span>${esc(reviewSub)}</span>`:""}</span><span class="chevron" aria-hidden="true"></span></button>`:"";
   el.innerHTML=`<section class="sumcard phero" aria-labelledby="progressHeroTitle"><p class="phero__eyebrow">${esc(t("stats.hero.eyebrow"))}</p>`+
     `<h3 class="phero__headline" id="progressHeroTitle">${headline}</h3>`+
@@ -14383,7 +14392,7 @@ function renderPRTimeline(){const el=$("#prTimeline");if(!el)return;
   prRecordSets(events).forEach((group,i)=>{const d=group[0].date;if(!days.has(d))days.set(d,[]);days.get(d).push([group,i])});
   el.innerHTML=[...days].map(([date,list])=>`<h3 class="recday">${esc(longDate(date))}</h3><div class="sumcard">`+list.map(([group,i])=>
     `<button type="button" class="recrow prtl__row" data-prrow="${i}" aria-expanded="false">${recordRowBody(group,false)}<span class="chevron is-down" aria-hidden="true"></span></button>`+
-    `<div class="evrow__detail recrow__detail" data-prdetail="${i}" hidden>`+
+    `<div class="evrow__detail recrow__detail" data-prdetail="${i}" hidden><p class="lede">${esc(longDate(group[0].date))}</p>`+
       group.map(item=>{const d=prDeltaText(item);return `<p class="lede">${esc(`${prKindLabel(item.kind)} · ${fmtLoad(item.load)} ${unitLabel()} × ${item.reps}`)}${d?` · ${esc(d)}`:""}</p>`}).join("")+`</div>`).join("")+`</div>`).join("");
   $$("#prTimeline [data-prrow]").forEach(b=>b.onclick=()=>{
     const detail=$(`[data-prdetail="${b.dataset.prrow}"]`);if(!detail)return;

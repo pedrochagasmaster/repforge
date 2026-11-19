@@ -84,6 +84,18 @@ async function freshPage({ lang = "en", unit = "kg", seededLog = log, seededMeta
   return { context, page };
 }
 
+async function assertCanonicalOutcomeLabels(page, outcomes) {
+  for (const { key, outcome } of outcomes) {
+    const row = page.locator(`#strengthDash [data-evkey="${key}"]`);
+    // The word is the compareExerciseSession label the summary and History read.
+    const label = await page.evaluate((value) => window.RepForgeI18n.t(`delta.${{ improved: "improved", maintained: "flat", declined: "regressed" }[value]}.label`), outcome);
+    const status = row.locator(".evrow__out");
+    assert.ok(await status.isVisible(), `the ${outcome} outcome label stays visible in its evidence row`);
+    assert.ok((await status.textContent()).includes(label),
+      `the ${outcome} outcome keeps its localized text distinction in the rendered row`);
+  }
+}
+
 // #715: the effort column uses Focus's compact label and stays whole at narrow widths and enlarged text.
 {
   const failures = [];
@@ -283,7 +295,8 @@ async function freshPage({ lang = "en", unit = "kg", seededLog = log, seededMeta
 // Outcome words stay visible beside their canonical improved/maintained/declined facts.
 // The declined lift repeats its load with a rep fewer: under the Session outcome rule a
 // lower load is never read as declined, so the decline must happen at the same load.
-// Strength now presents load history; Review retains the outcome wording.
+// The final assertion deliberately hides those words: the rendered semantic
+// oracle must reject a presentation that leaves outcome meaning to color alone.
 {
   const outcomeLog = [
     { session: "outcome-better-1", date: "2026-09-14", day: "Day 1", exerciseId: "seed-ex-3", name: "Incline chest press", load: 60, reps: 8, rir: 2, set: 1, work: true },
@@ -306,7 +319,12 @@ async function freshPage({ lang = "en", unit = "kg", seededLog = log, seededMeta
   assert.deepEqual(outcomes.map(({ expected, outcome }) => [expected, outcome]), [
     ["improved", "improved"], ["maintained", "maintained"], ["declined", "declined"],
   ], "the production evidence producer supplies all three canonical outcomes");
-  // Strength rows now show load history; canonical outcomes remain proven above and in Review.
+  await assertCanonicalOutcomeLabels(page, outcomes);
+
+  await page.addStyleTag({ content: "#strengthDash .evrow__out { visibility: hidden !important; }" });
+  await assert.rejects(() => assertCanonicalOutcomeLabels(page, outcomes),
+    /the improved outcome label stays visible in its evidence row/,
+    "the deliberate color-only presentation failure is rejected by the rendered outcome oracle");
   await context.close();
 }
 
@@ -402,8 +420,9 @@ async function freshPage({ lang = "en", unit = "kg", seededLog = log, seededMeta
   const { context, page } = await freshPage({ seededLog: sparseLog });
   const overview = await page.locator("#segOverview").textContent();
   assert.doesNotMatch(overview, /Attention|Below/, "legacy warning labels are absent for baseline-building evidence");
-  assert.match(overview, /Needs attention\s*\(0\)[\s\S]*Nothing requires action/,
-    "insufficient evidence contributes zero Needs attention items");
+  // An empty board is no Summary section (no count of nothing): zero items leave #attention empty.
+  assert.equal(await page.locator("#attention .attnrow").count(), 0, "insufficient evidence contributes zero Needs attention items");
+  assert.equal((await page.locator("#attention").textContent()).trim(), "", "an empty Needs attention renders no section");
   await page.evaluate(() => window.__repforgeStatsNav.setStatsSeg("review"));
   assert.match(await page.locator("#reviewPanel").textContent(), /baseline building/i,
     "the same insufficient records reach Review as neutral baseline state");

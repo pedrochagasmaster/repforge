@@ -454,9 +454,12 @@ async function visitProgress(page, { pt, label }) {
   const name = (id) => (pt ? LIB[id].pt : LIB[id].en);
   await goto(page, "stats");
   await page.waitForSelector("#overviewStrength .liftrow__name");
-  const overview = await joined(page, "#overviewStrength .liftrow__name");
-  expectNames(`${label} Progress overview strength`, overview, {
-    shown: [...(pt ? ptShown() : LINKED.map((id) => LIB[id].en)), ...kept(), customShown(pt)],
+  // The Summary shows the most recent lifts, not all of them: each name it shows is the one the lifter reads.
+  const overviewNames = await texts(page, "#overviewStrength .liftrow__name");
+  const allowed = [...(pt ? ptShown() : LINKED.map((id) => LIB[id].en)), ...kept(), customShown(pt)];
+  assert(overviewNames.length > 0 && overviewNames.every((shown) => allowed.includes(shown)),
+    `${label} Progress overview strength: every lift reads its shown name`, JSON.stringify(overviewNames));
+  expectNames(`${label} Progress overview strength`, overviewNames.join(" | "), {
     gone: pt ? [...ptGone(), ...never(), ...customGone(pt)] : [],
   });
   await openProgressPage(page, "strength");
@@ -488,12 +491,17 @@ async function visitProgress(page, { pt, label }) {
   const review = await joined(page, ".review__outcomes");
   expectNames(`${label} Progress block review outcomes`, review, { shown: [name("sq")], gone: pt ? [LIB.sq.en] : [] });
   await openProgressPage(page, "overview");
-  await page.locator(`#overviewStrength button[data-ovkey="library:${LIB.sq.id}"]`).click();
+  // Squat's chart when the Summary shows squat, else the first library lift it shows.
+  const chartId = await page.evaluate((ids) => ids.find((id) => document.querySelector(`#overviewStrength button[data-ovkey="library:${id}"]`)) || null,
+    [LIB.sq.id, ...LINKED.map((key) => LIB[key].id)]);
+  const chartKey = Object.keys(LIB).find((key) => LIB[key].id === chartId);
+  assert(!!chartKey, `${label} Progress overview opens a library lift's chart`, chartId);
+  await page.locator(`#overviewStrength button[data-ovkey="library:${chartId}"]`).click();
   await page.waitForSelector("#exercise.view.active .exchart__title");
   const chartTitle = await joined(page, "#exDetail .exchart__title");
   const chartAria = (await attrs(page, "#exDetail .exchart__plot", "aria-label")).join(" | ");
-  expectNames(`${label} Progress exercise chart title`, chartTitle, { shown: [name("sq")], gone: pt ? [LIB.sq.en] : [] });
-  expectNames(`${label} Progress exercise chart label`, chartAria, { shown: [name("sq")], gone: pt ? [LIB.sq.en] : [] });
+  expectNames(`${label} Progress exercise chart title`, chartTitle, { shown: [name(chartKey)], gone: pt && LIB[chartKey].pt !== LIB[chartKey].en ? [LIB[chartKey].en] : [] });
+  expectNames(`${label} Progress exercise chart label`, chartAria, { shown: [name(chartKey)], gone: pt && LIB[chartKey].pt !== LIB[chartKey].en ? [LIB[chartKey].en] : [] });
   await page.locator("#exBack").click();
   await page.waitForSelector("#stats.view.active");
 }

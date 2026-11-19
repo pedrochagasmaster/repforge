@@ -1286,7 +1286,9 @@ async function openSiblingPreview(page, kind) {
   else await page.click('[data-diag-days="3"]');
   await page.click("[data-diag-continue]");
   await page.waitForSelector("[data-preview-confirm]", { timeout: 20000 });
-  await sleep(page, 400);
+  // The state's subject is the proposed plan and its confirm: end with the confirm in view above the dock.
+  await page.evaluate(() => document.querySelector("[data-preview-confirm]")?.scrollIntoView({ block: "center" }));
+  await statsBarSettled(page);
 }
 
 async function openRecoveryPreview(page) {
@@ -3116,7 +3118,9 @@ export const APP_SCENARIOS = {
   "progress/sibling-lower-frequency": (page) => openSiblingPreview(page, "fewer_days"),
   "progress/sibling-shorter-session": (page) => openSiblingPreview(page, "sessions_too_long"),
   "progress/guided-repair": async (page) => { await openCompletedReview(page);await page.click('[data-review-action="guided-edit"]');await page.click('[data-diag-days="3"]');await page.click("[data-diag-continue]");await page.waitForSelector(".review__staged",{timeout:20000});await statsBarSettled(page); },
-  "progress/volume-reduction-preview": async (page) => { await completeCompiledProgram(page);await openCompletedReview(page);await page.click('[data-review-action="reduce-volume"]');await page.click("[data-volume-confirm]");await page.waitForSelector("[data-preview-confirm]",{timeout:20000}); },
+  "progress/volume-reduction-preview": async (page) => { await completeCompiledProgram(page);await openCompletedReview(page);await page.click('[data-review-action="reduce-volume"]');await page.click("[data-volume-confirm]");await page.waitForSelector("[data-preview-confirm]",{timeout:20000});
+    // The state's subject is the preview and its confirm: end with the confirm in view above the dock.
+    await page.evaluate(()=>document.querySelector("[data-preview-confirm]")?.scrollIntoView({block:"center"}));await statsBarSettled(page); },
   "progress/recovery-ineligible": async (page) => { await openRecoveryPreview(page);await page.click('[data-recovery-answer="Not sure"]'); },
   "progress/recovery-questions": openRecoveryPreview,
   "progress/recovery-preview": recoveryPreview,
