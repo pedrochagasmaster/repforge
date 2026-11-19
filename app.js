@@ -13522,7 +13522,7 @@ function strengthOutcomeWord(key,series,latest){
   const word=label=>`<span class="evword"${parity}>${esc(label)}</span>`;
   if(series.outcome&&cmp)return{html:word(cmp.label),soft:false,status:series.outcome};
   const reason=series.reason;
-  if(reason==="single-observation")return{html:esc(t("stats.outcome_short.single_observation")),soft:true,status:""};
+  if(reason==="single-observation")return{html:esc(t("stats.outcome_short.single_observation")),soft:true,status:"",single:series.points.length<2};
   if(reason==="missing-effort")return{html:esc(t("stats.outcome_short.missing_effort")),soft:true,status:""};
   if((reason==="changed-load"||reason==="incompatible-exposure")&&cmp)return{html:word(cmp.label),soft:true,status:""};
   return{html:esc(t("stats.evidence.baseline")),soft:true,status:""}}
@@ -13627,7 +13627,15 @@ function liftRowBody(name,series,latest,{change=false,outcome=null}={}){
   return `<span class="liftrow__body"><span class="liftrow__l1"><b class="liftrow__name">${esc(name)}</b>`+
     `<span class="liftrow__fig"><span class="liftrow__val">${esc(value)}</span> <span class="liftrow__unit">${esc(unitLabel())}</span>${perSideQualifier(series.perSideLoad)}</span></span>`+
     liftLineHtml(pts.map(point=>point.value))+
-    `<span class="liftrow__l2"><span class="liftrow__since">${outcome?`<span class="evrow__out${outcome.soft?" is-soft":""}">${outcome.html}</span> · `:""}${esc(liftSinceText(series,latest))}</span>${change?liftChangeHtml(series):liftDeltaHtml(series)}</span></span>`}
+    `<span class="liftrow__l2"><span class="liftrow__since">${esc(liftSinceText(series,latest))}</span>${change?liftChangeHtml(series):liftDeltaHtml(series)}</span>`+
+    (outcome?liftLastSessionHtml(outcome):"")+`</span>`}
+/** The Strength page's last-session line under the block change: the canonical outcome word scoped to the latest
+ *  session, so it never reads as a verdict on the line and change above it. A single session has no line of its own,
+ *  since the row already says "first session". */
+function liftLastSessionHtml(outcome){
+  if(outcome.single)return"";
+  const word=`<span class="evrow__out${outcome.soft?" is-soft":""}">${outcome.html}</span>`;
+  return `<span class="liftrow__l3">${esc(t("stats.row.last_session",{outcome:"\u0000"})).replace("\u0000",word)}</span>`}
 /** The Strength page's change: the model's comparison, absolute and as a percentage ("+7.5 kg (+7.89%)"). */
 function liftChangeHtml(series){
   const text=strengthChangeText(series);
@@ -13661,10 +13669,11 @@ function renderProgressHero(){const el=$("#progressHero");if(!el)return;
   const meta=progressEvidenceMeta(),program=prog.toJSON(),rows=readLogRows(),now=today();
   const projection=strengthProjection("current-block"),all=[...projection.series.values()].filter(s=>s.points.length);
   const compared=all.filter(s=>s.points.length>1),up=compared.filter(s=>s.points.at(-1).value>s.points[0].value).length;
-  const big=n=>`<b class="phero__n">${esc(fmt(n))}</b>`;
-  const withBig=(key,n,vars)=>esc(t(key,{...vars,n:"\u0000"})).replace("\u0000",big(n));
+  // Green is a gain everywhere on Progress: only the count of lifts that went up takes it.
+  const big=(n,up)=>`<b class="phero__n${up?" is-up":""}">${esc(fmt(n))}</b>`;
+  const withBig=(key,n,vars,up=false)=>esc(t(key,{...vars,n:"\u0000"})).replace("\u0000",big(n,up));
   const headline=compared.length===1&&up===1?esc(t("stats.hero.up_single"))
-    :up>0?withBig(up===1?"stats.hero.up_one":"stats.hero.up",up,{total:compared.length})
+    :up>0?withBig(up===1?"stats.hero.up_one":"stats.hero.up",up,{total:compared.length},true)
     :compared.length?withBig(compared.length===1?"stats.hero.held_one":"stats.hero.held",compared.length)
     :withBig(all.length===1?"stats.hero.first_one":"stats.hero.first",all.length);
   const started=state.programMeta?.started||"";
@@ -14634,7 +14643,7 @@ function renderVolumeDash(){const el=$("#volumeDash");if(!el)return;
       `<span class="vrow__num">${fmt(done)} / ${fmt(planned)}</span>`+
       `<span class="vrow__status${inProgress?"":""}">${esc(caption)}</span><span class="chevron" aria-hidden="true"></span></button>`+
       `<div class="evrow__detail" data-volume-detail="${esc(m)}" hidden>${detail}</div>`}).join("");
-  el.innerHTML=`<div class="evrows">${rows}</div>`;
+  el.innerHTML=`<div class="evrows sumcard">${rows}</div>`;
   $$("#volumeDash [data-volume-muscle]").forEach(button=>button.onclick=()=>{const detail=$(`[data-volume-detail="${CSS.escape(button.dataset.volumeMuscle)}"]`);
     const open=detail?.hidden;if(detail)detail.hidden=!open;button.setAttribute("aria-expanded",open?"true":"false");volumeDrillMuscle=open?button.dataset.volumeMuscle:null});
   if(volumeDrillMuscle){const button=$(`#volumeDash [data-volume-muscle="${CSS.escape(volumeDrillMuscle)}"]`);button?.click()}}

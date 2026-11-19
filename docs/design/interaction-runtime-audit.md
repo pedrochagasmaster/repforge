@@ -619,6 +619,26 @@ Browser coverage: `test/sheet-swipe-dismiss.mjs`, `test/focus-navigation.mjs`,
 and `test/rest-timer.mjs`. Physical iOS/Android feel remains an owner gate
 in `docs/design/interaction-runtime-device-matrix.md`.
 
+## Focus swipe claims the touch (2026-11-19)
+
+Owner report from an iPhone: the swipe between exercises sprang back to the
+same exercise unless it ran in one particular way. The card's content
+(`.fcard__context`) is a vertical scroller with `touch-action: pan-y`, which
+stops only a sideways native pan. A vertical one could still start at any point
+of the touch, and on iOS it did so partway through a sideways drag that
+wandered off level: the pointer was cancelled after the deck had already locked
+and moved, and `pointercancel` correctly settles home. The deck now takes the
+touch when it takes the drag: `motion-layer.js` listens to `touchmove` on
+`#workout` (not passive) and, from the 10px horizontal lock on, prevents every
+move of that touch, so no native pan can start wherever the swipe began. A tap's
+wobble stays under the lock and a vertical drag is never claimed, so the content
+still scrolls and controls still tap. Thresholds, physics, reduced motion and the
+`pointercancel` rule are unchanged; the no-Motion fallback is unchanged.
+Browser coverage: `test/focus-navigation.mjs` (CDP touch at 390 and 320 from the
+prescription, hero, reason copy and set table; a vertical drag; a wobbly tap).
+Chromium never cancels a sideways drag under `pan-y`, so the proof is the claim;
+feel on an iPhone remains the owner's device check.
+
 ## Known residuals
 
 - ~~**Re-grabbing a sheet mid-settle starts from rest.**~~ Implemented by the
