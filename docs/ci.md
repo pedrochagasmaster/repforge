@@ -214,9 +214,18 @@ The counts come from measured data (2026-10-23, runs 40029356354 and
 PR lane's browser commands add up to about 1,950 s; five runners hold about
 394 s each, which with roughly a minute of checkout and setup keeps the PR lane
 near eight minutes, against fourteen runners before that started together with
-the full lane and queued. The complete full lane adds up to about 12,550 s;
-twelve runners hold about 1,090 s each, so the PR lane (8 jobs) plus a complete
-full lane stays under the 20-job limit. Both browser matrices retain full history (fetch-depth: 0) for migration
+the full lane and queued. The full lane starts only after the PR lane passes, so
+within one run the two never hold runners at the same time.
+
+The full lane was re-measured on 2026-11-20 (runs 44780322830 and 44789053010;
+every full-lane command's `seconds` is the larger of the two). It had grown to
+about 22,200 s, and twelve runners at roughly 1,850 s each ran close enough to
+the 40-minute job limit that slower runners were cancelled four times that day.
+Fourteen runners now hold about 1,590 s each, about 27 minutes with setup. The
+same measurement put one UI-system render at 7.12 s, so `UI_SYSTEM_STATE_SECONDS`
+is 7.5 and the UI-system sweep is split into 12 commands (about 700 s each,
+inside 85% of their 900 s timeout). The catalog verify sweep is split into 8
+commands (about 620 s each). Both browser matrices retain full history (fetch-depth: 0) for migration
 tests that read old commit files, but apply filter: blob:none to avoid
 downloading every historical screenshot and other blob on every runner.
 Git fetches missing old blobs on demand; the repository is public and
@@ -286,7 +295,7 @@ device-pixel sampling negatives).
 
 Full lane: the two exhaustive catalog sweeps are split into shard commands.
 
-- `tools/check-ui-system.mjs --shard k/8` renders one stripe of the
+- `tools/check-ui-system.mjs --shard k/12` renders one stripe of the
   screen × theme × locale matrix and writes `ui-system-shard.json` beside its
   evidence. `test/ci.mjs` keeps each stripe's renders × `UI_SYSTEM_STATE_SECONDS`
   (the slowest measured per-state cost) under 85% of its timeout; when the
@@ -294,7 +303,7 @@ Full lane: the two exhaustive catalog sweeps are split into shard commands.
   union of all stripes, so the `ci-full` job downloads the shard artifacts and
   runs `node tools/ci-plan.mjs merge-ui-system-full .ci-results/full-shards`
   (browser-free, so the gate installs nothing).
-- `tools/capture-ui-screens.mjs --verify --shard k/6` captures one stripe of the
+- `tools/capture-ui-screens.mjs --verify --shard k/8` captures one stripe of the
   catalog frames into a staging tree. It then compares the complete staged
   catalog with the committed one (`check-ui-screens` registration plus
   `compare-ui-screens` pixels and semantics). The committed frames are the
