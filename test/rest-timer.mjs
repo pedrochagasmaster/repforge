@@ -398,21 +398,31 @@ try {
     assert(word === 3 && up.join() === "false,false,true" && running.label !== paused.label,
       "the states are told apart by the word and by countdown against count-up, not by colour alone", { word, up });
 
-    phase("A rest that starts without a render still leaves its band: nothing in the context sits beside the tab");
+    phase("A rest that starts without a render still leaves its band: scrolled to its end, nothing in the context sits beside the tab");
+    // The card scrolls behind the shelf and the tab (owner, 2026-11-19): the region runs on under them, and its end
+    // spacer is the band, so its last line scrolls clear of the tab's top.
     const band = async () => page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => {
       const card = document.querySelector("#workout .exercise--focus.is-current");
-      const c = card.querySelector(".fcard__context").getBoundingClientRect(), t = card.querySelector("#restTab").getBoundingClientRect();
-      done({ contextBottom: Math.round(c.bottom), tabTop: Math.round(t.top), rise: card.style.getPropertyValue("--rest-tab-rise") });
+      const context = card.querySelector(".fcard__context"), shelf = card.querySelector(".focus-shelf");
+      const before = context.scrollTop;
+      context.scrollTop = context.scrollHeight;
+      const last = [...context.children].filter((el) => el.getClientRects().length).at(-1).getBoundingClientRect();
+      const c = context.getBoundingClientRect(), t = card.querySelector("#restTab").getBoundingClientRect();
+      context.scrollTop = before;
+      done({ lastBottom: Math.round(last.bottom), contextBottom: Math.round(c.bottom), shelfTop: Math.round(shelf.getBoundingClientRect().top),
+        tabTop: Math.round(t.top), rise: card.style.getPropertyValue("--rest-tab-rise") });
     }))));
     await page.evaluate(() => { stopRest(); startRest(90); });
     await page.waitForSelector("#restTab", { timeout: 5000 });
     const plain = await band();
-    assert(plain.contextBottom <= plain.tabTop + 1, "a started rest refits the band: the context region ends at the tab's top", plain);
+    assert(plain.lastBottom <= plain.tabTop + 1 && plain.contextBottom > plain.shelfTop,
+      "a started rest refits the band: the context runs under the shelf and its end scrolls clear of the tab", plain);
     await page.evaluate(() => { document.documentElement.style.fontSize = "200%"; stopRest(); startRest(90); });
     await page.waitForSelector("#restTab", { timeout: 5000 });
     await page.waitForTimeout(300);
     const large = await band();
-    assert(large.contextBottom <= large.tabTop + 1, "at 200% too, the context region ends at the tab's top", large);
+    assert(large.lastBottom <= large.tabTop + 1 && large.contextBottom > large.shelfTop,
+      "at 200% too, the context's end scrolls clear of the tab", large);
     await page.evaluate(() => { document.documentElement.style.fontSize = ""; });
     await page.waitForTimeout(300);
 

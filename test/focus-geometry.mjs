@@ -248,6 +248,63 @@ async function checkOpeningStandingLedger(browser) {
   }
 }
 
+/**
+ * The card scrolls behind the shelf (owner, iPhone, PT, 2026-11-19): the first set of a per-side lift with a two-line
+ * name, after a finished rest, was cut by a hard edge at the rest tab's top. The context region runs on under the shelf
+ * (no edge above it) and scrolled to its end its last line clears the tab, so the open set is always reachable whole
+ * above the tab; at 390x844 it is whole there on first paint. At 320x568 the first set keeps the card's top (R7 V-05),
+ * so it is reached by scrolling.
+ */
+async function checkFirstSetBehindShelf(browser) {
+  console.log("\nThe first set after a finished rest, behind the shelf: per-side, two-line name, 390/320 PT");
+  // The single-arm row of the per-side fixture: per side, history, and a two-line name in Portuguese.
+  const ROW = "1a55c6f170d88031b658c6e278a82a88";
+  const failures = [];
+  for (const width of [390, 320]) {
+    const opened = await openCatalogState(browser, "workout/focus-per-side", width, "pt", "normal");
+    const { page } = opened;
+    try {
+      await page.evaluate(() => { state.settings.maxSetPrompts = false; });
+      await page.locator("#workout .exercise.is-current [data-save]").click();
+      await page.waitForSelector("#workout .exercise.is-current .focus-shelf #restTab");
+      await page.evaluate((id) => window.__repforgeGoToLogExercise(focusList().find((ex) => ex.libraryId === id).id), ROW);
+      await page.waitForFunction((id) => focusList().find((ex) => ex.libraryId === id)?.id === document.querySelector("#workout .exercise.is-current")?.dataset.ex, ROW);
+      await page.evaluate(() => { window.__repforgeRest.expire(107); document.dispatchEvent(new Event("visibilitychange")); });
+      await page.waitForSelector("#workout .exercise.is-current #restTab.is-done");
+      await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
+      const m = await page.evaluate(() => {
+        const card = document.querySelector("#workout .exercise--focus.is-current"), context = card.querySelector(".fcard__context");
+        const box = context.getBoundingClientRect(), open = card.querySelector(".ledgerline--open").getBoundingClientRect();
+        const shelf = card.querySelector(".focus-shelf").getBoundingClientRect(), tab = card.querySelector("#restTab").getBoundingClientRect();
+        const lines = document.querySelector("#woDayTitle .wo-head__name") || document.querySelector("#woDayTitle");
+        const s = getComputedStyle(lines);
+        const result = { set: card.querySelector(".ledgerline--open").dataset.lrow, top: box.top, bottom: box.bottom, shelfTop: shelf.top, tabTop: tab.top,
+          row: { top: open.top, bottom: open.bottom }, perSide: [...card.querySelectorAll(".shelf__cap, .shelf__lab")].some((el) => /por lado/i.test(el.textContent)),
+          titleLines: Math.round((lines.getBoundingClientRect().height - parseFloat(s.paddingTop) - parseFloat(s.paddingBottom)) / parseFloat(s.lineHeight)) };
+        const before = context.scrollTop;
+        context.scrollTop = context.scrollHeight;
+        result.lastBottom = [...context.children].filter((el) => el.getClientRects().length).at(-1).getBoundingClientRect().bottom;
+        // Scrolled so the open set's foot sits on the tab's top: it is whole in the window there.
+        context.scrollTop = before + open.bottom - tab.top;
+        const reached = card.querySelector(".ledgerline--open").getBoundingClientRect();
+        result.reached = { top: reached.top, bottom: reached.bottom };
+        context.scrollTop = before;
+        return result;
+      });
+      const label = `${width}px pt`;
+      console.log(`  ${label}: ${JSON.stringify(m)}`);
+      if (m.set !== "1" || !m.perSide || m.titleLines !== 2) failures.push(`${label}: the fixture is not the first per-side set under a two-line name ${JSON.stringify(m)}`);
+      if (width === 390 && (m.row.top < m.top - 1 || m.row.bottom > m.tabTop + 1)) failures.push(`${label}: the open set is not whole above the rest tab on first paint ${JSON.stringify(m)}`);
+      if (m.reached.top < m.top - 1 || m.reached.bottom > m.tabTop + 1) failures.push(`${label}: the open set cannot be scrolled whole above the rest tab ${JSON.stringify(m)}`);
+      if (m.bottom <= m.shelfTop + 1) failures.push(`${label}: the context region ends at a hard edge above the shelf instead of running under it ${JSON.stringify(m)}`);
+      if (m.lastBottom > m.tabTop + 1) failures.push(`${label}: scrolled to its end, the context's last line stays under the tab ${JSON.stringify(m)}`);
+    } finally {
+      await opened.context.close();
+    }
+  }
+  assert(!failures.length, "the first set after a finished rest stays whole and the card scrolls behind the shelf", failures.join(" | "));
+}
+
 async function checkContextText(browser) {
   const failures = [];
   const cases = ["workout/max-set-guess", "workout/max-set-prompt", "workout/why-in-session"]
@@ -664,6 +721,7 @@ async function main() {
       await checkFocusAtSmallestPhone(browser);
       await checkStandingLedger(browser);
       await checkOpeningStandingLedger(browser);
+      await checkFirstSetBehindShelf(browser);
     }
     if (!wants("gestures")) return;
 

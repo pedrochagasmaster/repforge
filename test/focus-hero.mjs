@@ -162,13 +162,17 @@ function readCard() {
     })(),
     why: evidence?.querySelector("[data-why]")?.textContent.trim() || "",
     figs: evidence ? [...evidence.querySelectorAll(".fx-cue__fig")].map((el) => el.textContent.trim()) : [],
-    // Anything drawn in the context region that meets the rest tab's box at rest scroll.
+    // Anything drawn in the context region, down to the open set, that meets the rest tab's box at rest scroll. The card
+    // scrolls behind the shelf and the tab (owner, 2026-11-19), so what follows the open set (upcoming sets, Next) may
+    // pass behind the tab; the hero, the evidence line, the logged rows and the open set never meet it.
     underTab: (() => {
       if (!tab || !tab.getClientRects().length) return [];
       const t = tab.getBoundingClientRect();
+      const openFoot = context.querySelector(".ledgerline--open")?.getBoundingClientRect().bottom ?? Infinity;
       // Only what the region draws counts: each element clipped to the region's box (it scrolls and clips its content).
       const c = context.getBoundingClientRect();
-      return [...context.querySelectorAll("*")].filter((el) => !el.childElementCount && el.getClientRects().length).filter((el) => {
+      return [...context.querySelectorAll("*")].filter((el) => !el.childElementCount && el.getClientRects().length
+        && el.getBoundingClientRect().top < openFoot - 0.5).filter((el) => {
         const r = el.getBoundingClientRect(), top = Math.max(r.top, c.top), bottom = Math.min(r.bottom, c.bottom);
         return bottom - top > 0.5 && r.width > 0 && r.left < t.right && r.right > t.left && top < t.bottom - 0.5 && bottom > t.top + 0.5;
       }).map((el) => el.textContent.trim().slice(0, 24) || el.className);
@@ -290,7 +294,7 @@ try {
     await logSet(page, target.slotId, 2, { load: 60, reps: 8, rir: 1 }, { stopRest: false });
     const now = await card(page);
     ok(now.tab && now.done.every((row) => !row.hidden && row.inView) && now.open?.inView, "with the rest running, both logged sets and the open set show above the tab", now);
-    ok(!now.underTab.length, "nothing in the context region meets the rest tab at rest scroll", now.underTab);
+    ok(!now.underTab.length, "nothing in the context region down to the open set meets the rest tab at rest scroll", now.underTab);
     ok(now.evidenceText.startsWith(await t(page, "focus.evidence.session", { set: 2, load: "60 × 8", rir: "1" })),
       "the rest does not suppress the line for the target just created", now.evidenceText);
   }
@@ -460,7 +464,7 @@ try {
     ok(await page.evaluate(() => window.RepForgeI18n.getLang()) === "pt", "the run reads in Portuguese");
     ok(now.evidenceText === await expectedEvidence(page, target.sets - 1, { load: 60, reps: 8, rir: 1 }, engine), "the Portuguese line comes from the Portuguese catalog", now.evidenceText);
     ok(now.l1Size <= 35.2 && !now.spills, "the hero stays at the large-text cap and nothing spills sideways", now);
-    ok(!now.underTab.length, "at 200% nothing in the context region meets the rest tab", now.underTab);
+    ok(!now.underTab.length, "at 200% nothing in the context region down to the open set meets the rest tab", now.underTab);
     ok(folded > 0 && now.open?.inView && now.more?.hidden === false, "the logged rows that do not fit fold, and the open set stays whole", now);
     ok(now.more.text === `${folded} ${await page.evaluate((n) => window.RepForgeI18n.tp(n, "earlier set"), folded)}`, "the Portuguese disclosure counts what it folds", now.more);
     ok(!run.errors.length, "no page errors on the short phone", run.errors);

@@ -11704,16 +11704,30 @@ function sizeFocusDeck(){
 const FOCUS_LEDGER_SPARE=4;
 /** Fold the oldest logged rows that do not fit above the shelf and the rest tab, and bring back the ones that do (#517).
  *  Measured from the rendered geometry, never a breakpoint. */
+/** The context region runs on under the shelf (the card scrolls behind it, owner 2026-11-19): the shelf's height is
+ *  what the region's end spacer and overlap take (`--focus-shelf-under`). A card not drawn (a parked neighbour) keeps
+ *  the height it had. */
+function syncShelfUnder(card){
+  const shelf=card?.querySelector(".focus-shelf"),h=shelf?Math.ceil(shelf.getBoundingClientRect().height):0;
+  if(h>0&&card.style.getPropertyValue("--focus-shelf-under")!==`${h}px`)card.style.setProperty("--focus-shelf-under",`${h}px`)}
+/** The foot of the context region's window: the shelf's top edge, or the rest tab's top where it rises out of the shelf.
+ *  The region itself runs on under both. */
+function focusWindowFoot(card,box){
+  let foot=box.bottom;
+  for(const el of [card.querySelector(".focus-shelf"),card.querySelector(".resttab")])
+    if(el&&el.getClientRects().length)foot=Math.min(foot,el.getBoundingClientRect().top);
+  return foot}
 function fitFocusLedger(card){
+  syncShelfUnder(card);
   const context=card?.querySelector(".fcard__context"),rows=context?.querySelector(".ledger__rows");if(!rows)return false;
   const more=context.querySelector(".ledger__more"),exId=rows.id.slice("ledger_".length);
   // The context ends above the rest tab's rise (the tab sits on the shelf's top edge and rises out of it).
   const tab=card.querySelector(".resttab"),shelf=card.querySelector(".focus-shelf");
   const rise=tab&&tab.offsetParent===shelf?Math.max(0,Math.ceil(-tab.offsetTop)):0;
   // What this fit changes: a refit that changes nothing leaves the window where the lifter scrolled it.
-  const before=[card.style.getPropertyValue("--rest-tab-rise"),card.classList.contains("is-hero-compact"),card.classList.contains("is-standing-compact"),
+  const before=[card.style.getPropertyValue("--rest-tab-rise"),card.style.getPropertyValue("--focus-shelf-under"),card.classList.contains("is-hero-compact"),card.classList.contains("is-standing-compact"),
     [...rows.querySelectorAll(":scope > [data-ldone]")].filter(row=>row.hidden).length].join();
-  const changed=()=>before!==[card.style.getPropertyValue("--rest-tab-rise"),card.classList.contains("is-hero-compact"),card.classList.contains("is-standing-compact"),
+  const changed=()=>before!==[card.style.getPropertyValue("--rest-tab-rise"),card.style.getPropertyValue("--focus-shelf-under"),card.classList.contains("is-hero-compact"),card.classList.contains("is-standing-compact"),
     [...rows.querySelectorAll(":scope > [data-ldone]")].filter(row=>row.hidden).length].join();
   card.classList.remove("is-standing-compact");
   if(card.style.getPropertyValue("--rest-tab-rise")!==`${rise}px`)card.style.setProperty("--rest-tab-rise",`${rise}px`);
@@ -11727,8 +11741,7 @@ function fitFocusLedger(card){
   // line once it has stepped down) to the open set's foot must fit above the window's foot, the rest tab's rise when it
   // rises higher (as `sizeFocusCard` reads it). What comes after the open set scrolls. Positive overflows.
   const over=()=>{
-    const box=context.getBoundingClientRect();
-    const bottom=tab&&tab.getClientRects().length?Math.min(box.bottom,tab.getBoundingClientRect().top):box.bottom;
+    const box=context.getBoundingClientRect(),bottom=focusWindowFoot(card,box);
     const from=card.classList.contains("is-hero-compact")?hero.getBoundingClientRect().top:box.top-context.scrollTop;
     return open.getBoundingClientRect().bottom-from-(bottom-box.top)};
   let folded=done.filter(row=>row.hidden).length;
@@ -11752,8 +11765,7 @@ function fitFocusLedger(card){
   // Standing participates in the whole window's budget, including a wrapped movement name above the hero.
   // Tighten only when the normal compact treatment still leaves the open row under the shelf.
   if(card.classList.contains("is-hero-compact")&&!card.classList.contains("is-text-scaled")&&context.querySelector(".fx-cue__standing")){
-    const box=context.getBoundingClientRect();
-    const bottom=tab&&tab.getClientRects().length?Math.min(box.bottom,tab.getBoundingClientRect().top):box.bottom;
+    const box=context.getBoundingClientRect(),bottom=focusWindowFoot(card,box);
     card.classList.toggle("is-standing-compact",open.getBoundingClientRect().bottom+context.scrollTop>bottom)}
   focusLedgerFolded.set(exId,folded);
   return changed()}
@@ -11784,7 +11796,7 @@ let focusFloorWatch=null,focusFloorWatched=[];
 function syncFocusFloor(){
   const card=focusCard(),shell=$("#workoutShell"),shelf=card?.querySelector(".focus-shelf"),head=shell?.querySelector(".wo-head");
   if(!card||!shell||!shelf||!head)return;
-  syncTextScale(card);
+  syncTextScale(card);syncShelfUnder(card);
   const tall=el=>el&&el.getClientRects().length?el.getBoundingClientRect().height:0;
   const context=card.querySelector(".fcard__context");
   // At enlarged text the context region's floor is the open set itself (#541): the shelf comes first, then the set
@@ -11796,11 +11808,13 @@ function syncFocusFloor(){
   // The card's own floor: the shelf whole, under the context region at its least. With the keyboard up the other
   // floors stand down, and this one makes what sits above the deck (a draft recovery) give way instead of the shelf.
   // The band the region leaves for the rest tab's rise (#550) is part of its floor; it stands down with the keyboard up.
-  const rise=least?parseFloat(least.marginBottom)||0:0;
+  // The region runs on under the shelf by `under`, in its overlap, its end spacer (shelf plus band) and its min-height.
+  const under=parseFloat(card.style.getPropertyValue("--focus-shelf-under"))||0;
+  const rise=context?Math.max(0,(parseFloat(getComputedStyle(context,"::after").height)||0)-under):0;
   const target=card.querySelector(":scope > .fx-cue__l1");
   const deck=tall(shelf)+tall(target)+rise+(least?(parseFloat(least.paddingTop)||0)+(parseFloat(least.paddingBottom)||0):0);
   shell.style.setProperty("--focus-deck-floor",`${Math.ceil(deck)}px`);
-  let form=tall($("#woProgress"))+tall(shelf)+tall(target)+rise+(least?Math.max(parseFloat(least.minHeight)||0,parseFloat(least.paddingTop)+parseFloat(least.paddingBottom)):0);
+  let form=tall($("#woProgress"))+tall(shelf)+tall(target)+rise+(least?Math.max((parseFloat(least.minHeight)||0)-under-rise,parseFloat(least.paddingTop)+parseFloat(least.paddingBottom)):0);
   for(const el of $("#workout")?.children||[])if(!el.matches(".deck"))form+=tall(el);
   shell.style.setProperty("--focus-form-floor",`${Math.ceil(form)}px`);
   shell.style.setProperty("--focus-floor",`${Math.ceil(form+tall(head))}px`);
@@ -11841,7 +11855,7 @@ function sizeFocusCard(card){
   const open=context?.querySelector(".ledgerline--open");if(!open)return;
   const box=context.getBoundingClientRect(),row=open.getBoundingClientRect();
   // The rest tab rises out of the shelf over the window's foot; the row is in view only above it.
-  const tab=card.querySelector(".resttab"),bottom=tab?Math.min(box.bottom,tab.getBoundingClientRect().top-4):box.bottom;
+  const tab=card.querySelector(".resttab"),bottom=Math.min(focusWindowFoot(card,box),tab?tab.getBoundingClientRect().top-4:Infinity);
   if(!scaled&&+open.dataset.lrow<=1&&context.scrollTop===0){
     const standing=context.querySelector(".fx-cue.is-ramp .fx-cue__standing");
     if(!standing||row.bottom<=bottom||row.bottom-standing.getBoundingClientRect().top>bottom-box.top)return}
@@ -11863,7 +11877,7 @@ function sizeFocusCard(card){
   // window scrolls only as far as the open set needs. Where both cannot fit, the open set comes first (#541) and the
   // standing stays with the row when the whole hero cannot fit, and the hero is the first thing scrolling up reaches.
   const at=context.getBoundingClientRect(),origin=at.top-context.scrollTop;
-  const foot=(tab?Math.min(at.bottom,tab.getBoundingClientRect().top):at.bottom)-at.top;
+  const foot=focusWindowFoot(card,at)-at.top;
   const rowBottom=open.getBoundingClientRect().bottom-origin;
   let most=Math.floor(open.getBoundingClientRect().top-origin);
   for(const lead of context.querySelectorAll(".fx-cue__l1,.fx-cue__standing")){
