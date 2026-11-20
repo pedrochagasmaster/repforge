@@ -683,7 +683,7 @@ try {
     await opened.page.waitForTimeout(250);
     const typography = await opened.page.evaluate(() => ({
       prose: getComputedStyle(document.querySelector(".firstrun-chapter__text")).fontFamily,
-      data: getComputedStyle(document.querySelector(".firstrun-fx__fig")).fontFamily,
+      data: getComputedStyle(document.querySelector(".firstrun-fx__hd1")).fontFamily,
       proofData: getComputedStyle(document.querySelector("#firstRunDemo .fx-cue__load")).fontFamily,
     }));
     assert.match(typography.prose, /Plex Sans/, `${theme} ordinary landing prose uses the language font`);

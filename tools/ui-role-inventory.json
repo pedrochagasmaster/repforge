@@ -26,7 +26,7 @@
     "onboarding-start/first-run-features": {
       "owner": "plan-064/r2",
       "content": "flat",
-      "scenario": "The landing scrolled to the feature tabs, held mid-scene on Progress."
+      "scenario": "The landing scrolled to the feature tabs, held on Progress's Summary."
     },
     "onboarding-start/first-run-data": {
       "owner": "plan-064/r2",

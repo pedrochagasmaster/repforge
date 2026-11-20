@@ -178152,7 +178152,7 @@
         },
         {
           "tag": "p",
-          "text": "Each feature below plays on the app's own screens."
+          "text": "Each feature below is shown on the app's own screens."
         },
         {
           "tag": "div",
@@ -178163,7 +178163,7 @@
         {
           "tag": "button",
           "role": "tab",
-          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week.",
+          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week.",
           "aria-selected": "true",
           "tabindex": "0",
           "type": "button"
@@ -178222,13 +178222,13 @@
         },
         {
           "tag": "p",
-          "text": "Every set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week."
+          "text": "Every set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week."
         },
         {
           "tag": "div",
           "role": "tabpanel",
-          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week.",
-          "labelledBy": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week."
+          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week.",
+          "labelledBy": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week."
         },
         {
           "tag": "section",
@@ -178762,7 +178762,7 @@
         },
         {
           "tag": "p",
-          "text": "Each feature below plays on the app's own screens."
+          "text": "Each feature below is shown on the app's own screens."
         },
         {
           "tag": "div",
@@ -178773,7 +178773,7 @@
         {
           "tag": "button",
           "role": "tab",
-          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week.",
+          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week.",
           "aria-selected": "true",
           "tabindex": "0",
           "type": "button"
@@ -178832,13 +178832,13 @@
         },
         {
           "tag": "p",
-          "text": "Every set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week."
+          "text": "Every set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week."
         },
         {
           "tag": "div",
           "role": "tabpanel",
-          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week.",
-          "labelledBy": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week."
+          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week.",
+          "labelledBy": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week."
         },
         {
           "tag": "section",
@@ -179244,12 +179244,12 @@
         },
         {
           "tag": "button",
-          "name": "Saiba o peso",
+          "name": "Saiba a carga",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Saiba o peso"
+          "text": "Saiba a carga"
         },
         {
           "tag": "button",
@@ -179294,11 +179294,11 @@
         },
         {
           "tag": "section",
-          "labelledBy": "Ele confere sua percepção de esforço, não só seus números."
+          "labelledBy": "Confere sua percepção de esforço, não só seus números."
         },
         {
           "tag": "h2",
-          "text": "Ele confere sua percepção de esforço, não só seus números."
+          "text": "Confere sua percepção de esforço, não só seus números."
         },
         {
           "tag": "li",
@@ -179314,7 +179314,7 @@
         },
         {
           "tag": "p",
-          "text": "No máximo 1 série-teste por sessão, uma por exercício a cada 14 dias e 2 por semana. As séries-teste não mudam nada até o exercício ter 3. Depois, elas mudam a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerida."
+          "text": "No máximo 1 série-teste por sessão, uma por exercício a cada 14 dias e 2 por semana. As séries-teste não mudam nada até o exercício ter 3. Depois, elas mudam a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerido."
         },
         {
           "tag": "p",
@@ -179383,14 +179383,14 @@
         {
           "tag": "button",
           "role": "tab",
-          "name": "Veja sua evoluçãoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e o Volume conta suas séries efetivas de cada músculo toda semana.",
+          "name": "Veja seu progressoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e a aba Progresso conta suas séries efetivas de cada músculo toda semana.",
           "aria-selected": "true",
           "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Veja sua evolução"
+          "text": "Veja seu progresso"
         },
         {
           "tag": "button",
@@ -179442,13 +179442,13 @@
         },
         {
           "tag": "p",
-          "text": "Cada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e o Volume conta suas séries efetivas de cada músculo toda semana."
+          "text": "Cada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e a aba Progresso conta suas séries efetivas de cada músculo toda semana."
         },
         {
           "tag": "div",
           "role": "tabpanel",
-          "name": "Veja sua evoluçãoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e o Volume conta suas séries efetivas de cada músculo toda semana.",
-          "labelledBy": "Veja sua evoluçãoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e o Volume conta suas séries efetivas de cada músculo toda semana."
+          "name": "Veja seu progressoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e a aba Progresso conta suas séries efetivas de cada músculo toda semana.",
+          "labelledBy": "Veja seu progressoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e a aba Progresso conta suas séries efetivas de cada músculo toda semana."
         },
         {
           "tag": "section",
@@ -179517,11 +179517,11 @@
         },
         {
           "tag": "summary",
-          "name": "Preciso de loja de apps?"
+          "name": "Preciso baixar na loja de apps?"
         },
         {
           "tag": "span",
-          "text": "Preciso de loja de apps?"
+          "text": "Preciso baixar na loja de apps?"
         },
         {
           "tag": "p",
@@ -179637,7 +179637,7 @@
         },
         {
           "tag": "span",
-          "text": "Não vai"
+          "text": "Não vai no link"
         },
         {
           "tag": "li",
@@ -179685,7 +179685,7 @@
         },
         {
           "tag": "p",
-          "text": "Você chuta quantas reps consegue fazer com a mesma carga na última série de trabalho de um exercício e vai até a falha técnica. Ela substitui essa série, sem acrescentar outra, e compara seu chute com o que você fez. Após 3 séries-teste nesse exercício, resultados consistentes podem ajustar como o Taurifer lê suas reps sobrando, mudando a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerida."
+          "text": "Você chuta quantas reps consegue fazer com a mesma carga na última série de trabalho de um exercício e vai até a falha técnica. Ela substitui essa série, sem acrescentar outra, e compara seu chute com o que você fez. Após 3 séries-teste nesse exercício, resultados consistentes podem ajustar como o Taurifer lê suas reps sobrando, mudando a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerido."
         },
         {
           "tag": "summary",
@@ -179725,7 +179725,7 @@
         },
         {
           "tag": "p",
-          "text": "Um toque por série. O Taurifer faz a conta da próxima."
+          "text": "Um toque por série. O Taurifer calcula a próxima."
         },
         {
           "tag": "button",
@@ -184449,7 +184449,7 @@
         },
         {
           "tag": "p",
-          "text": "Each feature below plays on the app's own screens."
+          "text": "Each feature below is shown on the app's own screens."
         },
         {
           "tag": "div",
@@ -184460,7 +184460,7 @@
         {
           "tag": "button",
           "role": "tab",
-          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week.",
+          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week.",
           "aria-selected": "true",
           "tabindex": "0",
           "type": "button"
@@ -184519,13 +184519,13 @@
         },
         {
           "tag": "p",
-          "text": "Every set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week."
+          "text": "Every set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week."
         },
         {
           "tag": "div",
           "role": "tabpanel",
-          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week.",
-          "labelledBy": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week."
+          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week.",
+          "labelledBy": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week."
         },
         {
           "tag": "section",
@@ -185053,7 +185053,7 @@
         },
         {
           "tag": "p",
-          "text": "Each feature below plays on the app's own screens."
+          "text": "Each feature below is shown on the app's own screens."
         },
         {
           "tag": "div",
@@ -185064,7 +185064,7 @@
         {
           "tag": "button",
           "role": "tab",
-          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week.",
+          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week.",
           "aria-selected": "true",
           "tabindex": "0",
           "type": "button"
@@ -185123,13 +185123,13 @@
         },
         {
           "tag": "p",
-          "text": "Every set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week."
+          "text": "Every set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week."
         },
         {
           "tag": "div",
           "role": "tabpanel",
-          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week.",
-          "labelledBy": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week."
+          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week.",
+          "labelledBy": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week."
         },
         {
           "tag": "section",
@@ -185657,7 +185657,7 @@
         },
         {
           "tag": "p",
-          "text": "Each feature below plays on the app's own screens."
+          "text": "Each feature below is shown on the app's own screens."
         },
         {
           "tag": "div",
@@ -185668,7 +185668,7 @@
         {
           "tag": "button",
           "role": "tab",
-          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week.",
+          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week.",
           "aria-selected": "true",
           "tabindex": "0",
           "type": "button"
@@ -185727,13 +185727,13 @@
         },
         {
           "tag": "p",
-          "text": "Every set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week."
+          "text": "Every set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week."
         },
         {
           "tag": "div",
           "role": "tabpanel",
-          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week.",
-          "labelledBy": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week."
+          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week.",
+          "labelledBy": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week."
         },
         {
           "tag": "section",
@@ -186261,7 +186261,7 @@
         },
         {
           "tag": "p",
-          "text": "Each feature below plays on the app's own screens."
+          "text": "Each feature below is shown on the app's own screens."
         },
         {
           "tag": "div",
@@ -186272,7 +186272,7 @@
         {
           "tag": "button",
           "role": "tab",
-          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week.",
+          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week.",
           "aria-selected": "true",
           "tabindex": "0",
           "type": "button"
@@ -186331,13 +186331,13 @@
         },
         {
           "tag": "p",
-          "text": "Every set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week."
+          "text": "Every set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week."
         },
         {
           "tag": "div",
           "role": "tabpanel",
-          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week.",
-          "labelledBy": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week."
+          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week.",
+          "labelledBy": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week."
         },
         {
           "tag": "section",
@@ -186865,7 +186865,7 @@
         },
         {
           "tag": "p",
-          "text": "Each feature below plays on the app's own screens."
+          "text": "Each feature below is shown on the app's own screens."
         },
         {
           "tag": "div",
@@ -186876,7 +186876,7 @@
         {
           "tag": "button",
           "role": "tab",
-          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week.",
+          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week.",
           "aria-selected": "true",
           "tabindex": "0",
           "type": "button"
@@ -186935,13 +186935,13 @@
         },
         {
           "tag": "p",
-          "text": "Every set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week."
+          "text": "Every set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week."
         },
         {
           "tag": "div",
           "role": "tabpanel",
-          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week.",
-          "labelledBy": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week."
+          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week.",
+          "labelledBy": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week."
         },
         {
           "tag": "section",
@@ -187341,12 +187341,12 @@
         },
         {
           "tag": "button",
-          "name": "Saiba o peso",
+          "name": "Saiba a carga",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Saiba o peso"
+          "text": "Saiba a carga"
         },
         {
           "tag": "button",
@@ -187391,11 +187391,11 @@
         },
         {
           "tag": "section",
-          "labelledBy": "Ele confere sua percepção de esforço, não só seus números."
+          "labelledBy": "Confere sua percepção de esforço, não só seus números."
         },
         {
           "tag": "h2",
-          "text": "Ele confere sua percepção de esforço, não só seus números."
+          "text": "Confere sua percepção de esforço, não só seus números."
         },
         {
           "tag": "li",
@@ -187411,7 +187411,7 @@
         },
         {
           "tag": "p",
-          "text": "No máximo 1 série-teste por sessão, uma por exercício a cada 14 dias e 2 por semana. As séries-teste não mudam nada até o exercício ter 3. Depois, elas mudam a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerida."
+          "text": "No máximo 1 série-teste por sessão, uma por exercício a cada 14 dias e 2 por semana. As séries-teste não mudam nada até o exercício ter 3. Depois, elas mudam a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerido."
         },
         {
           "tag": "p",
@@ -187480,14 +187480,14 @@
         {
           "tag": "button",
           "role": "tab",
-          "name": "Veja sua evoluçãoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e o Volume conta suas séries efetivas de cada músculo toda semana.",
+          "name": "Veja seu progressoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e a aba Progresso conta suas séries efetivas de cada músculo toda semana.",
           "aria-selected": "true",
           "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Veja sua evolução"
+          "text": "Veja seu progresso"
         },
         {
           "tag": "button",
@@ -187539,13 +187539,13 @@
         },
         {
           "tag": "p",
-          "text": "Cada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e o Volume conta suas séries efetivas de cada músculo toda semana."
+          "text": "Cada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e a aba Progresso conta suas séries efetivas de cada músculo toda semana."
         },
         {
           "tag": "div",
           "role": "tabpanel",
-          "name": "Veja sua evoluçãoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e o Volume conta suas séries efetivas de cada músculo toda semana.",
-          "labelledBy": "Veja sua evoluçãoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e o Volume conta suas séries efetivas de cada músculo toda semana."
+          "name": "Veja seu progressoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e a aba Progresso conta suas séries efetivas de cada músculo toda semana.",
+          "labelledBy": "Veja seu progressoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e a aba Progresso conta suas séries efetivas de cada músculo toda semana."
         },
         {
           "tag": "section",
@@ -187614,11 +187614,11 @@
         },
         {
           "tag": "summary",
-          "name": "Preciso de loja de apps?"
+          "name": "Preciso baixar na loja de apps?"
         },
         {
           "tag": "span",
-          "text": "Preciso de loja de apps?"
+          "text": "Preciso baixar na loja de apps?"
         },
         {
           "tag": "p",
@@ -187734,7 +187734,7 @@
         },
         {
           "tag": "span",
-          "text": "Não vai"
+          "text": "Não vai no link"
         },
         {
           "tag": "li",
@@ -187782,7 +187782,7 @@
         },
         {
           "tag": "p",
-          "text": "Você chuta quantas reps consegue fazer com a mesma carga na última série de trabalho de um exercício e vai até a falha técnica. Ela substitui essa série, sem acrescentar outra, e compara seu chute com o que você fez. Após 3 séries-teste nesse exercício, resultados consistentes podem ajustar como o Taurifer lê suas reps sobrando, mudando a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerida."
+          "text": "Você chuta quantas reps consegue fazer com a mesma carga na última série de trabalho de um exercício e vai até a falha técnica. Ela substitui essa série, sem acrescentar outra, e compara seu chute com o que você fez. Após 3 séries-teste nesse exercício, resultados consistentes podem ajustar como o Taurifer lê suas reps sobrando, mudando a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerido."
         },
         {
           "tag": "summary",
@@ -187822,7 +187822,7 @@
         },
         {
           "tag": "p",
-          "text": "Um toque por série. O Taurifer faz a conta da próxima."
+          "text": "Um toque por série. O Taurifer calcula a próxima."
         },
         {
           "tag": "button",
@@ -188073,7 +188073,7 @@
         },
         {
           "tag": "p",
-          "text": "Each feature below plays on the app's own screens."
+          "text": "Each feature below is shown on the app's own screens."
         },
         {
           "tag": "div",
@@ -188084,7 +188084,7 @@
         {
           "tag": "button",
           "role": "tab",
-          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week.",
+          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week.",
           "aria-selected": "true",
           "tabindex": "0",
           "type": "button"
@@ -188143,13 +188143,13 @@
         },
         {
           "tag": "p",
-          "text": "Every set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week."
+          "text": "Every set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week."
         },
         {
           "tag": "div",
           "role": "tabpanel",
-          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week.",
-          "labelledBy": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week."
+          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week.",
+          "labelledBy": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week."
         },
         {
           "tag": "section",
@@ -188677,7 +188677,7 @@
         },
         {
           "tag": "p",
-          "text": "Each feature below plays on the app's own screens."
+          "text": "Each feature below is shown on the app's own screens."
         },
         {
           "tag": "div",
@@ -188688,7 +188688,7 @@
         {
           "tag": "button",
           "role": "tab",
-          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week.",
+          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week.",
           "aria-selected": "true",
           "tabindex": "0",
           "type": "button"
@@ -188747,13 +188747,13 @@
         },
         {
           "tag": "p",
-          "text": "Every set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week."
+          "text": "Every set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week."
         },
         {
           "tag": "div",
           "role": "tabpanel",
-          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week.",
-          "labelledBy": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week."
+          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week.",
+          "labelledBy": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week."
         },
         {
           "tag": "section",
@@ -189290,7 +189290,7 @@
         },
         {
           "tag": "p",
-          "text": "Each feature below plays on the app's own screens."
+          "text": "Each feature below is shown on the app's own screens."
         },
         {
           "tag": "div",
@@ -189301,7 +189301,7 @@
         {
           "tag": "button",
           "role": "tab",
-          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week.",
+          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week.",
           "aria-selected": "true",
           "tabindex": "0",
           "type": "button"
@@ -189360,13 +189360,13 @@
         },
         {
           "tag": "p",
-          "text": "Every set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week."
+          "text": "Every set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week."
         },
         {
           "tag": "div",
           "role": "tabpanel",
-          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week.",
-          "labelledBy": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week."
+          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week.",
+          "labelledBy": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week."
         },
         {
           "tag": "section",
@@ -189775,12 +189775,12 @@
         },
         {
           "tag": "button",
-          "name": "Saiba o peso",
+          "name": "Saiba a carga",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Saiba o peso"
+          "text": "Saiba a carga"
         },
         {
           "tag": "button",
@@ -189825,11 +189825,11 @@
         },
         {
           "tag": "section",
-          "labelledBy": "Ele confere sua percepção de esforço, não só seus números."
+          "labelledBy": "Confere sua percepção de esforço, não só seus números."
         },
         {
           "tag": "h2",
-          "text": "Ele confere sua percepção de esforço, não só seus números."
+          "text": "Confere sua percepção de esforço, não só seus números."
         },
         {
           "tag": "li",
@@ -189845,7 +189845,7 @@
         },
         {
           "tag": "p",
-          "text": "No máximo 1 série-teste por sessão, uma por exercício a cada 14 dias e 2 por semana. As séries-teste não mudam nada até o exercício ter 3. Depois, elas mudam a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerida."
+          "text": "No máximo 1 série-teste por sessão, uma por exercício a cada 14 dias e 2 por semana. As séries-teste não mudam nada até o exercício ter 3. Depois, elas mudam a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerido."
         },
         {
           "tag": "p",
@@ -189914,14 +189914,14 @@
         {
           "tag": "button",
           "role": "tab",
-          "name": "Veja sua evoluçãoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e o Volume conta suas séries efetivas de cada músculo toda semana.",
+          "name": "Veja seu progressoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e a aba Progresso conta suas séries efetivas de cada músculo toda semana.",
           "aria-selected": "true",
           "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Veja sua evolução"
+          "text": "Veja seu progresso"
         },
         {
           "tag": "button",
@@ -189973,13 +189973,13 @@
         },
         {
           "tag": "p",
-          "text": "Cada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e o Volume conta suas séries efetivas de cada músculo toda semana."
+          "text": "Cada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e a aba Progresso conta suas séries efetivas de cada músculo toda semana."
         },
         {
           "tag": "div",
           "role": "tabpanel",
-          "name": "Veja sua evoluçãoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e o Volume conta suas séries efetivas de cada músculo toda semana.",
-          "labelledBy": "Veja sua evoluçãoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e o Volume conta suas séries efetivas de cada músculo toda semana."
+          "name": "Veja seu progressoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e a aba Progresso conta suas séries efetivas de cada músculo toda semana.",
+          "labelledBy": "Veja seu progressoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e a aba Progresso conta suas séries efetivas de cada músculo toda semana."
         },
         {
           "tag": "section",
@@ -190048,11 +190048,11 @@
         },
         {
           "tag": "summary",
-          "name": "Preciso de loja de apps?"
+          "name": "Preciso baixar na loja de apps?"
         },
         {
           "tag": "span",
-          "text": "Preciso de loja de apps?"
+          "text": "Preciso baixar na loja de apps?"
         },
         {
           "tag": "p",
@@ -190168,7 +190168,7 @@
         },
         {
           "tag": "span",
-          "text": "Não vai"
+          "text": "Não vai no link"
         },
         {
           "tag": "li",
@@ -190216,7 +190216,7 @@
         },
         {
           "tag": "p",
-          "text": "Você chuta quantas reps consegue fazer com a mesma carga na última série de trabalho de um exercício e vai até a falha técnica. Ela substitui essa série, sem acrescentar outra, e compara seu chute com o que você fez. Após 3 séries-teste nesse exercício, resultados consistentes podem ajustar como o Taurifer lê suas reps sobrando, mudando a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerida."
+          "text": "Você chuta quantas reps consegue fazer com a mesma carga na última série de trabalho de um exercício e vai até a falha técnica. Ela substitui essa série, sem acrescentar outra, e compara seu chute com o que você fez. Após 3 séries-teste nesse exercício, resultados consistentes podem ajustar como o Taurifer lê suas reps sobrando, mudando a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerido."
         },
         {
           "tag": "summary",
@@ -190256,7 +190256,7 @@
         },
         {
           "tag": "p",
-          "text": "Um toque por série. O Taurifer faz a conta da próxima."
+          "text": "Um toque por série. O Taurifer calcula a próxima."
         },
         {
           "tag": "button",
@@ -190516,7 +190516,7 @@
         },
         {
           "tag": "p",
-          "text": "Each feature below plays on the app's own screens."
+          "text": "Each feature below is shown on the app's own screens."
         },
         {
           "tag": "div",
@@ -190527,7 +190527,7 @@
         {
           "tag": "button",
           "role": "tab",
-          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week.",
+          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week.",
           "aria-selected": "true",
           "tabindex": "0",
           "type": "button"
@@ -190586,13 +190586,13 @@
         },
         {
           "tag": "p",
-          "text": "Every set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week."
+          "text": "Every set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week."
         },
         {
           "tag": "div",
           "role": "tabpanel",
-          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week.",
-          "labelledBy": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week."
+          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week.",
+          "labelledBy": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week."
         },
         {
           "tag": "section",
@@ -191120,7 +191120,7 @@
         },
         {
           "tag": "p",
-          "text": "Each feature below plays on the app's own screens."
+          "text": "Each feature below is shown on the app's own screens."
         },
         {
           "tag": "div",
@@ -191131,7 +191131,7 @@
         {
           "tag": "button",
           "role": "tab",
-          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week.",
+          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week.",
           "aria-selected": "true",
           "tabindex": "0",
           "type": "button"
@@ -191190,13 +191190,13 @@
         },
         {
           "tag": "p",
-          "text": "Every set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week."
+          "text": "Every set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week."
         },
         {
           "tag": "div",
           "role": "tabpanel",
-          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week.",
-          "labelledBy": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week."
+          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week.",
+          "labelledBy": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week."
         },
         {
           "tag": "section",
@@ -191596,12 +191596,12 @@
         },
         {
           "tag": "button",
-          "name": "Saiba o peso",
+          "name": "Saiba a carga",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Saiba o peso"
+          "text": "Saiba a carga"
         },
         {
           "tag": "button",
@@ -191646,11 +191646,11 @@
         },
         {
           "tag": "section",
-          "labelledBy": "Ele confere sua percepção de esforço, não só seus números."
+          "labelledBy": "Confere sua percepção de esforço, não só seus números."
         },
         {
           "tag": "h2",
-          "text": "Ele confere sua percepção de esforço, não só seus números."
+          "text": "Confere sua percepção de esforço, não só seus números."
         },
         {
           "tag": "li",
@@ -191666,7 +191666,7 @@
         },
         {
           "tag": "p",
-          "text": "No máximo 1 série-teste por sessão, uma por exercício a cada 14 dias e 2 por semana. As séries-teste não mudam nada até o exercício ter 3. Depois, elas mudam a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerida."
+          "text": "No máximo 1 série-teste por sessão, uma por exercício a cada 14 dias e 2 por semana. As séries-teste não mudam nada até o exercício ter 3. Depois, elas mudam a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerido."
         },
         {
           "tag": "p",
@@ -191735,14 +191735,14 @@
         {
           "tag": "button",
           "role": "tab",
-          "name": "Veja sua evoluçãoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e o Volume conta suas séries efetivas de cada músculo toda semana.",
+          "name": "Veja seu progressoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e a aba Progresso conta suas séries efetivas de cada músculo toda semana.",
           "aria-selected": "true",
           "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Veja sua evolução"
+          "text": "Veja seu progresso"
         },
         {
           "tag": "button",
@@ -191794,13 +191794,13 @@
         },
         {
           "tag": "p",
-          "text": "Cada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e o Volume conta suas séries efetivas de cada músculo toda semana."
+          "text": "Cada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e a aba Progresso conta suas séries efetivas de cada músculo toda semana."
         },
         {
           "tag": "div",
           "role": "tabpanel",
-          "name": "Veja sua evoluçãoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e o Volume conta suas séries efetivas de cada músculo toda semana.",
-          "labelledBy": "Veja sua evoluçãoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e o Volume conta suas séries efetivas de cada músculo toda semana."
+          "name": "Veja seu progressoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e a aba Progresso conta suas séries efetivas de cada músculo toda semana.",
+          "labelledBy": "Veja seu progressoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e a aba Progresso conta suas séries efetivas de cada músculo toda semana."
         },
         {
           "tag": "section",
@@ -191869,11 +191869,11 @@
         },
         {
           "tag": "summary",
-          "name": "Preciso de loja de apps?"
+          "name": "Preciso baixar na loja de apps?"
         },
         {
           "tag": "span",
-          "text": "Preciso de loja de apps?"
+          "text": "Preciso baixar na loja de apps?"
         },
         {
           "tag": "p",
@@ -191989,7 +191989,7 @@
         },
         {
           "tag": "span",
-          "text": "Não vai"
+          "text": "Não vai no link"
         },
         {
           "tag": "li",
@@ -192037,7 +192037,7 @@
         },
         {
           "tag": "p",
-          "text": "Você chuta quantas reps consegue fazer com a mesma carga na última série de trabalho de um exercício e vai até a falha técnica. Ela substitui essa série, sem acrescentar outra, e compara seu chute com o que você fez. Após 3 séries-teste nesse exercício, resultados consistentes podem ajustar como o Taurifer lê suas reps sobrando, mudando a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerida."
+          "text": "Você chuta quantas reps consegue fazer com a mesma carga na última série de trabalho de um exercício e vai até a falha técnica. Ela substitui essa série, sem acrescentar outra, e compara seu chute com o que você fez. Após 3 séries-teste nesse exercício, resultados consistentes podem ajustar como o Taurifer lê suas reps sobrando, mudando a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerido."
         },
         {
           "tag": "summary",
@@ -192077,7 +192077,7 @@
         },
         {
           "tag": "p",
-          "text": "Um toque por série. O Taurifer faz a conta da próxima."
+          "text": "Um toque por série. O Taurifer calcula a próxima."
         },
         {
           "tag": "button",
@@ -192328,7 +192328,7 @@
         },
         {
           "tag": "p",
-          "text": "Each feature below plays on the app's own screens."
+          "text": "Each feature below is shown on the app's own screens."
         },
         {
           "tag": "div",
@@ -192339,7 +192339,7 @@
         {
           "tag": "button",
           "role": "tab",
-          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week.",
+          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week.",
           "aria-selected": "true",
           "tabindex": "0",
           "type": "button"
@@ -192398,13 +192398,13 @@
         },
         {
           "tag": "p",
-          "text": "Every set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week."
+          "text": "Every set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week."
         },
         {
           "tag": "div",
           "role": "tabpanel",
-          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week.",
-          "labelledBy": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week."
+          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week.",
+          "labelledBy": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week."
         },
         {
           "tag": "section",
@@ -192941,7 +192941,7 @@
         },
         {
           "tag": "p",
-          "text": "Each feature below plays on the app's own screens."
+          "text": "Each feature below is shown on the app's own screens."
         },
         {
           "tag": "div",
@@ -192952,7 +192952,7 @@
         {
           "tag": "button",
           "role": "tab",
-          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week.",
+          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week.",
           "aria-selected": "true",
           "tabindex": "0",
           "type": "button"
@@ -193011,13 +193011,13 @@
         },
         {
           "tag": "p",
-          "text": "Every set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week."
+          "text": "Every set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week."
         },
         {
           "tag": "div",
           "role": "tabpanel",
-          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week.",
-          "labelledBy": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week."
+          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week.",
+          "labelledBy": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week."
         },
         {
           "tag": "section",
@@ -193426,12 +193426,12 @@
         },
         {
           "tag": "button",
-          "name": "Saiba o peso",
+          "name": "Saiba a carga",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Saiba o peso"
+          "text": "Saiba a carga"
         },
         {
           "tag": "button",
@@ -193476,11 +193476,11 @@
         },
         {
           "tag": "section",
-          "labelledBy": "Ele confere sua percepção de esforço, não só seus números."
+          "labelledBy": "Confere sua percepção de esforço, não só seus números."
         },
         {
           "tag": "h2",
-          "text": "Ele confere sua percepção de esforço, não só seus números."
+          "text": "Confere sua percepção de esforço, não só seus números."
         },
         {
           "tag": "li",
@@ -193496,7 +193496,7 @@
         },
         {
           "tag": "p",
-          "text": "No máximo 1 série-teste por sessão, uma por exercício a cada 14 dias e 2 por semana. As séries-teste não mudam nada até o exercício ter 3. Depois, elas mudam a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerida."
+          "text": "No máximo 1 série-teste por sessão, uma por exercício a cada 14 dias e 2 por semana. As séries-teste não mudam nada até o exercício ter 3. Depois, elas mudam a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerido."
         },
         {
           "tag": "p",
@@ -193565,14 +193565,14 @@
         {
           "tag": "button",
           "role": "tab",
-          "name": "Veja sua evoluçãoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e o Volume conta suas séries efetivas de cada músculo toda semana.",
+          "name": "Veja seu progressoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e a aba Progresso conta suas séries efetivas de cada músculo toda semana.",
           "aria-selected": "true",
           "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Veja sua evolução"
+          "text": "Veja seu progresso"
         },
         {
           "tag": "button",
@@ -193624,13 +193624,13 @@
         },
         {
           "tag": "p",
-          "text": "Cada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e o Volume conta suas séries efetivas de cada músculo toda semana."
+          "text": "Cada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e a aba Progresso conta suas séries efetivas de cada músculo toda semana."
         },
         {
           "tag": "div",
           "role": "tabpanel",
-          "name": "Veja sua evoluçãoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e o Volume conta suas séries efetivas de cada músculo toda semana.",
-          "labelledBy": "Veja sua evoluçãoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e o Volume conta suas séries efetivas de cada músculo toda semana."
+          "name": "Veja seu progressoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e a aba Progresso conta suas séries efetivas de cada músculo toda semana.",
+          "labelledBy": "Veja seu progressoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e a aba Progresso conta suas séries efetivas de cada músculo toda semana."
         },
         {
           "tag": "section",
@@ -193699,11 +193699,11 @@
         },
         {
           "tag": "summary",
-          "name": "Preciso de loja de apps?"
+          "name": "Preciso baixar na loja de apps?"
         },
         {
           "tag": "span",
-          "text": "Preciso de loja de apps?"
+          "text": "Preciso baixar na loja de apps?"
         },
         {
           "tag": "p",
@@ -193819,7 +193819,7 @@
         },
         {
           "tag": "span",
-          "text": "Não vai"
+          "text": "Não vai no link"
         },
         {
           "tag": "li",
@@ -193867,7 +193867,7 @@
         },
         {
           "tag": "p",
-          "text": "Você chuta quantas reps consegue fazer com a mesma carga na última série de trabalho de um exercício e vai até a falha técnica. Ela substitui essa série, sem acrescentar outra, e compara seu chute com o que você fez. Após 3 séries-teste nesse exercício, resultados consistentes podem ajustar como o Taurifer lê suas reps sobrando, mudando a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerida."
+          "text": "Você chuta quantas reps consegue fazer com a mesma carga na última série de trabalho de um exercício e vai até a falha técnica. Ela substitui essa série, sem acrescentar outra, e compara seu chute com o que você fez. Após 3 séries-teste nesse exercício, resultados consistentes podem ajustar como o Taurifer lê suas reps sobrando, mudando a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerido."
         },
         {
           "tag": "summary",
@@ -193907,7 +193907,7 @@
         },
         {
           "tag": "p",
-          "text": "Um toque por série. O Taurifer faz a conta da próxima."
+          "text": "Um toque por série. O Taurifer calcula a próxima."
         },
         {
           "tag": "button",
@@ -194167,7 +194167,7 @@
         },
         {
           "tag": "p",
-          "text": "Each feature below plays on the app's own screens."
+          "text": "Each feature below is shown on the app's own screens."
         },
         {
           "tag": "div",
@@ -194178,7 +194178,7 @@
         {
           "tag": "button",
           "role": "tab",
-          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week.",
+          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week.",
           "aria-selected": "true",
           "tabindex": "0",
           "type": "button"
@@ -194237,13 +194237,13 @@
         },
         {
           "tag": "p",
-          "text": "Every set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week."
+          "text": "Every set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week."
         },
         {
           "tag": "div",
           "role": "tabpanel",
-          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week.",
-          "labelledBy": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week."
+          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week.",
+          "labelledBy": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week."
         },
         {
           "tag": "section",
@@ -194780,7 +194780,7 @@
         },
         {
           "tag": "p",
-          "text": "Each feature below plays on the app's own screens."
+          "text": "Each feature below is shown on the app's own screens."
         },
         {
           "tag": "div",
@@ -194791,7 +194791,7 @@
         {
           "tag": "button",
           "role": "tab",
-          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week.",
+          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week.",
           "aria-selected": "true",
           "tabindex": "0",
           "type": "button"
@@ -194850,13 +194850,13 @@
         },
         {
           "tag": "p",
-          "text": "Every set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week."
+          "text": "Every set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week."
         },
         {
           "tag": "div",
           "role": "tabpanel",
-          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week.",
-          "labelledBy": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week."
+          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week.",
+          "labelledBy": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week."
         },
         {
           "tag": "section",
@@ -195265,12 +195265,12 @@
         },
         {
           "tag": "button",
-          "name": "Saiba o peso",
+          "name": "Saiba a carga",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Saiba o peso"
+          "text": "Saiba a carga"
         },
         {
           "tag": "button",
@@ -195315,11 +195315,11 @@
         },
         {
           "tag": "section",
-          "labelledBy": "Ele confere sua percepção de esforço, não só seus números."
+          "labelledBy": "Confere sua percepção de esforço, não só seus números."
         },
         {
           "tag": "h2",
-          "text": "Ele confere sua percepção de esforço, não só seus números."
+          "text": "Confere sua percepção de esforço, não só seus números."
         },
         {
           "tag": "li",
@@ -195335,7 +195335,7 @@
         },
         {
           "tag": "p",
-          "text": "No máximo 1 série-teste por sessão, uma por exercício a cada 14 dias e 2 por semana. As séries-teste não mudam nada até o exercício ter 3. Depois, elas mudam a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerida."
+          "text": "No máximo 1 série-teste por sessão, uma por exercício a cada 14 dias e 2 por semana. As séries-teste não mudam nada até o exercício ter 3. Depois, elas mudam a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerido."
         },
         {
           "tag": "p",
@@ -195404,14 +195404,14 @@
         {
           "tag": "button",
           "role": "tab",
-          "name": "Veja sua evoluçãoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e o Volume conta suas séries efetivas de cada músculo toda semana.",
+          "name": "Veja seu progressoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e a aba Progresso conta suas séries efetivas de cada músculo toda semana.",
           "aria-selected": "true",
           "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Veja sua evolução"
+          "text": "Veja seu progresso"
         },
         {
           "tag": "button",
@@ -195463,13 +195463,13 @@
         },
         {
           "tag": "p",
-          "text": "Cada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e o Volume conta suas séries efetivas de cada músculo toda semana."
+          "text": "Cada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e a aba Progresso conta suas séries efetivas de cada músculo toda semana."
         },
         {
           "tag": "div",
           "role": "tabpanel",
-          "name": "Veja sua evoluçãoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e o Volume conta suas séries efetivas de cada músculo toda semana.",
-          "labelledBy": "Veja sua evoluçãoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e o Volume conta suas séries efetivas de cada músculo toda semana."
+          "name": "Veja seu progressoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e a aba Progresso conta suas séries efetivas de cada músculo toda semana.",
+          "labelledBy": "Veja seu progressoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e a aba Progresso conta suas séries efetivas de cada músculo toda semana."
         },
         {
           "tag": "section",
@@ -195538,11 +195538,11 @@
         },
         {
           "tag": "summary",
-          "name": "Preciso de loja de apps?"
+          "name": "Preciso baixar na loja de apps?"
         },
         {
           "tag": "span",
-          "text": "Preciso de loja de apps?"
+          "text": "Preciso baixar na loja de apps?"
         },
         {
           "tag": "p",
@@ -195658,7 +195658,7 @@
         },
         {
           "tag": "span",
-          "text": "Não vai"
+          "text": "Não vai no link"
         },
         {
           "tag": "li",
@@ -195706,7 +195706,7 @@
         },
         {
           "tag": "p",
-          "text": "Você chuta quantas reps consegue fazer com a mesma carga na última série de trabalho de um exercício e vai até a falha técnica. Ela substitui essa série, sem acrescentar outra, e compara seu chute com o que você fez. Após 3 séries-teste nesse exercício, resultados consistentes podem ajustar como o Taurifer lê suas reps sobrando, mudando a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerida."
+          "text": "Você chuta quantas reps consegue fazer com a mesma carga na última série de trabalho de um exercício e vai até a falha técnica. Ela substitui essa série, sem acrescentar outra, e compara seu chute com o que você fez. Após 3 séries-teste nesse exercício, resultados consistentes podem ajustar como o Taurifer lê suas reps sobrando, mudando a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerido."
         },
         {
           "tag": "summary",
@@ -195746,7 +195746,7 @@
         },
         {
           "tag": "p",
-          "text": "Um toque por série. O Taurifer faz a conta da próxima."
+          "text": "Um toque por série. O Taurifer calcula a próxima."
         },
         {
           "tag": "button",
@@ -196006,7 +196006,7 @@
         },
         {
           "tag": "p",
-          "text": "Each feature below plays on the app's own screens."
+          "text": "Each feature below is shown on the app's own screens."
         },
         {
           "tag": "div",
@@ -196017,7 +196017,7 @@
         {
           "tag": "button",
           "role": "tab",
-          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week.",
+          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week.",
           "aria-selected": "true",
           "tabindex": "0",
           "type": "button"
@@ -196076,13 +196076,13 @@
         },
         {
           "tag": "p",
-          "text": "Every set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week."
+          "text": "Every set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week."
         },
         {
           "tag": "div",
           "role": "tabpanel",
-          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week.",
-          "labelledBy": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week."
+          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week.",
+          "labelledBy": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week."
         },
         {
           "tag": "section",
@@ -196619,7 +196619,7 @@
         },
         {
           "tag": "p",
-          "text": "Each feature below plays on the app's own screens."
+          "text": "Each feature below is shown on the app's own screens."
         },
         {
           "tag": "div",
@@ -196630,7 +196630,7 @@
         {
           "tag": "button",
           "role": "tab",
-          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week.",
+          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week.",
           "aria-selected": "true",
           "tabindex": "0",
           "type": "button"
@@ -196689,13 +196689,13 @@
         },
         {
           "tag": "p",
-          "text": "Every set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week."
+          "text": "Every set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week."
         },
         {
           "tag": "div",
           "role": "tabpanel",
-          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week.",
-          "labelledBy": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week."
+          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week.",
+          "labelledBy": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week."
         },
         {
           "tag": "section",
@@ -197104,12 +197104,12 @@
         },
         {
           "tag": "button",
-          "name": "Saiba o peso",
+          "name": "Saiba a carga",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Saiba o peso"
+          "text": "Saiba a carga"
         },
         {
           "tag": "button",
@@ -197154,11 +197154,11 @@
         },
         {
           "tag": "section",
-          "labelledBy": "Ele confere sua percepção de esforço, não só seus números."
+          "labelledBy": "Confere sua percepção de esforço, não só seus números."
         },
         {
           "tag": "h2",
-          "text": "Ele confere sua percepção de esforço, não só seus números."
+          "text": "Confere sua percepção de esforço, não só seus números."
         },
         {
           "tag": "li",
@@ -197174,7 +197174,7 @@
         },
         {
           "tag": "p",
-          "text": "No máximo 1 série-teste por sessão, uma por exercício a cada 14 dias e 2 por semana. As séries-teste não mudam nada até o exercício ter 3. Depois, elas mudam a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerida."
+          "text": "No máximo 1 série-teste por sessão, uma por exercício a cada 14 dias e 2 por semana. As séries-teste não mudam nada até o exercício ter 3. Depois, elas mudam a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerido."
         },
         {
           "tag": "p",
@@ -197243,14 +197243,14 @@
         {
           "tag": "button",
           "role": "tab",
-          "name": "Veja sua evoluçãoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e o Volume conta suas séries efetivas de cada músculo toda semana.",
+          "name": "Veja seu progressoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e a aba Progresso conta suas séries efetivas de cada músculo toda semana.",
           "aria-selected": "true",
           "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Veja sua evolução"
+          "text": "Veja seu progresso"
         },
         {
           "tag": "button",
@@ -197302,13 +197302,13 @@
         },
         {
           "tag": "p",
-          "text": "Cada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e o Volume conta suas séries efetivas de cada músculo toda semana."
+          "text": "Cada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e a aba Progresso conta suas séries efetivas de cada músculo toda semana."
         },
         {
           "tag": "div",
           "role": "tabpanel",
-          "name": "Veja sua evoluçãoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e o Volume conta suas séries efetivas de cada músculo toda semana.",
-          "labelledBy": "Veja sua evoluçãoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e o Volume conta suas séries efetivas de cada músculo toda semana."
+          "name": "Veja seu progressoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e a aba Progresso conta suas séries efetivas de cada músculo toda semana.",
+          "labelledBy": "Veja seu progressoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e a aba Progresso conta suas séries efetivas de cada músculo toda semana."
         },
         {
           "tag": "section",
@@ -197377,11 +197377,11 @@
         },
         {
           "tag": "summary",
-          "name": "Preciso de loja de apps?"
+          "name": "Preciso baixar na loja de apps?"
         },
         {
           "tag": "span",
-          "text": "Preciso de loja de apps?"
+          "text": "Preciso baixar na loja de apps?"
         },
         {
           "tag": "p",
@@ -197497,7 +197497,7 @@
         },
         {
           "tag": "span",
-          "text": "Não vai"
+          "text": "Não vai no link"
         },
         {
           "tag": "li",
@@ -197545,7 +197545,7 @@
         },
         {
           "tag": "p",
-          "text": "Você chuta quantas reps consegue fazer com a mesma carga na última série de trabalho de um exercício e vai até a falha técnica. Ela substitui essa série, sem acrescentar outra, e compara seu chute com o que você fez. Após 3 séries-teste nesse exercício, resultados consistentes podem ajustar como o Taurifer lê suas reps sobrando, mudando a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerida."
+          "text": "Você chuta quantas reps consegue fazer com a mesma carga na última série de trabalho de um exercício e vai até a falha técnica. Ela substitui essa série, sem acrescentar outra, e compara seu chute com o que você fez. Após 3 séries-teste nesse exercício, resultados consistentes podem ajustar como o Taurifer lê suas reps sobrando, mudando a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerido."
         },
         {
           "tag": "summary",
@@ -197585,7 +197585,7 @@
         },
         {
           "tag": "p",
-          "text": "Um toque por série. O Taurifer faz a conta da próxima."
+          "text": "Um toque por série. O Taurifer calcula a próxima."
         },
         {
           "tag": "button",
@@ -197845,7 +197845,7 @@
         },
         {
           "tag": "p",
-          "text": "Each feature below plays on the app's own screens."
+          "text": "Each feature below is shown on the app's own screens."
         },
         {
           "tag": "div",
@@ -197856,7 +197856,7 @@
         {
           "tag": "button",
           "role": "tab",
-          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week.",
+          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week.",
           "aria-selected": "true",
           "tabindex": "0",
           "type": "button"
@@ -197915,13 +197915,13 @@
         },
         {
           "tag": "p",
-          "text": "Every set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week."
+          "text": "Every set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week."
         },
         {
           "tag": "div",
           "role": "tabpanel",
-          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week.",
-          "labelledBy": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week."
+          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week.",
+          "labelledBy": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week."
         },
         {
           "tag": "section",
@@ -198449,7 +198449,7 @@
         },
         {
           "tag": "p",
-          "text": "Each feature below plays on the app's own screens."
+          "text": "Each feature below is shown on the app's own screens."
         },
         {
           "tag": "div",
@@ -198460,7 +198460,7 @@
         {
           "tag": "button",
           "role": "tab",
-          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week.",
+          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week.",
           "aria-selected": "true",
           "tabindex": "0",
           "type": "button"
@@ -198519,13 +198519,13 @@
         },
         {
           "tag": "p",
-          "text": "Every set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week."
+          "text": "Every set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week."
         },
         {
           "tag": "div",
           "role": "tabpanel",
-          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week.",
-          "labelledBy": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week."
+          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week.",
+          "labelledBy": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week."
         },
         {
           "tag": "section",
@@ -198925,12 +198925,12 @@
         },
         {
           "tag": "button",
-          "name": "Saiba o peso",
+          "name": "Saiba a carga",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Saiba o peso"
+          "text": "Saiba a carga"
         },
         {
           "tag": "button",
@@ -198975,11 +198975,11 @@
         },
         {
           "tag": "section",
-          "labelledBy": "Ele confere sua percepção de esforço, não só seus números."
+          "labelledBy": "Confere sua percepção de esforço, não só seus números."
         },
         {
           "tag": "h2",
-          "text": "Ele confere sua percepção de esforço, não só seus números."
+          "text": "Confere sua percepção de esforço, não só seus números."
         },
         {
           "tag": "li",
@@ -198995,7 +198995,7 @@
         },
         {
           "tag": "p",
-          "text": "No máximo 1 série-teste por sessão, uma por exercício a cada 14 dias e 2 por semana. As séries-teste não mudam nada até o exercício ter 3. Depois, elas mudam a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerida."
+          "text": "No máximo 1 série-teste por sessão, uma por exercício a cada 14 dias e 2 por semana. As séries-teste não mudam nada até o exercício ter 3. Depois, elas mudam a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerido."
         },
         {
           "tag": "p",
@@ -199064,14 +199064,14 @@
         {
           "tag": "button",
           "role": "tab",
-          "name": "Veja sua evoluçãoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e o Volume conta suas séries efetivas de cada músculo toda semana.",
+          "name": "Veja seu progressoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e a aba Progresso conta suas séries efetivas de cada músculo toda semana.",
           "aria-selected": "true",
           "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Veja sua evolução"
+          "text": "Veja seu progresso"
         },
         {
           "tag": "button",
@@ -199123,13 +199123,13 @@
         },
         {
           "tag": "p",
-          "text": "Cada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e o Volume conta suas séries efetivas de cada músculo toda semana."
+          "text": "Cada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e a aba Progresso conta suas séries efetivas de cada músculo toda semana."
         },
         {
           "tag": "div",
           "role": "tabpanel",
-          "name": "Veja sua evoluçãoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e o Volume conta suas séries efetivas de cada músculo toda semana.",
-          "labelledBy": "Veja sua evoluçãoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e o Volume conta suas séries efetivas de cada músculo toda semana."
+          "name": "Veja seu progressoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e a aba Progresso conta suas séries efetivas de cada músculo toda semana.",
+          "labelledBy": "Veja seu progressoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e a aba Progresso conta suas séries efetivas de cada músculo toda semana."
         },
         {
           "tag": "section",
@@ -199198,11 +199198,11 @@
         },
         {
           "tag": "summary",
-          "name": "Preciso de loja de apps?"
+          "name": "Preciso baixar na loja de apps?"
         },
         {
           "tag": "span",
-          "text": "Preciso de loja de apps?"
+          "text": "Preciso baixar na loja de apps?"
         },
         {
           "tag": "p",
@@ -199318,7 +199318,7 @@
         },
         {
           "tag": "span",
-          "text": "Não vai"
+          "text": "Não vai no link"
         },
         {
           "tag": "li",
@@ -199366,7 +199366,7 @@
         },
         {
           "tag": "p",
-          "text": "Você chuta quantas reps consegue fazer com a mesma carga na última série de trabalho de um exercício e vai até a falha técnica. Ela substitui essa série, sem acrescentar outra, e compara seu chute com o que você fez. Após 3 séries-teste nesse exercício, resultados consistentes podem ajustar como o Taurifer lê suas reps sobrando, mudando a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerida."
+          "text": "Você chuta quantas reps consegue fazer com a mesma carga na última série de trabalho de um exercício e vai até a falha técnica. Ela substitui essa série, sem acrescentar outra, e compara seu chute com o que você fez. Após 3 séries-teste nesse exercício, resultados consistentes podem ajustar como o Taurifer lê suas reps sobrando, mudando a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerido."
         },
         {
           "tag": "summary",
@@ -199406,7 +199406,7 @@
         },
         {
           "tag": "p",
-          "text": "Um toque por série. O Taurifer faz a conta da próxima."
+          "text": "Um toque por série. O Taurifer calcula a próxima."
         },
         {
           "tag": "button",
@@ -199661,7 +199661,7 @@
         },
         {
           "tag": "p",
-          "text": "Each feature below plays on the app's own screens."
+          "text": "Each feature below is shown on the app's own screens."
         },
         {
           "tag": "div",
@@ -199672,7 +199672,7 @@
         {
           "tag": "button",
           "role": "tab",
-          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week.",
+          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week.",
           "aria-selected": "true",
           "tabindex": "0",
           "type": "button"
@@ -199731,13 +199731,13 @@
         },
         {
           "tag": "p",
-          "text": "Every set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week."
+          "text": "Every set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week."
         },
         {
           "tag": "div",
           "role": "tabpanel",
-          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week.",
-          "labelledBy": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week."
+          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week.",
+          "labelledBy": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week."
         },
         {
           "tag": "section",
@@ -200269,7 +200269,7 @@
         },
         {
           "tag": "p",
-          "text": "Each feature below plays on the app's own screens."
+          "text": "Each feature below is shown on the app's own screens."
         },
         {
           "tag": "div",
@@ -200280,7 +200280,7 @@
         {
           "tag": "button",
           "role": "tab",
-          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week.",
+          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week.",
           "aria-selected": "true",
           "tabindex": "0",
           "type": "button"
@@ -200339,13 +200339,13 @@
         },
         {
           "tag": "p",
-          "text": "Every set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week."
+          "text": "Every set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week."
         },
         {
           "tag": "div",
           "role": "tabpanel",
-          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week.",
-          "labelledBy": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week."
+          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week.",
+          "labelledBy": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week."
         },
         {
           "tag": "section",
@@ -200745,12 +200745,12 @@
         },
         {
           "tag": "button",
-          "name": "Saiba o peso",
+          "name": "Saiba a carga",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Saiba o peso"
+          "text": "Saiba a carga"
         },
         {
           "tag": "button",
@@ -200799,11 +200799,11 @@
         },
         {
           "tag": "section",
-          "labelledBy": "Ele confere sua percepção de esforço, não só seus números."
+          "labelledBy": "Confere sua percepção de esforço, não só seus números."
         },
         {
           "tag": "h2",
-          "text": "Ele confere sua percepção de esforço, não só seus números."
+          "text": "Confere sua percepção de esforço, não só seus números."
         },
         {
           "tag": "li",
@@ -200819,7 +200819,7 @@
         },
         {
           "tag": "p",
-          "text": "No máximo 1 série-teste por sessão, uma por exercício a cada 14 dias e 2 por semana. As séries-teste não mudam nada até o exercício ter 3. Depois, elas mudam a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerida."
+          "text": "No máximo 1 série-teste por sessão, uma por exercício a cada 14 dias e 2 por semana. As séries-teste não mudam nada até o exercício ter 3. Depois, elas mudam a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerido."
         },
         {
           "tag": "p",
@@ -200888,14 +200888,14 @@
         {
           "tag": "button",
           "role": "tab",
-          "name": "Veja sua evoluçãoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e o Volume conta suas séries efetivas de cada músculo toda semana.",
+          "name": "Veja seu progressoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e a aba Progresso conta suas séries efetivas de cada músculo toda semana.",
           "aria-selected": "true",
           "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Veja sua evolução"
+          "text": "Veja seu progresso"
         },
         {
           "tag": "button",
@@ -200947,13 +200947,13 @@
         },
         {
           "tag": "p",
-          "text": "Cada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e o Volume conta suas séries efetivas de cada músculo toda semana."
+          "text": "Cada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e a aba Progresso conta suas séries efetivas de cada músculo toda semana."
         },
         {
           "tag": "div",
           "role": "tabpanel",
-          "name": "Veja sua evoluçãoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e o Volume conta suas séries efetivas de cada músculo toda semana.",
-          "labelledBy": "Veja sua evoluçãoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e o Volume conta suas séries efetivas de cada músculo toda semana."
+          "name": "Veja seu progressoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e a aba Progresso conta suas séries efetivas de cada músculo toda semana.",
+          "labelledBy": "Veja seu progressoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e a aba Progresso conta suas séries efetivas de cada músculo toda semana."
         },
         {
           "tag": "section",
@@ -201022,11 +201022,11 @@
         },
         {
           "tag": "summary",
-          "name": "Preciso de loja de apps?"
+          "name": "Preciso baixar na loja de apps?"
         },
         {
           "tag": "span",
-          "text": "Preciso de loja de apps?"
+          "text": "Preciso baixar na loja de apps?"
         },
         {
           "tag": "p",
@@ -201142,7 +201142,7 @@
         },
         {
           "tag": "span",
-          "text": "Não vai"
+          "text": "Não vai no link"
         },
         {
           "tag": "li",
@@ -201190,7 +201190,7 @@
         },
         {
           "tag": "p",
-          "text": "Você chuta quantas reps consegue fazer com a mesma carga na última série de trabalho de um exercício e vai até a falha técnica. Ela substitui essa série, sem acrescentar outra, e compara seu chute com o que você fez. Após 3 séries-teste nesse exercício, resultados consistentes podem ajustar como o Taurifer lê suas reps sobrando, mudando a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerida."
+          "text": "Você chuta quantas reps consegue fazer com a mesma carga na última série de trabalho de um exercício e vai até a falha técnica. Ela substitui essa série, sem acrescentar outra, e compara seu chute com o que você fez. Após 3 séries-teste nesse exercício, resultados consistentes podem ajustar como o Taurifer lê suas reps sobrando, mudando a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerido."
         },
         {
           "tag": "summary",
@@ -201230,7 +201230,7 @@
         },
         {
           "tag": "p",
-          "text": "Um toque por série. O Taurifer faz a conta da próxima."
+          "text": "Um toque por série. O Taurifer calcula a próxima."
         },
         {
           "tag": "button",
@@ -201481,7 +201481,7 @@
         },
         {
           "tag": "p",
-          "text": "Each feature below plays on the app's own screens."
+          "text": "Each feature below is shown on the app's own screens."
         },
         {
           "tag": "div",
@@ -201492,7 +201492,7 @@
         {
           "tag": "button",
           "role": "tab",
-          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week.",
+          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week.",
           "aria-selected": "true",
           "tabindex": "0",
           "type": "button"
@@ -201551,13 +201551,13 @@
         },
         {
           "tag": "p",
-          "text": "Every set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week."
+          "text": "Every set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week."
         },
         {
           "tag": "div",
           "role": "tabpanel",
-          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week.",
-          "labelledBy": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week."
+          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week.",
+          "labelledBy": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week."
         },
         {
           "tag": "section",
@@ -202094,7 +202094,7 @@
         },
         {
           "tag": "p",
-          "text": "Each feature below plays on the app's own screens."
+          "text": "Each feature below is shown on the app's own screens."
         },
         {
           "tag": "div",
@@ -202105,7 +202105,7 @@
         {
           "tag": "button",
           "role": "tab",
-          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week.",
+          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week.",
           "aria-selected": "true",
           "tabindex": "0",
           "type": "button"
@@ -202164,13 +202164,13 @@
         },
         {
           "tag": "p",
-          "text": "Every set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week."
+          "text": "Every set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week."
         },
         {
           "tag": "div",
           "role": "tabpanel",
-          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week.",
-          "labelledBy": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Volume counts your hard sets for each muscle every week."
+          "name": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week.",
+          "labelledBy": "See your progressEvery set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week."
         },
         {
           "tag": "section",
@@ -202579,12 +202579,12 @@
         },
         {
           "tag": "button",
-          "name": "Saiba o peso",
+          "name": "Saiba a carga",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Saiba o peso"
+          "text": "Saiba a carga"
         },
         {
           "tag": "button",
@@ -202629,11 +202629,11 @@
         },
         {
           "tag": "section",
-          "labelledBy": "Ele confere sua percepção de esforço, não só seus números."
+          "labelledBy": "Confere sua percepção de esforço, não só seus números."
         },
         {
           "tag": "h2",
-          "text": "Ele confere sua percepção de esforço, não só seus números."
+          "text": "Confere sua percepção de esforço, não só seus números."
         },
         {
           "tag": "li",
@@ -202649,7 +202649,7 @@
         },
         {
           "tag": "p",
-          "text": "No máximo 1 série-teste por sessão, uma por exercício a cada 14 dias e 2 por semana. As séries-teste não mudam nada até o exercício ter 3. Depois, elas mudam a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerida."
+          "text": "No máximo 1 série-teste por sessão, uma por exercício a cada 14 dias e 2 por semana. As séries-teste não mudam nada até o exercício ter 3. Depois, elas mudam a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerido."
         },
         {
           "tag": "p",
@@ -202718,14 +202718,14 @@
         {
           "tag": "button",
           "role": "tab",
-          "name": "Veja sua evoluçãoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e o Volume conta suas séries efetivas de cada músculo toda semana.",
+          "name": "Veja seu progressoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e a aba Progresso conta suas séries efetivas de cada músculo toda semana.",
           "aria-selected": "true",
           "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Veja sua evolução"
+          "text": "Veja seu progresso"
         },
         {
           "tag": "button",
@@ -202777,13 +202777,13 @@
         },
         {
           "tag": "p",
-          "text": "Cada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e o Volume conta suas séries efetivas de cada músculo toda semana."
+          "text": "Cada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e a aba Progresso conta suas séries efetivas de cada músculo toda semana."
         },
         {
           "tag": "div",
           "role": "tabpanel",
-          "name": "Veja sua evoluçãoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e o Volume conta suas séries efetivas de cada músculo toda semana.",
-          "labelledBy": "Veja sua evoluçãoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e o Volume conta suas séries efetivas de cada músculo toda semana."
+          "name": "Veja seu progressoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e a aba Progresso conta suas séries efetivas de cada músculo toda semana.",
+          "labelledBy": "Veja seu progressoCada série registrada desenha sua curva de força. Os recordes aparecem assim que você os bate, e a aba Progresso conta suas séries efetivas de cada músculo toda semana."
         },
         {
           "tag": "section",
@@ -202852,11 +202852,11 @@
         },
         {
           "tag": "summary",
-          "name": "Preciso de loja de apps?"
+          "name": "Preciso baixar na loja de apps?"
         },
         {
           "tag": "span",
-          "text": "Preciso de loja de apps?"
+          "text": "Preciso baixar na loja de apps?"
         },
         {
           "tag": "p",
@@ -202972,7 +202972,7 @@
         },
         {
           "tag": "span",
-          "text": "Não vai"
+          "text": "Não vai no link"
         },
         {
           "tag": "li",
@@ -203020,7 +203020,7 @@
         },
         {
           "tag": "p",
-          "text": "Você chuta quantas reps consegue fazer com a mesma carga na última série de trabalho de um exercício e vai até a falha técnica. Ela substitui essa série, sem acrescentar outra, e compara seu chute com o que você fez. Após 3 séries-teste nesse exercício, resultados consistentes podem ajustar como o Taurifer lê suas reps sobrando, mudando a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerida."
+          "text": "Você chuta quantas reps consegue fazer com a mesma carga na última série de trabalho de um exercício e vai até a falha técnica. Ela substitui essa série, sem acrescentar outra, e compara seu chute com o que você fez. Após 3 séries-teste nesse exercício, resultados consistentes podem ajustar como o Taurifer lê suas reps sobrando, mudando a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerido."
         },
         {
           "tag": "summary",
@@ -203060,7 +203060,7 @@
         },
         {
           "tag": "p",
-          "text": "Um toque por série. O Taurifer faz a conta da próxima."
+          "text": "Um toque por série. O Taurifer calcula a próxima."
         },
         {
           "tag": "button",
