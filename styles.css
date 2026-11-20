@@ -6645,7 +6645,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun-fx__acts{top:auto;height:220px;transform:translateY(104%)}
 .firstrun-fx__acts .firstrun-fx__sheettitle{right:64px}
 .firstrun-fx__x{position:absolute;right:var(--space-16);top:24px;width:36px;height:36px;border-radius:var(--radius-round);background:var(--well)}
-.firstrun-fx__x::before,.firstrun-fx__x::after{content:"";position:absolute;left:11px;top:17px;width:14px;height:1.75px;border-radius:1px;background:var(--color-ink-secondary);transform:rotate(45deg)}
+.firstrun-fx__x::before,.firstrun-fx__x::after{content:"";position:absolute;left:11px;top:17px;width:14px;height:1.75px;border-radius:var(--radius-compact);background:var(--color-ink-secondary);transform:rotate(45deg)}
 .firstrun-fx__x::after{transform:rotate(-45deg)}
 .firstrun-fx__navrow{position:absolute;left:var(--space-16);right:var(--space-16);top:96px;display:flex;align-items:center;justify-content:space-between;
   min-height:60px;border-block:1px solid var(--boundary-decorative);font-size:var(--font-size-body);font-weight:var(--weight-medium)}
