@@ -25742,7 +25742,7 @@ const LANDING_FEATURES={
        the window's width sets the zoom, so the edge snapping (snapLandingFeatureShots) can move its edges. */
     shots:[
       [{at:0,x:0,y:0,w:390,h:680},{at:.35,x:0,y:0,w:390,h:560},{at:3.2,x:0,y:60,w:390,h:380}],
-      [{at:0,x:0,y:0,w:390,h:640},{at:.35,x:0,y:44,w:390,h:400},{at:2.05,x:0,y:96,w:390,h:440},{at:4.55,x:0,y:44,w:390,h:400}],
+      [{at:0,x:0,y:0,w:390,h:640},{at:.35,x:0,y:52,w:390,h:400},{at:1.25,x:0,y:240,w:390,h:400},{at:2.05,x:0,y:96,w:390,h:440},{at:4.55,x:0,y:52,w:390,h:400}],
       [{at:0,x:0,y:0,w:390,h:660},{at:.3,x:0,y:0,w:390,h:340},{at:1.35,x:0,y:196,w:390,h:464}],
       [{at:0,x:0,y:0,w:390,h:640},{at:.7,x:0,y:216,w:390,h:424},{at:3.55,x:0,y:0,w:390,h:640},{at:6.3,x:0,y:10,w:390,h:480}],
       [{at:0,x:0,y:0,w:390,h:700},{at:1.35,x:0,y:0,w:390,h:440},{at:2.65,x:0,y:290,w:390,h:410,pin:"bottom"},{at:4.75,x:0,y:40,w:390,h:440}],
@@ -25785,8 +25785,8 @@ const LANDING_FEATURE_KEYS=["landing.features.title","landing.features.sub",
   ...["calendar","clock","notes","maps","reminders","files","stocks","home","fitness","settings"].map(k=>`landing.features.home.${k}`),
   "nav.stats","stats.hero.eyebrow","stats.hero.up","stats.hero.records","stats.hero.sessions","stats.hero.this_week","review.week_of",
   "stats.hero.review_last","stats.hero.last_week","stats.overview.strength","stats.overview.see_strength","stats.row.since",
-  "nav.program","program.day.strength_4_d2","program.day.count","entry.catalogue.sets_exact","program.editor.replace_exercise",
-  "program.editor.remove_exercise","picker.search_placeholder",
+  "nav.program","program.day.strength_4_d2","program.day.count","entry.catalogue.sets_exact","dialog.cancel","program.editor.title",
+  "dialog.done","entry.review.sheet.swap","picker.search_placeholder",
   "library.back","library.title","dialog.close","library.step","library.search_placeholder","picker.tab.search","picker.tab.browse",
   "picker.tab.yours","picker.filter_all","picker.group.chest","picker.group.back","picker.group.shoulders","picker.group.arms",
   "picker.equipment.barbell","picker.equipment.dumbbell","picker.equipment.machine","picker.equipment.cable","picker.equipment.smith",
@@ -25820,7 +25820,6 @@ function landingFeatureScreens(){
   const lang=landingLang(),locale=lang==="pt"?"pt-BR":"en-US",n=landingNum;
   const list=items=>{try{return new Intl.ListFormat(locale,{style:"long",type:"conjunction"}).format(items)}catch{return items.join(", ")}};
   const date=(iso,opts)=>{try{return new Intl.DateTimeFormat(locale,{timeZone:"UTC",...opts}).format(new Date(`${iso}T12:00:00Z`))}catch{return iso}};
-  const chev=`<span class="firstrun-fx__chev" aria-hidden="true">‹</span>`;
   const tap=landingTouchHtml();
   const lay=(a,b,cls="")=>`<span class="firstrun-fx__lay${cls}"><span class="firstrun-fx__a">${a}</span><span class="firstrun-fx__b">${b}</span></span>`;
   const muscles=keys=>keys.map(key=>muscleLabel(key)).join(" · ");
@@ -25856,15 +25855,19 @@ function landingFeatureScreens(){
   const card=(id,sub,cls="")=>`<div class="firstrun-fx__card${cls}">${thumb(id)}<span class="firstrun-fx__cardtext"><b>${esc(name(id))}</b><span>${esc(sub)}</span></span>`+
     `<span class="icon-mask icon-mask--chev-right firstrun-fx__cardchev" aria-hidden="true"></span></div>`;
   const s2=`<div class="firstrun-fx firstrun-fx--editor">`+
-    `<p class="firstrun-fx__back">${chev}${esc(t("nav.program"))}</p><p class="firstrun-fx__title">${esc(t("program.day.strength_4_d2"))}</p>`+
+    // The editor as it opens from Program (Plan 074): its bar, the day, and an exercise that opens its own sheet, where
+    // Swap exercise leads to the picker.
+    `<p class="firstrun-fx__ebar"><span>${esc(t("dialog.cancel"))}</span><b>${esc(t("program.editor.title"))}</b><span>${esc(t("dialog.done"))}</span></p>`+
+    `<p class="firstrun-fx__title">${esc(t("program.day.strength_4_d2"))}</p>`+
     `<p class="firstrun-fx__meta">${esc(t("program.day.count",{n:n(4),sets:t("entry.catalogue.sets_exact",{n:12})}))}</p>`+
     `<div class="firstrun-fx__swap">${card("bench",sets(3,6,8)," firstrun-fx__swapa")}${card("dbBench",sets(3,6,8)," firstrun-fx__swapb")}<span class="firstrun-fx__flash"></span></div>`+
-    `<p class="firstrun-fx__acts"><span class="firstrun-fx__pill firstrun-fx__rep">${esc(t("program.editor.replace_exercise"))}</span>`+
-      `<span class="firstrun-fx__pill firstrun-fx__pill--danger">${esc(t("program.editor.remove_exercise"))}</span></p>`+
     `<div class="firstrun-fx__below">${card("row",sets(3,8,10))}${card("ohp",sets(3,6,8))}${card("push",sets(3,12,15))}</div>`+
     `<div class="firstrun-fx__scrim"></div>`+
+    `<div class="firstrun-fx__sheet firstrun-fx__acts"><span class="firstrun-fx__grab"></span>`+
+      `<p class="firstrun-fx__sheettitle">${lay(esc(name("bench")),esc(name("dbBench")))}</p><span class="firstrun-fx__x" aria-hidden="true"></span>`+
+      `<p class="firstrun-fx__navrow firstrun-fx__rep"><span>${esc(t("entry.review.sheet.swap"))}</span><span class="icon-mask icon-mask--chev-right" aria-hidden="true"></span></p></div>`+
     `<div class="firstrun-fx__sheet firstrun-fx__picker"><span class="firstrun-fx__grab"></span>`+
-      `<p class="firstrun-fx__sheettitle">${esc(t("program.editor.replace_exercise"))}</p>`+
+      `<p class="firstrun-fx__sheettitle">${esc(t("entry.review.sheet.swap"))}</p>`+
       `<div class="pick__search firstrun-fx__search"><span class="firstrun-fx__ring"></span><span class="firstrun-fx__ph">${esc(t("picker.search_placeholder"))}</span>`+
         `<span class="firstrun-fx__typed"><span class="firstrun-fx__q"></span><span class="firstrun-fx__caret"></span></span></div>`+
       `<div class="firstrun-fx__results">`+["dbBench","nDb","pDb","sDb"].map(id=>`<div class="firstrun-fx__res">${thumb(id,"sm")}<span class="firstrun-fx__cardtext"><b>${esc(name(id))}</b><span>${esc(muscles(["Chest","Triceps"]))}</span></span><span class="firstrun-fx__hl"></span></div>`).join("")+
@@ -25992,7 +25995,7 @@ function renderLandingFeatures(){
     {root:q(0,".firstrun-fx"),lines:qa(0,".liftline"),pts:qa(0,".liftline").map(line=>[...line.querySelectorAll(".liftline__pt")]),
       lays:qa(0,".firstrun-fx__lay"),tap:q(0,".landing-touch")},
     {root:q(1,".firstrun-fx"),swap:q(1,".firstrun-fx__swap"),a:q(1,".firstrun-fx__swapa"),b:q(1,".firstrun-fx__swapb"),flash:q(1,".firstrun-fx__flash"),
-      acts:q(1,".firstrun-fx__acts"),rep:q(1,".firstrun-fx__rep"),below:q(1,".firstrun-fx__below"),scrim:q(1,".firstrun-fx__scrim"),sheet:q(1,".firstrun-fx__picker"),
+      acts:q(1,".firstrun-fx__acts"),named:q(1,".firstrun-fx__acts .firstrun-fx__lay"),rep:q(1,".firstrun-fx__rep"),below:q(1,".firstrun-fx__below"),scrim:q(1,".firstrun-fx__scrim"),sheet:q(1,".firstrun-fx__picker"),
       ring:q(1,".firstrun-fx__ring"),ph:q(1,".firstrun-fx__ph"),typed:q(1,".firstrun-fx__q"),caret:q(1,".firstrun-fx__caret"),res:qa(1,".firstrun-fx__res"),
       hl:q(1,".firstrun-fx__hl"),tap:q(1,".landing-touch"),query:lang==="pt"?"supino com halt":"dumbbell bench"},
     {root:q(2,".firstrun-fx"),ring:q(2,".firstrun-fx__ring"),ph:q(2,".firstrun-fx__ph"),typed:q(2,".firstrun-fx__q"),caret:q(2,".firstrun-fx__caret"),
@@ -26139,11 +26142,14 @@ function paintLandingFeature(i,u){
       op(node.firstChild,1-gone);tf(node.firstChild,`translateY(${r(-6*gone)}px)`);
       op(node.lastChild,come);tf(node.lastChild,`translateY(${r(6*(1-come))}px)`)})}
   else if(i===1){
+    // the exercise's sheet rises; Swap exercise raises the picker over it; the swap lands and the sheet goes down
     const open=out(seg(.85,1.25))*(1-inOut(seg(5,5.4)));
-    op(s.acts,open);tf(s.acts,`translateY(${r((1-open)*-8)}px)`);tf(s.below,`translateY(${r(open*56)}px)`);
-    tf(s.swap,`scale(${r(1-.015*press(.75))})`);tf(s.rep,`scale(${r(1-.04*press(1.85))})`);
+    tf(s.acts,`translateY(${r((1-open)*104)}%)`);
+    tf(s.swap,`scale(${r(1-.015*press(.75))})`);tf(s.rep,`scale(${r(1-.02*press(1.85))})`);
     const up=out(seg(2.05,2.5))*(1-inOut(seg(4.45,4.85)));
-    tf(s.sheet,`translateY(${r((1-up)*104)}%)`);op(s.scrim,up*.32);
+    tf(s.sheet,`translateY(${r((1-up)*104)}%)`);op(s.scrim,Math.max(open,up)*.32);
+    const named=seg(4.6,4.68),renamed=out(seg(4.68,4.76));
+    op(s.named.firstChild,1-named);op(s.named.lastChild,renamed);
     op(s.ring,seg(2.45,2.6));typing(s,2.65,.055,4.2);
     s.res.forEach((row,k)=>{const v=out(seg(3.45+k*.08,3.8+k*.08));op(row,v);tf(row,`translateY(${r((1-v)*8)}px)`)});
     op(s.hl,seg(4.12,4.2)*(1-seg(4.5,4.7)));

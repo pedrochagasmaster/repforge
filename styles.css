@@ -6605,8 +6605,6 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun-fx__lay{position:relative;display:inline-grid}
 .firstrun-fx__lay>span{grid-area:1/1;white-space:nowrap}
 .firstrun-fx__b{opacity:0}
-.firstrun-fx__back{position:absolute;left:var(--space-16);top:18px;display:flex;align-items:center;gap:var(--space-4);font-size:var(--font-size-control);color:var(--accent-deep)}
-.firstrun-fx__chev{font-size:var(--font-size-subtitle);line-height:1}
 .firstrun-fx__title{position:absolute;left:var(--space-16);right:var(--space-16);top:54px;font-size:var(--font-size-feature-title);font-weight:var(--weight-semibold);
   line-height:var(--line-tight);letter-spacing:-.02em}
 .firstrun-fx__meta{position:absolute;left:var(--space-16);top:94px;font-size:var(--font-size-body-small);color:var(--color-ink-secondary)}
@@ -6640,7 +6638,18 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun-fx__swap>.firstrun-fx__card{position:absolute;inset:0}
 .firstrun-fx__swapb{opacity:0}
 .firstrun-fx__flash{position:absolute;inset:0;border-radius:var(--radius-prominent);border:2px solid var(--accent);outline:4px solid rgba(var(--accent-rgb),.14);opacity:0}
-.firstrun-fx__acts{position:absolute;left:var(--space-16);right:var(--space-16);top:216px;display:flex;gap:var(--space-8);opacity:0}
+.firstrun-fx__ebar{position:absolute;left:0;right:0;top:0;display:flex;align-items:center;justify-content:space-between;gap:var(--space-12);height:52px;
+  padding:0 var(--space-16);border-bottom:1px solid var(--boundary-decorative);font-size:var(--font-size-control);color:var(--accent-deep)}
+.firstrun-fx__ebar b{flex:1;font-weight:var(--weight-semibold);color:var(--color-ink)}
+/* The exercise's own sheet: its name, the close control and the Swap exercise row */
+.firstrun-fx__acts{top:auto;height:220px;transform:translateY(104%)}
+.firstrun-fx__acts .firstrun-fx__sheettitle{right:64px}
+.firstrun-fx__x{position:absolute;right:var(--space-16);top:24px;width:36px;height:36px;border-radius:var(--radius-round);background:var(--well)}
+.firstrun-fx__x::before,.firstrun-fx__x::after{content:"";position:absolute;left:11px;top:17px;width:14px;height:1.75px;border-radius:1px;background:var(--color-ink-secondary);transform:rotate(45deg)}
+.firstrun-fx__x::after{transform:rotate(-45deg)}
+.firstrun-fx__navrow{position:absolute;left:var(--space-16);right:var(--space-16);top:96px;display:flex;align-items:center;justify-content:space-between;
+  min-height:60px;border-block:1px solid var(--boundary-decorative);font-size:var(--font-size-body);font-weight:var(--weight-medium)}
+.firstrun-fx__navrow .icon-mask{width:18px;height:18px;color:var(--color-ink-secondary)}
 .firstrun-fx__below{position:absolute;left:var(--space-16);right:var(--space-16);top:216px;display:grid;gap:var(--space-8)}
 .firstrun-fx__picker{top:96px;padding-top:0}
 .firstrun-fx__picker,.firstrun-fx__share{transform:translateY(104%)}
@@ -6815,7 +6824,10 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
    bar or shows past its corners while the list scrolls under the clip. */
 .firstrun-fx__hclip{position:absolute;left:0;right:0;top:0;bottom:156px;overflow:hidden;
   -webkit-mask-image:linear-gradient(180deg,var(--ink) calc(100% - 48px),transparent);mask-image:linear-gradient(180deg,var(--ink) calc(100% - 48px),transparent)}
-.firstrun-fx--editor .firstrun-fx__title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.firstrun-fx--editor .firstrun-fx__title{top:68px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.firstrun-fx--editor .firstrun-fx__meta{top:108px}
+.firstrun-fx--editor .firstrun-fx__swap{top:142px}
+.firstrun-fx--editor .firstrun-fx__below{top:230px}
 .firstrun-fx__hist--big .firstrun-fx__mini .minibar__title{font-size:var(--font-size-body)}
 .firstrun-fx__hist--big .firstrun-fx__mini .minibar__sub{font-size:var(--font-size-body-small)}
 .firstrun-fx__dock{position:absolute;z-index:1;left:12px;right:12px;bottom:14px;display:flex;height:64px;padding:4px;border-radius:var(--radius-pill);background:var(--dock-glass);
