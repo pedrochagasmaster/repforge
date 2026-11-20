@@ -25340,7 +25340,7 @@ const LANDING_DEMO_KEYS=["focus.exmeta.range","program.progression.adaptive","fo
   "focus.prev_line","focus.next_row","focus.metric.load_kg","focus.metric.reps","focus.shelf.pad_load","focus.shelf.log_set",
   "rest.inline.label","rest.inline.done","landing.outcomes.next_label","landing.outcomes.target","landing.outcomes.did_same",
   "maxset.invite_title","maxset.invite_body","maxset.not_now","maxset.bar_label","maxset.bar_label_short","maxset.invite_reason_learning","maxset.guess_q","maxset.guess_from","maxset.fail_rule","maxset.safety","maxset.press_line","maxset.start","maxset.cue_head","maxset.cue_sub","maxset.tag","maxset.guessed","maxset.did","maxset.result_more","maxset.result_fewer","maxset.result_same","maxset.status_wait_one","maxset.status_wait",
-  "dialog.done"];
+  "dialog.done","log.note"];
 let landingDemo=null;
 /** The proof's screen, from the "add" case and the engine's answer for it (`add`). */
 function landingDemoHtml(add,testSet){
@@ -25358,8 +25358,9 @@ function landingDemoHtml(add,testSet){
   const turned=landingNum(target.reps+1);
   const set=[kg,reps,landingNum(rir0)],did=[kg,turned,landingNum(rir0)],aim=[kg,reps,landingNum(rir)];
   // The selected field's outline is one element the frame slides between fields, as Focus's travelling outline does.
-  const field=(short,label,shown,suffix,extra="")=>`<div class="shelf__field is-untouched${extra}">`+
-    button("shelf__fieldbtn",`<span class="firstrun-demo__face">${shelfFaceHtml(short,label,shown,suffix)}</span>`,` aria-pressed="false"`)+`</div>`;
+  const field=(short,label,shown,suffix,extra="",menu=false)=>`<div class="shelf__field is-untouched${extra}"${menu?' data-field="rir"':""}>`+
+    button("shelf__fieldbtn",`<span class="firstrun-demo__face">${shelfFaceHtml(short,label,shown,suffix)}</span>`,` aria-pressed="false"`)+
+    (menu?`<span class="shelf__menu"><span class="icon-mask icon-mask--chev-down shelf__chev" aria-hidden="true"></span></span>`:"")+`</div>`;
   const load=metricLabel({semantic:"loadKg"}),repsLabel=metricLabel({semantic:"reps"});
   const repsField=field(repsLabel,repsLabel,reps,"",' firstrun-demo__repsfield').replace(`<span class="shelf__val">${esc(reps)}</span>`,
     `<span class="shelf__val firstrun-demo__vals"><span class="firstrun-demo__v0">${esc(reps)}</span><span class="firstrun-demo__v1">${esc(turned)}</span></span>`);
@@ -25406,7 +25407,7 @@ function landingDemoHtml(add,testSet){
     line(finished?check:LANDING_TEST_SETS.length,[landingNum(test[0]),landingNum(finished?test[1]:armed?guess:before[1]),landingNum(armed?test[2]:before[2])],!finished,"",
       armed?`<small class="ledgerline__tag">${esc(t("maxset.tag",{n:landingNum(guess)}))}</small>`:"")+`</div>`;
   const shelfControls=(last=false)=>`<div class="shelf__fields firstrun-demo__fields">${field(load,`${load}, ${unit}`,last?landingNum(test[0]):kg,unit)}${last?field(repsLabel,repsLabel,landingNum(before[1]),""):repsField}`+
-        `${field(t("focus.field.left"),t("focus.field.left"),landingNum(last?before[2]:rir0),"")}<span class="firstrun-demo__sel"></span></div>`+
+        `${field(t("focus.field.left"),t("focus.field.left"),landingNum(last?before[2]:rir0),"","",true)}<span class="firstrun-demo__sel"></span></div>`+
       `<div class="shelf__pads">${pad("−")}${pad("+")}</div>`+
       button("btn btn--cta btn--noarrow saveset firstrun-demo__log",last?esc(t("focus.shelf.log_set",{n:LANDING_TEST_SETS.length})):`<span class="firstrun-demo__log1">${esc(t("focus.shelf.log_set",{n:1}))}</span>`+
         `<span class="firstrun-demo__log2">${esc(t("focus.shelf.log_set",{n:2}))}</span>`);
@@ -25431,7 +25432,8 @@ function landingDemoHtml(add,testSet){
       `${button("icon-btn icon-btn--ghost",`<span class="icon-mask icon-mask--overflow" aria-hidden="true"></span>`)}</div></div>`+
     `<div class="segbar segbar--ex firstrun-demo__progress">${[0,1,2,3,4].map(i=>`<span class="segbar__seg${i?"":" is-current"}"></span>`).join("")}</div>`+
     `<div class="firstrun-demo__card">`+
-      `<div class="fx-head"><p class="focus-ex__meta">${esc(meta)}</p></div>`+
+      `<div class="fx-head"><div class="fx-head__row"><p class="focus-ex__meta">${esc(meta)}</p>`+
+        `<span class="fx-note-add"><span class="icon-mask icon-mask--note" aria-hidden="true"></span><span class="fx-note-add__label">${esc(t("log.note"))}</span></span></div></div>`+
       `<div class="fx-cue is-now"><p class="fx-cue__l1 firstrun-demo__l1">${mark}${head1}</p>`+
       `<p class="fx-cue__l2 firstrun-demo__l2">${esc(t("focus.cue.reps",{reps}))}</p>`+
       `<p class="fx-cue__evidence firstrun-demo__ev">${evidence}</p></div>`+
@@ -25440,7 +25442,7 @@ function landingDemoHtml(add,testSet){
           `<span class="ledgerline__ring firstrun-demo__ring"></span></div>`+
         `<div class="firstrun-demo__row">${line(2,aim,true)}<div class="firstrun-demo__over firstrun-demo__open2">${line(2,set,true)}</div></div>`+
         line(3,aim,true)+`</div>`+
-      `<p class="fx-next firstrun-demo__next"><span>${nextRow}</span></p>`+
+      `<p class="fx-next firstrun-demo__next"><span>${nextRow}</span><span class="icon-mask icon-mask--sm icon-mask--chev-down fx-next__chev" aria-hidden="true"></span></p>`+
     `</div>`+
     // the light along the running tab's contour and along the done tab's (wider: "Rest done +0:05"), then the contour
     lit("l")+lit("r")+lit("l")+lit("r")+contour+
@@ -25734,12 +25736,12 @@ function renderLandingWays(){
    text only for typing and the rest clock, both read from that time and never from a platform clock. */
 const LANDING_FEATURES={
   /* seconds per scene, the still reduced motion shows, and the screen's height at 390 wide */
-  scenes:[{len:6.8,still:6,h:640},{len:6.4,still:6,h:640},{len:6.6,still:5.9,h:660},{len:9.4,still:9,h:640},{len:7.6,still:4.1,h:700}].map((scene,i)=>({...scene,
+  scenes:[{len:6.8,still:6,h:680},{len:6.4,still:6,h:640},{len:6.6,still:5.9,h:660},{len:9.4,still:9,h:640},{len:7.6,still:4.1,h:700}].map((scene,i)=>({...scene,
     /* The camera (landingCameraAt): an establishing look at the whole screen, then the region each beat happens in,
        framed so the app's body text reads at its real size or close to it on a phone. A held shot is short enough that
        the window's width sets the zoom, so the edge snapping (snapLandingFeatureShots) can move its edges. */
     shots:[
-      [{at:0,x:0,y:0,w:390,h:640},{at:.35,x:0,y:196,w:390,h:350},{at:3.45,x:0,y:0,w:390,h:640}],
+      [{at:0,x:0,y:0,w:390,h:680},{at:.35,x:0,y:0,w:390,h:560},{at:3.2,x:0,y:60,w:390,h:380}],
       [{at:0,x:0,y:0,w:390,h:640},{at:.35,x:0,y:44,w:390,h:400},{at:2.05,x:0,y:96,w:390,h:440},{at:4.55,x:0,y:44,w:390,h:400}],
       [{at:0,x:0,y:0,w:390,h:660},{at:.3,x:0,y:0,w:390,h:340},{at:1.35,x:0,y:196,w:390,h:464}],
       [{at:0,x:0,y:0,w:390,h:640},{at:.7,x:0,y:216,w:390,h:424},{at:3.55,x:0,y:0,w:390,h:640},{at:6.3,x:0,y:10,w:390,h:480}],
@@ -25752,8 +25754,9 @@ const LANDING_FEATURES={
     incDb:"1a05c6f170d8806b911acf558c5af4f6",lowDb:"2245c6f170d880238f4ff9500137ec89",rearFly:"2a15c6f170d88066b38fd65f8757716f",
     gluteLeg:"2aa5c6f170d880c08fcbf27e03a0e2dc",incBb:"1a05c6f170d880198e1aceac084f30eb",cgPress:"1a05c6f170d8809da1e7fbc50ae7575b",
     fly:"1a05c6f170d880df946bdd6f42f0901c",barPush:"1a15c6f170d8801d9337dba3dcb34a88",highRow:"2c25c6f170d8802faccbc731f2c08731"},
-  /* scene 1: the bench press's top loads over five sessions, then a record */
-  trend:[55,57.5,57.5,60,60],record:62.5,dates:["2026-08-03","2026-08-31"],
+  /* scene 1: the Summary in week 4 of a six-week block, before and after the bench press's sixth session lands */
+  progress:{up:14,lifts:21,records:41,sessions:13,planned:16,week:1,perWeek:4,block:[4,6],
+    shown:[["bench",[55,57.5,57.5,60,60,62.5]],["row",[60,60,62.5,62.5,65]]]},
   /* scene 3: what the search and the chip show, with the muscles and equipment the app's rows name */
   browse:[["rearFly",["Rear delts","Lats"],"cable"],["gluteLeg",["Glutes","Quads"],"machine"],["incBb",["Chest","Front delts"],"barbell"],["cgPress",["Triceps","Chest"],"barbell"]],
   press:[["bench",["Chest","Triceps"],"barbell"],["ohp",["Front delts","Triceps"],"barbell"],["dbBench",["Chest","Triceps"],"dumbbell"],["smith",["Chest","Triceps"],"smith"],["leg",["Glutes","Quads"],"machine"]],
@@ -25762,9 +25765,9 @@ const LANDING_FEATURES={
   pressPt:[["bench",["Chest","Triceps"],"barbell"],["dbBench",["Chest","Triceps"],"dumbbell"],["smith",["Chest","Triceps"],"smith"],["incBb",["Chest","Front delts"],"barbell"],["nDb",["Chest","Triceps"],"dumbbell"]],
   dumbbellPt:[["dbBench",["Chest","Triceps"],"dumbbell"],["nDb",["Chest","Triceps"],"dumbbell"],["incDb",["Chest","Front delts"],"dumbbell"],["lowDb",["Chest","Front delts"],"dumbbell"],["pDb",["Chest","Triceps"],"dumbbell"]],
   /* scene 5: two weeks of History */
-  history:[["2026-10-30","strength_4_d3",["Lats","Chest","Quads"],13,5850,0],["2026-10-28","strength_4_d2",["Hamstrings","Glutes","Triceps"],17,14315,3],
-    ["2026-10-26","strength_4_d1",["Glutes","Chest","Lats"],13,6875,2],["2026-10-24","strength_4_d4",["Front delts","Biceps"],12,4120,0],
-    ["2026-10-23","strength_4_d3",["Lats","Chest","Quads"],13,5700,1],["2026-10-21","strength_4_d2",["Hamstrings","Glutes","Triceps"],17,13980,0]],
+  history:[["2026-10-30","strength_4_d3",["Lats","Chest","Quads"],13,0],["2026-10-28","strength_4_d2",["Hamstrings","Glutes","Triceps"],17,3],
+    ["2026-10-26","strength_4_d1",["Glutes","Chest","Lats"],13,2],["2026-10-24","strength_4_d4",["Front delts","Biceps"],12,0],
+    ["2026-10-23","strength_4_d3",["Lats","Chest","Quads"],13,1],["2026-10-21","strength_4_d2",["Hamstrings","Glutes","Triceps"],17,0]],
   rest:90,notes:[[0,1.5],[1.6,2.65],[2.7,4.6],[4.75,99]]};
 /** Tab 5's Home Screen: twelve grid slots (null is Taurifer's) and the dock, as [label key, glyph, tone]. */
 const LANDING_FEATURE_HOME={
@@ -25780,9 +25783,8 @@ const LANDING_FEATURE_KEYS=["landing.features.title","landing.features.sub",
   "landing.features.gym.note1","landing.features.gym.note2","landing.features.gym.note3","landing.features.gym.note4",
   "landing.features.chat.name","landing.features.chat.online","landing.features.chat.reply","landing.features.chat.forward","landing.features.chat.copy",
   ...["calendar","clock","notes","maps","reminders","files","stocks","home","fitness","settings"].map(k=>`landing.features.home.${k}`),
-  "nav.stats","stats.scope.current_block","stats.scope.all_history","stats.metric.top_load","stats.metric.best_e1rm",
-  "exercise.chart.fig.top","exercise.chart.fig.change","plural.session.other","history.pr","summary.muscles.title",
-  "stats.volume.scope.this_week","stats.volume_on_target","stats.volume_below",
+  "nav.stats","stats.hero.eyebrow","stats.hero.up","stats.hero.records","stats.hero.sessions","stats.hero.this_week","review.week_of",
+  "stats.hero.review_last","stats.hero.last_week","stats.overview.strength","stats.overview.see_strength","stats.row.since",
   "nav.program","program.day.strength_4_d2","program.day.count","entry.catalogue.sets_exact","program.editor.replace_exercise",
   "program.editor.remove_exercise","picker.search_placeholder",
   "library.back","library.title","dialog.close","library.step","library.search_placeholder","picker.tab.search","picker.tab.browse",
@@ -25822,34 +25824,33 @@ function landingFeatureScreens(){
   const tap=landingTouchHtml();
   const lay=(a,b,cls="")=>`<span class="firstrun-fx__lay${cls}"><span class="firstrun-fx__a">${a}</span><span class="firstrun-fx__b">${b}</span></span>`;
   const muscles=keys=>keys.map(key=>muscleLabel(key)).join(" · ");
-  /* 1 · Progress */
-  const F=LANDING_FEATURES,W=358,cx=i=>52+i*58,cy=v=>196-(v-52.5)*13;
-  const line=F.trend.map((v,i)=>`${i?"L":"M"}${cx(i)},${cy(v)}`).join(" ");
-  const vols=[["Chest",12,1],["Lats",14,1],["Front delts",9,1],["Triceps",5,0]];
-  const s1=`<div class="firstrun-fx firstrun-fx--progress">`+
-    `<p class="firstrun-fx__back">${chev}${esc(t("nav.stats"))}</p><p class="firstrun-fx__title">${esc(name("bench"))}</p>`+
-    `<div class="firstrun-fx__seg"><span class="is-on">${esc(t("stats.scope.current_block"))}</span><span>${esc(t("stats.scope.all_history"))}</span></div>`+
-    `<div class="firstrun-fx__seg"><span class="is-on">${esc(t("stats.metric.top_load"))}</span><span>${esc(t("stats.metric.best_e1rm"))}</span></div>`+
-    `<div class="firstrun-fx__figs">`+
-      `<p>${lay(esc(n(60)),esc(n(F.record))," firstrun-fx__fig")}<span>${esc(t("exercise.chart.fig.top",{unit:LANDING_UNIT}))}</span></p>`+
-      `<p>${lay(esc("+"+n(5)),esc("+"+n(7.5))," firstrun-fx__fig")}<span>${esc(t("exercise.chart.fig.change",{unit:LANDING_UNIT}))}</span></p>`+
-      `<p>${lay(esc(n(5)),esc(n(6))," firstrun-fx__fig")}<span>${esc(t("plural.session.other"))}</span></p></div>`+
-    `<div class="firstrun-fx__chart">`+
-      [55,57.5,60,62.5].map(v=>`<span class="firstrun-fx__grid" style="top:${cy(v)}px"></span><span class="firstrun-fx__gy" style="top:${cy(v)-8}px">${esc(n(v))}</span>`).join("")+
-      `<span class="firstrun-fx__gx" style="left:${cx(0)-14}px">${esc(date(F.dates[0],{month:"short",day:"numeric"}))}</span>`+
-      `<span class="firstrun-fx__gx firstrun-fx__gx--end">${esc(date(F.dates[1],{month:"short",day:"numeric"}))}</span>`+
-      `<div class="firstrun-fx__win1"><svg width="${W}" height="240" viewBox="0 0 ${W} 240" aria-hidden="true" focusable="false"><path class="firstrun-fx__line" d="${line}"/></svg></div>`+
-      `<div class="firstrun-fx__win2"><svg width="${W}" height="240" viewBox="0 0 ${W} 240" aria-hidden="true" focusable="false"><path class="firstrun-fx__line firstrun-fx__line--record" d="M${cx(4)},${cy(60)} L${cx(5)},${cy(F.record)}"/></svg></div>`+
-      `<span class="firstrun-fx__vline" style="left:${cx(5)}px;top:${cy(F.record)}px;height:${200-cy(F.record)}px"></span>`+
-      F.trend.map((v,i)=>`<span class="firstrun-fx__pt" style="left:${cx(i)}px;top:${cy(v)}px"></span>`).join("")+
-      `<span class="firstrun-fx__pt firstrun-fx__pt--record" style="left:${cx(5)}px;top:${cy(F.record)}px"></span>`+
-      `<span class="firstrun-fx__prtag" style="left:${cx(5)-56}px;top:${cy(F.record)-34}px">${esc(t("history.pr"))}</span></div>`+
-    `<div class="firstrun-fx__sheet firstrun-fx__vol"><span class="firstrun-fx__grab"></span>`+
-      `<p class="firstrun-fx__volhead"><b>${esc(t("summary.muscles.title"))}</b><span>${esc(t("stats.volume.scope.this_week"))}</span></p>`+
-      vols.map(([m,v,ok])=>`<div class="firstrun-fx__vrow"><p><span>${esc(muscleLabel(m))}</span><span><b>${esc(n(v))}</b>`+
-        `<em class="${ok?"":"is-below"}">${esc(t(ok?"stats.volume_on_target":"stats.volume_below"))}</em></span></p>`+
-        `<span class="firstrun-fx__vbar"><i class="${ok?"":"is-below"}" style="width:${(v/16*100).toFixed(1)}%"></i></span></div>`).join("")+
-    `</div>${tap}</div>`;
+  /* 1 · Progress: the Summary as it opens, its block card and its strength rows. A session lands on the first lift:
+     its line reaches a new point and the block card counts it. */
+  const F=LANDING_FEATURES,P=F.progress,kgs=v=>`${n(v)} ${LANDING_UNIT}`,plus=v=>`+${kgs(v)}`;
+  const big=(key,a,b,vars={})=>esc(t(key,{...vars,n:"\u0000"})).replace("\u0000",`<b class="phero__n is-up">${lay(esc(n(a)),esc(n(b)))}</b>`);
+  const stat=(a,b,of,key)=>`<div class="phero__stat"><b class="phero__val">${a===b?esc(n(a)):lay(esc(n(a)),esc(n(b)))}${of?`<i class="phero__of">/${esc(n(of))}</i>`:""}</b>`+
+    `<span class="phero__cap">${esc(t(key))}</span></div>`;
+  const liftRow=([id,values],k)=>{
+    const first=values[0],last=values.at(-1),grows=!k,was=grows?values.slice(0,-1):values,prev=was.at(-1);
+    const since=c=>t("stats.row.since",{load:kgs(first),n:c});
+    return `<div class="liftrow"><span class="liftrow__body"><span class="liftrow__l1"><b class="liftrow__name">${esc(name(id))}</b>`+
+      `<span class="liftrow__fig"><span class="liftrow__val">${grows?lay(esc(n(prev)),esc(n(last))):esc(n(last))}</span> <span class="liftrow__unit">${esc(LANDING_UNIT)}</span></span></span>`+
+      liftLineHtml(values)+
+      `<span class="liftrow__l2"><span class="liftrow__since">${grows?lay(esc(since(was.length)),esc(since(values.length))):esc(since(values.length))}</span>`+
+      `<span class="liftrow__delta is-up">${grows?lay(esc(plus(prev-first)),esc(plus(last-first))):esc(plus(last-first))}</span></span></span>`+
+      `<span class="chevron" aria-hidden="true"></span></div>`};
+  const s1=`<div class="firstrun-fx firstrun-fx--progress"><p class="firstrun-fx__ptitle">${esc(t("nav.stats"))}</p>`+
+    `<div class="sumcard phero"><p class="phero__eyebrow">${esc(t("stats.hero.eyebrow"))}</p>`+
+      `<p class="phero__headline">${big("stats.hero.up",P.up-1,P.up,{total:P.lifts})}</p>`+
+      `<div class="phero__stats">${stat(P.records-1,P.records,0,"stats.hero.records")}${stat(P.sessions-1,P.sessions,P.planned,"stats.hero.sessions")}`+
+        `${stat(P.week-1,P.week,P.perWeek,"stats.hero.this_week")}</div>`+
+      `<div class="phero__week"><span class="phero__weeklabel">${esc(t("review.week_of",{n:P.block[0],total:P.block[1]}))}</span><span class="phero__track" aria-hidden="true">`+
+        Array.from({length:P.block[1]},(_,k)=>`<i class="phero__seg${k<P.block[0]-1?" is-done":k===P.block[0]-1?" is-current":""}"></i>`).join("")+`</span></div>`+
+      `<div class="phero__review"><span class="phero__reviewtext"><b>${esc(t("stats.hero.review_last"))}</b>`+
+        `<span>${esc(t("stats.hero.last_week",{done:P.perWeek,planned:P.perWeek}))}</span></span><span class="chevron" aria-hidden="true"></span></div></div>`+
+    `<div class="sumhead"><p class="sumhead__title">${esc(t("stats.overview.strength"))}</p>`+
+      `<span class="sumhead__link">${esc(t("stats.overview.see_strength"))}<span class="chevron" aria-hidden="true"></span></span></div>`+
+    `<div class="sumcard firstrun-fx__lifts">${P.shown.map(liftRow).join("")}</div>${tap}</div>`;
   /* 2 · Replace an exercise */
   const sets=(s,a,b)=>`${n(s)} × ${n(a)}–${n(b)}`;
   const card=(id,sub,cls="")=>`<div class="firstrun-fx__card${cls}">${thumb(id)}<span class="firstrun-fx__cardtext"><b>${esc(name(id))}</b><span>${esc(sub)}</span></span>`+
@@ -25933,17 +25934,22 @@ function landingFeatureScreens(){
   /* 5 · The gym floor */
   const nav=[["nav.log","log"],["nav.stats","stats"],["nav.history","history"],["nav.program","program"]];
   const monthName=m=>{const s=t("month."+m);return s?s.charAt(0).toUpperCase()+s.slice(1):s};
-  const histRow=([iso,day,mus,setCount,vol,prs])=>{const d=new Date(`${iso}T12:00:00Z`);
+  // History's own list (#794): each week's sessions in one inset group, a row saying what the session was and never
+  // how much it weighed, its records marked as History marks them.
+  const histRow=([iso,day,mus,setCount,prs])=>{const d=new Date(`${iso}T12:00:00Z`);
     return`<div class="firstrun-fx__hrow"><span class="firstrun-fx__hd1"><small>${esc(t("weekday."+d.getUTCDay()))}</small><b>${esc(n(d.getUTCDate()))}</b></span>`+
-      `<span class="firstrun-fx__hd2"><b>${esc(t("program.day."+day))}</b><small>${esc(list(mus.map(muscleLabel)))}</small></span>`+
+      `<span class="firstrun-fx__hd2"><b>${esc(t("program.day."+day))}</b><small>${esc(list(mus.map(muscleLabel)))}</small>`+
       `<span class="firstrun-fx__hd3"><span>${esc(setCount===1?t("history.sets.one",{n:1}):t("entry.catalogue.sets_exact",{n:setCount}))}</span>`+
-      `<span><b>${esc(Number(vol).toLocaleString(locale))}</b> ${esc(LANDING_UNIT)}</span>${prs?`<em>${esc(prs===1?t("history.prs",{n:1}):t("history.prs_many",{n:prs}))}</em>`:""}</span></div>`};
+      (prs?`<span class="verdictmark verdictmark--record"><span class="verdictmark__glyph" aria-hidden="true"></span>${esc(prs===1?t("history.prs",{n:1}):t("history.prs_many",{n:prs}))}</span>`:"")+
+      `</span></span><span class="chevron firstrun-fx__hchev" aria-hidden="true"></span></div>`};
   const H=F.history,screen5=big=>`<div class="firstrun-fx__hist${big?" firstrun-fx__hist--big":""}">`+
-    `<div class="firstrun-fx__hclip"><div class="firstrun-fx__hlist"><p class="firstrun-fx__htitle">${esc(t("history.title"))}</p>`+
+    `<div class="firstrun-fx__hclip"><div class="firstrun-fx__hlist">`+
+      `<p class="firstrun-fx__htools"><span class="icon-mask icon-mask--search" aria-hidden="true"></span><span class="icon-mask icon-mask--cal" aria-hidden="true"></span></p>`+
+      `<p class="firstrun-fx__htitle">${esc(t("history.title"))}</p>`+
       `<p class="firstrun-fx__hmonth"><b>${esc(t("history.month_title",{month:monthName(9),year:2026}))}</b>`+
         `<span>${esc(t("history.month_summary",{sessions:t("count.sessions",{n:12}),sets:t("count.sets",{n:168})}))}</span></p>`+
-      `<p class="firstrun-fx__hweek">${esc(t("history.week",{n:3,done:4,planned:4}))}</p>${H.slice(0,4).map(histRow).join("")}`+
-      `<p class="firstrun-fx__hweek">${esc(t("history.week",{n:2,done:4,planned:4}))}</p>${H.slice(4).map(histRow).join("")}</div></div>`+
+      `<p class="firstrun-fx__hweek">${esc(t("history.week",{n:3,done:4,planned:4}))}</p><div class="firstrun-fx__hgroup">${H.slice(0,4).map(histRow).join("")}</div>`+
+      `<p class="firstrun-fx__hweek">${esc(t("history.week",{n:2,done:4,planned:4}))}</p><div class="firstrun-fx__hgroup">${H.slice(4).map(histRow).join("")}</div></div></div>`+
     `<span class="firstrun-fx__band"></span>`+
     `<div class="minibar is-rest firstrun-fx__mini"><span class="minibar__line" aria-hidden="true"><span class="minibar__fill firstrun-fx__minifill"></span></span>`+
       `<span class="minibar__text"><span class="minibar__title"><span class="minibar__rest">${esc(t("rest.inline.label"))} <span class="minibar__clock firstrun-fx__clock"></span></span></span>`+
@@ -25983,9 +25989,8 @@ function renderLandingFeatures(){
   const q=(i,sel)=>hosts[i].querySelector(sel),qa=(i,sel)=>[...hosts[i].querySelectorAll(sel)];
   const lang=landingLang();
   landingFeatures={hosts,laid:false,last:new WeakMap(),painted:null,views:[],zoom:[],scenes:[
-    {root:q(0,".firstrun-fx"),win1:q(0,".firstrun-fx__win1"),win2:q(0,".firstrun-fx__win2"),pts:qa(0,".firstrun-fx__pt:not(.firstrun-fx__pt--record)"),
-      record:q(0,".firstrun-fx__pt--record"),tag:q(0,".firstrun-fx__prtag"),vline:q(0,".firstrun-fx__vline"),figs:qa(0,".firstrun-fx__fig"),
-      vol:q(0,".firstrun-fx__vol"),bars:qa(0,".firstrun-fx__vbar i"),tap:q(0,".landing-touch")},
+    {root:q(0,".firstrun-fx"),lines:qa(0,".liftline"),pts:qa(0,".liftline").map(line=>[...line.querySelectorAll(".liftline__pt")]),
+      lays:qa(0,".firstrun-fx__lay"),tap:q(0,".landing-touch")},
     {root:q(1,".firstrun-fx"),swap:q(1,".firstrun-fx__swap"),a:q(1,".firstrun-fx__swapa"),b:q(1,".firstrun-fx__swapb"),flash:q(1,".firstrun-fx__flash"),
       acts:q(1,".firstrun-fx__acts"),rep:q(1,".firstrun-fx__rep"),below:q(1,".firstrun-fx__below"),scrim:q(1,".firstrun-fx__scrim"),sheet:q(1,".firstrun-fx__picker"),
       ring:q(1,".firstrun-fx__ring"),ph:q(1,".firstrun-fx__ph"),typed:q(1,".firstrun-fx__q"),caret:q(1,".firstrun-fx__caret"),res:qa(1,".firstrun-fx__res"),
@@ -26038,22 +26043,26 @@ function layoutLandingFeatures(f){
  *  the dock or a screen that slid over it), as [top, bottom] in its own px. */
 function landingFeatureBoxes(host){
   const was=host.style.transform;host.style.transform="none";
-  const origin=host.getBoundingClientRect().top,boxes=[];
+  // A window that is not the current tab is drawn a little scaled (the tab change's cross-fade), so its px are divided
+  // back into the screen's own.
+  const box=host.getBoundingClientRect(),origin=box.top,scale=box.height/host.offsetHeight||1,boxes=[];
   const shown=el=>{for(let node=el;node&&node!==host;node=node.parentElement)if(+getComputedStyle(node).opacity<.05)return false;return true};
   const covers=[...host.querySelectorAll(".firstrun-fx__sheet,.minibar,.firstrun-fx__dock,.firstrun-fx__chat,.firstrun-fx__pb")].filter(shown)
     .map(el=>({el,r:el.getBoundingClientRect()})).filter(c=>c.r.height>1);
   const add=(el,r)=>{
     if(r.height<=1)return;
     if(covers.some(c=>!c.el.contains(el)&&r.top>=c.r.top-1&&r.bottom<=c.r.bottom+1))return;
-    // the screen clips what lies past its own height, so only the part inside it can be cut by a frame edge
-    const top=Math.max(0,r.top-origin),bottom=Math.min(host.offsetHeight,r.bottom-origin);
+    // the screen clips what lies past its own height, and History's list clips what scrolls past its own, so only the
+    // part inside both can be cut by a frame edge
+    const clip=el.closest(".firstrun-fx__hclip")?.getBoundingClientRect();
+    const top=Math.max(0,r.top-origin,clip?clip.top-origin:0)/scale,bottom=Math.min(host.offsetHeight*scale,r.bottom-origin,clip?clip.bottom-origin:Infinity)/scale;
     if(bottom-top>1)boxes.push([top,bottom])};
   const walker=document.createTreeWalker(host,NodeFilter.SHOW_TEXT);
   while(walker.nextNode()){
     const text=walker.currentNode;if(!text.nodeValue.trim()||!shown(text.parentElement))continue;
     const range=document.createRange();range.selectNodeContents(text);
     for(const r of range.getClientRects())add(text.parentElement,r)}
-  for(const el of host.querySelectorAll(".pchip,.picktab,.firstrun-fx__pill,.firstrun-fx__search,.firstrun-fx__seg,.librow__check,.firstrun-fx__card,.firstrun-fx__res,.minibar,.firstrun-fx__dock,.firstrun-fx__vrow,.librow__preview"))
+  for(const el of host.querySelectorAll(".pchip,.picktab,.firstrun-fx__pill,.firstrun-fx__search,.liftline,.librow__check,.firstrun-fx__card,.firstrun-fx__res,.minibar,.firstrun-fx__dock,.phero__track,.librow__preview"))
     if(shown(el))add(el,el.getBoundingClientRect());
   host.style.transform=was;
   return boxes}
@@ -26115,20 +26124,20 @@ function paintLandingFeature(i,u){
     op(s.caret,time>a-.3&&time<end&&(k<s.query.length||Math.floor(time*2.4)%2===0)?1:0)};
   const s=f.scenes[i];finger(s);
   if(i===0){
-    const cx=k=>52+k*58,w=cx(4)+8,draw=inOut(seg(.25,1.75));
-    tf(s.win1,`translateX(${r(-(1-draw)*w)}px)`);tf(s.win1.firstChild,`translateX(${r((1-draw)*w)}px)`);
-    s.pts.forEach((p,k)=>{const at=.25+1.5*k/4,v=seg(at-.02,at+.3);op(p,v>0?1:0);tf(p,`scale(${r(spring(v))})`)});
-    const d2=inOut(seg(2.05,2.5)),w2=358-cx(4);
-    tf(s.win2,`translateX(${r(-(1-d2)*w2)}px)`);tf(s.win2.firstChild,`translateX(${r((1-d2)*w2)}px)`);
-    const pop=seg(2.45,2.95);op(s.record,pop>0?1:0);tf(s.record,`scale(${r(spring(pop))})`);
-    const tag=out(seg(2.7,3.05));op(s.tag,tag);tf(s.tag,`translateY(${r((1-tag)*6)}px)`);
-    op(s.vline,out(seg(2.6,3))*.7);
+    // Each line draws from its first session to its latest, its points arriving as the line reaches them; then the
+    // bench press's new session extends its line, and its row and the block card take the new figures.
+    const reveal=(line,share)=>{const w=line.offsetWidth-8;set(line,"clipPath",`inset(-8px ${r(Math.max(-8,(1-share)*w-6))}px -8px -8px)`)};
+    s.lines.forEach((line,k)=>{
+      const pts=s.pts[k],last=k?1:(pts.length-2)/(pts.length-1),draw=inOut(seg(.45+k*.2,1.65+k*.2));
+      const extend=k?0:inOut(seg(2.1,2.5)),share=draw*last+extend*(1-last);
+      reveal(line,share);
+      pts.forEach((pt,j)=>{const at=j/(pts.length-1),v=share>=at-.001?1:0;op(pt,v);
+        const from=k||j<pts.length-1?.45+k*.2+1.2*at/last:2.45;tf(pt,`scale(${r(spring(seg(from,from+.3)))})`)})});
     // a changing figure swaps, never overprints: the old value rolls up and out, then the new one rolls in (160 ms)
-    const gone=seg(2.65,2.73),come=out(seg(2.73,2.81));
-    s.figs.forEach(node=>{op(node.firstChild,1-gone);tf(node.firstChild,`translateY(${r(-6*gone)}px)`);
-      op(node.lastChild,come);tf(node.lastChild,`translateY(${r(6*(1-come))}px)`)});
-    const up=out(seg(3.55,4.05));tf(s.vol,`translateY(${r((1-up)*270)}px)`);
-    s.bars.forEach((bar,k)=>tf(bar,`scaleX(${r(out(seg(3.95+k*.12,4.6+k*.12)))})`))}
+    // the block card's four figures come first in the screen, the bench press's row's three after them
+    s.lays.forEach((node,k)=>{const at=k>=4?2.55+(k-4)*.06:3.75+k*.08,gone=seg(at,at+.08),come=out(seg(at+.08,at+.16));
+      op(node.firstChild,1-gone);tf(node.firstChild,`translateY(${r(-6*gone)}px)`);
+      op(node.lastChild,come);tf(node.lastChild,`translateY(${r(6*(1-come))}px)`)})}
   else if(i===1){
     const open=out(seg(.85,1.25))*(1-inOut(seg(5,5.4)));
     op(s.acts,open);tf(s.acts,`translateY(${r((1-open)*-8)}px)`);tf(s.below,`translateY(${r(open*56)}px)`);
@@ -26184,7 +26193,7 @@ function paintLandingFeature(i,u){
     const left=Math.max(0,Math.ceil(LANDING_FEATURES.rest-Math.max(0,time-1.2))),clock=`${Math.floor(left/60)}:${String(left%60).padStart(2,"0")}`;
     s.clocks.forEach(node=>text(node,clock));
     // History scrolls while the camera moves to the mini bar, so the shot holds on a list at rest
-    tf(s.list,`translateY(${r(-150*inOut(seg(2.65,3.25)))}px)`);
+    tf(s.list,`translateY(${r(-200*inOut(seg(2.65,3.25)))}px)`);
     const big=out(seg(4.75,5.15));op(s.norm,1-big);op(s.big,big)}
   // The camera: the region the beat happens in, framed in the scene's window.
   const view=f.views?.[i],scene=LANDING_FEATURES.scenes[i];
@@ -26345,7 +26354,11 @@ function createLandingController(root){
       const io=new IntersectionObserver(entries=>{feat.seen=entries[entries.length-1].isIntersecting;syncFeat()},{root,threshold:.25});
       reg.obs.push(io);io.observe(featPanel)}
     on(document,"visibilitychange",syncFeat);
-    document.fonts?.ready?.then(()=>{if(landingController&&landingFeatures){landingFeatures.laid=false;paintFeat(feat.t)}});
+    // A re-fit starts from the panel's own windows, so a camera trimmed for the fallback face is not trimmed again.
+    document.fonts?.ready?.then(()=>{if(landingController&&landingFeatures)fitFeat()});
+    // A face a scene first uses (the data font in History's rows) loads after `ready` has settled, so a frame laid out
+    // on the fallback face would keep its camera's shots: every face that finishes loading lays the scenes out again.
+    if(document.fonts?.addEventListener)on(document.fonts,"loadingdone",()=>{if(landingController&&landingFeatures)fitFeat()});
     fitFeat()}
   /* ---- the persistent Build control ---- */
   function mountDock(){

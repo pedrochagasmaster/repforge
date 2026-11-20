@@ -1024,7 +1024,7 @@
       "id": "first-run-features",
       "flow": "onboarding-start",
       "label": "One-time landing — feature tabs",
-      "scenario": "Scrolled to the five feature tabs, held mid-scene on Progress: the strength trend with its record and the week's hard sets by muscle.",
+      "scenario": "Scrolled to the five feature tabs, held on Progress: the Summary's block card and strength rows once a new session has landed.",
       "variants": "standard"
     },
     {

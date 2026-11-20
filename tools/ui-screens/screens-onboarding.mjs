@@ -1007,8 +1007,9 @@ const FOCUS_SELECTOR = {
  * and the persistent Build control in view.
  */
 const PROOF_HOLD = 9.2;
-/** The feature tabs hold too: the Progress scene with the record landed and the week's hard sets risen. */
-const FEATURE_HOLD = [0, 4.8];
+/** The feature tabs hold too: the Progress scene's whole Summary, once the new session has landed in its block card and
+ *  its strength row. */
+const FEATURE_HOLD = [0, 6];
 const FOCUS_PROOF = new Set(["onboarding-start/first-run-proof", "onboarding-start/first-run-proof-test"]);
 
 /**

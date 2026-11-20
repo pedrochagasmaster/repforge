@@ -172,11 +172,21 @@ try {
           const cut = await page.evaluate(() => {
             const win = document.querySelector(".firstrun-feat__win.is-current"), W = win.getBoundingClientRect(), out = [];
             const shown = (el) => { for (let n = el; n && n !== win; n = n.parentElement) if (+getComputedStyle(n).opacity < 0.05) return false; return true; };
+            // A line a scrolling list clips away (History's list under its mini bar) is not on screen, so only the part
+            // its clip leaves can be cut by the window's edge.
+            const clipped = (el, q) => {
+              let top = q.top, bottom = q.bottom;
+              for (let n = el.parentElement; n && n !== win; n = n.parentElement) {
+                if (getComputedStyle(n).overflowY === "visible") continue;
+                const c = n.getBoundingClientRect(); top = Math.max(top, c.top); bottom = Math.min(bottom, c.bottom);
+              }
+              return { top, bottom, height: bottom - top };
+            };
             const rects = [], walker = document.createTreeWalker(win, NodeFilter.SHOW_TEXT);
             while (walker.nextNode()) {
               const t = walker.currentNode; if (!t.nodeValue.trim() || !shown(t.parentElement)) continue;
               const range = document.createRange(); range.selectNodeContents(t);
-              for (const q of range.getClientRects()) rects.push([t.nodeValue.trim().slice(0, 24), q]);
+              for (const q of range.getClientRects()) rects.push([t.nodeValue.trim().slice(0, 24), clipped(t.parentElement, q)]);
             }
             for (const el of win.querySelectorAll(".pchip,.picktab,.firstrun-fx__pill,.minibar__go,.minibar__chip,.firstrun-fx__search,.firstrun-fx__seg span,.librow__check,.firstrun-fx__card,.firstrun-fx__res,.minibar,.firstrun-fx__dock"))
               if (shown(el)) rects.push([el.className.split(" ")[0], el.getBoundingClientRect()]);
