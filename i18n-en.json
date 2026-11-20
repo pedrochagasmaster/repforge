@@ -2450,7 +2450,7 @@
   "landing.ways.paste.alt": "The {screen} screen. Linked: {linked}. To review: {review}. {typed} is suggested as {exercise}, marked {status}.",
   "landing.ways.paste.where": "On the app's first screen, tap {track} and the paste screen opens. It also lives in {hub}: choose {own}, then {paste}.",
   "landing.features.title": "Built for the way you train.",
-  "landing.features.sub": "Each feature below plays on the app's own screens.",
+  "landing.features.sub": "Each feature below is shown on the app's own screens.",
   "landing.features.progress.title": "See your progress",
   "landing.features.progress.text": "Every set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week.",
   "landing.features.program.title": "Make the program yours",
