@@ -302,6 +302,22 @@ function replicasAgree(bundle) {
 
 async function wipePwaOrigin(page, context) {
   await page.evaluate(async ({ k, d }) => {
+    // Boot registers sw.js; an install still precaching when the wipe runs can
+    // repopulate the cache or leave a half-removed registration whose `ready`
+    // never resolves after reload. Let the first install finish precaching.
+    let boot = await navigator.serviceWorker.getRegistration();
+    for (let i = 0; !boot && i < 100; i++) {
+      await new Promise((res) => setTimeout(res, 50));
+      boot = await navigator.serviceWorker.getRegistration();
+    }
+    const pending = boot?.installing || null;
+    if (pending) {
+      await new Promise((res) => {
+        const settled = () => ["installed", "activated", "redundant"].includes(pending.state);
+        if (settled()) return res();
+        pending.addEventListener("statechange", () => { if (settled()) res(); });
+      });
+    }
     const regs = await navigator.serviceWorker.getRegistrations();
     await Promise.all(regs.map((r) => r.unregister()));
     const keys = await caches.keys();
