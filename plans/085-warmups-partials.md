@@ -46,86 +46,122 @@ updates the same set, and restores the original on cancel. Protect the
 correction through reload and substitution. Untouched suggestions and old
 history never supply partials to a new row.
 
-**Suggested warm-ups.** Put the optional `warmupPrelude` plan on the DraftV2
-exercise. Capture the performed lift and loading identity, first working
-target, reason and evidence summary, reset generation, ordered suggestion
-IDs and target values, skip status, and any pending shelf edits. Use commands
-to initialize, edit, add or remove pending steps, record a completed step,
-skip the remainder, and correct a logged step. Record an actual warm-up in
-`sets` with `role: "warmup"`, `origin: "suggested-warmup"` and a
-`warmupSuggestionId` joining it to the exercise's plan. A lifter-added step
-uses the same ID space and has manual provenance in the plan. Allocate stable
-IDs once per command and require a one-to-one join from completed steps to
-sets. Keep unperformed steps outside `setOrder` and outside history. Keep
-load and full reps in the canonical metric fields and leave effort absent.
-Do not reuse calibration's `insertSet` command or `origin: "ramp"`.
+**Suggested warm-ups.** Store versioned `warmupPrelude` on the DraftV2
+exercise. Keep its pending steps and completed actuals there, outside
+`exercise.setOrder` and `exercise.sets`. Capture the original policy result,
+performed movement and metric/loading snapshot, first working target, reset
+generation and earlier-lift context. Each step has a stable draft-only
+command ID, a suggested or manual source, and pending input or a completed
+actual with a completion time. Validation in `workout-draft.js` and
+`install-transfer-contract.js` checks the plan version, bounded steps and
+IDs, canonical metric values, status and provenance. Keep the existing
+`validateSet` origin allowlist and `validateExercise` programmed-set plus
+calibration-ramp coverage. Validate the new member at the exercise level.
 
-Check that both `toHistoryRows` and `progressionCurrentSession` derive
-working indices without counting either inserted warm-up origin, even when
-preparation precedes set 1. Preserve the existing programmed index across
-manual role switches and unlogged work. Audit the physical ordinal consumers in `app.js`
-including draft key lookup, open-row selection, progression refresh, next
-exercise, early finish, set-reduction/program edits and session set counters.
-The W ledger group does not renumber the work. Exercise actions retains its
-existing switch for deliberate reclassification of programmed slots.
-Inserted warm-ups have edit/remove actions instead. Programmed or reclassified
-warm-ups and calibration trials keep their existing rendering and provenance.
-Give those paths precedence over automatic Prelude for an exercise that
-already has preparation or is finding its working weight. A movement swap
-recomputes unlogged suggestions under the replacement identity and retains
-logged sets with their performed identity. Restore the original without
-reusing preparation evidence from the replacement.
+Commands are initialize, edit current load/reps, complete current, skip
+remaining, add a manual step, correct completed and remove completed.
+Allow one manual step at a time and apply the policy step cap. There are
+no arbitrary pending-step inserts, deletes or reordering in v1. A swap
+in `substituteExercise` retires the old pending sequence and freezes
+completed actuals under the movement and loading snapshot they used.
+Build a fresh sequence only for eligible replacement work. Restore the
+original with the same provenance rules. Keep existing preparation and
+Find your weight ahead of Prelude. Exercise actions keeps the programmed
+slot switches and offers Add and Review for Prelude. Remove belongs
+to the completed warm-up list.
 
-**Save and learn together.** On normal or confirmed early finish, attach a
-versioned `warmupObservation` to the first completed working history row
-for the eligible identity in that session. Capture the working target basis,
-reset generation, decision (completed, edited or explicitly skipped),
-ordered actual set IDs, and any qualifying earlier lift and completion
-time. Preserve stable row IDs through history edits. Use the saved warm-up
-rows for actual load/reps. Give all rows their existing session ID and a stable
-exercise/slot join. Take at most one observation per comparable lift per
-saved session, using its first eligible occurrence. No observation for
-discard, untouched preview, exercise skip, isolated abandoned warm-ups, or
-absence of an explicit preparation decision. After a partial skip with
-logged sets, retain the actual rows and exclude that observation from both
-the change and skip counters. Preserve explicitly logged rows on an early
-finish that saves them.
+**History projection.** In `toHistoryRows`, emit completed Prelude rows
+before ordinary work for that exercise and keep the canonical metric and
+performed attribution fields. Use `warmup: true`,
+`origin: "suggested-warmup"`, `set: 0`, `setIndex: 0` (schema placeholder),
+`warmupOrdinal: 1..6` (unique per session/exercise slot, including across
+a swap), and absent effort (`rir: null`). Assign the warm-up ordinal when
+first logged and leave gaps after removal. Keep that ordinal across
+corrections. Order suggested rows by it wherever existing history and
+share sorts use only `row.set`. `history-ui.js` uses
+`warmupOrdinal` for W1–W6 in the reader and editor, including localized
+spoken names. CSV uses the same W label in the set column for these
+rows while retaining `is_warmup`. Leave legacy and calibration numbering
+alone. Ordinary work keeps its original ordinals and `row.set` of 1..M
+for Prelude exercises. No suggested row matches a one-based `row.set`
+lookup. Keep `setIndex` and programmed indexing exactly as they were
+for work. Add a working-only filter to shared previous-set selectors and
+their fallback (`prev.at(-1)`). Verify all 12 match sites from the base:
+`app.js` lines 7222, 9316, 10226, 10293, 10385, 10671, 11173, 26621,
+26653, 26659, 26782 and 26799. Check `engineSetFacts` / `targetStanding`
+(10492–10507), the ledger and Log set labels (10680, 11024), and the
+Exercise actions `setOrder.length` count (10023). New warm-ups never
+enter those work indices or the hidden programmed inputs.
 
-Use the existing `WorkoutSession.finish` proposal, session-ID reconciliation
-and exact-draft removal. A retry, failed commit, or second tab must not create
-a second observation. Reset in Why writes a per-lift generation token in an
-optional versioned `warmupPreferences` durable-state record, using the same
-state queue and lock, with the key changed against the current durable head.
-Compare the captured generation on read so an old draft finished after reset
-cannot teach the new generation. Reset keeps performed rows and current shelf
-edits. Before any warm-up is logged, a clean current plan can return to
-baseline after a successful reset. Once edited or in progress, keep the plan
-and apply reset to future sessions. A failed reset keeps the existing
-suggestion and uses the storage error path. There is no second persistence
-store or new UI preference.
+**Save and learn together.** Add optional `warmupObservations`, a durable
+map keyed by saved session ID, with at most one versioned observation per
+comparable lift in that session. Choose the first eligible occurrence
+with completed work. Store the exercise slot, original working ordinal
+and performed identity, ordered warm-up ordinals, captured work load,
+bar/plate basis, save timestamp, reset generation, earlier-lift context
+and decision. Use natural selectors scoped to the session, slot, origin,
+ordinal and performed identity. There are no new persistent row IDs.
+The adapter resolves these selectors to exactly one matching row each
+and reads canonical actual load/reps from those rows. A whole explicit
+skip has no warm-up ordinals. Do not learn from a partial skip with
+logged steps, untouched preparation, a discarded draft, a skipped
+exercise or a session without matching completed work. Early finish
+keeps completed actuals even when learning has no observation.
 
-Derive learned suggestions from live saved observations and matching actual
-rows. A History correction changes the evidence on the next computation.
-Delete a session and its observation with the rows. If the observed working
-row or the warm-up rows needed to read its outcome disappear, ignore that
-observation. Require the referenced rows only for a completed sequence.
-An explicit whole-preparation skip has no warm-up row references. Delete
-workout history clears observations and reset state in scope. A new block or program using the same comparable lift can use retained
-history. A pristine plan seeded by rendering must remain replaceable and
-must not appear on Preview, startup, or an untouched draft as performed work.
-Explicit skip, additions, removals, shelf edits and completed rows receive the
-existing DraftV2 protection for user input. Persist them through
-`WorkoutSession.dispatch` and the CAS/checkpoint recovery path.
+Write the session entry in `WorkoutSession.finish` alongside history,
+`sessionEvents` and `sessionTiming`, using its exact-draft removal and
+`reconcileSessionIds`. Replays of an already-saved session keep its
+observation and do not add evidence. In `history-ui.js`,
+`historySessionFromWorkingCopy` preserves selectors across corrections.
+`historyEditCommit` validates the revised references against its
+lock-held proposed rows and prunes an invalid observation in the same
+commit. Deleting a referenced step or the first working row invalidates
+that observation. `deleteSession` includes the map in the session-owned
+cleanup now called `withoutSessionTiming`. These rules also cover
+the index-based edit/remove controls and retries. Keep payload out of
+history rows, which have an 8,000-character transfer cap.
+
+**Reset and state lifecycle.** Store only per-lift reset generation
+tokens in optional versioned `warmupPreferences`. Use the state queue,
+lock and a captured generation for the exercise. A failed reset leaves
+the current suggestion intact. A successful reset lets a clean plan
+recompute. Keep actuals and edits in an in-progress plan and let
+future suggestions use the new generation. An old draft's finish never
+teaches the new generation. No empty records on boot.
+
+| State owner | Required handling |
+| --- | --- |
+| `app.js isValidStateShape` and `install-transfer-contract.js validateDurableState` | Validate both optional maps, including versions, bounded keys/values and ownership. Reject malformed records; bound the session entries by live log size and validate one observation per lift and at most six step references. Also validate Prelude row shape in `isSafeLogRow` and `validateCanonicalLogRow`. |
+| `app.js normalizeLoaded` and `proposalFromImport` | Preserve valid preferences and observations through load and whole-backup replacement. Omit empty maps. Drop stale references through the shared observation resolver; surface structurally invalid data through existing recovery. Whole replacement takes the backup's reset tokens. |
+| `app.js mergeImportedLog` | Import observations only for newly added sessions and resolve them against their rows. Keep destination preferences. Imported evidence is eligible only when its generation matches the destination's (absent means initial). Never overwrite local reset decisions or reintroduce an observation for an existing session. |
+| `app.js mergeStateValue` | Handle each collection before the generic missing-object fallback. Treat an absent base as an empty map for concurrent first writes. Merge preference entries per lift and observation entries per session as atomic leaves. Preserve different lifts/sessions. Use lock-held reset ordering for the same lift, respecting the latest committed token. Deleting a key or the history must not resurrect older evidence on a rebased retry. Reconcile joined rows against the resulting head. The shared journal replay and commit paths in `durable-state.js` call this same host rebase. |
+| `app.js deleteTrainingLog` | Clear both maps in the same commit that clears the log and draft. Test deletion racing a reset or workout save. |
+| `app.js installTransferStateMeaningful` | A present nonempty or malformed record in either map protects the destination. Omitted or valid empty maps alone leave a fresh boot eligible. Exercise acceptance after reload and refusal through production import. Transfer the two validated maps along with their source rows. |
+
+Persist through the existing DraftV2 CAS and checkpoint. A pristine
+plan is replaceable and browsing/Why opening does not write. Explicit
+skip, manual addition, edits and logged actuals receive the existing
+user-input protection. On reload or a stale-tab retry, render the
+acknowledged plan. Do not replay a rest start or a confirmation toast.
 
 **Compatibility and exports.** Keep DraftV2, history schema and storage
 keys. Old rows and drafts load with absent optional fields. Validate bounds,
 origin/role pairing, IDs, joins, and partial/effort combinations at the
 existing draft, history import and install-transfer validation points.
-Malformed new fields use the existing refusal or recovery path. Preserve raw
-draft bytes and respect checkpoint authority. Prove an old release through its
-own matching shell and an updated worker, including a late legacy write
-against an acknowledged draft. If a rollback reader cannot act on the new
-draft, preserve it for recovery rather than reconstructing a lossy old draft.
+Malformed new fields use the current release's refusal or recovery path.
+The fetched main validators accept unknown members, and older normalization
+or draft reconstruction can drop new fields. Cache revisioning alone
+does not make downgrade safe. Keep the existing pre-DraftV2 fixture
+(`3fbae92f`) for legacy migration. Add a second fixture pinned to a
+DraftV2 release immediately before the schema change, with its own
+matching shell and worker, to prove forward upgrade, late writes and
+checkpoint authority after upgrade. Include a deliberately lossy rollback
+attempt with partials, a pristine Prelude and populated durable maps.
+Record what the older code actually keeps. Release and rollback targets
+must preserve the new fields. Before enabling Prelude, certify a fallback that reads and
+round-trips both maps and the draft member. If that fallback does not
+exist, use a forward fix for release recovery. Do not promise transparent
+downgrade to older bundles.
 
 Whole JSON backup and install transfer round-trip observations, performed
 warm-ups, partials and reset tokens. Transfer also round-trips any pending
@@ -144,7 +180,7 @@ partial counts, exact loads, or learned preferences to telemetry.
 
 ## 3. Warm-up suggestions and learning
 
-Proposed owner: pure `warmup-suggestions.js`. Its caller supplies the
+Policy owner: pure `warmup-suggestions.js` from PR #804. Its caller supplies the
 performed lift key, first working target, equipment load candidates,
 session facts and validated saved observations. It returns ordered
 suggestions, a reason, and evidence for Why. It also classifies a completed
@@ -184,7 +220,8 @@ facts remains the existing progression/loading adapter.
   new operating load and comparing the resulting ordered load/rep pairs.
   Two consecutive agreeing complete observations in the same context
   establish a preference. A different observation is a candidate until
-  repeated. Inserted/removed steps participate in that comparison. Keep the
+  repeated. A logged manual step or removal of a completed step changes
+  the compared sequence. Keep the
   most recent established preference within the evidence window. A suggested
   sequence accepted as shown can establish the same preference. A single
   change does not replace it. Compute the “once more” message only on an
@@ -212,6 +249,80 @@ facts remains the existing progression/loading adapter.
   clears suppression under the reset rules above. A short-context pattern
   does not displace the ordinary learned sequence. A suppressed preference
   takes precedence over both.
+
+### Slice 3 adapter to PR #804
+
+Use the shipped [policy interface](https://github.com/pedrochagasmaster/repforge/pull/804)
+from `origin/feat/085-warmup-policy` at
+`664c9ca226c8086be6b5d199866fc9aca63a41df`. The Slice 3 adapter owns these
+translations into and out of the pure module.
+
+- Call `suggestWarmups` with the performed `liftKey` and `movementId`,
+  draft ID as `sessionId`, epoch milliseconds for `now`, the offered
+  first work `workLoadKg`, the selected equipment's
+  `availableLoadsKg`, `equipmentKind` (barbell, machine or dumbbell),
+  `barKg` or null, `loadingConvention`, canonical
+  `metricSemantics`, `hasMaterialBodyweight`, and the current
+  `resetGeneration`. Where equipment identity is ambiguous, use the
+  policy's unavailable path. Keep the load basis used by the set's shelf.
+- Supply `primaryMuscle` as one stable catalog muscle key. Read the
+  first canonical primary entry in catalog order. When the performed
+  snapshot has only its comma-separated `primary` string, split and
+  trim it and resolve the first entry through the canonical muscle
+  lookup. An unknown key disables the short context. Use the same rule
+  on both lifts. Supply only completed ordinary working sets in
+  `completedWorkingLifts`, each with its own performed `liftKey`,
+  `movementId`, `primaryMuscle`, `sessionId` and epoch
+  `completedAt`. Do not use deck order or planned muscles as a proxy.
+- Resolve stored `warmupObservations` against live rows before either
+  policy call. Translate each natural selector to a deterministic
+  call-local string for `workingSetId` or `warmupSetIds` and for
+  the ordered actual `steps: [{setId, loadKg, reps}]`.
+  Use distinct tagged tuple encodings (working slot and ordinal vs
+  warm-up slot and ordinal). These strings exist only at the module
+  interface. Reject ambiguous matches. Recover physical load/reps
+  from canonical metrics; never use translated display text.
+- Drive the cue and Why from `reason`, `suggestions`,
+  `manualAllowed` and `evidence` (sessions, earlier lift, skip
+  streak or unavailable reason). Persist the captured result only
+  when a draft command first needs it. For finish call
+  `classifyWarmupFinish` with that result, the final ordered
+  `steps` (pending has no `setId`), explicit `skipped`, session
+  and working selector, `savedAt`, current generation, resolved
+  observations and the available kg grid. Map its returned observation
+  back to natural selectors in the session map. Use a dry run of the
+  same classification for the “once more” toast only when the complete
+  changed sequence and real working evidence are available. Show the
+  ordinary handoff toast if that promise cannot yet be supported. A
+  pending or partly skipped sequence produces no learned observation.
+- For “Add one”, use Q7's proposed default: ask the policy for the
+  baseline with no observations. Take its first non-empty-bar
+  five-rep step when present (60 × 5 in the prototype fixture),
+  else its first available step. If there are no suggestions, seed
+  five reps with the lowest reachable lighter load; if none, use
+  the existing validated metric-entry defaults and require explicit
+  confirmation/edit before logging. For bodyweight use reps only.
+  For assistance use the selected machine's current offered
+  assistance or an unset load field. Never apply the external-load
+  percentage to assistance. Respect `manualAllowed`. Unsupported
+  or unknown work can still be logged manually where representable.
+  Only a classified observation can resume learning.
+- PR #804's `platesPerSideKg` uses a hard-coded metric plate inventory
+  even when the display is in pounds. Keep that result for the
+  supported metric bar. For lb, do not relabel metric plates or
+  round a converted decomposition. A narrow policy follow-up before
+  publishing lb plates adds optional plate inventory and bar basis
+  to the policy input, captured evidence and resolved observations.
+  Pass the adapter's 45 lb bar and paired 45/35/25/10/5/2.5 lb
+  inventory as exact canonical kg conversions, with the existing
+  offered grid restricted to loads attainable on that inventory.
+  The policy uses the captured basis when comparing past observations
+  and the current basis when projecting actual suggestions. Validate
+  the basis in DraftV2, saved state and transfer. Until that follow-up,
+  pass `barKg: null` for lb, omit the empty-bar claim and plate hint,
+  and use only the offered lighter load grid. Unknown bars get the
+  same treatment. Cover both units and the exact hints in the adapter
+  proof. Treat lb equipment inventory as proposed assumptions in Q2.
 
 ## 4. Partial-rep comparison
 
@@ -241,30 +352,37 @@ and correction, recompute the cue and Why from saved/current evidence.
 Use a shared pure comparator in the engine. Expose an additive
 `partialTie` result from the first-working-set `performanceTrend`
 comparison. Keep the existing status and `dropped` semantics. Its current
-weekly fatigue consumer continues to read `dropped`. For “stalled” wording,
-`app.js` currently uses `isStalled` in block and weekly reports. Subject to
-Q6, reuse the comparator on adjacent first working sets in that existing
-window and suppress the stalled label when an improving comparable tie is
-present. Keep the numeric outcome and goal metrics as they are. Apply the same
-adapter policy in any stall-based proposal so the UI and decision agree.
-A partial improvement does not replace a numeric “improved” result or make an
-otherwise ineligible set comparable. Review saved rationale replay and record
-the engine version decision before landing.
+weekly fatigue consumer continues to read `dropped`. For “stalled” wording, keep the existing three-session
+`isStalled` baseline based on median load and max full reps. Only suppress
+an otherwise-stalled result when the latest comparable pair within that
+window wins on the first ordinary working set. An older win, a later-set
+win, a latest tie/loss or an ineligible pair leaves it stalled. Use the
+canonical `progressionHistoryFor` / `performanceTrend` result for that
+pair after matching slot and execution mode. Apply the same predicate
+in `buildBlockReview` (4242), `weekReviewFacts` (4289) and
+`weeklyPatterns` (4375). Keep their existing numerical and
+effort thresholds. The fatigue consumer still reads `dropped`. Review
+saved rationale replay and record the engine version decision before
+landing.
 
-Both live and history progression adapters must reject warm-ups before
-building ordinary evidence. Currently `enginePerformedRow` rejects
-`origin: "ramp"` but otherwise passes `warmup` through, and
-`parseSession` can accept a flagged warm-up with numeric effort. Cover this
-at the engine input as well so direct engine callers cannot feed warm-ups
-into capacity or fatigue. Prove target equality for the same working inputs
-with and without attached partial counts or inserted warm-ups. Add negative
-cases for differing loads, work indices, movements, metrics, setup and effort.
+In `app.js`, `enginePerformedRow` already rejects calibration origin
+but passes ordinary `warmup` through to the engine. Reject warm-ups
+there and keep the working-only check in `progressionCurrentSession`
+(6753). `parsePerformedSet` must reject `warmup` and
+`origin: "suggested-warmup"` before transformation. This covers
+`parseSession`, `currentSessionAnchor` and standing (366, 440, 726).
+`readSavedLift` (796) already filters `warmup` and calibration origin.
+Keep it and prove it with the new origin, including a raw warm-up that
+otherwise has valid numeric effort. Equal working inputs must give
+equal targets with or without partial counts or warm-up rows. Cover
+different load, index, movement, metrics, setup and effort.
 
 ## 5. Focus and readback
 
 **Prelude.** On the active `#workout .exercise.is-current`, keep the
 `.fcard__context` scroller, `.fx-head`, `.fx-slot` and `.fx-cue.is-now`.
-Render the warm-up in `focusSlotHtml` through the existing hero structure.
+Keep `focusSlotHtml` as the wrapper and route the warm-up hero through
+`focusCueBlockHtml` (10523).
 Use `.fx-cue__l1` and `.fx-cue__load` for “Warm up 60 kg”,
 `.fx-cue__l2` for reps and plate hint, and `.fx-cue__standing` beside
 the `.text-link` Skip control. Put Why in `.fx-cue__evidence` with
@@ -284,27 +402,44 @@ stepper, wheel and keyboard paths. The CTA records actual inputs and only
 advances after acknowledgement. “Done · set 1 next” hands off to the
 original working-set fields and position. Reuse the rest clock, contour,
 pause/adjust/stop, restore and bell. Warm-up logging uses the warm-up
-rest policy in Q4. Skip and correction do not restart a timer. No test-set
+rest policy in Q4. Check `exerciseRestSec` for the actual exercise
+before calling `startRest`. Its explicit 60-second argument bypasses
+the current preference fallback, so a configured `restSec === 0`
+must return before that call. Start only after a newly acknowledged
+completion, including the handoff to work. Skip, correction, reload
+and replay do not restart a timer. Add an optional `restKind` of
+`"warmup"` or `"working"` to the existing model, distinct from its
+running/paused `kind`. Carry it through `start`, `view`, hold/resume,
+adjust/restart, `snapshot`, validation, restore and cross-tab
+adoption. An older `repforge_rest_v1` snapshot with no kind means
+working. In `paintRestTab` (7462) use “Warm-up rest” and its spoken
+label for running warm-up rest. Keep existing paused/done states
+and bell ownership. No test-set
 prompt or carry from a warm-up into a working set. Pass read-only intent to
 Preview and adjacent cards. Browsing, reordering and opening Why alone
 leave draft state unchanged.
 
 After preparation, keep `.fcard__ledger`, `.ledger__rows`,
 `.ledgerline`, `.ledgerline__idx` and `.ledgerline__vals`. Render the
-single quiet W row above work, with actual loads in order and “excluded
-from totals”. Reuse the existing row activation/edit path to open a
-warm-up list for correction or removal. Exercise actions offers Add,
-Remove and Review for this plan, with existing switches for programmed
-sets. Show the prototype's quiet “No warm-ups suggested” and “Add one”
-row when suggestions are suppressed. Give the suppressed state access
-to the same Why and reset. A skip after a logged step still yields the W
+single quiet W row above work, with actual loads in order and “not counted”. Keep the summary read-only
+as in the prototype. Exercise actions opens the completed warm-up list
+for correction/removal and offers Add. Show the prototype's quiet “No warm-ups suggested” and “Add one”
+row when suggestions are suppressed. Place “Why?” beside “Add one”
+and give it the same Why sheet and reset. A skip after a logged step still yields the W
 row for actual work. W and dots are decorative when the readable label
 carries the meaning.
 
-**Past zero.** Extend `focusPadsHtml` and the numeric
+**Past zero.** Keep `focusPadsHtml` as the group wrapper. Extend `shelfPadsHtml`
+(10953) and the numeric
 `.shelf__pads--chips.shelf__pads--numbers` group. Tapping the ordinary 0
 commits explicit zero, then reveals `0, +1, +2, +3, +4, +5` in the
-same `.shelf__chip--num` controls. Keep word effort and its existing
+same `.shelf__chip--num` controls. Numeric chips currently go
+through `pickEffort` (12090–12120), which writes the hidden RIR
+input. Route that branch through the acknowledged atomic command
+for zero/partials and clearing, with the hidden field reflecting the
+committed value. Keep keyboard chip navigation and correction on the
+same path. In `focusPrevLine` use the numeric stage for “left”
+explicitly. The existing `ending === "left"` branch is unreachable. Keep word effort and its existing
 menu. Reach 0 through the current Reps left mode; Max gets no implicit
 numeric conversion. Each plus chip writes one count and exposes
 `aria-pressed`. The second page's 0 clears partials and returns to
@@ -357,25 +492,34 @@ selected set. Where otherwise-equal eligible sets already compete to
 supply one displayed best set, use the same comparator only to choose
 the displayed row. Detailed History shows actual warm-up rows as
 preparation. Today, finish, charts, strength evidence, badges, calibration
-and volume keep their working-only totals. Audit any fallback that uses
-`rows.length` or raw load × reps. Retain text and JSON distinction after
+and volume keep their working-only totals. Replace the raw counts in
+`buildSessionSummary` (12400), the save fallback toast (12657),
+`historyShareSummary` (13432), and the History detail header
+(`history-ui.js` 665) with working-only counts. Keep detailed
+History's warm-up rows. Use working-only counts for both total
+and committed sets in `updateSaveMeta` (12414–12415) and completed
+sessions in `buildBlockReview` (4231–4232). Exercise actions' 10023
+count stays on the programmed `setOrder`. In `exportCsv`
+(17347–17348) leave warm-up e1RM and tonnage cells empty before
+either fallback runs. Verify finish/share lift groups and the
+History exercise count also exclude warm-up-only groups. Retain text and JSON distinction after
 History correction, copy/share, backup and transfer.
 
 ## 6. Implementation slices and proof
 
-The partials slice and pure warm-up slice can start from the same agreed
-implementation base in separate worktrees. The pure slice touches only
-its new module, test and suite registration. The partials slice uses
-existing suites and leaves shared registration to the other slice.
-Land the Prelude integration on both. Only the integration slice
-registers the warm-up script in the app shell. Implementation begins
-after owner approval of the relevant choices and backlog scheduling.
+Slices 1 and 2 were assigned in parallel. Slice 1 is in progress and
+Slice 2's policy implementation is complete on PR #804. Apply the
+precise comparator, stall and store-compatibility notes above to Slice 1.
+Base Slice 3 on both and keep its production adapter and integration in
+one worktree. Only Slice 3 registers the warm-up script in the app shell.
+The optional lb plate follow-up is a narrow change to the policy
+interface. The adapter can ship its no-hint lb path independently.
 
 | Slice | Files and boundary | First failing proof and acceptance | Fidelity gate |
 | --- | --- | --- | --- |
 | 1. Past zero end to end | `workout-draft.js`, `app.js`, `progression-engine.js`, `history-ui.js`, `progress-model.js`, `share-cards.js`, `install-transfer-contract.js`, styles, translations, affected catalog and release files | In `test/workout-finish-boundary.mjs`, start from the prior 105 × 6+2, choose numeric 0 and +3, reload, log once, finish and open History. Verify 6+3, unchanged full-rep totals and no load promotion from the tie. Add malformed, stale and mode/effort-clearing cases in `test/workout-draft.mjs`, CAS and old-worker coverage in `test/workout-draft-storage.mjs` and `test/workout-draft-sw-upgrade.mjs`. `test/progression-engine-plan067.mjs` covers tie win/loss/even and invariance of numerical outputs. Exercise actual correction, transfer, JSON/CSV export/import and share through the existing owners below. | Side by side with Past zero in the tie fixture. Compare numeric-zero, chips selected, working ledger and Why. Use the nearest approved work/history/finish references for unprototyped readback and mark those frames. |
 | 2. Pure warm-up policy | New `warmup-suggestions.js`, `test/warmup-suggestions.mjs` and `test/suites.mjs` registration | Red-first deterministic module-interface tests. Baseline 20/60/85 from the real inputs, available-load boundaries and rounding ties, bar and no-bar cases, kg/lb equivalence, dumbbell ladder, too-light/bodyweight/assistance, learned load scaling, two matching sequences with additions/removals, context isolation, expiry, three skips, reset, duplicates and stale/reordered input. Prove deterministic reason and evidence fields. | There is no rendered production change in this slice. Check fixture values and reason states against the four approved `RAMPS` states. Capture their full visual matrix in slice 3. |
-| 3. Prelude end to end | `workout-draft.js`, `app.js`, `durable-state.js` if state validation/reconciliation needs it, transfer validator, progression and readback owners, `index.html`, `sw.js`, styles, i18n, catalog and release files | First real journey in `test/workout-finish-boundary.mjs`: edit 60 × 5, log, reload between steps, log remaining warm-ups and finish with three working sets. Assert saved actual rows, W summary, untouched slot indices, and learned evidence exactly once. `test/workout-draft-storage.mjs` and `test/adversarial-draft-transactions.mjs` cover stale tabs, reset/finish race, recovery and retry. Then prove learned, already-warm, suppressed/manual return, discard, skip remainder, correction, substitute/restore and calibration precedence. Verify warm-ups do not affect any numeric or completion consumer. | Side by side with Prelude baseline, edited/intermediate rest, W summary, learned, already warm, suppressed, warm-up Why and reset. Compare production's combined Past zero tie after Prelude as the final gate. |
+| 3. Prelude end to end | `workout-draft.js`, `app.js`, `durable-state.js` if the existing host rebase needs a new hook, `install-transfer-contract.js`, `rest-timer.js`, `history-ui.js`, `progress-model.js`, `share-cards.js`, `progression-engine.js`, `index.html`, `sw.js`, `test/exercise-library.mjs`, styles, i18n and catalog files | First red proof in `test/workout-finish-boundary.mjs`: edit 60 × 5, log, reload, log the remaining warm-ups and finish with work numbered 1, 2, 3. Assert warm-ups never appear in `setOrder`, their projected W labels are distinct, counts and targets agree with working-only input, and the observation commits once. `test/workout-draft-storage.mjs` and `test/adversarial-draft-transactions.mjs` cover concurrent first resets for different lifts, two first sessions, reset/finish and delete/finish races, recovery and retry. `test/rest-timer-model.mjs` covers the warm-up kind across snapshot/restore and legacy records. `test/rest-timer.mjs` covers 60-second rest, zero-rest opt-out, handoff, correction and single bell after reload. Prove imported merge and replacement, transfer eligibility, History edit/delete, learned/short/suppressed, manual return and swap/calibration precedence in their owning suites. | Side by side with Prelude baseline, edited/intermediate rest, W summary, learned, already warm, suppressed, warm-up Why and reset. Compare the combined Past zero tie after Prelude as the final gate. |
 
 **Owning suites and catalog.** Resolve IDs against [test/suites.mjs](../test/suites.mjs)
 and use the live [CI guidance](../docs/ci.md). Use
@@ -401,7 +545,9 @@ send broader work to CI.
 Add catalog states through `tools/ui-screens/screens-app.mjs` and
 `fixtures.mjs`, backed by normal production routes and known fixtures in
 `docs/ui-screens/manifest.json`. Register new semantic roles in
-`tools/ui-role-inventory.json`. Include baseline Prelude, intermediate
+`tools/ui-role-inventory.json`. Check existing catalog shard times after
+adding states. If the suite budget requires it, adjust
+`UI_SYSTEM_SHARDS` in `test/suites.mjs` with the observed timings. Include baseline Prelude, intermediate
 warm-up/rest, W summary, learned/short/suppressed reasons and Why,
 Past zero active chips, working partials/tie Why, and representative
 History, Progress and finish readback. Use reusable variants where the
@@ -439,12 +585,40 @@ fidelity and bilingual copy review before the coordinator merges.
 | ID | Decision | Recommended default |
 | --- | --- | --- |
 | Q1 | Who shares warm-up preferences, and when do we offer them? | Share by comparable performed lift and equipment/metric/loading identity. Offer for known, ordinary, external-load work with a lighter valid load. Manual warm-ups for representable bodyweight and assisted sets. Existing preparation and Find your weight take precedence. |
-| Q2 | What baseline and load assumptions should ship? | Barbell 20 kg × 8 plus 57% × 5 and 80% × 2 to reproduce 20/60/85 on the default grid. Omit the empty-bar step for dumbbells and external-load machines. Use the configured grid or dumbbell ladder, round nearest with ties down, keep only increasing loads below work. No minimum percentage gap beyond one attainable lighter load. Show plate arithmetic only for the supported 20 kg bar and the plate pairs in section 3. Unknown, Smith or nonstandard bars get no empty-bar/plate hint unless supported by known configuration. |
-| Q3 | How fast should the feature learn or forget? | Two agreeing completed sequences; retain the last six eligible observations within 90 days and allow at most six warm-ups per exercise occurrence. Use two matching one-step observations for shortening within 15 minutes of the prior lift. Keep the approved three consecutive skips suppressed until a saved warm-up or reset, even after the learning window expires. A whole-preparation skip is an eligible skip only when work also saves. |
-| Q4 | Which timer does “Done” start? | Use 60 seconds on warm-up completion when rest is enabled, including the handoff to set 1. Use the already configured working rest for work. Keep the user's current rest enablement and clock controls. |
+| Q2 | What baseline and load assumptions should ship? | Barbell 20 kg × 8 plus 57% × 5 and 80% × 2 to reproduce 20/60/85 on the default grid. Omit the empty-bar step for dumbbells and external-load machines. Use the configured grid or dumbbell ladder, round nearest with ties down, keep only increasing loads below work. No minimum percentage gap beyond one attainable lighter load. Use the supported 20 kg bar and metric plates in section 3. Omit empty-bar and plate claims for unknown or nonstandard bars and for lb until the optional 45 lb basis and inventory follow-up is approved and proven. |
+| Q3 | How fast should the feature learn or forget? | Two agreeing completed sequences; retain the last six eligible observations within 90 days and allow at most six warm-ups per exercise occurrence. Use two matching one-step observations for shortening within 15 minutes of the prior lift. Keep the approved three consecutive skips suppressed until a qualifying saved warm-up or reset, even after the learning window expires. A whole-preparation skip is an eligible skip only when work also saves. |
+| Q4 | Which timer does “Done” start? | Use 60 seconds on warm-up completion when the exercise rest is enabled, including the handoff to set 1. An exercise with `restSec === 0` starts no clock. Use the already configured working rest for work. Keep the user's current rest enablement and clock controls. |
 | Q5 | Which sets can record Past zero? | 0 through 5 after explicit numeric zero on ordinary working sets with at least one full rep. No partials on per-side rep counts, warm-ups or measured calibration trials in this release. The approved 0–5 chip design governs the count. |
-| Q6 | What does winning a partial tie change? | Show positive tie evidence and suppress otherwise-stalled wording/proposals in the existing three-session window when adjacent eligible first sets show an improving tie. Leave load/reps, numeric trend thresholds, recovery, e1RM and PRs frozen. Keep the estimator/formula version when its numeric outputs and replay contract stay identical. If owner approval extends the solver or versioned rationale schema, specify that contract and version change first. |
-| Q7 | Approve the copy and placement? | Use section 8, replacing prototype “ramp” with “warm-up” so calibration retains “Find your weight”. Put the plan at the end of After alpha (Next) to preserve the current alpha gate order. |
+| Q6 | What does winning a partial tie change? | Show positive tie evidence and suppress otherwise-stalled wording/proposals only when the latest comparable pair within the existing three-session window wins on the first ordinary working set. Leave load/reps, numeric trend thresholds, recovery, e1RM and PRs frozen. Keep the estimator/formula version when its numeric outputs and replay contract stay identical. If owner approval extends the solver or versioned rationale schema, specify that contract and version change first. |
+| Q7 | Approve copy and prototype differences? | Sign off on each item below and the bilingual strings in section 8. |
+
+### Q7 owner sign-off
+
+- **W summary.** Keep the short prototype “not counted” wording and the
+  read-only W row. Put the volume, records and next-weight explanation in
+  Why. Approve Review in Exercise actions as the correction/removal door.
+- **Suppressed suggestions.** Add “Why?” beside “Add one” in the quiet
+  row. Reuse the warm-up Why sheet and place reset there.
+- **Plate copy.** Use “empty bar” and “25 a side” as in the prototype.
+  Approve omission on unsupported bars and inventories.
+- **Partial count.** Use compact “6+2” throughout visual and plain-text
+  readback, including the CTA and previous line. Use separate full and
+  partial counts in spoken labels and machine-readable exports.
+- **Step rail.** Show actual logged loads on completed steps. The
+  prototype kept planned loads on the rail after edits. Keep upcoming
+  loads planned and the work endpoint unchanged.
+- **Add one.** Use the adapter's baseline seed, including the prototype's
+  60 × 5 fixture. Replace “Added 60 × 5. It is yours from now on” with
+  “Warm-up added. Log it when you're done.” This reflects when learning
+  can begin.
+- **Learning wording and feedback.** Use “warm-up” wherever the prototype
+  says “ramp”, and reserve “Find your weight” for calibration. Use the
+  “once more” notice only when the module can classify the complete
+  change. Reset keeps sets and edits. The normal timer still controls rest.
+- **Narrow layout and access.** Approve rail wrapping and focused control
+  placement at 320 px and text200 where the unchanged prototype layout
+  would clip. Section 8 proposes EN/PT copy, including the localized
+  ledger marker.
 
 ## 8. Candidate EN and PT strings
 
@@ -458,7 +632,7 @@ denote interpolated values. Both languages receive the same facts.
 | --- | --- | --- |
 | Warm-up cue | Warm up {load} {unit} | Aqueça com {load} {unit} |
 | Reps without plates | {n} rep / {n} reps | {n} repetição / {n} repetições |
-| Plate hint | Empty bar / {plates} per side | Barra vazia / {plates} de cada lado |
+| Plate hint | empty bar / {plates} a side | barra vazia / {plates} de cada lado |
 | Rep and plate line | {reps} · {plates} | {reps} · {plates} |
 | Rail name | Warm-up steps | Etapas do aquecimento |
 | Rail completed step | {load} {unit}, done | {load} {unit}, concluído |
@@ -467,9 +641,9 @@ denote interpolated values. Both languages receive the same facts.
 | Standing | Warm-up {step} of {total}, then {load} {unit} | Aquecimento {step} de {total}, depois {load} {unit} |
 | Skip link | Skip warm-ups | Pular aquecimento |
 | Warm-up CTA | Done · {load} {unit} next / Done · set 1 next | Feito · agora {load} {unit} / Feito · agora série 1 |
-| Warm-up rest | Warm-up rest | Descanso do aquecimento |
-| Ledger marker and row | W · {loads} {unit} · excluded from totals | A · {loads} {unit} · fora dos totais |
-| Spoken warm-up row | Warm-ups, {loads} {unit}, excluded from totals | Aquecimentos, {loads} {unit}, fora dos totais |
+| Warm-up rest and spoken clock | Warm-up rest / Warm-up rest, {time} | Descanso do aquecimento / Descanso do aquecimento, {time} |
+| Ledger marker and row | W · {loads} {unit} · not counted | A · {loads} {unit} · não conta |
+| Spoken warm-up row | Warm-ups, {loads} {unit}, not counted | Aquecimentos, {loads} {unit}, não conta |
 | Manage preparation | Review warm-ups / Add warm-up / Remove warm-up / Edit warm-up | Ver aquecimentos / Adicionar aquecimento / Remover aquecimento / Editar aquecimento |
 | No suggestion | No warm-ups suggested / Add one | Sem aquecimento sugerido / Adicionar um |
 | Baseline cue | A starting warm-up for {load} {unit}. Log what you actually do. | Um aquecimento inicial para {load} {unit}. Registre o que você fizer. |
@@ -507,7 +681,8 @@ denote interpolated values. Both languages receive the same facts.
 
 ## Verification status
 
-Plan and backlog only. Implementation proofs, screenshots, device
-checks, exact-head Worker redeploys and copy review are pending in the
-corresponding implementation slices. Next step is owner review of
-sections 7 and 8 before implementation.
+This revision is documentation only. The review was checked against the
+fetched main SHA above and the policy SHA in section 3. Slice 3's
+implementation proofs, screenshots, device checks and Worker redeploy
+remain with the implementation PR. Send Q7 and section 8 to the owner
+before shipping the affected UI.
