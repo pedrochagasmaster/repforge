@@ -1498,4 +1498,58 @@ console.log(`\n${results.passed} passed, ${results.failed} failed`);
       "Prelude: a swap retires pending steps and freezes logged steps under the movement they were done as", JSON.stringify(prelude(swapped)));
   }
 }
+{
+  // Plan 085 slice 3: the two durable maps. Observations carry natural selectors, never row ids.
+  const exerciseId = "slot-1", session = "saved-1";
+  const row = (extra = {}) => ({ session, date: "2026-08-01", exerciseId, set: 1, setIndex: 0, load: 105, reps: 6, rir: 1, performedLibraryId: "lib-squat", ...extra });
+  const metrics = (load, reps) => ({ metricDefinitions: [{ id: "L", semantic: "loadKg" }, { id: "R", semantic: "reps" }],
+    metricValues: [{ metricId: "L", value: load, unit: "kg" }, { metricId: "R", value: reps, unit: "reps" }] });
+  const warm = (ordinal, load, reps, extra = {}) => row({ set: 0, setIndex: 0, load, reps, rir: null, warmup: true, origin: "suggested-warmup", warmupOrdinal: ordinal, ...metrics(load, reps), ...extra });
+  const log = [warm(1, 20, 8), warm(3, 60, 5), warm(4, 85, 2), row()];
+  const grid = [20, 60, 85].map(rung => ({ rungKg: rung, belowKg: 2.5, aboveKg: 2.5 }));
+  const observation = (extra = {}) => ({ v: 1, liftKey: "lift-a", exerciseId, performedKey: "lib-squat", workingOrdinal: 1, warmupOrdinals: [1, 3, 4],
+    savedAt: 1_800_000_000_000, resetGeneration: null, decision: "completed", workLoadKg: 105, barKg: 20, earlierLift: null, stepGrid: grid, ...extra });
+  const map = (...observations) => ({ [session]: { v: 1, observations } });
+  assert(Draft.validateWarmupObservations(map(observation())) === true, "Observations: a well-formed map is accepted");
+  assert(Draft.validateWarmupObservations(map(observation()), log) === true, "Observations: it resolves against the live rows, gaps in the ordinals included");
+  assert(Draft.validateWarmupObservations(map(observation({ warmupOrdinals: [1, 2, 4] })), log) === false, "Observations: a selector with no matching row is refused");
+  assert(Draft.validateWarmupObservations(map(observation()), [...log, warm(3, 61, 5)]) === false, "Observations: an ambiguous selector is refused");
+  assert(Draft.validateWarmupObservations(map(observation()), log.slice(0, 3)) === false, "Observations: a missing working row is refused");
+  assert(Draft.validateWarmupObservations(map(observation({ performedKey: "lib-other" })), log) === false, "Observations: a different performed identity is refused");
+  assert(Draft.validateWarmupObservations(map(observation()), log.map(item => item.warmup ? item : { ...item, performedLibraryId: "lib-other" })) === false, "Observations: the working row must be the same performed movement");
+  assert(Draft.validateWarmupObservations({ other: { v: 1, observations: [observation()] } }, log) === false, "Observations: a session with no rows owns nothing");
+  assert(Draft.validateWarmupObservations(map(observation(), observation())) === false, "Observations: one observation per lift in a session");
+  assert(Draft.validateWarmupObservations(map(observation({ decision: "skipped", warmupOrdinals: [], stepGrid: [] })), log.filter(item => !item.warmup)) === true, "Observations: a whole skip has no warm-up rows");
+  assert(Draft.validateWarmupObservations(map(observation({ decision: "skipped" }))) === false, "Observations: a skip cannot name warm-up ordinals");
+  for (const [name, mutate] of [
+    ["an unknown version", o => { o.v = 2; }], ["an extra member", o => { o.payload = "x"; }], ["seven ordinals", o => { o.warmupOrdinals = [1, 2, 3, 4, 5, 6, 7]; o.stepGrid = Array(7).fill(grid[0]); }],
+    ["a grid that does not match the ordinals", o => { o.stepGrid = grid.slice(1); }], ["descending ordinals", o => { o.warmupOrdinals = [4, 3, 1]; }],
+    ["a non-finite save time", o => { o.savedAt = Infinity; }], ["an unknown decision", o => { o.decision = "forgot"; }], ["a fractional working ordinal", o => { o.workingOrdinal = 1.5; }],
+    ["a grid rung of zero", o => { o.stepGrid = [{ rungKg: 0, belowKg: null, aboveKg: null }, grid[1], grid[2]]; }],
+  ]) {
+    const bad = observation(); mutate(bad);
+    assert(Draft.validateWarmupObservations(map(bad)) === false, `Observations: refuse ${name}`);
+  }
+  assert(Draft.validateWarmupObservations([]) === false && Draft.validateWarmupObservations({ [session]: [] }) === false && Draft.validateWarmupObservations({ [session]: { v: 2, observations: [] } }) === false,
+    "Observations: wrong containers and versions are refused");
+  assert(Draft.validateWarmupObservations({ [session]: { v: 1, observations: [], extra: 1 } }) === false, "Observations: a session record has only its version and observations");
+
+  const resolved = Draft.resolveWarmupObservations(map(observation()), log);
+  assert(resolved.length === 1 && resolved[0].sessionId === session && resolved[0].steps.length === 3 &&
+    resolved[0].steps.map(step => [step.loadKg, step.reps].join("x")).join() === "20x8,60x5,85x2",
+    "Observations: resolving reads the canonical load and reps from the rows", JSON.stringify(resolved));
+  assert(new Set([resolved[0].workingSetId, ...resolved[0].warmupSetIds]).size === 4 && resolved[0].warmupSetIds[0] !== resolved[0].warmupSetIds[1],
+    "Observations: working and warm-up identifiers are distinct, deterministic call-local strings");
+  assert(JSON.stringify(Draft.resolveWarmupObservations(map(observation()), log)) === JSON.stringify(resolved), "Observations: resolution is deterministic");
+  assert(Draft.resolveWarmupObservations(map(observation()), log.slice(0, 3)).length === 0, "Observations: an unresolvable observation resolves to nothing");
+  const pruned = Draft.pruneWarmupObservations({ ...map(observation()), gone: { v: 1, observations: [observation()] } }, log);
+  assert(Object.keys(pruned || {}).join() === session, "Observations: pruning drops sessions that no longer resolve");
+  assert(Draft.pruneWarmupObservations(map(observation()), log.slice(0, 3)) === null, "Observations: an empty result is omitted");
+
+  assert(Draft.validateWarmupPreferences({ "lift-a": { v: 1, resetGeneration: "g1", resetAt: "2026-08-01T00:00:00.000Z" } }) === true, "Preferences: a reset token per lift is accepted");
+  for (const bad of [[], { "lift-a": { v: 2, resetGeneration: "g1", resetAt: "2026-08-01T00:00:00.000Z" } }, { "lift-a": { v: 1, resetGeneration: "", resetAt: "x" } },
+    { "lift-a": { v: 1, resetGeneration: "g1", resetAt: "x", extra: 1 } }, { "": { v: 1, resetGeneration: "g1", resetAt: "x" } }]) {
+    assert(Draft.validateWarmupPreferences(bad) === false, `Preferences: refuse ${JSON.stringify(bad)}`);
+  }
+}
 if (results.failed) process.exitCode = 1;

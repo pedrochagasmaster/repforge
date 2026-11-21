@@ -2297,6 +2297,145 @@
           (field === "skips" ? (!hasOwn(event,"reason") || SKIP_REASONS.includes(event.reason)) : ["pain","discomfort"].includes(event.kind) && typeof event.swapped === "boolean"))));
   }
 
+  /* Plan 085 slice 3: durable warm-up learning state. `warmupObservations` is keyed by saved session id; each record
+     names, with natural selectors (the exercise slot, the working ordinal, the warm-up ordinals and the performed
+     identity), the rows it was learned from, so no row carries an id and the rows stay the one source of load and reps.
+     `warmupPreferences` keeps one reset token per comparable lift. */
+  const WARMUP_STATE_VERSION = 1;
+  const WARMUP_DECISIONS = Object.freeze(["completed", "edited", "skipped"]);
+  const WARMUP_OBSERVATION_KEYS = Object.freeze(["v", "liftKey", "exerciseId", "performedKey", "workingOrdinal", "warmupOrdinals",
+    "savedAt", "resetGeneration", "decision", "workLoadKg", "barKg", "earlierLift", "stepGrid"]);
+  const WARMUP_MAX_OBSERVATIONS_PER_SESSION = 64;
+
+  function validWarmupObservation(value) {
+    if (!isPlainObject(value) || WARMUP_OBSERVATION_KEYS.some(key => !hasOwn(value, key)) ||
+      Object.keys(value).some(key => !WARMUP_OBSERVATION_KEYS.includes(key))) return false;
+    if (value.v !== WARMUP_STATE_VERSION || !isText(value.liftKey, { max: 1000 }) || !isText(value.exerciseId, { max: MAX_ID }) ||
+      !isText(value.performedKey, { max: MAX_ID }) || !isSafeInteger(value.workingOrdinal, 1) || !finiteNumber(value.savedAt) || value.savedAt < 0 ||
+      !WARMUP_DECISIONS.includes(value.decision) || !positiveLoad(value.workLoadKg) || (value.barKg !== null && !positiveLoad(value.barKg)) ||
+      (value.resetGeneration !== null && !isText(value.resetGeneration, { max: MAX_ID }))) return false;
+    const ordinals = value.warmupOrdinals;
+    if (!Array.isArray(ordinals) || ordinals.length > PRELUDE_MAX_STEPS || !Array.isArray(value.stepGrid) || value.stepGrid.length !== ordinals.length ||
+      ordinals.some((ordinal, index) => !Number.isSafeInteger(ordinal) || ordinal < 1 || ordinal > PRELUDE_MAX_STEPS || (index > 0 && ordinal <= ordinals[index - 1]))) return false;
+    if ((value.decision === "skipped") !== (ordinals.length === 0)) return false;
+    const lift = value.earlierLift;
+    if (lift !== null && (!exactKeys(lift, PRELUDE_LIFT_KEYS) || PRELUDE_LIFT_KEYS.some(key => !hasOwn(lift, key)) ||
+      ["liftKey", "movementId", "primaryMuscle", "sessionId"].some(key => !isText(lift[key], { max: 1000 })) ||
+      !finiteNumber(lift.completedAt) || !finiteNumber(lift.elapsedMs))) return false;
+    return value.stepGrid.every(rung => exactKeys(rung, ["rungKg", "belowKg", "aboveKg"]) && positiveLoad(rung.rungKg) &&
+      (rung.belowKg === null || (positiveLoad(rung.belowKg) && rung.rungKg - rung.belowKg > 0)) &&
+      (rung.aboveKg === null || (positiveLoad(rung.aboveKg) && rung.rungKg + rung.aboveKg <= 1000 + 1e-6)));
+  }
+
+  const performedKeyOf = row => String(row?.performedLibraryId || row?.performedMovementId || "");
+
+  /** A row's canonical load and reps, read from its metric values: the one source warm-up learning reads. */
+  function warmupRowFacts(row) {
+    const definitions = Array.isArray(row?.metricDefinitions) ? row.metricDefinitions : null;
+    if (!definitions || !Array.isArray(row.metricValues)) return null;
+    const read = predicate => {
+      const metric = definitions.find(predicate);
+      const entry = metric ? row.metricValues.find(item => item?.metricId === metric.id) : null;
+      return typeof entry?.value === "number" && Number.isFinite(entry.value) ? entry.value : null;
+    };
+    const loadKg = read(metric => LOAD_SEMANTICS.has(metric?.semantic));
+    const reps = read(metric => metric?.semantic === "reps" || metric?.semantic === "repsPerSide");
+    return loadKg > 0 && Number.isSafeInteger(reps) && reps > 0 ? { loadKg, reps } : null;
+  }
+
+  function warmupTag(kind, exerciseId, ordinal) {
+    return JSON.stringify([kind, exerciseId, ordinal]);
+  }
+
+  /** The rows one observation names, or null when any selector fails to match exactly one row. */
+  function resolveObservationRows(sessionRows, observation) {
+    const one = predicate => {
+      const found = sessionRows.filter(predicate);
+      return found.length === 1 ? found[0] : null;
+    };
+    const work = one(row => row?.exerciseId === observation.exerciseId && !row.warmup && row.origin !== "ramp" && row.set === observation.workingOrdinal);
+    if (!work || performedKeyOf(work) !== observation.performedKey) return null;
+    const steps = [];
+    for (const ordinal of observation.warmupOrdinals) {
+      const row = one(candidate => candidate?.exerciseId === observation.exerciseId && candidate.warmup === true &&
+        candidate.origin === "suggested-warmup" && candidate.warmupOrdinal === ordinal);
+      const facts = row && performedKeyOf(row) === observation.performedKey ? warmupRowFacts(row) : null;
+      if (!facts) return null;
+      steps.push({ setId: warmupTag("u", observation.exerciseId, ordinal), ...facts });
+    }
+    return { work, steps };
+  }
+
+  function groupRowsBySession(log) {
+    const bySession = new Map();
+    for (const row of Array.isArray(log) ? log : []) {
+      const id = String(row?.session ?? "");
+      if (!bySession.has(id)) bySession.set(id, []);
+      bySession.get(id).push(row);
+    }
+    return bySession;
+  }
+
+  /** Structure always; with `log`, ownership and every selector too (the transfer contract's strict form). */
+  function validateWarmupObservations(value, log = null) {
+    if (!isPlainObject(value)) return false;
+    const bySession = log === null ? null : groupRowsBySession(log);
+    if (bySession && Object.keys(value).length > bySession.size) return false;
+    return Object.entries(value).every(([sessionId, record]) => {
+      if (!isText(sessionId, { max: MAX_ID }) || !exactKeys(record, ["v", "observations"]) || record.v !== WARMUP_STATE_VERSION ||
+        !Array.isArray(record.observations) || record.observations.length === 0 || record.observations.length > WARMUP_MAX_OBSERVATIONS_PER_SESSION ||
+        !record.observations.every(validWarmupObservation) ||
+        new Set(record.observations.map(item => item.liftKey)).size !== record.observations.length) return false;
+      if (!bySession) return true;
+      const rows = bySession.get(sessionId);
+      return !!rows && record.observations.every(observation => resolveObservationRows(rows, observation) !== null);
+    });
+  }
+
+  function validateWarmupPreferences(value) {
+    return isPlainObject(value) && Object.keys(value).length <= 5000 && Object.entries(value).every(([liftKey, entry]) =>
+      isText(liftKey, { max: 1000 }) && exactKeys(entry, ["v", "resetGeneration", "resetAt"]) && entry.v === WARMUP_STATE_VERSION &&
+      isText(entry.resetGeneration, { max: MAX_ID }) && isText(entry.resetAt, { max: 100 }));
+  }
+
+  /** The saved observations the policy may read: each resolved against the live rows, the unresolvable dropped. */
+  function resolveWarmupObservations(value, log) {
+    if (!isPlainObject(value)) return [];
+    const bySession = groupRowsBySession(log);
+    const out = [];
+    for (const [sessionId, record] of Object.entries(value)) {
+      const rows = bySession.get(sessionId);
+      if (!rows || !Array.isArray(record?.observations)) continue;
+      for (const observation of record.observations) {
+        if (!validWarmupObservation(observation)) continue;
+        const resolved = resolveObservationRows(rows, observation);
+        if (!resolved) continue;
+        out.push({
+          version: observation.v, liftKey: observation.liftKey, sessionId,
+          workingSetId: warmupTag("w", observation.exerciseId, observation.workingOrdinal),
+          warmupSetIds: resolved.steps.map(step => step.setId), steps: resolved.steps, stepGrid: jsonClone(observation.stepGrid),
+          savedAt: observation.savedAt, resetGeneration: observation.resetGeneration, decision: observation.decision,
+          workLoadKg: observation.workLoadKg, barKg: observation.barKg, earlierLift: jsonClone(observation.earlierLift),
+        });
+      }
+    }
+    return out;
+  }
+
+  /** The map with every stale reference dropped; null when nothing is left. */
+  function pruneWarmupObservations(value, log) {
+    if (!isPlainObject(value)) return null;
+    const bySession = groupRowsBySession(log);
+    const out = {};
+    for (const [sessionId, record] of Object.entries(value)) {
+      const rows = bySession.get(sessionId);
+      if (!rows || !exactKeys(record, ["v", "observations"]) || !Array.isArray(record.observations)) continue;
+      const kept = record.observations.filter(observation => validWarmupObservation(observation) && resolveObservationRows(rows, observation));
+      if (kept.length) out[sessionId] = { v: WARMUP_STATE_VERSION, observations: jsonClone(kept) };
+    }
+    return Object.keys(out).length ? out : null;
+  }
+
   function sessionEventsOf(draft) {
     const events = {v:1,skips:[],pain:[]};
     for (const id of draft.exerciseOrder) {
@@ -2779,6 +2918,11 @@
     reduce,
     toHistoryRows,
     validateSessionEvents,
+    validateWarmupObservations,
+    validateWarmupPreferences,
+    resolveWarmupObservations,
+    pruneWarmupObservations,
+    warmupRowFacts,
     validateLoadingContext(value) {
       const issues = [];
       validateLoadingContext(value, "loadingContext", issues);
