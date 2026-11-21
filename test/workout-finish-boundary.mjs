@@ -719,7 +719,9 @@ async function prelude(browser) {
   try {
     const card = page.locator("#workout .exercise.is-current:not(.is-peek)");
     const shelf = card.locator(".focus-shelf");
-    const [target] = await draftTargets(page);
+    // The program's first lift carries part of the body's weight, which gets no suggested warm-up; the second is a plain machine lift.
+    const target = (await draftTargets(page)).find((item) => item.exerciseInstanceId === "seed-ex-2");
+    assert.equal(await page.evaluate((id) => window.__repforgeWorkoutDraft.current().exercises[id].programmed.loadingContext.bodyweightCoefficient, target.exerciseInstanceId), 0);
     await page.evaluate(async ({ target, weight, reps }) => {
       for (const [metricId, value] of [[weight, "105"], [reps, "6"]]) {
         await window.__repforgeWorkoutDraft.dispatch("editMetricValue", { ...target, metricId, value });
@@ -746,6 +748,9 @@ async function prelude(browser) {
     }, { target, weight: WEIGHT, reps: REPS });
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForApp(page);
+    await page.evaluate((id) => window.__repforgeWorkoutDraft.dispatch("selectExercise", { exerciseInstanceId: id }), target.exerciseInstanceId);
+    await page.locator('#woProgress button[data-focusgo="1"]').click();
+    await page.waitForFunction((id) => document.querySelector("#workout .exercise.is-current:not(.is-peek)")?.dataset.ex === id, target.exerciseInstanceId);
 
     // The first warm-up is the cue: its load, its reps, the rail to the working load, and the way to skip.
     const cue = card.locator(".fx-cue--warm");
@@ -760,7 +765,7 @@ async function prelude(browser) {
     await cue.getByRole("button", { name: "Skip warm-ups" }).waitFor();
     assert.equal(await card.locator(".ledgerline--open").count(), 0, "the table's open ring waits for the work");
     assert.equal(await card.locator(".ledgerline--warmup").count(), 0, "no warm-up row before one is logged");
-    assert.equal(await page.evaluate(() => Object.values(window.__repforgeWorkoutDraft.current().exercises)[0].warmupPrelude ?? null), null,
+    assert.equal(await page.evaluate(() => window.__repforgeWorkoutDraft.current().exercises["seed-ex-2"].warmupPrelude ?? null), null,
       "opening the cue writes nothing: browsing is not input");
     assert.equal(await shelf.getByRole("button", { name: /^Done · .* next$/ }).count(), 1, "the action names what follows");
 
@@ -769,14 +774,14 @@ async function prelude(browser) {
     await shelf.locator('[data-wu-field="load"]').click();
     await shelf.locator('[data-wu-field="load"]').click();
     await page.locator("#wheelDone").click();
-    await shelf.locator('[data-wu-field="load"]').click();
+    await page.locator("#wheelSheet").waitFor({ state: "hidden" });
     const loadInput = shelf.locator('input[data-wu-kind="load"]');
     await loadInput.evaluate((el) => { el.value = "60"; el.oninput(); });
     const repsInput = shelf.locator('input[data-wu-kind="reps"]');
     await repsInput.evaluate((el) => { el.value = "5"; el.oninput(); });
     await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
     const edited = await page.evaluate(() => {
-      const record = Object.values(window.__repforgeWorkoutDraft.current().exercises)[0].warmupPrelude;
+      const record = window.__repforgeWorkoutDraft.current().exercises["seed-ex-2"].warmupPrelude;
       return record.steps.map((step) => [step.source, step.touched, step.completion]);
     });
     assert.deepEqual(edited[0], ["suggested", true, "pending"], "an edit stores the plan and marks the step touched");
@@ -785,11 +790,11 @@ async function prelude(browser) {
     assert.match(await page.locator("#restTab").getAttribute("aria-label"), /^Warm-up rest, 0?[01]:\d\d$/, "the spoken label names the warm-up rest");
     assert.equal(await page.evaluate(() => RepForgeRestTimer.view(restClock, Date.now()).lengthSec), 60, "a warm-up rest runs a minute");
     const afterFirst = await page.evaluate(() => {
-      const exercise = Object.values(window.__repforgeWorkoutDraft.current().exercises)[0];
+      const exercise = window.__repforgeWorkoutDraft.current().exercises["seed-ex-2"];
       return { sets: exercise.setOrder.length, done: exercise.warmupPrelude.steps.filter((step) => step.completion !== "pending").length,
         ordinal: exercise.warmupPrelude.steps[0].completion.ordinal, values: Object.values(exercise.warmupPrelude.steps[0].values) };
     });
-    assert.deepEqual({ sets: afterFirst.sets, done: afterFirst.done, ordinal: afterFirst.ordinal }, { sets: 3, done: 1, ordinal: 1 },
+    assert.deepEqual({ sets: afterFirst.sets, done: afterFirst.done, ordinal: afterFirst.ordinal }, { sets: 2, done: 1, ordinal: 1 },
       "the warm-up is outside the sets and takes warm-up ordinal 1");
     assert.deepEqual(afterFirst.values.sort(), ["5", "60"], "what was logged is what was typed");
 
@@ -811,14 +816,15 @@ async function prelude(browser) {
     await page.getByText("Warmed up. Set 1 is next.", { exact: true }).waitFor({ timeout: 5000 });
     const summary = card.locator(".ledgerline--warmup");
     await summary.waitFor();
-    assert.match(await summary.innerText(), /^W\s+60 · \d+(\.\d+)? · \d+(\.\d+)? kg · not counted$/, "one quiet W row lists the logged loads in order");
+    assert.match(await summary.locator(".ledgerline__vals").innerText(), /^60 · \d+(\.\d+)? kg · not counted$/, "one quiet W row lists the logged loads in order");
+    assert.match(await summary.locator(".visually-hidden").textContent(), /^Warm-ups, 60, \d+(\.\d+)? kg, not counted$/, "and it reads aloud as one line");
     await shelf.getByRole("button", { name: "Log set 1" }).waitFor();
 
-    // Work three sets as the program prescribes.
-    for (const n of [1, 2, 3]) {
+    // Work the two sets the program prescribes.
+    for (const n of [1, 2]) {
       await shelf.getByRole("button", { name: new RegExp(`^Log set ${n}`) }).click();
-      await page.waitForFunction((count) => Object.values(window.__repforgeWorkoutDraft.current().exercises)[0].setOrder
-        .filter((id) => Object.values(window.__repforgeWorkoutDraft.current().exercises)[0].sets[id].completion !== "pending").length >= count, n);
+      await page.waitForFunction((count) => window.__repforgeWorkoutDraft.current().exercises["seed-ex-2"].setOrder
+        .filter((id) => window.__repforgeWorkoutDraft.current().exercises["seed-ex-2"].sets[id].completion !== "pending").length >= count, n);
     }
     await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
     await beginEarlyFinishPrompt(page);
@@ -829,7 +835,7 @@ async function prelude(browser) {
       return { rows: state.log.filter((row) => row.session !== "prelude-previous"), observations: state.warmupObservations ?? null };
     });
     const warmRows = saved.rows.filter((row) => row.warmup), workRows = saved.rows.filter((row) => !row.warmup);
-    assert.deepEqual(workRows.map((row) => row.set), [1, 2, 3], "work is numbered 1, 2, 3");
+    assert.deepEqual(workRows.map((row) => row.set), [1, 2], "work is numbered 1, 2");
     assert.ok(warmRows.length >= 2 && warmRows.every((row) => row.origin === "suggested-warmup" && row.set === 0 && row.rir === null),
       "the warm-ups are projected as warm-up rows");
     assert.deepEqual(warmRows.map((row) => row.warmupOrdinal), warmRows.map((_, index) => index + 1), "their ordinals are distinct and in order");
@@ -844,7 +850,7 @@ async function prelude(browser) {
     const totals = await page.evaluate(() => window.__repforgeSessionSummary.current());
     assert.equal(totals.volume, workRows.reduce((sum, row) => sum + row.load * row.reps, 0), "volume counts work only");
     assert.equal(totals.reps, workRows.reduce((sum, row) => sum + row.reps, 0), "reps count work only");
-    console.log("PASS: Prelude warm-ups survive reload, finish with work numbered 1 to 3, and teach once");
+    console.log("PASS: Prelude warm-ups survive reload, finish with work numbered from 1, and teach once");
   } finally {
     await context.close();
   }
