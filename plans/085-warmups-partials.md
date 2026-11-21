@@ -1,9 +1,12 @@
 # Plan 085: Suggested warm-ups and partial reps
 
-Status: **interaction approved, implementation proposed**. Base
+Status: **approved, in implementation**. Base
 `e844a870a04c6acbd5bfbf78da30573ff4b3535e` on `origin/main`. The owner chose
-Prelude and Past zero. Section 7 holds the policy and copy decisions for
-approval. Scheduling lives in the [backlog](../docs/backlog.md).
+Prelude and Past zero, and on 2026-11-21 approved the section 7 defaults
+(including the Q7 prototype divergences), the section 8 EN/PT copy, and the
+engine ignoring warm-up rows as performed evidence. Slice 2 merged as #804;
+slice 1 is #805; slice 3 follows. Scheduling lives in the
+[backlog](../docs/backlog.md).
 
 ## 1. Reference and scope
 
