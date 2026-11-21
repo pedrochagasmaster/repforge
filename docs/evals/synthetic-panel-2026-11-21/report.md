@@ -73,7 +73,7 @@ likelihood of using the app.
 | Paste or photograph the program I already have | 33 | 10 |
 | Percentage and peaking programs | 11 | 10 |
 | Weekly set volume that adjusts | 12 | 7 |
-| Reminders, streaks, consistency cue | n/a | 7 |
+| Reminders, streaks, consistency cue (asked for) | 10 | 7 |
 | Pounds, own plates, own jumps | 13 | 6 |
 | Large text, contrast, screen reader | 12 | 6 |
 | Apple Watch / Apple Health | 19 | 6 |
