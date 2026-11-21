@@ -1034,6 +1034,11 @@
     const metricFields = ["metricType", "metricIds", "metricDefinitions", "metricValues", "equipmentId", "loadingConvention", "loadingContext", "restSeconds"];
     const hasMetricFields = metricFields.some((field) => hasOwn(row, field));
     const isWorkSet = hasOwn(row, "exerciseId") || hasOwn(row, "set") || hasOwn(row, "setIndex");
+    if (hasOwn(row, "partialReps")) {
+      const draft = runtimeWorkoutDraft();
+      if (typeof draft?.validHistoryPartials !== "function") return ERROR_CODES.CATALOG_UNAVAILABLE;
+      if (!draft.validHistoryPartials(row)) return ERROR_CODES.INVALID_ENVELOPE;
+    }
     if (!hasMetricFields) return isWorkSet ? ERROR_CODES.UNSUPPORTED_LOG_SCHEMA_VERSION : null;
     const metrics = runtimeExerciseMetrics();
     const workoutDraft = runtimeWorkoutDraft();

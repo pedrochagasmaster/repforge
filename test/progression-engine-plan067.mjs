@@ -1027,3 +1027,35 @@ assert.equal(trend([session("s1", [105, 9, 1]), session("s2", [105, 7, 1]), sess
 assert.equal(trend([session("s1", [105, 9, 1]), session("s2", [105, 7, null])]).status, "insufficient_history");
 
 console.log("PASS Plan 067 adaptive progression algorithm contract");
+
+const partialSession = (id, partialReps, overrides = {}) => ({
+  sessionId: id, completed: true,
+  sets: [{ ...performedSet({ loadKg: 105, reps: 6, rir: 0 }), effortSource: "reps_left", partialReps, ...overrides }],
+});
+const priorPartial = partialSession("prior", 2);
+const morePartials = partialSession("latest", 3);
+assert.equal(trend([priorPartial, morePartials]).partialTie, "win");
+assert.equal(trend([morePartials, priorPartial]).partialTie, "loss");
+assert.equal(trend([priorPartial, partialSession("equal", 2)]).partialTie, "even");
+for (const overrides of [
+  { effortSource: "prefilled" }, { effortSource: "failure" }, { effortSource: "effort" },
+  { effortSource: "reps_left_5plus" }, { rir: 1 }, { warmup: true }, { setIndex: 1 },
+  { executionMode: "unilateral" }, { exerciseId: "other-movement" }, { equipmentId: "other-rack" }, { metricIds: [METRIC.reps] },
+  { loadingContext: { ...priorPartial.sets[0].loadingContext, externalLoadMultiplier: 2 } },
+  { metricValues: performedSet({ loadKg: 102.5 }).metricValues },
+]) {
+  assert.equal(trend([priorPartial, partialSession("different", 3, overrides)]).partialTie, undefined);
+}
+const withoutPartials = [priorPartial, morePartials].map(history => ({
+  ...history, sets: history.sets.map(({ partialReps, ...set }) => set),
+}));
+assert.deepEqual(recommend(prescription(), [priorPartial, {
+  ...morePartials, sets: [{ ...performedSet({ loadKg: 20, reps: 8, rir: 2 }), warmup: true }, ...morePartials.sets],
+}]), recommend(prescription(), withoutPartials));
+for (const extra of [{ origin: "suggested-warmup" }, { work: false }, { origin: "ramp" }]) {
+  assert.deepEqual(recommend(prescription(), [priorPartial, {
+    ...morePartials, sets: [{ ...performedSet({ loadKg: 20, reps: 8, rir: 2 }), ...extra }, ...morePartials.sets],
+  }]), recommend(prescription(), [priorPartial, morePartials]), `a set marked ${JSON.stringify(extra)} never enters the evidence`);
+}
+assert.deepEqual(recommend(prescription(), [priorPartial], morePartials.sets),
+  recommend(prescription(), withoutPartials.slice(0, 1), withoutPartials[1].sets));

@@ -38,17 +38,37 @@
 
   /* ---- type ---- */
   function font(ctx, weight, size) { ctx.font = `${weight} ${size}px ${SANS}`; if ("fontVariantNumeric" in ctx) ctx.fontVariantNumeric = "tabular-nums"; }
-  function width(ctx, s, weight, size, tracking = 0) { font(ctx, weight, size); return ctx.measureText(String(s)).width + tracking * String(s).length; }
+  /* A performed set's partial count ("6+3") prints smaller and in the accent colour, as it does in the app. */
+  const PARTIAL = /(?<=\d)\+([1-5])(?![\d.])/g, PARTIAL_SCALE = 0.78;
+  function runs(s) {
+    const str = String(s), out = [];
+    let last = 0;
+    for (const m of str.matchAll(PARTIAL)) {
+      out.push({ t: str.slice(last, m.index), partial: false }, { t: m[0], partial: true });
+      last = m.index + m[0].length;
+    }
+    out.push({ t: str.slice(last), partial: false });
+    return out.filter((run) => run.t);
+  }
+  function runWidth(ctx, s, weight, size) {
+    return runs(s).reduce((sum, run) => { font(ctx, weight, run.partial ? size * PARTIAL_SCALE : size); return sum + ctx.measureText(run.t).width; }, 0);
+  }
+  function width(ctx, s, weight, size, tracking = 0) { return runWidth(ctx, s, weight, size) + tracking * String(s).length; }
   function text(ctx, s, x, y, { weight = 500, size = 40, color = "#fff", align = "left", tracking = 0, ink = null } = {}) {
-    font(ctx, weight, size);
     if ("letterSpacing" in ctx) ctx.letterSpacing = `${tracking}px`;
-    const w = ctx.measureText(String(s)).width;
+    const w = runWidth(ctx, s, weight, size);
     const left = align === "center" ? x - w / 2 : align === "right" ? x - w : x;
     ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
     ctx.save();
     if (ink?.shadow) { ctx.shadowColor = ink.shadow; ctx.shadowBlur = Math.max(10, size * 0.28); ctx.shadowOffsetY = Math.max(1, size * 0.03); }
-    ctx.fillStyle = color;
-    for (let i = 0; i < (ink?.halo || 1); i++) ctx.fillText(String(s), left, y);
+    let cursor = left;
+    for (const run of runs(s)) {
+      font(ctx, weight, run.partial ? size * PARTIAL_SCALE : size);
+      if ("letterSpacing" in ctx) ctx.letterSpacing = `${tracking}px`;
+      ctx.fillStyle = run.partial && ink?.accent ? ink.accent : color;
+      for (let i = 0; i < (ink?.halo || 1); i++) ctx.fillText(run.t, cursor, y);
+      cursor += ctx.measureText(run.t).width;
+    }
     ctx.restore();
     if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
     return w;

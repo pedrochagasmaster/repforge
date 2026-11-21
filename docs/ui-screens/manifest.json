@@ -186,6 +186,85 @@
         "motion": "normal"
       }
     ],
+    "pastZero": [
+      {
+        "viewport": "phone-390",
+        "theme": "light",
+        "locale": "en",
+        "text": "normal",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-390",
+        "theme": "light",
+        "locale": "en",
+        "text": "text200",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-390",
+        "theme": "dark",
+        "locale": "en",
+        "text": "normal",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-390",
+        "theme": "dark",
+        "locale": "en",
+        "text": "text200",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-320",
+        "theme": "light",
+        "locale": "en",
+        "text": "normal",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-320",
+        "theme": "light",
+        "locale": "en",
+        "text": "text200",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-320",
+        "theme": "dark",
+        "locale": "en",
+        "text": "normal",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-320",
+        "theme": "dark",
+        "locale": "en",
+        "text": "text200",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-390",
+        "theme": "light",
+        "locale": "pt",
+        "text": "normal",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-390",
+        "theme": "light",
+        "locale": "pt",
+        "text": "text200",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-390",
+        "theme": "light",
+        "locale": "en",
+        "text": "normal",
+        "motion": "reduced"
+      }
+    ],
     "demandingText": [
       {
         "viewport": "phone-390",
@@ -1662,6 +1741,55 @@
       "flow": "today",
       "label": "Today — deload week",
       "scenario": "The active program's deload cycle shows its recovery note.",
+      "variants": "localized"
+    },
+    {
+      "id": "past-zero",
+      "flow": "workout",
+      "label": "Workout — Past zero",
+      "scenario": "Numeric zero reveals the six partial-rep choices.",
+      "variants": "pastZero"
+    },
+    {
+      "id": "past-zero-selected",
+      "flow": "workout",
+      "label": "Workout — Partials selected",
+      "scenario": "Three partials on the effort field and the Log set button.",
+      "variants": "pastZero"
+    },
+    {
+      "id": "past-zero-ledger",
+      "flow": "workout",
+      "label": "Workout — Partial tie logged",
+      "scenario": "The first working set reads 6+3 against the prior 6+2.",
+      "variants": "pastZero"
+    },
+    {
+      "id": "past-zero-why",
+      "flow": "workout",
+      "label": "Workout — Why partials count",
+      "scenario": "The saved tie in the Focus explanation sheet.",
+      "variants": "pastZero"
+    },
+    {
+      "id": "past-zero",
+      "flow": "history",
+      "label": "History — Set with partials",
+      "scenario": "The saved squat reads as six full reps plus three partials.",
+      "variants": "localized"
+    },
+    {
+      "id": "past-zero",
+      "flow": "progress",
+      "label": "Progress — Set with partials",
+      "scenario": "The reading annotates the reps while the chart keeps its full-rep coordinates.",
+      "variants": "localized"
+    },
+    {
+      "id": "past-zero",
+      "flow": "session",
+      "label": "Session summary — Set with partials",
+      "scenario": "The set list preserves the partial count and the totals use full reps.",
       "variants": "localized"
     },
     {

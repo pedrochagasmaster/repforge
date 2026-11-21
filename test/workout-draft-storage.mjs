@@ -1206,6 +1206,18 @@ async function main() {
     const loser = await editLoad(stale, "90");
     check(winner.status === "applied" && loser.status === "stale",
       "a stale second tab is rejected at the shared-lock CAS boundary", { winner: winner.status, loser: loser.status });
+    const partial = await page.evaluate(async () => {
+      const owner = window.__repforgeWorkoutDraft, draft = owner.current();
+      const exerciseInstanceId = draft.session.selectedExerciseId, exercise = draft.exercises[exerciseInstanceId];
+      const setId = exercise.setOrder[0], reps = exercise.sets[setId].programmed.metrics?.find(metric => metric.semantic === "reps");
+      const target = { exerciseInstanceId, setId };
+      if (reps) await owner.dispatch("editMetricValue", { ...target, metricId: reps.id, value: "6" });
+      else await owner.dispatch("editSetField", { ...target, field: "reps", value: "6" });
+      await owner.dispatch("setNumericEffort", { ...target, value: "0", partialReps: 0 });
+      const selected = await owner.dispatch("setNumericEffort", { ...target, value: "0", partialReps: 2 });
+      return selected.status;
+    });
+    check(partial === "applied", "the current tab acknowledges a partial before the old tab writes", { partial });
     const staleRemoval = await stale.evaluate(() => window.__repforgeWorkoutDraft.clear());
     const winnerRaw = (await rawState(page)).raw;
     const winnerAfterRemovalAttempt = JSON.parse(winnerRaw);
@@ -1227,6 +1239,7 @@ async function main() {
     const recoveredExercise = recoveredDraft.exercises[recoveredDraft.session.selectedExerciseId];
     check(recoveredDraft.program.dayLabel === "Day 2" &&
       editedOf(recoveredExercise.sets[recoveredExercise.setOrder[0]], "load") === "80" &&
+      recoveredExercise.sets[recoveredExercise.setOrder[0]].partialReps === 2 &&
       oldWriterRecovery.recovery?.reason === "superseded-v2-canonical",
     "boot restores the full acknowledged Day 2 draft and retains overwritten legacy bytes", {
       day: recoveredDraft.program.dayLabel,

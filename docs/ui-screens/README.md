@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 289 screens,
-1770 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 296 screens,
+1823 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -60,7 +60,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [One-time landing — proof](screens/onboarding-start/first-run-proof__phone-390-light-en.png) | 3 | Scrolled to the five-chapter proof: Focus's Smith machine bench press, held with the first set logged and the rest tab risen. |
 | [One-time landing — test set](screens/onboarding-start/first-run-proof-test__phone-390-light-en.png) | 3 | Scrolled to Test your guess: the last working set's computed guess, logged result and remaining checks. |
 | [One-time landing — three ways](screens/onboarding-start/first-run-ways__phone-390-light-en.png) | 3 | Scrolled to the three ways to start your training: the orange, surface and ink stripes, with the paste hand-off closed. |
-| [One-time landing — feature tabs](screens/onboarding-start/first-run-features__phone-390-light-en.png) | 3 | Scrolled to the five feature tabs, held mid-scene on Progress: the strength trend with its record and the week's hard sets by muscle. |
+| [One-time landing — feature tabs](screens/onboarding-start/first-run-features__phone-390-light-en.png) | 3 | Scrolled to the five feature tabs, held on Progress: the Summary's block card and strength rows once a new session has landed. |
 | [One-time landing — your data](screens/onboarding-start/first-run-data__phone-390-light-en.png) | 3 | Scrolled to the ink band: the history stays on the phone, in three rows. |
 | [One-time landing — questions](screens/onboarding-start/first-run-faq-open__phone-390-light-en.png) | 3 | Scrolled to seven questions with the original third question, RIR, open and the two test-set questions closed below it. |
 | [One-time landing — close](screens/onboarding-start/first-run-close__phone-390-light-en.png) | 3 | Scrolled to the closing orange band with the Build pill and the Track link; the persistent Build control has stepped aside. |
@@ -198,6 +198,10 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 
 | Screen | Frames | What it shows |
 | --- | --- | --- |
+| [Workout — Past zero](screens/workout/past-zero__phone-390-light-en.png) | 11 | Numeric zero reveals the six partial-rep choices. |
+| [Workout — Partials selected](screens/workout/past-zero-selected__phone-390-light-en.png) | 11 | Three partials on the effort field and the Log set button. |
+| [Workout — Partial tie logged](screens/workout/past-zero-ledger__phone-390-light-en.png) | 11 | The first working set reads 6+3 against the prior 6+2. |
+| [Workout — Why partials count](screens/workout/past-zero-why__phone-390-light-en.png) | 11 | The saved tie in the Focus explanation sheet. |
 | [Workout — focus mode](screens/workout/focus__phone-390-light-en.png) | 8 | One exercise at a time. One prior session leaves the target still learning this lift. |
 | [Workout — first-set guide](screens/workout/first-set-guide__phone-390-light-en.png) | 8 | The first-set guide, opened by the first tap on a shelf field: the guide dialog centred over the dimmed Focus, holding the tap until Got it. |
 | [Workout — workout menu guide](screens/workout/focus-utilities-guide__phone-390-light-en.png) | 8 | The focus-utilities guide: the guide dialog centred over the dimmed Focus. |
@@ -262,6 +266,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 
 | Screen | Frames | What it shows |
 | --- | --- | --- |
+| [Session summary — Set with partials](screens/session/past-zero__phone-390-light-en.png) | 3 | The set list preserves the partial count and the totals use full reps. |
 | [Session summary](screens/session/summary__phone-390-light-en.png) | 8 | The Direction D lifter's Day 1 finish screen (owner decisions, 2026-11-05): the card row opening on the squat record poster, then the stats card; the next finding's need above the three tiles (strength gained, records, kg moved). |
 | [Session summary with a finding](screens/session/summary-finding__phone-390-light-en.png) | 8 | A first test set releases a finding on the finish screen, above three factual tiles. The line opens the profile. |
 | [Profile from session summary](screens/session/summary-profile__phone-390-light-en.png) | 8 | The finish-screen finding opens the profile with Back returning to the same finished session. |
@@ -281,6 +286,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 
 | Screen | Frames | What it shows |
 | --- | --- | --- |
+| [Progress — Set with partials](screens/progress/past-zero__phone-390-light-en.png) | 3 | The reading annotates the reps while the chart keeps its full-rep coordinates. |
 | [Progress — overview](screens/progress/overview__phone-390-light-en.png) | 8 | The Progress landing tab. |
 | [Progress — profile](screens/progress/overview-profile__phone-390-light-en.png) | 8 | Two dated findings, newest first, and what the next needs, followed by active-program standing and counts. |
 | [Progress — profile after two sessions](screens/progress/overview-profile-first__phone-390-light-en.png) | 8 | Two early sessions support one dated finding; the next need says which lifts still start from a guess. |
@@ -323,6 +329,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 
 | Screen | Frames | What it shows |
 | --- | --- | --- |
+| [History — Set with partials](screens/history/past-zero__phone-390-light-en.png) | 3 | The saved squat reads as six full reps plus three partials. |
 | [History](screens/history/list__phone-390-light-en.png) | 8 | The logged session list. |
 | [History — nothing saved yet](screens/history/empty__phone-390-light-en.png) | 3 | No session saved: one grouped note says where sessions come from; search, calendar, Every set and Export are hidden. |
 | [Mini bar on History, rest running](screens/history/minibar-rest__phone-390-light-en.png) | 3 | A rest running while a session is open: the bar is the rest timer, Rest 1:24 with the next set, +30s and Resume, and no separate rest pill. |

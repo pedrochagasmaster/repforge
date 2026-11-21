@@ -317,18 +317,32 @@ async function saveWorkout(page) {
     const id = draft.session.selectedExerciseId;
     const exercise = draft.exercises[id];
     const setId = exercise.setOrder[0];
-    return { id, setId, metrics: exercise.sets[setId].programmed.metrics.map((metric) => metric.id) };
+    return { id, setId, metrics: exercise.sets[setId].programmed.metrics.map((metric) => ({ id: metric.id, reps: metric.semantic === "reps" })) };
   });
   // Every programmed metric gets a real value through the Focus shelf.
-  for (const [index, metricId] of active.metrics.entries()) {
+  for (const { id: metricId, reps } of active.metrics) {
     const input = page.locator(`#workout .exercise.is-current .focus-shelf input[data-metric-id="${metricId}"]`);
     await input.waitFor({ state: "attached", timeout: 5000 });
     if (await input.getAttribute("aria-hidden") === "true") {
       await openShelfField(page, `#workout .exercise.is-current .focus-shelf [data-shelf-field="metric_${metricId}"]`);
     }
-    await input.fill(String(index === 0 ? 60 : 8));
+    await input.fill(String(reps ? 8 : 60));
   }
   await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+  const shelf = page.locator("#workout .exercise.is-current .focus-shelf");
+  await shelf.locator('[data-shelf-field="rir"]').click();
+  if (!await shelf.locator('[data-effchip][data-e="0"]').count()) {
+    await shelf.locator("[data-effmenu]").click();
+    await page.locator('#nativeContextMenu [data-menu-value="c"]').click();
+    await page.locator("#nativeContextMenu").waitFor({ state: "detached" });
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    if (await shelf.locator('[data-shelf-field="rir"]').getAttribute("aria-pressed") !== "true") {
+      await shelf.locator('[data-shelf-field="rir"]').click();
+    }
+  }
+  await shelf.locator('[data-effchip][data-e="0"]').click();
+  await shelf.locator('[data-partial-chip="2"]').click();
+  await shelf.locator('[data-partial-chip="2"][aria-pressed="true"]').waitFor();
   await page.locator(`#workout .exercise.is-current [data-save="${active.id}_1"]`).click();
   await page.waitForFunction(({ id, setId }) =>
     typeof window.__repforgeWorkoutDraft.current()?.exercises?.[id]?.sets?.[setId]?.completion === "object",
@@ -381,6 +395,13 @@ async function createAcknowledgedDraft(page) {
     if (!metricId) return { ok: false, code: "draft-metric-unavailable" };
     const edited = await hook.dispatch("editMetricValue", { exerciseInstanceId: exerciseId, setId, metricId, value: "11" });
     if (edited?.status !== "applied") return { ok: false, code: "draft-metric-edit-refused", edited };
+    const repsId = current.exercises[exerciseId].sets[setId].programmed.metrics.find(metric => metric.semantic === "reps")?.id;
+    if (!repsId) return { ok: false, code: "draft-reps-unavailable" };
+    const target = { exerciseInstanceId: exerciseId, setId };
+    await hook.dispatch("editMetricValue", { ...target, metricId: repsId, value: "8" });
+    await hook.dispatch("setNumericEffort", { ...target, value: "0", partialReps: 0 });
+    const partial = await hook.dispatch("setNumericEffort", { ...target, value: "0", partialReps: 3 });
+    if (partial.status !== "applied") return { ok: false, code: "draft-partials-refused", partial };
     await hook.dispatch("setSessionNotes", { value: "install transfer acknowledged draft" });
     await hook.flush();
     const live = hook.current();
@@ -2374,6 +2395,10 @@ async function main() {
     const envelope = await buildEnvelope(sourceObservation);
     if (!envelope) throw new Error("P3 envelope build was unavailable");
     assertEnvelopeSourceFields(envelope);
+    check(sourceObservation.durableState.log.some(row => row.partialReps === 2 && row.reps === 8),
+      "the source's saved partials remain separate from the full reps",
+      sourceObservation.durableState.log.map(({ exerciseId, set, setIndex, load, reps, rir, effortSource, partialReps, metricIds }) =>
+        ({ exerciseId, set, setIndex, load, reps, rir, effortSource, partialReps, metricIds })));
     check(sameValue(envelope.workoutDraft, sourceObservation.draft.logical), "envelope DraftV2 equals the real production logical clone");
     check(sameValue(envelope.programEntryDraft, sourceObservation.candidate), "envelope candidate equals the production persisted candidate");
 

@@ -234,6 +234,15 @@ async function saveRealWorkout(page) {
     await input.fill(String(index === 0 ? 60 : 8));
     await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
   }
+  const selected = await page.evaluate(async ({ id, setId }) => {
+    const draft = window.__repforgeWorkoutDraft;
+    const target = { exerciseInstanceId: id, setId };
+    await draft.dispatch("setNumericEffort", { ...target, value: "0", partialReps: 0 });
+    const result = await draft.dispatch("setNumericEffort", { ...target, value: "0", partialReps: 2 });
+    renderWorkout();
+    return result.status;
+  }, active);
+  check(selected === "applied", "the saved workout includes an explicitly logged partial count", selected);
   await page.locator(`#workout .exercise.is-current [data-save="${active.id}_1"]`).click();
   await page.waitForFunction(({ id, setId }) =>
     typeof window.__repforgeWorkoutDraft.current()?.exercises?.[id]?.sets?.[setId]?.completion === "object",
@@ -381,6 +390,8 @@ async function main() {
 
     await saveRealWorkout(source);
     const beforeTransition = await readReplicas(source);
+    check(beforeTransition.local?.log?.[0]?.partialReps === 2 && beforeTransition.idb?.log?.[0]?.partialReps === 2,
+      "both replicas keep partials on the source set");
     check(beforeTransition.local?.log?.length === 1 && beforeTransition.idb?.log?.length === 1,
       "A real saved workout supplies the non-empty log identity sentinel", {
         local: beforeTransition.local?.log?.length,

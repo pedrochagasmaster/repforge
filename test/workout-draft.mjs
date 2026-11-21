@@ -1335,4 +1335,44 @@ for(const ramps of [0,1,2,3])for(const workingLogged of [false,true]){
 }
 
 console.log(`\n${results.passed} passed, ${results.failed} failed`);
+{
+  const at = { exerciseInstanceId: "slot-squat", setId: "squat-set-1" };
+  const current = draft => draft.exercises[at.exerciseInstanceId].sets[at.setId];
+  const select = (draft, partialReps) => apply(draft, "setNumericEffort", { ...at, value: "0", partialReps });
+  const freshDraft = fresh();
+  const beforeZero = command(freshDraft, "setNumericEffort", { ...at, value: "0", partialReps: 3 });
+  assert(beforeZero.result.code === "invalid-partial-effort", "positive partials require a separate explicit zero entry");
+  for (const value of ["6", "-1", "9"]) {
+    assert(command(freshDraft, "setNumericEffort", { ...at, value, partialReps: 0 }).result.code === "invalid-partial-effort",
+      `the numeric chips bound reps left to 0–5, so ${value} is refused`);
+  }
+  assert(current(apply(freshDraft, "setNumericEffort", { ...at, value: "5", partialReps: 0 })).edited.rir === "5", "5 reps left is accepted");
+  const zero = select(freshDraft, 0), partial = select(zero, 3);
+  assert(!Object.hasOwn(current(zero), "partialReps"), "zero is omitted");
+  assert(current(Draft.parse(Draft.serialize(partial)).draft).partialReps === 3, "pending partials survive serialization");
+  const stale = command(partial, "setNumericEffort", { ...at, expectedRevision: zero.revision, value: "0", partialReps: 1 });
+  assert(stale.result.code === "stale-revision", "a count chosen on an earlier draft revision cannot replace the current one");
+  for (const count of [-1, 1.5, 6, "2", null]) {
+    const malformed = structuredClone(partial);
+    current(malformed).partialReps = count;
+    assert(Draft.parse(malformed).kind === "invalid", `refuse malformed partial count ${JSON.stringify(count)}`);
+  }
+  const printedZero = structuredClone(partial);
+  current(printedZero).partialReps = 0;
+  assert(!Object.hasOwn(current(Draft.parse(printedZero).draft), "partialReps"), "persisted zero canonicalizes to omission");
+  for (const [type, fields] of [
+    ["setNumericEffort", { value: "2", partialReps: 0 }],
+    ["editSetField", { field: "effort", value: "max" }],
+    ["markWarmup", {}],
+  ]) {
+    assert(!Object.hasOwn(current(apply(partial, type, { ...at, ...fields })), "partialReps"), `${type} clears the partial count`);
+  }
+  const logged = apply(partial, "completeSet", { ...at, completedAt: "2026-08-15T10:05:00.000Z" });
+  assert(current(apply(logged, "setRirMode", { value: "effort" })).partialReps === 3,
+    "switching global effort mode preserves a logged numeric row");
+  const opened = apply(logged, "uncommitSet", { ...at, correct: true });
+  const recalled = Draft.parse(Draft.serialize(select(opened, 4))).draft;
+  const canceled = apply(recalled, "cancelSetCorrection", at);
+  assert(same(current(canceled), current(logged)), "cancel after reload restores the full acknowledged row");
+}
 if (results.failed) process.exitCode = 1;
