@@ -114,9 +114,11 @@
 
   function projectSequence(observation, workLoadKg, loads, barKg) {
     const scale = workLoadKg / observation.workLoadKg;
-    const steps = observation.steps.map(({ loadKg, reps }) => ({
-      loadKg: loadKg * scale, reps, emptyBar: barKg !== null && isEmptyBar(loadKg, observation.barKg),
-    }));
+    // Project the snapped rung, the same value agreement compares.
+    const steps = observation.steps.map(({ reps }, index) => {
+      const { rungKg } = observation.stepGrid[index];
+      return { loadKg: rungKg * scale, reps, emptyBar: barKg !== null && isEmptyBar(rungKg, observation.barKg) };
+    });
     return snapSteps(steps, loads, barKg);
   }
 
@@ -151,27 +153,31 @@
       && (aboveKg === null || (validLoad(aboveKg) && rungKg + aboveKg <= MAX_LOAD_KG + KG_EPSILON));
   }
 
+  // The interval nearestRungIndex snaps to a rung. At the offered grid's ends there is no
+  // neighbour, so only the rung itself is verified.
+  function snapsToRung(loadKg, { rungKg, belowKg, aboveKg }) {
+    return (belowKg === null ? loadKg >= rungKg - KG_EPSILON : loadKg > rungKg - belowKg / 2 + KG_EPSILON / 2)
+      && (aboveKg === null ? loadKg <= rungKg + KG_EPSILON : loadKg <= rungKg + aboveKg / 2 + KG_EPSILON / 2);
+  }
+
   function validLearningSequence({ steps, stepGrid, workLoadKg }) {
     if (!increasingBelowWork(steps, workLoadKg)) return false;
-    return steps.every(({ loadKg }, index) => {
-      const { rungKg, belowKg, aboveKg } = stepGrid[index];
-      // A corrected load outside the recorded rung has no verified spacing there.
-      return (belowKg === null || loadKg > rungKg - belowKg / 2 + KG_EPSILON)
-        && (aboveKg === null || loadKg <= rungKg + aboveKg / 2 + KG_EPSILON)
-        && (index === 0 || rungKg > stepGrid[index - 1].rungKg + KG_EPSILON);
-    });
+    // A corrected load outside its recorded rung has no verified spacing there.
+    return steps.every(({ loadKg }, index) => snapsToRung(loadKg, stepGrid[index])
+      && stepGrid[index].rungKg < workLoadKg - KG_EPSILON
+      && (index === 0 || stepGrid[index].rungKg > stepGrid[index - 1].rungKg + KG_EPSILON));
   }
 
   function stepsAgree(left, right, index) {
-    const step = left.steps[index], other = right.steps[index];
-    if (step.reps !== other.reps) return false;
-    const leftEmpty = isEmptyBar(step.loadKg, left.barKg);
-    const rightEmpty = isEmptyBar(other.loadKg, right.barKg);
+    if (left.steps[index].reps !== right.steps[index].reps) return false;
+    const leftRung = left.stepGrid[index], rightRung = right.stepGrid[index];
+    const leftEmpty = isEmptyBar(leftRung.rungKg, left.barKg);
+    const rightEmpty = isEmptyBar(rightRung.rungKg, right.barKg);
     if (left.barKg !== null && right.barKg !== null && (leftEmpty || rightEmpty)) return leftEmpty && rightEmpty;
-    // Two recorded loads can represent the same fraction if their rounding intervals overlap.
-    const delta = step.loadKg / left.workLoadKg - other.loadKg / right.workLoadKg;
-    const leftGap = delta < 0 ? left.stepGrid[index].aboveKg : left.stepGrid[index].belowKg;
-    const rightGap = delta < 0 ? right.stepGrid[index].belowKg : right.stepGrid[index].aboveKg;
+    // Two snapped rungs can represent the same fraction if their rounding intervals overlap.
+    const delta = leftRung.rungKg / left.workLoadKg - rightRung.rungKg / right.workLoadKg;
+    const leftGap = delta < 0 ? leftRung.aboveKg : leftRung.belowKg;
+    const rightGap = delta < 0 ? rightRung.belowKg : rightRung.aboveKg;
     const tolerance = ((leftGap ?? 0) / left.workLoadKg + (rightGap ?? 0) / right.workLoadKg) / 2;
     const precision = KG_EPSILON / Math.min(left.workLoadKg, right.workLoadKg);
     return Math.abs(delta) <= precision || Math.abs(delta) < tolerance - precision;
@@ -284,10 +290,10 @@
 
   function projectionSource(sessions, barKg) {
     // Prefer the current bar basis, then the higher work target. Break ties by the recorded
-    // loads so exchanging two agreeing sessions' dates cannot change the projection.
+    // rungs so exchanging two agreeing sessions' dates cannot change the projection.
     const compare = (left, right) => Number(left.barKg === barKg) - Number(right.barKg === barKg)
       || left.workLoadKg - right.workLoadKg || (left.barKg ?? 0) - (right.barKg ?? 0)
-      || compareIds(JSON.stringify(left.steps.map(step => step.loadKg)), JSON.stringify(right.steps.map(step => step.loadKg)));
+      || compareIds(JSON.stringify(left.stepGrid.map(rung => rung.rungKg)), JSON.stringify(right.stepGrid.map(rung => rung.rungKg)));
     return sessions.reduce((best, session) => compare(session, best) > 0 ? session : best);
   }
 

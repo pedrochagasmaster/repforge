@@ -338,9 +338,12 @@ test("both sessions snap to the active grid and invalid performed order or a wor
   const metricLadderPreparation = [[12, 5], [18, 2]];
   const lbLadder = dumbbellLoadsKg("lb");
   const lbLadderPreparation = [[lbLadder[4], 5], [lbLadder[7], 2]];
+  const kgLadder = dumbbellLoadsKg("kg");
+  const ladderOf = sequence => sequence === metricLadderPreparation ? kgLadder : lbLadder;
   for (const [previous, current] of [[metricLadderPreparation, lbLadderPreparation], [lbLadderPreparation, metricLadderPreparation]]) {
+    const own = sequence => ({ barKg: null, workLoadKg: 25, availableLoadsKg: ladderOf(sequence) });
     const result = suggest({ equipmentKind: "dumbbell", barKg: null, workLoadKg: 25, availableLoadsKg: lbLadder,
-      observations: [saved(-2, previous, { barKg: null, workLoadKg: 25 }), saved(-1, current, { barKg: null, workLoadKg: 25 })] });
+      observations: [saved(-2, previous, own(previous)), saved(-1, current, own(current))] });
     assert.equal(result.reason, "learned");
     assert.deepEqual(pairs(result), lbLadderPreparation);
   }
@@ -547,10 +550,81 @@ test("invalid entry generations do not suppress a new edit, and a change that ag
   }
   const availableLoadsKg = Array.from({ length: 25 }, (_, i) => (i + 1) * 5);
   const suggestion = suggest({ availableLoadsKg });
-  for (const loadKg of [62.5, 62.6]) {
+  // 62.5 snaps down to the offered 60 rung; 62.6 snaps to 65.
+  for (const [loadKg, onceMore] of [[62.5, false], [62.6, true]]) {
     const compatible = [[20, 8], [loadKg, 5], [85, 2]];
-    assert.equal(preview(compatible, 1, { suggestion, availableLoadsKg }).onceMore, false);
-    assert.equal(finish(compatible, { suggestion, availableLoadsKg }).onceMore, false);
+    assert.equal(preview(compatible, 1, { suggestion, availableLoadsKg }).onceMore, onceMore, `${loadKg} preview`);
+    assert.equal(finish(compatible, { suggestion, availableLoadsKg }).onceMore, onceMore, `${loadKg} finish`);
+  }
+});
+
+test("agreement and projection use the snapped rung, so an off-grid load cannot match the rung below", () => {
+  const five = Array.from({ length: 25 }, (_, i) => (i + 1) * 5);
+  for (const [availableLoadsKg, first, second, rung] of [[five, 60, 62.6, 65], [grid, 60, 62.4, 62.5]]) {
+    const suggestion = suggest({ availableLoadsKg });
+    const sequence = loadKg => [[20, 8], [loadKg, 5], [85, 2]];
+    const history = saved(-2, sequence(first), { availableLoadsKg });
+    assert.equal(finish(sequence(second), { suggestion, availableLoadsKg, observations: [history] }).onceMore, true);
+    const next = saved(-1, sequence(second), { availableLoadsKg });
+    assert.equal(suggest({ availableLoadsKg, observations: [history, next] }).reason, "baseline", `${first} then ${second}`);
+    // Two sessions that really share the rung project that rung, not the raw load.
+    const twice = suggest({ availableLoadsKg, observations: [saved(-4, sequence(second), { availableLoadsKg }), next] });
+    assert.equal(twice.reason, "learned");
+    assert.deepEqual(pairs(twice)[1], [rung, 5]);
+  }
+  // Two off-grid loads on one rung project that rung onto a finer grid today.
+  const coarse = Array.from({ length: 25 }, (_, i) => (i + 1) * 5);
+  const projected = suggest({ observations: [63, 64].map((loadKg, i) =>
+    saved(i - 2, [[20, 8], [loadKg, 5], [85, 2]], { availableLoadsKg: coarse })) });
+  assert.equal(projected.reason, "learned");
+  assert.deepEqual(pairs(projected), [[20, 8], [65, 5], [85, 2]]);
+});
+
+test("a load outside the offered grid cannot teach, and a snap at the midpoint stays valid", () => {
+  const start20 = Array.from({ length: 20 }, (_, i) => 20 + i * 5);
+  const lowSuggestion = suggest({ barKg: null, availableLoadsKg: start20 });
+  assert.equal(finish([[10, 5]], { suggestion: lowSuggestion, availableLoadsKg: start20 }).onceMore, false);
+  assert.equal(preview([[10, 5]], 0, { suggestion: lowSuggestion, availableLoadsKg: start20 }).onceMore, false);
+  const capped = [20, 40, 60];
+  const cappedSuggestion = suggest({ barKg: null, workLoadKg: 100, availableLoadsKg: capped });
+  assert.equal(finish([[80, 5]], { suggestion: cappedSuggestion, availableLoadsKg: capped }).onceMore, false);
+  assert.equal(preview([[80, 5]], 0, { suggestion: cappedSuggestion, availableLoadsKg: capped }).onceMore, false);
+  assert.equal(finish([[60, 5]], { suggestion: cappedSuggestion, availableLoadsKg: capped }).onceMore, false);
+  // 80 kg is above the capped grid's only verified rung, so it cannot stand for 60 kg.
+  assert.deepEqual(pairs(cappedSuggestion), [[60, 5]]);
+  assert.equal(finish([[20, 5], [80, 2]], { suggestion: cappedSuggestion, availableLoadsKg: capped }).onceMore, false);
+  assert.equal(finish([[20, 5], [60, 2]], { suggestion: cappedSuggestion, availableLoadsKg: capped }).onceMore, true);
+  const five = Array.from({ length: 25 }, (_, i) => (i + 1) * 5);
+  const suggestion = suggest({ availableLoadsKg: five });
+  for (const loadKg of [62.5 + 0.75e-6, 62.5 + 1.5e-6]) {
+    assert.equal(finish([[20, 8], [loadKg, 5], [85, 2]], { suggestion, availableLoadsKg: five }).onceMore, true, `${loadKg}`);
+  }
+});
+
+test("a malformed stepGrid of the right length is ignored", () => {
+  const rows = [saved(-2), saved(-1)];
+  assert.equal(suggest({ observations: rows }).reason, "learned");
+  const cases = {
+    "negative below": grid => grid.map(rung => ({ ...rung, belowKg: -2.5 })),
+    "below reaches zero": grid => grid.map(rung => ({ ...rung, belowKg: rung.rungKg })),
+    "above past the load cap": grid => grid.map(rung => ({ ...rung, aboveKg: 2000 })),
+    "null entries": grid => Array(grid.length).fill(null),
+  };
+  for (const [name, patch] of Object.entries(cases)) {
+    const observations = rows.map(row => ({ ...row, stepGrid: patch(row.stepGrid) }));
+    assert.equal(suggest({ observations }).reason, "baseline", name);
+  }
+});
+
+test("a history correction that moves a step off its recorded rung cannot teach", () => {
+  const moved = (index, loadKg) => {
+    const row = saved(-1);
+    row.steps = row.steps.map((step, n) => n === index ? { ...step, loadKg } : step);
+    return row;
+  };
+  assert.equal(suggest({ observations: [saved(-2), moved(1, 51)] }).reason, "learned");
+  for (const [index, loadKg] of [[1, 55], [1, 45], [2, 80], [0, 25]]) {
+    assert.equal(suggest({ observations: [saved(-2), moved(index, loadKg)] }).reason, "baseline", `step ${index} -> ${loadKg}`);
   }
 });
 
