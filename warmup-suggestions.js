@@ -12,6 +12,7 @@
     MATCHING_SEQUENCES: 2,
     LEARNING_OBSERVATIONS: 6,
     LEARNING_WINDOW_MS: 90 * 24 * 60 * 60 * 1000,
+    DEFAULT_AGREEMENT_STEP_KG: 2.5,
     MAX_STEPS: 6,
     ALREADY_WARM_WINDOW_MS: 15 * 60 * 1000,
     ALREADY_WARM_STEPS: 1,
@@ -109,10 +110,12 @@
   function projectSequence(observation, workLoadKg, loads, barKg) {
     const scale = workLoadKg / observation.workLoadKg;
     const steps = observation.steps.map(({ loadKg, reps }) => ({
-      loadKg: loadKg * scale, reps, emptyBar: observation.barKg !== null && sameLoad(loadKg, observation.barKg),
+      loadKg: loadKg * scale, reps, emptyBar: barKg !== null && isEmptyBar(loadKg, observation.barKg),
     }));
     return snapSteps(steps, loads, barKg);
   }
+
+  const isEmptyBar = (loadKg, barKg) => barKg !== null && sameLoad(loadKg, barKg);
 
   function sameSequence(left, right) {
     return left.length === right.length
@@ -130,13 +133,37 @@
     return projected.length === observation.steps.length ? projected : null;
   }
 
-  function agrees(previous, current, grid) {
-    if (previous.steps.length !== current.steps.length) return false;
-    const { workLoadKg, barKg } = current;
-    const loads = lighterLoads(grid, workLoadKg, barKg);
-    const before = normalizeSequence(previous, workLoadKg, loads, barKg);
-    const after = normalizeSequence(current, workLoadKg, loads, barKg);
-    return !!before && !!after && sameSequence(before, after);
+  function recordedStepKg(observation) {
+    if (observation.barKg === null) return observation.loadStepKg;
+    return Math.max(observation.loadStepKg ?? 0, 2 * smallestPlateKg);
+  }
+
+  function validLearningSequence({ steps, workLoadKg, barKg }, stepKg) {
+    if (!increasingBelowWork(steps, workLoadKg)) return false;
+    if (stepKg == null) return true;
+    // Reject two manual entries that represent the same rung on the recorded grid.
+    const rung = loadKg => Math.ceil((loadKg - (barKg ?? 0) - KG_EPSILON) / stepKg - 0.5);
+    return steps.every((step, index) => index === 0 || rung(step.loadKg) > rung(steps[index - 1].loadKg));
+  }
+
+  function agrees(left, right) {
+    if (left.steps.length !== right.steps.length) return false;
+    const leftStepKg = recordedStepKg(left);
+    const rightStepKg = recordedStepKg(right);
+    if (!validLearningSequence(left, leftStepKg) || !validLearningSequence(right, rightStepKg)) return false;
+    // Two recorded loads can represent the same fraction if their rounding intervals overlap.
+    const halfStepFraction = (stepKg, workKg) => (stepKg ?? POLICY.DEFAULT_AGREEMENT_STEP_KG) / (2 * workKg);
+    const tolerance = halfStepFraction(leftStepKg, left.workLoadKg) + halfStepFraction(rightStepKg, right.workLoadKg);
+    const precision = KG_EPSILON / Math.min(left.workLoadKg, right.workLoadKg);
+    return left.steps.every((step, index) => {
+      const other = right.steps[index];
+      if (step.reps !== other.reps) return false;
+      const leftEmpty = isEmptyBar(step.loadKg, left.barKg);
+      const rightEmpty = isEmptyBar(other.loadKg, right.barKg);
+      if (left.barKg !== null && right.barKg !== null && (leftEmpty || rightEmpty)) return leftEmpty && rightEmpty;
+      const distance = Math.abs(step.loadKg / left.workLoadKg - other.loadKg / right.workLoadKg);
+      return distance <= precision || distance < tolerance - precision;
+    });
   }
 
   function sessionEarlierLift({ liftKey, movementId, primaryMuscle, sessionId, now, completedWorkingLifts }) {
@@ -181,8 +208,8 @@
   }
 
   function observationSignature(observation) {
-    const { workingSetId, savedAt, workLoadKg, barKg, earlierLift, decision, steps } = observation;
-    return JSON.stringify([workingSetId, savedAt, workLoadKg, barKg, decision,
+    const { workingSetId, savedAt, workLoadKg, barKg, loadStepKg, earlierLift, decision, steps } = observation;
+    return JSON.stringify([workingSetId, savedAt, workLoadKg, barKg, loadStepKg ?? null, decision,
       earlierLift && [earlierLift.liftKey, earlierLift.completedAt, earlierLift.elapsedMs],
       steps.map(({ setId, loadKg, reps }) => [setId, loadKg, reps])]);
   }
@@ -195,6 +222,7 @@
         || !hasId(observation.workingSetId) || !validLoad(observation.workLoadKg)
         || !Number.isFinite(observation.savedAt) || (Number.isFinite(now) && observation.savedAt > now)
         || !validBar(observation.barKg)
+        || (observation.loadStepKg != null && !validLoad(observation.loadStepKg))
         || (observation.earlierLift != null && !validEarlierLift(observation.earlierLift, observation))
         || !validOutcome(observation)) continue;
       const existing = bySession.get(observation.sessionId);
@@ -219,7 +247,7 @@
     return observation.decision !== "skipped" && (key === null || observation.steps.length === POLICY.ALREADY_WARM_STEPS);
   }
 
-  function establishedSequence(observations, key, grid) {
+  function establishedSequence(observations, key) {
     let preference = null;
     let run = [];
     for (const observation of observations) {
@@ -228,7 +256,7 @@
         continue;
       }
       const previous = run[run.length - 1];
-      run = previous && agrees(previous, observation, grid) ? [...run, observation] : [observation];
+      run = previous && agrees(previous, observation) ? [...run, observation] : [observation];
       if (run.length >= POLICY.MATCHING_SEQUENCES) preference = { observation, sessions: run };
     }
     return preference;
@@ -246,7 +274,11 @@
    * cables), or "dumbbell". A Smith lift uses "barbell" with no known bar. Ambiguous equipment
    * takes the unavailable path. Supply barKg only for a supported metric total-load bar.
    * Pass barKg: null for lb, Smith, and unknown or unsupported bars. That uses the offered grid
-   * as-is and omits both the empty-bar step and plate hints.
+   * as-is and omits both the baseline empty-bar step and plate hints. A learned empty-bar
+   * set projects by its recorded fraction when there is no supported bar today.
+   * Pass loadStepKg when the adapter knows a uniform increment for the offered grid. It is captured with
+   * the observation for agreement across grid changes. Missing increments use the default
+   * comparison tolerance, and known metric bars use at least the smallest plate pair.
    * completedWorkingLifts contains actual working sets only.
    * Times are epoch milliseconds. Each saved observation is resolved against live history by the
    * adapter: its first working row still exists and `steps` holds the ordered actual {setId, loadKg, reps}.
@@ -257,17 +289,19 @@
    */
   function suggestWarmups(input) {
     const {
-      liftKey = null, movementId, primaryMuscle, sessionId, now, workLoadKg = null, availableLoadsKg,
+      liftKey = null, movementId, primaryMuscle, sessionId, now, workLoadKg = null, availableLoadsKg, loadStepKg,
       equipmentKind, barKg = null, loadingConvention, metricSemantics, hasMaterialBodyweight = false,
-      completedWorkingLifts, observations, resetGeneration = null,
+      completedWorkingLifts, observations, resetGeneration: generation,
     } = input ?? {};
     const barbell = equipmentKind === "barbell";
-    const knownBarKg = barbell && validLoad(barKg) ? barKg : null;
     const kind = metricKind(metricSemantics);
+    const knownBarKg = barbell && kind === "external" && loadingConvention === kind && validLoad(barKg) ? barKg : null;
+    const resetGeneration = hasId(generation) ? generation : null;
     const earlierLift = sessionEarlierLift({ liftKey, movementId, primaryMuscle, sessionId, now, completedWorkingLifts });
     const evidence = {
       liftKey, workLoadKg: validLoad(workLoadKg) ? workLoadKg : null, barKg: knownBarKg, resetGeneration,
       earlierLift, sessions: [], skipStreak: 0, unavailableReason: null, lowestLighterLoadKg: null,
+      ...(validLoad(loadStepKg) ? { loadStepKg } : {}),
     };
     const result = (reason, suggestions = [], sessions = []) => ({
       reason, suggestions, manualAllowed: kind !== null,
@@ -299,7 +333,7 @@
     if (earlierLift) preferences.unshift(["already-warm", earlierLift.liftKey]);
     let fallback = null;
     for (const [reason, key] of preferences) {
-      const preference = establishedSequence(learningWindow(decisions, now, key), key, grid);
+      const preference = establishedSequence(learningWindow(decisions, now, key), key);
       if (!preference) continue;
       const suggestions = projectSequence(preference.observation, workLoadKg, loads, knownBarKg);
       if (suggestions.length) return result(reason, suggestions, preference.sessions);
@@ -320,12 +354,13 @@
     const evidence = suggestion?.evidence;
     if (!evidence || !hasId(sessionId) || !Number.isFinite(now)
       || (evidence.unavailableReason && evidence.unavailableReason !== "no-lighter-load")) return null;
-    const { liftKey, workLoadKg, barKg, resetGeneration, earlierLift = null } = evidence;
+    const { liftKey, workLoadKg, barKg, loadStepKg, resetGeneration, earlierLift = null } = evidence;
     if (!hasId(liftKey) || !validLoad(workLoadKg) || !validBar(barKg)
+      || (loadStepKg != null && !validLoad(loadStepKg))
       || (resetGeneration !== null && !hasId(resetGeneration))
       || !validPlanSteps(suggestion.suggestions) || !increasingBelowWork(suggestion.suggestions, workLoadKg)
       || (earlierLift !== null && !validEarlierLift(earlierLift, { liftKey, sessionId, savedAt: now }))) return null;
-    return { liftKey, workLoadKg, resetGeneration, barKg, earlierLift };
+    return { liftKey, workLoadKg, resetGeneration, barKg, earlierLift, ...(loadStepKg != null ? { loadStepKg } : {}) };
   }
 
   function hasSavedOccurrence(observations, liftKey, sessionId) {
@@ -335,7 +370,8 @@
   function firstLearnableEdit(current, suggested, observations, availableLoadsKg, resetGeneration) {
     const { earlierLift, liftKey, workLoadKg, barKg, sessionId, savedAt, steps } = current;
     const key = contextKey(earlierLift);
-    if (resetGeneration !== current.resetGeneration || !sequenceInContext(current, key)) return null;
+    if (resetGeneration !== current.resetGeneration || !sequenceInContext(current, key)
+      || !validLearningSequence(current, recordedStepKg(current))) return null;
     const grid = loadGrid(availableLoadsKg);
     const loads = lighterLoads(grid, workLoadKg, barKg);
     const normalized = normalizeSequence(current, workLoadKg, loads, barKg);
@@ -344,7 +380,7 @@
 
     const history = savedDecisions(observations, liftKey, resetGeneration, savedAt, sessionId);
     const latest = learningWindow([...history, current], savedAt, key).at(-2);
-    if (latest && sequenceInContext(latest, key) && agrees(latest, current, grid)) return null;
+    if (latest && sequenceInContext(latest, key) && agrees(latest, current)) return null;
     if (steps.length !== original.length) return { changedIndices: null };
     const changedIndices = normalized.flatMap((step, index) => (
       step.reps !== original[index].reps || !sameLoad(step.loadKg, original[index].loadKg) ? [index] : []

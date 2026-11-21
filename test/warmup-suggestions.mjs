@@ -325,7 +325,7 @@ test("both sessions snap to the active grid and invalid performed order or a wor
   }
   const changedStep = suggest({
     availableLoadsKg: [20, 55, 60, 65, 85, 105],
-    observations: [oneOffGrid, saved(-1, [[62.5, 5]])],
+    observations: [{ ...oneOffGrid, loadStepKg: 2.5 }, saved(-1, [[62.5, 5]], { loadStepKg: 5 })],
   });
   assert.equal(changedStep.reason, "learned");
   assert.deepEqual(pairs(changedStep), [[60, 5]]);
@@ -402,6 +402,73 @@ test("an established preference that cannot scale uses the baseline with its own
   assert.equal(result.reason, "baseline-fallback");
   assert.deepEqual(pairs(result), [[20, 5], [30, 2]]);
   assert.deepEqual(result.evidence.sessions, [first, second].map(({ sessionId, savedAt }) => ({ sessionId, savedAt })));
+});
+
+test("metric barbell history agrees on a pounds grid, including mixed history in either chronological order", () => {
+  const kg = lb => lb * 0.45359237;
+  const today = { workLoadKg: kg(225), barKg: null, availableLoadsKg: [40, 45, 110, 150, 195, 225].map(kg) };
+  const metric = learned;
+  const pounds = [[45, 10], [110, 5], [150, 3], [195, 1]].map(([lb, reps]) => [kg(lb), reps]);
+  const metricBasis = { workLoadKg: 105, barKg: 20 };
+  const poundsBasis = { workLoadKg: kg(225), barKg: null, loadStepKg: kg(5) };
+  for (const observations of [
+    [saved(-2, metric, metricBasis), saved(-1, metric, metricBasis)],
+    [saved(-2, metric, metricBasis), saved(-1, pounds, poundsBasis)],
+    [saved(-2, pounds, poundsBasis), saved(-1, metric, metricBasis)],
+  ]) {
+    const result = suggest({ ...today, observations });
+    assert.equal(result.reason, "learned");
+    assert.deepEqual(pairs(result), pounds);
+    assert.ok(result.suggestions.every(step => step.platesPerSideKg === null));
+  }
+  const metricOnly = [saved(-2, metric, metricBasis), saved(-1, metric, metricBasis)];
+  const coarsePoundsGrid = suggest({ ...today, availableLoadsKg: today.availableLoadsKg.slice(1), observations: metricOnly });
+  assert.equal(coarsePoundsGrid.reason, "learned");
+  assert.deepEqual(pairs(coarsePoundsGrid), pounds.slice(1));
+});
+
+test("a smaller current grid projects a preference without changing whether old sequences agree", () => {
+  const preparation = [[50, 5], [70, 2]];
+  const historical = { workLoadKg: 100, barKg: null };
+  const result = suggest({ equipmentKind: "machine", barKg: null, workLoadKg: 40,
+    availableLoadsKg: [20, 30, 35, 40], observations: [saved(-2, preparation, historical), saved(-1, preparation, historical)] });
+  assert.equal(result.reason, "learned");
+  assert.deepEqual(pairs(result), [[20, 5], [30, 2]]);
+
+  const tiny = [[1, 5], [2, 2]];
+  const oldDumbbell = { workLoadKg: 4, barKg: null, loadStepKg: 1 };
+  const fallback = suggest({ equipmentKind: "dumbbell", barKg: null, workLoadKg: 4, availableLoadsKg: dumbbellLoadsKg("lb"),
+    observations: [saved(-2, tiny, oldDumbbell), saved(-1, tiny, oldDumbbell)] });
+  assert.equal(fallback.reason, "baseline-fallback");
+  assert.deepEqual(pairs(fallback), [[dumbbellLoadsKg("lb")[0], 5]]);
+});
+
+test("agreement uses the recorded steps and distinguishes adjacent rungs", () => {
+  const one = saved(-2, [[60, 5]], { loadStepKg: 2.5 });
+  const adjacent = saved(-1, [[62.5, 5]], { loadStepKg: 2.5 });
+  assert.equal(suggest({ observations: [one, adjacent] }).reason, "baseline");
+  const pounds = dumbbellLoadsKg("lb");
+  const poundsBasis = { workLoadKg: 25, barKg: null, loadStepKg: 5 * 0.45359237 };
+  assert.equal(suggest({ equipmentKind: "dumbbell", ...poundsBasis, availableLoadsKg: pounds,
+    observations: [saved(-2, [[pounds[2], 5]], poundsBasis), saved(-1, [[pounds[3], 5]], poundsBasis)] }).reason, "baseline");
+  const suggestion = suggest({ loadStepKg: 5 });
+  assert.equal(suggestion.evidence.loadStepKg, 5);
+  assert.equal(finish(baseline, { suggestion }).observation.loadStepKg, 5);
+  assert.equal(finish([[20, 8], [60, 5], [62.5, 2]], { suggestion }).onceMore, false);
+});
+
+test("plate arithmetic only applies to total external loading and malformed generations normalize at entry", () => {
+  const perSide = suggest({ loadingConvention: "per_side", metricSemantics: ["repsPerSide", "loadPerSideKg"],
+    availableLoadsKg: [17, 39, 55, 60, 70, 85, 105] });
+  assert.equal(perSide.evidence.barKg, null);
+  assert.deepEqual(pairs(perSide), [[60, 5], [85, 2]]);
+  assert.ok(perSide.suggestions.every(step => step.platesPerSideKg === null));
+
+  for (const resetGeneration of [NaN, 0, {}, ""]) {
+    const suggestion = suggest({ resetGeneration });
+    assert.equal(suggestion.evidence.resetGeneration, null);
+    assert.equal(finish(baseline, { suggestion }).observation.resetGeneration, null);
+  }
 });
 
 test("Add one can take the baseline five-rep step or the lowest reachable lighter load", () => {
