@@ -49,6 +49,11 @@
   function isDumbbell({ exercise = null, lookup = () => null, equipmentName = null } = {}) {
     return parameters({ exercise, lookup, equipmentName, convention: "external" }).equipmentIndex === 2;
   }
+  /** The equipment class a movement is loaded with: 0 free barbell, 1 Smith or fixed bar, 2 dumbbell, 3 machine or cable, or
+   * null when its equipment is ambiguous. Suggested warm-ups (Plan 085) read it; no other caller needs the number. */
+  function equipmentIndex({ exercise = null, lookup = () => null, equipmentName = null } = {}) {
+    return parameters({ exercise, lookup, equipmentName, convention: "external" }).equipmentIndex;
+  }
   function parameters({ exercise = null, lookup = () => null, equipmentName = null, experience = "beginner", convention, grid = [] } = {}) {
     const options = (exercise?.resistanceEquipmentGroupIds || []).map(id => lookup(id)).filter(Boolean);
     const equipment = equipmentName ? [options.find(entry => entry.name === equipmentName) || equipmentName] : options;
@@ -110,7 +115,7 @@
     return { loadKg: roundedLoad(anchorLoadKg, next.loads.filter(load => load <= anchorLoadKg)), basis: "ratio" };
   }
   const api = Object.freeze({ PRIORS_VERSION, PRIORS, openingLoad, nextRampLoad, ratioLoad,
-    DUMBBELL_LADDER_KG, DUMBBELL_MAX_KG, dumbbellLoadsKg, isDumbbell });
+    DUMBBELL_LADDER_KG, DUMBBELL_MAX_KG, dumbbellLoadsKg, isDumbbell, equipmentIndex });
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   if (root) root.RepForgeStartingLoads = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

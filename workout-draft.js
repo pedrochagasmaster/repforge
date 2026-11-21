@@ -2921,6 +2921,7 @@
     hasExplicitZero,
     validHistoryPartials,
     validSuggestedWarmupRow,
+    preludeIsPristine,
     validCalibration,
     validStartingLoad,
     create,
