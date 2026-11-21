@@ -749,6 +749,24 @@ async function focusMode(page) {
   await enterWorkout(page, first ? { day: first } : {});
 }
 
+/** The Focus card scrolls its open set into view after a shelf change. At large text that can leave the card itself
+ *  (which does not scroll by design; its context does) a sub-pixel 0 or 1 px down, so the same state lands 2 px
+ *  apart between runs. Return the card to 0 and wait until the context scroll stops. */
+async function focusScrollSettled(page) {
+  await page.evaluate(() => {
+    const card = document.querySelector("#workout .exercise.is-current:not(.is-peek)");
+    if (card) card.scrollTop = 0;
+  });
+  await page.waitForFunction(() => {
+    const box = document.querySelector("#workout .exercise.is-current:not(.is-peek) .fcard__context");
+    const top = box ? box.scrollTop : -1, now = performance.now();
+    const memo = window.__catalogFocusScroll;
+    if (!memo || memo.top !== top) { window.__catalogFocusScroll = { top, since: now }; return false; }
+    return now - memo.since >= 250;
+  }, undefined, { polling: "raf", timeout: 10000 });
+  await page.evaluate(() => { delete window.__catalogFocusScroll; });
+}
+
 async function pastZeroFocus(page, state) {
   await focusMode(page);
   await fillAdaptiveShelf(page, ADAPTIVE_WEIGHT_METRIC_ID, 105);
@@ -758,10 +776,10 @@ async function pastZeroFocus(page, state) {
   await active.locator('[data-effchip][data-e="0"]').click();
   const chips = active.locator("[data-partial-chip]");
   await chips.first().waitFor();
-  if (state === "zero") return;
+  if (state === "zero") return focusScrollSettled(page);
   await active.locator('[data-partial-chip="3"]').click();
   await active.locator('[data-partial-chip="3"][aria-pressed="true"]').waitFor();
-  if (state === "selected") return;
+  if (state === "selected") return focusScrollSettled(page);
   await active.locator(".saveset").click();
   const logged = active.locator('[data-editn="1"] .partial-reps').first();
   await logged.waitFor({ state: "attached", timeout: 7500 });
