@@ -56,10 +56,15 @@ function saved(index, sequence = learned, overrides = {}) {
   const sessionId = `session-${index}`;
   const savedAt = NOW + index * DAY;
   const steps = sequence.map(([loadKg, reps], step) => ({ setId: `${sessionId}-warmup-${step}`, loadKg, reps }));
+  const { availableLoadsKg = grid, ...fields } = overrides;
+  const { workLoadKg = 105, barKg = 20 } = fields;
+  const suggestion = suggest({ workLoadKg, barKg, availableLoadsKg });
+  const { observation } = classifyWarmupFinish({ suggestion, steps, skipped: fields.decision === "skipped",
+    availableLoadsKg, sessionId, workingSetId: `${sessionId}-work`, savedAt });
   return {
     version: 1, liftKey, sessionId, workingSetId: `${sessionId}-work`, savedAt, workLoadKg: 105,
     resetGeneration: null, barKg: 20, earlierLift: null, decision: "edited",
-    warmupSetIds: steps.map(step => step.setId), ...overrides, steps,
+    warmupSetIds: steps.map(step => step.setId), ...observation, ...fields, steps,
   };
 }
 
@@ -276,6 +281,7 @@ test("finish captures actual row IDs, context and generation only after complete
   assert.deepEqual(observation, {
     version: 1, liftKey, workLoadKg: 105, resetGeneration: "new", barKg: 20, earlierLift,
     sessionId: "today", workingSetId: "first-work", savedAt: NOW, decision: "edited", warmupSetIds: ["actual-0"],
+    stepGrid: [{ rungKg: 70, belowKg: 2.5, aboveKg: 2.5 }],
   });
   assert.equal(onceMore, true);
   assert.equal(finish(baseline).observation.decision, "completed");
@@ -325,7 +331,7 @@ test("both sessions snap to the active grid and invalid performed order or a wor
   }
   const changedStep = suggest({
     availableLoadsKg: [20, 55, 60, 65, 85, 105],
-    observations: [{ ...oneOffGrid, loadStepKg: 2.5 }, saved(-1, [[62.5, 5]], { loadStepKg: 5 })],
+    observations: [oneOffGrid, saved(-1, [[62.5, 5]], { availableLoadsKg: [20, 55, 60, 65, 85, 105] })],
   });
   assert.equal(changedStep.reason, "learned");
   assert.deepEqual(pairs(changedStep), [[60, 5]]);
@@ -375,7 +381,8 @@ test("malformed input fails closed and nullable list inputs are accepted", () =>
   assert.equal(suggest({ completedWorkingLifts: 42, observations: {}, availableLoadsKg: null }).reason, "none-with-reason");
   assert.equal(classifyWarmupFinish().observation, null);
   assert.equal(classifyWarmupFinish(null).observation, null);
-  assert.equal(finish(warm, { observations: null, availableLoadsKg: null }).observation.decision, "edited");
+  assert.equal(finish(warm, { observations: null }).observation.decision, "edited");
+  assert.equal(finish(warm, { availableLoadsKg: null }).observation, null);
   for (const steps of [null, {}]) assert.equal(finish(warm, { steps }).observation, null);
   for (const patch of [{ liftKey: 7 }, { workLoadKg: NaN }, { barKg: NaN }, { barKg: undefined }, { earlierLift: "leg press" }]) {
     const original = suggest();
@@ -406,11 +413,13 @@ test("an established preference that cannot scale uses the baseline with its own
 
 test("metric barbell history agrees on a pounds grid, including mixed history in either chronological order", () => {
   const kg = lb => lb * 0.45359237;
-  const today = { workLoadKg: kg(225), barKg: null, availableLoadsKg: [40, 45, 110, 150, 195, 225].map(kg) };
+  const today = { workLoadKg: kg(225), barKg: null, availableLoadsKg: Array.from({ length: 37 }, (_, i) => kg(45 + 5 * i)) };
   const metric = learned;
   const pounds = [[45, 10], [110, 5], [150, 3], [195, 1]].map(([lb, reps]) => [kg(lb), reps]);
+  // The metric session scales to 225 lb (102 kg); its empty bar falls below the lightest pounds rung.
+  const scaled = [[105, 5], [150, 3], [195, 1]].map(([lb, reps]) => [kg(lb), reps]);
   const metricBasis = { workLoadKg: 105, barKg: 20 };
-  const poundsBasis = { workLoadKg: kg(225), barKg: null, loadStepKg: kg(5) };
+  const poundsBasis = today;
   for (const observations of [
     [saved(-2, metric, metricBasis), saved(-1, metric, metricBasis)],
     [saved(-2, metric, metricBasis), saved(-1, pounds, poundsBasis)],
@@ -418,13 +427,14 @@ test("metric barbell history agrees on a pounds grid, including mixed history in
   ]) {
     const result = suggest({ ...today, observations });
     assert.equal(result.reason, "learned");
-    assert.deepEqual(pairs(result), pounds);
+    // The pounds session has today's bar basis, so it projects regardless of chronological order.
+    assert.deepEqual(pairs(result), observations.some(observation => observation.barKg === null) ? pounds : scaled);
     assert.ok(result.suggestions.every(step => step.platesPerSideKg === null));
   }
   const metricOnly = [saved(-2, metric, metricBasis), saved(-1, metric, metricBasis)];
   const coarsePoundsGrid = suggest({ ...today, availableLoadsKg: today.availableLoadsKg.slice(1), observations: metricOnly });
   assert.equal(coarsePoundsGrid.reason, "learned");
-  assert.deepEqual(pairs(coarsePoundsGrid), pounds.slice(1));
+  assert.deepEqual(pairs(coarsePoundsGrid), scaled);
 });
 
 test("a smaller current grid projects a preference without changing whether old sequences agree", () => {
@@ -436,7 +446,7 @@ test("a smaller current grid projects a preference without changing whether old 
   assert.deepEqual(pairs(result), [[20, 5], [30, 2]]);
 
   const tiny = [[1, 5], [2, 2]];
-  const oldDumbbell = { workLoadKg: 4, barKg: null, loadStepKg: 1 };
+  const oldDumbbell = { workLoadKg: 4, barKg: null, availableLoadsKg: dumbbellLoadsKg("kg") };
   const fallback = suggest({ equipmentKind: "dumbbell", barKg: null, workLoadKg: 4, availableLoadsKg: dumbbellLoadsKg("lb"),
     observations: [saved(-2, tiny, oldDumbbell), saved(-1, tiny, oldDumbbell)] });
   assert.equal(fallback.reason, "baseline-fallback");
@@ -444,17 +454,13 @@ test("a smaller current grid projects a preference without changing whether old 
 });
 
 test("agreement uses the recorded steps and distinguishes adjacent rungs", () => {
-  const one = saved(-2, [[60, 5]], { loadStepKg: 2.5 });
-  const adjacent = saved(-1, [[62.5, 5]], { loadStepKg: 2.5 });
+  const one = saved(-2, [[60, 5]]);
+  const adjacent = saved(-1, [[62.5, 5]]);
   assert.equal(suggest({ observations: [one, adjacent] }).reason, "baseline");
   const pounds = dumbbellLoadsKg("lb");
-  const poundsBasis = { workLoadKg: 25, barKg: null, loadStepKg: 5 * 0.45359237 };
+  const poundsBasis = { workLoadKg: 25, barKg: null, availableLoadsKg: pounds };
   assert.equal(suggest({ equipmentKind: "dumbbell", ...poundsBasis, availableLoadsKg: pounds,
     observations: [saved(-2, [[pounds[2], 5]], poundsBasis), saved(-1, [[pounds[3], 5]], poundsBasis)] }).reason, "baseline");
-  const suggestion = suggest({ loadStepKg: 5 });
-  assert.equal(suggestion.evidence.loadStepKg, 5);
-  assert.equal(finish(baseline, { suggestion }).observation.loadStepKg, 5);
-  assert.equal(finish([[20, 8], [60, 5], [62.5, 2]], { suggestion }).onceMore, false);
 });
 
 test("plate arithmetic only applies to total external loading and malformed generations normalize at entry", () => {
@@ -503,4 +509,55 @@ test("mid-workout preview reports an edited step or sequence with no working set
   assert.deepEqual(previewWarmupEdit(null), noNotice);
   assert.equal(finish([[20, 8], [64, 5], [85, 2]]).onceMore, true);
   assert.equal(finish(edited, { observations: [saved(-1, [[20, 8], [64, 5], [85, 2]])] }).onceMore, false);
+});
+
+test("no adjacent rung agrees on either dumbbell ladder, including the 1 to 2 kg split", () => {
+  for (const unit of ["kg", "lb"]) {
+    const availableLoadsKg = dumbbellLoadsKg(unit);
+    const historical = { barKg: null, availableLoadsKg };
+    for (let index = 1; index < availableLoadsKg.length - 1; index++) {
+      const low = availableLoadsKg[index - 1], high = availableLoadsKg[index];
+      const workLoadKg = availableLoadsKg[index + 1];
+      const observations = [saved(-2, [[low, 5]], { ...historical, workLoadKg }),
+        saved(-1, [[high, 5]], { ...historical, workLoadKg })];
+      assert.equal(suggest({ ...historical, workLoadKg, equipmentKind: "dumbbell", observations }).reason,
+        "baseline", `${unit}: ${low} and ${high} kg are distinct`);
+    }
+  }
+  const rack = dumbbellLoadsKg("kg");
+  const suggestion = suggest({ equipmentKind: "dumbbell", barKg: null, workLoadKg: 20, availableLoadsKg: rack });
+  assert.deepEqual(finish([[10, 5]], { suggestion, availableLoadsKg: rack }).observation.stepGrid,
+    [{ rungKg: 10, belowKg: 1, aboveKg: 2 }]);
+});
+
+test("same-rung sequences cannot teach and observations without captured spacing are ignored", () => {
+  const first = saved(-2, [[59, 5], [61, 3]], { barKg: null });
+  const second = saved(-1, [[59, 5], [61, 3]], { barKg: null });
+  assert.equal(suggest({ barKg: null, observations: [first, second] }).reason, "baseline");
+  const withoutSpacing = [saved(-2), saved(-1)].map(({ stepGrid, ...old }) => old);
+  assert.equal(suggest({ observations: withoutSpacing }).reason, "baseline");
+  assert.equal(suggest({ observations: [saved(-2), { ...saved(-1), stepGrid: [null] }] }).reason, "baseline");
+});
+
+test("invalid entry generations do not suppress a new edit, and a change that agrees with the offer stays quiet", () => {
+  const edited = [[20, 8], [65, 5], [85, 2]];
+  for (const resetGeneration of ["", NaN, 0, {}]) {
+    assert.equal(preview(edited, 1, { resetGeneration }).onceMore, true);
+    assert.equal(finish(edited, { resetGeneration }).onceMore, true);
+  }
+  const availableLoadsKg = Array.from({ length: 25 }, (_, i) => (i + 1) * 5);
+  const suggestion = suggest({ availableLoadsKg });
+  for (const loadKg of [62.5, 62.6]) {
+    const compatible = [[20, 8], [loadKg, 5], [85, 2]];
+    assert.equal(preview(compatible, 1, { suggestion, availableLoadsKg }).onceMore, false);
+    assert.equal(finish(compatible, { suggestion, availableLoadsKg }).onceMore, false);
+  }
+});
+
+test("a learning streak cites only the sessions that agree with its latest member", () => {
+  const observations = [50, 52.5, 55, 57.5].map((loadKg, index) =>
+    saved(index - 4, [[loadKg, 5]], { workLoadKg: 100 + 2.5 * index }));
+  const result = suggest({ observations });
+  assert.equal(result.reason, "learned");
+  assert.deepEqual(result.evidence.sessions.map(session => session.sessionId), observations.slice(1).map(row => row.sessionId));
 });
