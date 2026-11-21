@@ -1779,6 +1779,13 @@
       "variants": "pastZero"
     },
     {
+      "id": "prelude-warm",
+      "flow": "workout",
+      "label": "Workout — Already warm",
+      "scenario": "A leg press set ten minutes ago, so the squat gets one feeler set.",
+      "variants": "pastZero"
+    },
+    {
       "id": "prelude-why",
       "flow": "workout",
       "label": "Workout — Why this warm-up",

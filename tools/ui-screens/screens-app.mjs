@@ -16,7 +16,7 @@ import { catalogState, directionDState, emptyEntryState, localeState, pastZeroSt
 import { CAPTURE_NOW, dismissChrome, LOG_DRAFT, replayGuide, seed, sleep } from "./session.mjs";
 import { definitionSlot, installGeneratedProgram, isWeightRepsSlot, metricLogRow } from "../../test/fixtures/history-metric-rows.mjs";
 import { finishEarly } from "../../test/fixtures/focus-workout.mjs";
-import { savedWarmupSession } from "../../test/fixtures/prelude-sessions.mjs";
+import { savedAfterLeadSessions, savedWarmupSession } from "../../test/fixtures/prelude-sessions.mjs";
 import { openShelfField } from "../../test/browser.mjs";
 import { DIRECTION_D_CANONICAL_ID_BY_LEGACY_ID } from "./direction-d-canonical-fixture.generated.mjs";
 
@@ -797,10 +797,34 @@ async function preludeFocus(page, state) {
     learned: [[[20, 10], [50, 5], [70, 3], [90, 1]], [[20, 10], [50, 5], [70, 3], [90, 1]]],
     suppressed: [null, null, null],
   }[state];
+  const otherId = await page.evaluate(() => window.__repforgeWorkoutDraft.current().exerciseOrder[1]);
   for (const [index, steps] of (history || []).entries()) {
     await savedWarmupSession(page, { exId, id: `prelude-${state}-${index}`, daysAgo: 6 - index, steps: steps || [], skip: !steps });
   }
-  if (history) await page.evaluate(() => renderWorkout());
+  if (state === "warm") {
+    for (const index of [0, 1]) await savedAfterLeadSessions(page, { exId, otherId, replacementName: "45° leg press", id: `prelude-warm-${index}`, daysAgo: 6 - index, feeler: [70, 3] });
+  }
+  if (history || state === "warm") {
+    // A fresh workout, so today's suggestions come from the history just saved (the first set and the hero agree).
+    const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("repforge_v1")));
+    await seed(page, saved);
+    await focusMode(page, { warmups: true });
+  }
+  if (state === "warm") {
+    // The lead lift is done first today: a leg press set, ten minutes before the squat.
+    await page.evaluate(async ({ otherId, exId }) => {
+      const api = window.__repforgeWorkoutDraft, replacement = window.RepForgeExerciseCatalog.snapshot().exercises.find((entry) => entry.name === "45° leg press");
+      const squat = api.current().exercises[exId];
+      await api.dispatch("substituteExercise", { exerciseInstanceId: otherId, selectedAt: new Date().toISOString(),
+        replacement: { exerciseInstanceId: otherId, sourceExerciseId: api.current().exercises[otherId].sourceExerciseId, displayName: replacement.name, libraryId: replacement.id, primary: squat.programmed.primary, secondary: "" } });
+      const setId = api.current().exercises[otherId].setOrder[0], at = { exerciseInstanceId: otherId, setId };
+      for (const metric of api.current().exercises[otherId].sets[setId].programmed.metrics) await api.dispatch("editMetricValue", { ...at, metricId: metric.id, value: metric.semantic === "reps" ? "10" : "120" });
+      await api.dispatch("editSetField", { ...at, field: "rir", value: "1" });
+      await api.dispatch("completeSet", { ...at, completedAt: new Date(Date.now() - 10 * 60000).toISOString() });
+      await api.flush();
+      renderWorkout();
+    }, { otherId, exId });
+  }
   const cue = active.locator(".fx-cue--warm");
   if (state === "suppressed") {
     await active.locator(".fx-prelude-none").waitFor();
@@ -2520,6 +2544,7 @@ export const APP_SCENARIOS = {
   "workout/prelude-summary": page => preludeFocus(page, "summary"),
   "workout/prelude-learned": page => preludeFocus(page, "learned"),
   "workout/prelude-suppressed": page => preludeFocus(page, "suppressed"),
+  "workout/prelude-warm": page => preludeFocus(page, "warm"),
   "workout/prelude-why": page => preludeFocus(page, "why"),
   "workout/prelude-tie": page => preludeFocus(page, "tie"),
   "workout/past-zero": page => pastZeroFocus(page, "zero"),

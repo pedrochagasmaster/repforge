@@ -33,6 +33,11 @@
       "content": "flat",
       "scenario": "No warm-ups suggested after three skips, with Why? and Add one."
     },
+    "workout/prelude-warm": {
+      "owner": "plan-085",
+      "content": "flat",
+      "scenario": "A leg press set ten minutes ago, so the squat gets one feeler set."
+    },
     "workout/prelude-why": {
       "owner": "plan-085",
       "content": "flat",

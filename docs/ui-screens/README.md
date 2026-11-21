@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 303 screens,
-1900 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 304 screens,
+1911 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -203,6 +203,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Workout — Warm-ups logged](screens/workout/prelude-summary__phone-390-light-en.png) | 11 | One quiet W row above the work, and set 1 is next. |
 | [Workout — Learned warm-up](screens/workout/prelude-learned__phone-390-light-en.png) | 11 | The lifter's own warm-up from recent sessions, scaled to today's load. |
 | [Workout — Warm-ups paused](screens/workout/prelude-suppressed__phone-390-light-en.png) | 11 | No warm-ups suggested after three skips, with Why? and Add one. |
+| [Workout — Already warm](screens/workout/prelude-warm__phone-390-light-en.png) | 11 | A leg press set ten minutes ago, so the squat gets one feeler set. |
 | [Workout — Why this warm-up](screens/workout/prelude-why__phone-390-light-en.png) | 11 | The explanation sheet with where the sequence comes from and the reset. |
 | [Workout — Prelude then Past zero tie](screens/workout/prelude-tie__phone-390-light-en.png) | 11 | The W row above a 6+3 tie logged against the prior 6+2. |
 | [Workout — Past zero](screens/workout/past-zero__phone-390-light-en.png) | 11 | Numeric zero reveals the six partial-rep choices. |
