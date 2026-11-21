@@ -7676,6 +7676,7 @@
         "workout/past-zero-ledger",
         "workout/past-zero-why",
         "workout/prelude",
+        "workout/prelude-warm",
         "workout/prelude-rest",
         "workout/prelude-summary",
         "workout/prelude-tie"
@@ -7853,6 +7854,7 @@
         "workout/past-zero-why",
         "history/past-zero",
         "workout/prelude",
+        "workout/prelude-warm",
         "workout/prelude-rest",
         "workout/prelude-summary",
         "workout/prelude-tie"
@@ -8216,6 +8218,7 @@
         "workout/past-zero-ledger",
         "workout/past-zero-why",
         "workout/prelude",
+        "workout/prelude-warm",
         "workout/prelude-rest",
         "workout/prelude-summary",
         "workout/prelude-tie"
@@ -9057,6 +9060,7 @@
         "workout/past-zero-ledger",
         "workout/past-zero-why",
         "workout/prelude",
+        "workout/prelude-warm",
         "workout/prelude-learned",
         "workout/prelude-rest",
         "workout/prelude-summary",
@@ -9200,6 +9204,7 @@
         "workout/past-zero-ledger",
         "workout/past-zero-why",
         "workout/prelude",
+        "workout/prelude-warm",
         "workout/prelude-learned",
         "workout/prelude-rest",
         "workout/prelude-summary",
@@ -10020,6 +10025,7 @@
         "workout/past-zero-why",
         "history/past-zero",
         "workout/prelude",
+        "workout/prelude-warm",
         "workout/prelude-rest",
         "workout/prelude-summary",
         "workout/prelude-tie"
@@ -10189,6 +10195,7 @@
         "workout/past-zero-ledger",
         "workout/past-zero-why",
         "workout/prelude",
+        "workout/prelude-warm",
         "workout/prelude-rest",
         "workout/prelude-summary",
         "workout/prelude-tie"
@@ -10254,6 +10261,7 @@
         "workout/past-zero-ledger",
         "workout/past-zero-why",
         "workout/prelude",
+        "workout/prelude-warm",
         "workout/prelude-learned",
         "workout/prelude-rest",
         "workout/prelude-summary",
@@ -10568,6 +10576,7 @@
         "workout/past-zero-ledger",
         "workout/past-zero-why",
         "workout/prelude",
+        "workout/prelude-warm",
         "workout/prelude-learned",
         "workout/prelude-rest",
         "workout/prelude-summary",
@@ -13835,6 +13844,7 @@
         "workout/past-zero-ledger",
         "workout/past-zero-why",
         "workout/prelude",
+        "workout/prelude-warm",
         "workout/prelude-rest",
         "workout/prelude-summary",
         "workout/prelude-tie"
