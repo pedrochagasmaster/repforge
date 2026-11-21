@@ -1375,4 +1375,127 @@ console.log(`\n${results.passed} passed, ${results.failed} failed`);
   const canceled = apply(recalled, "cancelSetCorrection", at);
   assert(same(current(canceled), current(logged)), "cancel after reload restores the full acknowledged row");
 }
+{
+  // Plan 085 slice 3: Prelude. Suggested warm-ups live beside the exercise's sets, never in them.
+  const slot = "prelude-slot", source = "1a25c6f170d8803d8231d083fdd65458";
+  const LOAD = "2555c6f170d8805cafa6d16d3fdddbaa", REPS = "2555c6f170d88072bbf6d9ad3f16ea86";
+  const prelude = draft => draft.exercises[slot].warmupPrelude;
+  const exerciseOf = draft => draft.exercises[slot];
+  const plan = (suggestions = [[20, 8], [60, 5], [85, 2]]) => ({
+    reason: "baseline", manualAllowed: true, equipmentKind: "barbell", workLoadKg: 105, capturedAt: "2026-08-15T10:00:00.000Z",
+    suggestions: suggestions.map(([loadKg, reps]) => ({ loadKg, reps, platesPerSideKg: null })),
+    evidence: { liftKey: "lift-squat", workLoadKg: 105, barKg: 20, resetGeneration: null, earlierLift: null, sessions: [],
+      skipStreak: 0, unavailableReason: null, lowestLighterLoadKg: 2.5 },
+  });
+  const init = (draft, suggestions, extra = {}) => apply(draft, "initWarmupPrelude", {
+    exerciseInstanceId: slot, plan: plan(suggestions),
+    steps: (suggestions || [[20, 8], [60, 5], [85, 2]]).map(([loadKg, reps], index) => ({ stepId: `w${index + 1}`, loadKg, reps })), ...extra });
+  const base = () => Draft.create(metricProgramContext(source, slot), { ...sessionSelection(), draftId: "prelude-draft", selectedExerciseId: slot }, {});
+  const at = (stepId, extra = {}) => ({ exerciseInstanceId: slot, stepId, ...extra });
+  const done = (draft, stepId, minute = 1) => apply(draft, "completeWarmupStep", at(stepId, { completedAt: `2026-08-15T10:0${minute}:00.000Z` }));
+
+  const empty = base();
+  assert(!Object.hasOwn(exerciseOf(empty), "warmupPrelude"), "Prelude: a fresh draft carries no warm-up record");
+  assert(Draft.isPristine(empty), "Prelude: a fresh draft is pristine");
+
+  const started = init(empty);
+  assert(prelude(started).steps.length === 3 && exerciseOf(started).setOrder.length === 2,
+    "Prelude: initialize stores three pending steps outside setOrder and sets", JSON.stringify(prelude(started)));
+  assert(Object.keys(exerciseOf(started).sets).length === 2 && prelude(started).steps.every(step => step.completion === "pending"),
+    "Prelude: the steps are pending and the programmed sets are unchanged");
+  assert(Draft.isPristine(started), "Prelude: an untouched suggested plan is still replaceable (pristine)");
+  assert(prelude(init(started, [[20, 8], [50, 5]], { replace: true })).steps.length === 2,
+    "Prelude: a pristine plan is replaced when the caller says so");
+  assert(command(started, "initWarmupPrelude", { exerciseInstanceId: slot, plan: plan(), steps: [] }).result.code === "warmup-prelude-exists",
+    "Prelude: initializing twice without replace is refused");
+
+  const edited = apply(started, "editWarmupStep", at("w2", { metricId: LOAD, value: "62.5" }));
+  assert(prelude(edited).steps[1].values[LOAD] === "62.5" && prelude(edited).steps[1].touched === true, "Prelude: editing a pending step stores the typed value and marks it touched");
+  assert(!Draft.isPristine(edited), "Prelude: an edited plan is user input and is protected");
+  assert(command(edited, "editWarmupStep", at("w2", { metricId: "nope", value: "1" })).result.code === "unknown-warmup-metric", "Prelude: an unknown metric is refused");
+
+  const first = done(edited, "w1");
+  assert(prelude(first).steps[0].completion.ordinal === 1 && prelude(first).nextOrdinal === 2, "Prelude: completion assigns warm-up ordinal 1");
+  assert(command(first, "completeWarmupStep", at("w3", { completedAt: "2026-08-15T10:02:00.000Z" })).result.code === "warmup-step-not-current",
+    "Prelude: only the current (first pending) step completes");
+  assert(command(first, "completeWarmupStep", at("w1", { completedAt: "2026-08-15T10:02:00.000Z" })).result.code === "warmup-step-not-pending",
+    "Prelude: a completed step cannot complete again");
+  assert(first.exercises[slot].setOrder.every(id => first.exercises[slot].sets[id].completion === "pending") && Draft.validateForSave({ ...first, session: { ...first.session, status: "finishing" } }).some(issue => issue.code === "no-work"),
+    "Prelude: warm-ups alone are not work");
+
+  const second = done(first, "w2", 2);
+  const afterSkip = apply(second, "skipWarmupSteps", { exerciseInstanceId: slot });
+  assert(prelude(afterSkip).skipped === true && prelude(afterSkip).steps.length === 2 && prelude(afterSkip).steps.every(step => step.completion !== "pending"),
+    "Prelude: skip remaining keeps the logged steps and drops the rest");
+  const manual = apply(afterSkip, "addWarmupStep", at("m1", { values: { [LOAD]: "40", [REPS]: "5" } }));
+  assert(prelude(manual).skipped === false && prelude(manual).steps.at(-1).source === "manual", "Prelude: a manual step resumes the sequence");
+  assert(command(manual, "addWarmupStep", at("m2", { values: { [LOAD]: "40", [REPS]: "5" } })).result.code === "warmup-manual-pending",
+    "Prelude: one manual step at a time");
+  const manualDone = done(manual, "m1", 3);
+  assert(prelude(manualDone).steps.at(-1).completion.ordinal === 3, "Prelude: a manual step takes the next ordinal");
+
+  const removed = apply(manualDone, "removeWarmupStep", at("w1"));
+  assert(prelude(removed).steps.map(step => step.completion.ordinal).join() === "2,3" && prelude(removed).nextOrdinal === 4,
+    "Prelude: removing a completed step leaves its ordinal gap and never reuses it");
+  const corrected = apply(removed, "correctWarmupStep", at("w2", { values: { [LOAD]: "65", [REPS]: "4" } }));
+  assert(prelude(corrected).steps[0].values[LOAD] === "65" && prelude(corrected).steps[0].completion.ordinal === 2, "Prelude: a correction keeps the ordinal");
+  assert(command(started, "removeWarmupStep", at("w1")).result.code === "warmup-step-not-completed", "Prelude: only completed steps are removed");
+  assert(command(started, "correctWarmupStep", at("w1", { values: { [LOAD]: "65", [REPS]: "4" } })).result.code === "warmup-step-not-completed", "Prelude: only completed steps are corrected");
+  assert(command(corrected, "correctWarmupStep", at("w2", { values: { [LOAD]: "0", [REPS]: "4" } })).result.code === "invalid-warmup-values", "Prelude: a correction needs positive load and reps");
+
+  // Projection: warm-up rows come first, outside the working numbering.
+  const worked = (() => {
+    let draft = corrected;
+    for (const setId of exerciseOf(draft).setOrder) {
+      draft = apply(draft, "editMetricValue", { exerciseInstanceId: slot, setId, metricId: LOAD, value: "105" });
+      draft = apply(draft, "editMetricValue", { exerciseInstanceId: slot, setId, metricId: REPS, value: "6" });
+      draft = apply(draft, "editSetField", { exerciseInstanceId: slot, setId, field: "rir", value: "2" });
+      draft = apply(draft, "completeSet", { exerciseInstanceId: slot, setId, completedAt: "2026-08-15T10:10:00.000Z" });
+    }
+    return apply(draft, "beginFinish", {});
+  })();
+  const rows = Draft.toHistoryRows(worked, "2026-08-15T10:30:00.000Z");
+  assert(Array.isArray(rows) && rows.length === 4, "Prelude: two warm-up rows and two working rows", JSON.stringify(rows));
+  const warmRows = rows.filter(row => row.warmup);
+  assert(rows.slice(0, 2).every(row => row.warmup) && rows.slice(2).every(row => !row.warmup), "Prelude: warm-up rows precede the working rows");
+  assert(same(warmRows.map(row => [row.origin, row.set, row.setIndex, row.warmupOrdinal, row.rir, row.load, row.reps]),
+    [["suggested-warmup", 0, 0, 2, null, 65, 4], ["suggested-warmup", 0, 0, 3, null, 40, 5]]), "Prelude: warm-up rows carry origin, set 0, their ordinal and no effort", JSON.stringify(warmRows));
+  assert(same(rows.filter(row => !row.warmup).map(row => [row.set, row.setIndex, row.load, row.reps]), [[1, 0, 105, 6], [2, 1, 105, 6]]), "Prelude: working rows keep ordinals 1..M and their index");
+  assert(warmRows.every(row => row.metricType === "source_metrics@1" && row.metricValues.length === 2 && !Object.hasOwn(row, "partialReps") && !Object.hasOwn(row, "effortSource")),
+    "Prelude: warm-up rows keep the canonical metric attribution, with no effort or partials");
+
+  // Validation refuses malformed records.
+  const refuse = (name, mutate) => {
+    const copy = structuredClone(second);
+    mutate(prelude(copy), copy);
+    assert(Draft.parse(copy).kind === "invalid", `Prelude: refuse ${name}`);
+  };
+  refuse("a duplicate step id", record => { record.steps[2].stepId = record.steps[1].stepId; });
+  refuse("a duplicate ordinal", record => { record.steps[1].completion.ordinal = 1; });
+  refuse("a completed step after a pending one", record => { record.steps.unshift(record.steps.pop()); });
+  refuse("a stale next ordinal", record => { record.nextOrdinal = 2; });
+  refuse("an unknown member", record => { record.extra = true; });
+  refuse("a logged step with a non-numeric value", record => { record.steps[0].values[LOAD] = "heavy"; });
+  refuse("a metric the composition lacks", record => { record.steps[2].values.unknown = "1"; });
+  refuse("an unbounded step count", record => { record.steps.push(...Array.from({ length: 7 }, (_, index) => ({ ...structuredClone(record.steps[2]), stepId: `x${index}` }))); });
+  refuse("a plan with an unknown reason", record => { record.plan.reason = "psychic"; });
+  refuse("a plan with an unknown evidence member", record => { record.plan.evidence.shoeSize = 11; });
+  refuse("a skipped record that still holds a pending step", record => { record.skipped = true; });
+  refuse("an ordinal above the cap", record => { record.steps[0].completion.ordinal = 7; record.nextOrdinal = 8; });
+  assert(Draft.parse(Draft.serialize(second)).kind === "valid" && same(prelude(Draft.parse(Draft.serialize(second)).draft), prelude(second)),
+    "Prelude: the record survives serialization unchanged");
+  const stale = command(started, "editWarmupStep", at("w2", { metricId: LOAD, value: "62.5", expectedRevision: empty.revision }));
+  assert(stale.result.code === "stale-revision", "Prelude: a command on an earlier revision is stale");
+
+  // A swap retires the old pending sequence and keeps the movement each logged step was done as.
+  const replacementId = "1a25c6f170d88008a9adde9f71881c36";
+  const replacementSource = rawExercise(replacementId);
+  assert(replacementSource, "Prelude: the swap fixture exists in the catalog");
+  {
+    const swapped = apply(second, "substituteExercise", { exerciseInstanceId: slot, selectedAt: "2026-08-15T10:20:00.000Z",
+      replacement: { exerciseInstanceId: slot, sourceExerciseId: "source-prelude-slot", displayName: replacementSource.name, libraryId: replacementId, primary: "Quads", secondary: "" } });
+    assert(prelude(swapped).steps.every(step => step.completion !== "pending") && prelude(swapped).plan === null && prelude(swapped).steps[0].completion.performed.displayName === exerciseOf(second).displayName,
+      "Prelude: a swap retires pending steps and freezes logged steps under the movement they were done as", JSON.stringify(prelude(swapped)));
+  }
+}
 if (results.failed) process.exitCode = 1;
