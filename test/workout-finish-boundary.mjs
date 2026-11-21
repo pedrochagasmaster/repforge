@@ -4,6 +4,9 @@ import { readFile } from "node:fs/promises";
 import { launchChromium } from "./browser.mjs";
 import { installSeedProgram } from "./fixtures/seed-program.mjs";
 import { savedWarmupSession } from "./fixtures/prelude-sessions.mjs";
+import { loadManifest } from "../tools/ui-screens/manifest.mjs";
+import { appState, installPerSideHistory, PER_SIDE_READING_EXERCISES } from "../tools/ui-screens/screens-app.mjs";
+import { dismissChrome, openPage } from "../tools/ui-screens/session.mjs";
 
 const base = process.env.REPFORGE_URL || "http://localhost:8000/";
 const stateKey = "repforge_v1";
@@ -817,6 +820,11 @@ async function prelude(browser) {
     await page.waitForFunction(() => document.querySelector('#workout .focus-shelf input[data-wu-kind="load"]')?.getAttribute("aria-invalid") === "true");
     assert.equal(await page.evaluate(() => document.activeElement?.matches('input[data-wu-kind="load"]')), true, "focus goes to the field that cannot be logged");
     assert.equal(await page.evaluate(() => window.__repforgeWorkoutDraft.current().exercises["seed-ex-2"].warmupPrelude.steps.filter((step) => step.completion !== "pending").length), 1, "an invalid load logs nothing");
+    // A load above the limit is the load's fault: it is marked, not the reps.
+    await blank.evaluate((el) => { el.value = "1500"; el.oninput(); });
+    await shelf.getByRole("button", { name: /^Done · .* next$/ }).click();
+    await page.waitForFunction(() => document.querySelector('#workout .focus-shelf input[data-wu-kind="load"]')?.getAttribute("aria-invalid") === "true");
+    assert.equal(await page.evaluate(() => document.querySelector('#workout .focus-shelf input[data-wu-kind="reps"]')?.getAttribute("aria-invalid")), null, "the reps are not blamed for a load that is too large");
     await blank.evaluate((el, value) => { el.value = value; el.oninput(); }, offered);
     await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
     // Log the rest. The last one hands over to set 1.
@@ -1024,6 +1032,17 @@ async function preludeScopes(browser) {
     assert.doesNotMatch(bare.cue + bare.shelf, /—|NaN| kg|fx-rail/, "no load, no rail, no placeholder");
     assert.ok(bare.shelf.includes('data-wu-field="reps"') && !bare.shelf.includes('data-wu-field="load"') && bare.shelf.includes("shelf__fields--one"), "a single Reps tile");
 
+    // Plate hints look up the plan's own suggestions: not a frozen step, and not a step logged under an earlier plan.
+    const hints = await page.evaluate(() => {
+      const record = { plan: { capturedAt: "2026-08-15T10:00:00.000Z" } };
+      const earlier = { source: "suggested", completion: { completedAt: "2026-08-14T10:00:00.000Z" } };
+      const pending = (source) => ({ source, completion: "pending" });
+      const [first, second, manual] = [pending("suggested"), pending("suggested"), pending("manual")];
+      const mine = [earlier, first, second, manual];
+      return [warmupSuggestedIndex(record, mine, earlier), warmupSuggestedIndex(record, mine, first), warmupSuggestedIndex(record, mine, second), warmupSuggestedIndex(record, mine, manual)];
+    });
+    assert.deepEqual(hints, [-1, 0, 1, -1], "a pending step's hint is its own plan's suggestion");
+
     // A swap after logging: the frozen steps stay in History and in Exercise actions, not in the new movement's cue.
     await card.locator(".saveset").click();
     await page.waitForFunction(() => window.__repforgeWorkoutDraft.current().exercises["seed-ex-2"].warmupPrelude?.steps.some((step) => step.completion !== "pending"));
@@ -1046,6 +1065,58 @@ async function preludeScopes(browser) {
   }
 }
 
+/* A dumbbell lift with per-side history: its warm-up offers rungs of the ladder, and its pads follow the value on screen. */
+async function preludeDumbbell(browser) {
+  const capture = { flow: "workout", screen: "prelude", viewport: "phone-390", theme: "light", locale: "en", text: "normal", motion: "reduced" };
+  const { context, page } = await openPage(browser, loadManifest(), capture, appState("workout/focus-per-side", "en"), { warmups: true });
+  try {
+    await dismissChrome(page);
+    await installPerSideHistory(page, { bodyweightAssumption: true });
+    const rowId = await page.evaluate((libraryId) => JSON.parse(localStorage.getItem("repforge_v1")).program.find((entry) => entry.libraryId === libraryId).id, PER_SIDE_READING_EXERCISES.bilateral);
+    await page.evaluate((id) => window.__repforgeGoToLogExercise(id), rowId);
+    await page.waitForFunction((id) => document.querySelector("#workout .exercise.is-current")?.dataset.ex === id, rowId);
+    const card = page.locator("#workout .exercise.is-current:not(.is-peek)");
+    await card.locator(".fx-cue--warm").waitFor({ timeout: 8000 });
+    const pads = () => page.evaluate(() => [...document.querySelectorAll("#workout .exercise.is-current .focus-shelf .shelf__pad")].map((pad) => ({ text: pad.textContent.trim(), off: pad.disabled })));
+    const loadInput = () => page.evaluate(() => Number(document.querySelector('#workout .exercise.is-current .focus-shelf input[data-wu-kind="load"]').value));
+    const typeLoad = (value) => page.evaluate(async (v) => {
+      const input = document.querySelector('#workout .exercise.is-current .focus-shelf input[data-wu-kind="load"]');
+      input.value = String(v);
+      await input.oninput?.();
+    }, value);
+    const press = async (dir) => { await card.locator(`.focus-shelf .shelf__pad >> nth=${dir > 0 ? 1 : 0}`).click(); return loadInput(); };
+    const ladderFacts = await page.evaluate(() => {
+      const ex = warmupExerciseById(document.querySelector("#workout .exercise.is-current").dataset.ex), de = activeWorkoutDraft.exercises[ex.id], lift = warmupLift(de);
+      return { kind: warmupEquipment(lift).equipmentKind, ladder: warmupLadder(de)?.length, work: warmupWorkLoadKg(ex, lift), previous: WorkoutDraft.warmupRowFacts(last(ex)[0])?.loadKg };
+    });
+    assert.equal(ladderFacts.kind, "dumbbell");
+    assert.ok(ladderFacts.ladder > 30 && ladderFacts.work > 0, "the dumbbell ladder is the grid and a per-side work load is offered: " + JSON.stringify(ladderFacts));
+    assert.ok(ladderFacts.previous > 0, "the per-side previous load is read from its metric values");
+
+    // Stepping and typing keep the pads true: ±1 kg to ten, then ±2.
+    await typeLoad(9);
+    assert.deepEqual((await pads()).map((pad) => pad.text.replace(/\s/g, "")), ["−1kg", "+1kg"], "at 9 kg the pads read ±1 kg");
+    assert.equal(await press(1), 10);
+    assert.deepEqual((await pads()).map((pad) => pad.text.replace(/\s/g, "")), ["−1kg", "+2kg"], "stepping to 10 kg updates the pads: −1 and +2");
+    assert.equal(await press(1), 12);
+    assert.deepEqual((await pads()).map((pad) => pad.text.replace(/\s/g, "")), ["−2kg", "+2kg"], "at 12 kg the pads read ±2 kg");
+    await typeLoad(3);
+    assert.equal((await pads())[0].text.replace(/\s/g, ""), "−1kg", "typing a load updates the pads too");
+
+    // After the first step is logged, the second step's pads belong to the second step's load.
+    await typeLoad(6);
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    await card.locator(".saveset").click();
+    await page.waitForFunction((id) => window.__repforgeWorkoutDraft.current().exercises[id].warmupPrelude?.steps.some((step) => step.completion !== "pending"), rowId);
+    const second = await loadInput();
+    assert.ok(second > 10, "the second step sits above the ladder's 10 kg change (" + second + ")");
+    assert.deepEqual((await pads()).map((pad) => pad.text.replace(/\s/g, "")), ["−2kg", "+2kg"], "step 2's pads read from step 2's load, not step 1's");
+    console.log("PASS: Prelude on a dumbbell lift offers ladder rungs and keeps its pads true to the step on screen");
+  } finally {
+    await context.close();
+  }
+}
+
 const browser = await launchChromium();
 const pastZeroOnly = process.env.REPFORGE_PAST_ZERO_ONLY === "1";
 const preludeOnly = process.env.REPFORGE_PRELUDE_ONLY === "1";
@@ -1055,6 +1126,7 @@ try {
   await preludeLearning(browser);
   await preludePrecedence(browser);
   await preludeScopes(browser);
+  await preludeDumbbell(browser);
   if (!pastZeroOnly && !preludeOnly) await otherFinishContracts(browser);
 } finally {
   await browser.close();

@@ -10525,7 +10525,7 @@ function computePreludeView(ex){
   if(record?.plan){
     view.plan=record.plan;
     view.steps=mine.map(step=>({...warmupStepFacts(step,record.composition),stepId:step.stepId,done:!warmupPending(step),pendingStep:warmupPending(step),
-      index:step.source==="suggested"?record.steps.filter(item=>item.source==="suggested").indexOf(step):-1}));
+      index:warmupSuggestedIndex(record,mine,step)}));
   }else if(live&&live.result.suggestions.length){
     view.plan=warmupPlanOf(live);
     view.composition=warmupCompositionFor(live.lift);
@@ -10541,6 +10541,13 @@ function computePreludeView(ex){
   else if(logged.length)view.stage="summary";
   else if(view.plan?.reason==="suppressed"&&!workStarted&&!skipped&&!(record&&mine.length))view.stage="suppressed";
   return view}
+/** Where a step sits among this plan's suggested steps, for its plate hint: the current movement's own, and not what was logged
+ *  under an earlier plan (a frozen step of the other movement, or one logged before this plan was captured). */
+function warmupSuggestedIndex(record,mine,step){
+  if(step.source!=="suggested"||!record.plan)return-1;
+  const capturedAt=Date.parse(record.plan.capturedAt);
+  const ofPlan=item=>item.source==="suggested"&&(warmupPending(item)||!(Date.parse(item.completion.completedAt)<capturedAt));
+  return mine.filter(ofPlan).indexOf(step)}
 /** The metric composition a fresh Prelude would store, so the pre-init view can read its own fields. */
 function warmupCompositionFor(lift){
   const programmed={...lift.programmed};
@@ -10638,10 +10645,9 @@ function preludeFieldHtml(view,kind,{peek}){
 function preludePadsHtml(view,{peek}){
   const step=view.steps[view.current],kind=warmupSelectedField(view),metric=kind==="load"?step.loadMetric:step.repsMetric;
   const ladder=kind==="load"?warmupLadder(view.de):null;
-  const input=()=>document.querySelector(`input[data-wk="${CSS.escape(view.ex.id)}:${CSS.escape(metric.id)}"]`);
   const pad=dir=>{
     // A dumbbell lift's pads say how far the next rung is, as the working shelf's do.
-    const view_=ladder?ladderPad(ladder,parseDec(input()?.value??warmupFieldText(step,"load")),dir,unitLabel()):null;
+    const view_=ladder?ladderPad(ladder,parseDec(warmupFieldText(step,"load")),dir,unitLabel()):null;
     const text=kind==="reps"?t("focus.shelf.pad_reps",{sign:dir>0?"+":"−"})
       :view_?view_.text:t("focus.shelf.pad_load",{sign:dir>0?"+":"−",step:shelfLoadStep(),unit:unitLabel()});
     return `<button type="button" class="stepbtn shelf__pad"${peek?dead():` data-wu-step="${esc(view.ex.id)}:${esc(metric.id)}" data-wu-kind="${kind}" data-dir="${dir}"${view_?.off?" disabled":""}`}>${esc(text)}</button>`};
@@ -10690,8 +10696,17 @@ async function ensurePrelude(ex){
   try{return await attempt}finally{warmupInit.delete(ex.id)}}
 function warmupExerciseById(exId){const base=prog.find(exId);return base?sessionExercise(base):null}
 function warmupCurrentStep(record){return record?.steps.find(warmupPending)||null}
+/** A dumbbell lift's pads follow its load field as it changes, as the working shelf's do. */
+function syncWarmupLadderPads(input){
+  const[exId,metricId]=String(input?.dataset?.wk||"").split(":"),de=activeWorkoutDraft?.exercises?.[exId],ladder=de?warmupLadder(de):null;
+  if(!ladder||input.dataset.wuKind!=="load")return;
+  const value=parseDec(input.value);
+  $$(`.stepbtn[data-wu-step="${CSS.escape(`${exId}:${metricId}`)}"]`).forEach(button=>{
+    const view=ladderPad(ladder,value,+button.dataset.dir,unitLabel());
+    button.textContent=view.text;button.disabled=view.off})}
 /** A typed or stepped value on the warm-up shelf reaches the draft as the step's own edit. */
 async function editWarmupField(input){
+  syncWarmupLadderPads(input);
   const [exId,metricId]=String(input.dataset.wk||"").split(":"),ex=warmupExerciseById(exId);
   if(!ex||!activeWorkoutDraft)return;
   const view=preludeView(ex);if(!view||view.stage!=="warm")return;
@@ -10719,7 +10734,9 @@ async function logWarmupStep(exId){
   const result=await WorkoutSession.dispatch("completeWarmupStep",{exerciseInstanceId:exId,stepId:step.stepId,completedAt:new Date().toISOString()});
   if(result.status==="domain-error"){
     // A load or reps that cannot be logged: say which, mark it and put the lifter on it (the working shelf does the same).
-    const facts=warmupStepFacts(step,record.composition),loadBad=facts.loadMetric&&!(facts.loadKg>0),metric=loadBad?facts.loadMetric:facts.repsMetric;
+    const facts=warmupStepFacts(step,record.composition),parsed=facts.loadMetric?ExerciseMetrics.parseMetricValue(facts.loadMetric,step.values[facts.loadMetric.id]):null;
+    // The metric's own parse decides: a load above the limit or in a form the draft refuses is the load's fault, not the reps'.
+    const loadBad=!!facts.loadMetric&&!(parsed?.ok&&parsed.value>0),metric=loadBad?facts.loadMetric:facts.repsMetric;
     const input=metric?$(`input[data-wk="${CSS.escape(exId)}:${CSS.escape(metric.id)}"]`):null;
     if(input){warmupUi.exId=exId;warmupUi.field=loadBad?"load":"reps";warmupUi.editing=true;refreshWarmupShelf();
       const live=$(`input[data-wk="${CSS.escape(exId)}:${CSS.escape(metric.id)}"]`)||input;

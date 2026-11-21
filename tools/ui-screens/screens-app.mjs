@@ -1006,7 +1006,7 @@ async function openHistoryEditor(page) {
   await page.waitForSelector(".session--edit", { timeout: 20000 });
 }
 
-const PER_SIDE_READING_EXERCISES = Object.freeze({
+export const PER_SIDE_READING_EXERCISES = Object.freeze({
   unilateral: "1a55c6f170d88031b658c6e278a82a88",
   bilateral: "1a05c6f170d8803ba48ec1443eab5978",
 });
@@ -1188,7 +1188,7 @@ async function waitForExerciseChartViewport(page, { chartFocused }) {
   return result;
 }
 
-async function installPerSideHistory(page, { bodyweightAssumption = false } = {}) {
+export async function installPerSideHistory(page, { bodyweightAssumption = false } = {}) {
   await page.waitForFunction(() => !!window.RepForgeExerciseCatalog?.snapshot?.() &&
     typeof window.__repforgeFinalizeProgramSetup === "function", undefined, { timeout: 15000 });
   const state = await page.evaluate(async ({ rowId, pressId }) => {
