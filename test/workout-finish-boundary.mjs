@@ -898,7 +898,9 @@ async function preludeLearning(browser) {
     assert.equal((await page.locator("#whyDecision").innerText()).trim(), "Learned from your sets");
     assert.match(await page.locator("#whyEvidence").innerText(), /^Based on 2 sessions/);
     assert.equal(await page.evaluate(() => Object.values(window.__repforgeWorkoutDraft.current().exercises).some((exercise) => exercise.warmupPrelude)), false, "opening Why writes nothing");
-    await sheet.getByRole("button", { name: /^Forget my warm-up for / }).click();
+    const forget = sheet.getByRole("button", { name: /^Forget my warm-up for / });
+    // At the sheet's medium detent the reset sits below the fold (a swipe up reaches it); the control itself is what is exercised.
+    await forget.evaluate((button) => button.click());
     await page.getByText("Warm-up preference cleared.", { exact: true }).waitFor({ timeout: 5000 });
     await page.waitForFunction(() => !document.querySelector("#whySheet.is-open"));
     await cue.locator(".fx-cue__evidence", { hasText: "A starting warm-up for 105 kg." }).waitFor({ timeout: 5000 });
@@ -932,6 +934,31 @@ async function preludeLearning(browser) {
   }
 }
 
+/* Existing preparation and Find your weight keep their place: Prelude never takes an exercise that already has either. */
+async function preludePrecedence(browser) {
+  const { context, page } = await freshWorkout(browser, { rirMode: "numeric", effortScale: "reps" });
+  try {
+    const card = page.locator("#workout .exercise.is-current:not(.is-peek)");
+    await card.locator(".fcard__context").waitFor();
+    assert.equal(await card.locator(".fx-cue--warm, .fx-prelude-none").count(), 0, "a lift with no history is calibrating: Find your weight, not a suggested warm-up");
+    assert.equal(await page.evaluate(() => Object.values(window.__repforgeWorkoutDraft.current().exercises).some((exercise) => exercise.warmupPrelude)), false);
+    const target = (await draftTargets(page)).find((item) => item.exerciseInstanceId === "seed-ex-2");
+    await page.evaluate(async ({ target, weight, reps }) => {
+      for (const [metricId, value] of [[weight, "105"], [reps, "6"]]) await window.__repforgeWorkoutDraft.dispatch("editMetricValue", { ...target, metricId, value });
+    }, { target, weight: WEIGHT, reps: REPS });
+    await savedWarmupSession(page, { exId: "seed-ex-2", id: "precedence-1", daysAgo: 3, steps: [[40, 8]] });
+    await openLegCurl(page);
+    await card.locator(".fx-cue--warm").waitFor({ timeout: 5000 });
+    // The lifter's own switch on a programmed set makes it preparation, and that takes precedence.
+    await page.evaluate(() => window.__repforgeWorkoutDraft.dispatch("markWarmup", { exerciseInstanceId: "seed-ex-2", setId: Object.values(window.__repforgeWorkoutDraft.current().exercises["seed-ex-2"].setOrder)[0] }).then(() => renderWorkout()));
+    await page.waitForFunction(() => !document.querySelector("#workout .exercise.is-current:not(.is-peek) .fx-cue--warm"));
+    assert.equal(await card.locator(".fx-cue--warm").count(), 0, "a manual warm-up set on the exercise keeps Prelude away");
+    console.log("PASS: Prelude gives way to calibration and to the lifter's own warm-up sets");
+  } finally {
+    await context.close();
+  }
+}
+
 const browser = await launchChromium();
 const pastZeroOnly = process.env.REPFORGE_PAST_ZERO_ONLY === "1";
 const preludeOnly = process.env.REPFORGE_PRELUDE_ONLY === "1";
@@ -939,6 +966,7 @@ try {
   if (!preludeOnly) await pastZero(browser);
   await prelude(browser);
   await preludeLearning(browser);
+  await preludePrecedence(browser);
   if (!pastZeroOnly && !preludeOnly) await otherFinishContracts(browser);
 } finally {
   await browser.close();

@@ -10797,8 +10797,10 @@ function warmupWhyModel(view){
   else if(reason==="suppressed"){decision=t("prelude.why.decision.skips");source=t("prelude.why.source.suppressed")}
   else{decision=t("prelude.why.decision.first");source=t("prelude.why.source.baseline")}
   blocks.push({lead:t("prelude.why.source_head"),text:source});
-  blocks.push({lead:"",text:t("prelude.why.learning")});
-  blocks.push({lead:"",text:t("prelude.why.exclusions")});
+  // "How it learns. Log the same change twice…": the sentence's first clause is its bold lead.
+  for(const key of ["prelude.why.learning","prelude.why.exclusions"]){
+    const line=t(key),cut=line.indexOf(". ");
+    blocks.push(cut>0?{lead:line.slice(0,cut),text:line.slice(cut+2)}:{lead:"",text:line})}
   const sessions=(evidence.sessions||[]).length,dates=(evidence.sessions||[]).map(item=>item.savedAt).filter(Number.isFinite).sort((a,b)=>a-b);
   let footer="";
   if(sessions&&reason==="already-warm")footer=t("prelude.why.evidence_with",{n:sessions,lift:warmupEarlierLiftInfo(view).name});
