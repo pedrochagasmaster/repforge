@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 296 screens,
-1823 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 303 screens,
+1900 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -198,6 +198,13 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 
 | Screen | Frames | What it shows |
 | --- | --- | --- |
+| [Workout — Prelude warm-up](screens/workout/prelude__phone-390-light-en.png) | 11 | The first suggested warm-up for 105 kg: the cue, the rail to the working load, the shelf and its Done button. |
+| [Workout — Warm-up rest](screens/workout/prelude-rest__phone-390-light-en.png) | 11 | The first warm-up is logged and its one-minute Warm-up rest runs. |
+| [Workout — Warm-ups logged](screens/workout/prelude-summary__phone-390-light-en.png) | 11 | One quiet W row above the work, and set 1 is next. |
+| [Workout — Learned warm-up](screens/workout/prelude-learned__phone-390-light-en.png) | 11 | The lifter's own warm-up from recent sessions, scaled to today's load. |
+| [Workout — Warm-ups paused](screens/workout/prelude-suppressed__phone-390-light-en.png) | 11 | No warm-ups suggested after three skips, with Why? and Add one. |
+| [Workout — Why this warm-up](screens/workout/prelude-why__phone-390-light-en.png) | 11 | The explanation sheet with where the sequence comes from and the reset. |
+| [Workout — Prelude then Past zero tie](screens/workout/prelude-tie__phone-390-light-en.png) | 11 | The W row above a 6+3 tie logged against the prior 6+2. |
 | [Workout — Past zero](screens/workout/past-zero__phone-390-light-en.png) | 11 | Numeric zero reveals the six partial-rep choices. |
 | [Workout — Partials selected](screens/workout/past-zero-selected__phone-390-light-en.png) | 11 | Three partials on the effort field and the Log set button. |
 | [Workout — Partial tie logged](screens/workout/past-zero-ledger__phone-390-light-en.png) | 11 | The first working set reads 6+3 against the prior 6+2. |

@@ -10430,7 +10430,7 @@ function warmupEquipment(lift){
     .map(entry=>entry?.name).filter(Boolean);
   const index=window.RepForgeStartingLoads.equipmentIndex({exercise,lookup:rawCatalogObject,equipmentName:chosen?.name||null});
   const equipmentKind=index===0||index===1?"barbell":index===2?"dumbbell":index===3?"machine":null;
-  const standardBar=index===0&&names.length>0&&names.every(name=>name==="Barbell");
+  const standardBar=index===0&&names.length>0&&names.every(name=>/^Barbell( and weight plates)?$/.test(name));
   return{equipmentKind,barKg:standardBar&&!isLb()&&lift.programmed.loadingConvention==="external"?20:null}}
 /** Whether manual preparation or Find your weight already owns this exercise: Prelude gives way to it. */
 function warmupPreempted(ex,de){
@@ -10442,11 +10442,12 @@ function warmupSuggest(ex){
   const de=activeWorkoutDraft?.exercises?.[ex.id];
   const lift=de?warmupLift(de):null;if(!lift)return null;
   const workLoadKg=warmupWorkLoadKg(ex,lift),{equipmentKind,barKg}=warmupEquipment(lift);
-  const coefficient=lift.programmed.loadingContext?.bodyweightCoefficient;
+  // A lift logged by its external load (a squat on a bar, a hack squat) is warmed up as a percentage of that load even when the
+  // catalog says the body carries part of it; only a lift whose own convention is bodyweight has no load to take a share of.
   const input={liftKey:lift.key,movementId:lift.id,primaryMuscle:lift.muscle,sessionId:activeWorkoutDraft.draftId,now:Date.now(),
     workLoadKg,availableLoadsKg:availableLoadsKg(lift.performed.libraryId||lift.id,lift.programmed.equipmentId),equipmentKind,barKg,
     loadingConvention:lift.programmed.loadingConvention,metricSemantics:lift.semantics,
-    hasMaterialBodyweight:materialBodyweightCoefficient(coefficient,lift.programmed.loadingConvention)>0,
+    hasMaterialBodyweight:lift.programmed.loadingConvention==="bodyweight",
     completedWorkingLifts:warmupCompletedLifts(),observations:warmupSavedObservations(),resetGeneration:warmupResetGeneration(lift.key)};
   const result=WarmupPolicy.suggestWarmups(input);
   return{lift,input,result,equipmentKind,workLoadKg}}
@@ -10469,7 +10470,16 @@ function warmupStepFacts(step,composition){
 /** Everything Focus draws for an exercise's preparation. `stage`: "warm" (the cue is the warm-up), "summary" (logged, one
  *  quiet W row), "suppressed" (the quiet row with Add one), or null (nothing to show). A peek copy reads the same way and
  *  never writes. */
+/* One render asks for the same exercise's view several times (cue, ledger, shelf, and each neighbour): it is computed once for
+   the draft, the saved state and the minute it was asked in, and recomputed when any of them changes. */
+let preludeMemo={key:null,views:new Map()};
 function preludeView(ex){
+  if(!warmupOn()||!activeWorkoutDraft)return null;
+  const key=[activeWorkoutDraft,state,state.log,state.warmupObservations,state.warmupPreferences,state.settings,Math.floor(Date.now()/60000),!!focusEdit];
+  if(!preludeMemo.key||preludeMemo.key.some((part,index)=>part!==key[index]))preludeMemo={key,views:new Map()};
+  if(!preludeMemo.views.has(ex.id))preludeMemo.views.set(ex.id,computePreludeView(ex));
+  return preludeMemo.views.get(ex.id)}
+function computePreludeView(ex){
   if(!warmupOn()||!activeWorkoutDraft)return null;
   const de=activeWorkoutDraft.exercises?.[ex.id];
   if(!de||de.status!=="active")return null;

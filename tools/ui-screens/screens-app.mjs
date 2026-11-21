@@ -795,7 +795,10 @@ async function preludeFocus(page, state) {
     await active.locator(".fx-prelude-none").waitFor();
     return;
   }
-  await cue.waitFor();
+  await cue.waitFor({ timeout: 8000 }).catch(async (error) => {
+    const why = await page.evaluate((id) => { const s = warmupSuggest(sessionExercise(prog.find(id))); return s && { reason: s.result.reason, evidence: s.result.evidence, work: s.workLoadKg, kind: s.equipmentKind }; }, exId);
+    throw new Error(`no warm-up cue: ${JSON.stringify(why)} ${error.message}`);
+  });
   if (state === "why") {
     await cue.locator(".fx-cue__why").click();
     await page.locator("#whySheet.is-open").waitFor();
