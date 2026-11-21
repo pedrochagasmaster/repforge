@@ -1801,7 +1801,7 @@ async function main() {
   if (failures.length) process.exitCode = 1;
 }
 
-main().then(() => import("./effort-ladder-migration.mjs")).catch((error) => {
+main().then(() => import("./effort-ladder-migration.mjs")).then(() => import("./prelude-state.mjs")).catch((error) => {
   console.error(error);
   process.exitCode = 1;
 });
