@@ -1744,6 +1744,55 @@
       "variants": "localized"
     },
     {
+      "id": "prelude",
+      "flow": "workout",
+      "label": "Workout — Prelude warm-up",
+      "scenario": "The first suggested warm-up for 105 kg: the cue, the rail to the working load, the shelf and its Done button.",
+      "variants": "pastZero"
+    },
+    {
+      "id": "prelude-rest",
+      "flow": "workout",
+      "label": "Workout — Warm-up rest",
+      "scenario": "The first warm-up is logged and its one-minute Warm-up rest runs.",
+      "variants": "pastZero"
+    },
+    {
+      "id": "prelude-summary",
+      "flow": "workout",
+      "label": "Workout — Warm-ups logged",
+      "scenario": "One quiet W row above the work, and set 1 is next.",
+      "variants": "pastZero"
+    },
+    {
+      "id": "prelude-learned",
+      "flow": "workout",
+      "label": "Workout — Learned warm-up",
+      "scenario": "The lifter's own warm-up from recent sessions, scaled to today's load.",
+      "variants": "pastZero"
+    },
+    {
+      "id": "prelude-suppressed",
+      "flow": "workout",
+      "label": "Workout — Warm-ups paused",
+      "scenario": "No warm-ups suggested after three skips, with Why? and Add one.",
+      "variants": "pastZero"
+    },
+    {
+      "id": "prelude-why",
+      "flow": "workout",
+      "label": "Workout — Why this warm-up",
+      "scenario": "The explanation sheet with where the sequence comes from and the reset.",
+      "variants": "pastZero"
+    },
+    {
+      "id": "prelude-tie",
+      "flow": "workout",
+      "label": "Workout — Prelude then Past zero tie",
+      "scenario": "The W row above a 6+3 tie logged against the prior 6+2.",
+      "variants": "pastZero"
+    },
+    {
       "id": "past-zero",
       "flow": "workout",
       "label": "Workout — Past zero",
