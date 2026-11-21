@@ -551,9 +551,19 @@ async function historyFinishResult(result,successKey,operation,operationId){
 function historyCancelledCommit(head){
   return{reject:true,result:{ok:false,committed:false,settled:true,cancelled:true,code:"history_cancelled",
     revision:readRevision(head),localOk:false,idbOk:false}}}
+/** A corrected session keeps the warm-up learning its rows still support; one whose selectors no longer resolve goes in the
+ *  same commit as the correction (Plan 085). */
+function pruneSessionWarmups(snapshot,sid){
+  const map=snapshot.warmupObservations,key=String(sid);
+  if(!map||!Object.prototype.hasOwnProperty.call(map,key))return;
+  const kept=deps.pruneWarmupObservations({[key]:map[key]},snapshot.log);
+  const rest={...map};delete rest[key];
+  if(kept)rest[key]=kept[key];
+  if(Object.keys(rest).length)snapshot.warmupObservations=rest;else delete snapshot.warmupObservations}
 function historyEditCommit(sid,proposed,original,operationId){
   const desired=historySessionFingerprint(proposed),proposal=cloneSnapshot(deps.getState());
   proposal.log=proposal.log.filter(row=>String(row?.session??"")!==String(sid)).concat(cloneSnapshot(proposed));
+  pruneSessionWarmups(proposal,sid);
   const preflight=({head})=>{
     if(!historyOperationCurrent(operationId,sid,"edit"))return historyCancelledCommit(head);
     const current=historySessionRows(head.log,sid),fingerprint=historySessionFingerprint(current);
@@ -563,6 +573,7 @@ function historyEditCommit(sid,proposed,original,operationId){
       code:"history_stale",revision:readRevision(head),localOk:false,idbOk:false}};
     const next=cloneSnapshot(head);
     next.log=next.log.filter(row=>String(row?.session??"")!==String(sid)).concat(cloneSnapshot(proposed));
+    pruneSessionWarmups(next,sid);
     return{proposal:next}};
   return commitProposedState(proposal,{preflight})}
 async function historyRetryEdit(){
@@ -619,7 +630,7 @@ async function historyBeginDelete(sid){
   historyFocus($("[data-history-delete-status]"));return true}
 /** Session-owned facts and duration leave with the deleted session. */
 function withoutSessionTiming(snapshot,sid){
-  for(const key of ["sessionTiming","sessionEvents"]){
+  for(const key of ["sessionTiming","sessionEvents","warmupObservations"]){
     if(!snapshot[key]||!Object.prototype.hasOwnProperty.call(snapshot[key],String(sid)))continue;
     const{[String(sid)]:_removed,...rest}=snapshot[key];
     if(Object.keys(rest).length)snapshot[key]=rest;else delete snapshot[key]}}

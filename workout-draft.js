@@ -476,6 +476,16 @@
         !row.metricDefinitions.some(metric => metric?.semantic === "repsPerSide")));
   }
 
+  /** A Prelude History row is a warm-up beside the sets: numbered by its own ordinal, with no effort, count or opening. */
+  function validSuggestedWarmupRow(row) {
+    const suggested = row?.origin === "suggested-warmup", numbered = hasOwn(row ?? {}, "warmupOrdinal");
+    if (!suggested && !numbered) return true;
+    return suggested && numbered && row.warmup === true && Number.isSafeInteger(row.warmupOrdinal) &&
+      row.warmupOrdinal >= 1 && row.warmupOrdinal <= PRELUDE_MAX_STEPS && row.set === 0 && row.setIndex === 0 &&
+      (row.rir === null || row.rir === undefined) &&
+      ["partialReps", "effortSource", "calibration", "startingLoad", "lastRepSlow"].every(key => !hasOwn(row, key));
+  }
+
   function validateSet(value, setId, path, issues) {
     if (!isPlainObject(value)) {
       issues.push(`${path}:object`);
@@ -2910,6 +2920,7 @@
     canRecordPartials,
     hasExplicitZero,
     validHistoryPartials,
+    validSuggestedWarmupRow,
     validCalibration,
     validStartingLoad,
     create,

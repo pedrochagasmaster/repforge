@@ -450,7 +450,7 @@ function isSafeProgramHistoryEntry(entry,customExercises=[]){
   if(!Object.prototype.hasOwnProperty.call(entry,"program"))return true;
   return Array.isArray(entry.program)&&entry.program.every(isSafeProgressionFields)}
 function isSafeLogRow(entry){
-  if(!isPlainStateObject(entry)||!WorkoutDraft?.validHistoryPartials(entry))return false;
+  if(!isPlainStateObject(entry)||!WorkoutDraft?.validHistoryPartials(entry)||!WorkoutDraft.validSuggestedWarmupRow(entry))return false;
   if(Object.prototype.hasOwnProperty.call(entry,"setIndex")&&
     (!Number.isInteger(entry.setIndex)||entry.setIndex<0))return false;
   if(!isValidMuscleDomainTree(entry))return false;
@@ -549,6 +549,8 @@ function isValidStateShape(s){
     if(!isPlainStateObject(s)||!Array.isArray(s.program)||!s.program.every(isSafeProgressionFields)||
       !Array.isArray(s.log)||!s.log.every(isSafeLogRow))return false;
     if(Object.prototype.hasOwnProperty.call(s,"sessionEvents")&&!WorkoutDraft.validateSessionEvents(s.sessionEvents))return false;
+    if(Object.prototype.hasOwnProperty.call(s,"warmupObservations")&&!WorkoutDraft.validateWarmupObservations(s.warmupObservations))return false;
+    if(Object.prototype.hasOwnProperty.call(s,"warmupPreferences")&&!WorkoutDraft.validateWarmupPreferences(s.warmupPreferences))return false;
     if(Object.prototype.hasOwnProperty.call(s,"programMeta")&&!isSafeProgressionMeta(s.programMeta,s.customExercises||[]))return false;
     if(Object.prototype.hasOwnProperty.call(s,"recoveryTransitions")&&!isValidRecoveryTransitions(s.recoveryTransitions))return false;
     if(Object.prototype.hasOwnProperty.call(s,STORAGE_DRAFT_TXN)&&!pendingDraftTransaction(s))return false;
@@ -653,10 +655,42 @@ function mergeChangedArray(base,proposal,target,root,preferProposal){
       continue}
     if(changeValueEqual(tv,bv)||preferProposal)out.set(key,cloneSnapshot(pv))}
   return order.flatMap(key=>out.get(key)||[])}
+/* Plan 085: the two warm-up maps merge per key, each entry an atomic leaf, and an absent base is an empty map, so two
+   first writes for different sessions or lifts both survive. A key both sides changed keeps the entry already committed
+   (the latest reset token, the observation the first saver wrote); a key one side deleted is deleted, so a rebased retry
+   cannot resurrect older evidence. Rows are reconciled against the merged head by reconcileWarmupObservations. */
+function mergeWarmupMap(base,proposal,target,preferProposal){
+  const map=value=>changeObject(value)?value:{};
+  const b=map(base),p=map(proposal),t=map(target),out={};
+  for(const key of new Set([...Object.keys(b),...Object.keys(p),...Object.keys(t)])){
+    const has=(source,k)=>Object.prototype.hasOwnProperty.call(source,k)?source[k]:CHANGE_MISSING;
+    const bv=has(b,key),pv=has(p,key),tv=has(t,key);
+    let chosen;
+    if(changeValueEqual(pv,bv))chosen=tv;
+    else if(changeValueEqual(tv,bv))chosen=pv;
+    else if(pv===CHANGE_MISSING)chosen=preferProposal?CHANGE_MISSING:tv;
+    else chosen=tv===CHANGE_MISSING?(preferProposal?pv:CHANGE_MISSING):tv;
+    if(chosen!==CHANGE_MISSING)out[key]=cloneSnapshot(chosen)}
+  return Object.keys(out).length?out:CHANGE_MISSING}
+/** Observations whose rows the merged head no longer holds are dropped, so a join never outlives its rows. */
+function reconcileWarmupObservations(snapshot){
+  if(!snapshot||!snapshot.warmupObservations)return;
+  const kept=WorkoutDraft.pruneWarmupObservations(snapshot.warmupObservations,snapshot.log||[]);
+  if(kept)snapshot.warmupObservations=kept;else delete snapshot.warmupObservations}
+/** The observations whose reset generation is the one this device holds for their lift (absent means the initial one). */
+function warmupObservationsForGenerations(observations,preferences){
+  if(!observations)return null;
+  const out={};
+  for(const [sid,record] of Object.entries(observations)){
+    const kept=record.observations.filter(item=>(preferences?.[item.liftKey]?.resetGeneration??null)===item.resetGeneration);
+    if(kept.length)out[sid]={v:record.v,observations:kept}}
+  return Object.keys(out).length?out:null}
 function mergeStateValue(base,proposal,target,path,preferProposal){
   if(changeValueEqual(proposal,base))return target===CHANGE_MISSING?CHANGE_MISSING:cloneSnapshot(target);
   if(changeValueEqual(target,base))return proposal===CHANGE_MISSING?CHANGE_MISSING:cloneSnapshot(proposal);
   const root=path[0];
+  if(path.length===1&&(root==="warmupObservations"||root==="warmupPreferences"))
+    return mergeWarmupMap(base,proposal,target,preferProposal);
   if(path.length===1&&Array.isArray(base)&&Array.isArray(proposal)&&Array.isArray(target)&&
     (root==="log"||root==="program"||root==="programHistory"||root==="customExercises"))
     return mergeChangedArray(base,proposal,target,root,preferProposal);
@@ -674,7 +708,9 @@ function mergeStateValue(base,proposal,target,path,preferProposal){
   return chosen===CHANGE_MISSING?CHANGE_MISSING:cloneSnapshot(chosen)}
 function rebaseStateChange(base,proposal,target,{preferProposal=true}={}){
   const merged=mergeStateValue(base,proposal,target,[],preferProposal);
-  return merged===CHANGE_MISSING?{}:merged}
+  const out=merged===CHANGE_MISSING?{}:merged;
+  reconcileWarmupObservations(out);
+  return out}
 function storageSnapshotsEqual(a,b){return changeValueEqual(a,b)}
 function resetPersistenceBase(snapshot){
   mutationBase=cloneSnapshot(snapshot);
@@ -3937,6 +3973,12 @@ function normalizeLoaded(s,options={}){
   if(Object.prototype.hasOwnProperty.call(s,"sessionTiming")){
     const timing=normalizeSessionTiming(s.sessionTiming,out.log);
     if(timing)out.sessionTiming=timing}
+  // Warm-up learning (Plan 085): a reference to a row that is gone is dropped here, and an empty map is omitted.
+  if(Object.prototype.hasOwnProperty.call(s,"warmupObservations")){
+    const observations=WorkoutDraft.pruneWarmupObservations(s.warmupObservations,out.log);
+    if(observations)out.warmupObservations=cloneSnapshot(observations)}
+  if(Object.prototype.hasOwnProperty.call(s,"warmupPreferences")&&Object.keys(s.warmupPreferences).length)
+    out.warmupPreferences=cloneSnapshot(s.warmupPreferences);
   if(Object.prototype.hasOwnProperty.call(s,"programmingContext")){
     const Entry=typeof window!=="undefined"?window.RepForgeProgramEntry:null;
     if(Entry){
@@ -3970,6 +4012,12 @@ async function mergeImportedLog(incoming,io=storageIO){
   if(addedEvents)proposal.sessionEvents={...(proposal.sessionEvents||{}),...addedEvents};
   const addedTiming=normalizeSessionTiming(incoming.sessionTiming,add);
   if(addedTiming)proposal.sessionTiming={...(proposal.sessionTiming||{}),...addedTiming};
+  // Imported learning is eligible only for the sessions this import adds, only under the reset generation this
+  // device already holds for that lift, and never over a local decision (Plan 085).
+  if(Object.prototype.hasOwnProperty.call(incoming,"warmupObservations")){
+    const fromAdded=Object.fromEntries(Object.entries(incoming.warmupObservations||{}).filter(([sid])=>!have.has(sid)));
+    const eligible=warmupObservationsForGenerations(WorkoutDraft.pruneWarmupObservations(fromAdded,proposal.log),proposal.warmupPreferences);
+    if(eligible)proposal.warmupObservations={...(proposal.warmupObservations||{}),...eligible}}
   migrateLogSnapshot(proposal);
   const result=await commitProposedState(proposal,io);
   result.added=added;
@@ -5741,6 +5789,12 @@ function installTransferStateMeaningful(snapshot){
     structureDayLabels(snapshot.programMeta)||Array.isArray(snapshot.log)&&snapshot.log.length||
     Array.isArray(snapshot.programHistory)&&snapshot.programHistory.length||
     Array.isArray(snapshot.customExercises)&&snapshot.customExercises.length)return true;
+  // Warm-up learning is the lifter's own record: a present nonempty or malformed map protects the destination, a valid
+  // empty one does not (Plan 085).
+  for(const key of ["warmupObservations","warmupPreferences"]){
+    if(!Object.prototype.hasOwnProperty.call(snapshot,key))continue;
+    const value=snapshot[key];
+    if(!value||typeof value!=="object"||Array.isArray(value)||Object.keys(value).length)return true}
   const carrier=snapshot.recoveryTransitions;
   if(Array.isArray(carrier?.records)&&carrier.records.length||Array.isArray(carrier?.quarantine)&&carrier.quarantine.length)return true;
   const draft=readLiveAcknowledgedDraftV2(snapshot);
@@ -6061,6 +6115,7 @@ async function runInstallTransferPreBootRequest(){
 async function deleteTrainingLog(io=storageIO,{discardDraftRaw=readDraftRaw()}={}){
   const proposal=cloneSnapshot(state);
   proposal.log=[];delete proposal.sessionTiming;delete proposal.sessionEvents;
+  delete proposal.warmupObservations;delete proposal.warmupPreferences;
   const effect=destructiveDraftClearEffect(discardDraftRaw);
   const result=await commitProposedState(proposal,io,{effect});
   if(result.localOk||result.idbOk){
@@ -15001,6 +15056,7 @@ const HistoryUi=window.RepForgeHistoryUi.create({
   $, $$, t, esc, cloneSnapshot, currentMovementNames, mergeLogChronology,
   compareLogChronology, isWork, liftKey, buildSessionDelta, detectPRs,
   readLogRow, performedRepsText, performedRepsHtml, performedRepsMarked, partialMarkup, partialsSpoken, partialCount, validHistoryPartials:WorkoutDraft.validHistoryPartials,
+  pruneWarmupObservations:WorkoutDraft.pruneWarmupObservations,
   displayName, exerciseDisplayName, currentNameForRow, dayLabel, canTakeFocus, parseCalendarDate,
   parseLoadDisplay, parseRepsValue, parseRirValue, clearFieldInvalid,
   toast, formatLongDate, fmtLoad, sum, kfmt, fmt, toDisplay, unitLabel,
