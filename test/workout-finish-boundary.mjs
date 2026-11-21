@@ -850,6 +850,12 @@ async function prelude(browser) {
     const totals = await page.evaluate(() => window.__repforgeSessionSummary.current());
     assert.equal(totals.volume, workRows.reduce((sum, row) => sum + row.load * row.reps, 0), "volume counts work only");
     assert.equal(totals.reps, workRows.reduce((sum, row) => sum + row.reps, 0), "reps count work only");
+    // History reads the warm-ups as preparation, named by their own ordinals, beside work numbered from 1.
+    await page.locator("#sumSee").click();
+    const labels = await page.locator(".session--read .ledgerline:not(.ledgerline__head) .ledgerline__idx").allInnerTexts();
+    assert.deepEqual(labels.map((text) => text.trim()), [...warmRows.map((row) => `W${row.warmupOrdinal}`), "1", "2"], "History names warm-ups W1, W2 and work 1, 2");
+    const csvRows = await page.evaluate(() => window.__repforgeWorkoutDraft.state().log.filter((row) => row.origin === "suggested-warmup").length);
+    assert.equal(csvRows, warmRows.length);
     console.log("PASS: Prelude warm-ups survive reload, finish with work numbered from 1, and teach once");
   } finally {
     await context.close();

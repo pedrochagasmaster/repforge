@@ -149,7 +149,7 @@
       return`<div class="everyset">${groups.map(g=>{
         const head=`${everySetDate(g.date)} · ${dayLabel(g.day)}`;
         return`<section class="everyset__group" aria-label="${esc(head)}"><h3 class="everyset__head">${esc(head)}</h3><ul class="everyset__list">${g.rows.map(x=>{
-          const set=x.warmup?t("history.everyset.warmup",{n:x.set}):t("focus.set_label",{n:x.set});
+          const set=x.warmup?t("history.everyset.warmup",{n:warmupNumber(x)}):t("focus.set_label",{n:x.set});
           // A figure keeps its label's colon, its unit and (a load) its reps on one line: lines break between metrics.
           const figures=(isSourceMetricRow(x)?historyMetricSummary(x):`${fmtLoad(x.load)} ${unitLabel()} × ${performedRepsMarked(x.reps,partialCount(x))}`)
             .replace(/(\d) (?=(kg|lb|m|s)\b)/g,"$1\u00a0").replace(/ × /g,"\u00a0×\u00a0").replace(/: /g,":\u00a0");
@@ -189,7 +189,7 @@ function buildHistoryIndex(log){
     const session=mergeLogChronology(sessionMap.get(sid),row);
     session.rows.push(row)}
   for(const sess of sessionMap.values()){
-    sess.rows.sort((a,b)=>String(displayName(a)).localeCompare(String(displayName(b)))||a.set-b.set)}
+    sess.rows.sort((a,b)=>String(displayName(a)).localeCompare(String(displayName(b)))||bySetThenOrdinal(a,b))}
   const sessions=[...sessionMap.values()].sort((a,b)=>compareLogChronology(b,a));
   const liftChrono=new Map();
   for(const row of rows){
@@ -237,12 +237,12 @@ function buildHistoryIndex(log){
     const date=String(row.date||""),ym=date.slice(0,7);
     if(!/^\d{4}-\d{2}$/.test(ym))continue;
     if(!months.has(ym))months.set(ym,{sessions:new Set(),sets:0,byDay:new Map()});
-    const bucket=months.get(ym);bucket.sessions.add(row.session);bucket.sets++;
+    const bucket=months.get(ym);bucket.sessions.add(row.session);if(row.origin!=="suggested-warmup")bucket.sets++;
     const dayNum=+date.slice(8,10);
     if(!bucket.byDay.has(dayNum))bucket.byDay.set(dayNum,{sets:0,pr:false});
-    bucket.byDay.get(dayNum).sets++;
+    if(row.origin!=="suggested-warmup")bucket.byDay.get(dayNum).sets++;
     if(prDates.has(date))bucket.byDay.get(dayNum).pr=true}
-  const tableRows=[...rows].sort((a,b)=>compareLogChronology(b,a)||displayName(a).localeCompare(displayName(b))||a.set-b.set);
+  const tableRows=[...rows].sort((a,b)=>compareLogChronology(b,a)||displayName(a).localeCompare(displayName(b))||bySetThenOrdinal(a,b));
   const index={rows,sessions,months,prEvents,tableRows,liftPred};
   if(historyDiagnostics.enabled){
     historyDiagnostics.builds++;historyDiagnostics.sourceRowVisits+=rows.length;historyDiagnostics.last=index;
@@ -282,7 +282,7 @@ function syncHistorySearchChrome(){
   const inp=$("#historySearch");if(inp&&inp.value!==histQuery)inp.value=histQuery}
 function historySessionRows(source,sid){
   return(source||[]).filter(row=>String(row?.session??"")===String(sid))
-    .sort((a,b)=>String(displayName(a)).localeCompare(String(displayName(b)))||Number(a?.set||0)-Number(b?.set||0))}
+    .sort((a,b)=>String(displayName(a)).localeCompare(String(displayName(b)))||bySetThenOrdinal(a,b))}
 function historySessionFingerprint(rows){
   // Canonicalize each complete row before sorting the encoded rows. Sorting the
   // row strings, rather than de-duplicating objects, keeps duplicate sets in
@@ -669,6 +669,10 @@ function historyWeekOf(date){
     const start=isoDayNumber(block.start),end=block.end?isoDayNumber(block.end):null;
     if(d>=start&&(end==null||d<=end))return Math.floor((d-start)/7)+1}
   return null}
+/** The number a warm-up row is named by: a suggested warm-up by its own ordinal (W1 to W6), any other by its set. */
+function warmupNumber(row){return row?.origin==="suggested-warmup"?row.warmupOrdinal:row?.set}
+/** Orders rows by set, and a run of suggested warm-ups (all set 0) by their ordinals (Plan 085). */
+const bySetThenOrdinal=(a,b)=>Number(a?.set||0)-Number(b?.set||0)||Number(a?.warmupOrdinal||0)-Number(b?.warmupOrdinal||0);
 /** "100 × 8, 8, 8" when one load, otherwise one "load × reps" per set. */
 function historySetsLine(rows){
   const work=rows.filter(r=>isSourceMetricRow(r)?isWork(r):isWork(r)&&+r.load>0&&+r.reps>0)
@@ -713,9 +717,9 @@ function historyReadingView(s,rows){
         (showRir?`<span class="fx-col">${row.rir==null||row.rir===""?"–":esc(fmt(row.rir))}</span>`:""):
         `<span class="fx-col">${esc(fmtLoad(row.load))}</span><span class="fx-col">${performedRepsHtml(row.reps==null||row.reps===""?"–":row.reps,partialCount(row))}</span>`+
         `<span class="fx-col">${esc(row.rir==null||row.rir===""?"–":fmt(row.rir))}</span>`;
-      const rampLabel=row.warmup&&ramps>0&&row.set<firstWorking.set&&row.set>=firstWorking.set-ramps
+      const rampLabel=row.warmup&&row.origin!=="suggested-warmup"&&ramps>0&&row.set<firstWorking.set&&row.set>=firstWorking.set-ramps
         ?` role="group" aria-label="${esc(t("history.row.ramp",{n:row.set}))}"`:"";
-      return`<div class="ledgerline"${rampLabel}><span class="ledgerline__idx">${esc(row.warmup?"W"+row.set:row.set)}</span>`+
+      return`<div class="ledgerline"${rampLabel}><span class="ledgerline__idx">${esc(row.warmup?"W"+warmupNumber(row):row.set)}</span>`+
         `<span class="ledgerline__vals history-metric-grid" style="--history-metric-count:${count}">${cells}</span></div>`}).join("");
     const groupHeader=`<div class="ledgerline__head histpage__cols"><span>${esc(t("log.set"))}</span>`+
       `<span class="ledgerline__vals history-metric-grid" style="--history-metric-count:${count}">${headers}</span></div>`;
@@ -726,7 +730,7 @@ function historyReadingView(s,rows){
       (before?`<p class="histlift__before">${partialMarkup(before)}</p>`:"")+`</section>`}).join("");
   // What the session was, never how much it weighed: exercises, sets and, when there are any, records.
   const total=(n,label,cls="")=>`<div${cls}><b>${esc(historyInt(n))}</b><span>${esc(label)}</span></div>`;
-  const totals=total(groups.length,groups.length===1?t("plural.exercise.one"):t("plural.exercise.other"))+
+  const totals=total(groups.filter(g=>g.rows.some(isWork)).length,groups.filter(g=>g.rows.some(isWork)).length===1?t("plural.exercise.one"):t("plural.exercise.other"))+
     total(setCount,setCount===1?t("plural.set.one"):t("plural.set.other"))+
     (prLifts.size?total(prLifts.size,prLifts.size===1?t("history.pr"):t("stats.metric.prs"),' class="histpage__total--record"'):"");
   return`<article class="session session--read histpage" data-reading="${esc(sid)}" data-sess="${esc(sid)}">`+
@@ -1120,7 +1124,7 @@ function sessionEditor(s,sets){
         `<span class="ledgerline__vals edrow__vals${metricRows?" history-metric-grid":""}"${metricRows?` style="--history-metric-count:${count}"`:""}>${headerValues}</span><span></span></div>`;
     const rows=g.rows.map(({r,i})=>{
       const isRemoved=removed.has(i),disabled=isRemoved?" disabled":"",label=t(isRemoved?"history.edit.undo_remove":"history.edit.remove_set"),
-        mark=r.warmup?"W"+r.set:r.set,aria=`${esc(shownName(r))} ${esc(t("log.set").toLowerCase())} ${esc(mark)}`;
+        mark=r.warmup?"W"+warmupNumber(r):r.set,aria=`${esc(shownName(r))} ${esc(t("log.set").toLowerCase())} ${esc(mark)}`;
       let fields="";
       if(metricRows){
         fields=(historyMetricRecords(r)||[]).map(record=>{

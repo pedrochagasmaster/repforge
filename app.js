@@ -18111,7 +18111,7 @@ function exportCsv(){
   const cols=[
     ["session",r=>r.session],["date",r=>r.date],["day",r=>r.day],
     ["name",r=>exerciseLabel(r)],["performed_name",r=>r.performedName||""],["exercise_id",r=>r.exerciseId||""],
-    ["set",r=>r.set],["load",r=>reading(r).totalLoad??""],["reps",r=>reading(r).totalReps??""],
+    ["set",r=>r.origin==="suggested-warmup"?`W${r.warmupOrdinal}`:r.set],["load",r=>reading(r).totalLoad??""],["reps",r=>reading(r).totalReps??""],
     ["load_per_side",r=>reading(r).loadPerSide??""],["reps_per_side",r=>reading(r).repsPerSide??""],["rir",r=>r.rir],
     ["e1rm",r=>{if(!isWork(r))return "";const value=reading(r);return value.strengthComparable?+value.e1rm.toFixed(2):hasPerSideMetric(r)?"":+e1rm(+r.load,+r.reps).toFixed(2)}],
     ["tonnage",r=>{if(!isWork(r))return "";const value=reading(r);return Number.isFinite(value.tonnage)?+value.tonnage.toFixed(2):hasPerSideMetric(r)?"":+((+r.load||0)*(+r.reps||0)).toFixed(2)}],
