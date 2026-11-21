@@ -430,5 +430,33 @@ check("a held record whose expiry lies further from its hold than any held rest 
   assert.equal(snapshotValid(saved, T0 + 20 * SEC), false, "one second past the longest held lifetime is refused");
 });
 
+check("Prelude: a warm-up rest carries its kind through start, view, hold, resume, nudge and restart", () => {
+  const warm = start(createRestClock(0), { sec: 60, exerciseId: "ex", now: T0, restKind: "warmup" }).state;
+  assert.equal(view(warm, T0).restKind, "warmup", "the view names a warm-up rest");
+  const held = toggleHold(warm, T0 + 5 * SEC).state;
+  assert.equal(view(held, T0 + 6 * SEC).restKind, "warmup", "a held warm-up rest keeps its kind");
+  const resumed = toggleHold(held, T0 + 8 * SEC).state;
+  assert.equal(view(resumed, T0 + 8 * SEC).restKind, "warmup", "a resumed warm-up rest keeps its kind");
+  assert.equal(view(nudge(resumed, { deltaSec: 15, now: T0 + 9 * SEC }).state, T0 + 9 * SEC).restKind, "warmup", "a nudge keeps the kind");
+  assert.equal(view(setRemaining(resumed, { ms: 30 * SEC, now: T0 + 9 * SEC }).state, T0 + 9 * SEC).restKind, "warmup", "a dial turn keeps the kind");
+  const working = start(warm, { sec: 120, exerciseId: "ex", now: T0 + 10 * SEC }).state;
+  assert.equal(view(working, T0 + 10 * SEC).restKind, "working", "a restart without a kind is a working rest");
+  assert.equal(view(createRestClock(0), T0).restKind, "working", "an idle clock reads as working");
+});
+
+check("Prelude: the kind survives snapshot and restore, and a legacy snapshot with no kind is a working rest", () => {
+  const warm = start(createRestClock(0), { sec: 60, exerciseId: "ex", now: T0, restKind: "warmup" }).state;
+  const saved = JSON.parse(JSON.stringify(snapshot(warm, T0 + SEC)));
+  assert.equal(saved.restKind, "warmup", "the snapshot carries the warm-up kind");
+  assert.equal(snapshotValid(saved, T0 + 2 * SEC), true);
+  assert.equal(view(restore(createRestClock(0), saved, T0 + 2 * SEC).state, T0 + 2 * SEC).restKind, "warmup", "a restored clock is still a warm-up rest");
+  const held = JSON.parse(JSON.stringify(snapshot(toggleHold(warm, T0 + 5 * SEC).state, T0 + 5 * SEC)));
+  assert.equal(view(restore(createRestClock(0), held, T0 + 6 * SEC).state, T0 + 6 * SEC).restKind, "warmup", "a restored held clock is still a warm-up rest");
+  const legacy = JSON.parse(JSON.stringify(snapshot(running(120), T0 + SEC)));
+  assert.equal(Object.hasOwn(legacy, "restKind"), false, "a working rest keeps the original snapshot shape");
+  assert.equal(view(restore(createRestClock(0), legacy, T0 + 2 * SEC).state, T0 + 2 * SEC).restKind, "working", "a legacy snapshot restores as working");
+  for (const bad of ["rest", 3, null, ""]) assert.equal(snapshotValid({ ...saved, restKind: bad }, T0 + 2 * SEC), false, `a snapshot with kind ${JSON.stringify(bad)} is refused`);
+});
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

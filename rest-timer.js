@@ -18,8 +18,10 @@
   // Stored states. A running clock keeps its deadline and nothing else time-dependent: overtime and the cap are read from
   // the deadline by view(), so no stored phase can go stale. `rang` is whether the bell has been settled for this deadline.
   //   { kind: "idle", lengthSec }
-  //   { kind: "running", deadlineMs, lengthSec, exerciseId, rang }
-  //   { kind: "paused", remainingMs, lengthSec, exerciseId, rang }   remainingMs <= 0 is paused overtime
+  //   { kind: "running", deadlineMs, lengthSec, exerciseId, rang, restKind? }
+  //   { kind: "paused", remainingMs, lengthSec, exerciseId, rang, restKind? }   remainingMs <= 0 is paused overtime
+  // restKind is "warmup" for a rest after a suggested warm-up (Plan 085) and absent for a working rest, so a state or a
+  // snapshot from before it existed is a working rest and a working rest keeps its original shape.
 
   function freeze(state) {
     return Object.freeze(state);
@@ -33,6 +35,9 @@
     return result(state, NO_EFFECTS);
   }
 
+  const kindOf = state => state.restKind === "warmup" ? "warmup" : "working";
+  const withKind = (state, restKind) => restKind === "warmup" ? { ...state, restKind } : state;
+
   function createRestClock(lengthSec = 0) {
     return freeze({ kind: "idle", lengthSec });
   }
@@ -41,7 +46,7 @@
   function view(state, now) {
     if (state.kind === "idle") {
       return freeze({ phase: "idle", active: false, held: false, rang: false, ticking: false, lengthSec: state.lengthSec,
-        exerciseId: null, leftMs: null, leftSec: null, done: false, overSec: 0 });
+        exerciseId: null, leftMs: null, leftSec: null, done: false, overSec: 0, restKind: "working" });
     }
     const held = state.kind === "paused";
     const leftMs = held ? state.remainingMs : state.deadlineMs - now;
@@ -53,13 +58,13 @@
     else if (!done) phase = "running";
     else phase = overSec >= OVERTIME_MAX_SEC ? "capped" : "overtime";
     return freeze({ phase, active: true, held, rang: state.rang, ticking: phase === "running" || phase === "overtime",
-      lengthSec: state.lengthSec, exerciseId: state.exerciseId, leftMs, leftSec, done, overSec });
+      lengthSec: state.lengthSec, exerciseId: state.exerciseId, leftMs, leftSec, done, overSec, restKind: kindOf(state) });
   }
 
   /** A new rest: the deadline is `sec` from now, and the bell is armed for that deadline. Nothing without a length. */
-  function start(state, { sec, exerciseId = null, now }) {
+  function start(state, { sec, exerciseId = null, now, restKind = "working" }) {
     if (!(sec > 0)) return unchanged(state);
-    return result(freeze({ kind: "running", deadlineMs: now + sec * 1000, lengthSec: sec, exerciseId, rang: false }),
+    return result(freeze(withKind({ kind: "running", deadlineMs: now + sec * 1000, lengthSec: sec, exerciseId, rang: false }, restKind)),
       [EFFECTS.REARMED]);
   }
 
@@ -67,12 +72,12 @@
   function toggleHold(state, now) {
     if (state.kind === "running") {
       const remainingMs = state.deadlineMs - now;
-      return result(freeze({ kind: "paused", remainingMs, lengthSec: state.lengthSec, exerciseId: state.exerciseId, rang: state.rang,
-        heldAt: now, expiresAt: now + remainingMs + OVERTIME_MAX_SEC * 1000 }), NO_EFFECTS);
+      return result(freeze(withKind({ kind: "paused", remainingMs, lengthSec: state.lengthSec, exerciseId: state.exerciseId, rang: state.rang,
+        heldAt: now, expiresAt: now + remainingMs + OVERTIME_MAX_SEC * 1000 }, kindOf(state))), NO_EFFECTS);
     }
     if (state.kind === "paused") {
-      return result(freeze({ kind: "running", deadlineMs: now + state.remainingMs, lengthSec: state.lengthSec,
-        exerciseId: state.exerciseId, rang: state.rang }), NO_EFFECTS);
+      return result(freeze(withKind({ kind: "running", deadlineMs: now + state.remainingMs, lengthSec: state.lengthSec,
+        exerciseId: state.exerciseId, rang: state.rang }, kindOf(state))), NO_EFFECTS);
     }
     return unchanged(state);
   }
@@ -90,9 +95,9 @@
     const holding = state.kind === "paused" && state.expiresAt !== undefined;
     const heldAt = holding ? state.heldAt : now;
     const expires = holding ? state.expiresAt : now + ms + OVERTIME_MAX_SEC * 1000;
-    const next = nextHeld
+    const next = withKind(nextHeld
       ? { kind: "paused", remainingMs: ms, lengthSec: length, exerciseId: state.exerciseId, rang, heldAt, expiresAt: expires }
-      : { kind: "running", deadlineMs: now + ms, lengthSec: length, exerciseId: state.exerciseId, rang };
+      : { kind: "running", deadlineMs: now + ms, lengthSec: length, exerciseId: state.exerciseId, rang }, kindOf(state));
     return result(freeze(next), ms > 0 ? [EFFECTS.REARMED] : NO_EFFECTS);
   }
 
@@ -128,9 +133,9 @@
     if (state.kind === "idle") return null;
     const { lengthSec, exerciseId, rang } = state;
     const expires = expiresAt(state, now);
-    return state.kind === "paused"
+    return withKind(state.kind === "paused"
       ? { kind: "paused", remainingMs: state.remainingMs, lengthSec, exerciseId, rang, heldAt: state.heldAt, expiresAt: expires }
-      : { kind: "running", deadlineMs: state.deadlineMs, lengthSec, exerciseId, rang, expiresAt: expires };
+      : { kind: "running", deadlineMs: state.deadlineMs, lengthSec, exerciseId, rang, expiresAt: expires }, kindOf(state));
   }
 
   /**
@@ -155,6 +160,7 @@
     const exerciseId = saved.exerciseId ?? null;
     if (!(Number.isFinite(lengthSec) && lengthSec >= 0 && lengthSec <= MAX_SEC)) return false;
     if (!((exerciseId === null || typeof exerciseId === "string") && typeof rang === "boolean" && Number.isFinite(expires))) return false;
+    if (saved.restKind !== undefined && saved.restKind !== "warmup" && saved.restKind !== "working") return false;
     if (kind === "running") {
       return Number.isFinite(saved.deadlineMs) && expires === saved.deadlineMs + OVERTIME_MAX_SEC * 1000
         && saved.deadlineMs - now <= MAX_SEC * 1000;
@@ -179,9 +185,9 @@
   function fromSnapshot(saved, now) {
     if (!snapshotValid(saved, now) || saved.expiresAt <= now) return null;
     const common = { lengthSec: saved.lengthSec, exerciseId: saved.exerciseId ?? null, rang: saved.rang };
-    return freeze(saved.kind === "paused"
+    return freeze(withKind(saved.kind === "paused"
       ? { kind: "paused", remainingMs: saved.remainingMs, heldAt: saved.heldAt, expiresAt: saved.expiresAt, ...common }
-      : { kind: "running", deadlineMs: saved.deadlineMs, ...common });
+      : { kind: "running", deadlineMs: saved.deadlineMs, ...common }, saved.restKind));
   }
 
   /**

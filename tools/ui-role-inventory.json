@@ -8,6 +8,41 @@
     "probe": "production catalog scenarios, phone-390 light EN canonical frame, Chromium; no scenario failures"
   },
   "catalogStates": {
+    "workout/prelude": {
+      "owner": "plan-085",
+      "content": "flat",
+      "scenario": "The first suggested warm-up for 105 kg: the cue, the rail to the working load, the shelf and its Done button."
+    },
+    "workout/prelude-rest": {
+      "owner": "plan-085",
+      "content": "flat",
+      "scenario": "The first warm-up is logged and its one-minute Warm-up rest runs."
+    },
+    "workout/prelude-summary": {
+      "owner": "plan-085",
+      "content": "flat",
+      "scenario": "One quiet W row above the work, and set 1 is next."
+    },
+    "workout/prelude-learned": {
+      "owner": "plan-085",
+      "content": "flat",
+      "scenario": "The lifter's own warm-up from recent sessions, scaled to today's load."
+    },
+    "workout/prelude-suppressed": {
+      "owner": "plan-085",
+      "content": "flat",
+      "scenario": "No warm-ups suggested after three skips, with Why? and Add one."
+    },
+    "workout/prelude-why": {
+      "owner": "plan-085",
+      "content": "flat",
+      "scenario": "The explanation sheet with where the sequence comes from and the reset."
+    },
+    "workout/prelude-tie": {
+      "owner": "plan-085",
+      "content": "flat",
+      "scenario": "The W row above a 6+3 tie logged against the prior 6+2."
+    },
     "workout/past-zero": {
       "owner": "plan-085",
       "content": "flat",

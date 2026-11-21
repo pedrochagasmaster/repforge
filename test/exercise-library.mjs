@@ -156,6 +156,7 @@ assert(buildCheck.status === 0, "generated index and detail asset match their co
     "progress-model.js",
     "progression-engine.js",
     "install-transfer-contract.js",
+    "warmup-suggestions.js",
     "exercises.js",
     "program-compiler.js",
     "program-editor.js",

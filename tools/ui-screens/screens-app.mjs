@@ -16,6 +16,7 @@ import { catalogState, directionDState, emptyEntryState, localeState, pastZeroSt
 import { CAPTURE_NOW, dismissChrome, LOG_DRAFT, replayGuide, seed, sleep } from "./session.mjs";
 import { definitionSlot, installGeneratedProgram, isWeightRepsSlot, metricLogRow } from "../../test/fixtures/history-metric-rows.mjs";
 import { finishEarly } from "../../test/fixtures/focus-workout.mjs";
+import { savedWarmupSession } from "../../test/fixtures/prelude-sessions.mjs";
 import { openShelfField } from "../../test/browser.mjs";
 import { DIRECTION_D_CANONICAL_ID_BY_LEGACY_ID } from "./direction-d-canonical-fixture.generated.mjs";
 
@@ -481,6 +482,7 @@ function profileFinishState(event,lang){
 }
 export function appState(key, lang) {
   if (key.includes("/past-zero")) return pastZeroState(lang, !key.startsWith("workout/"));
+  if (key.startsWith("workout/prelude")) return pastZeroState(lang, false);
   if(key.startsWith("session/profile-finish-"))return profileFinishState(key.slice("session/profile-finish-".length),lang);
   if(key==="today/profile")return wellTailoredProfileState(lang);
   if (["today/profile-first", "today/profile-scope", "progress/profile-reader", "progress/profile-scope"].includes(key)) {
@@ -772,6 +774,51 @@ async function pastZeroFocus(page, state) {
   if (state === "why") {
     await active.locator(".fx-cue__why").click();
     await page.locator("#whySheet.is-open").waitFor();
+  }
+}
+
+/* Plan 085 Prelude: the same squat the Past zero states use, with the history each warm-up state reads. */
+async function preludeFocus(page, state) {
+  await focusMode(page);
+  const active = page.locator("#workout .exercise.is-current:not(.is-peek)");
+  const exId = await active.getAttribute("data-ex");
+  const history = {
+    learned: [[[20, 10], [50, 5], [70, 3], [90, 1]], [[20, 10], [50, 5], [70, 3], [90, 1]]],
+    suppressed: [null, null, null],
+  }[state];
+  for (const [index, steps] of (history || []).entries()) {
+    await savedWarmupSession(page, { exId, id: `prelude-${state}-${index}`, daysAgo: 6 - index, steps: steps || [], skip: !steps });
+  }
+  if (history) await page.evaluate(() => renderWorkout());
+  const cue = active.locator(".fx-cue--warm");
+  if (state === "suppressed") {
+    await active.locator(".fx-prelude-none").waitFor();
+    return;
+  }
+  await cue.waitFor();
+  if (state === "why") {
+    await cue.locator(".fx-cue__why").click();
+    await page.locator("#whySheet.is-open").waitFor();
+    return;
+  }
+  const log = async () => {
+    await active.locator(".saveset").click();
+    await page.waitForFunction(() => window.__repforgeWorkoutDraft.flush().then(() => true));
+  };
+  if (state === "rest" || state === "summary" || state === "tie") {
+    await log();
+    await page.locator("#restTab").waitFor();
+  }
+  if (state === "summary" || state === "tie") {
+    while (await active.locator(".fx-cue--warm").count()) await log();
+    await active.locator(".ledgerline--warmup").waitFor();
+  }
+  if (state === "tie") {
+    await active.locator('[data-shelf-field="rir"]').click();
+    await active.locator('[data-effchip][data-e="0"]').click();
+    await active.locator('[data-partial-chip="3"]').click();
+    await active.locator(".saveset").click();
+    await active.locator('[data-editn="1"] .partial-reps').first().waitFor({ state: "attached", timeout: 7500 });
   }
 }
 
@@ -2454,6 +2501,13 @@ export const APP_SCENARIOS = {
     }
   },
 
+  "workout/prelude": page => preludeFocus(page, "baseline"),
+  "workout/prelude-rest": page => preludeFocus(page, "rest"),
+  "workout/prelude-summary": page => preludeFocus(page, "summary"),
+  "workout/prelude-learned": page => preludeFocus(page, "learned"),
+  "workout/prelude-suppressed": page => preludeFocus(page, "suppressed"),
+  "workout/prelude-why": page => preludeFocus(page, "why"),
+  "workout/prelude-tie": page => preludeFocus(page, "tie"),
   "workout/past-zero": page => pastZeroFocus(page, "zero"),
   "workout/past-zero-selected": page => pastZeroFocus(page, "selected"),
   "workout/past-zero-ledger": page => pastZeroFocus(page, "ledger"),

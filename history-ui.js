@@ -149,7 +149,7 @@
       return`<div class="everyset">${groups.map(g=>{
         const head=`${everySetDate(g.date)} · ${dayLabel(g.day)}`;
         return`<section class="everyset__group" aria-label="${esc(head)}"><h3 class="everyset__head">${esc(head)}</h3><ul class="everyset__list">${g.rows.map(x=>{
-          const set=x.warmup?t("history.everyset.warmup",{n:x.set}):t("focus.set_label",{n:x.set});
+          const set=x.warmup?t("history.everyset.warmup",{n:warmupNumber(x)}):t("focus.set_label",{n:x.set});
           // A figure keeps its label's colon, its unit and (a load) its reps on one line: lines break between metrics.
           const figures=(isSourceMetricRow(x)?historyMetricSummary(x):`${fmtLoad(x.load)} ${unitLabel()} × ${performedRepsMarked(x.reps,partialCount(x))}`)
             .replace(/(\d) (?=(kg|lb|m|s)\b)/g,"$1\u00a0").replace(/ × /g,"\u00a0×\u00a0").replace(/: /g,":\u00a0");
@@ -189,7 +189,7 @@ function buildHistoryIndex(log){
     const session=mergeLogChronology(sessionMap.get(sid),row);
     session.rows.push(row)}
   for(const sess of sessionMap.values()){
-    sess.rows.sort((a,b)=>String(displayName(a)).localeCompare(String(displayName(b)))||a.set-b.set)}
+    sess.rows.sort((a,b)=>String(displayName(a)).localeCompare(String(displayName(b)))||bySetThenOrdinal(a,b))}
   const sessions=[...sessionMap.values()].sort((a,b)=>compareLogChronology(b,a));
   const liftChrono=new Map();
   for(const row of rows){
@@ -237,12 +237,12 @@ function buildHistoryIndex(log){
     const date=String(row.date||""),ym=date.slice(0,7);
     if(!/^\d{4}-\d{2}$/.test(ym))continue;
     if(!months.has(ym))months.set(ym,{sessions:new Set(),sets:0,byDay:new Map()});
-    const bucket=months.get(ym);bucket.sessions.add(row.session);bucket.sets++;
+    const bucket=months.get(ym);bucket.sessions.add(row.session);if(row.origin!=="suggested-warmup")bucket.sets++;
     const dayNum=+date.slice(8,10);
     if(!bucket.byDay.has(dayNum))bucket.byDay.set(dayNum,{sets:0,pr:false});
-    bucket.byDay.get(dayNum).sets++;
+    if(row.origin!=="suggested-warmup")bucket.byDay.get(dayNum).sets++;
     if(prDates.has(date))bucket.byDay.get(dayNum).pr=true}
-  const tableRows=[...rows].sort((a,b)=>compareLogChronology(b,a)||displayName(a).localeCompare(displayName(b))||a.set-b.set);
+  const tableRows=[...rows].sort((a,b)=>compareLogChronology(b,a)||displayName(a).localeCompare(displayName(b))||bySetThenOrdinal(a,b));
   const index={rows,sessions,months,prEvents,tableRows,liftPred};
   if(historyDiagnostics.enabled){
     historyDiagnostics.builds++;historyDiagnostics.sourceRowVisits+=rows.length;historyDiagnostics.last=index;
@@ -282,7 +282,7 @@ function syncHistorySearchChrome(){
   const inp=$("#historySearch");if(inp&&inp.value!==histQuery)inp.value=histQuery}
 function historySessionRows(source,sid){
   return(source||[]).filter(row=>String(row?.session??"")===String(sid))
-    .sort((a,b)=>String(displayName(a)).localeCompare(String(displayName(b)))||Number(a?.set||0)-Number(b?.set||0))}
+    .sort((a,b)=>String(displayName(a)).localeCompare(String(displayName(b)))||bySetThenOrdinal(a,b))}
 function historySessionFingerprint(rows){
   // Canonicalize each complete row before sorting the encoded rows. Sorting the
   // row strings, rather than de-duplicating objects, keeps duplicate sets in
@@ -551,9 +551,19 @@ async function historyFinishResult(result,successKey,operation,operationId){
 function historyCancelledCommit(head){
   return{reject:true,result:{ok:false,committed:false,settled:true,cancelled:true,code:"history_cancelled",
     revision:readRevision(head),localOk:false,idbOk:false}}}
+/** A corrected session keeps the warm-up learning its rows still support; one whose selectors no longer resolve goes in the
+ *  same commit as the correction (Plan 085). */
+function pruneSessionWarmups(snapshot,sid){
+  const map=snapshot.warmupObservations,key=String(sid);
+  if(!map||!Object.prototype.hasOwnProperty.call(map,key))return;
+  const kept=deps.pruneWarmupObservations({[key]:map[key]},snapshot.log);
+  const rest={...map};delete rest[key];
+  if(kept)rest[key]=kept[key];
+  if(Object.keys(rest).length)snapshot.warmupObservations=rest;else delete snapshot.warmupObservations}
 function historyEditCommit(sid,proposed,original,operationId){
   const desired=historySessionFingerprint(proposed),proposal=cloneSnapshot(deps.getState());
   proposal.log=proposal.log.filter(row=>String(row?.session??"")!==String(sid)).concat(cloneSnapshot(proposed));
+  pruneSessionWarmups(proposal,sid);
   const preflight=({head})=>{
     if(!historyOperationCurrent(operationId,sid,"edit"))return historyCancelledCommit(head);
     const current=historySessionRows(head.log,sid),fingerprint=historySessionFingerprint(current);
@@ -563,6 +573,7 @@ function historyEditCommit(sid,proposed,original,operationId){
       code:"history_stale",revision:readRevision(head),localOk:false,idbOk:false}};
     const next=cloneSnapshot(head);
     next.log=next.log.filter(row=>String(row?.session??"")!==String(sid)).concat(cloneSnapshot(proposed));
+    pruneSessionWarmups(next,sid);
     return{proposal:next}};
   return commitProposedState(proposal,{preflight})}
 async function historyRetryEdit(){
@@ -619,7 +630,7 @@ async function historyBeginDelete(sid){
   historyFocus($("[data-history-delete-status]"));return true}
 /** Session-owned facts and duration leave with the deleted session. */
 function withoutSessionTiming(snapshot,sid){
-  for(const key of ["sessionTiming","sessionEvents"]){
+  for(const key of ["sessionTiming","sessionEvents","warmupObservations"]){
     if(!snapshot[key]||!Object.prototype.hasOwnProperty.call(snapshot[key],String(sid)))continue;
     const{[String(sid)]:_removed,...rest}=snapshot[key];
     if(Object.keys(rest).length)snapshot[key]=rest;else delete snapshot[key]}}
@@ -658,6 +669,10 @@ function historyWeekOf(date){
     const start=isoDayNumber(block.start),end=block.end?isoDayNumber(block.end):null;
     if(d>=start&&(end==null||d<=end))return Math.floor((d-start)/7)+1}
   return null}
+/** The number a warm-up row is named by: a suggested warm-up by its own ordinal (W1 to W6), any other by its set. */
+function warmupNumber(row){return row?.origin==="suggested-warmup"?row.warmupOrdinal:row?.set}
+/** Orders rows by set, and a run of suggested warm-ups (all set 0) by their ordinals (Plan 085). */
+const bySetThenOrdinal=(a,b)=>Number(a?.set||0)-Number(b?.set||0)||Number(a?.warmupOrdinal||0)-Number(b?.warmupOrdinal||0);
 /** "100 × 8, 8, 8" when one load, otherwise one "load × reps" per set. */
 function historySetsLine(rows){
   const work=rows.filter(r=>isSourceMetricRow(r)?isWork(r):isWork(r)&&+r.load>0&&+r.reps>0)
@@ -702,9 +717,9 @@ function historyReadingView(s,rows){
         (showRir?`<span class="fx-col">${row.rir==null||row.rir===""?"–":esc(fmt(row.rir))}</span>`:""):
         `<span class="fx-col">${esc(fmtLoad(row.load))}</span><span class="fx-col">${performedRepsHtml(row.reps==null||row.reps===""?"–":row.reps,partialCount(row))}</span>`+
         `<span class="fx-col">${esc(row.rir==null||row.rir===""?"–":fmt(row.rir))}</span>`;
-      const rampLabel=row.warmup&&ramps>0&&row.set<firstWorking.set&&row.set>=firstWorking.set-ramps
+      const rampLabel=row.warmup&&row.origin!=="suggested-warmup"&&ramps>0&&row.set<firstWorking.set&&row.set>=firstWorking.set-ramps
         ?` role="group" aria-label="${esc(t("history.row.ramp",{n:row.set}))}"`:"";
-      return`<div class="ledgerline"${rampLabel}><span class="ledgerline__idx">${esc(row.warmup?"W"+row.set:row.set)}</span>`+
+      return`<div class="ledgerline"${rampLabel}><span class="ledgerline__idx">${esc(row.warmup?"W"+warmupNumber(row):row.set)}</span>`+
         `<span class="ledgerline__vals history-metric-grid" style="--history-metric-count:${count}">${cells}</span></div>`}).join("");
     const groupHeader=`<div class="ledgerline__head histpage__cols"><span>${esc(t("log.set"))}</span>`+
       `<span class="ledgerline__vals history-metric-grid" style="--history-metric-count:${count}">${headers}</span></div>`;
@@ -715,7 +730,7 @@ function historyReadingView(s,rows){
       (before?`<p class="histlift__before">${partialMarkup(before)}</p>`:"")+`</section>`}).join("");
   // What the session was, never how much it weighed: exercises, sets and, when there are any, records.
   const total=(n,label,cls="")=>`<div${cls}><b>${esc(historyInt(n))}</b><span>${esc(label)}</span></div>`;
-  const totals=total(groups.length,groups.length===1?t("plural.exercise.one"):t("plural.exercise.other"))+
+  const totals=total(groups.filter(g=>g.rows.some(isWork)).length,groups.filter(g=>g.rows.some(isWork)).length===1?t("plural.exercise.one"):t("plural.exercise.other"))+
     total(setCount,setCount===1?t("plural.set.one"):t("plural.set.other"))+
     (prLifts.size?total(prLifts.size,prLifts.size===1?t("history.pr"):t("stats.metric.prs"),' class="histpage__total--record"'):"");
   return`<article class="session session--read histpage" data-reading="${esc(sid)}" data-sess="${esc(sid)}">`+
@@ -1109,7 +1124,7 @@ function sessionEditor(s,sets){
         `<span class="ledgerline__vals edrow__vals${metricRows?" history-metric-grid":""}"${metricRows?` style="--history-metric-count:${count}"`:""}>${headerValues}</span><span></span></div>`;
     const rows=g.rows.map(({r,i})=>{
       const isRemoved=removed.has(i),disabled=isRemoved?" disabled":"",label=t(isRemoved?"history.edit.undo_remove":"history.edit.remove_set"),
-        mark=r.warmup?"W"+r.set:r.set,aria=`${esc(shownName(r))} ${esc(t("log.set").toLowerCase())} ${esc(mark)}`;
+        mark=r.warmup?"W"+warmupNumber(r):r.set,aria=`${esc(shownName(r))} ${esc(t("log.set").toLowerCase())} ${esc(mark)}`;
       let fields="";
       if(metricRows){
         fields=(historyMetricRecords(r)||[]).map(record=>{

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { launchChromium } from "./browser.mjs";
 import { installSeedProgram } from "./fixtures/seed-program.mjs";
+import { savedWarmupSession } from "./fixtures/prelude-sessions.mjs";
 
 const base = process.env.REPFORGE_URL || "http://localhost:8000/";
 const stateKey = "repforge_v1";
@@ -711,11 +712,234 @@ async function pastZero(browser) {
   }
 }
 
+/* Plan 085 slice 3: suggested warm-ups. The cue is the warm-up until the sequence is done; the warm-ups sit beside the sets, not
+   in them, and they never count. Edit one, log it, reload, log the rest, work three sets and finish: one observation, work
+   numbered 1 to 3, warm-up rows numbered by their own ordinal. */
+async function prelude(browser) {
+  const { context, page } = await freshWorkout(browser, { rirMode: "numeric", effortScale: "reps" });
+  try {
+    const card = page.locator("#workout .exercise.is-current:not(.is-peek)");
+    const shelf = card.locator(".focus-shelf");
+    // The program's first lift carries part of the body's weight, which gets no suggested warm-up; the second is a plain machine lift.
+    const target = (await draftTargets(page)).find((item) => item.exerciseInstanceId === "seed-ex-2");
+    assert.equal(await page.evaluate((id) => window.__repforgeWorkoutDraft.current().exercises[id].programmed.loadingContext.bodyweightCoefficient, target.exerciseInstanceId), 0);
+    await page.evaluate(async ({ target, weight, reps }) => {
+      for (const [metricId, value] of [[weight, "105"], [reps, "6"]]) {
+        await window.__repforgeWorkoutDraft.dispatch("editMetricValue", { ...target, metricId, value });
+      }
+      renderWorkout();
+      const draft = window.__repforgeWorkoutDraft.current();
+      const date = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+      const completedAt = date + "T12:00:00.000Z";
+      const command = (draft, type, fields) => {
+        const operationId = "prelude-fixture-" + type;
+        return window.RepForgeWorkoutDraft.reduce(draft, {
+          ...target, ...fields, type, operationId, expectedRevision: draft.revision, updatedAt: completedAt,
+          writer: { ...draft.writer, operationId },
+        });
+      };
+      const entered = command(draft, "editSetField", { field: "rir", value: "0" });
+      const completed = command(entered, "completeSet", { completedAt });
+      const rows = window.RepForgeWorkoutDraft.toHistoryRows(command(completed, "beginFinish", {}), completedAt);
+      if (!Array.isArray(rows)) throw new Error(JSON.stringify({ rows }));
+      const proposal = window.__repforgeWorkoutDraft.state();
+      proposal.log = [{ ...rows[0], session: "prelude-previous", date }];
+      const result = await window.__repforgeCommitProposedState(proposal);
+      if (!result.committed) throw new Error("Could not seed the previous comparable set");
+    }, { target, weight: WEIGHT, reps: REPS });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    await page.evaluate((id) => window.__repforgeWorkoutDraft.dispatch("selectExercise", { exerciseInstanceId: id }), target.exerciseInstanceId);
+    await page.locator('#woProgress button[data-focusgo="1"]').click();
+    await page.waitForFunction((id) => document.querySelector("#workout .exercise.is-current:not(.is-peek)")?.dataset.ex === id, target.exerciseInstanceId);
+
+    // The first warm-up is the cue: its load, its reps, the rail to the working load, and the way to skip.
+    const cue = card.locator(".fx-cue--warm");
+    await cue.waitFor({ timeout: 5000 });
+    assert.match(await cue.locator(".fx-cue__l1").innerText(), /^Warm up \d/, "the hero says what to warm up with");
+    const rail = cue.getByRole("list", { name: "Warm-up steps" });
+    const stepsBefore = await rail.locator("li").count();
+    assert.ok(stepsBefore >= 3, `the rail ends at the working load: ${stepsBefore} dots`);
+    assert.equal(await rail.locator("li.fx-rail__step--work").count(), 1, "the rail ends in one work marker");
+    assert.equal(await rail.locator('li[aria-current="step"]').count(), 1, "one step is current");
+    assert.match(await cue.locator(".fx-cue__standing").innerText(), /^Warm-up 1 of \d+, then 105 kg$/);
+    await cue.getByRole("button", { name: "Skip warm-ups" }).waitFor();
+    assert.equal(await card.locator(".ledgerline--open").count(), 0, "the table's open ring waits for the work");
+    assert.equal(await card.locator(".ledgerline--warmup").count(), 0, "no warm-up row before one is logged");
+    assert.equal(await page.evaluate(() => window.__repforgeWorkoutDraft.current().exercises["seed-ex-2"].warmupPrelude ?? null), null,
+      "opening the cue writes nothing: browsing is not input");
+    assert.equal(await shelf.getByRole("button", { name: /^Done · .* next$/ }).count(), 1, "the action names what follows");
+
+    // Edit the first warm-up to 60 × 5 and log it.
+    const first = await cue.locator(".fx-cue__load").innerText();
+    await shelf.locator('[data-wu-field="load"]').click();
+    await shelf.locator('[data-wu-field="load"]').click();
+    await page.locator("#wheelDone").click();
+    await page.locator("#wheelSheet").waitFor({ state: "hidden" });
+    const loadInput = shelf.locator('input[data-wu-kind="load"]');
+    await loadInput.evaluate((el) => { el.value = "60"; el.oninput(); });
+    const repsInput = shelf.locator('input[data-wu-kind="reps"]');
+    await repsInput.evaluate((el) => { el.value = "5"; el.oninput(); });
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    const edited = await page.evaluate(() => {
+      const record = window.__repforgeWorkoutDraft.current().exercises["seed-ex-2"].warmupPrelude;
+      return record.steps.map((step) => [step.source, step.touched, step.completion]);
+    });
+    assert.deepEqual(edited[0], ["suggested", true, "pending"], "an edit stores the plan and marks the step touched");
+    await shelf.getByRole("button", { name: /^Done · .* next$/ }).click();
+    await page.locator(".resttab__label", { hasText: "Warm-up rest" }).waitFor({ timeout: 5000 });
+    assert.match(await page.locator("#restTab").getAttribute("aria-label"), /^Warm-up rest, 0?[01]:\d\d$/, "the spoken label names the warm-up rest");
+    assert.equal(await page.evaluate(() => RepForgeRestTimer.view(restClock, Date.now()).lengthSec), 60, "a warm-up rest runs a minute");
+    const afterFirst = await page.evaluate(() => {
+      const exercise = window.__repforgeWorkoutDraft.current().exercises["seed-ex-2"];
+      return { sets: exercise.setOrder.length, done: exercise.warmupPrelude.steps.filter((step) => step.completion !== "pending").length,
+        ordinal: exercise.warmupPrelude.steps[0].completion.ordinal, values: Object.values(exercise.warmupPrelude.steps[0].values) };
+    });
+    assert.deepEqual({ sets: afterFirst.sets, done: afterFirst.done, ordinal: afterFirst.ordinal }, { sets: 2, done: 1, ordinal: 1 },
+      "the warm-up is outside the sets and takes warm-up ordinal 1");
+    assert.deepEqual(afterFirst.values.sort(), ["5", "60"], "what was logged is what was typed");
+
+    // A reload shows the acknowledged plan, with the rest still running.
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    await cue.waitFor({ timeout: 5000 });
+    assert.match(await cue.locator(".fx-cue__standing").innerText(), /^Warm-up 2 of \d+/, "after a reload the cue is the next step");
+    assert.equal(await rail.locator("li.is-done").count(), 1, "the logged step stays done on the rail");
+    assert.match(await rail.locator("li.is-done").first().innerText(), /60/, "a done step shows what was logged");
+    await page.locator(".resttab__label", { hasText: "Warm-up rest" }).waitFor({ timeout: 5000 });
+
+    // Log the rest. The last one hands over to set 1.
+    for (let guard = 0; guard < 6 && await card.locator(".fx-cue--warm").count(); guard++) {
+      await shelf.locator(".saveset").click();
+      await page.waitForFunction(() => window.__repforgeWorkoutDraft.current() && true);
+      await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    }
+    await page.getByText("Warmed up. Set 1 is next.", { exact: true }).waitFor({ timeout: 5000 });
+    const summary = card.locator(".ledgerline--warmup");
+    await summary.waitFor();
+    assert.match(await summary.locator(".ledgerline__vals").innerText(), /^60 · \d+(\.\d+)? kg · not counted$/, "one quiet W row lists the logged loads in order");
+    assert.match(await summary.locator(".visually-hidden").textContent(), /^Warm-ups, 60, \d+(\.\d+)? kg, not counted$/, "and it reads aloud as one line");
+    await shelf.getByRole("button", { name: "Log set 1" }).waitFor();
+
+    // Work the two sets the program prescribes.
+    for (const n of [1, 2]) {
+      await shelf.getByRole("button", { name: new RegExp(`^Log set ${n}`) }).click();
+      await page.waitForFunction((count) => window.__repforgeWorkoutDraft.current().exercises["seed-ex-2"].setOrder
+        .filter((id) => window.__repforgeWorkoutDraft.current().exercises["seed-ex-2"].sets[id].completion !== "pending").length >= count, n);
+    }
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    await beginEarlyFinishPrompt(page);
+    await page.locator("#sessionEarlyConfirm").click();
+    await page.locator("#sessionSummary:not(.hidden)").waitFor();
+    const saved = await page.evaluate(() => {
+      const state = window.__repforgeWorkoutDraft.state();
+      return { rows: state.log.filter((row) => row.session !== "prelude-previous"), observations: state.warmupObservations ?? null };
+    });
+    const warmRows = saved.rows.filter((row) => row.warmup), workRows = saved.rows.filter((row) => !row.warmup);
+    assert.deepEqual(workRows.map((row) => row.set), [1, 2], "work is numbered 1, 2");
+    assert.ok(warmRows.length >= 2 && warmRows.every((row) => row.origin === "suggested-warmup" && row.set === 0 && row.rir === null),
+      "the warm-ups are projected as warm-up rows");
+    assert.deepEqual(warmRows.map((row) => row.warmupOrdinal), warmRows.map((_, index) => index + 1), "their ordinals are distinct and in order");
+    assert.deepEqual([warmRows[0].load, warmRows[0].reps], [60, 5], "the edit is what was saved");
+    const sessions = Object.keys(saved.observations || {});
+    assert.equal(sessions.length, 1, "one session entry is written with the save");
+    const [observation, ...more] = saved.observations[sessions[0]].observations;
+    assert.equal(more.length, 0, "one observation per lift");
+    assert.equal(observation.decision, "edited", "the edit is what the observation records");
+    assert.deepEqual(observation.warmupOrdinals, warmRows.map((row) => row.warmupOrdinal), "it names the warm-up rows by ordinal");
+    assert.equal(observation.workingOrdinal, 1, "and the first working set");
+    const totals = await page.evaluate(() => window.__repforgeSessionSummary.current());
+    assert.equal(totals.volume, workRows.reduce((sum, row) => sum + row.load * row.reps, 0), "volume counts work only");
+    assert.equal(totals.reps, workRows.reduce((sum, row) => sum + row.reps, 0), "reps count work only");
+    // History reads the warm-ups as preparation, named by their own ordinals, beside work numbered from 1.
+    await page.locator("#sumSee").click();
+    const labels = await page.locator(".session--read .ledgerline:not(.ledgerline__head) .ledgerline__idx").allInnerTexts();
+    assert.deepEqual(labels.map((text) => text.trim()), [...warmRows.map((row) => `W${row.warmupOrdinal}`), "1", "2"], "History names warm-ups W1, W2 and work 1, 2");
+    const csvRows = await page.evaluate(() => window.__repforgeWorkoutDraft.state().log.filter((row) => row.origin === "suggested-warmup").length);
+    assert.equal(csvRows, warmRows.length);
+    console.log("PASS: Prelude warm-ups survive reload, finish with work numbered from 1, and teach once");
+  } finally {
+    await context.close();
+  }
+}
+
+/* Prelude learning and its states. Earlier sessions are built from the real draft commands and the app's own save projection,
+   then committed; the cue, Why sheet, reset and the quiet suppressed row are read from the screen. */
+async function openLegCurl(page) {
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForApp(page);
+  const current = await page.locator("#workout .exercise.is-current:not(.is-peek)").getAttribute("data-ex");
+  if (current !== "seed-ex-2") await page.locator('#woProgress button[data-focusgo="1"]').click();
+  await page.waitForFunction(() => document.querySelector("#workout .exercise.is-current:not(.is-peek)")?.dataset.ex === "seed-ex-2");
+}
+
+async function preludeLearning(browser) {
+  const { context, page } = await freshWorkout(browser, { rirMode: "numeric", effortScale: "reps" });
+  try {
+    const card = page.locator("#workout .exercise.is-current:not(.is-peek)");
+    const shelf = card.locator(".focus-shelf");
+    const target = (await draftTargets(page)).find((item) => item.exerciseInstanceId === "seed-ex-2");
+    await page.evaluate(async ({ target, weight, reps }) => {
+      for (const [metricId, value] of [[weight, "105"], [reps, "6"]]) await window.__repforgeWorkoutDraft.dispatch("editMetricValue", { ...target, metricId, value });
+    }, { target, weight: WEIGHT, reps: REPS });
+    // Two sessions with the same changed warm-up make it the lifter's own.
+    await savedWarmupSession(page, { exId: "seed-ex-2", id: "learn-1", daysAgo: 6, steps: [[40, 8], [80, 2]] });
+    await savedWarmupSession(page, { exId: "seed-ex-2", id: "learn-2", daysAgo: 4, steps: [[40, 8], [80, 2]] });
+    await openLegCurl(page);
+    const cue = card.locator(".fx-cue--warm");
+    await cue.waitFor({ timeout: 5000 });
+    assert.match(await cue.locator(".fx-cue__evidence").innerText(), /^Your warm-up from recent .+ sessions, adjusted to 105 kg\./, "two agreeing sessions make the learned cue");
+    const learnedFirst = await cue.locator(".fx-cue__load").innerText();
+    assert.ok(Number(learnedFirst) < 60, `the learned first step is lighter than the starting one: ${learnedFirst}`);
+    await cue.getByRole("button", { name: "Why this warm-up" }).click();
+    const sheet = page.locator("#whySheet");
+    await sheet.waitFor({ state: "visible" });
+    assert.equal((await page.locator("#whyTitle").innerText()).trim(), "Why this warm-up");
+    assert.equal((await page.locator("#whyDecision").innerText()).trim(), "Learned from your sets");
+    assert.match(await page.locator("#whyEvidence").innerText(), /^Based on 2 sessions/);
+    assert.equal(await page.evaluate(() => Object.values(window.__repforgeWorkoutDraft.current().exercises).some((exercise) => exercise.warmupPrelude)), false, "opening Why writes nothing");
+    await sheet.getByRole("button", { name: /^Forget my warm-up for / }).click();
+    await page.getByText("Warm-up preference cleared.", { exact: true }).waitFor({ timeout: 5000 });
+    await page.waitForFunction(() => !document.querySelector("#whySheet.is-open"));
+    await cue.locator(".fx-cue__evidence", { hasText: "A starting warm-up for 105 kg." }).waitFor({ timeout: 5000 });
+    assert.deepEqual(Object.keys(await page.evaluate(() => window.__repforgeWorkoutDraft.state().warmupPreferences)).length, 1, "a reset keeps one token for the lift");
+
+    // Three whole skips pause the suggestion, and a later reset or a logged warm-up brings it back.
+    await savedWarmupSession(page, { exId: "seed-ex-2", id: "skip-1", daysAgo: 3, skip: true, steps: [] });
+    await savedWarmupSession(page, { exId: "seed-ex-2", id: "skip-2", daysAgo: 2, skip: true, steps: [] });
+    await savedWarmupSession(page, { exId: "seed-ex-2", id: "skip-3", daysAgo: 1, skip: true, steps: [] });
+    await openLegCurl(page);
+    const quiet = card.locator(".fx-prelude-none");
+    await quiet.waitFor({ timeout: 5000 });
+    assert.equal(await card.locator(".fx-cue--warm").count(), 0, "no warm-up is the cue once three skips pause it");
+    assert.match(await quiet.innerText(), /no warm-ups suggested/i);
+    await quiet.getByRole("button", { name: "Why?" }).click();
+    assert.equal((await page.locator("#whyDecision").innerText()).trim(), "Usually skips");
+    await page.keyboard.press("Escape");
+    await page.waitForFunction(() => !document.querySelector("#whySheet.is-open"));
+    await quiet.getByRole("button", { name: "Add one" }).click();
+    await page.getByText("Warm-up added. Log it when you're done.", { exact: true }).waitFor({ timeout: 5000 });
+    await cue.waitFor();
+    assert.equal(await page.evaluate(() => window.__repforgeWorkoutDraft.current().exercises["seed-ex-2"].warmupPrelude.steps.map((step) => step.source).join()), "manual", "Add one stores a manual step");
+    // Skipping it again is a whole skip with nothing logged; the lifter can still go to the work.
+    await cue.getByRole("button", { name: "Skip warm-ups" }).click();
+    await page.getByText("Skipped. Skip three sessions in a row to pause suggestions.", { exact: true }).waitFor({ timeout: 5000 });
+    await shelf.getByRole("button", { name: "Log set 1" }).waitFor();
+    assert.equal(await card.locator(".ledgerline--warmup").count(), 0, "nothing was logged, so there is no W row");
+    console.log("PASS: Prelude learns from two agreeing sessions, resets, pauses after three skips and offers Add one");
+  } finally {
+    await context.close();
+  }
+}
+
 const browser = await launchChromium();
 const pastZeroOnly = process.env.REPFORGE_PAST_ZERO_ONLY === "1";
+const preludeOnly = process.env.REPFORGE_PRELUDE_ONLY === "1";
 try {
-  await pastZero(browser);
-  if (!pastZeroOnly) await otherFinishContracts(browser);
+  if (!preludeOnly) await pastZero(browser);
+  await prelude(browser);
+  await preludeLearning(browser);
+  if (!pastZeroOnly && !preludeOnly) await otherFinishContracts(browser);
 } finally {
   await browser.close();
 }
@@ -1341,4 +1565,4 @@ async function otherFinishContracts(browser) {
 if (guardFailures.length) throw new Error(`guards failed: ${guardFailures.join("; ")}`);
 console.log("PASS: workout finish boundary");
 
-if (!pastZeroOnly) await import("./session-zero-browser.mjs");
+if (!pastZeroOnly && !preludeOnly) await import("./session-zero-browser.mjs");
