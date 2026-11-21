@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { launchChromium } from "./browser.mjs";
 import { installSeedProgram } from "./fixtures/seed-program.mjs";
 
@@ -12,12 +13,12 @@ async function waitForApp(page) {
   await page.waitForFunction(() => window.__repforgeBooted === true, null, { timeout: 15000 });
 }
 
-async function freshWorkout(browser) {
+async function freshWorkout(browser, settings) {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: "block" });
   const page = await context.newPage();
   await page.goto(base, { waitUntil: "domcontentloaded" });
   await waitForApp(page);
-  await installSeedProgram(page, { key: stateKey, waitFor: waitForApp });
+  await installSeedProgram(page, { key: stateKey, waitFor: waitForApp, settings });
   await page.locator("#startWorkout").click();
   await page.waitForSelector("#workoutShell:not(.hidden)");
   return { context, page };
@@ -494,8 +495,97 @@ async function voiceProof(browser) {
   if (failures.length) throw new Error(`voice proofs failed: ${failures.join("; ")}`);
 }
 
+async function pastZero(browser) {
+  const { context, page } = await freshWorkout(browser, { rirMode: "numeric", effortScale: "reps" });
+  try {
+    const shelf = page.locator("#workout .exercise.is-current:not(.is-peek) .focus-shelf");
+    const [target] = await draftTargets(page);
+    await page.evaluate(async ({ target, weight, reps }) => {
+      for (const [metricId, value] of [[weight, "105"], [reps, "6"]]) {
+        await window.__repforgeWorkoutDraft.dispatch("editMetricValue", { ...target, metricId, value });
+      }
+      renderWorkout();
+      const draft = window.__repforgeWorkoutDraft.current();
+      const date = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+      const completedAt = date + "T12:00:00.000Z";
+      const command = (draft, type, fields) => {
+        const operationId = "past-zero-fixture-" + type;
+        return window.RepForgeWorkoutDraft.reduce(draft, {
+          ...target, ...fields, type, operationId, expectedRevision: draft.revision, updatedAt: completedAt,
+          writer: { ...draft.writer, operationId },
+        });
+      };
+      const entered = command(draft, "editSetField", { field: "rir", value: "0" });
+      const completed = command(entered, "completeSet", { completedAt });
+      const rows = window.RepForgeWorkoutDraft.toHistoryRows(command(completed, "beginFinish", {}), completedAt);
+      if (!Array.isArray(rows)) throw new Error(JSON.stringify({ rows, entered: entered.code, completed: completed.code }));
+      const [previous] = rows;
+      const proposal = window.__repforgeWorkoutDraft.state();
+      proposal.log = [{ ...previous, session: "past-zero-previous", date, partialReps: 2 }];
+      const result = await window.__repforgeCommitProposedState(proposal);
+      if (!result.committed) throw new Error("Could not seed the previous comparable set");
+    }, { target, weight: WEIGHT, reps: REPS });
+    await shelf.locator('[data-shelf-field="rir"]').click();
+    await shelf.getByRole("button", { name: "0", exact: true }).click();
+    const chips = shelf.getByRole("group", { name: "Partial reps after 0 reps left" });
+    await chips.getByRole("button", { name: "3 partial reps" }).click({ timeout: 3000 });
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    await shelf.locator('[data-shelf-field="rir"]').click();
+    assert.equal(await chips.getByRole("button", { name: "3 partial reps" }).getAttribute("aria-pressed"), "true");
+    await shelf.getByRole("button", { name: "Log set 1 · 6+3" }).click();
+    await page.getByText("+1 partial since last time. Tie broken.", { exact: true }).waitFor({ timeout: 5000 });
+    const loggedRow = page.locator("#workout .exercise.is-current [data-editn='1']");
+    await loggedRow.click();
+    await page.locator("[data-fcancel]").waitFor();
+    const effortTile = shelf.locator('[data-shelf-field="rir"]');
+    if (await effortTile.getAttribute("aria-pressed") !== "true") await effortTile.click();
+    await chips.getByRole("button", { name: "4 partial reps" }).click();
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    await page.locator("[data-fcancel]").click();
+    assert.match(await loggedRow.innerText(), /6\+3/, "cancelling after reload restores the acknowledged partials");
+    await beginEarlyFinishPrompt(page);
+    await page.locator("#sessionEarlyConfirm").click();
+    await page.locator("#sessionSummary:not(.hidden)").waitFor();
+    const saved = await page.evaluate(() => window.__repforgeWorkoutDraft.state().log.filter(row => row.session !== "past-zero-previous"));
+    assert.deepEqual(saved.map(({ load, reps, rir, partialReps }) => ({ load, reps, rir, partialReps })),
+      [{ load: 105, reps: 6, rir: 0, partialReps: 3 }]);
+    const summary = await page.evaluate(() => window.__repforgeSessionSummary.current());
+    assert.deepEqual({ reps: summary.reps, volume: summary.volume, records: summary.prs.length },
+      { reps: 6, volume: 630, records: 0 });
+    await page.locator("#sumSee").click();
+    await page.locator(".session--read").getByText("6+3", { exact: true }).waitFor();
+    await page.locator("[data-history-edit]").click();
+    await page.locator('[data-ek="partialReps|0"]').fill("4");
+    await page.locator("[data-edsave]").click();
+    await page.locator(".session--read").getByText("6+4", { exact: true }).waitFor();
+    await page.evaluate(() => window.__repforgeShowSettings());
+    await page.locator("#dataBackupRow").click();
+    const [download] = await Promise.all([page.waitForEvent("download"), page.locator("#exportCsv").click()]);
+    const csv = (await readFile(await download.path(), "utf8")).trim().split("\n");
+    const columns = csv[0].split(",");
+    const row = [...csv.at(-1).matchAll(/"((?:[^"]|"")*)"(?:,|$)/g)].map(match => match[1]);
+    assert.deepEqual([row[columns.indexOf("load")], row[columns.indexOf("reps")], row[columns.indexOf("partial_reps")]],
+      ["105", "6", "4"], "CSV keeps the full reps and corrected count separate");
+    console.log("PASS: Past zero survives reload, correction, finish, History edit and CSV export");
+  } finally {
+    await context.close();
+  }
+}
+
 const browser = await launchChromium();
+const pastZeroOnly = process.env.REPFORGE_PAST_ZERO_ONLY === "1";
 try {
+  await pastZero(browser);
+  if (!pastZeroOnly) await otherFinishContracts(browser);
+} finally {
+  await browser.close();
+}
+
+async function otherFinishContracts(browser) {
   for (const route of ["close button", "scrim", "Escape", "swipe"]) {
     const { context, page } = await freshWorkout(browser);
     const targets = await draftTargets(page);
@@ -1111,11 +1201,9 @@ try {
   }
   await restOverrunOffer(browser);
   await voiceProof(browser);
-} finally {
-  await browser.close();
 }
 
 if (guardFailures.length) throw new Error(`guards failed: ${guardFailures.join("; ")}`);
 console.log("PASS: workout finish boundary");
 
-await import("./session-zero-browser.mjs");
+if (!pastZeroOnly) await import("./session-zero-browser.mjs");

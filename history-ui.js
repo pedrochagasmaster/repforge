@@ -74,6 +74,7 @@
       parseLoadDisplay, parseRepsValue, parseRirValue, clearFieldInvalid,
       toast, formatLongDate, fmtLoad, sum, kfmt, toDisplay, unitLabel,
       metricLabel: metricLabelDep, metricDisplayValue, metricDisplayUnit,
+      performedRepsText, performedRepsHtml, partialCount, validHistoryPartials,
       parseHistoryMetricInput,
       weekdayLetters, table, fmt, today, uid, readRevision, commitProposedState,
       readDurableState, settleHistoryAlreadyCommitted, settlePendingJournal, getState,
@@ -115,11 +116,14 @@
       const metric=historyMetricRecords(row)?.find(item=>item.definition.id===metricId)?.definition;
       if(metric?.semantic==="loadKg")row.load=value;
       if(metric?.semantic==="reps")row.reps=value}
+    function historyCanEditPartials(row){
+      return validHistoryPartials({...row,partialReps:1})}
     function historyMetricCell(row,record){
       const id=record.definition.id,label=historyMetricLabel(record.definition),unit=historyMetricUnit(record.definition),shown=historyMetricReadText(record.value,record.definition);
-      return`<span class="fx-col history-metric" data-history-metric-id="${esc(id)}" data-metric-value="${esc(record.value)}" data-metric-unit="${esc(record.unit||record.definition.unit||"")}" aria-label="${esc(`${label}: ${shown}${unit?` ${unit}`:""}`)}">`+
+      const count=record.definition.semantic==="reps"?partialCount(row):0;
+      return`<span class="fx-col history-metric" data-history-metric-id="${esc(id)}" data-metric-value="${esc(record.value)}" data-metric-unit="${esc(record.unit||record.definition.unit||"")}" aria-label="${esc(`${label}: ${count?t("partials.spoken",{full:shown,partial:count}):shown}${unit?` ${unit}`:""}`)}">`+
         // The unit is in the column's heading, so the cell shows only its figure; its accessible name keeps the unit.
-        `<span class="history-metric__value">${esc(shown||"–")}</span></span>`}
+        `<span class="history-metric__value">${performedRepsHtml(shown||"–",count)}</span></span>`}
     function historyMetricHeader(records){
       return(records||[]).map(record=>{
         const unit=historyMetricUnit(record.definition),label=historyMetricLabel(record.definition);
@@ -129,7 +133,7 @@
       if(records===null)return"";
       return records.map(record=>{
         const label=historyMetricLabel(record.definition),unit=historyMetricUnit(record.definition),shown=historyMetricReadText(record.value,record.definition);
-        return`${label}: ${shown}${unit?` ${unit}`:""}`}).join(" · ")}
+        return`${label}: ${performedRepsText(shown,record.definition.semantic==="reps"?partialCount(row):0)}${unit?` ${unit}`:""}`}).join(" · ")}
     /** The date of a set's session as the group head says it: the long weekday date, with the year when it is not this one. */
     function everySetDate(iso){
       const year=String(iso||"").slice(0,4),label=formatLongDate(String(iso||""));
@@ -417,6 +421,11 @@ function historySessionFromWorkingCopy(card){
     // A max set's guess holds while the set stays a 0-RIR set at its load; a new load or other reps left make it a
     // normal set (Plan 077, OD-17). A corrected rep count keeps it: the lifter is fixing what they did.
     if(next.calibration&&(next.load!==baseline.load||next.rir!==0))delete next.calibration;
+    const partialEl=rowEl.querySelector('[data-ek^="partialReps|"]'),partialEdit=historyInputEdit(selection,partialEl);
+    if(partialEdit){
+      if(partialEdit.valid!==true)return{error:{field:partialEl,key:"validation.reps"},dateP};
+      if(partialEdit.value>0)next.partialReps=partialEdit.value;else delete next.partialReps}
+    if(!validHistoryPartials(next))delete next.partialReps;
     next.date=dateP.value;out.push(next)}
   return{rows:out,dateP}
 }
@@ -450,6 +459,7 @@ function historyApplyWorkingInput(event){
     const metric=key==="metric"?historyMetricRecords(src)?.find(record=>record.definition.id===parts[2]):null;
     const parsed=key==="load"?parseLoadDisplay(target.value):key==="reps"?parseRepsValue(target.value)
       :key==="rir"?(isSourceMetricRow(src)&&String(target.value??"").trim()===""?{value:null}:parseRirValue(target.value))
+      :key==="partialReps"?/^[0-5]?$/.test(target.value.trim())?{value:Number(target.value.trim())}:{field:target,key:"validation.reps"}
       :metric?parseHistoryMetric(metric.definition,target.value):null;
     if(key&&parsed){
       const editKey=String(target.dataset.ek||"");
@@ -644,8 +654,8 @@ function historySetsLine(rows){
   if(work.some(row=>isSourceMetricRow(row)&&!historyHasLoadAndReps(row)))
     return work.map(row=>`${row.set}: ${isSourceMetricRow(row)?historyMetricSummary(row):`${fmtLoad(row.load)} × ${row.reps}`}`).join("; ");
   const same=work.every(r=>+r.load===+work[0].load);
-  return same?`${fmtLoad(work[0].load)} × ${work.map(r=>r.reps).join(", ")}`
-    :work.map(r=>`${fmtLoad(r.load)} × ${r.reps}`).join(", ")}
+  return same?`${fmtLoad(work[0].load)} × ${work.map(r=>performedRepsText(r.reps,partialCount(r))).join(", ")}`
+    :work.map(r=>`${fmtLoad(r.load)} × ${performedRepsText(r.reps,partialCount(r))}`).join(", ")}
 function historyOutcomeMark(group,sid){
   const cmp=typeof deps.sessionOutcome==="function"?deps.sessionOutcome(group.rows):null;
   if(!cmp)return"";
@@ -678,7 +688,7 @@ function historyReadingView(s,rows){
     const setRows=g.rows.map(row=>{
       const cells=metricRows?(historyMetricRecords(row)||[]).map(record=>historyMetricCell(row,record)).join("")+
         (showRir?`<span class="fx-col">${row.rir==null||row.rir===""?"–":esc(fmt(row.rir))}</span>`:""):
-        `<span class="fx-col">${esc(fmtLoad(row.load))}</span><span class="fx-col">${esc(row.reps==null||row.reps===""?"–":row.reps)}</span>`+
+        `<span class="fx-col">${esc(fmtLoad(row.load))}</span><span class="fx-col">${performedRepsHtml(row.reps==null||row.reps===""?"–":row.reps,partialCount(row))}</span>`+
         `<span class="fx-col">${esc(row.rir==null||row.rir===""?"–":fmt(row.rir))}</span>`;
       const rampLabel=row.warmup&&ramps>0&&row.set<firstWorking.set&&row.set>=firstWorking.set-ramps
         ?` role="group" aria-label="${esc(t("history.row.ramp",{n:row.set}))}"`:"";
@@ -1098,9 +1108,11 @@ function sessionEditor(s,sets){
       }else fields=`<input class="edrow__in" data-ek="load|${i}" type="text" inputmode="decimal" enterkeyhint="next" value="${esc(fmtLoadPlain(r.load))}" aria-label="${aria} ${unitLabel()}"${disabled}>`+
         `<input class="edrow__in" data-ek="reps|${i}" type="text" inputmode="numeric" enterkeyhint="next" value="${esc(r.reps)}" aria-label="${aria} ${esc(t("log.reps"))}"${disabled}>`+
         `<input class="edrow__in" data-ek="rir|${i}" type="text" inputmode="decimal" enterkeyhint="done" value="${esc(fmt(r.rir))}" aria-label="${aria} ${esc(t("stats.table.rir"))}"${disabled}>`;
+      const partialField=historyCanEditPartials(r)?`<label class="history-partials-edit">${esc(t("partials.group"))}
+        <input class="edrow__in" type="text" inputmode="numeric" data-ek="partialReps|${i}" value="${partialCount(r)}"${disabled}></label>`:"";
       return`<div class="ledgerline edrow${isRemoved?" is-removed":""}" data-edidx="${i}"><span class="ledgerline__idx">${esc(mark)}</span>`+
         `<span class="ledgerline__vals edrow__vals${metricRows?" history-metric-grid":""}"${metricRows?` style="--history-metric-count:${count}"`:""}>${fields}</span>`+
-        `<button type="button" class="edrow__rm${isRemoved?" is-undo":""}" data-edrm="${i}" aria-label="${esc(label)}" title="${esc(label)}"><span class="edrow__rm-glyph" aria-hidden="true">${isRemoved?EDROW_RM_GLYPH.undo:EDROW_RM_GLYPH.remove}</span></button></div>`}).join("");
+        `<button type="button" class="edrow__rm${isRemoved?" is-undo":""}" data-edrm="${i}" aria-label="${esc(label)}" title="${esc(label)}"><span class="edrow__rm-glyph" aria-hidden="true">${isRemoved?EDROW_RM_GLYPH.undo:EDROW_RM_GLYPH.remove}</span></button>${partialField}</div>`}).join("");
     return`<section class="histlift histedit__lift" data-lift="${esc(g.key)}" data-history-exercise-id="${esc(exerciseId)}"><div class="histlift__head"><h3 class="histlift__name edgroup__name">${esc(name)}</h3></div>${header}${rows}</section>`}).join("");
   return`<div class="session session--edit histedit" data-editing="${esc(s.session)}" data-history-state="editing">`+
     `<p class="histedit__eyebrow" data-history-editing-heading tabindex="-1">${esc(t("history.editing_title"))}</p>`+

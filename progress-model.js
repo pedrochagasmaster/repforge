@@ -475,12 +475,15 @@
       const prev = bySession.get(key);
       if (!prev) bySession.set(key, { session: String(row.session ?? row.date), sessionKey: key,
         date: isoDate(row.date), created: row.created ?? null, value, reps: Number(row.reps),
+        ...(row.partialReps > 0 ? { partialReps: row.partialReps } : {}),
         strengthConvention: comparisonConvention });
       else if (value > prev.value || (value === prev.value && Number(row.reps) > prev.reps)) {
         prev.date = isoDate(row.date);
         prev.created = row.created ?? prev.created;
         prev.value = value;
         prev.reps = Number(row.reps);
+        if (row.partialReps > 0) prev.partialReps = row.partialReps;
+        else delete prev.partialReps;
       }
     }
     const points = [...bySession.values()].sort(compareChronology);

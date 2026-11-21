@@ -247,6 +247,11 @@ try {
       const exercise = draft?.exercises?.[exerciseId], set = exercise?.sets?.[exercise?.setOrder?.[0]];
       return set?.edited?.load === "73.5" && set?.edited?.reps === "10";
     }, secondId);
+    const shelf = page.locator("#workout .exercise.is-current .focus-shelf");
+    await shelf.locator('[data-shelf-field="rir"]').click();
+    await shelf.locator('[data-effchip][data-e="0"]').click();
+    await shelf.locator('[data-partial-chip="2"]').click();
+    await shelf.locator('[data-partial-chip="2"][aria-pressed="true"]').waitFor();
     await page.locator("#workout .exercise.is-current .saveset").click();
     await page.waitForFunction((exerciseId) => {
       const draft = window.__repforgeWorkoutDraft.current();
@@ -263,8 +268,8 @@ try {
   }, { stateKey: STATE, draftKey: DRAFT, checkpointKey: CHECKPOINT, exerciseId: secondId }));
   assert(offlineSave.localOk || offlineSave.idbOk, "the fully offline History transaction commits");
   assert.deepEqual(
-    [offlineResult.row?.load, offlineResult.row?.reps, offlineResult.row?.rir],
-    [73.5, 10, 1],
+    [offlineResult.row?.load, offlineResult.row?.reps, offlineResult.row?.rir, offlineResult.row?.partialReps],
+    [73.5, 10, 0, 2],
     "the offline save compiles the migrated visible values into History"
   );
   assert.equal(offlineResult.draftRaw, null, "the committed offline save removes the active draft");

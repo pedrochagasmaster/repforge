@@ -162,6 +162,32 @@ if (BROWSER) {
     }));
   }
 
+  {
+    const { context, page } = await freshPage("en-US");
+    await seedGeneratedProgram(page, { days: 4, minutes: 90 });
+    const verdicts = await page.evaluate(() => {
+      const ex = prog.exercises.find(item => {
+        const slot = canonicalPrescriptionSlot(item)?.slot;
+        return slot?.metricDefinitions.some(metric => metric.semantic === "loadKg") &&
+          slot.metricDefinitions.some(metric => metric.semantic === "reps");
+      });
+      const slot = canonicalPrescriptionSlot(ex).slot, loading = slotLoadingContext(slot);
+      const row = (i, partialReps) => ({
+        session: `partial-stall-${i}`, date: `2026-08-${10 + i}`, set: 1, setIndex: 0,
+        name: ex.name, exerciseId: ex.id, performedLibraryId: slot.exerciseId,
+        load: 105, reps: 6, rir: 0, effortSource: "reps_left", ...(partialReps ? { partialReps } : {}),
+        metricType: "source_metrics@1", metricIds: slot.metricIds, metricDefinitions: slot.metricDefinitions,
+        metricValues: slot.metricDefinitions.map(metric => ({
+          metricId: metric.id, value: metric.semantic === "loadKg" ? 105 : 6, unit: metric.unit,
+        })),
+        loadingContext: loading, equipmentId: loading.equipmentId, loadingConvention: loading.loadingConvention,
+      });
+      return [[1, 1, 2], [1, 2, 0]].map(partials => isStalled(sessionsForLog(ex, partials.map((count, i) => row(i, count)))));
+    });
+    assert.deepEqual(verdicts, [false, true], "only the latest pair can suppress a numeric stall");
+    await context.close();
+  }
+
   // Journey D (owner, 2026-10-25): "How many days can you train?" is onboarding's day-count tiles, the program's current
   // days per week chosen to begin with; a tap sets the target the repair uses, and the proposal is built from it.
   for (const [locale, word] of [["en-US", "days"], ["pt-BR", "dias"]]) {

@@ -30,6 +30,7 @@
   --rule-strong:#D9D5CD;
   --accent:#E04E14;
   --accent-deep:#B8410E;
+  --partial-on-cta:var(--share-card-accent);
   --positive:#2F7D33;
   --cta:#161513;
   --well:#FAF8F5;
@@ -446,6 +447,7 @@
   /* Text emphasis stays in the same burnt-orange family as the mark. The
      first dark pass was lighter but too peach beside the red danger action. */
   --accent-deep:#FF8A3D;
+  --partial-on-cta:var(--share-card-orange);
   --positive:#63C267;
   /* A quiet parchment rather than a lit white card. Scale and placement make
      the CTA primary; maximum luminance does not need to. */
@@ -9773,3 +9775,29 @@ body.is-entry-editor #entryProgramName,
 #volumeDash .sumcard > .vrow.evrow{padding:var(--space-12) 0;border-bottom:0}
 #volumeDash .sumcard > * + .vrow.evrow{border-top:1px solid var(--rule-on-surface)}
 #volumeDash .sumcard > .evrow__detail{border-bottom:0}
+
+.partial-reps{
+  margin-inline-start:1px;
+  font-size:.78em;
+  color:var(--accent-deep);
+  font-weight:var(--weight-semibold);
+  letter-spacing:0
+}
+.shelf__val .partial-reps{font-size:.62em;vertical-align:.32em;margin-inline-start:2px}
+.saveset .partial-reps{color:var(--partial-on-cta)}
+.shelf__pads .shelf__chip--partial:not([aria-pressed="true"]){color:var(--accent-deep)}
+.shelf__pads--past-zero{animation:past-zero-in 240ms cubic-bezier(.2,.7,.2,1)}
+@keyframes past-zero-in{
+  from{opacity:.2;transform:translateX(24px)}
+  to{opacity:1;transform:none}
+}
+@media (prefers-reduced-motion:reduce){.shelf__pads--past-zero{animation:none}}
+.history-partials-edit{
+  grid-column:2;
+  display:flex;
+  align-items:center;
+  gap:var(--space-8);
+  color:var(--color-ink-secondary);
+  font-size:var(--font-size-label)
+}
+.history-partials-edit input{width:3em}

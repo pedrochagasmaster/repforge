@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { execFileSync } from "node:child_process";
 import { createRequire } from "node:module";
 import fc from "fast-check";
 
@@ -1335,4 +1336,48 @@ for(const ramps of [0,1,2,3])for(const workingLogged of [false,true]){
 }
 
 console.log(`\n${results.passed} passed, ${results.failed} failed`);
+{
+  const at = { exerciseInstanceId: "slot-squat", setId: "squat-set-1" };
+  const current = draft => draft.exercises[at.exerciseInstanceId].sets[at.setId];
+  const select = (draft, partialReps) => apply(draft, "setNumericEffort", { ...at, value: "0", partialReps });
+  const freshDraft = fresh();
+  const beforeZero = command(freshDraft, "setNumericEffort", { ...at, value: "0", partialReps: 3 });
+  assert(beforeZero.result.code === "invalid-partial-effort", "positive partials require a separate explicit zero entry");
+  const zero = select(freshDraft, 0), partial = select(zero, 3);
+  assert(!Object.hasOwn(current(zero), "partialReps"), "zero is omitted");
+  assert(current(Draft.parse(Draft.serialize(partial)).draft).partialReps === 3, "pending partials survive serialization");
+  const stale = command(partial, "setNumericEffort", { ...at, expectedRevision: zero.revision, value: "0", partialReps: 1 });
+  assert(stale.result.code === "stale-revision", "a count chosen on an earlier draft revision cannot replace the current one");
+  for (const count of [-1, 1.5, 6, "2", null]) {
+    const malformed = structuredClone(partial);
+    current(malformed).partialReps = count;
+    assert(Draft.parse(malformed).kind === "invalid", `refuse malformed partial count ${JSON.stringify(count)}`);
+  }
+  const printedZero = structuredClone(partial);
+  current(printedZero).partialReps = 0;
+  assert(!Object.hasOwn(current(Draft.parse(printedZero).draft), "partialReps"), "persisted zero canonicalizes to omission");
+  for (const [type, fields] of [
+    ["setNumericEffort", { value: "2", partialReps: 0 }],
+    ["editSetField", { field: "effort", value: "max" }],
+    ["markWarmup", {}],
+  ]) {
+    assert(!Object.hasOwn(current(apply(partial, type, { ...at, ...fields })), "partialReps"), `${type} clears the partial count`);
+  }
+  const logged = apply(partial, "completeSet", { ...at, completedAt: "2026-08-15T10:05:00.000Z" });
+  assert(current(apply(logged, "setRirMode", { value: "effort" })).partialReps === 3,
+    "switching global effort mode preserves a logged numeric row");
+  const rollbackSha = "e844a870a04c6acbd5bfbf78da30573ff4b3535e";
+  const rollbackSource = execFileSync("git", ["show", `${rollbackSha}:workout-draft.js`], { encoding: "utf8" });
+  const rollbackModule = { exports: {} };
+  new Function("module", "require", rollbackSource)(rollbackModule, createRequire(new URL("../workout-draft.js", import.meta.url)));
+  const finishing = apply(logged, "beginFinish");
+  const oldDraft = rollbackModule.exports.parse(JSON.stringify(finishing));
+  const oldRows = rollbackModule.exports.toHistoryRows(oldDraft.draft, "2026-08-15T10:05:00.000Z");
+  assert(oldDraft.kind === "valid" && current(oldDraft.draft).partialReps === 3 && !Object.hasOwn(oldRows[0], "partialReps"),
+    "the previous DraftV2 release reads the aggregate but would omit partials when compiling a new history row");
+  const opened = apply(logged, "uncommitSet", { ...at, correct: true });
+  const recalled = Draft.parse(Draft.serialize(select(opened, 4))).draft;
+  const canceled = apply(recalled, "cancelSetCorrection", at);
+  assert(same(current(canceled), current(logged)), "cancel after reload restores the full acknowledged row");
+}
 if (results.failed) process.exitCode = 1;
