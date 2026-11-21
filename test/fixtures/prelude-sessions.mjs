@@ -14,7 +14,10 @@ export async function savedWarmupSession(page, { exId, id, daysAgo, steps, skip 
       if (W.isDomainError(next)) throw new Error(`${type}: ${JSON.stringify(next)}`);
       draft = next;
     };
-    const ex = sessionExercise(prog.find(exId)), live = warmupSuggest(ex);
+    const ex = sessionExercise(prog.find(exId));
+    let live = warmupSuggest(ex);
+    // A lift with no history yet offers no load; the session being built worked at 105 kg, so its plan was made for that.
+    if (!(live.workLoadKg > 0)) live = { ...live, workLoadKg: 105, result: window.RepForgeWarmupSuggestions.suggestWarmups({ ...live.input, workLoadKg: 105 }) };
     const suggested = live.result.suggestions;
     run("initWarmupPrelude", { plan: warmupPlanOf(live), steps: (suggested.length ? suggested : [{ loadKg: 60, reps: 5 }]).map((item, index) => ({ stepId: `${id}-${index}`, loadKg: item.loadKg, reps: item.reps })) });
     const record = () => draft.exercises[exId].warmupPrelude;

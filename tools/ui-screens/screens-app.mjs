@@ -728,9 +728,20 @@ async function reloadWithUnavailableExerciseCatalog(page) {
   await page.waitForFunction(() => window.__repforgeBooted !== true);
 }
 
-async function enterWorkout(page, options = {}) {
+async function enterWorkout(page, { warmups = false, ...options } = {}) {
   await page.evaluate((opts) => window.__repforgeEnterWorkout(opts), options);
   await sleep(page, 600);
+  // A lift with history opens on its suggested warm-up (Plan 085). The states that are not about warm-ups start at the
+  // first working set, as they did before, by skipping the sequence the way a lifter's Skip would (no toast, same record).
+  if (!warmups) {
+    await page.evaluate(async () => {
+      const id = focusCard()?.dataset.ex, ex = id ? warmupExerciseById(id) : null;
+      if (!ex || preludeView(ex)?.stage !== "warm") return;
+      await ensurePrelude(ex);
+      await WorkoutSession.dispatch("skipWarmupSteps", { exerciseInstanceId: id });
+      renderWorkout();
+    });
+  }
 }
 
 /** Focus on the program's first day. Boot now defaults to the day after the last one trained (#528), so a state that
@@ -746,9 +757,9 @@ async function focusLearning(page){
   await focusMode(page);
   await page.waitForSelector("#workout .exercise.is-current .fx-cue__standing");
 }
-async function focusMode(page) {
+async function focusMode(page, { warmups = false } = {}) {
   const first = await page.evaluate(() => JSON.parse(localStorage.getItem("repforge_v1") || "{}").program?.[0]?.day || null);
-  await enterWorkout(page, first ? { day: first } : {});
+  await enterWorkout(page, { ...(first ? { day: first } : {}), warmups });
 }
 
 async function pastZeroFocus(page, state) {
@@ -779,7 +790,7 @@ async function pastZeroFocus(page, state) {
 
 /* Plan 085 Prelude: the same squat the Past zero states use, with the history each warm-up state reads. */
 async function preludeFocus(page, state) {
-  await focusMode(page);
+  await focusMode(page, { warmups: true });
   const active = page.locator("#workout .exercise.is-current:not(.is-peek)");
   const exId = await active.getAttribute("data-ex");
   const history = {

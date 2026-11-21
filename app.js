@@ -10415,14 +10415,12 @@ function warmupSavedObservations(){
       value:WorkoutDraft.resolveWarmupObservations(state.warmupObservations,state.log)};
   return warmupObservationMemo.value}
 const warmupResetGeneration=liftKey=>state.warmupPreferences?.[liftKey]?.resetGeneration??null;
-/** The first working set's offered load, in kg: the engine's suggestion, else what the set already holds. */
+/** The first working set's offered load, in kg. A load the lifter typed is not an offer: with none offered there is no suggestion. */
 function warmupWorkLoadKg(ex,lift){
   const draft=hydrateWorkoutDraft(),previous=last(ex);
-  const offered=setSuggestion(ex,1,recommendation(ex),draft,previous.find(item=>item.set===1))?.load;
-  if(offered>0)return offered;
-  const metric=lift.first.programmed.metrics.find(item=>WARMUP_LOAD_SEMANTICS.includes(item.semantic));
-  const typed=metric?Number(lift.first.edited.metrics?.[metric.id]):NaN;
-  return typed>0?typed:null}
+  // What the first set's shelf offers: the engine's suggestion, else the previous session's set (setFieldVals' own order).
+  const shown=fromDisplay(parseDec(setFieldVals(ex,1,recommendation(ex),draft,previous).kgVal));
+  return shown>0?shown:null}
 /** What the equipment is, in the policy's words, and the one bar this app knows (the 20 kg barbell, in kilograms). */
 function warmupEquipment(lift){
   const exercise=rawExercise(lift.id),chosen=lift.programmed.equipmentId?rawCatalogObject(lift.programmed.equipmentId):null;
@@ -10451,6 +10449,9 @@ function warmupSuggest(ex){
     completedWorkingLifts:warmupCompletedLifts(),observations:warmupSavedObservations(),resetGeneration:warmupResetGeneration(lift.key)};
   const result=WarmupPolicy.suggestWarmups(input);
   return{lift,input,result,equipmentKind,workLoadKg}}
+function warmupFirstSetTouched(de){
+  const first=de.setOrder.map(id=>de.sets[id]).find(set=>set.role==="working"&&!set.origin);
+  return !!first&&(draftSetTouched(first)||hasPendingField(`${de.exerciseInstanceId}_${first.ordinal}_effort`))}
 /** The captured plan a draft command stores: the policy's answer and the context it answered. */
 function warmupPlanOf({result,equipmentKind,workLoadKg}){
   return{reason:result.reason,suggestions:result.suggestions.map(({loadKg,reps,platesPerSideKg})=>({loadKg,reps,platesPerSideKg:platesPerSideKg??null})),
@@ -10485,8 +10486,10 @@ function computePreludeView(ex){
   if(!de||de.status!=="active")return null;
   const record=de.warmupPrelude||null;
   const logged=record?record.steps.filter(step=>!warmupPending(step)):[];
+  // Work has started once a working set is logged, or the lifter has begun entering the first one: its shelf is theirs then.
   const workStarted=de.setOrder.some(id=>de.sets[id].role==="working"&&!de.sets[id].origin&&
-    (de.sets[id].completion!=="pending"||de.sets[id].performed));
+    (de.sets[id].completion!=="pending"||de.sets[id].performed))||
+    (!record?.steps.some(step=>!warmupPending(step))&&warmupFirstSetTouched(de));
   const view={ex,de,record,logged,workStarted,stage:null,steps:[],current:-1,plan:null,suggestion:null,composition:record?.composition||null};
   // A swap retired the old plan (it kept only what was logged): the replacement gets a fresh one if it is eligible.
   const live=(!record||record.plan===null)&&!workStarted&&!warmupPreempted(ex,de)?warmupSuggest(ex):null;

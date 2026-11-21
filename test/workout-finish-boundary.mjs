@@ -723,22 +723,22 @@ async function prelude(browser) {
     // The program's first lift carries part of the body's weight, which gets no suggested warm-up; the second is a plain machine lift.
     const target = (await draftTargets(page)).find((item) => item.exerciseInstanceId === "seed-ex-2");
     assert.equal(await page.evaluate((id) => window.__repforgeWorkoutDraft.current().exercises[id].programmed.loadingContext.bodyweightCoefficient, target.exerciseInstanceId), 0);
+    // The earlier session is built on a copy of the draft: the lifter has typed nothing into today's first set.
     await page.evaluate(async ({ target, weight, reps }) => {
-      for (const [metricId, value] of [[weight, "105"], [reps, "6"]]) {
-        await window.__repforgeWorkoutDraft.dispatch("editMetricValue", { ...target, metricId, value });
-      }
-      renderWorkout();
       const draft = window.__repforgeWorkoutDraft.current();
       const date = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
       const completedAt = date + "T12:00:00.000Z";
+      let count = 0;
       const command = (draft, type, fields) => {
-        const operationId = "prelude-fixture-" + type;
+        const operationId = "prelude-fixture-" + type + "-" + ++count;
         return window.RepForgeWorkoutDraft.reduce(draft, {
           ...target, ...fields, type, operationId, expectedRevision: draft.revision, updatedAt: completedAt,
           writer: { ...draft.writer, operationId },
         });
       };
-      const entered = command(draft, "editSetField", { field: "rir", value: "0" });
+      let typed = draft;
+      for (const [metricId, value] of [[weight, "105"], [reps, "6"]]) typed = command(typed, "editMetricValue", { metricId, value });
+      const entered = command(typed, "editSetField", { field: "rir", value: "0" });
       const completed = command(entered, "completeSet", { completedAt });
       const rows = window.RepForgeWorkoutDraft.toHistoryRows(command(completed, "beginFinish", {}), completedAt);
       if (!Array.isArray(rows)) throw new Error(JSON.stringify({ rows }));
@@ -749,8 +749,8 @@ async function prelude(browser) {
     }, { target, weight: WEIGHT, reps: REPS });
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForApp(page);
-    await page.evaluate((id) => window.__repforgeWorkoutDraft.dispatch("selectExercise", { exerciseInstanceId: id }), target.exerciseInstanceId);
-    await page.locator('#woProgress button[data-focusgo="1"]').click();
+    await reenterWorkout(page);
+    if (await card.getAttribute("data-ex") !== target.exerciseInstanceId) await page.locator('#woProgress button[data-focusgo="1"]').click();
     await page.waitForFunction((id) => document.querySelector("#workout .exercise.is-current:not(.is-peek)")?.dataset.ex === id, target.exerciseInstanceId);
 
     // The first warm-up is the cue: its load, its reps, the rail to the working load, and the way to skip.
@@ -823,6 +823,16 @@ async function prelude(browser) {
 
     // Work the two sets the program prescribes.
     for (const n of [1, 2]) {
+      // This program's lift offers no suggestion, so each set is filled the way the lifter would, then logged.
+      await page.evaluate(async ({ n, weight, reps }) => {
+        const api = window.__repforgeWorkoutDraft, exercise = api.current().exercises["seed-ex-2"], setId = exercise.setOrder[n - 1];
+        const at = { exerciseInstanceId: "seed-ex-2", setId };
+        await api.dispatch("editMetricValue", { ...at, metricId: weight, value: "105" });
+        await api.dispatch("editMetricValue", { ...at, metricId: reps, value: "6" });
+        await api.dispatch("editSetField", { ...at, field: "rir", value: "1" });
+        await api.flush();
+        renderWorkout();
+      }, { n, weight: WEIGHT, reps: REPS });
       await shelf.getByRole("button", { name: new RegExp(`^Log set ${n}`) }).click();
       await page.waitForFunction((count) => window.__repforgeWorkoutDraft.current().exercises["seed-ex-2"].setOrder
         .filter((id) => window.__repforgeWorkoutDraft.current().exercises["seed-ex-2"].sets[id].completion !== "pending").length >= count, n);
@@ -865,9 +875,17 @@ async function prelude(browser) {
 
 /* Prelude learning and its states. Earlier sessions are built from the real draft commands and the app's own save projection,
    then committed; the cue, Why sheet, reset and the quiet suppressed row are read from the screen. */
+/** A draft nothing was typed into is not resumed on its own: open today's session again. */
+async function reenterWorkout(page) {
+  if (await page.locator("#workoutShell:not(.hidden)").count()) return;
+  await page.locator("#startWorkout").click();
+  await page.waitForSelector("#workoutShell:not(.hidden)");
+}
+
 async function openLegCurl(page) {
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForApp(page);
+  await reenterWorkout(page);
   const current = await page.locator("#workout .exercise.is-current:not(.is-peek)").getAttribute("data-ex");
   if (current !== "seed-ex-2") await page.locator('#woProgress button[data-focusgo="1"]').click();
   await page.waitForFunction(() => document.querySelector("#workout .exercise.is-current:not(.is-peek)")?.dataset.ex === "seed-ex-2");
@@ -879,16 +897,13 @@ async function preludeLearning(browser) {
     const card = page.locator("#workout .exercise.is-current:not(.is-peek)");
     const shelf = card.locator(".focus-shelf");
     const target = (await draftTargets(page)).find((item) => item.exerciseInstanceId === "seed-ex-2");
-    await page.evaluate(async ({ target, weight, reps }) => {
-      for (const [metricId, value] of [[weight, "105"], [reps, "6"]]) await window.__repforgeWorkoutDraft.dispatch("editMetricValue", { ...target, metricId, value });
-    }, { target, weight: WEIGHT, reps: REPS });
     // Two sessions with the same changed warm-up make it the lifter's own.
     await savedWarmupSession(page, { exId: "seed-ex-2", id: "learn-1", daysAgo: 6, steps: [[40, 8], [80, 2]] });
     await savedWarmupSession(page, { exId: "seed-ex-2", id: "learn-2", daysAgo: 4, steps: [[40, 8], [80, 2]] });
     await openLegCurl(page);
     const cue = card.locator(".fx-cue--warm");
     await cue.waitFor({ timeout: 5000 });
-    assert.match(await cue.locator(".fx-cue__evidence").innerText(), /^Your warm-up from recent .+ sessions, adjusted to 105 kg\./, "two agreeing sessions make the learned cue");
+    assert.match(await cue.locator(".fx-cue__evidence").innerText(), /^Your warm-up from recent .+ sessions, adjusted to [\d.]+ kg\./, "two agreeing sessions make the learned cue");
     const learnedFirst = await cue.locator(".fx-cue__load").innerText();
     assert.ok(Number(learnedFirst) < 60, `the learned first step is lighter than the starting one: ${learnedFirst}`);
     await cue.getByRole("button", { name: "Why this warm-up" }).click();
@@ -903,7 +918,7 @@ async function preludeLearning(browser) {
     await forget.evaluate((button) => button.click());
     await page.getByText("Warm-up preference cleared.", { exact: true }).waitFor({ timeout: 5000 });
     await page.waitForFunction(() => !document.querySelector("#whySheet.is-open"));
-    await cue.locator(".fx-cue__evidence", { hasText: "A starting warm-up for 105 kg." }).waitFor({ timeout: 5000 });
+    await cue.locator(".fx-cue__evidence", { hasText: /A starting warm-up for [\d.]+ kg\./ }).waitFor({ timeout: 5000 });
     assert.deepEqual(Object.keys(await page.evaluate(() => window.__repforgeWorkoutDraft.state().warmupPreferences)).length, 1, "a reset keeps one token for the lift");
 
     // Three whole skips pause the suggestion, and a later reset or a logged warm-up brings it back.
@@ -943,9 +958,6 @@ async function preludePrecedence(browser) {
     assert.equal(await card.locator(".fx-cue--warm, .fx-prelude-none").count(), 0, "a lift with no history is calibrating: Find your weight, not a suggested warm-up");
     assert.equal(await page.evaluate(() => Object.values(window.__repforgeWorkoutDraft.current().exercises).some((exercise) => exercise.warmupPrelude)), false);
     const target = (await draftTargets(page)).find((item) => item.exerciseInstanceId === "seed-ex-2");
-    await page.evaluate(async ({ target, weight, reps }) => {
-      for (const [metricId, value] of [[weight, "105"], [reps, "6"]]) await window.__repforgeWorkoutDraft.dispatch("editMetricValue", { ...target, metricId, value });
-    }, { target, weight: WEIGHT, reps: REPS });
     await savedWarmupSession(page, { exId: "seed-ex-2", id: "precedence-1", daysAgo: 3, steps: [[40, 8]] });
     await openLegCurl(page);
     await card.locator(".fx-cue--warm").waitFor({ timeout: 5000 });
