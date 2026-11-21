@@ -549,7 +549,8 @@ function isValidStateShape(s){
     if(!isPlainStateObject(s)||!Array.isArray(s.program)||!s.program.every(isSafeProgressionFields)||
       !Array.isArray(s.log)||!s.log.every(isSafeLogRow))return false;
     if(Object.prototype.hasOwnProperty.call(s,"sessionEvents")&&!WorkoutDraft.validateSessionEvents(s.sessionEvents))return false;
-    if(Object.prototype.hasOwnProperty.call(s,"warmupObservations")&&!WorkoutDraft.validateWarmupObservations(s.warmupObservations))return false;
+    if(Object.prototype.hasOwnProperty.call(s,"warmupObservations")&&(!WorkoutDraft.validateWarmupObservations(s.warmupObservations)||
+      Object.keys(s.warmupObservations).length>new Set(s.log.map(row=>String(row?.session??""))).size))return false;
     if(Object.prototype.hasOwnProperty.call(s,"warmupPreferences")&&!WorkoutDraft.validateWarmupPreferences(s.warmupPreferences))return false;
     if(Object.prototype.hasOwnProperty.call(s,"programMeta")&&!isSafeProgressionMeta(s.programMeta,s.customExercises||[]))return false;
     if(Object.prototype.hasOwnProperty.call(s,"recoveryTransitions")&&!isValidRecoveryTransitions(s.recoveryTransitions))return false;
@@ -668,8 +669,9 @@ function mergeWarmupMap(base,proposal,target,preferProposal){
     let chosen;
     if(changeValueEqual(pv,bv))chosen=tv;
     else if(changeValueEqual(tv,bv))chosen=pv;
-    else if(pv===CHANGE_MISSING)chosen=preferProposal?CHANGE_MISSING:tv;
-    else chosen=tv===CHANGE_MISSING?(preferProposal?pv:CHANGE_MISSING):tv;
+    // Both changed it: a key either side deleted stays deleted (a rebased retry cannot resurrect it); otherwise the entry
+    // already committed wins.
+    else chosen=pv===CHANGE_MISSING||tv===CHANGE_MISSING?CHANGE_MISSING:tv;
     if(chosen!==CHANGE_MISSING)out[key]=cloneSnapshot(chosen)}
   return Object.keys(out).length?out:CHANGE_MISSING}
 /** Observations whose rows the merged head no longer holds are dropped, so a join never outlives its rows. */
@@ -3978,7 +3980,7 @@ function normalizeLoaded(s,options={}){
   if(Object.prototype.hasOwnProperty.call(s,"warmupObservations")){
     const observations=WorkoutDraft.pruneWarmupObservations(s.warmupObservations,out.log);
     if(observations)out.warmupObservations=cloneSnapshot(observations)}
-  if(Object.prototype.hasOwnProperty.call(s,"warmupPreferences")&&Object.keys(s.warmupPreferences).length)
+  if(s.warmupPreferences&&typeof s.warmupPreferences==="object"&&Object.keys(s.warmupPreferences).length)
     out.warmupPreferences=cloneSnapshot(s.warmupPreferences);
   if(Object.prototype.hasOwnProperty.call(s,"programmingContext")){
     const Entry=typeof window!=="undefined"?window.RepForgeProgramEntry:null;
@@ -4297,7 +4299,7 @@ function buildBlockReview(programMeta,program,log){const p=new Program(program||
   const started=programMeta?.started||null,ended=today(),hardRir=DEFAULTS.hardRir;
   const plannedSessions=total&&days.length?total*days.length:0;
   const blockRows=(log||[]).filter(r=>!started||r.date&&(String(r.date)>=started&&String(r.date)<=ended));
-  const completedSessions=new Set(blockRows.map(r=>r.session)).size;
+  const completedSessions=new Set(blockRows.filter(isWork).map(r=>r.session)).size;
   const adherenceRatio=plannedSessions?Math.min(completedSessions/plannedSessions,1):0;
   let improvedLifts=0,flatLifts=0,regressedLifts=0,stalledLifts=0;
   for(const ex of p.exercises){const sess=sessionsForLog(ex,log),blockSess=started?sess.filter(s=>String(s.date)>=started&&String(s.date)<=ended):sess;
@@ -8062,7 +8064,7 @@ function toggleRestHold(){
   if(!restState().active){startRest(restPlanSec());return}
   applyRest(RepForgeRestTimer.toggleHold(restClock,Date.now()));
   syncRest()}
-function resetRest(){if(!restState().active)return;startRest(restPlanSec())}
+function resetRest(){if(!restState().active)return;startRest(restPlanSec(),undefined,restState().restKind)}
 function endRestFromSheet(){stopRest();closeRestSheet()}
 /** What a host shows right now, without a crossfade layer that is still leaving it (a second swap during the first
  *  fades out what the lifter sees, not the layer on top of it). */
@@ -10375,6 +10377,17 @@ const WarmupPolicy=window.RepForgeWarmupSuggestions;
 const WARMUP_REST_SEC=60;
 const warmupOn=()=>!!WarmupPolicy&&typeof window.RepForgeStartingLoads?.equipmentIndex==="function";
 const WARMUP_LOAD_SEMANTICS=["loadKg","assistanceKg","loadPerSideKg","persistentLoadPerSideKg"];
+const WARMUP_MAX_STEPS=6;
+/** The share of the body above which an external-load lift counts as bodyweight-dominant (weighted pull-ups, dips, back
+ *  extensions): no automatic suggestion, the lifter's own Add one stays. A squat (0.759) or hack squat (0.537) is below it. */
+const WARMUP_BODYWEIGHT_COEFFICIENT=0.85;
+const warmupMaterialBodyweight=(convention,coefficient)=>convention==="bodyweight"||convention==="assistance"||
+  (Number.isFinite(coefficient)&&coefficient>=WARMUP_BODYWEIGHT_COEFFICIENT);
+/** The movement a logged step was done as: steps follow the movement they were logged under, not the slot. */
+const warmupStepMovement=step=>{const performed=step.completion?.performed;return String(performed?.libraryId||performed?.movementId||"")};
+/** The record's steps that belong to the movement now performed: its pending ones and what was logged as it. A swap
+ *  freezes the other movement's steps; they stay in History and in Exercise actions but never in this exercise's cue. */
+const warmupStepsFor=(record,lift)=>record?record.steps.filter(step=>warmupPending(step)||(!!lift&&warmupStepMovement(step)===lift.id)):[];
 const warmupPending=step=>step.completion==="pending";
 function warmupMuscleKey(primary){
   const first=String(primary||"").split(",")[0].trim();
@@ -10420,7 +10433,18 @@ function warmupWorkLoadKg(ex,lift){
   const draft=hydrateWorkoutDraft(),previous=last(ex);
   // What the first set's shelf offers: the engine's suggestion, else the previous session's set (setFieldVals' own order).
   const shown=fromDisplay(parseDec(setFieldVals(ex,1,recommendation(ex),draft,previous).kgVal));
-  return shown>0?shown:null}
+  if(shown>0)return shown;
+  // A per-side row keeps its load in its metric values, not in the flat field the shelf reads.
+  const old=previous.find(item=>item.set===1)||previous.at(-1),facts=old?WorkoutDraft.warmupRowFacts(old):null;
+  return facts?.loadKg>0?facts.loadKg:null}
+/** How many more steps a record can take: the step cap less what is logged, and the ordinals that remain. */
+function warmupRoom(record){
+  const used=record?record.steps.filter(step=>!warmupPending(step)).length:0;
+  return Math.max(0,Math.min(WARMUP_MAX_STEPS-used,WARMUP_MAX_STEPS+1-(record?.nextOrdinal??1)))}
+/** A dumbbell lift's rungs, resolved from the performed lift (the substitute's, once swapped), or null. */
+function warmupLadder(de){
+  const lift=warmupLift(de);
+  return lift?dumbbellLadderKg(lift.performed.libraryId||lift.id,lift.programmed.equipmentId):null}
 /** What the equipment is, in the policy's words, and the one bar this app knows (the 20 kg barbell, in kilograms). */
 function warmupEquipment(lift){
   const exercise=rawExercise(lift.id),chosen=lift.programmed.equipmentId?rawCatalogObject(lift.programmed.equipmentId):null;
@@ -10440,14 +10464,15 @@ function warmupSuggest(ex){
   const de=activeWorkoutDraft?.exercises?.[ex.id];
   const lift=de?warmupLift(de):null;if(!lift)return null;
   const workLoadKg=warmupWorkLoadKg(ex,lift),{equipmentKind,barKg}=warmupEquipment(lift);
-  // A lift logged by its external load (a squat on a bar, a hack squat) is warmed up as a percentage of that load even when the
-  // catalog says the body carries part of it; only a lift whose own convention is bodyweight has no load to take a share of.
   const input={liftKey:lift.key,movementId:lift.id,primaryMuscle:lift.muscle,sessionId:activeWorkoutDraft.draftId,now:Date.now(),
     workLoadKg,availableLoadsKg:availableLoadsKg(lift.performed.libraryId||lift.id,lift.programmed.equipmentId),equipmentKind,barKg,
     loadingConvention:lift.programmed.loadingConvention,metricSemantics:lift.semantics,
-    hasMaterialBodyweight:lift.programmed.loadingConvention==="bodyweight",
+    hasMaterialBodyweight:warmupMaterialBodyweight(lift.programmed.loadingConvention,lift.programmed.loadingContext?.bodyweightCoefficient),
     completedWorkingLifts:warmupCompletedLifts(),observations:warmupSavedObservations(),resetGeneration:warmupResetGeneration(lift.key)};
-  const result=WarmupPolicy.suggestWarmups(input);
+  let result=WarmupPolicy.suggestWarmups(input);
+  // What a swap froze counts against the step cap and the ordinals, so what is offered can always be stored.
+  const room=warmupRoom(de.warmupPrelude);
+  if(result.suggestions.length>room)result={...result,suggestions:result.suggestions.slice(0,room)};
   return{lift,input,result,equipmentKind,workLoadKg}}
 function warmupFirstSetTouched(de){
   const first=de.setOrder.map(id=>de.sets[id]).find(set=>set.role==="working"&&!set.origin);
@@ -10485,7 +10510,8 @@ function computePreludeView(ex){
   const de=activeWorkoutDraft.exercises?.[ex.id];
   if(!de||de.status!=="active")return null;
   const record=de.warmupPrelude||null;
-  const logged=record?record.steps.filter(step=>!warmupPending(step)):[];
+  const liftNow=warmupLift(de),mine=warmupStepsFor(record,liftNow);
+  const logged=mine.filter(step=>!warmupPending(step));
   // Work has started once a working set is logged, or the lifter has begun entering the first one: its shelf is theirs then.
   const workStarted=de.setOrder.some(id=>de.sets[id].role==="working"&&!de.sets[id].origin&&
     (de.sets[id].completion!=="pending"||de.sets[id].performed))||
@@ -10496,13 +10522,13 @@ function computePreludeView(ex){
   view.suggestion=live;
   if(record?.plan){
     view.plan=record.plan;
-    view.steps=record.steps.map(step=>({...warmupStepFacts(step,record.composition),stepId:step.stepId,done:!warmupPending(step),pendingStep:warmupPending(step),
+    view.steps=mine.map(step=>({...warmupStepFacts(step,record.composition),stepId:step.stepId,done:!warmupPending(step),pendingStep:warmupPending(step),
       index:step.source==="suggested"?record.steps.filter(item=>item.source==="suggested").indexOf(step):-1}));
   }else if(live&&live.result.suggestions.length){
     view.plan=warmupPlanOf(live);
     view.composition=warmupCompositionFor(live.lift);
     const loadMetric=warmupMetricOf(view.composition,"load"),repsMetric=warmupMetricOf(view.composition,"reps");
-    const kept=record?record.steps.filter(step=>!warmupPending(step)).map(step=>({...warmupStepFacts(step,null),stepId:step.stepId,done:true})):[];
+    const kept=logged.map(step=>({...warmupStepFacts(step,null),stepId:step.stepId,done:true}));
     view.steps=[...kept,...live.result.suggestions.map((item,index)=>({stepId:null,done:false,pendingStep:true,
       loadMetric,repsMetric,loadKg:item.loadKg,reps:item.reps,suggested:item,index,composition:view.composition}))]}
   else if(live){view.plan=warmupPlanOf(live)}
@@ -10511,7 +10537,7 @@ function computePreludeView(ex){
   const skipped=!!record?.skipped;
   if(view.current>=0&&!workStarted&&!skipped)view.stage="warm";
   else if(logged.length)view.stage="summary";
-  else if(view.plan?.reason==="suppressed"&&!workStarted&&!skipped&&!logged.length&&!(record&&record.steps.length))view.stage="suppressed";
+  else if(view.plan?.reason==="suppressed"&&!workStarted&&!skipped&&!(record&&mine.length))view.stage="suppressed";
   return view}
 /** The metric composition a fresh Prelude would store, so the pre-init view can read its own fields. */
 function warmupCompositionFor(lift){
@@ -10538,9 +10564,10 @@ function warmupPlateText(view,step){
   if(!plates.length)return t("prelude.plate_empty");
   return t("prelude.plate_side",{plates:plates.map(kg=>fmtLoad(kg)).join(" + ")})}
 function preludeEvidenceHtml(view){
-  const ex=view.ex,load=fmtLoad(view.plan.workLoadKg||0),unit=unitLabel(),reason=view.plan.reason,evidence=view.plan.evidence||{};
+  const ex=view.ex,hasWork=view.plan.workLoadKg>0,load=fmtLoad(view.plan.workLoadKg||0),unit=unitLabel(),reason=view.plan.reason;
   const lift=exerciseDisplayName(ex);
-  if(view.steps[view.current]?.step?.source==="manual")return esc(t("prelude.cue.baseline",{load,unit}));
+  // A step the lifter added, or a lift with no work load to aim at, gets the plain instruction without a target.
+  if(view.steps[view.current]?.step?.source==="manual"||!hasWork)return esc(t(hasWork?"prelude.cue.baseline":"prelude.cue.plain",{load,unit}));
   if(reason==="learned")return esc(t("prelude.cue.learned",{lift,load,unit}));
   if(reason==="already-warm"){
     const earlier=warmupEarlierLiftInfo(view);
@@ -10557,6 +10584,8 @@ function warmupEarlierLiftInfo(view){
       name=exerciseDisplayName(performed);primary=performed.primary||de.programmed?.primary||"";break}}
   return{name:name||exerciseDisplayName(view.ex),muscle:muscleListLabel(String(primary).split(",")[0]||lift?.primaryMuscle||"")}}
 function preludeRailHtml(view,{peek}){
+  // A reps-only lift has no load to climb: there is no rail.
+  if(!view.steps[view.current]?.loadMetric||!(view.plan.workLoadKg>0))return"";
   const unit=unitLabel(),work=view.plan.workLoadKg;
   const items=view.steps.map((step,index)=>{
     const cls=step.done?" is-done":index===view.current?" is-now":"";
@@ -10571,11 +10600,14 @@ function preludeRailHtml(view,{peek}){
 /** The cue while the warm-up is the next thing to do: the hero, the rail, where the lifter stands, and the way to skip. */
 function preludeCueHtml(view,{peek}){
   const step=view.steps[view.current],unit=unitLabel(),load=warmupLoadText(step.loadKg);
-  const sentence=esc(t("prelude.cue",{load:"\u0000",unit})).replace("\u0000",`<b class="fx-cue__load">${esc(load)}</b>`);
   const reps=Number.isFinite(step.reps)?t(step.reps===1?"prelude.reps.one":"prelude.reps.many",{n:fmt(step.reps)}):"";
-  const plates=warmupPlateText(view,step),line=plates?t("prelude.rep_line",{reps,plates}):reps;
+  // A reps-only step is told by its reps; a loaded one by its load, with the reps and plates under it.
+  const sentence=step.loadMetric?esc(t("prelude.cue",{load:"\u0000",unit})).replace("\u0000",`<b class="fx-cue__load">${esc(load)}</b>`)
+    :esc(t("prelude.cue_reps",{reps:"\u0000"})).replace("\u0000",`<b class="fx-cue__load">${esc(reps)}</b>`);
+  const plates=step.loadMetric?warmupPlateText(view,step):"",line=!step.loadMetric?"":plates?t("prelude.rep_line",{reps,plates}):reps;
   const total=view.steps.length,at=view.current+1;
-  const standing=t("prelude.standing",{step:at,total,load:warmupLoadText(view.plan.workLoadKg),unit});
+  const standing=view.plan.workLoadKg>0&&step.loadMetric?t("prelude.standing",{step:at,total,load:warmupLoadText(view.plan.workLoadKg),unit})
+    :t("prelude.standing_plain",{step:at,total});
   const attrs=id=>peek?dead():` data-wu-${id}="${esc(view.ex.id)}"`;
   return `<div class="fx-cue is-now fx-cue--warm"><p class="fx-cue__l1">${sentence}</p>`+
     (line?`<p class="fx-cue__l2">${esc(line)}</p>`:"")+preludeRailHtml(view,{peek})+
@@ -10584,9 +10616,13 @@ function preludeCueHtml(view,{peek}){
     `<p class="fx-cue__evidence">${preludeEvidenceHtml(view)} <button type="button" class="text-link focus-ex__why fx-cue__why"${attrs("why")} aria-label="${esc(t("prelude.why.open_aria"))}">${esc(t("focus.evidence.why"))}</button></p></div>`}
 /** The shelf for a warm-up step: Load and Reps, their pads, and the one action that records what was done. */
 const warmupUi={exId:"",field:"load",editing:false};
-function warmupSelectedField(view){return warmupUi.exId===view.ex.id?warmupUi.field:"load"}
+function warmupSelectedField(view){
+  const has=kind=>!!(kind==="load"?view.steps[view.current]?.loadMetric:view.steps[view.current]?.repsMetric);
+  const asked=warmupUi.exId===view.ex.id?warmupUi.field:"load";
+  return has(asked)?asked:has("load")?"load":"reps"}
 function preludeFieldHtml(view,kind,{peek}){
   const step=view.steps[view.current],metric=kind==="load"?step.loadMetric:step.repsMetric;
+  if(!metric)return"";
   const unit=kind==="load"?metricDisplayUnit(metric):"",label=`${metricLabel(metric)}${unit?`, ${unit}`:""}`;
   const short=metricLabel(metric),shown=shelfText(warmupFieldText(step,kind));
   const selected=warmupSelectedField(view)===kind,live=selected&&warmupUi.editing&&!peek;
@@ -10599,31 +10635,39 @@ function preludeFieldHtml(view,kind,{peek}){
     `${live?`<span class="shelf__lab shelf__lab--edit" aria-hidden="true">${esc(short)}</span>`:""}</div>`}
 function preludePadsHtml(view,{peek}){
   const step=view.steps[view.current],kind=warmupSelectedField(view),metric=kind==="load"?step.loadMetric:step.repsMetric;
+  const ladder=kind==="load"?warmupLadder(view.de):null;
+  const input=()=>document.querySelector(`input[data-wk="${CSS.escape(view.ex.id)}:${CSS.escape(metric.id)}"]`);
   const pad=dir=>{
-    const ladder=kind==="load"?dumbbellLadderKg(view.ex.libraryId,view.composition?.equipmentId):null;
+    // A dumbbell lift's pads say how far the next rung is, as the working shelf's do.
+    const view_=ladder?ladderPad(ladder,parseDec(input()?.value??warmupFieldText(step,"load")),dir,unitLabel()):null;
     const text=kind==="reps"?t("focus.shelf.pad_reps",{sign:dir>0?"+":"−"})
-      :t("focus.shelf.pad_load",{sign:dir>0?"+":"−",step:shelfLoadStep(),unit:unitLabel()});
-    return `<button type="button" class="stepbtn shelf__pad"${peek?dead():` data-wu-step="${esc(view.ex.id)}:${esc(metric.id)}" data-wu-kind="${kind}" data-dir="${dir}"`}>${esc(text)}</button>`};
+      :view_?view_.text:t("focus.shelf.pad_load",{sign:dir>0?"+":"−",step:shelfLoadStep(),unit:unitLabel()});
+    return `<button type="button" class="stepbtn shelf__pad"${peek?dead():` data-wu-step="${esc(view.ex.id)}:${esc(metric.id)}" data-wu-kind="${kind}" data-dir="${dir}"${view_?.off?" disabled":""}`}>${esc(text)}</button>`};
   return `<div class="shelf__pads">${pad(-1)}${pad(1)}</div>`}
 function preludeCtaText(view){
   const next=view.steps.slice(view.current+1).find(step=>!step.done);
-  return next?t("prelude.cta.next",{load:warmupLoadText(next.loadKg),unit:unitLabel()}):t("prelude.cta.work")}
+  if(!next)return t("prelude.cta.work");
+  return next.loadMetric?t("prelude.cta.next",{load:warmupLoadText(next.loadKg),unit:unitLabel()}):t("prelude.cta.next_reps",{reps:fmt(next.reps)})}
 function preludeShelfHtml(view,{peek}){
   const label=preludeCtaText(view);
-  return `<div class="focus-shelf workshelf is-prelude" role="region" aria-label="${esc(label)}"><div class="shelf__fields shelf__fields--two">`+
+  return `<div class="focus-shelf workshelf is-prelude" role="region" aria-label="${esc(label)}"><div class="shelf__fields ${view.steps[view.current].loadMetric?"shelf__fields--two":"shelf__fields--one"}">`+
     `${preludeFieldHtml(view,"load",{peek})}${preludeFieldHtml(view,"reps",{peek})}</div>${preludePadsHtml(view,{peek})}`+
     `<button type="button" class="btn btn--cta btn--noarrow saveset"${peek?dead():` data-wu-log="${esc(view.ex.id)}"`}>${esc(label)}</button></div>`}
 /** The one quiet W row above the work: the logged loads in order, and that they do not count. */
 function preludeSummaryRowHtml(view,{peek}){
-  const loads=view.logged.map(step=>warmupLoadText(warmupStepFacts(step,null).loadKg)).join(" · "),unit=unitLabel();
+  const facts=view.logged.map(step=>warmupStepFacts(step,null)),unit=unitLabel();
+  // A reps-only warm-up is listed by its reps.
+  const loaded=facts.every(item=>item.loadMetric),list=facts.map(item=>loaded?warmupLoadText(item.loadKg):fmt(item.reps));
+  const vals=loaded?t("prelude.row.vals",{loads:list.join(" · "),unit}):t("prelude.row.vals_reps",{reps:list.join(" · ")});
+  const spoken=loaded?t("prelude.row.spoken",{loads:list.join(", "),unit}):t("prelude.row.spoken_reps",{reps:list.join(", ")});
   return `<div class="ledgerline ledgerline--warmup"><span class="ledgerline__idx" aria-hidden="true"><span class="ledger__w">${esc(t("ledger.set.warmup"))}</span></span>`+
-    `<span class="ledgerline__vals ledgerline__vals--wide" aria-hidden="true">${esc(t("prelude.row.vals",{loads,unit}))}</span>`+
-    `<span class="visually-hidden">${esc(t("prelude.row.spoken",{loads:view.logged.map(step=>warmupLoadText(warmupStepFacts(step,null).loadKg)).join(", "),unit}))}</span></div>`}
+    `<span class="ledgerline__vals ledgerline__vals--wide" aria-hidden="true">${esc(vals)}</span>`+
+    `<span class="visually-hidden">${esc(spoken)}</span></div>`}
 /** "No warm-ups suggested" with Why? and Add one, when three skips have paused the suggestion. */
 function preludeQuietRowHtml(view,{peek}){
   const attrs=id=>peek?dead():` data-wu-${id}="${esc(view.ex.id)}"`;
   return `<div class="fx-prelude-none"><span class="fx-prelude-none__label">${esc(t("prelude.none"))}</span><span class="fx-prelude-none__acts">`+
-    `<button type="button" class="text-link"${attrs("why")}>${esc(t("focus.evidence.why"))}</button>`+
+    `<button type="button" class="text-link"${attrs("why")} aria-label="${esc(t("prelude.why.open_aria"))}">${esc(t("focus.evidence.why"))}</button>`+
     `<button type="button" class="text-link"${attrs("add")}>${esc(t("prelude.none.add"))}</button></span></div>`}
 
 /* ---- Commands ---- */
@@ -10671,7 +10715,15 @@ async function logWarmupStep(exId){
   const record=await ensurePrelude(ex),step=warmupCurrentStep(record);if(!step)return;
   const suggestionIndex=record.steps.filter(item=>item.source==="suggested").indexOf(step);
   const result=await WorkoutSession.dispatch("completeWarmupStep",{exerciseInstanceId:exId,stepId:step.stepId,completedAt:new Date().toISOString()});
-  if(result.status==="domain-error"){applyDraftIssue(result.error?.issues);return}
+  if(result.status==="domain-error"){
+    // A load or reps that cannot be logged: say which, mark it and put the lifter on it (the working shelf does the same).
+    const facts=warmupStepFacts(step,record.composition),loadBad=facts.loadMetric&&!(facts.loadKg>0),metric=loadBad?facts.loadMetric:facts.repsMetric;
+    const input=metric?$(`input[data-wk="${CSS.escape(exId)}:${CSS.escape(metric.id)}"]`):null;
+    if(input){warmupUi.exId=exId;warmupUi.field=loadBad?"load":"reps";warmupUi.editing=true;refreshWarmupShelf();
+      const live=$(`input[data-wk="${CSS.escape(exId)}:${CSS.escape(metric.id)}"]`)||input;
+      applyFieldError({ok:false,error:{key:loadBad?"validation.load_metric":"validation.reps"},el:live});try{live.focus({preventScroll:true})}catch{}}
+    else toast(t(loadBad?"validation.load_metric":"validation.reps"));
+    return}
   if(result.status!=="applied")return;
   lastCommitAt=Date.now();if(!sessionStartedAt)sessionStartedAt=lastCommitAt;
   // The rest after a warm-up is its own short one, and only for an exercise that rests at all (Plan 085, Q4).
@@ -10686,13 +10738,14 @@ async function logWarmupStep(exId){
 /** The "once more" notice for a warm-up that was changed, only when the policy can classify the complete change. */
 function warmupEditToast(record,stepId,suggestionIndex,before){
   if(!warmupOn()||!record.plan||record.plan.evidence.liftKey==null)return"";
-  const index=record.steps.findIndex(item=>item.stepId===stepId);if(index<0)return"";
+  const index=warmupStepsFor(record,warmupLift(activeWorkoutDraft.exercises[before.ex.id])).findIndex(item=>item.stepId===stepId);if(index<0)return"";
   const ex=before.ex,lift=warmupLift(activeWorkoutDraft.exercises[ex.id]);if(!lift)return"";
-  const steps=[];
-  for(const item of record.steps){
+  const steps=[],liftNow=warmupLift(activeWorkoutDraft.exercises[before.ex.id]),mine=warmupStepsFor(record,liftNow);
+  for(const item of mine){
     const facts=warmupStepFacts(item,record.composition);
-    if(!(facts.loadKg>0&&facts.reps>0))return"";
+    if(!(facts.reps>0)||(facts.loadMetric&&!(facts.loadKg>0)))return"";
     steps.push({...(warmupPending(item)?{}:{setId:item.stepId}),loadKg:facts.loadKg,reps:facts.reps})}
+  if(steps.some(item=>!(item.loadKg>0)))return"";
   const preview=WarmupPolicy.previewWarmupEdit({suggestion:{reason:record.plan.reason,suggestions:record.plan.suggestions,
     manualAllowed:record.plan.manualAllowed,evidence:record.plan.evidence},steps,loggedStepIndex:index,sessionId:activeWorkoutDraft.draftId,
     now:Date.now(),resetGeneration:warmupResetGeneration(lift.key),observations:warmupSavedObservations(),
@@ -10729,8 +10782,11 @@ async function addManualWarmup(exId){
   const result=await WorkoutSession.dispatch("addWarmupStep",{exerciseInstanceId:exId,stepId:`wu-${uid()}`,values,
     ...(de.warmupPrelude?.plan?{}:{plan})});
   if(result.status!=="applied")return;
-  warmupUi.exId=exId;warmupUi.field="load";warmupUi.editing=false;
-  renderWorkout();focusWorkoutHandoff("next",{exId,n:1});
+  warmupUi.exId=exId;warmupUi.field=loadMetric?"load":"reps";warmupUi.editing=false;
+  renderWorkout();
+  // The new step's own first tile takes focus, where the lifter will adjust it.
+  const tile=focusCard()?.querySelector(`.focus-shelf [data-wu-field="${warmupUi.field}"]`);
+  if(!tile||!focusWorkoutControl(tile))focusWorkoutHandoff("cta");
   toast(t("prelude.toast.add"),{placement:"top"})}
 /** Forget this lift's preference: a new reset token, committed through the state queue and the cross-tab lock. */
 async function resetWarmupLearning(exId){
@@ -10761,7 +10817,7 @@ function bindWarmupControls(){
     const current=parseDec(input.value)||0;
     if(kind==="reps")input.value=fmtPlain(Math.max(1,current+dir));
     else{
-      const de=activeWorkoutDraft?.exercises?.[exId],ladder=dumbbellLadderKg(de?.libraryId,de?.warmupPrelude?.composition?.equipmentId);
+      const de=activeWorkoutDraft?.exercises?.[exId],ladder=de?warmupLadder(de):null;
       const step=parseDec(shelfLoadStep())||1;
       input.value=fmtPlain(ladder?ladderNeighbour(ladder,current,dir):Math.max(0,Math.round((current+step*dir)*10)/10))}
     const el=input.closest(".shelf__field")?.querySelector(".shelf__val");
@@ -10778,14 +10834,16 @@ function refreshWarmupShelf(focus=null){
   if(focus){const el=card.querySelector(`.focus-shelf [data-wu-field="${focus}"]`);if(el)focusWorkoutControl(el)}}
 function openWarmupWheel(exId,kind,input,opener){
   const key=`${exId}_wu`;
-  openWheelSheet(key,kind,kind,{input,opener,ladder:kind==="load"?dumbbellLadderKg(activeWorkoutDraft?.exercises?.[exId]?.libraryId,
-    activeWorkoutDraft?.exercises?.[exId]?.warmupPrelude?.composition?.equipmentId):null,
+  const de=activeWorkoutDraft?.exercises?.[exId];
+  openWheelSheet(key,kind,kind,{input,opener,ladder:kind==="load"&&de?warmupLadder(de):null,
     onKeyboard:()=>{warmupUi.exId=exId;warmupUi.field=kind;warmupUi.editing=true;refreshWarmupShelf();
       const el=focusCard()?.querySelector(`.focus-shelf input[data-wu-kind="${kind}"]`);if(el){try{el.focus({preventScroll:true})}catch{}el.select()}}})}
 /* ---- Why this warm-up ---- */
 function warmupSequenceText(view){
   const unit=unitLabel(),steps=view.steps.length?view.steps:(view.plan?.suggestions||[]).map(item=>({loadKg:item.loadKg,reps:item.reps}));
-  const sets=steps.map(step=>`${warmupLoadText(step.loadKg)} × ${fmt(step.reps)}`).join(", then ");
+  const sets=steps.map(step=>("loadMetric" in step&&!step.loadMetric)?`${fmt(step.reps)}`:`${warmupLoadText(step.loadKg)} × ${fmt(step.reps)}`).join(", ");
+  // With no work load to aim at there is no "then …": the sequence is just the steps.
+  if(!(view.plan.workLoadKg>0))return steps.length?sets:"";
   const load=warmupLoadText(view.plan.workLoadKg);
   return steps.length?t("prelude.why.sequence",{sets,load,unit}):t("prelude.why.sequence_none",{load,unit})}
 function warmupWhyModel(view){
@@ -10800,6 +10858,7 @@ function warmupWhyModel(view){
   else if(reason==="suppressed"){decision=t("prelude.why.decision.skips");source=t("prelude.why.source.suppressed")}
   else{decision=t("prelude.why.decision.first");source=t("prelude.why.source.baseline")}
   blocks.push({lead:t("prelude.why.source_head"),text:source});
+  blocks.push({reset:true});
   // "How it learns. Log the same change twice…": the sentence's first clause is its bold lead.
   for(const key of ["prelude.why.learning","prelude.why.exclusions"]){
     const line=t(key),cut=line.indexOf(". ");
@@ -10815,12 +10874,14 @@ function openWarmupWhySheet(exId,opener){
   const sheet=$("#whySheet"),scrim=$("#whyScrim");if(!sheet)return;
   const model=warmupWhyModel(view);
   $("#whyTitle").textContent=t("prelude.why.title");
-  const target=$("#whyTarget");if(target){target.innerHTML=`<span>${esc(model.target)}</span>`;target.classList.remove("hidden")}
+  const target=$("#whyTarget");if(target){target.innerHTML=`<span>${esc(model.target)}</span>`;target.classList.toggle("hidden",!model.target)}
   $("#whyDecision").textContent=model.decision;
   const body=$("#whyBody");
   if(body){
-    body.innerHTML=model.blocks.map(block=>`<div class="whysheet__block">${block.lead?`<b class="whysheet__lead">${esc(block.lead)}</b>`:""}<p class="whysheet__text">${esc(block.text)}</p></div>`).join("")+
-      `<button type="button" class="whysheet__disc" data-wu-reset="${esc(exId)}"><span>${esc(t("prelude.why.reset",{lift:model.lift}))}</span></button>`;
+    // The reset follows the source so it is in view at the medium detent; the rest of the explanation scrolls below it.
+    body.innerHTML=model.blocks.map(block=>block.reset
+      ?`<button type="button" class="whysheet__disc" data-wu-reset="${esc(exId)}"><span>${esc(t("prelude.why.reset",{lift:model.lift}))}</span></button>`
+      :`<div class="whysheet__block">${block.lead?`<b class="whysheet__lead">${esc(block.lead)}</b>`:""}<p class="whysheet__text">${esc(block.text)}</p></div>`).join("");
     body.querySelector("[data-wu-reset]").onclick=async()=>{
       const done=await resetWarmupLearning(exId);
       if(done){await closeWhySheet();renderWorkout()}}}
@@ -10838,8 +10899,9 @@ function renderPreludeActions(exId,sheet){
   const unit=unitLabel();
   const rows=logged.map(step=>{
     const facts=warmupStepFacts(step,null),n=step.completion.ordinal;
+    const figure=facts.loadMetric?`${warmupLoadText(facts.loadKg)} ${unit} × ${fmt(facts.reps)}`:t(facts.reps===1?"prelude.reps.one":"prelude.reps.many",{n:fmt(facts.reps)});
     return `<div class="exactions__warmup-row" data-wu-row="${esc(step.stepId)}"><div class="exactions__warmup-info"><span class="exactions__warmup-num">${esc(t("ledger.set.warmup"))}${n}</span>`+
-      `<span class="exactions__warmup-role">${esc(warmupLoadText(facts.loadKg))} ${esc(unit)} × ${esc(fmt(facts.reps))}</span></div>`+
+      `<span class="exactions__warmup-role">${esc(figure)}</span></div>`+
       `<span class="exactions__warmup-ctl"><button type="button" class="text-link" data-wu-edit="${esc(step.stepId)}">${esc(t("prelude.manage.edit"))}</button>`+
       `<button type="button" class="text-link" data-wu-remove="${esc(step.stepId)}">${esc(t("prelude.manage.remove"))}</button></span></div>`}).join("");
   list.innerHTML=rows+(canAdd?`<button type="button" class="exactions__act" id="exActionAddWarmup"><span class="exactions__act-text"><span>${esc(t("prelude.manage.add"))}</span></span></button>`:"");
@@ -10854,18 +10916,20 @@ function renderPreludeActions(exId,sheet){
 /** A logged step's two figures, edited in place and saved as one correction that keeps its ordinal. */
 function openWarmupCorrection(exId,stepId,row){
   const de=activeWorkoutDraft?.exercises?.[exId],step=de?.warmupPrelude?.steps.find(item=>item.stepId===stepId);if(!step||!row)return;
-  const facts=warmupStepFacts(step,null),unit=metricDisplayUnit(facts.loadMetric);
+  const facts=warmupStepFacts(step,null),unit=facts.loadMetric?metricDisplayUnit(facts.loadMetric):"";
+  const loadInput=facts.loadMetric?`<input class="shelf__input exactions__warmup-input" inputmode="decimal" aria-label="${esc(`${metricLabel(facts.loadMetric)}${unit?`, ${unit}`:""}`)}" value="${esc(metricTextValue(step.values[facts.loadMetric.id],facts.loadMetric))}" data-wu-fix="load">`:"";
   row.innerHTML=`<div class="exactions__warmup-info"><span class="exactions__warmup-num">${esc(t("ledger.set.warmup"))}${step.completion.ordinal}</span></div>`+
-    `<span class="exactions__warmup-ctl"><input class="shelf__input exactions__warmup-input" inputmode="decimal" aria-label="${esc(`${metricLabel(facts.loadMetric)}${unit?`, ${unit}`:""}`)}" value="${esc(metricTextValue(step.values[facts.loadMetric.id],facts.loadMetric))}" data-wu-fix="load">`+
+    `<span class="exactions__warmup-ctl">${loadInput}`+
     `<input class="shelf__input exactions__warmup-input" inputmode="numeric" aria-label="${esc(metricLabel(facts.repsMetric))}" value="${esc(String(step.values[facts.repsMetric.id]))}" data-wu-fix="reps">`+
     `<button type="button" class="text-link" data-wu-save>${esc(t("dialog.save"))}</button><button type="button" class="text-link" data-wu-cancel>${esc(t("dialog.cancel"))}</button></span>`;
-  const load=row.querySelector('[data-wu-fix="load"]'),reps=row.querySelector('[data-wu-fix="reps"]');
-  load.focus();load.select();
+  const load=row.querySelector('[data-wu-fix="load"]'),reps=row.querySelector('[data-wu-fix="reps"]'),first=load||reps;
+  first.focus();first.select();
   row.querySelector("[data-wu-cancel]").onclick=()=>renderExActionsSheet(exId);
   row.querySelector("[data-wu-save]").onclick=async()=>{
     const result=await WorkoutSession.dispatch("correctWarmupStep",{exerciseInstanceId:exId,stepId,
-      values:{[facts.loadMetric.id]:canonicalMetricInput(facts.loadMetric,load.value),[facts.repsMetric.id]:canonicalMetricInput(facts.repsMetric,reps.value)}});
-    if(result.status==="domain-error"){load.setAttribute("aria-invalid","true");reps.setAttribute("aria-invalid","true");return}
+      values:{...(facts.loadMetric&&load?{[facts.loadMetric.id]:canonicalMetricInput(facts.loadMetric,load.value)}:{}),
+        [facts.repsMetric.id]:canonicalMetricInput(facts.repsMetric,reps.value)}});
+    if(result.status==="domain-error"){load?.setAttribute("aria-invalid","true");reps.setAttribute("aria-invalid","true");return}
     if(result.status!=="applied")return;
     renderWorkout();renderExActionsSheet(exId);
     document.querySelector(`#exActionsPreludeList [data-wu-edit="${CSS.escape(stepId)}"]`)?.focus({preventScroll:true})}}
@@ -10884,7 +10948,8 @@ function warmupObservationsForSave(draft,rows,finishedAt){
     if(!work)continue;
     seen.add(liftKey);
     if(record.steps.some(warmupPending))continue;
-    const logged=record.steps.filter(step=>!warmupPending(step));
+    // Only what was logged as the movement now performed teaches: a swap's frozen steps belong to the other movement.
+    const logged=warmupStepsFor(record,warmupLift(de)).filter(step=>!warmupPending(step));
     const skipped=record.skipped&&!logged.length;
     if(record.skipped&&logged.length)continue;
     if(!skipped&&!logged.length)continue;

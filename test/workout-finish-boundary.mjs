@@ -790,6 +790,7 @@ async function prelude(browser) {
     await page.locator(".resttab__label", { hasText: "Warm-up rest" }).waitFor({ timeout: 5000 });
     assert.match(await page.locator("#restTab").getAttribute("aria-label"), /^Warm-up rest, 0?[01]:\d\d$/, "the spoken label names the warm-up rest");
     assert.equal(await page.evaluate(() => RepForgeRestTimer.view(restClock, Date.now()).lengthSec), 60, "a warm-up rest runs a minute");
+    assert.equal(await page.evaluate(() => { resetRest(); return RepForgeRestTimer.view(restClock, Date.now()).restKind; }), "warmup", "restarting a warm-up rest keeps it a warm-up rest");
     const afterFirst = await page.evaluate(() => {
       const exercise = window.__repforgeWorkoutDraft.current().exercises["seed-ex-2"];
       return { sets: exercise.setOrder.length, done: exercise.warmupPrelude.steps.filter((step) => step.completion !== "pending").length,
@@ -808,6 +809,16 @@ async function prelude(browser) {
     assert.match(await rail.locator("li.is-done").first().innerText(), /60/, "a done step shows what was logged");
     await page.locator(".resttab__label", { hasText: "Warm-up rest" }).waitFor({ timeout: 5000 });
 
+    // A load that cannot be logged says so on its own field and puts the lifter there; nothing is recorded.
+    const blank = shelf.locator('input[data-wu-kind="load"]');
+    const offered = await blank.inputValue();
+    await blank.evaluate((el) => { el.value = ""; el.oninput(); });
+    await shelf.getByRole("button", { name: /^Done · .* next$/ }).click();
+    await page.waitForFunction(() => document.querySelector('#workout .focus-shelf input[data-wu-kind="load"]')?.getAttribute("aria-invalid") === "true");
+    assert.equal(await page.evaluate(() => document.activeElement?.matches('input[data-wu-kind="load"]')), true, "focus goes to the field that cannot be logged");
+    assert.equal(await page.evaluate(() => window.__repforgeWorkoutDraft.current().exercises["seed-ex-2"].warmupPrelude.steps.filter((step) => step.completion !== "pending").length), 1, "an invalid load logs nothing");
+    await blank.evaluate((el, value) => { el.value = value; el.oninput(); }, offered);
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
     // Log the rest. The last one hands over to set 1.
     const loggedSteps = () => page.evaluate(() => window.__repforgeWorkoutDraft.current().exercises["seed-ex-2"].warmupPrelude.steps.filter((step) => step.completion !== "pending").length);
     for (let guard = 0; guard < 6 && await card.locator(".fx-cue--warm").count(); guard++) {
@@ -866,7 +877,16 @@ async function prelude(browser) {
     // History reads the warm-ups as preparation, named by their own ordinals, beside work numbered from 1.
     await page.locator("#sumSee").click();
     const labels = await page.locator(".session--read .ledgerline:not(.ledgerline__head) .ledgerline__idx").allInnerTexts();
-    assert.deepEqual(labels.map((text) => text.trim()), [...warmRows.map((row) => `W${row.warmupOrdinal}`), "1", "2"], "History names warm-ups W1, W2 and work 1, 2");
+    assert.deepEqual(labels.map((text) => text.trim().split("\n")[0]), [...warmRows.map((row) => `W${row.warmupOrdinal}`), "1", "2"], "History names warm-ups W1, W2 and work 1, 2");
+    // History's editor has no effort to correct on a suggested warm-up: its cell is a dash, and saving keeps the row as projected.
+    await page.locator("[data-history-edit]").click();
+    const editRows = page.locator(".histedit__cols ~ .histlift__sets .edrow, .edrow");
+    assert.equal(await page.locator('.edrow [data-ek^="rir|"]').count(), workRows.length, "only working rows carry an effort field");
+    assert.equal(await page.locator(".edrow").first().locator('[data-ek^="rir|"]').count(), 0, "the first row is a warm-up with no effort field");
+    await page.locator("[data-edsave]").click();
+    await page.locator(".session--read").waitFor();
+    assert.deepEqual(await page.evaluate(() => window.__repforgeWorkoutDraft.state().log.filter((row) => row.origin === "suggested-warmup").map((row) => [row.rir, row.warmupOrdinal, Object.hasOwn(row, "effortSource")])),
+      warmRows.map((row) => [null, row.warmupOrdinal, false]), "saving the edit leaves the warm-up rows valid");
     const csvRows = await page.evaluate(() => window.__repforgeWorkoutDraft.state().log.filter((row) => row.origin === "suggested-warmup").length);
     assert.equal(csvRows, warmRows.length);
     console.log("PASS: Prelude warm-ups survive reload, finish with work numbered from 1, and teach once");
@@ -916,8 +936,7 @@ async function preludeLearning(browser) {
     assert.match(await page.locator("#whyEvidence").innerText(), /^Based on 2 sessions/);
     assert.equal(await page.evaluate(() => Object.values(window.__repforgeWorkoutDraft.current().exercises).some((exercise) => exercise.warmupPrelude)), false, "opening Why writes nothing");
     const forget = sheet.getByRole("button", { name: /^Forget my warm-up for / });
-    // At the sheet's medium detent the reset sits below the fold (a swipe up reaches it); the control itself is what is exercised.
-    await forget.evaluate((button) => button.click());
+    await forget.click();
     await page.getByText("Warm-up preference cleared.", { exact: true }).waitFor({ timeout: 5000 });
     await page.waitForFunction(() => !document.querySelector("#whySheet.is-open"));
     await cue.locator(".fx-cue__evidence", { hasText: /A starting warm-up for [\d.]+ kg\./ }).waitFor({ timeout: 5000 });
@@ -932,7 +951,7 @@ async function preludeLearning(browser) {
     await quiet.waitFor({ timeout: 5000 });
     assert.equal(await card.locator(".fx-cue--warm").count(), 0, "no warm-up is the cue once three skips pause it");
     assert.match(await quiet.innerText(), /no warm-ups suggested/i);
-    await quiet.getByRole("button", { name: "Why?" }).click();
+    await quiet.getByRole("button", { name: "Why this warm-up" }).click();
     assert.equal((await page.locator("#whyDecision").innerText()).trim(), "Usually skips");
     await page.keyboard.press("Escape");
     await page.waitForFunction(() => !document.querySelector("#whySheet.is-open"));
@@ -973,6 +992,60 @@ async function preludePrecedence(browser) {
   }
 }
 
+/* What a lift's cue may show and store: its own movement's steps, bounded so they can be stored, and a bodyweight rule on both sides. */
+async function preludeScopes(browser) {
+  const { context, page } = await freshWorkout(browser, { rirMode: "numeric", effortScale: "reps" });
+  try {
+    const card = page.locator("#workout .exercise.is-current:not(.is-peek)");
+    await savedWarmupSession(page, { exId: "seed-ex-2", id: "scope-1", daysAgo: 3, steps: [[40, 8]] });
+    await openLegCurl(page);
+    await card.locator(".fx-cue--warm").waitFor({ timeout: 5000 });
+
+    // The bodyweight rule: bodyweight and assistance conventions and a body share of 0.85 or more get no automatic suggestion.
+    const rule = await page.evaluate(() => ({ threshold: WARMUP_BODYWEIGHT_COEFFICIENT,
+      squat: warmupMaterialBodyweight("external", 0.759), hack: warmupMaterialBodyweight("external", 0.537), edge: warmupMaterialBodyweight("external", 0.85),
+      pullup: warmupMaterialBodyweight("external", 1), bw: warmupMaterialBodyweight("bodyweight", 0), assist: warmupMaterialBodyweight("assistance", 0), none: warmupMaterialBodyweight("external", null) }));
+    assert.deepEqual(rule, { threshold: 0.85, squat: false, hack: false, edge: true, pullup: true, bw: true, assist: true, none: false });
+
+    // The room a record has: the step cap and the ordinals both bound what can be offered.
+    const room = await page.evaluate(() => {
+      const done = (count) => Array.from({ length: count }, () => ({ completion: { ordinal: 1 } }));
+      return [warmupRoom(null), warmupRoom({ steps: done(5), nextOrdinal: 6 }), warmupRoom({ steps: done(6), nextOrdinal: 7 }), warmupRoom({ steps: done(2), nextOrdinal: 7 })];
+    });
+    assert.deepEqual(room, [6, 1, 0, 0], "five logged leaves one; the ordinals bound it even after removals");
+
+    // Reps-only steps draw with no load anywhere.
+    const bare = await page.evaluate(() => {
+      const view = preludeView(warmupExerciseById("seed-ex-2"));
+      const reps = { ...view, plan: { ...view.plan, workLoadKg: null }, steps: view.steps.map((step) => ({ ...step, loadMetric: null, loadKg: NaN, suggested: undefined })) };
+      return { cue: preludeCueHtml(reps, { peek: false }), shelf: preludeShelfHtml(reps, { peek: false }), row: preludeSummaryRowHtml({ ...reps, logged: [] }, { peek: false }) };
+    });
+    assert.match(bare.cue, /Warm up <b class="fx-cue__load">\d+ reps<\/b>/, "the hero is the reps");
+    assert.doesNotMatch(bare.cue + bare.shelf, /—|NaN| kg|fx-rail/, "no load, no rail, no placeholder");
+    assert.ok(bare.shelf.includes('data-wu-field="reps"') && !bare.shelf.includes('data-wu-field="load"') && bare.shelf.includes("shelf__fields--one"), "a single Reps tile");
+
+    // A swap after logging: the frozen steps stay in History and in Exercise actions, not in the new movement's cue.
+    await card.locator(".saveset").click();
+    await page.waitForFunction(() => window.__repforgeWorkoutDraft.current().exercises["seed-ex-2"].warmupPrelude?.steps.some((step) => step.completion !== "pending"));
+    const swapped = await page.evaluate(async () => {
+      const row = prog.find("seed-ex-14"), de = window.__repforgeWorkoutDraft.current().exercises["seed-ex-2"];
+      await WorkoutSession.dispatch("substituteExercise", { exerciseInstanceId: "seed-ex-2", selectedAt: new Date().toISOString(),
+        replacement: { exerciseInstanceId: "seed-ex-2", sourceExerciseId: de.sourceExerciseId, displayName: row.name, libraryId: row.libraryId, primary: row.primary, secondary: row.secondary } });
+      renderWorkout();
+      const ex = warmupExerciseById("seed-ex-2"), view = preludeView(ex), live = window.__repforgeWorkoutDraft.current().exercises["seed-ex-2"];
+      return { frozen: live.warmupPrelude.steps.length, plan: live.warmupPrelude.plan, logged: view.logged.length, stage: view.stage, mine: warmupStepsFor(live.warmupPrelude, warmupLift(live)).length };
+    });
+    assert.deepEqual({ frozen: swapped.frozen, plan: swapped.plan, logged: swapped.logged, mine: swapped.mine }, { frozen: 1, plan: null, logged: 0, mine: 0 }, "the first movement's step is frozen and not the new movement's");
+    assert.notEqual(swapped.stage, "summary", "no W row for a warm-up the new movement did not do");
+    await page.evaluate(() => openExActionsSheet("seed-ex-2"));
+    await page.locator("#exActionsPreludeList [data-wu-row]").waitFor();
+    assert.equal(await page.locator("#exActionsPreludeList [data-wu-row]").count(), 1, "Exercise actions still reviews the frozen step");
+    console.log("PASS: Prelude scopes steps to the movement performed, bounds what it offers and draws reps-only steps");
+  } finally {
+    await context.close();
+  }
+}
+
 const browser = await launchChromium();
 const pastZeroOnly = process.env.REPFORGE_PAST_ZERO_ONLY === "1";
 const preludeOnly = process.env.REPFORGE_PRELUDE_ONLY === "1";
@@ -981,6 +1054,7 @@ try {
   await prelude(browser);
   await preludeLearning(browser);
   await preludePrecedence(browser);
+  await preludeScopes(browser);
   if (!pastZeroOnly && !preludeOnly) await otherFinishContracts(browser);
 } finally {
   await browser.close();

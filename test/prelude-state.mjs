@@ -60,6 +60,10 @@ try {
     const resetMine = rebase(base, { ...base, warmupPreferences: { x: reset("g1"), z: reset("m") } }, { ...base, warmupPreferences: { y: reset("g2"), z: reset("t") } });
     out.resets = Object.keys(resetMine.warmupPreferences).sort().join();
     out.sameLift = resetMine.warmupPreferences.z.resetGeneration;
+    // A key one tab deleted (Delete workout history) stays deleted when another tab's reset for it is rebased over it.
+    const withX = { ...base, warmupPreferences: { x: reset("g0") } };
+    out.deletedPref = JSON.stringify(rebase(withX, { ...withX, warmupPreferences: { x: reset("g1") } }, { ...withX, warmupPreferences: undefined }).warmupPreferences ?? null);
+    out.deletedByProposal = JSON.stringify(rebase(withX, { ...withX, warmupPreferences: undefined }, { ...withX, warmupPreferences: { x: reset("g2") } }).warmupPreferences ?? null);
     // A delete of the history does not resurrect older evidence on a rebased retry.
     const withLog = { ...base, log: rows("a"), warmupObservations: { a: entry(observation("lift-a")) } };
     out.deleted = JSON.stringify(rebase(withLog, { ...withLog, log: [], warmupObservations: undefined }, withLog).warmupObservations ?? null);
@@ -69,6 +73,7 @@ try {
     // Load: a valid map survives, a stale reference is dropped, malformed data is refused.
     out.valid = isValidStateShape({ ...withLog });
     out.badMap = isValidStateShape({ ...withLog, warmupObservations: [] });
+    out.tooMany = isValidStateShape({ ...withLog, warmupObservations: { a: entry(observation("lift-a")), b: entry(observation("lift-a")) } });
     out.badPrefs = isValidStateShape({ ...withLog, warmupPreferences: { x: { v: 2 } } });
     out.stale = JSON.stringify(Object.keys(normalizeLoaded({ ...withLog, log: [work("a")] }).warmupObservations ?? {}));
     out.emptyOmitted = Object.hasOwn(normalizeLoaded({ ...withLog, warmupPreferences: {} }), "warmupPreferences");
@@ -110,9 +115,11 @@ try {
   assert.equal(outcome.bothSessions, "a,b", "two first writes for different sessions both survive");
   assert.equal(outcome.resets, "x,y,z", "two first resets for different lifts both survive");
   assert.equal(outcome.sameLift, "t", "the same lift keeps the latest committed token");
+  assert.equal(outcome.deletedPref, "null", "a reset rebased over another tab's delete does not resurrect the preference");
+  assert.equal(outcome.deletedByProposal, "null", "and a delete rebased over another tab's reset removes it");
   assert.equal(outcome.deleted, "null", "a deleted history is not resurrected");
   assert.equal(outcome.orphan, "null", "an observation never outlives its rows");
-  assert.deepEqual([outcome.valid, outcome.badMap, outcome.badPrefs], [true, false, false], "shape validation");
+  assert.deepEqual([outcome.valid, outcome.badMap, outcome.badPrefs, outcome.tooMany], [true, false, false, false], "shape validation, with the session entries bounded by the log");
   assert.equal(outcome.stale, "[]", "a stale reference is dropped on load");
   assert.equal(outcome.emptyOmitted, false, "an empty map is omitted");
   assert.deepEqual(eligibility, [false, false, true, true], "transfer eligibility: only a present nonempty or malformed record protects the destination");

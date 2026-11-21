@@ -3394,6 +3394,12 @@ const EN = {
   "prelude.toast.skip": "Skipped. Skip three sessions in a row to pause suggestions.",
   "prelude.toast.handoff": "Warmed up. Set 1 is next.",
   "prelude.toast.add": "Warm-up added. Log it when you're done.",
+  "prelude.cue_reps": "Warm up {reps}",
+  "prelude.cue.plain": "Log what you actually do.",
+  "prelude.standing_plain": "Warm-up {step} of {total}",
+  "prelude.cta.next_reps": "Done · {reps} next",
+  "prelude.row.vals_reps": "{reps} reps · not counted",
+  "prelude.row.spoken_reps": "Warm-ups, {reps} reps, not counted",
 };
 const PT = {
   "catalog.unavailable.title": "Biblioteca de exercícios indisponível",
@@ -6754,7 +6760,7 @@ const PT = {
   "prelude.rest.spoken": "Descanso do aquecimento, {time}",
   "prelude.row.vals": "{loads} {unit} · não conta",
   "prelude.row.spoken": "Aquecimentos, {loads} {unit}, não conta",
-  "prelude.manage.title": "Aquecimento",
+  "prelude.manage.title": "Aquecimentos",
   "prelude.manage.review": "Ver aquecimentos",
   "prelude.manage.add": "Adicionar aquecimento",
   "prelude.manage.remove": "Remover aquecimento",
@@ -6789,6 +6795,12 @@ const PT = {
   "prelude.toast.skip": "Aquecimento pulado. Pule três sessões seguidas para pausar as sugestões.",
   "prelude.toast.handoff": "Aquecimento concluído. Agora vem a série 1.",
   "prelude.toast.add": "Aquecimento adicionado. Registre quando terminar.",
+  "prelude.cue_reps": "Aqueça com {reps}",
+  "prelude.cue.plain": "Registre o que você fizer.",
+  "prelude.standing_plain": "Aquecimento {step} de {total}",
+  "prelude.cta.next_reps": "Feito · agora {reps}",
+  "prelude.row.vals_reps": "{reps} repetições · não conta",
+  "prelude.row.spoken_reps": "Aquecimentos, {reps} repetições, não conta",
 };
 (function (root) {
   const STRINGS = { en: EN, pt: PT };

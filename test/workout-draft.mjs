@@ -1552,4 +1552,18 @@ console.log(`\n${results.passed} passed, ${results.failed} failed`);
     assert(Draft.validateWarmupPreferences(bad) === false, `Preferences: refuse ${JSON.stringify(bad)}`);
   }
 }
+{
+  // A reps-only lift (no load metric) takes a manual warm-up too: one reps value, projected with no load.
+  const repsOnly = rawExerciseCatalog.exercises.find(exercise => exercise.exerciseMetrics.length === 1 &&
+    ExerciseMetrics.definitionsForIds(exercise.exerciseMetrics).value[0].semantic === "reps");
+  const slot = "reps-only-slot";
+  const draft = Draft.create(metricProgramContext(repsOnly.id, slot), { ...sessionSelection(), draftId: "reps-only-draft", selectedExerciseId: slot }, {});
+  const repsId = ExerciseMetrics.definitionsForIds(repsOnly.exerciseMetrics).value[0].id;
+  const plan = { reason: "none-with-reason", manualAllowed: true, equipmentKind: null, workLoadKg: null, capturedAt: "2026-08-15T10:00:00.000Z", suggestions: [],
+    evidence: { liftKey: "lift-bw", workLoadKg: null, barKg: null, resetGeneration: null, earlierLift: null, sessions: [], skipStreak: 0, unavailableReason: "bodyweight", lowestLighterLoadKg: null } };
+  const added = apply(draft, "addWarmupStep", { exerciseInstanceId: slot, stepId: "bw1", plan, values: { [repsId]: "8" } });
+  const logged = apply(added, "completeWarmupStep", { exerciseInstanceId: slot, stepId: "bw1", completedAt: "2026-08-15T10:05:00.000Z" });
+  assert(Draft.parse(Draft.serialize(logged)).kind === "valid", "Prelude: a reps-only record survives serialization");
+  assert(command(draft, "addWarmupStep", { exerciseInstanceId: slot, stepId: "bw2", plan, values: { [repsId]: "8", other: "1" } }).result.code === "unknown-warmup-metric", "Prelude: a reps-only step takes only its reps");
+}
 if (results.failed) process.exitCode = 1;

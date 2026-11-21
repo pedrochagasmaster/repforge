@@ -3357,7 +3357,7 @@
   "prelude.rest.spoken": "Descanso do aquecimento, {time}",
   "prelude.row.vals": "{loads} {unit} · não conta",
   "prelude.row.spoken": "Aquecimentos, {loads} {unit}, não conta",
-  "prelude.manage.title": "Aquecimento",
+  "prelude.manage.title": "Aquecimentos",
   "prelude.manage.review": "Ver aquecimentos",
   "prelude.manage.add": "Adicionar aquecimento",
   "prelude.manage.remove": "Remover aquecimento",
@@ -3391,5 +3391,11 @@
   "prelude.toast.edit_sequence": "Anotado. Registre este aquecimento mais uma vez para adotá-lo como seu.",
   "prelude.toast.skip": "Aquecimento pulado. Pule três sessões seguidas para pausar as sugestões.",
   "prelude.toast.handoff": "Aquecimento concluído. Agora vem a série 1.",
-  "prelude.toast.add": "Aquecimento adicionado. Registre quando terminar."
+  "prelude.toast.add": "Aquecimento adicionado. Registre quando terminar.",
+  "prelude.cue_reps": "Aqueça com {reps}",
+  "prelude.cue.plain": "Registre o que você fizer.",
+  "prelude.standing_plain": "Aquecimento {step} de {total}",
+  "prelude.cta.next_reps": "Feito · agora {reps}",
+  "prelude.row.vals_reps": "{reps} repetições · não conta",
+  "prelude.row.spoken_reps": "Aquecimentos, {reps} repetições, não conta"
 }

@@ -9835,3 +9835,5 @@ body.is-entry-editor #entryProgramName,
 .fcard__ledger .ledgerline--warmup .ledgerline__vals{justify-content:flex-start;text-align:left;font-family:var(--font-language);font-size:var(--font-size-body-small);color:var(--color-ink-secondary)}
 .exercise--focus.is-text-scaled .ledgerline--warmup .ledgerline__vals{display:block}
 .exactions__warmup-input{width:4.5em;min-height:var(--control-target);text-align:right}
+.shelf__fields--one{grid-template-columns:minmax(0,1fr)}
+.fx-cue__skip,.fx-prelude-none .text-link,.exactions__warmup-ctl .text-link{min-height:var(--control-target);display:inline-flex;align-items:center}

@@ -3391,5 +3391,11 @@
   "prelude.toast.edit_sequence": "Noted. Log this warm-up once more to make it yours.",
   "prelude.toast.skip": "Skipped. Skip three sessions in a row to pause suggestions.",
   "prelude.toast.handoff": "Warmed up. Set 1 is next.",
-  "prelude.toast.add": "Warm-up added. Log it when you're done."
+  "prelude.toast.add": "Warm-up added. Log it when you're done.",
+  "prelude.cue_reps": "Warm up {reps}",
+  "prelude.cue.plain": "Log what you actually do.",
+  "prelude.standing_plain": "Warm-up {step} of {total}",
+  "prelude.cta.next_reps": "Done · {reps} next",
+  "prelude.row.vals_reps": "{reps} reps · not counted",
+  "prelude.row.spoken_reps": "Warm-ups, {reps} reps, not counted"
 }

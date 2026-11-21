@@ -431,6 +431,8 @@ function historySessionFromWorkingCopy(card){
         next.partialReps=partialEdit.value}
       else delete next.partialReps}
     if(!validHistoryPartials(next))delete next.partialReps;
+    // A suggested warm-up carries no effort: whatever the row says, it saves as it was projected (Plan 085).
+    if(next.origin==="suggested-warmup"){next.rir=null;delete next.rirMeasured;delete next.effortSource;delete next.partialReps}
     next.date=dateP.value;out.push(next)}
   return{rows:out,dateP}
 }
@@ -719,7 +721,7 @@ function historyReadingView(s,rows){
         `<span class="fx-col">${esc(row.rir==null||row.rir===""?"–":fmt(row.rir))}</span>`;
       const rampLabel=row.warmup&&row.origin!=="suggested-warmup"&&ramps>0&&row.set<firstWorking.set&&row.set>=firstWorking.set-ramps
         ?` role="group" aria-label="${esc(t("history.row.ramp",{n:row.set}))}"`:"";
-      return`<div class="ledgerline"${rampLabel}><span class="ledgerline__idx">${esc(row.warmup?"W"+warmupNumber(row):row.set)}</span>`+
+      return`<div class="ledgerline"${rampLabel}><span class="ledgerline__idx">${row.warmup?`<span aria-hidden="true">${esc(t("ledger.set.warmup")+warmupNumber(row))}</span><span class="visually-hidden">${esc(t("history.everyset.warmup",{n:warmupNumber(row)}))}</span>`:esc(row.set)}</span>`+
         `<span class="ledgerline__vals history-metric-grid" style="--history-metric-count:${count}">${cells}</span></div>`}).join("");
     const groupHeader=`<div class="ledgerline__head histpage__cols"><span>${esc(t("log.set"))}</span>`+
       `<span class="ledgerline__vals history-metric-grid" style="--history-metric-count:${count}">${headers}</span></div>`;
@@ -1124,17 +1126,20 @@ function sessionEditor(s,sets){
         `<span class="ledgerline__vals edrow__vals${metricRows?" history-metric-grid":""}"${metricRows?` style="--history-metric-count:${count}"`:""}>${headerValues}</span><span></span></div>`;
     const rows=g.rows.map(({r,i})=>{
       const isRemoved=removed.has(i),disabled=isRemoved?" disabled":"",label=t(isRemoved?"history.edit.undo_remove":"history.edit.remove_set"),
-        mark=r.warmup?"W"+warmupNumber(r):r.set,aria=`${esc(shownName(r))} ${esc(t("log.set").toLowerCase())} ${esc(mark)}`;
+        mark=r.warmup?t("ledger.set.warmup")+warmupNumber(r):r.set,
+        spoken=r.warmup?t("history.everyset.warmup",{n:warmupNumber(r)}):`${t("log.set").toLowerCase()} ${r.set}`,
+        // A suggested warm-up has no effort to correct: its cell is a dash, never an input (Plan 085).
+        noEffort=r.origin==="suggested-warmup",aria=`${esc(shownName(r))} ${esc(spoken)}`;
       let fields="";
       if(metricRows){
         fields=(historyMetricRecords(r)||[]).map(record=>{
           const metric=record.definition,metricLabel=historyMetricLabel(metric),unit=historyMetricUnit(metric),numeric=metric.semantic==="reps"||metric.semantic==="repsPerSide",
             value=historyMetricText(record.value,metric),fieldLabel=`${aria} ${esc(metricLabel)}${unit?` (${esc(unit)})`:""}`;
           return`<input class="edrow__in" data-ek="metric|${i}|${esc(metric.id)}" type="text" inputmode="${numeric?"numeric":"decimal"}" enterkeyhint="next" value="${esc(value)}" aria-label="${fieldLabel}"${disabled}>`}).join("")+
-          (showRir?`<input class="edrow__in" data-ek="rir|${i}" type="text" inputmode="decimal" enterkeyhint="done" value="${r.rir==null?"":esc(fmt(r.rir))}" aria-label="${aria} ${esc(t("stats.table.rir"))}"${disabled}>`:"")
+          (showRir?(noEffort?`<span class="fx-col" aria-hidden="true">–</span>`:`<input class="edrow__in" data-ek="rir|${i}" type="text" inputmode="decimal" enterkeyhint="done" value="${r.rir==null?"":esc(fmt(r.rir))}" aria-label="${aria} ${esc(t("stats.table.rir"))}"${disabled}>`):"")
       }else fields=`<input class="edrow__in" data-ek="load|${i}" type="text" inputmode="decimal" enterkeyhint="next" value="${esc(fmtLoadPlain(r.load))}" aria-label="${aria} ${unitLabel()}"${disabled}>`+
         `<input class="edrow__in" data-ek="reps|${i}" type="text" inputmode="numeric" enterkeyhint="next" value="${esc(r.reps)}" aria-label="${aria} ${esc(t("log.reps"))}"${disabled}>`+
-        `<input class="edrow__in" data-ek="rir|${i}" type="text" inputmode="decimal" enterkeyhint="done" value="${esc(fmt(r.rir))}" aria-label="${aria} ${esc(t("stats.table.rir"))}"${disabled}>`;
+        (noEffort?`<span class="fx-col" aria-hidden="true">–</span>`:`<input class="edrow__in" data-ek="rir|${i}" type="text" inputmode="decimal" enterkeyhint="done" value="${esc(fmt(r.rir))}" aria-label="${aria} ${esc(t("stats.table.rir"))}"${disabled}>`);
       // A row that could hold partials once its reps left is 0 carries the field, shown while that is the entered value.
       const partialField=historyCanEditPartials({...r,rir:0,effortSource:"rir"})?`<label class="history-partials-edit"${r.rir===0&&!["effort","failure"].includes(r.effortSource)?"":" hidden"}><span class="history-partials-edit__lab">${esc(t("partials.group"))}</span>
         <input class="edrow__in" type="text" inputmode="numeric" data-ek="partialReps|${i}" value="${partialCount(r)}"${disabled}></label>`:"";
