@@ -7191,7 +7191,7 @@ function inSessionNote(ex,draft){
 // never during renderWorkout: the Log tab's render path stays free of this work.
 // One brain — every number here is a field the engine attached to its own result;
 // nothing re-derives a trigger. Returns ordered {label?,text} rows.
-function explainRecommendation(ex){
+function explainRecommendation(ex,{marked=false}={}){
   const rows=[];
   if(!ex)return rows;
   const rec=recommendation(ex),u=unitLabel();
@@ -7201,7 +7201,7 @@ function explainRecommendation(ex){
   if(rec.status==="new"){const note=inSessionNote(ex,loadDraft());return note?[whyRow("session",{label:t("why.session"),text:note})]:rows}
   const prev=last(ex).filter(x=>+x.load>0);
   if(prev.length)rows.push(whyRow("last",{label:t("why.last"),
-    text:prev.map(x=>`${fmtLoad(x.load)}\u00d7${performedRepsMarked(x.reps,partialCount(x))} ${effortOrRirLabel(x.rir)}`).join(" \u00b7 ")}));
+    text:prev.map(x=>`${fmtLoad(x.load)}\u00d7${(marked?performedRepsMarked:performedRepsText)(x.reps,partialCount(x))} ${effortOrRirLabel(x.rir)}`).join(" \u00b7 ")}));
   rows.push(whyRow("showed",{text:t(isWordMode()?"why.showed_effort":"why.showed",
     {cr:Math.round(rec.cr),load:fmtLoad(rec.lastLoad),unit:u,cap:fmt(+state.settings.hardRir||4)})}));
   // The tempered line already names both the rule and the tempering, so it stands alone.
@@ -13602,11 +13602,11 @@ function summaries(){const m=new Map();
   for(const raw of state.log){if(!isWork(raw))continue;const x=readLogRow(raw);
     if(!x.strengthComparable||!(+x.load>0&&+x.reps>0))continue;
     const convention=x.strengthConvention||"load",k=`${x.session}|${liftKey(x)}|${convention}`;
-    if(!m.has(k))m.set(k,{session:x.session,date:x.date,created:x.created,day:x.day,liftKey:liftKey(x),name:displayName(x),loads:[],reps:[],partials:[],rirs:[],sets:0,perSideLoad:x.perSideLoad,convention});
-    const o=mergeLogChronology(m.get(k),x);o.loads.push(+x.load);o.reps.push(+x.reps);o.partials.push(partialCount(x));o.rirs.push(+x.rir);o.sets++}
-  return [...m.values()].map(o=>{let top=0,topReps=0,topPartial=0,vol=0,best=0;
-    o.loads.forEach((ld,i)=>{const rp=o.reps[i];vol+=ld*rp;const e=e1rm(ld,rp);if(e>best)best=e;if(ld>top){top=ld;topReps=rp;topPartial=o.partials[i]}
-      else if(ld===top&&rp===topReps&&o.partials[i]>topPartial)topPartial=o.partials[i]});
+    if(!m.has(k))m.set(k,{session:x.session,date:x.date,created:x.created,day:x.day,liftKey:liftKey(x),name:displayName(x),loads:[],reps:[],partials:[],zeros:[],rirs:[],sets:0,perSideLoad:x.perSideLoad,convention});
+    const o=mergeLogChronology(m.get(k),x);o.loads.push(+x.load);o.reps.push(+x.reps);o.partials.push(partialCount(x));o.zeros.push(x.rir!=null&&x.rir!==""&&+x.rir===0);o.rirs.push(+x.rir);o.sets++}
+  return [...m.values()].map(o=>{let top=0,topReps=0,topPartial=0,topZero=false,vol=0,best=0;
+    o.loads.forEach((ld,i)=>{const rp=o.reps[i];vol+=ld*rp;const e=e1rm(ld,rp);if(e>best)best=e;if(ld>top){top=ld;topReps=rp;topPartial=o.partials[i];topZero=o.zeros[i]}
+      else if(ld===top&&rp===topReps&&o.partials[i]>topPartial&&o.zeros[i]&&topZero)topPartial=o.partials[i]});
     return{session:o.session,date:o.date,created:o.created,day:o.day,liftKey:o.liftKey,name:o.name,top,topReps,...(topPartial?{partialReps:topPartial}:{}),reps:sum(o.reps),rir:avg(o.rirs),sets:o.sets,volume:vol,e1rm:best,perSideLoad:o.perSideLoad,convention:o.convention};})
     .sort(compareLogChronology)}
 
@@ -26910,7 +26910,7 @@ function engineWhyModel(ex,rec,model,head,partial){
     model.evidence=t("why.evidence",{n:1,date:shortDate(prev[0].date)})}
   return model}
 function whySheetModel(ex,surface="focus"){
-  const rec=recommendation(ex),u=unitLabel(),rows=explainRecommendation(ex),pick=k=>rows.find(r=>r.kind===k);
+  const rec=recommendation(ex),u=unitLabel(),rows=explainRecommendation(ex,{marked:true}),pick=k=>rows.find(r=>r.kind===k);
   const head=whyHeadline(ex,rec,surface),glyph=head.glyph;
   // Once the session has moved the target, the previous session's decision is said as that, never as today's verdict.
   const model={target:head.target,

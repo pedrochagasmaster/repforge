@@ -424,7 +424,12 @@ function historySessionFromWorkingCopy(card){
     const partialEl=rowEl.querySelector('[data-ek^="partialReps|"]'),partialEdit=historyInputEdit(selection,partialEl);
     if(partialEdit&&!partialEl.closest("[hidden]")){
       if(partialEdit.valid!==true)return{error:{field:partialEl,key:partialEdit.key||"validation.partials"},dateP};
-      if(partialEdit.value>0)next.partialReps=partialEdit.value;else delete next.partialReps}
+      if(partialEdit.value>0){
+        // A count entered here is the lifter's own statement that the set ended at 0 reps left.
+        if(next.rir===0){next.rirMeasured=true;next.effortSource="rir"}
+        if(!validHistoryPartials({...next,partialReps:partialEdit.value}))return{error:{field:partialEl,key:"validation.partials_unavailable"},dateP};
+        next.partialReps=partialEdit.value}
+      else delete next.partialReps}
     if(!validHistoryPartials(next))delete next.partialReps;
     next.date=dateP.value;out.push(next)}
   return{rows:out,dateP}
@@ -478,7 +483,13 @@ function historyApplyWorkingInput(event){
         historySelection.workingCopy[i].rir=parsed.value;
         if(parsed.value==null){delete historySelection.workingCopy[i].rirMeasured;delete historySelection.workingCopy[i].effortSource}
         else{historySelection.workingCopy[i].rirMeasured=true;historySelection.workingCopy[i].effortSource="rir"}
-        const partials=row.querySelector(".history-partials-edit");if(partials)partials.hidden=parsed.value!==0}
+        const partials=row.querySelector(".history-partials-edit");
+        if(partials){
+          partials.hidden=parsed.value!==0;
+          // A field that goes away takes its error and its pending entry with it.
+          const partialInput=partials.querySelector("input");
+          if(partials.hidden&&partialInput?.getAttribute("aria-invalid")==="true"){
+            historyClearErrors(card);delete historySelection.inputEdits?.[String(partialInput.dataset.ek)]}}}
       else historySelection.workingCopy[i][key]=parsed.value;
       // A valid RIR entry is the user's explicit correction, so it is measured evidence.
     }}
@@ -1110,7 +1121,7 @@ function sessionEditor(s,sets){
         `<input class="edrow__in" data-ek="reps|${i}" type="text" inputmode="numeric" enterkeyhint="next" value="${esc(r.reps)}" aria-label="${aria} ${esc(t("log.reps"))}"${disabled}>`+
         `<input class="edrow__in" data-ek="rir|${i}" type="text" inputmode="decimal" enterkeyhint="done" value="${esc(fmt(r.rir))}" aria-label="${aria} ${esc(t("stats.table.rir"))}"${disabled}>`;
       // A row that could hold partials once its reps left is 0 carries the field, shown while that is the entered value.
-      const partialField=historyCanEditPartials({...r,rir:0,effortSource:"rir"})?`<label class="history-partials-edit"${r.rir===0?"":" hidden"}><span class="history-partials-edit__lab">${esc(t("partials.group"))}</span>
+      const partialField=historyCanEditPartials({...r,rir:0,effortSource:"rir"})?`<label class="history-partials-edit"${r.rir===0&&!["effort","failure"].includes(r.effortSource)?"":" hidden"}><span class="history-partials-edit__lab">${esc(t("partials.group"))}</span>
         <input class="edrow__in" type="text" inputmode="numeric" data-ek="partialReps|${i}" value="${partialCount(r)}"${disabled}></label>`:"";
       return`<div class="ledgerline edrow${isRemoved?" is-removed":""}" data-edidx="${i}"><span class="ledgerline__idx">${esc(mark)}</span>`+
         `<span class="ledgerline__vals edrow__vals${metricRows?" history-metric-grid":""}"${metricRows?` style="--history-metric-count:${count}"`:""}>${fields}</span>`+

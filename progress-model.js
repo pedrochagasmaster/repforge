@@ -458,6 +458,7 @@
     const latestCompatible = candidates.slice().sort(compareChronology).at(-1);
     const comparisonConvention = latestCompatible ? conventionKey(latestCompatible) : null;
     const bySession = new Map();
+    const zeroAt = new Map();
     let excludedHardRows = 0;
     let missingEffortRows = 0;
     const sessionKeyFor = (row) => `${String(row.session ?? row.date)}\u0000${String(row.blockId ?? "")}`;
@@ -473,6 +474,8 @@
       const value = Number(row.load);
       if (row.rir == null || row.rir === "" || !Number.isFinite(Number(row.rir))) missingEffortRows++;
       const prev = bySession.get(key);
+      const zeroLeft = row.rir != null && row.rir !== "" && Number(row.rir) === 0;
+      if (!prev) zeroAt.set(key, zeroLeft);
       if (!prev) bySession.set(key, { session: String(row.session ?? row.date), sessionKey: key,
         date: isoDate(row.date), created: row.created ?? null, value, reps: Number(row.reps),
         ...(row.partialReps > 0 ? { partialReps: row.partialReps } : {}),
@@ -482,10 +485,12 @@
         prev.created = row.created ?? prev.created;
         prev.value = value;
         prev.reps = Number(row.reps);
+        zeroAt.set(key, zeroLeft);
         if (row.partialReps > 0) prev.partialReps = row.partialReps;
         else delete prev.partialReps;
-      } else if (value === prev.value && Number(row.reps) === prev.reps && row.partialReps > (prev.partialReps || 0)) {
-        // Equal load and full reps: only the displayed count follows the set that out-partials the other.
+      } else if (value === prev.value && Number(row.reps) === prev.reps && row.partialReps > (prev.partialReps || 0)
+        && zeroLeft && zeroAt.get(key)) {
+        // Equal load and full reps, both ended at 0 reps left: the displayed count follows the set that out-partials.
         prev.partialReps = row.partialReps;
       }
     }

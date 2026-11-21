@@ -317,16 +317,16 @@ async function saveWorkout(page) {
     const id = draft.session.selectedExerciseId;
     const exercise = draft.exercises[id];
     const setId = exercise.setOrder[0];
-    return { id, setId, metrics: exercise.sets[setId].programmed.metrics.map((metric) => metric.id) };
+    return { id, setId, metrics: exercise.sets[setId].programmed.metrics.map((metric) => ({ id: metric.id, reps: metric.semantic === "reps" })) };
   });
   // Every programmed metric gets a real value through the Focus shelf.
-  for (const [index, metricId] of active.metrics.entries()) {
+  for (const { id: metricId, reps } of active.metrics) {
     const input = page.locator(`#workout .exercise.is-current .focus-shelf input[data-metric-id="${metricId}"]`);
     await input.waitFor({ state: "attached", timeout: 5000 });
     if (await input.getAttribute("aria-hidden") === "true") {
       await openShelfField(page, `#workout .exercise.is-current .focus-shelf [data-shelf-field="metric_${metricId}"]`);
     }
-    await input.fill(String(index === 0 ? 60 : 8));
+    await input.fill(String(reps ? 8 : 60));
   }
   await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
   const shelf = page.locator("#workout .exercise.is-current .focus-shelf");
@@ -2396,7 +2396,9 @@ async function main() {
     if (!envelope) throw new Error("P3 envelope build was unavailable");
     assertEnvelopeSourceFields(envelope);
     check(sourceObservation.durableState.log.some(row => row.partialReps === 2 && row.reps === 8),
-      "the source's saved partials remain separate from the full reps");
+      "the source's saved partials remain separate from the full reps",
+      sourceObservation.durableState.log.map(({ exerciseId, set, setIndex, load, reps, rir, effortSource, partialReps, metricIds }) =>
+        ({ exerciseId, set, setIndex, load, reps, rir, effortSource, partialReps, metricIds })));
     check(sameValue(envelope.workoutDraft, sourceObservation.draft.logical), "envelope DraftV2 equals the real production logical clone");
     check(sameValue(envelope.programEntryDraft, sourceObservation.candidate), "envelope candidate equals the production persisted candidate");
 

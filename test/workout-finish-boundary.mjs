@@ -637,6 +637,67 @@ async function pastZero(browser) {
       return historyShareSummary("warm-count").sets;
     });
     assert.equal(counted, 1, "a shared History summary counts working sets, not warm-ups");
+    // A zero that was not typed as a number: partials are an explicit statement on a prefilled row, never on Max alone.
+    const seeded = await page.evaluate(async () => {
+      const proposal = window.__repforgeWorkoutDraft.state();
+      const base = proposal.log.find(row => row.session !== "past-zero-previous" && row.session !== "warm-count");
+      const { partialReps, ...plain } = base;
+      for (const [session, effortSource, rirMeasured] of [["edit-prefilled", "prefilled", false], ["edit-max", "effort", true]]) {
+        proposal.log.push({ ...plain, session, date: base.date, set: 1, rir: 0, effortSource, rirMeasured });
+      }
+      await window.__repforgeCommitProposedState(proposal);
+      return true;
+    });
+    assert.ok(seeded);
+    const mixedTop = await page.evaluate(async () => {
+      const proposal = window.__repforgeWorkoutDraft.state();
+      const base = proposal.log.find(row => row.session !== "past-zero-previous" && row.session !== "warm-count");
+      const { partialReps, ...plain } = base;
+      proposal.log.push({ ...plain, session: "mixed-left", date: base.date, set: 1, rir: 1, effortSource: "rir", rirMeasured: true },
+        { ...plain, session: "mixed-left", date: base.date, set: 2, rir: 0, effortSource: "rir", rirMeasured: true, partialReps: 2 });
+      await window.__repforgeCommitProposedState(proposal);
+      return summaries().find(entry => entry.session === "mixed-left");
+    });
+    const exported = await page.evaluate(() => prog.exercises.map(ex => JSON.stringify(window.__repforgeProgression.explainRecommendation(ex))).join("|"));
+    assert.ok(!/[\uE0A0\uE0A1]/.test(exported), "the exported explanation carries no private rendering marks");
+    assert.ok(mixedTop && mixedTop.partialReps === undefined, "the strength summary needs both sets at 0 reps left to apply a partial tie-break");
+    const openEdit = async session => {
+      await page.evaluate(() => {
+        document.querySelector('nav button[data-view="history"]').click();
+        document.querySelector("[data-history-back]")?.click();
+      });
+      await page.evaluate(id => document.querySelector(`#sessions [data-sess="${id}"] .session__open`).click(), session);
+      await page.evaluate(() => document.querySelector("[data-history-edit]").click());
+      await page.locator(".session--edit").waitFor({ timeout: 4000 });
+    };
+    const savedRow = session => page.evaluate(id => window.__repforgeWorkoutDraft.state().log.find(row => row.session === id), session);
+    await openEdit("edit-prefilled");
+    assert.equal(await page.locator(".history-partials-edit").isVisible(), true, "a prefilled zero offers partials");
+    await page.locator('[data-ek="partialReps|0"]').fill("2");
+    await page.locator("[data-edsave]").click();
+    await page.getByText("Session updated.").waitFor({ timeout: 5000 });
+    await page.locator(".session--edit").waitFor({ state: "detached", timeout: 5000 });
+    const prefilled = await savedRow("edit-prefilled");
+    assert.deepEqual([prefilled.partialReps, prefilled.effortSource, prefilled.rirMeasured], [2, "rir", true],
+      "entering partials on a prefilled zero is an explicit numeric statement and is kept");
+    await openEdit("edit-max");
+    assert.equal(await page.locator(".history-partials-edit").isHidden(), true, "Max alone does not offer partials");
+    await page.locator('[data-ek="rir|0"]').fill("1");
+    await page.locator('[data-ek="rir|0"]').fill("0");
+    assert.equal(await page.locator(".history-partials-edit").isVisible(), true, "choosing a numeric 0 reps left offers them");
+    await page.locator('[data-ek="partialReps|0"]').fill("3");
+    await page.locator("[data-edsave]").click();
+    await page.getByText("Session updated.").waitFor({ timeout: 5000 });
+    await page.locator(".session--edit").waitFor({ state: "detached", timeout: 5000 });
+    const max = await savedRow("edit-max");
+    assert.deepEqual([max.partialReps, max.effortSource], [3, "rir"], "a Max row keeps partials once reps left is typed as 0");
+    // A hidden field's error goes with it.
+    await openEdit("edit-prefilled");
+    await page.locator('[data-ek="partialReps|0"]').fill("9");
+    await page.locator("[data-edsave]").click();
+    await page.getByText("Enter a whole number of partial reps from 0 to 5.").waitFor({ timeout: 3000 });
+    await page.locator('[data-ek="rir|0"]').fill("1");
+    assert.equal(await page.locator("[data-histedit-error]").count(), 0, "hiding the partials field clears its error");
     console.log("PASS: Past zero survives reload, correction, finish, History edit and CSV export");
   } finally {
     await context.close();

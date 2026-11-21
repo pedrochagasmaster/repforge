@@ -1297,6 +1297,7 @@
   "validation.load_metric": "Informe uma carga válida: zero ou mais, dentro do limite de 1.000 kg.",
   "validation.reps": "Digite um número inteiro de reps maior que zero.",
   "validation.partials": "Digite um número inteiro de repetições parciais de 0 a 5.",
+  "validation.partials_unavailable": "Parciais só valem em séries com repetições completas e 0 sobrando.",
   "validation.metric": "Digite um valor válido para esta métrica.",
   "validation.rir": "Digite zero ou mais reps sobrando.",
   "validation.effort": "Escolha um nível de esforço.",

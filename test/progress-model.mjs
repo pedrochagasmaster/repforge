@@ -213,6 +213,11 @@ if (fs.existsSync(modelPath)) {
     const [point] = model.buildStrengthEvidence("all-history", "bench", tied, { started: program.started }).points;
     assert.equal(point.partialReps, 3, `the point keeps the 6+3 set when the sets arrive as ${counts.join(",")}`);
   }
+  // Only two sets that both ended at 0 reps left can break a tie on partials.
+  const mixed = [{ rir: 1 }, { rir: 0, partialReps: 2 }].map((fields, index) =>
+    ({ exerciseId: "bench", session: "mixed-session", date: "2026-09-22", load: 100, reps: 6, set: index + 1, ...fields }));
+  const [mixedPoint] = model.buildStrengthEvidence("all-history", "bench", mixed, { started: program.started }).points;
+  assert.equal(mixedPoint.partialReps, undefined, "a set with reps left cannot be out-partialled by a 0-left set");
 
   const evidenceRecords = [
     { exerciseId: "bench", evidenceState: "sufficient", evidenceCount: 3, outcome: "improved" },
