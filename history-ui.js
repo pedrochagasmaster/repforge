@@ -486,10 +486,10 @@ function historyApplyWorkingInput(event){
         const partials=row.querySelector(".history-partials-edit");
         if(partials){
           partials.hidden=parsed.value!==0;
-          // A field that goes away takes its error and its pending entry with it.
+          // A hidden field drops its error but keeps its pending entry in step with the visible box: Save ignores
+          // it while hidden and validates it again once reps left returns to 0.
           const partialInput=partials.querySelector("input");
-          if(partials.hidden&&partialInput?.getAttribute("aria-invalid")==="true"){
-            historyClearErrors(card);delete historySelection.inputEdits?.[String(partialInput.dataset.ek)]}}}
+          if(partials.hidden&&partialInput?.getAttribute("aria-invalid")==="true")historyClearErrors(card)}}
       else historySelection.workingCopy[i][key]=parsed.value;
       // A valid RIR entry is the user's explicit correction, so it is measured evidence.
     }}

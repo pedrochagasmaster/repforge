@@ -604,6 +604,13 @@ async function pastZero(browser) {
     await page.locator("[data-edsave]").click();
     await page.getByText("Enter a whole number of partial reps from 0 to 5.").waitFor({ timeout: 3000 });
     assert.ok((await partialsField.evaluate(el => el.getBoundingClientRect().width)) < 120, "the partials field keeps its narrow width");
+    const partialsError = page.getByText("Enter a whole number of partial reps from 0 to 5.");
+    await page.locator('[data-ek="rir|0"]').fill("1");
+    await partialsError.waitFor({ state: "hidden", timeout: 3000 });
+    await page.locator('[data-ek="rir|0"]').fill("0");
+    assert.equal(await partialsField.inputValue(), "6", "the box still shows the pending count when it returns");
+    await page.locator("[data-edsave]").click();
+    await partialsError.waitFor({ timeout: 3000 });
     await partialsField.fill("4");
     await page.locator('[data-ek="rir|0"]').fill("1");
     assert.equal(await page.locator(".history-partials-edit").isHidden(), true, "partials are offered only while reps left is 0");
