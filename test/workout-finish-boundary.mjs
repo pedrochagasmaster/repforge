@@ -15,7 +15,7 @@ async function waitForApp(page) {
 }
 
 async function freshWorkout(browser, settings) {
-  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: "block" });
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: "block", warmups: "live" });
   const page = await context.newPage();
   await page.goto(base, { waitUntil: "domcontentloaded" });
   await waitForApp(page);

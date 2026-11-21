@@ -10,7 +10,7 @@ import { installSeedProgram, seedProgram, seedProgramMeta } from "./fixtures/see
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const browser = await launchChromium();
-const page = await browser.newPage({ viewport: { width: 390, height: 844 }, reducedMotion: "reduce" });
+const page = await browser.newPage({ viewport: { width: 390, height: 844 }, reducedMotion: "reduce", warmups: "live" });
 try {
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
   await waitForAppBoot(page);

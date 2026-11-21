@@ -119,6 +119,8 @@ export async function openPage(browser, manifest, capture, state, options = {}) 
   const locale = manifest.locales[capture.locale];
   const context = await browser.newContext({
     effortChoice: options.effortChoice,
+    // The states about suggested warm-ups are drawn with them on; every other state starts without them (test/browser.mjs).
+    warmups: options.warmups ?? (capture.flow === "workout" && String(capture.screen).startsWith("prelude")) ? "live" : undefined,
     viewport: { width: viewport.width, height: viewport.height },
     deviceScaleFactor: manifest.deviceScaleFactor,
     locale: locale.browserLocale,

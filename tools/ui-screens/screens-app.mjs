@@ -728,20 +728,9 @@ async function reloadWithUnavailableExerciseCatalog(page) {
   await page.waitForFunction(() => window.__repforgeBooted !== true);
 }
 
-async function enterWorkout(page, { warmups = false, ...options } = {}) {
+async function enterWorkout(page, options = {}) {
   await page.evaluate((opts) => window.__repforgeEnterWorkout(opts), options);
   await sleep(page, 600);
-  // A lift with history opens on its suggested warm-up (Plan 085). The states that are not about warm-ups start at the
-  // first working set, as they did before, by skipping the sequence the way a lifter's Skip would (no toast, same record).
-  if (!warmups) {
-    await page.evaluate(async () => {
-      const id = focusCard()?.dataset.ex, ex = id ? warmupExerciseById(id) : null;
-      if (!ex || preludeView(ex)?.stage !== "warm") return;
-      await ensurePrelude(ex);
-      await WorkoutSession.dispatch("skipWarmupSteps", { exerciseInstanceId: id });
-      renderWorkout();
-    });
-  }
 }
 
 /** Focus on the program's first day. Boot now defaults to the day after the last one trained (#528), so a state that
@@ -757,9 +746,9 @@ async function focusLearning(page){
   await focusMode(page);
   await page.waitForSelector("#workout .exercise.is-current .fx-cue__standing");
 }
-async function focusMode(page, { warmups = false } = {}) {
+async function focusMode(page) {
   const first = await page.evaluate(() => JSON.parse(localStorage.getItem("repforge_v1") || "{}").program?.[0]?.day || null);
-  await enterWorkout(page, { ...(first ? { day: first } : {}), warmups });
+  await enterWorkout(page, first ? { day: first } : {});
 }
 
 async function pastZeroFocus(page, state) {
@@ -790,7 +779,7 @@ async function pastZeroFocus(page, state) {
 
 /* Plan 085 Prelude: the same squat the Past zero states use, with the history each warm-up state reads. */
 async function preludeFocus(page, state) {
-  await focusMode(page, { warmups: true });
+  await focusMode(page);
   const active = page.locator("#workout .exercise.is-current:not(.is-peek)");
   const exId = await active.getAttribute("data-ex");
   const history = {
@@ -808,7 +797,7 @@ async function preludeFocus(page, state) {
     // A fresh workout, so today's suggestions come from the history just saved (the first set and the hero agree).
     const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("repforge_v1")));
     await seed(page, saved);
-    await focusMode(page, { warmups: true });
+    await focusMode(page);
   }
   if (state === "warm") {
     // The lead lift is done first today: a leg press set, ten minutes before the squat.

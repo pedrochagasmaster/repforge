@@ -10375,7 +10375,9 @@ function setStageOf(exId,n){
    ============================================================ */
 const WarmupPolicy=window.RepForgeWarmupSuggestions;
 const WARMUP_REST_SEC=60;
-const warmupOn=()=>!!WarmupPolicy&&typeof window.RepForgeStartingLoads?.equipmentIndex==="function";
+/* Browser suites that are not about warm-ups start every context with Prelude off (test/browser.mjs, `warmups: "live"` opts in),
+   the way they start with the guides read: a lift with history would otherwise open on its warm-up instead of its first set. */
+const warmupOn=()=>!!WarmupPolicy&&typeof window.RepForgeStartingLoads?.equipmentIndex==="function"&&window.__repforgePreludeOff!==true;
 const WARMUP_LOAD_SEMANTICS=["loadKg","assistanceKg","loadPerSideKg","persistentLoadPerSideKg"];
 const WARMUP_MAX_STEPS=6;
 /** The share of the body above which an external-load lift counts as bodyweight-dominant (weighted pull-ups, dips, back
@@ -10892,6 +10894,7 @@ function openWarmupWhySheet(exId,opener){
 /* ---- Exercise actions: review, correct, remove and add ---- */
 function renderPreludeActions(exId,sheet){
   const list=$("#exActionsPreludeList"),section=$("#exActionsPreludeSection");if(!list||!section)return;
+  if(!warmupOn()){section.classList.add("hidden");return}
   const ex=warmupExerciseById(exId),de=activeWorkoutDraft?.exercises?.[exId];
   const record=de?.warmupPrelude,logged=record?record.steps.filter(step=>!warmupPending(step)):[];
   const lift=de?warmupLift(de):null,canAdd=!!lift&&!record?.steps.some(warmupPending)&&(record?record.steps.length<6&&record.nextOrdinal<=6:true);

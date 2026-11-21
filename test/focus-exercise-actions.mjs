@@ -147,8 +147,7 @@ async function main() {
       const labelled = [...sheet.querySelectorAll("button")].filter((el) => el.textContent.includes(earlyLabel));
       return {
         heads: heads.map((el) => el.textContent.trim()),
-        // A lift Prelude can warm up also offers its own Warm-ups group (Add and Review) ahead of the programmed-set switches.
-        expected: ["ex.actions.setup_notes", "ex.actions.history_title", "ex.actions.subst_title", "prelude.manage.title", "ex.actions.warmup_title",
+        expected: ["ex.actions.setup_notes", "ex.actions.history_title", "ex.actions.subst_title", "ex.actions.warmup_title",
           "ex.actions.skip_title"].map(t),
         transforms: heads.map((el) => getComputedStyle(el).textTransform),
         sessionOnly: sessionOnly.length + labelled.length,
@@ -158,7 +157,7 @@ async function main() {
       };
     });
     assert(redraw.heads.join("|") === redraw.expected.join("|"),
-      "the sheet shows its groups in order: setup notes, previous values, substitution, warm-ups, warm-up sets, status", JSON.stringify(redraw));
+      "the sheet shows its six groups in order: setup notes, previous values, substitution, warm-up sets, status, notes", JSON.stringify(redraw));
     assert(redraw.transforms.every((value) => value === "none"), "the group heads are sentence case, not upper case", JSON.stringify(redraw.transforms));
     assert(redraw.sessionOnly === 0, "reorder and finish early are on the session sheet only, not on the exercise actions", JSON.stringify(redraw));
     assert(redraw.closeInBand && redraw.closeIsIcon && redraw.closeName.length > 0, "Close is the X in the sheet band, with a name for assistive technology", JSON.stringify(redraw));
