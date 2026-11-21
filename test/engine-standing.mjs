@@ -14,7 +14,7 @@ for (const { name, input } of cases) {
   const before = structuredClone(input);
   const [result] = Engine.recommendSets(...input);
   const { standing, ...selection } = result;
-  assert.deepEqual(selection, frozen.cases[name], `${name}: every existing result field, including selected load and reps, stays unchanged`);
+  assert.deepEqual(selection, frozen.cases[name === "warmup" ? "no-history" : name], `${name}: every existing result field, including selected load and reps, stays unchanged`);
   assert.deepEqual(input, before, `${name}: input is not mutated`);
   assert.equal(standing?.version, "standing@078.1", `${name}: standing exists on every result`);
   assert.deepEqual(Engine.recommendSets(...structuredClone(input))[0], result, `${name}: replay is deterministic`);
@@ -54,9 +54,10 @@ for (const source of ["rir", "reps_left", "effort", "reps_left_3plus", "reps_lef
   assert.equal(evidence.pairs, 8);
   assert.equal(evidence.agreement, 1);
 }
-for (const name of ["quality-prefilled", "quality-unsure", "quality-failure", "warmup"]) {
+for (const name of ["quality-prefilled", "quality-unsure", "quality-failure"]) {
   assert.deepEqual(standing(name, "learning", ["few_sets", "few_sessions"]), { ...empty, gapDays: 0 });
 }
+assert.deepEqual(standing("warmup", "first", ["no_history"]), empty);
 assert.deepEqual(standing("missing-date", "learning", ["few_sets", "few_sessions"]), empty);
 assert.equal(standing("ninety-day-decay", "learning", ["few_sets", "break"]).sets, 3);
 assert.equal(standing("missing-source", "solid", []).sets, 6);

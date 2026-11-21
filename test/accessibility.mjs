@@ -2181,8 +2181,9 @@ async function runDimmedStateAccessibility(browser) {
       };
     });
     assert(
-      removedState.fieldCount === 3 &&
-        removedState.disabledCount === 3 &&
+      // Three value fields, plus the Plan 085 partials field when the set ended at 0 reps left.
+      removedState.fieldCount >= 3 &&
+        removedState.disabledCount === removedState.fieldCount &&
         !removedState.actionDisabled &&
         removedState.actionText === "↺" &&
         removedState.actionAria === copy.undoRemove,

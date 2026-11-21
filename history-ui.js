@@ -74,6 +74,7 @@
       parseLoadDisplay, parseRepsValue, parseRirValue, clearFieldInvalid,
       toast, formatLongDate, fmtLoad, sum, kfmt, toDisplay, unitLabel,
       metricLabel: metricLabelDep, metricDisplayValue, metricDisplayUnit,
+      performedRepsText, performedRepsHtml, performedRepsMarked, partialMarkup, partialsSpoken, partialCount, validHistoryPartials,
       parseHistoryMetricInput,
       weekdayLetters, table, fmt, today, uid, readRevision, commitProposedState,
       readDurableState, settleHistoryAlreadyCommitted, settlePendingJournal, getState,
@@ -115,11 +116,14 @@
       const metric=historyMetricRecords(row)?.find(item=>item.definition.id===metricId)?.definition;
       if(metric?.semantic==="loadKg")row.load=value;
       if(metric?.semantic==="reps")row.reps=value}
+    function historyCanEditPartials(row){
+      return validHistoryPartials({...row,partialReps:1})}
     function historyMetricCell(row,record){
       const id=record.definition.id,label=historyMetricLabel(record.definition),unit=historyMetricUnit(record.definition),shown=historyMetricReadText(record.value,record.definition);
-      return`<span class="fx-col history-metric" data-history-metric-id="${esc(id)}" data-metric-value="${esc(record.value)}" data-metric-unit="${esc(record.unit||record.definition.unit||"")}" aria-label="${esc(`${label}: ${shown}${unit?` ${unit}`:""}`)}">`+
+      const count=record.definition.semantic==="reps"?partialCount(row):0;
+      return`<span class="fx-col history-metric" data-history-metric-id="${esc(id)}" data-metric-value="${esc(record.value)}" data-metric-unit="${esc(record.unit||record.definition.unit||"")}" aria-label="${esc(`${label}: ${count?partialsSpoken(shown,count):shown}${unit?` ${unit}`:""}`)}">`+
         // The unit is in the column's heading, so the cell shows only its figure; its accessible name keeps the unit.
-        `<span class="history-metric__value">${esc(shown||"–")}</span></span>`}
+        `<span class="history-metric__value">${performedRepsHtml(shown||"–",count)}</span></span>`}
     function historyMetricHeader(records){
       return(records||[]).map(record=>{
         const unit=historyMetricUnit(record.definition),label=historyMetricLabel(record.definition);
@@ -129,7 +133,7 @@
       if(records===null)return"";
       return records.map(record=>{
         const label=historyMetricLabel(record.definition),unit=historyMetricUnit(record.definition),shown=historyMetricReadText(record.value,record.definition);
-        return`${label}: ${shown}${unit?` ${unit}`:""}`}).join(" · ")}
+        return`${label}: ${performedRepsMarked(shown,record.definition.semantic==="reps"?partialCount(row):0)}${unit?` ${unit}`:""}`}).join(" · ")}
     /** The date of a set's session as the group head says it: the long weekday date, with the year when it is not this one. */
     function everySetDate(iso){
       const year=String(iso||"").slice(0,4),label=formatLongDate(String(iso||""));
@@ -147,11 +151,11 @@
         return`<section class="everyset__group" aria-label="${esc(head)}"><h3 class="everyset__head">${esc(head)}</h3><ul class="everyset__list">${g.rows.map(x=>{
           const set=x.warmup?t("history.everyset.warmup",{n:x.set}):t("focus.set_label",{n:x.set});
           // A figure keeps its label's colon, its unit and (a load) its reps on one line: lines break between metrics.
-          const figures=(isSourceMetricRow(x)?historyMetricSummary(x):`${fmtLoad(x.load)} ${unitLabel()} × ${x.reps}`)
+          const figures=(isSourceMetricRow(x)?historyMetricSummary(x):`${fmtLoad(x.load)} ${unitLabel()} × ${performedRepsMarked(x.reps,partialCount(x))}`)
             .replace(/(\d) (?=(kg|lb|m|s)\b)/g,"$1\u00a0").replace(/ × /g,"\u00a0×\u00a0").replace(/: /g,":\u00a0");
           const rir=x.rir==null?"":`${t("stats.table.rir")} ${fmt(x.rir)}`;
           return`<li class="everyset__row"><span class="everyset__ex">${esc(shownName(x))}</span>`+
-            `<span class="everyset__vals"><span class="everyset__set">${esc(set)}</span> · ${esc(figures)}${rir?`<span class="everyset__rir"> · ${esc(rir)}</span>`:""}</span></li>`}).join("")}</ul></section>`}).join("")}</div>`}
+            `<span class="everyset__vals"><span class="everyset__set">${esc(set)}</span> · ${partialMarkup(figures)}${rir?`<span class="everyset__rir"> · ${esc(rir)}</span>`:""}</span></li>`}).join("")}</ul></section>`}).join("")}</div>`}
     const historyMetricErrorKey=metric=>["reps","repsPerSide"].includes(metric?.semantic)?"validation.reps"
       :["loadKg","assistanceKg","loadPerSideKg","persistentLoadPerSideKg"].includes(metric?.semantic)?"validation.load":"validation.metric";
     const parseHistoryMetric=typeof parseHistoryMetricInput==="function"
@@ -417,6 +421,16 @@ function historySessionFromWorkingCopy(card){
     // A max set's guess holds while the set stays a 0-RIR set at its load; a new load or other reps left make it a
     // normal set (Plan 077, OD-17). A corrected rep count keeps it: the lifter is fixing what they did.
     if(next.calibration&&(next.load!==baseline.load||next.rir!==0))delete next.calibration;
+    const partialEl=rowEl.querySelector('[data-ek^="partialReps|"]'),partialEdit=historyInputEdit(selection,partialEl);
+    if(partialEdit&&!partialEl.closest("[hidden]")){
+      if(partialEdit.valid!==true)return{error:{field:partialEl,key:partialEdit.key||"validation.partials"},dateP};
+      if(partialEdit.value>0){
+        // A count entered here is the lifter's own statement that the set ended at 0 reps left.
+        if(next.rir===0){next.rirMeasured=true;next.effortSource="rir"}
+        if(!validHistoryPartials({...next,partialReps:partialEdit.value}))return{error:{field:partialEl,key:"validation.partials_unavailable"},dateP};
+        next.partialReps=partialEdit.value}
+      else delete next.partialReps}
+    if(!validHistoryPartials(next))delete next.partialReps;
     next.date=dateP.value;out.push(next)}
   return{rows:out,dateP}
 }
@@ -450,6 +464,7 @@ function historyApplyWorkingInput(event){
     const metric=key==="metric"?historyMetricRecords(src)?.find(record=>record.definition.id===parts[2]):null;
     const parsed=key==="load"?parseLoadDisplay(target.value):key==="reps"?parseRepsValue(target.value)
       :key==="rir"?(isSourceMetricRow(src)&&String(target.value??"").trim()===""?{value:null}:parseRirValue(target.value))
+      :key==="partialReps"?/^[0-5]?$/.test(target.value.trim())?{value:Number(target.value.trim())}:{field:target,key:"validation.partials"}
       :metric?parseHistoryMetric(metric.definition,target.value):null;
     if(key&&parsed){
       const editKey=String(target.dataset.ek||"");
@@ -467,7 +482,14 @@ function historyApplyWorkingInput(event){
       else if(key==="rir"){
         historySelection.workingCopy[i].rir=parsed.value;
         if(parsed.value==null){delete historySelection.workingCopy[i].rirMeasured;delete historySelection.workingCopy[i].effortSource}
-        else{historySelection.workingCopy[i].rirMeasured=true;historySelection.workingCopy[i].effortSource="rir"}}
+        else{historySelection.workingCopy[i].rirMeasured=true;historySelection.workingCopy[i].effortSource="rir"}
+        const partials=row.querySelector(".history-partials-edit");
+        if(partials){
+          partials.hidden=parsed.value!==0;
+          // A hidden field drops its error but keeps its pending entry in step with the visible box: Save ignores
+          // it while hidden and validates it again once reps left returns to 0.
+          const partialInput=partials.querySelector("input");
+          if(partials.hidden&&partialInput?.getAttribute("aria-invalid")==="true")historyClearErrors(card)}}
       else historySelection.workingCopy[i][key]=parsed.value;
       // A valid RIR entry is the user's explicit correction, so it is measured evidence.
     }}
@@ -642,10 +664,10 @@ function historySetsLine(rows){
     .sort((a,b)=>Number(a.set)-Number(b.set));
   if(!work.length)return"";
   if(work.some(row=>isSourceMetricRow(row)&&!historyHasLoadAndReps(row)))
-    return work.map(row=>`${row.set}: ${isSourceMetricRow(row)?historyMetricSummary(row):`${fmtLoad(row.load)} × ${row.reps}`}`).join("; ");
+    return work.map(row=>`${row.set}: ${isSourceMetricRow(row)?historyMetricSummary(row):`${fmtLoad(row.load)} × ${performedRepsMarked(row.reps,partialCount(row))}`}`).join("; ");
   const same=work.every(r=>+r.load===+work[0].load);
-  return same?`${fmtLoad(work[0].load)} × ${work.map(r=>r.reps).join(", ")}`
-    :work.map(r=>`${fmtLoad(r.load)} × ${r.reps}`).join(", ")}
+  return same?`${fmtLoad(work[0].load)} × ${work.map(r=>performedRepsMarked(r.reps,partialCount(r))).join(", ")}`
+    :work.map(r=>`${fmtLoad(r.load)} × ${performedRepsMarked(r.reps,partialCount(r))}`).join(", ")}
 function historyOutcomeMark(group,sid){
   const cmp=typeof deps.sessionOutcome==="function"?deps.sessionOutcome(group.rows):null;
   if(!cmp)return"";
@@ -662,7 +684,7 @@ function historyReadingView(s,rows){
     const key=liftKey(row);
     if(!byLift.has(key)){const g={key,rows:[]};byLift.set(key,g);groups.push(g)}
     byLift.get(key).rows.push(row)}
-  const setCount=rows.length;
+  const setCount=rows.filter(isWork).length;
   const lifts=groups.map(g=>{
     const exerciseId=g.rows[0].performedLibraryId||g.rows[0].performedMovementId||g.rows[0].exerciseId||g.key;
     const pred=index.liftPred.get(`${sid}|${g.key}`)||[];
@@ -678,7 +700,7 @@ function historyReadingView(s,rows){
     const setRows=g.rows.map(row=>{
       const cells=metricRows?(historyMetricRecords(row)||[]).map(record=>historyMetricCell(row,record)).join("")+
         (showRir?`<span class="fx-col">${row.rir==null||row.rir===""?"–":esc(fmt(row.rir))}</span>`:""):
-        `<span class="fx-col">${esc(fmtLoad(row.load))}</span><span class="fx-col">${esc(row.reps==null||row.reps===""?"–":row.reps)}</span>`+
+        `<span class="fx-col">${esc(fmtLoad(row.load))}</span><span class="fx-col">${performedRepsHtml(row.reps==null||row.reps===""?"–":row.reps,partialCount(row))}</span>`+
         `<span class="fx-col">${esc(row.rir==null||row.rir===""?"–":fmt(row.rir))}</span>`;
       const rampLabel=row.warmup&&ramps>0&&row.set<firstWorking.set&&row.set>=firstWorking.set-ramps
         ?` role="group" aria-label="${esc(t("history.row.ramp",{n:row.set}))}"`:"";
@@ -690,7 +712,7 @@ function historyReadingView(s,rows){
       `<span class="histlift__tags">${record}${historyOutcomeMark(g,sid)}</span></div>`+
       `<div class="histlift__ledger-frame"><span class="histlift__overflow" aria-hidden="true">↔</span><div class="histlift__ledger" style="--history-metric-count:${count}" tabindex="0" role="region" aria-label="${esc(shownName(g.rows[0]))}">`+
       groupHeader+`<div class="histlift__sets">${setRows}</div></div></div>`+
-      (before?`<p class="histlift__before">${esc(before)}</p>`:"")+`</section>`}).join("");
+      (before?`<p class="histlift__before">${partialMarkup(before)}</p>`:"")+`</section>`}).join("");
   // What the session was, never how much it weighed: exercises, sets and, when there are any, records.
   const total=(n,label,cls="")=>`<div${cls}><b>${esc(historyInt(n))}</b><span>${esc(label)}</span></div>`;
   const totals=total(groups.length,groups.length===1?t("plural.exercise.one"):t("plural.exercise.other"))+
@@ -1098,9 +1120,12 @@ function sessionEditor(s,sets){
       }else fields=`<input class="edrow__in" data-ek="load|${i}" type="text" inputmode="decimal" enterkeyhint="next" value="${esc(fmtLoadPlain(r.load))}" aria-label="${aria} ${unitLabel()}"${disabled}>`+
         `<input class="edrow__in" data-ek="reps|${i}" type="text" inputmode="numeric" enterkeyhint="next" value="${esc(r.reps)}" aria-label="${aria} ${esc(t("log.reps"))}"${disabled}>`+
         `<input class="edrow__in" data-ek="rir|${i}" type="text" inputmode="decimal" enterkeyhint="done" value="${esc(fmt(r.rir))}" aria-label="${aria} ${esc(t("stats.table.rir"))}"${disabled}>`;
+      // A row that could hold partials once its reps left is 0 carries the field, shown while that is the entered value.
+      const partialField=historyCanEditPartials({...r,rir:0,effortSource:"rir"})?`<label class="history-partials-edit"${r.rir===0&&!["effort","failure"].includes(r.effortSource)?"":" hidden"}><span class="history-partials-edit__lab">${esc(t("partials.group"))}</span>
+        <input class="edrow__in" type="text" inputmode="numeric" data-ek="partialReps|${i}" value="${partialCount(r)}"${disabled}></label>`:"";
       return`<div class="ledgerline edrow${isRemoved?" is-removed":""}" data-edidx="${i}"><span class="ledgerline__idx">${esc(mark)}</span>`+
         `<span class="ledgerline__vals edrow__vals${metricRows?" history-metric-grid":""}"${metricRows?` style="--history-metric-count:${count}"`:""}>${fields}</span>`+
-        `<button type="button" class="edrow__rm${isRemoved?" is-undo":""}" data-edrm="${i}" aria-label="${esc(label)}" title="${esc(label)}"><span class="edrow__rm-glyph" aria-hidden="true">${isRemoved?EDROW_RM_GLYPH.undo:EDROW_RM_GLYPH.remove}</span></button></div>`}).join("");
+        `<button type="button" class="edrow__rm${isRemoved?" is-undo":""}" data-edrm="${i}" aria-label="${esc(label)}" title="${esc(label)}"><span class="edrow__rm-glyph" aria-hidden="true">${isRemoved?EDROW_RM_GLYPH.undo:EDROW_RM_GLYPH.remove}</span></button>${partialField}</div>`}).join("");
     return`<section class="histlift histedit__lift" data-lift="${esc(g.key)}" data-history-exercise-id="${esc(exerciseId)}"><div class="histlift__head"><h3 class="histlift__name edgroup__name">${esc(name)}</h3></div>${header}${rows}</section>`}).join("");
   return`<div class="session session--edit histedit" data-editing="${esc(s.session)}" data-history-state="editing">`+
     `<p class="histedit__eyebrow" data-history-editing-heading tabindex="-1">${esc(t("history.editing_title"))}</p>`+

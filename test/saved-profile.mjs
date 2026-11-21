@@ -131,11 +131,21 @@ test('saved evidence reader agrees with shipped standing without any historical 
   assert.deepEqual(Engine.recommendSets(...input),Engine.recommendSets(...structuredClone(input)));
 });
 
+test('saved evidence ignores suggested warm-ups and rows that say they are not work', () => {
+  const input=structuredClone(cases.find(c=>c.name==='four-sessions').input);
+  const [ps,hs]=input,descriptor={...ps[0],context:input[3].bySlotId?.[ps[0].slotId]};
+  const base=Engine.readSavedLift(descriptor,hs,{now:input[4].now});
+  for(const extra of [{origin:'suggested-warmup'},{work:false},{origin:'ramp'},{warmup:true}]) {
+    const tainted=hs.map(session=>({...session,sets:[...session.sets,{...session.sets[0],setIndex:7,...extra}]}));
+    assert.deepEqual(Engine.readSavedLift(descriptor,tainted,{now:input[4].now}),base,JSON.stringify(extra));
+  }
+});
+
 test('all shipped standing fixtures retain selection and standing after sharing the reader', () => {
   const frozen=require('./fixtures/engine-standing.json');
   for(const {name,input} of cases) {
     const {standing,...selection}=Engine.recommendSets(...structuredClone(input))[0];
-    assert.deepEqual(selection,frozen.cases[name],name);
+    assert.deepEqual(selection,frozen.cases[name==="warmup"?"no-history":name],name);
     if(!['configuration-required','invalid','live-only','warmup'].includes(name)) {
       const [ps,hs,,,settings]=structuredClone(input);
       const actual=Engine.readSavedLift({...ps[0],context:input[3].bySlotId?.[ps[0].slotId]},hs,settings);

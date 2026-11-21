@@ -448,6 +448,34 @@
     }
   }
 
+  function ordinaryReps(set) {
+    const metrics = set.programmed?.metrics;
+    if (!Array.isArray(metrics)) return validInteger(set.edited?.reps ?? editableText(set.programmed?.minReps), { positive: true });
+    const reps = metrics.find(metric => metric?.semantic === "reps");
+    return reps && !metrics.some(metric => metric?.semantic === "repsPerSide")
+      ? metricValue(set.edited?.metrics?.[reps.id], reps) : null;
+  }
+
+  const explicitNumericEffort = (source) => source === "rir" || source === "reps_left";
+  const validPartialCount = (count) => Number.isInteger(count) && count >= 0 && count <= 5;
+
+  function canRecordPartials(set) {
+    return !!set && set.role === "working" && !set.origin && !set.calibration && ordinaryReps(set) > 0;
+  }
+
+  function hasExplicitZero(set) {
+    return set.touched?.effort === true && set.edited?.effort == null && validDecimal(set.edited?.rir) === 0 &&
+      (set.completion === "pending" || explicitNumericEffort(set.completion?.effortSource));
+  }
+
+  function validHistoryPartials(row) {
+    return !hasOwn(row, "partialReps") || validPartialCount(row.partialReps) && (row.partialReps === 0 ||
+      !row.warmup && row.work !== false && !row.origin && !row.calibration &&
+      row.rir === 0 && explicitNumericEffort(row.effortSource) && Number.isSafeInteger(row.reps) && row.reps > 0 &&
+      (!Array.isArray(row.metricDefinitions) || row.metricDefinitions.some(metric => metric?.semantic === "reps") &&
+        !row.metricDefinitions.some(metric => metric?.semantic === "repsPerSide")));
+  }
+
   function validateSet(value, setId, path, issues) {
     if (!isPlainObject(value)) {
       issues.push(`${path}:object`);
@@ -481,6 +509,15 @@
       } else if (hasOwn(value.completion, "lastRepSlow") && typeof value.completion.lastRepSlow !== "boolean") {
         issues.push(`${path}.completion.lastRepSlow`);
       }
+    }
+    if (hasOwn(value, "partialReps") && (!validPartialCount(value.partialReps) ||
+      value.partialReps > 0 && (!canRecordPartials(value) || !hasExplicitZero(value)))) issues.push(`${path}.partialReps`);
+    if (hasOwn(value, "correction")) {
+      const original = value.correction;
+      if (value.completion !== "pending" || !isPlainObject(original) || !isPlainObject(original.completion) ||
+        hasOwn(original, "correction") || original.ordinal !== value.ordinal ||
+        JSON.stringify(original.programmed) !== JSON.stringify(value.programmed)) issues.push(`${path}.correction`);
+      else validateSet(original, setId, `${path}.correction`, issues);
     }
     if (hasOwn(value, "performed")) validateMovementSnapshot(value.performed, `${path}.performed`, issues);
     if (hasOwn(value, "calibration") && !validCalibration(value.calibration)) issues.push(`${path}.calibration`);
@@ -985,7 +1022,7 @@
     value = normalizeLegacyTargetRir(value);
     const checked = validate(value);
     if (!checked.ok) return deepFreeze({ kind: "invalid", code: "invalid-schema", issues: checked.issues });
-    const draft = deepFreeze(jsonClone(value));
+    const draft = deepFreeze(serialize(value));
     const mismatch = contextMismatch(draft, currentProgramContext);
     return mismatch
       ? deepFreeze({ kind: "stale", reason: mismatch, draft })
@@ -994,7 +1031,15 @@
 
   function serialize(draft) {
     const checked = validate(draft);
-    return checked.ok ? jsonClone(draft) : error("invalid-draft", { issues: checked.issues });
+    if (!checked.ok) return error("invalid-draft", { issues: checked.issues });
+    const copy = jsonClone(draft);
+    for (const exercise of Object.values(copy.exercises)) {
+      for (const set of [...Object.values(exercise.sets), ...Object.values(exercise.substitution?.originalPendingSets || {})]) {
+        if (set.partialReps === 0) delete set.partialReps;
+        if (set.correction?.partialReps === 0) delete set.correction.partialReps;
+      }
+    }
+    return copy;
   }
 
   function logicalCloneSection(draft) {
@@ -1175,7 +1220,8 @@
       const exercise = draft.exercises[exerciseId];
       if (exercise.status === "skipped") continue;
       for (const setId of exercise.setOrder) {
-        const set = exercise.sets[setId];
+        const stored = exercise.sets[setId];
+        const set = stored.correction || stored;
         if (!isCandidate(set)) continue;
         candidates++;
         issues.push(...setSaveIssues(draft, exercise, set));
@@ -1385,6 +1431,7 @@
           pending.edited.reps = editableText(pending.programmed.minReps);
           pending.edited.rir = null;
           pending.edited.effort = null;
+          delete pending.partialReps;
           pending.touched = { load: false, reps: false, effort: false };
           if (pending.programmed.metrics) {
             pending.edited.metrics = Object.fromEntries(pending.programmed.metrics.map(metric => [metric.id,
@@ -1395,7 +1442,30 @@
         }
         exercise.sets[command.setId] = set;
         exercise.setOrder.splice(before, 0, command.setId);
-        exercise.setOrder.forEach((id, index) => { exercise.sets[id].ordinal = index + 1; });
+        exercise.setOrder.forEach((id, index) => {
+          const set = exercise.sets[id];
+          set.ordinal = index + 1;
+          if (set.correction) set.correction.ordinal = set.ordinal;
+        });
+        break;
+      }
+      case "setNumericEffort": {
+        item = targetSet(next, command);
+        if (isDomainError(item)) return item;
+        const value = editableText(command.value);
+        // The numeric chips offer 0 to 5 reps left.
+        const rir = validDecimal(value, { max: 5 });
+        const count = command.partialReps;
+        if (rir == null || !validPartialCount(count) || item.set.completion !== "pending" ||
+          count > 0 && (rir !== 0 || !hasExplicitZero(item.set) || !canRecordPartials(item.set))) {
+          return error("invalid-partial-effort");
+        }
+        item.set.edited.rir = value;
+        item.set.edited.effort = null;
+        item.set.touched.effort = true;
+        if (count) item.set.partialReps = count;
+        else delete item.set.partialReps;
+        if (rir !== 0) delete item.set.calibration;
         break;
       }
       case "editSetField": {
@@ -1409,6 +1479,8 @@
         if (command.field === "rir") item.set.edited.effort = null;
         if (command.field === "effort") item.set.edited.rir = null;
         item.set.touched[command.field === "rir" || command.field === "effort" ? "effort" : command.field] = true;
+        if (command.field === "effort" || command.field === "rir" && validDecimal(value) !== 0 ||
+          command.field === "reps" && !canRecordPartials(item.set)) delete item.set.partialReps;
         // A max set is at 0 reps left; any other effort makes it a normal set again (Plan 077, OD-17).
         if (item.set.calibration && (command.field === "rir" || command.field === "effort") && !failureEffort(command.field, value)) {
           delete item.set.calibration;
@@ -1438,6 +1510,7 @@
             item.set.touched.load = true;
           }
         }
+        delete item.set.partialReps;
         item.set.calibration = jsonClone(command.calibration);
         break;
       }
@@ -1473,6 +1546,7 @@
         if (value === undefined) return error("invalid-metric-value", { metricId: command.metricId });
         item.set.edited.metrics[definition.id] = value;
         item.set.touched.metrics[definition.id] = true;
+        if (definition.semantic === "reps" && !canRecordPartials(item.set)) delete item.set.partialReps;
         break;
       }
       case "refreshUntouchedSuggestions": {
@@ -1563,6 +1637,7 @@
       case "completeSet": {
         item = targetSet(next, command);
         if (isDomainError(item)) return item;
+        if (command.expectedPending === true && item.set.completion !== "pending") return error("set-already-completed");
         if (hasOwn(command, "startingLoad")) {
           if (!validStartingLoad(command.startingLoad)) return error("invalid-starting-load");
           item.set.startingLoad = jsonClone(command.startingLoad);
@@ -1595,7 +1670,8 @@
           ? EFFORT_TOKEN_SOURCE[item.set.edited.effort] || "effort"
           : item.set.edited.rir === "5" ? "reps_left_5plus" : "reps_left";
         item.set.completion = { completedAt: command.completedAt, effortSource: maxSet ? "failure" : enteredEffort ? entered : "prefilled" };
-        item.set.performed = jsonClone(item.exercise.substitution?.replacement || snapshotFromExercise(item.exercise));
+        item.set.performed = jsonClone(item.set.correction?.performed || item.exercise.substitution?.replacement || snapshotFromExercise(item.exercise));
+        delete item.set.correction;
         item.set.touched = { ...item.set.touched, load: true, reps: true, effort: true,
           ...(item.set.touched.metrics ? { metrics: Object.fromEntries(Object.keys(item.set.touched.metrics).map(id => [id, true])) } : {}) };
         break;
@@ -1603,9 +1679,21 @@
       case "uncommitSet": {
         item = targetSet(next, command);
         if (isDomainError(item)) return item;
+        if (command.correct === true) {
+          if (item.set.completion === "pending" || Object.values(next.exercises).some(exercise =>
+            Object.values(exercise.sets).some(set => set.correction))) return error("set-correction-in-progress");
+          item.set.correction = jsonClone(item.set);
+        }
         // A prefilled effort goes back to untouched, so logging the set again is still a prefill.
         if (item.set.completion?.effortSource === "prefilled") item.set.touched = { ...item.set.touched, effort: false };
         item.set.completion = "pending";
+        break;
+      }
+      case "cancelSetCorrection": {
+        item = targetSet(next, command);
+        if (isDomainError(item)) return item;
+        if (!item.set.correction) return error("no-set-correction");
+        item.exercise.sets[item.set.setId] = item.set.correction;
         break;
       }
       case "markWarmup":
@@ -1613,6 +1701,7 @@
         item = targetSet(next, command);
         if (isDomainError(item)) return item;
         item.set.role = command.type === "markWarmup" ? "warmup" : "working";
+        if (item.set.role === "warmup") delete item.set.partialReps;
         break;
       }
       case "skipExercise":
@@ -1685,7 +1774,7 @@
           if (!program.ok) return error("invalid-substitution-program", { issues: program.issues });
           // Completed sets keep the composition they were performed under; only
           // untouched pending sets take the replacement's prescriptions.
-          const pendingIds = exercise.setOrder.filter(setId => exercise.sets[setId].completion === "pending");
+          const pendingIds = exercise.setOrder.filter(setId => exercise.sets[setId].completion === "pending" && !exercise.sets[setId].correction);
           const touched = pendingIds.filter(setId => {
             const set = exercise.sets[setId];
             return set.touched.load || set.touched.reps || set.touched.effort ||
@@ -1722,7 +1811,7 @@
         const originals = movementChanged ? substitution.originalPendingSets : null;
         for (const [setId, original] of Object.entries(originals || {})) {
           const set = item.exercise.sets[setId];
-          if (set?.completion === "pending") item.exercise.sets[setId] = { ...jsonClone(original), ordinal: set.ordinal };
+          if (set?.completion === "pending" && !set.correction) item.exercise.sets[setId] = { ...jsonClone(original), ordinal: set.ordinal };
         }
         if (movementChanged) for (const setId of item.exercise.setOrder) if (item.exercise.sets[setId].completion === "pending") clearOpening(item.exercise.sets[setId]);
         item.exercise.substitution = null;
@@ -1748,6 +1837,7 @@
             ? item.exercise.sets[set]
             : isPlainObject(set) ? set : null;
           if (!targetSet) continue;
+          delete targetSet.partialReps;
           for (const field of EDIT_FIELDS) {
             if (!hasOwn(previous, field)) continue;
             const value = editableText(previous[field]);
@@ -1902,7 +1992,8 @@
       const current = exercise.substitution?.replacement || original;
       let rampCount = 0;
       for (const setId of exercise.setOrder) {
-        const set = exercise.sets[setId];
+        const stored = exercise.sets[setId];
+        const set = stored.correction || stored;
         const precedingRamps = rampCount;
         if (set.origin === "ramp") rampCount++;
         if (!isCandidate(set)) continue;
@@ -1940,6 +2031,7 @@
           notes: draft.session.notes.trim(),
           created: completedAt,
           ...effortSourceOf(set),
+          ...(set.partialReps > 0 ? { partialReps: set.partialReps, effortSource: "reps_left" } : {}),
           ...(set.completion !== "pending" && typeof set.completion?.lastRepSlow === "boolean" ? { lastRepSlow: set.completion.lastRepSlow } : {}),
           ...(set.completion !== "pending" && set.completion?.effortSource === "failure" && validCalibration(set.calibration)
             ? { calibration: jsonClone(set.calibration) } : {}),
@@ -2300,6 +2392,9 @@
     SCHEMA_VERSION,
     SKIP_REASONS,
     EFFORT_SOURCES,
+    canRecordPartials,
+    hasExplicitZero,
+    validHistoryPartials,
     validCalibration,
     validStartingLoad,
     create,

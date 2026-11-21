@@ -737,3 +737,12 @@ objects prevents return-path replay; no preference or durable record is added.
 The only motion trigger is a successful save receipt. Findings remain adjacent
 and never enter the projection. The production-save proofs live in
 `test/profile-finish-browser.mjs`, composed into the existing profile owner.
+
+### Past zero
+
+Focus swaps the Reps left chips for partial-rep chips after a confirmed zero.
+The entering group fades and translates 24 px over 240 ms on the approved
+curve. The shelf stays in place and the chips accept taps during the animation.
+Reduced motion swaps the group immediately. Focus transfers to the selected
+chip or to zero. DraftV2 stores the count with the set and the chip page stays
+in presentation state.

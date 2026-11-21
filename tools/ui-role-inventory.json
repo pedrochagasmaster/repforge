@@ -8,6 +8,41 @@
     "probe": "production catalog scenarios, phone-390 light EN canonical frame, Chromium; no scenario failures"
   },
   "catalogStates": {
+    "workout/past-zero": {
+      "owner": "plan-085",
+      "content": "flat",
+      "scenario": "Numeric zero reveals the six partial-rep choices."
+    },
+    "workout/past-zero-selected": {
+      "owner": "plan-085",
+      "content": "flat",
+      "scenario": "Three partials on the effort field and the Log set button."
+    },
+    "workout/past-zero-ledger": {
+      "owner": "plan-085",
+      "content": "flat",
+      "scenario": "The first working set reads 6+3 against the prior 6+2."
+    },
+    "workout/past-zero-why": {
+      "owner": "plan-085",
+      "content": "flat",
+      "scenario": "The saved tie in the Focus explanation sheet."
+    },
+    "history/past-zero": {
+      "owner": "plan-085",
+      "content": "flat",
+      "scenario": "The saved squat reads as six full reps plus three partials."
+    },
+    "progress/past-zero": {
+      "owner": "plan-085",
+      "content": "flat",
+      "scenario": "The reading annotates the reps while the chart keeps its full-rep coordinates."
+    },
+    "session/past-zero": {
+      "owner": "plan-085",
+      "content": "flat",
+      "scenario": "The set list preserves the partial count and the totals use full reps."
+    },
     "onboarding-start/first-run": {
       "owner": "plan-054",
       "content": "flat",
@@ -2513,7 +2548,11 @@
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
         "workout/why-standing",
-        "workout/pain-swap"
+        "workout/pain-swap",
+        "workout/past-zero",
+        "workout/past-zero-selected",
+        "workout/past-zero-ledger",
+        "workout/past-zero-why"
       ],
       "neverDisabledReason": "A note can always be written for the exercise in progress."
     },
@@ -3772,7 +3811,8 @@
         "history/session-share",
         "history/per-side-session",
         "history/metric-overflow",
-        "history/ramp-rows"
+        "history/ramp-rows",
+        "history/past-zero"
       ]
     },
     {
@@ -4239,7 +4279,11 @@
         "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
-        "workout/pain-swap"
+        "workout/pain-swap",
+        "workout/past-zero",
+        "workout/past-zero-selected",
+        "workout/past-zero-ledger",
+        "workout/past-zero-why"
       ]
     },
     {
@@ -5387,7 +5431,9 @@
         "workout/max-set-active",
         "workout/max-set-result",
         "workout/stage-tip",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/past-zero-ledger",
+        "workout/past-zero-why"
       ],
       "neverDisabledReason": "The tab exists only while a rest runs or has just run out, and it always opens the sheet."
     },
@@ -6198,7 +6244,11 @@
         "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
-        "workout/pain-swap"
+        "workout/pain-swap",
+        "workout/past-zero",
+        "workout/past-zero-selected",
+        "workout/past-zero-ledger",
+        "workout/past-zero-why"
       ]
     },
     {
@@ -6271,7 +6321,8 @@
         "session/summary-first",
         "session/profile-finish-solid",
         "session/profile-finish-checked",
-        "session/profile-finish-agreeing"
+        "session/profile-finish-agreeing",
+        "session/past-zero"
       ]
     },
     {
@@ -6299,7 +6350,8 @@
         "session/summary-first",
         "session/profile-finish-solid",
         "session/profile-finish-checked",
-        "session/profile-finish-agreeing"
+        "session/profile-finish-agreeing",
+        "session/past-zero"
       ],
       "progressScopes": {
         "completed-session-week": "week"
@@ -6550,7 +6602,8 @@
         "progress/volume-block",
         "progress/volume-drill-in",
         "progress/prs",
-        "progress/prs-drill-in"
+        "progress/prs-drill-in",
+        "progress/past-zero"
       ]
     },
     {
@@ -6580,7 +6633,8 @@
         "session/summary-first",
         "session/profile-finish-solid",
         "session/profile-finish-checked",
-        "session/profile-finish-agreeing"
+        "session/profile-finish-agreeing",
+        "session/past-zero"
       ]
     },
     {
@@ -6609,7 +6663,8 @@
         "session/summary-first",
         "session/profile-finish-solid",
         "session/profile-finish-checked",
-        "session/profile-finish-agreeing"
+        "session/profile-finish-agreeing",
+        "session/past-zero"
       ],
       "neverDisabledReason": "The finish screen always has a card to share."
     },
@@ -6997,7 +7052,8 @@
         "session/summary-first",
         "session/profile-finish-solid",
         "session/profile-finish-checked",
-        "session/profile-finish-agreeing"
+        "session/profile-finish-agreeing",
+        "session/past-zero"
       ]
     },
     {
@@ -7077,7 +7133,9 @@
       "rationale": "Transient feedback overlays content without blocking it.",
       "owner": "plan-058",
       "catalogStates": [
-        "onboarding-import/freeform-stage3"
+        "onboarding-import/freeform-stage3",
+        "workout/past-zero-ledger",
+        "workout/past-zero-why"
       ]
     },
     {
@@ -7366,7 +7424,8 @@
         "workout/why-manual",
         "workout/why-setup",
         "workout/why-calibration",
-        "workout/why-standing"
+        "workout/why-standing",
+        "workout/past-zero-why"
       ]
     },
     {
@@ -7389,7 +7448,8 @@
         "workout/why-manual",
         "workout/why-setup",
         "workout/why-calibration",
-        "workout/why-standing"
+        "workout/why-standing",
+        "workout/past-zero-why"
       ]
     },
     {
@@ -7412,7 +7472,8 @@
         "workout/why-manual",
         "workout/why-setup",
         "workout/why-calibration",
-        "workout/why-standing"
+        "workout/why-standing",
+        "workout/past-zero-why"
       ]
     },
     {
@@ -7465,7 +7526,11 @@
         "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
-        "workout/pain-swap"
+        "workout/pain-swap",
+        "workout/past-zero",
+        "workout/past-zero-selected",
+        "workout/past-zero-ledger",
+        "workout/past-zero-why"
       ]
     },
     {
@@ -7532,7 +7597,11 @@
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
         "workout/why-standing",
-        "workout/pain-swap"
+        "workout/pain-swap",
+        "workout/past-zero",
+        "workout/past-zero-selected",
+        "workout/past-zero-ledger",
+        "workout/past-zero-why"
       ],
       "progressScopes": {
         "workout-exercise-order": "exercise-set"
@@ -7590,7 +7659,8 @@
         "history/session",
         "history/per-side-session",
         "history/ramp-rows",
-        "history/metric-overflow"
+        "history/metric-overflow",
+        "history/past-zero"
       ]
     },
     {
@@ -7699,7 +7769,12 @@
         "workout/focus-ramp-easy",
         "history/ramp-rows",
         "workout/focus-ramp-floor",
-        "workout/pain-swap"
+        "workout/pain-swap",
+        "workout/past-zero",
+        "workout/past-zero-selected",
+        "workout/past-zero-ledger",
+        "workout/past-zero-why",
+        "history/past-zero"
       ]
     },
     {
@@ -7783,7 +7858,8 @@
         "onboarding-recommend/result-existing",
         "program/editor-issues",
         "history/ramp-rows",
-        "history/metric-overflow"
+        "history/metric-overflow",
+        "history/past-zero"
       ]
     },
     {
@@ -7907,7 +7983,8 @@
         "progress/strength-all-history",
         "progress/strength-comparison",
         "progress/strength-current-block",
-        "progress/strength-sparse"
+        "progress/strength-sparse",
+        "progress/past-zero"
       ]
     },
     {
@@ -7957,7 +8034,11 @@
         "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
-        "workout/pain-swap"
+        "workout/pain-swap",
+        "workout/past-zero",
+        "workout/past-zero-selected",
+        "workout/past-zero-ledger",
+        "workout/past-zero-why"
       ],
       "neverDisabledReason": "The header draws the name only while the workout has an exercise to open, and opening it is always available."
     },
@@ -7991,7 +8072,9 @@
         "workout/max-set-active",
         "workout/max-set-result",
         "workout/stage-tip",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/past-zero-ledger",
+        "workout/past-zero-why"
       ]
     },
     {
@@ -8038,7 +8121,11 @@
         "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
-        "workout/pain-swap"
+        "workout/pain-swap",
+        "workout/past-zero",
+        "workout/past-zero-selected",
+        "workout/past-zero-ledger",
+        "workout/past-zero-why"
       ]
     },
     {
@@ -8772,7 +8859,8 @@
         "history/session",
         "history/per-side-session",
         "history/ramp-rows",
-        "history/metric-overflow"
+        "history/metric-overflow",
+        "history/past-zero"
       ]
     },
     {
@@ -8870,7 +8958,11 @@
         "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
-        "workout/pain-swap"
+        "workout/pain-swap",
+        "workout/past-zero",
+        "workout/past-zero-selected",
+        "workout/past-zero-ledger",
+        "workout/past-zero-why"
       ]
     },
     {
@@ -8895,7 +8987,8 @@
         "session/summary-first",
         "session/profile-finish-solid",
         "session/profile-finish-checked",
-        "session/profile-finish-agreeing"
+        "session/profile-finish-agreeing",
+        "session/past-zero"
       ]
     },
     {
@@ -8947,7 +9040,11 @@
         "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
-        "workout/pain-swap"
+        "workout/pain-swap",
+        "workout/past-zero",
+        "workout/past-zero-selected",
+        "workout/past-zero-ledger",
+        "workout/past-zero-why"
       ]
     },
     {
@@ -8998,7 +9095,11 @@
         "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
-        "workout/pain-swap"
+        "workout/pain-swap",
+        "workout/past-zero",
+        "workout/past-zero-selected",
+        "workout/past-zero-ledger",
+        "workout/past-zero-why"
       ]
     },
     {
@@ -9244,7 +9345,9 @@
         "today/profile-scope",
         "progress/profile-scope",
         "history/metric-overflow",
-        "history/empty"
+        "history/empty",
+        "history/past-zero",
+        "progress/past-zero"
       ]
     },
     {
@@ -9334,7 +9437,9 @@
         "today/profile-scope",
         "progress/profile-scope",
         "history/metric-overflow",
-        "history/empty"
+        "history/empty",
+        "history/past-zero",
+        "progress/past-zero"
       ]
     },
     {
@@ -9433,7 +9538,9 @@
         "today/profile-scope",
         "progress/profile-scope",
         "history/metric-overflow",
-        "history/empty"
+        "history/empty",
+        "history/past-zero",
+        "progress/past-zero"
       ]
     },
     {
@@ -9612,7 +9719,13 @@
         "history/metric-overflow",
         "history/list",
         "history/list-scrolled",
-        "history/minibar-rest"
+        "history/minibar-rest",
+        "workout/past-zero",
+        "workout/past-zero-selected",
+        "workout/past-zero-ledger",
+        "workout/past-zero-why",
+        "history/past-zero",
+        "session/past-zero"
       ]
     },
     {
@@ -9697,7 +9810,8 @@
         "workout/pain-swap",
         "session/summary-share-edit",
         "session/summary-share-line",
-        "today/estimate-info"
+        "today/estimate-info",
+        "workout/past-zero-why"
       ]
     },
     {
@@ -9738,7 +9852,8 @@
         "program/editor-issue-field",
         "program/editor-day-name-refused",
         "workout/why-calibration",
-        "workout/why-standing"
+        "workout/why-standing",
+        "workout/past-zero-why"
       ]
     },
     {
@@ -9791,7 +9906,12 @@
         "history/ramp-rows",
         "workout/focus-ramp-floor",
         "workout/pain-swap",
-        "history/metric-overflow"
+        "history/metric-overflow",
+        "workout/past-zero",
+        "workout/past-zero-selected",
+        "workout/past-zero-ledger",
+        "workout/past-zero-why",
+        "history/past-zero"
       ]
     },
     {
@@ -9875,7 +9995,11 @@
         "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
-        "workout/pain-swap"
+        "workout/pain-swap",
+        "workout/past-zero",
+        "workout/past-zero-selected",
+        "workout/past-zero-ledger",
+        "workout/past-zero-why"
       ]
     },
     {
@@ -9946,7 +10070,11 @@
         "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
-        "workout/pain-swap"
+        "workout/pain-swap",
+        "workout/past-zero",
+        "workout/past-zero-selected",
+        "workout/past-zero-ledger",
+        "workout/past-zero-why"
       ]
     },
     {
@@ -10003,7 +10131,11 @@
         "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
-        "workout/pain-swap"
+        "workout/pain-swap",
+        "workout/past-zero",
+        "workout/past-zero-selected",
+        "workout/past-zero-ledger",
+        "workout/past-zero-why"
       ]
     },
     {
@@ -10056,7 +10188,11 @@
         "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
-        "workout/pain-swap"
+        "workout/pain-swap",
+        "workout/past-zero",
+        "workout/past-zero-selected",
+        "workout/past-zero-ledger",
+        "workout/past-zero-why"
       ],
       "neverDisabledReason": "The way to change how effort is logged stays reachable whenever the shelf is."
     },
@@ -10080,7 +10216,9 @@
       "owner": "plan-077",
       "catalogStates": [
         "workout/effort-stage-a",
-        "workout/effort-stage-b"
+        "workout/effort-stage-b",
+        "workout/past-zero",
+        "workout/past-zero-selected"
       ],
       "neverDisabledReason": "Every choice of the stage is always available."
     },
@@ -10244,7 +10382,11 @@
         "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
-        "workout/pain-swap"
+        "workout/pain-swap",
+        "workout/past-zero",
+        "workout/past-zero-selected",
+        "workout/past-zero-ledger",
+        "workout/past-zero-why"
       ]
     },
     {
@@ -10295,7 +10437,11 @@
         "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
-        "workout/pain-swap"
+        "workout/pain-swap",
+        "workout/past-zero",
+        "workout/past-zero-selected",
+        "workout/past-zero-ledger",
+        "workout/past-zero-why"
       ]
     },
     {
@@ -10346,7 +10492,11 @@
         "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
-        "workout/pain-swap"
+        "workout/pain-swap",
+        "workout/past-zero",
+        "workout/past-zero-selected",
+        "workout/past-zero-ledger",
+        "workout/past-zero-why"
       ]
     },
     {
@@ -10397,7 +10547,11 @@
         "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
-        "workout/pain-swap"
+        "workout/pain-swap",
+        "workout/past-zero",
+        "workout/past-zero-selected",
+        "workout/past-zero-ledger",
+        "workout/past-zero-why"
       ]
     },
     {
@@ -10921,7 +11075,8 @@
         "workout/why-per-side",
         "workout/why-in-session",
         "workout/why-calibration",
-        "workout/why-standing"
+        "workout/why-standing",
+        "workout/past-zero-why"
       ]
     },
     {
@@ -13536,7 +13691,11 @@
         "workout/focus-ramp-floor",
         "workout/focus-ramp-substitution",
         "workout/focus-ramp-ratio",
-        "workout/focus-ramp-changed-movement"
+        "workout/focus-ramp-changed-movement",
+        "workout/past-zero",
+        "workout/past-zero-selected",
+        "workout/past-zero-ledger",
+        "workout/past-zero-why"
       ]
     },
     {
@@ -14214,7 +14373,8 @@
         "session/summary-lifts",
         "session/profile-finish-solid",
         "session/profile-finish-checked",
-        "session/profile-finish-agreeing"
+        "session/profile-finish-agreeing",
+        "session/past-zero"
       ],
       "neverDisabledReason": "The profile is available whenever the finish screen has a finding or a next need."
     },
@@ -14372,7 +14532,9 @@
         "session/summary-first",
         "session/profile-finish-solid",
         "session/profile-finish-checked",
-        "session/profile-finish-agreeing"
+        "session/profile-finish-agreeing",
+        "progress/past-zero",
+        "session/past-zero"
       ]
     },
     {
@@ -14491,7 +14653,9 @@
         "session/summary-first",
         "session/profile-finish-solid",
         "session/profile-finish-checked",
-        "session/profile-finish-agreeing"
+        "session/profile-finish-agreeing",
+        "progress/past-zero",
+        "session/past-zero"
       ]
     },
     {
@@ -14560,7 +14724,9 @@
         "session/summary-first",
         "session/profile-finish-solid",
         "session/profile-finish-checked",
-        "session/profile-finish-agreeing"
+        "session/profile-finish-agreeing",
+        "progress/past-zero",
+        "session/past-zero"
       ]
     },
     {
@@ -14627,7 +14793,9 @@
         "session/summary-first",
         "session/profile-finish-solid",
         "session/profile-finish-checked",
-        "session/profile-finish-agreeing"
+        "session/profile-finish-agreeing",
+        "progress/past-zero",
+        "session/past-zero"
       ]
     },
     {
@@ -14681,7 +14849,8 @@
         "progress/overview-profile-first",
         "progress/profile-reader",
         "progress/profile-scope",
-        "session/summary-profile"
+        "session/summary-profile",
+        "progress/past-zero"
       ]
     },
     {
@@ -14736,7 +14905,8 @@
         "progress/overview-profile-first",
         "progress/profile-reader",
         "progress/profile-scope",
-        "session/summary-profile"
+        "session/summary-profile",
+        "progress/past-zero"
       ],
       "neverDisabledReason": "Saved evidence navigation stays available; no training mutation is committed."
     },
@@ -14791,7 +14961,8 @@
         "progress/overview-profile-first",
         "progress/profile-reader",
         "progress/profile-scope",
-        "session/summary-profile"
+        "session/summary-profile",
+        "progress/past-zero"
       ]
     },
     {
@@ -14845,7 +15016,8 @@
         "progress/overview-profile-first",
         "progress/profile-reader",
         "progress/profile-scope",
-        "session/summary-profile"
+        "session/summary-profile",
+        "progress/past-zero"
       ]
     },
     {
@@ -14899,7 +15071,8 @@
         "progress/overview-profile-first",
         "progress/profile-reader",
         "progress/profile-scope",
-        "session/summary-profile"
+        "session/summary-profile",
+        "progress/past-zero"
       ]
     },
     {
@@ -15108,7 +15281,9 @@
         "session/summary-first",
         "session/profile-finish-solid",
         "session/profile-finish-checked",
-        "session/profile-finish-agreeing"
+        "session/profile-finish-agreeing",
+        "progress/past-zero",
+        "session/past-zero"
       ]
     },
     {
@@ -15178,7 +15353,8 @@
         "session/summary-first",
         "session/profile-finish-solid",
         "session/profile-finish-checked",
-        "session/profile-finish-agreeing"
+        "session/profile-finish-agreeing",
+        "session/past-zero"
       ],
       "neverDisabledReason": "The profile is available whenever the finish screen has a finding or a next need."
     },
@@ -15213,7 +15389,8 @@
         "session/summary-first",
         "session/profile-finish-solid",
         "session/profile-finish-checked",
-        "session/profile-finish-agreeing"
+        "session/profile-finish-agreeing",
+        "session/past-zero"
       ],
       "neverDisabledReason": "The profile is available whenever the finish screen has a finding or a next need."
     },
@@ -15244,7 +15421,8 @@
         "session/summary-first",
         "session/profile-finish-solid",
         "session/profile-finish-checked",
-        "session/profile-finish-agreeing"
+        "session/profile-finish-agreeing",
+        "session/past-zero"
       ]
     },
     {
@@ -15274,7 +15452,8 @@
         "session/summary-first",
         "session/profile-finish-solid",
         "session/profile-finish-checked",
-        "session/profile-finish-agreeing"
+        "session/profile-finish-agreeing",
+        "session/past-zero"
       ]
     },
     {
@@ -15300,7 +15479,8 @@
         "history/session",
         "history/per-side-session",
         "history/ramp-rows",
-        "history/metric-overflow"
+        "history/metric-overflow",
+        "history/past-zero"
       ]
     },
     {
@@ -15324,7 +15504,8 @@
         "history/session",
         "history/per-side-session",
         "history/ramp-rows",
-        "history/metric-overflow"
+        "history/metric-overflow",
+        "history/past-zero"
       ]
     },
     {
@@ -15471,7 +15652,8 @@
         "progress/review-evaluated",
         "progress/overview-profile",
         "progress/overview-profile-first",
-        "progress/profile-scope"
+        "progress/profile-scope",
+        "progress/past-zero"
       ],
       "neverDisabledReason": "The Summary is always there to return to."
     },
@@ -15652,7 +15834,8 @@
         "progress/exercise-chart",
         "progress/volume",
         "progress/volume-block",
-        "progress/volume-drill-in"
+        "progress/volume-drill-in",
+        "progress/past-zero"
       ]
     },
     {
@@ -15703,7 +15886,8 @@
         "progress/strength-all-history",
         "progress/strength-comparison",
         "progress/strength-current-block",
-        "progress/strength-sparse"
+        "progress/strength-sparse",
+        "progress/past-zero"
       ]
     },
     {
@@ -15729,7 +15913,8 @@
         "progress/strength-all-history",
         "progress/strength-comparison",
         "progress/strength-current-block",
-        "progress/strength-sparse"
+        "progress/strength-sparse",
+        "progress/past-zero"
       ]
     },
     {
@@ -15894,7 +16079,11 @@
         "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
-        "workout/why-standing"
+        "workout/why-standing",
+        "workout/past-zero",
+        "workout/past-zero-selected",
+        "workout/past-zero-ledger",
+        "workout/past-zero-why"
       ]
     },
     {
@@ -15968,7 +16157,9 @@
         "history/ramp-rows",
         "progress/overview-profile",
         "progress/overview-profile-first",
-        "session/summary-profile"
+        "session/summary-profile",
+        "history/past-zero",
+        "progress/past-zero"
       ]
     },
     {
@@ -16025,7 +16216,8 @@
         "session/summary-finding",
         "session/summary-maintained",
         "session/summary-declined",
-        "session/summary-first"
+        "session/summary-first",
+        "session/past-zero"
       ]
     },
     {
@@ -16107,7 +16299,11 @@
         "workout/focus-ramp-substitution",
         "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
-        "workout/focus-ramp-floor"
+        "workout/focus-ramp-floor",
+        "workout/past-zero",
+        "workout/past-zero-selected",
+        "workout/past-zero-ledger",
+        "workout/past-zero-why"
       ]
     },
     {
@@ -16132,7 +16328,11 @@
         "workout/focus-ramp-substitution",
         "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
-        "workout/focus-ramp-floor"
+        "workout/focus-ramp-floor",
+        "workout/past-zero",
+        "workout/past-zero-selected",
+        "workout/past-zero-ledger",
+        "workout/past-zero-why"
       ]
     }
   ],
@@ -16248,7 +16448,9 @@
         "workout/max-set-active",
         "workout/max-set-result",
         "workout/stage-tip",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/past-zero-ledger",
+        "workout/past-zero-why"
       ]
     },
     {
@@ -16280,7 +16482,9 @@
         "workout/max-set-active",
         "workout/max-set-result",
         "workout/stage-tip",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/past-zero-ledger",
+        "workout/past-zero-why"
       ]
     },
     {
@@ -16317,7 +16521,11 @@
         "workout/focus-ramp-substitution",
         "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
-        "workout/focus-ramp-floor"
+        "workout/focus-ramp-floor",
+        "workout/past-zero",
+        "workout/past-zero-selected",
+        "workout/past-zero-ledger",
+        "workout/past-zero-why"
       ],
       "cssLiterals": [
         {
@@ -16355,7 +16563,11 @@
         "workout/focus-ramp-substitution",
         "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
-        "workout/focus-ramp-floor"
+        "workout/focus-ramp-floor",
+        "workout/past-zero",
+        "workout/past-zero-selected",
+        "workout/past-zero-ledger",
+        "workout/past-zero-why"
       ],
       "sourceOnly": true,
       "sourceOnlyReason": "Focus and library glossary popovers have rendered states; the workout overflow menu remains on-demand."
@@ -16384,7 +16596,11 @@
         "workout/focus-ramp-substitution",
         "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
-        "workout/focus-ramp-floor"
+        "workout/focus-ramp-floor",
+        "workout/past-zero",
+        "workout/past-zero-selected",
+        "workout/past-zero-ledger",
+        "workout/past-zero-why"
       ],
       "sourceOnly": true,
       "sourceOnlyReason": "The effort explanation opens after tapping the current-set value; canonical Focus frames keep it closed."
@@ -16439,7 +16655,8 @@
         "workout/max-set-guess",
         "workout/why-calibration",
         "workout/rest-overrun-finish",
-        "workout/why-standing"
+        "workout/why-standing",
+        "workout/past-zero-why"
       ]
     },
     {
@@ -16521,7 +16738,9 @@
         "history/ramp-rows",
         "progress/overview-profile",
         "progress/overview-profile-first",
-        "session/summary-profile"
+        "session/summary-profile",
+        "history/past-zero",
+        "progress/past-zero"
       ]
     },
     {
@@ -16584,7 +16803,9 @@
         "history/ramp-rows",
         "progress/overview-profile",
         "progress/overview-profile-first",
-        "session/summary-profile"
+        "session/summary-profile",
+        "history/past-zero",
+        "progress/past-zero"
       ]
     },
     {
@@ -16611,7 +16832,11 @@
         "workout/focus-ramp-substitution",
         "workout/focus-ramp-changed-movement",
         "workout/focus-ramp-easy",
-        "workout/focus-ramp-floor"
+        "workout/focus-ramp-floor",
+        "workout/past-zero",
+        "workout/past-zero-selected",
+        "workout/past-zero-ledger",
+        "workout/past-zero-why"
       ]
     },
     {
