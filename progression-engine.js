@@ -308,7 +308,7 @@
   }
 
   function parsePerformedSet(value, shape, prescription, config, delta = 0) {
-    if (!isPlainObject(value) || value.completed !== true || value.warmup === true || value.origin === "ramp" || value.exerciseId !== prescription.exerciseId
+    if (!isPlainObject(value) || value.completed !== true || value.warmup === true || value.work === false || value.origin === "ramp" || value.origin === "suggested-warmup" || value.exerciseId !== prescription.exerciseId
       || !Number.isInteger(value.setIndex) || value.setIndex < 0 || !finite(value.rir) || value.rir < 0) return null;
     if (!Array.isArray(value.metricIds) || !same(value.metricIds, prescription.metricIds)) return null;
     if (value.equipmentId !== config.context.equipmentId || value.loadingConvention !== config.convention) return null;
@@ -831,7 +831,7 @@
     if (!config.ok) return unavailable(config.reasons);
     // The source rows retain their provenance; a warm-up or ramp is never a working observation.
     const working = history.filter(session => session?.completed === true).map(session => ({ ...session,
-      sets: (session.sets || []).filter(set => set && !set.warmup && set.origin !== "ramp" && set.work !== false &&
+      sets: (session.sets || []).filter(set => set && !set.warmup && set.origin !== "ramp" && set.origin !== "suggested-warmup" && set.work !== false &&
         (!shape.requiresExecutionMode || set.loadingContext?.executionMode === lift.context.executionMode)) }));
     const sessions = working.map(session => ({ sessionId: session.sessionId, date: session.date,
       sets: session.sets.flatMap(raw => {

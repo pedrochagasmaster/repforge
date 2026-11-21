@@ -484,6 +484,9 @@
         prev.reps = Number(row.reps);
         if (row.partialReps > 0) prev.partialReps = row.partialReps;
         else delete prev.partialReps;
+      } else if (value === prev.value && Number(row.reps) === prev.reps && row.partialReps > (prev.partialReps || 0)) {
+        // Equal load and full reps: only the displayed count follows the set that out-partials the other.
+        prev.partialReps = row.partialReps;
       }
     }
     const points = [...bySession.values()].sort(compareChronology);

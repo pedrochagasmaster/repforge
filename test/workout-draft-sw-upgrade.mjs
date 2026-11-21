@@ -293,6 +293,25 @@ try {
   const oldRows = rollback.toHistoryRows(oldFinish, completedAt);
   assert.ok(Array.isArray(oldRows) && oldRows.length > 0);
   assert.ok(oldRows.every(row => !Object.hasOwn(row, "partialReps")), "v770 omits partials if it finishes the draft");
+  // A set reopened for correction keeps its original under `correction`. The previous release does not know that member.
+  const reopenedRaw = await stage("reopen the logged set for correction", () => page.evaluate(({ exerciseId }) => {
+    const owner = window.RepForgeWorkoutDraft, draft = window.__repforgeWorkoutDraft.current();
+    const setId = draft.exercises[exerciseId].setOrder[0], operationId = "rollback-reopen";
+    const next = owner.reduce(draft, { type: "uncommitSet", exerciseInstanceId: exerciseId, setId, correct: true, operationId,
+      expectedRevision: draft.revision, updatedAt: new Date().toISOString(), writer: { ...draft.writer, operationId } });
+    return { raw: owner.serialize(next), setId, hasCorrection: Boolean(next.exercises[exerciseId].sets[setId].correction) };
+  }, { exerciseId: secondId }));
+  assert.equal(reopenedRaw.hasCorrection, true, "the current release records the reopened set's original under correction");
+  const oldReopened = rollback.parse(reopenedRaw.raw);
+  assert.equal(oldReopened.kind, "valid", "v770 reads a draft with a reopened set");
+  const reopenedFinish = rollback.reduce(oldReopened.draft, {
+    type: "beginFinish", completedAt, updatedAt: completedAt, operationId: "rollback-finish-reopened", expectedRevision: oldReopened.draft.revision,
+    writer: { ...oldReopened.draft.writer, operationId: "rollback-finish-reopened" },
+  });
+  const reopenedRows = Array.isArray(reopenedFinish) ? reopenedFinish : rollback.toHistoryRows(reopenedFinish, completedAt);
+  assert.equal(oldReopened.draft.exercises[secondId].sets[reopenedRaw.setId].completion, "pending", "v770 reads the reopened set as pending");
+  assert.deepEqual(reopenedRows.map(row => [row.set, row.reps]), oldRows.map(row => [row.set, row.reps]),
+    "v770 still compiles the reopened set from its edited values, and knows nothing of the original under correction");
   const offlineSave = await stage("finish the workout offline", () => finishEarly(page), 60000);
   const offlineResult = await stage("read the offline save", () => page.evaluate(({ stateKey, draftKey, checkpointKey, exerciseId }) => {
     const state = JSON.parse(localStorage.getItem(stateKey) || "{}");

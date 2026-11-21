@@ -1951,10 +1951,20 @@ function rowPerformedSlotMovement(row,slot){
 function partialCount(row){return row?.partialReps>0?row.partialReps:0}
 function performedRepsText(full,count){return count>0?`${full}+${count}`:String(full)}
 function partialSuffixHtml(count){return count>0?`<span class="partial-reps">+${esc(fmt(count))}</span>`:""}
+/** "6 full reps and 3 partial reps", with the singular forms. */
+function partialsSpoken(full,count){
+  return t("partials.spoken",{full:t(String(full)==="1"?"partials.spoken_full.one":"partials.spoken_full.many",{n:full}),
+    partial:t(count===1?"partials.spoken_partial.one":"partials.spoken_partial.many",{n:fmt(count)})})}
 function performedRepsHtml(full,count){
   if(!count)return esc(full);
-  const spoken=t("partials.spoken",{full,partial:fmt(count)});
+  const spoken=partialsSpoken(full,count);
   return `<span role="img" aria-label="${esc(spoken)}">${esc(full)}${partialSuffixHtml(count)}</span>`}
+/* A partial count inside running text. Strings that reach an escaped renderer carry it between two private marks, which
+   `partialMarkup` turns into the same smaller, accent-tinted run the app draws everywhere else. */
+const PARTIAL_MARK_OPEN="\uE0A0",PARTIAL_MARK_CLOSE="\uE0A1";
+function performedRepsMarked(full,count){return count>0?`${full}${PARTIAL_MARK_OPEN}+${count}${PARTIAL_MARK_CLOSE}`:String(full)}
+function partialMarkup(text){
+  return esc(text).replace(/(\d+)\uE0A0\+(\d+)\uE0A1/g,(_,full,count)=>performedRepsHtml(full,Number(count)))}
 function partialOptionLabel(n){return t(n===0?"partials.zero":n===1?"partials.one":"partials.many",{n:fmt(n)})}
 
 /** Read-time workout projection shared by History, Progress, exercise charts and CSV.
@@ -3955,7 +3965,7 @@ async function mergeImportedLog(incoming,io=storageIO){
   const added=new Set(add.map(r=>r.session)).size;
   if(!added)return{revision:readRevision(state),localOk:true,idbOk:true,added:0};
   const proposal=cloneSnapshot(state);
-  proposal.log=proposal.log.concat(cloneSnapshot(add));
+  proposal.log=proposal.log.concat(cloneSnapshot(add).map(row=>{if(row.partialReps===0)delete row.partialReps;return row}));
   const addedEvents=normalizeSessionEvents(incoming.sessionEvents,add);
   if(addedEvents)proposal.sessionEvents={...(proposal.sessionEvents||{}),...addedEvents};
   const addedTiming=normalizeSessionTiming(incoming.sessionTiming,add);
@@ -6401,16 +6411,27 @@ function compareExerciseSession(ex,currentRows,readerContext=null){
 function isStalled(sess){if(sess.length<3)return false;const r=sess.slice(-3),l0=r[0].med,rep0=r[0].maxReps;
   return r.every(s=>Math.abs(s.med-l0)<0.01)&&r.every(s=>s.maxReps<=rep0)&&
     !savedPartialWin(r[1].first,r[2].first)}
-function savedPartialWin(previous,current){
+/** Orders two sets of one workout and lift that tie on load and full reps: the one that out-partials the other first.
+ *  Progress projections carry no loading context, so for them the lift's own comparison already stands. */
+function bestSetTie(a,b){
+  const wins=(previous,current)=>current?.loadingContext?savedPartialWin(previous,current,{sameSession:true})
+    :partialCount(current)>partialCount(previous)&&current.rir===0&&previous.rir===0;
+  return wins(b,a)?-1:wins(a,b)?1:0}
+/** Whether `current` out-partials `previous` at the same load and full reps. `sameSession` compares two sets of one
+ *  workout (to choose a displayed best set), so their positions need not match; across sessions the position must. */
+function savedPartialWin(previous,current,{sameSession=false}={}){
   if(!previous||!partialCount(current)||partialCount(current)<=partialCount(previous))return false;
   const exerciseId=String(current.performedLibraryId||current.performedMovementId||"");
   const {metricIds,metricDefinitions,metricType,loadingContext}=current;
   if(!exerciseId||!loadingContext)return false;
   const before=enginePerformedRow(previous,exerciseId,metricIds),after=enginePerformedRow(current,exerciseId,metricIds);
   if(!before||!after)return false;
+  if(sameSession)after.setIndex=before.setIndex;
   const prescription={id:exerciseId,slotId:exerciseId,exerciseId,metricIds,metricDefinitions,metricType,
     setIndex:1,loadingModel:{bodyweightCoefficient:loadingContext.bodyweightCoefficient??0}};
-  const context={bySlotId:{[exerciseId]:{...loadingContext,equipmentId:current.equipmentId}}};
+  // A row need not carry the mode it was trained in: the catalog supplies it, as it did when the row was read.
+  const context={bySlotId:{[exerciseId]:{...loadingContext,equipmentId:current.equipmentId,
+    executionMode:loadingContext.executionMode??after.executionMode}}};
   return window.RepForgeProgression?.partialRepComparison?.(prescription,
     [{completed:true,sets:[before]}],after,after.setIndex,context)?.status==="win"}
 // Recover = grinding near failure AND performance did not improve vs prior session (same/lower load).
@@ -6730,7 +6751,7 @@ function canonicalPrescriptionSlot(ex,definition=state.programMeta?.programDefin
   return null}
 function enginePerformedRow(row,exerciseId,metricIds){
   const performedId=String(row?.performedLibraryId||row?.performedMovementId||"");
-  if(row?.origin==="ramp"||row?.warmup===true||row?.work===false||performedId!==exerciseId||row?.metricType!=="source_metrics@1"||
+  if(row?.origin==="ramp"||row?.origin==="suggested-warmup"||row?.warmup===true||row?.work===false||performedId!==exerciseId||row?.metricType!=="source_metrics@1"||
     !Array.isArray(row.metricIds)||JSON.stringify(row.metricIds)!==JSON.stringify(metricIds)||
     !Array.isArray(row.metricValues)||!Number.isInteger(row.setIndex)||row.setIndex<0)return null;
   const values=ExerciseMetrics?.validateMetricValues?.(metricIds,row.metricValues);
@@ -7180,7 +7201,7 @@ function explainRecommendation(ex){
   if(rec.status==="new"){const note=inSessionNote(ex,loadDraft());return note?[whyRow("session",{label:t("why.session"),text:note})]:rows}
   const prev=last(ex).filter(x=>+x.load>0);
   if(prev.length)rows.push(whyRow("last",{label:t("why.last"),
-    text:prev.map(x=>`${fmtLoad(x.load)}\u00d7${performedRepsText(x.reps,partialCount(x))} ${effortOrRirLabel(x.rir)}`).join(" \u00b7 ")}));
+    text:prev.map(x=>`${fmtLoad(x.load)}\u00d7${performedRepsMarked(x.reps,partialCount(x))} ${effortOrRirLabel(x.rir)}`).join(" \u00b7 ")}));
   rows.push(whyRow("showed",{text:t(isWordMode()?"why.showed_effort":"why.showed",
     {cr:Math.round(rec.cr),load:fmtLoad(rec.lastLoad),unit:u,cap:fmt(+state.settings.hardRir||4)})}));
   // The tempered line already names both the rule and the tempering, so it stands alone.
@@ -9322,10 +9343,10 @@ function verdictMarkHtml(glyph){
   if(glyph!=="up"&&glyph!=="down"&&glyph!=="hold"&&glyph!=="recover")return"";
   return `<span class="verdictmark verdictmark--${glyph}"><span class="verdictmark__glyph" aria-hidden="true"></span></span>`}
 /** "100 × 8, 8, 8" for one load, "100 × 8, 90 × 10" when the load moved. */
-function rxSetsLine(sets,withUnit,{markup=false}={}){
+function rxSetsLine(sets,withUnit,{markup=false,marked=false}={}){
   const rows=sets.filter(x=>+x.reps>0);if(!rows.length)return"";
   const same=rows.every(x=>sameLoad(+x.load,+rows[0].load));
-  const reps=row=>markup?performedRepsHtml(row.reps,partialCount(row)):performedRepsText(row.reps,partialCount(row));
+  const reps=row=>markup?performedRepsHtml(row.reps,partialCount(row)):marked?performedRepsMarked(row.reps,partialCount(row)):performedRepsText(row.reps,partialCount(row));
   const load=value=>markup?esc(value):value;
   return same?`${load(fmtLoad(rows[0].load)+(withUnit?` ${unitLabel()}`:""))} × ${rows.map(reps).join(", ")}`
     :rows.map(row=>`${load(fmtLoad(row.load))}\u00a0×\u00a0${reps(row)}`).join(", ")}
@@ -9351,7 +9372,7 @@ function todayRxModel(exs,live=null){
       :status==="current"&&!sets?.done?t("today.live.up_next")
       :status&&status!=="todo"?t("today.live.sets",{done:sets.done,total:sets.total})
       :glyph==="stalled"?rec.label
-      :prev.length?t("today.sub.before",{sets:rxSetsLine(prev)}):t("today.sub.first");
+      :prev.length?t("today.sub.before",{sets:rxSetsLine(prev,false,{marked:true})}):t("today.sub.first");
     return{ex:shown,rec,glyph,sub,status,sets,load:rec.status==="manual"||rec.load==null?null:rec.load,target:rxTargetText(shown,rec)}})}
 /** Where one exercise stands in the open session: done, partial, skipped, current, or todo (not started). */
 function todayLiveRowStatus(live,id){
@@ -9381,7 +9402,7 @@ function todayRxRowHtml(row,index){
   const describedBy=[hasVerdict?verdictId:"",isSkipped||row.status?statusId:""].filter(Boolean).join(" ");
   return `<div class="today-rx__row${isSkipped?" is-skipped":""}${row.status==="current"?" is-current":""}" data-context-row="${esc(ex.id)}" tabindex="-1" role="group" aria-label="${esc(exerciseDisplayName(ex))}" aria-describedby="todayRowActionsHint"><button type="button" class="rxrow${glyph==="manual"?" is-manual":""}" data-exopen="${esc(ex.id)}" data-verdict="${esc(glyph)}" aria-label="${esc(t("log.open_exercise_aria",{name:exerciseDisplayName(ex)}))}"${describedBy?` aria-describedby="${describedBy}"`:""}>`+
     `<span class="rxrow__mark">${row.status?todayLiveMarkHtml(row):verdictMarkHtml(glyph)}</span>`+
-    `<span class="rxrow__name">${esc(exerciseDisplayName(ex))}<span class="rxrow__sub" id="${statusId}">${esc(row.sub)}</span></span>`+
+    `<span class="rxrow__name">${esc(exerciseDisplayName(ex))}<span class="rxrow__sub" id="${statusId}">${partialMarkup(row.sub)}</span></span>`+
     `<span class="rxrow__load"${row.load!=null?` data-parity-target="${esc(ex.id)}"`:""}>${row.load!=null?esc(fmtLoad(row.load)):"\u2013"}</span>`+
     `<span class="rxrow__target">${esc(row.target).replace(/\u00d7/g,`<span class="rxrow__op">\u00d7</span>`)}</span>`+
     (hasVerdict?`<span class="visually-hidden" id="${verdictId}">${esc(rec.label)}</span>`:"")+`</button><button type="button" class="native-row-menu visually-hidden" data-row-menu="${esc(ex.id)}" aria-haspopup="menu"${isSkipped?` aria-describedby="${statusId}"`:""} aria-label="${esc(t("program.editor.more"))}: ${esc(exerciseDisplayName(ex))}"><span class="icon-mask icon-mask--overflow" aria-hidden="true"></span></button></div>`}
@@ -10501,14 +10522,14 @@ function evidenceSay(key,vars){
   let html=esc(t(key,Object.fromEntries(keys.map((k,i)=>[k,marks[i]]))));
   keys.forEach((k,i)=>{html=html.replace(marks[i],vars[k])});return html}
 /** A performed set's figures ride in Mono inside the evidence line. */
-const evidenceFig=v=>`<span class="fx-cue__fig">${esc(v)}</span>`;
+const evidenceFig=v=>`<span class="fx-cue__fig">${partialMarkup(v)}</span>`;
 /** The evidence line under the hero: the set the engine anchored on and the target it aims at, the same facts as the
  *  Why sheet (`engineSetFacts`), or, with no suggestion, the honest reason. Mono carries the figures. */
 function focusPartialComparison(rec,index,current=null){
   const inputs=rec?.progressionInputs;
   return inputs&&rec.prescription?window.RepForgeProgression?.partialRepComparison?.(
     rec.prescription,inputs.history,current,index,inputs.loadingContext):null}
-function currentPartialEvidence(ex,n,rec,{markup=false}={}){
+function currentPartialEvidence(ex,n,rec,{markup=false,marked=false}={}){
   const draft=activeWorkoutDraft?.exercises?.[ex.id],inputs=rec.progressionInputs;
   if(!draft||!inputs)return null;
   const working=draft.setOrder.map(id=>draft.sets[id]).filter(set=>set.origin!=="ramp");
@@ -10519,7 +10540,7 @@ function currentPartialEvidence(ex,n,rec,{markup=false}={}){
     const load=kg==null?"":`${fmtLoad(kg)} × `,vars={...extra,n:fmt(n)};
     return markup?evidenceSay(key,{...Object.fromEntries(Object.entries(vars).map(([key,value])=>[key,esc(value)])),
       set:`<span class="fx-cue__fig">${esc(load)}${performedRepsHtml(full,count)}</span>`})
-      :t(key,{...vars,set:load+performedRepsText(full,count)})};
+      :t(key,{...vars,set:load+(marked?performedRepsMarked:performedRepsText)(full,count)})};
   if(current?.partialReps){
     const tie=focusPartialComparison(rec,last.index,current);
     const load=tie?.current.displayLoadKg??metricFieldValue(last.set,"load");
@@ -10547,7 +10568,7 @@ function focusEvidenceText(ex,n,r,cue){
   if(!facts||facts.item.prescription?.setIndex!==n)return"";
   const parts=[],seen=engineAnchorSet(r,facts);
   if(seen){
-    const vars={set:plain((facts.anchor.setIndex??0)+1),load:mono(`${fmtLoad(facts.anchor.displayLoadKg)} × ${performedRepsText(seen.reps,partialCount(seen))}`),
+    const vars={set:plain((facts.anchor.setIndex??0)+1),load:mono(`${fmtLoad(facts.anchor.displayLoadKg)} × ${performedRepsMarked(seen.reps,partialCount(seen))}`),
       rir:plain(fmt(seen.rir)),effort:esc(effortLabel(effortForRir(seen.rir)))};
     const source=facts.anchor.source==="current_session"?"session":"history";
     parts.push(say(`focus.evidence.${source}${effort?"_effort":""}`,vars))}
@@ -10972,10 +10993,10 @@ const SHELF_PER_SIDE_SHORT={loadPerSideKg:"focus.metric.load_kg",repsPerSide:"fo
 const shelfShortLabel=metric=>SHELF_PER_SIDE_SHORT[metric.semantic]?t(SHELF_PER_SIDE_SHORT[metric.semantic]):metricLabel(metric);
 /** A field's face: its short label over the value, with the unit beside the value ("22.5 kg"). The field's name stays
  *  whole ("Load per side, kg 22.5"): the rest of the label is read but not shown, and the shown unit is not read twice. */
-const shelfFaceHtml=(short,label,shown,unit,count=0)=>{
+const shelfFaceHtml=(short,label,shown,unit,count=0,{effort=false}={})=>{
   const rest=label.startsWith(short)?label.slice(short.length):"";
   const lab=rest||label===short?`${esc(short)}${rest?`<span class="visually-hidden">${esc(rest)}</span>`:""}`:esc(label);
-  return `<span class="shelf__lab">${lab}</span><span class="shelf__valrow"><span class="shelf__val">${performedRepsHtml(shown||"—",count)}</span>`+
+  return `<span class="shelf__lab">${lab}</span><span class="shelf__valrow"><span class="shelf__val">${effort&&count?`${esc(shown)}<span class="partial-reps" aria-hidden="true">+${esc(fmt(count))}</span><span class="visually-hidden">, ${esc(partialOptionLabel(count))}</span>`:performedRepsHtml(shown||"—",count)}</span>`+
     `${unit?`<span class="shelf__unit" aria-hidden="true">${esc(unit)}</span>`:""}</span>`};
 
 function shelfFieldHtml(ex,n,id,vals,{ui,touched,peek}){
@@ -10998,7 +11019,7 @@ function shelfFieldHtml(ex,n,id,vals,{ui,touched,peek}){
   const word=effortField&&stage==="a"||id==="rir"&&vals.unsure;
   const cls=`shelf__field${sel?" is-sel":""}${soft?" is-untouched":""}${live?" is-editing":""}${word?" is-word":""}`;
   const count=effortField?partialCount(draftSetAt(ex.id,n)):0;
-  const face=shelfFaceHtml(short,label,shown,id==="load"?unitLabel():"",count);
+  const face=shelfFaceHtml(short,label,shown,id==="load"?unitLabel():"",count,{effort:effortField});
   const chev=`<span class="icon-mask icon-mask--chev-down shelf__chev" aria-hidden="true"></span>`;
   if(peek)return `<div class="${cls}"><span class="shelf__fieldbtn">${face}</span>${id==="rir"?`<span class="shelf__menu">${chev}</span>`:""}</div>`;
   // Words explain themselves on a second tap; numeric chips already name the count.
@@ -11116,14 +11137,15 @@ function focusShelfHtml(ex,r,draft,prev,{allDone,hasNext,peek=false}){
     ?group+sorted.slice(lead).map(metric=>metricHtml(metric,false)).join("")+shelfFieldHtml(ex,n,"rir",vals,{ui,touched,peek})
     :["load","reps","rir"].map(id=>shelfFieldHtml(ex,n,id,vals,{ui,touched,peek})).join("");
   const count=partialCount(set);
-  const cta=count&&!editing?t("partials.cta",{n:fmt(n),full:vals.repsVal,partial:fmt(count)}):label;
+  const cta=count&&!editing?t("partials.cta",{n:fmt(n),full:vals.repsVal,partial:fmt(count)}):label,
+    ctaSpoken=count&&!editing?t("partials.cta_spoken",{n:fmt(n),spoken:partialsSpoken(vals.repsVal,count)}):label;
   const ctaHtml=count&&!editing?esc(t("partials.cta",{n:fmt(n),full:vals.repsVal,partial:"\u0000"}))
     .replace("+\u0000",partialSuffixHtml(count)):esc(cta);
   return `<div class="focus-shelf workshelf${editing?" is-editing":""}" role="region" aria-label="${esc(label)}">`+
     `<div class="shelf__fields">${fields}</div>`+
     focusPadsHtml(ex,n,ui,vals,{peek})+
     `<button type="button" class="btn btn--cta btn--noarrow saveset"${peek?dead():` data-save="${esc(key)}"`}`+
-    `${count&&!editing?` aria-label="${esc(cta)}"`:""}>${count&&!editing?`<span>${ctaHtml}</span>`:ctaHtml}</button></div>`}
+    `${count&&!editing?` aria-label="${esc(ctaSpoken)}"`:""}>${count&&!editing?`<span>${ctaHtml}</span>`:ctaHtml}</button></div>`}
 
 /* ---- Wheel picker for Load and Reps (Plan 075 phase 2W, ADR 0023 choice 8) ----
  * A second tap on the selected Load or Reps field opens a wheel in a fit sheet
@@ -12202,20 +12224,27 @@ function bindWorkout(){
     const target=draftTargetFromKey(key);if(!activeWorkoutDraft||!target)return;
     if(REPS_LEFT.includes(next)){
       const input=$(`[data-k="${key}_rir"]`);if(!input)return;
-      if(next==="0"&&shelfUi.key===key&&WorkoutDraft.canRecordPartials(draftSetAt(...setKeyParts(key)))){
-        const count=partialCount(draftSetAt(...setKeyParts(key))),pendingKey=`${key}_rir`;
-        setEffortPick(key,next,dir);
-        input.value=next;
-        const token=holdPendingField(pendingKey,next),recoveryField={key:pendingKey,
-          exerciseInstanceId:target.exerciseInstanceId,setId:target.setId,field:"rir",metricId:null};
-        let result;
-        try{
-          result=await WorkoutSession.dispatch("setNumericEffort",{exerciseInstanceId:target.exerciseInstanceId,setId:target.setId,
-            value:next,partialReps:count},{draftId:activeWorkoutDraft.draftId,pendingField:{key:pendingKey,token},recoveryField});
-        }finally{settlePendingField(pendingKey,token,{rejected:result?.status!=="applied"})}
-        if(result.status==="applied"){updateSaveMeta();showPartialPage(key,true,{entrance:true})}
-        return}
-      setEffortPick(key,next,dir);input.value=next;await input.oninput?.();return}
+      // Every numeric chip commits through the one effort-and-partials command, so a count can never outlive its zero.
+      const set=draftSetAt(...setKeyParts(key)),zeroPage=next==="0"&&shelfUi.key===key&&WorkoutDraft.canRecordPartials(set);
+      const count=zeroPage?partialCount(set):0,beforePartials=partialCount(set),pendingKey=`${key}_rir`;
+      setEffortPick(key,next,dir);
+      input.value=next;
+      const token=holdPendingField(pendingKey,next),recoveryField={key:pendingKey,
+        exerciseInstanceId:target.exerciseInstanceId,setId:target.setId,field:"rir",metricId:null};
+      let result;
+      try{
+        result=await WorkoutSession.dispatch("setNumericEffort",{exerciseInstanceId:target.exerciseInstanceId,setId:target.setId,
+          value:next,partialReps:count},{draftId:activeWorkoutDraft.draftId,pendingField:{key:pendingKey,token},recoveryField});
+      }finally{settlePendingField(pendingKey,token,{rejected:result?.status!=="applied"})}
+      if(result.status!=="applied")return;
+      updateSaveMeta();
+      if(zeroPage){showPartialPage(key,true,{entrance:true});return}
+      const live=liveShelfInput(pendingKey);
+      if(!live)return;
+      syncShelfField(live,0);
+      if(beforePartials)refreshShelf();
+      await refreshAfterCommittedEdit(live.closest(".shelf__field"));
+      return}
     const[exId,n]=setKeyParts(key),before=setStageOf(exId,n),wasUnsure=activeWorkoutDraft.exercises[exId]?.sets?.[target.setId]?.edited?.effort==="unsure";
     setEffortPick(key,next,dir);
     const pendingKey=`${key}_effort`,token=holdPendingField(pendingKey,next),recoveryField={key:pendingKey,
@@ -12361,14 +12390,14 @@ function liftPR(mine,past){
   const bestReps=Math.max(0,...past.filter(x=>sameLoad(+x.load,bestLoad)).map(x=>+x.reps));
   const bestE=Math.max(...past.map(x=>e1rm(+x.load,+x.reps)));
   const top=Math.max(...mine.map(x=>+x.load)),topRows=mine.filter(x=>sameLoad(+x.load,top));
-  const bestAtTop=topRows.reduce((a,b)=>+b.reps>+a.reps||+b.reps===+a.reps&&savedPartialWin(a,b)?b:a);
+  const bestAtTop=topRows.reduce((a,b)=>+b.reps>+a.reps||+b.reps===+a.reps&&savedPartialWin(a,b,{sameSession:true})?b:a);
   const record=(kind,row,delta)=>({kind,load:+row.load,reps:+row.reps,delta,
     ...(partialCount(row)?{partialReps:row.partialReps}:{})});
   if(top>bestLoad&&!sameLoad(top,bestLoad))return{...record("load",bestAtTop,top-bestLoad),load:top};
   if(sameLoad(top,bestLoad)&&+bestAtTop.reps>bestReps)return{...record("reps",bestAtTop,+bestAtTop.reps-bestReps),load:top};
   const best=mine.reduce((a,b)=>{
     const prior=e1rm(+a.load,+a.reps),next=e1rm(+b.load,+b.reps);
-    return next>prior||next===prior&&savedPartialWin(a,b)?b:a});
+    return next>prior||next===prior&&savedPartialWin(a,b,{sameSession:true})?b:a});
   const e=e1rm(+best.load,+best.reps);
   if(e>bestE)return record("e1rm",best,e-bestE);
   return null}
@@ -12413,7 +12442,7 @@ function summaryReadbackSets(rows){
   const perSet=row=>({load:+row.load,reps:+row.reps,...(partialCount(row)?{partialReps:row.partialReps}:{})});
   const sets=[...rows].sort((a,b)=>(+a.set||0)-(+b.set||0));
   const top=sets.reduce((a,b)=>+b.load>+a.load||
-    sameLoad(+a.load,+b.load)&&(+b.reps>+a.reps||+b.reps===+a.reps&&savedPartialWin(a,b))?b:a);
+    sameLoad(+a.load,+b.load)&&(+b.reps>+a.reps||+b.reps===+a.reps&&savedPartialWin(a,b,{sameSession:true}))?b:a);
   return{sets:sets.map(perSet),...(sets.some(partialCount)?{bestSet:perSet(top)}:{})}}
 
 function sessionOutcomeGroups(rows,prs=[]){
@@ -12783,7 +12812,7 @@ async function saveWorkoutV2(operation){
     render();
     clearSessionSummaryView();
     closeSessionSummary();
-    toast(t("toast.workout_forged",{n:rows.length,sets:tp(rows.length,"set")}));
+    {const worked=rows.filter(isWork).length;toast(t("toast.workout_forged",{n:worked,sets:tp(worked,"set")}))}
     maybeShowInstallBanner()};
   let summary;
   try{summary=buildSessionSummary({rows,prevLog,session,date,day:savedDay,startedAt});summary.animateProfile=true}
@@ -13560,7 +13589,7 @@ function historyShareSummary(sid,{week=null}={}){
     tiles:summaryTiles({strength,records:prs.length}),
     leadIndex:0,
     lead:summaryLeadCard(prs,liftGroups),
-    sets:rows.length,volume:movedTonnage(rows),prs,liftGroups,
+    sets:rows.filter(isWork).length,volume:movedTonnage(rows),prs,liftGroups,
     minutes:mins>=1&&mins<=480?mins:null,
     meso:{current:week??null}}}
 
@@ -13573,11 +13602,12 @@ function summaries(){const m=new Map();
   for(const raw of state.log){if(!isWork(raw))continue;const x=readLogRow(raw);
     if(!x.strengthComparable||!(+x.load>0&&+x.reps>0))continue;
     const convention=x.strengthConvention||"load",k=`${x.session}|${liftKey(x)}|${convention}`;
-    if(!m.has(k))m.set(k,{session:x.session,date:x.date,created:x.created,day:x.day,liftKey:liftKey(x),name:displayName(x),loads:[],reps:[],rirs:[],sets:0,perSideLoad:x.perSideLoad,convention});
-    const o=mergeLogChronology(m.get(k),x);o.loads.push(+x.load);o.reps.push(+x.reps);o.rirs.push(+x.rir);o.sets++}
-  return [...m.values()].map(o=>{let top=0,topReps=0,vol=0,best=0;
-    o.loads.forEach((ld,i)=>{const rp=o.reps[i];vol+=ld*rp;const e=e1rm(ld,rp);if(e>best)best=e;if(ld>top){top=ld;topReps=rp}});
-    return{session:o.session,date:o.date,created:o.created,day:o.day,liftKey:o.liftKey,name:o.name,top,topReps,reps:sum(o.reps),rir:avg(o.rirs),sets:o.sets,volume:vol,e1rm:best,perSideLoad:o.perSideLoad,convention:o.convention};})
+    if(!m.has(k))m.set(k,{session:x.session,date:x.date,created:x.created,day:x.day,liftKey:liftKey(x),name:displayName(x),loads:[],reps:[],partials:[],rirs:[],sets:0,perSideLoad:x.perSideLoad,convention});
+    const o=mergeLogChronology(m.get(k),x);o.loads.push(+x.load);o.reps.push(+x.reps);o.partials.push(partialCount(x));o.rirs.push(+x.rir);o.sets++}
+  return [...m.values()].map(o=>{let top=0,topReps=0,topPartial=0,vol=0,best=0;
+    o.loads.forEach((ld,i)=>{const rp=o.reps[i];vol+=ld*rp;const e=e1rm(ld,rp);if(e>best)best=e;if(ld>top){top=ld;topReps=rp;topPartial=o.partials[i]}
+      else if(ld===top&&rp===topReps&&o.partials[i]>topPartial)topPartial=o.partials[i]});
+    return{session:o.session,date:o.date,created:o.created,day:o.day,liftKey:o.liftKey,name:o.name,top,topReps,...(topPartial?{partialReps:topPartial}:{}),reps:sum(o.reps),rir:avg(o.rirs),sets:o.sets,volume:vol,e1rm:best,perSideLoad:o.perSideLoad,convention:o.convention};})
     .sort(compareLogChronology)}
 
 // @ci-domain progress
@@ -13588,7 +13618,7 @@ function strengthDashboard(){
   for(const [k,sess] of byLift){const latest=sess.at(-1),first=sess[0],best=Math.max(...sess.map(s=>s.e1rm));
     const ex=currentExerciseForLiftKey(k);
     const rec=ex?recommendation(ex):{label:"—"};
-    rows.push({key:k,exercise:latest.name,latestLoad:latest.top,latestReps:latest.topReps,best,blockDelta:latest.e1rm-first.e1rm,
+    rows.push({key:k,exercise:latest.name,latestLoad:latest.top,latestReps:latest.topReps,...(partialCount(latest)?{latestPartialReps:latest.partialReps}:{}),best,blockDelta:latest.e1rm-first.e1rm,
       prs:prN.get(k)||0,lastTrained:latest.date,signal:rec.label})}
   return rows.sort((a,b)=>a.exercise.localeCompare(b.exercise))}
 window.__repforgeStrengthDashboard=strengthDashboard;
@@ -13714,8 +13744,8 @@ function legacyStrengthTable(el){
   const rows=strengthDashboard();
   if(!rows.length){el.innerHTML=`<div class="empty">${esc(t("stats.empty.no_lifts"))}</div>`;return}
   const u=unitLabel(),fmtDelta=d=>{const n=toDisplay(d),a=Math.abs(n);const s=n>0?"+":n<0?"-":"";return s+(a?fmt(Math.round(a)):0)};
-  el.innerHTML=table(rows.map(r=>({[t("stats.table.exercise")]:liftDisplayName(r.exercise,r.key),[t("stats.table.latest")]:`${fmtLoad(r.latestLoad)}×${r.latestReps}`,[t("stats.table.best_e1rm_unit",{unit:u})]:fmt(Math.round(toDisplay(r.best))),
-    [t("stats.table.delta_block")]:fmtDelta(r.blockDelta),[t("stats.table.prs")]:r.prs,[t("stats.table.signal")]:r.signal})))}
+  el.innerHTML=table(rows.map(r=>({[t("stats.table.exercise")]:liftDisplayName(r.exercise,r.key),[t("stats.table.latest")]:`${esc(fmtLoad(r.latestLoad))}×${performedRepsHtml(r.latestReps,r.latestPartialReps||0)}`,[t("stats.table.best_e1rm_unit",{unit:u})]:fmt(Math.round(toDisplay(r.best))),
+    [t("stats.table.delta_block")]:fmtDelta(r.blockDelta),[t("stats.table.prs")]:r.prs,[t("stats.table.signal")]:r.signal})),(row,key)=>key===t("stats.table.latest")?row[key]:esc(row[key]))}
 
 // The week reads as two totals and a line (Plan 064 R3i). Every number comes
 // from the same evidence model the lists below render, so none of them disagree.
@@ -14524,7 +14554,7 @@ function renderPRTimeline(){const el=$("#prTimeline");if(!el)return;
   el.innerHTML=[...days].map(([date,list])=>`<h3 class="recday">${esc(longDate(date))}</h3><div class="sumcard">`+list.map(([group,i])=>
     `<button type="button" class="recrow prtl__row" data-prrow="${i}" aria-expanded="false">${recordRowBody(group,false)}<span class="chevron is-down" aria-hidden="true"></span></button>`+
     `<div class="evrow__detail recrow__detail" data-prdetail="${i}" hidden><p class="lede">${esc(longDate(group[0].date))}</p>`+
-      group.map(item=>{const d=prDeltaText(item);return `<p class="lede">${esc(`${prKindLabel(item.kind)} · ${fmtLoad(item.load)} ${unitLabel()} × ${item.reps}`)}${d?` · ${esc(d)}`:""}</p>`}).join("")+`</div>`).join("")+`</div>`).join("");
+      group.map(item=>{const d=prDeltaText(item);return `<p class="lede">${esc(`${prKindLabel(item.kind)} · ${fmtLoad(item.load)} ${unitLabel()} × `)}${performedRepsHtml(item.reps,partialCount(item))}${d?` · ${esc(d)}`:""}</p>`}).join("")+`</div>`).join("")+`</div>`).join("");
   $$("#prTimeline [data-prrow]").forEach(b=>b.onclick=()=>{
     const detail=$(`[data-prdetail="${b.dataset.prrow}"]`);if(!detail)return;
     const open=detail.hidden;detail.hidden=!open;b.setAttribute("aria-expanded",open?"true":"false");
@@ -14700,7 +14730,7 @@ function strengthProjection(scope="current-block"){
     current.perSideReps=liftRows.length>0&&liftRows.every(row=>row.perSideReps===true);
     const liftSessions=current.points.map(point=>{
       const source=liftRows.filter(row=>row.sessionKey===point.sessionKey);
-      const topRow=source.slice().sort((a,b)=>b.load-a.load||b.reps-a.reps)[0]||point;
+      const topRow=source.slice().sort((a,b)=>b.load-a.load||b.reps-a.reps||bestSetTie(a,b))[0]||point;
       const top=Number(topRow.load),topReps=Number(topRow.reps),volume=source.reduce((n,row)=>n+(Number.isFinite(row.tonnage)?row.tonnage:0),0);
       return{session:point.session,date:point.date,day:source[0]?.day||"",liftKey:key,
         name:source[0]?.name||currentExerciseForLiftKey(key)?.name||key,top,topReps,...(partialCount(topRow)?{partialReps:topRow.partialReps}:{}),reps:source.reduce((n,row)=>n+row.reps,0),
@@ -14730,7 +14760,7 @@ function strengthProjection(scope="current-block"){
       (row.strengthConvention??"load")===(convention??"load"));
     return current.points.map(point=>{
       const source=matching.filter(row=>row.sessionKey===point.sessionKey);
-      const top=source.slice().sort((a,b)=>b.load-a.load||b.reps-a.reps)[0]||point;
+      const top=source.slice().sort((a,b)=>b.load-a.load||b.reps-a.reps||bestSetTie(a,b))[0]||point;
       return{session:point.session,date:point.date,day:source[0]?.day||"",liftKey:key,
         name:source[0]?.name||currentExerciseForLiftKey(key)?.name||key,top:top.load,topReps:top.reps,...(partialCount(top)?{partialReps:top.partialReps}:{}),
         reps:source.reduce((n,row)=>n+row.reps,0),rir:avg(source.map(row=>row.rir).filter(value=>Number.isFinite(value))),sets:source.length,
@@ -14970,7 +15000,7 @@ const HistoryUi=window.RepForgeHistoryUi.create({
   locTag, blockContext:historyBlockContext, sessionOutcome:historySessionOutcome, openModal, closeModal, reducedMotion,
   $, $$, t, esc, cloneSnapshot, currentMovementNames, mergeLogChronology,
   compareLogChronology, isWork, liftKey, buildSessionDelta, detectPRs,
-  readLogRow, performedRepsText, performedRepsHtml, partialCount, validHistoryPartials:WorkoutDraft.validHistoryPartials,
+  readLogRow, performedRepsText, performedRepsHtml, performedRepsMarked, partialMarkup, partialsSpoken, partialCount, validHistoryPartials:WorkoutDraft.validHistoryPartials,
   displayName, exerciseDisplayName, currentNameForRow, dayLabel, canTakeFocus, parseCalendarDate,
   parseLoadDisplay, parseRepsValue, parseRirValue, clearFieldInvalid,
   toast, formatLongDate, fmtLoad, sum, kfmt, fmt, toDisplay, unitLabel,
@@ -15086,7 +15116,7 @@ function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
   const prEvents=detectPRs(state.log).filter(ev=>ev.liftKey===key).reverse();
   const loadPr=prEvents.find(e=>e.kind==="load"),e1Pr=prEvents.find(e=>e.kind==="e1rm");
   const historyHtml=sessions.length?[...sessions].reverse().slice(0,8).map(s=>{
-    const best=[...s.rows].filter(isWork).sort((a,b)=>+b.load-+a.load||+b.reps-+a.reps)[0];
+    const best=[...s.rows].filter(isWork).sort((a,b)=>+b.load-+a.load||+b.reps-+a.reps||bestSetTie(a,b))[0];
     const cmp=exRef?compareExerciseSession(exRef,s.rows):null;
     const note=s.note?`<p class="exsess__note">${esc(s.note)}</p>`:"";
     return `<div class="exsess"><div class="exsess__head"><span class="exsess__date">${esc(shortDate(s.date))}</span>`+
@@ -26743,7 +26773,7 @@ function whyPerformedText(prev,u){
   for(const x of rows){const run=runs.at(-1);if(run&&sameLoad(+run.load,+x.load))run.sets.push(x);else runs.push({load:x.load,sets:[x]})}
   const effort=isWordMode();
   return runs.map(run=>{
-    const reps=whyList(run.sets.map(x=>performedRepsText(x.reps,partialCount(x)))),load=fmtLoad(run.load);
+    const reps=whyList(run.sets.map(x=>performedRepsMarked(x.reps,partialCount(x)))),load=fmtLoad(run.load);
     if(effort)return t("why.performed_effort",{reps,load,unit:u,efforts:whyList(run.sets.map(x=>effortLabel(effortForRir(x.rir))))});
     return t("why.performed",{reps,load,unit:u,
       rirs:whyList(run.sets.map(x=>x.rir==null||x.rir===""?t("why.effort.missing"):fmt(x.rir)))})}).join(" ")}
@@ -26876,7 +26906,7 @@ function engineWhyModel(ex,rec,model,head,partial){
       :cal.state==="calibrated"?"why.calibration.calibrated":"why.calibration.uncalibrated";
     if(key)block("engine-calibration",t("why.lead.calibration"),t(key))}
   if(prev.length){model.calc.push({group:t("why.calc.last",{date:shortDate(prev[0].date)})});
-    prev.forEach((x,i)=>model.calc.push({k:t("why.calc.set",{n:i+1}),v:`${fmtLoad(x.load)} × ${performedRepsText(x.reps,partialCount(x))}`,rir:effortOrRirLabel(x.rir)}));
+    prev.forEach((x,i)=>model.calc.push({k:t("why.calc.set",{n:i+1}),v:`${fmtLoad(x.load)} × ${performedRepsMarked(x.reps,partialCount(x))}`,rir:effortOrRirLabel(x.rir)}));
     model.evidence=t("why.evidence",{n:1,date:shortDate(prev[0].date)})}
   return model}
 function whySheetModel(ex,surface="focus"){
@@ -26886,7 +26916,7 @@ function whySheetModel(ex,surface="focus"){
   const model={target:head.target,
     decision:head.inSession&&rec.label?t("why.decision_before",{label:rec.label}):rec.label,glyph,blocks:[],calc:[],evidence:""};
   const n=head.inSession&&head.set?head.set.n:1;
-  const partial=surface==="focus"?currentPartialEvidence(ex,n,rec):null;
+  const partial=surface==="focus"?currentPartialEvidence(ex,n,rec,{marked:true}):null;
   if(partial){
     if(rec.status==="manual"){
       model.blocks.push({leadKey:"partials",lead:t("why.lead.engine_anchor"),text:partial});
@@ -26908,7 +26938,7 @@ function whySheetModel(ex,surface="focus"){
     addStandingBlock(model,targetStanding(rec));return model}
   if(Array.isArray(rec.targetSets))return engineWhyModel(ex,rec,model,head,partial);
   const draft=loadDraft(),prev=last(ex).filter(x=>+x.load>0),performed=whyPerformedText(prev,u);
-  const calc=model.calc,setRows=sets=>sets.forEach((x,i)=>calc.push({k:t("why.calc.set",{n:i+1}),v:`${fmtLoad(x.load)} × ${performedRepsText(x.reps,partialCount(x))}`,rir:effortOrRirLabel(x.rir)}));
+  const calc=model.calc,setRows=sets=>sets.forEach((x,i)=>calc.push({k:t("why.calc.set",{n:i+1}),v:`${fmtLoad(x.load)} × ${performedRepsMarked(x.reps,partialCount(x))}`,rir:effortOrRirLabel(x.rir)}));
   const lastGroup=()=>{if(prev.length){calc.push({group:t("why.calc.last",{date:shortDate(prev[0].date)})});setRows(prev)}};
   const todayRow=()=>{const line=setsTargetLine(ex,rec);if(line)calc.push({sum:!head.inSession,k:t("nav.log"),v:line})};
   // Once the session has moved the target, the working ends on the set the headline speaks for; the base target above it stays labelled Today.
@@ -26929,7 +26959,7 @@ function whySheetModel(ex,surface="focus"){
     const predicted=sg.src==="session-hold"&&sg.pred!=null?t("why.set2",{pred:fmt(sg.pred),rir:fmt(sg.typ),reps:sg.reps}):"";
     block("set2",t("why.lead.set2",{n:nextSet}),[note?.text,predicted].filter(Boolean).join(" "));
     calc.push({group:t("why.session")});
-    session.forEach((x,i)=>calc.push({k:t("why.calc.set",{n:i+1}),v:`${fmtLoad(x.load)} × ${performedRepsText(x.reps,partialCount(x))}`,rir:effortOrRirLabel(x.rir)}));
+    session.forEach((x,i)=>calc.push({k:t("why.calc.set",{n:i+1}),v:`${fmtLoad(x.load)} × ${performedRepsMarked(x.reps,partialCount(x))}`,rir:effortOrRirLabel(x.rir)}));
     calc.push({k:t("why.calc.capacity"),v:t("why.calc.capacity_v",{cap:observed,load:fmtLoad(seen.load),unit:u})});
     if(predicted)calc.push({k:t("why.calc.rep_target"),v:whyRepTarget({capacity:sg.capacity,pred:sg.pred,rir:sg.typ,reps:sg.reps,min:ex.min,max:ex.max})});
     calc.push({sum:true,k:t("why.calc.set",{n:nextSet}),v:`${fmtLoad(sg.load)} ${u} × ${sg.reps}`});
@@ -26962,9 +26992,9 @@ function whySheetModel(ex,surface="focus"){
   return model}
 function whyCalcHtml(calc){
   return calc.map(c=>c.group?`<p class="whycalc__group">${esc(c.group)}</p>`
-    :c.text?`<p class="whycalc__text">${c.k?`<span class="whycalc__k">${esc(c.k)}</span> `:""}${esc(c.v)}</p>`
+    :c.text?`<p class="whycalc__text">${c.k?`<span class="whycalc__k">${esc(c.k)}</span> `:""}${partialMarkup(c.v)}</p>`
     :`<div class="whycalc__row${c.sum?" whycalc__row--sum":""}"><span class="whycalc__k">${esc(c.k)}</span>`+
-      `<span class="whycalc__v">${esc(c.v)}${c.rir?`<em>${esc(c.rir)}</em>`:""}</span>`+
+      `<span class="whycalc__v">${partialMarkup(c.v)}${c.rir?`<em>${esc(c.rir)}</em>`:""}</span>`+
       `${c.sub?`<small class="whycalc__sub">${esc(c.sub)}</small>`:""}</div>`).join("")}
 function renderWhySheet(model){
   const target=$("#whyTarget");if(target){target.innerHTML=model.target?`${verdictMarkHtml(model.glyph)}<span>${esc(model.target)}</span>`:"";target.classList.toggle("hidden",!model.target)}
@@ -26973,8 +27003,8 @@ function renderWhySheet(model){
   if(body){
     body.innerHTML=model.blocks.map(b=>
       `<div class="whysheet__block" data-lead="${esc(b.leadKey)}">${b.label?`<p class="whysheet__lab">${esc(b.label)}</p>`:""}`+
-      `${b.lead?`<b class="whysheet__lead">${esc(b.lead)}</b>`:""}<p class="whysheet__text">${esc(b.text)}</p>`+
-      (b.lines||[]).map(line=>`<p class="whysheet__text"${line.reason?` data-standing-reason="${esc(line.reason)}"`:""}>${esc(line.text)}</p>`).join("")+`</div>`).join("")+
+      `${b.lead?`<b class="whysheet__lead">${esc(b.lead)}</b>`:""}<p class="whysheet__text">${partialMarkup(b.text)}</p>`+
+      (b.lines||[]).map(line=>`<p class="whysheet__text"${line.reason?` data-standing-reason="${esc(line.reason)}"`:""}>${partialMarkup(line.text)}</p>`).join("")+`</div>`).join("")+
       (model.calc.length
         ?`<button type="button" class="whysheet__disc" data-why-calc aria-expanded="false" aria-controls="whyCalc"><span>${esc(t("why.calc"))}</span><span class="chevron is-down" aria-hidden="true"></span></button>`+
          `<div class="whycalc" id="whyCalc" aria-hidden="true">${whyCalcHtml(model.calc)}</div>`:"");

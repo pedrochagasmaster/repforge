@@ -1342,6 +1342,11 @@ console.log(`\n${results.passed} passed, ${results.failed} failed`);
   const freshDraft = fresh();
   const beforeZero = command(freshDraft, "setNumericEffort", { ...at, value: "0", partialReps: 3 });
   assert(beforeZero.result.code === "invalid-partial-effort", "positive partials require a separate explicit zero entry");
+  for (const value of ["6", "-1", "9"]) {
+    assert(command(freshDraft, "setNumericEffort", { ...at, value, partialReps: 0 }).result.code === "invalid-partial-effort",
+      `the numeric chips bound reps left to 0–5, so ${value} is refused`);
+  }
+  assert(current(apply(freshDraft, "setNumericEffort", { ...at, value: "5", partialReps: 0 })).edited.rir === "5", "5 reps left is accepted");
   const zero = select(freshDraft, 0), partial = select(zero, 3);
   assert(!Object.hasOwn(current(zero), "partialReps"), "zero is omitted");
   assert(current(Draft.parse(Draft.serialize(partial)).draft).partialReps === 3, "pending partials survive serialization");

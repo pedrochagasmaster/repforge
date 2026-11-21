@@ -207,6 +207,13 @@ if (fs.existsSync(modelPath)) {
   assert.equal(benchAllSeries.presentation, "trend");
   assert.equal(benchAllSeries.evidenceCount, strength.bench.allHistory.points);
 
+  // Two sets of one workout tie on load and full reps: the point shows the larger partial count, in either order.
+  for (const counts of [[1, 3], [3, 1]]) {
+    const tied = counts.map((partialReps, index) => ({ exerciseId: "bench", session: "tie-session", date: "2026-09-21", load: 100, reps: 6, rir: 0, partialReps, set: index + 1 }));
+    const [point] = model.buildStrengthEvidence("all-history", "bench", tied, { started: program.started }).points;
+    assert.equal(point.partialReps, 3, `the point keeps the 6+3 set when the sets arrive as ${counts.join(",")}`);
+  }
+
   const evidenceRecords = [
     { exerciseId: "bench", evidenceState: "sufficient", evidenceCount: 3, outcome: "improved" },
     { exerciseId: "squat", evidenceState: "insufficient", evidenceCount: 1, reason: "single-observation", outcome: "declined" },

@@ -1453,7 +1453,8 @@
         item = targetSet(next, command);
         if (isDomainError(item)) return item;
         const value = editableText(command.value);
-        const rir = validDecimal(value);
+        // The numeric chips offer 0 to 5 reps left.
+        const rir = validDecimal(value, { max: 5 });
         const count = command.partialReps;
         if (rir == null || !validPartialCount(count) || item.set.completion !== "pending" ||
           count > 0 && (rir !== 0 || !hasExplicitZero(item.set) || !canRecordPartials(item.set))) {

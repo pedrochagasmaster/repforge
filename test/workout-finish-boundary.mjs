@@ -550,7 +550,12 @@ async function pastZero(browser) {
     await waitForApp(page);
     await shelf.locator('[data-shelf-field="rir"]').click();
     assert.equal(await chips.getByRole("button", { name: "3 partial reps" }).getAttribute("aria-pressed"), "true");
-    await shelf.getByRole("button", { name: "Log set 1 · 6+3" }).click();
+    const effortText = await shelf.locator('[data-shelf-field="rir"]').evaluate(el => el.textContent.replace(/\s+/g, " "));
+    assert.match(effortText, /0\+3/, `the effort tile reads 0+3: ${effortText}`);
+    assert.doesNotMatch(effortText, /full/, `the tile does not call reps left "full reps": ${effortText}`);
+    const log = shelf.getByRole("button", { name: "Log set 1, 6 full reps and 3 partial reps" });
+    assert.equal((await log.innerText()).replace(/\s+/g, " ").trim(), "Log set 1 · 6+3", "the visible CTA stays compact");
+    await log.click();
     await page.getByText("+1 partial since last time. Tie broken.", { exact: true }).waitFor({ timeout: 5000 });
     const loggedRow = page.locator("#workout .exercise.is-current [data-editn='1']");
     await loggedRow.click();
@@ -574,10 +579,36 @@ async function pastZero(browser) {
     const summary = await page.evaluate(() => window.__repforgeSessionSummary.current());
     assert.deepEqual({ reps: summary.reps, volume: summary.volume, records: summary.prs.length },
       { reps: 6, volume: 630, records: 0 });
+    await page.evaluate(() => {
+      window.__fills = [];
+      const draw = CanvasRenderingContext2D.prototype.fillText;
+      CanvasRenderingContext2D.prototype.fillText = function (text, ...rest) {
+        window.__fills.push({ text: String(text), font: this.font, fill: String(this.fillStyle) });
+        return draw.call(this, text, ...rest);
+      };
+    });
+    await page.locator("#sumShare").click();
+    await page.waitForFunction(() => window.__repforgeShareSheet.state()?.file, undefined, { timeout: 15000 });
+    const fills = await page.evaluate(() => window.__fills);
+    const px = font => Number(/([\d.]+)px/.exec(font)?.[1]);
+    const suffix = fills.find(draw => draw.text === "+3"), base = fills.find(draw => /(^|\s)6$/.test(draw.text));
+    assert.ok(suffix && base, `a share card draws 6 and +3 as separate runs: ${JSON.stringify(fills.map(draw => draw.text).slice(0, 40))}`);
+    assert.ok(px(suffix.font) < px(base.font), "the partial count is drawn smaller than the full reps");
+    assert.notEqual(suffix.fill, base.fill, "the partial count is drawn in the accent colour");
+    await page.keyboard.press("Escape");
     await page.locator("#sumSee").click();
     await page.locator(".session--read").getByText("6+3", { exact: true }).waitFor();
     await page.locator("[data-history-edit]").click();
-    await page.locator('[data-ek="partialReps|0"]').fill("4");
+    const partialsField = page.locator('[data-ek="partialReps|0"]');
+    await partialsField.fill("6");
+    await page.locator("[data-edsave]").click();
+    await page.getByText("Enter a whole number of partial reps from 0 to 5.").waitFor({ timeout: 3000 });
+    assert.ok((await partialsField.evaluate(el => el.getBoundingClientRect().width)) < 120, "the partials field keeps its narrow width");
+    await partialsField.fill("4");
+    await page.locator('[data-ek="rir|0"]').fill("1");
+    assert.equal(await page.locator(".history-partials-edit").isHidden(), true, "partials are offered only while reps left is 0");
+    await page.locator('[data-ek="rir|0"]').fill("0");
+    assert.equal(await page.locator(".history-partials-edit").isVisible(), true, "entering 0 reps left shows the partials field live");
     await page.locator("[data-edsave]").click();
     await page.locator(".session--read").getByText("6+4", { exact: true }).waitFor();
     await page.evaluate(() => window.__repforgeShowSettings());
@@ -588,6 +619,24 @@ async function pastZero(browser) {
     const row = [...csv.at(-1).matchAll(/"((?:[^"]|"")*)"(?:,|$)/g)].map(match => match[1]);
     assert.deepEqual([row[columns.indexOf("load")], row[columns.indexOf("reps")], row[columns.indexOf("partial_reps")]],
       ["105", "6", "4"], "CSV keeps the full reps and corrected count separate");
+    const merged = await page.evaluate(async () => {
+      const incoming = window.__repforgeWorkoutDraft.state();
+      const row = incoming.log.find(candidate => candidate.session !== "past-zero-previous");
+      incoming.log = [{ ...row, session: "zero-import", partialReps: 0 }];
+      await mergeLog(incoming);
+      return window.__repforgeWorkoutDraft.state().log.find(candidate => candidate.session === "zero-import");
+    });
+    assert.ok(merged && !Object.hasOwn(merged, "partialReps"), "a merged import canonicalises a printed zero to omission");
+    const counted = await page.evaluate(async () => {
+      const proposal = window.__repforgeWorkoutDraft.state();
+      const base = proposal.log.find(row => row.session !== "past-zero-previous");
+      const { partialReps, ...plain } = base;
+      proposal.log.push({ ...plain, session: "warm-count", date: base.date, set: 1, warmup: true },
+        { ...plain, session: "warm-count", date: base.date, set: 2 });
+      await window.__repforgeCommitProposedState(proposal);
+      return historyShareSummary("warm-count").sets;
+    });
+    assert.equal(counted, 1, "a shared History summary counts working sets, not warm-ups");
     console.log("PASS: Past zero survives reload, correction, finish, History edit and CSV export");
   } finally {
     await context.close();

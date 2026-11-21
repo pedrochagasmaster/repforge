@@ -9802,4 +9802,7 @@ body.is-entry-editor #entryProgramName,
   color:var(--color-ink-secondary);
   font-size:var(--font-size-label)
 }
-.history-partials-edit input{width:3em}
+#history .history-partials-edit{margin-block-start:var(--space-4);flex-wrap:wrap;min-width:0}
+#history .history-partials-edit__lab{flex:1 1 8em;min-width:0;overflow-wrap:anywhere}
+#history .history-partials-edit .edrow__in{width:4.5em;flex:none;margin-inline-start:auto}
+.history-partials-edit[hidden]{display:none}

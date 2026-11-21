@@ -1051,5 +1051,10 @@ const withoutPartials = [priorPartial, morePartials].map(history => ({
 assert.deepEqual(recommend(prescription(), [priorPartial, {
   ...morePartials, sets: [{ ...performedSet({ loadKg: 20, reps: 8, rir: 2 }), warmup: true }, ...morePartials.sets],
 }]), recommend(prescription(), withoutPartials));
+for (const extra of [{ origin: "suggested-warmup" }, { work: false }, { origin: "ramp" }]) {
+  assert.deepEqual(recommend(prescription(), [priorPartial, {
+    ...morePartials, sets: [{ ...performedSet({ loadKg: 20, reps: 8, rir: 2 }), ...extra }, ...morePartials.sets],
+  }]), recommend(prescription(), [priorPartial, morePartials]), `a set marked ${JSON.stringify(extra)} never enters the evidence`);
+}
 assert.deepEqual(recommend(prescription(), [priorPartial], morePartials.sets),
   recommend(prescription(), withoutPartials.slice(0, 1), withoutPartials[1].sets));

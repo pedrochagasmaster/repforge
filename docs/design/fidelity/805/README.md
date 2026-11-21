@@ -42,6 +42,19 @@ under reduced motion.
   including its fixed seventh-rep and stalled statements. The production
   sheet reaches a different section at the bottom of the same viewport.
 
+- Production draws the `+n` as a smaller, accent-tinted run in the Why
+  sheet's "What you showed" lines, as it does in the evidence line and the
+  ledger. The prototype's Why prints plain text there.
+- The effort tile reads `0+3` as plain text plus a decorative suffix. Its
+  spoken name says "3 partial reps" and does not call reps left "full reps".
+  The CTA's spoken name is "Log set 1, 6 full reps and 3 partial reps"
+  while its visible text stays "Log set 1 · 6+3".
+- Existing behaviour, unchanged by this slice: the blank Set column header at
+  200% text, the empty band between the last visible set and "Next:", and the
+  Progress strength table's last column sitting at the card edge. The
+  unchanged `workout/focus` and `progress/strength-comparison` frames show
+  the same.
+
 The History, Progress and finish catalog frames use the existing readers
 as their nearest references. The prototype has no separate screens for
 those surfaces.
