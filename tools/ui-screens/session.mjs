@@ -130,6 +130,11 @@ export async function openPage(browser, manifest, capture, state, options = {}) 
     serviceWorkers: "block",
     ...(options.userAgent ? { userAgent: options.userAgent } : {}),
   });
+  // A browser that did not come through launchChromium (test/dumbbell-ladder.mjs) never saw the default: every catalog state except
+  // the Prelude ones starts with suggested warm-ups off, whoever launched the browser.
+  if (!options.warmups && !(capture.flow === "workout" && String(capture.screen).startsWith("prelude"))) {
+    await context.addInitScript(() => { globalThis.__repforgePreludeOff = true; });
+  }
   // A full run opens a couple of hundred contexts back to back. Playwright's
   // 30s default is comfortable for one capture and marginal for the last of
   // 200, so give every action real headroom rather than reading contention as

@@ -2592,7 +2592,14 @@
         "workout/past-zero",
         "workout/past-zero-selected",
         "workout/past-zero-ledger",
-        "workout/past-zero-why"
+        "workout/past-zero-why",
+        "workout/prelude",
+        "workout/prelude-learned",
+        "workout/prelude-rest",
+        "workout/prelude-summary",
+        "workout/prelude-suppressed",
+        "workout/prelude-warm",
+        "workout/prelude-tie"
       ],
       "neverDisabledReason": "A note can always be written for the exercise in progress."
     },
@@ -4323,7 +4330,14 @@
         "workout/past-zero",
         "workout/past-zero-selected",
         "workout/past-zero-ledger",
-        "workout/past-zero-why"
+        "workout/past-zero-why",
+        "workout/prelude",
+        "workout/prelude-learned",
+        "workout/prelude-rest",
+        "workout/prelude-summary",
+        "workout/prelude-suppressed",
+        "workout/prelude-warm",
+        "workout/prelude-tie"
       ]
     },
     {
@@ -5473,7 +5487,10 @@
         "workout/stage-tip",
         "workout/last-rep-slow",
         "workout/past-zero-ledger",
-        "workout/past-zero-why"
+        "workout/past-zero-why",
+        "workout/prelude-rest",
+        "workout/prelude-summary",
+        "workout/prelude-tie"
       ],
       "neverDisabledReason": "The tab exists only while a rest runs or has just run out, and it always opens the sheet."
     },
@@ -6288,7 +6305,14 @@
         "workout/past-zero",
         "workout/past-zero-selected",
         "workout/past-zero-ledger",
-        "workout/past-zero-why"
+        "workout/past-zero-why",
+        "workout/prelude",
+        "workout/prelude-learned",
+        "workout/prelude-rest",
+        "workout/prelude-summary",
+        "workout/prelude-suppressed",
+        "workout/prelude-warm",
+        "workout/prelude-tie"
       ]
     },
     {
@@ -7175,7 +7199,9 @@
       "catalogStates": [
         "onboarding-import/freeform-stage3",
         "workout/past-zero-ledger",
-        "workout/past-zero-why"
+        "workout/past-zero-why",
+        "workout/prelude-summary",
+        "workout/prelude-tie"
       ]
     },
     {
@@ -7570,7 +7596,14 @@
         "workout/past-zero",
         "workout/past-zero-selected",
         "workout/past-zero-ledger",
-        "workout/past-zero-why"
+        "workout/past-zero-why",
+        "workout/prelude",
+        "workout/prelude-learned",
+        "workout/prelude-rest",
+        "workout/prelude-summary",
+        "workout/prelude-suppressed",
+        "workout/prelude-warm",
+        "workout/prelude-tie"
       ]
     },
     {
@@ -7641,7 +7674,11 @@
         "workout/past-zero",
         "workout/past-zero-selected",
         "workout/past-zero-ledger",
-        "workout/past-zero-why"
+        "workout/past-zero-why",
+        "workout/prelude",
+        "workout/prelude-rest",
+        "workout/prelude-summary",
+        "workout/prelude-tie"
       ],
       "progressScopes": {
         "workout-exercise-order": "exercise-set"
@@ -7814,7 +7851,11 @@
         "workout/past-zero-selected",
         "workout/past-zero-ledger",
         "workout/past-zero-why",
-        "history/past-zero"
+        "history/past-zero",
+        "workout/prelude",
+        "workout/prelude-rest",
+        "workout/prelude-summary",
+        "workout/prelude-tie"
       ]
     },
     {
@@ -8078,7 +8119,14 @@
         "workout/past-zero",
         "workout/past-zero-selected",
         "workout/past-zero-ledger",
-        "workout/past-zero-why"
+        "workout/past-zero-why",
+        "workout/prelude",
+        "workout/prelude-learned",
+        "workout/prelude-rest",
+        "workout/prelude-summary",
+        "workout/prelude-suppressed",
+        "workout/prelude-warm",
+        "workout/prelude-tie"
       ],
       "neverDisabledReason": "The header draws the name only while the workout has an exercise to open, and opening it is always available."
     },
@@ -8114,7 +8162,8 @@
         "workout/stage-tip",
         "workout/last-rep-slow",
         "workout/past-zero-ledger",
-        "workout/past-zero-why"
+        "workout/past-zero-why",
+        "workout/prelude-tie"
       ]
     },
     {
@@ -8165,7 +8214,11 @@
         "workout/past-zero",
         "workout/past-zero-selected",
         "workout/past-zero-ledger",
-        "workout/past-zero-why"
+        "workout/past-zero-why",
+        "workout/prelude",
+        "workout/prelude-rest",
+        "workout/prelude-summary",
+        "workout/prelude-tie"
       ]
     },
     {
@@ -9002,7 +9055,12 @@
         "workout/past-zero",
         "workout/past-zero-selected",
         "workout/past-zero-ledger",
-        "workout/past-zero-why"
+        "workout/past-zero-why",
+        "workout/prelude",
+        "workout/prelude-learned",
+        "workout/prelude-rest",
+        "workout/prelude-summary",
+        "workout/prelude-tie"
       ]
     },
     {
@@ -9084,7 +9142,8 @@
         "workout/past-zero",
         "workout/past-zero-selected",
         "workout/past-zero-ledger",
-        "workout/past-zero-why"
+        "workout/past-zero-why",
+        "workout/prelude-tie"
       ]
     },
     {
@@ -9139,7 +9198,13 @@
         "workout/past-zero",
         "workout/past-zero-selected",
         "workout/past-zero-ledger",
-        "workout/past-zero-why"
+        "workout/past-zero-why",
+        "workout/prelude",
+        "workout/prelude-learned",
+        "workout/prelude-rest",
+        "workout/prelude-summary",
+        "workout/prelude-suppressed",
+        "workout/prelude-tie"
       ]
     },
     {
@@ -9765,7 +9830,9 @@
         "workout/past-zero-ledger",
         "workout/past-zero-why",
         "history/past-zero",
-        "session/past-zero"
+        "session/past-zero",
+        "workout/prelude-summary",
+        "workout/prelude-tie"
       ]
     },
     {
@@ -9951,7 +10018,11 @@
         "workout/past-zero-selected",
         "workout/past-zero-ledger",
         "workout/past-zero-why",
-        "history/past-zero"
+        "history/past-zero",
+        "workout/prelude",
+        "workout/prelude-rest",
+        "workout/prelude-summary",
+        "workout/prelude-tie"
       ]
     },
     {
@@ -10039,7 +10110,9 @@
         "workout/past-zero",
         "workout/past-zero-selected",
         "workout/past-zero-ledger",
-        "workout/past-zero-why"
+        "workout/past-zero-why",
+        "workout/prelude-summary",
+        "workout/prelude-tie"
       ]
     },
     {
@@ -10114,7 +10187,11 @@
         "workout/past-zero",
         "workout/past-zero-selected",
         "workout/past-zero-ledger",
-        "workout/past-zero-why"
+        "workout/past-zero-why",
+        "workout/prelude",
+        "workout/prelude-rest",
+        "workout/prelude-summary",
+        "workout/prelude-tie"
       ]
     },
     {
@@ -10175,7 +10252,12 @@
         "workout/past-zero",
         "workout/past-zero-selected",
         "workout/past-zero-ledger",
-        "workout/past-zero-why"
+        "workout/past-zero-why",
+        "workout/prelude",
+        "workout/prelude-learned",
+        "workout/prelude-rest",
+        "workout/prelude-summary",
+        "workout/prelude-tie"
       ]
     },
     {
@@ -10232,7 +10314,9 @@
         "workout/past-zero",
         "workout/past-zero-selected",
         "workout/past-zero-ledger",
-        "workout/past-zero-why"
+        "workout/past-zero-why",
+        "workout/prelude-summary",
+        "workout/prelude-tie"
       ],
       "neverDisabledReason": "The way to change how effort is logged stays reachable whenever the shelf is."
     },
@@ -10426,7 +10510,8 @@
         "workout/past-zero",
         "workout/past-zero-selected",
         "workout/past-zero-ledger",
-        "workout/past-zero-why"
+        "workout/past-zero-why",
+        "workout/prelude-tie"
       ]
     },
     {
@@ -10481,7 +10566,12 @@
         "workout/past-zero",
         "workout/past-zero-selected",
         "workout/past-zero-ledger",
-        "workout/past-zero-why"
+        "workout/past-zero-why",
+        "workout/prelude",
+        "workout/prelude-learned",
+        "workout/prelude-rest",
+        "workout/prelude-summary",
+        "workout/prelude-tie"
       ]
     },
     {
@@ -10536,7 +10626,14 @@
         "workout/past-zero",
         "workout/past-zero-selected",
         "workout/past-zero-ledger",
-        "workout/past-zero-why"
+        "workout/past-zero-why",
+        "workout/prelude",
+        "workout/prelude-learned",
+        "workout/prelude-rest",
+        "workout/prelude-summary",
+        "workout/prelude-suppressed",
+        "workout/prelude-warm",
+        "workout/prelude-tie"
       ]
     },
     {
@@ -10591,7 +10688,8 @@
         "workout/past-zero",
         "workout/past-zero-selected",
         "workout/past-zero-ledger",
-        "workout/past-zero-why"
+        "workout/past-zero-why",
+        "workout/prelude-tie"
       ]
     },
     {
@@ -13735,7 +13833,11 @@
         "workout/past-zero",
         "workout/past-zero-selected",
         "workout/past-zero-ledger",
-        "workout/past-zero-why"
+        "workout/past-zero-why",
+        "workout/prelude",
+        "workout/prelude-rest",
+        "workout/prelude-summary",
+        "workout/prelude-tie"
       ]
     },
     {
@@ -15981,6 +16083,73 @@
       "progressScopes": {
         "current-week-muscle-sets": "week"
       }
+    },
+    {
+      "id": "fx-rail-dot",
+      "selector": ".fx-rail__dot",
+      "roles": {
+        "elevation": "flat"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "A step on the warm-up rail. Its words carry the meaning (done, now, upcoming, working load), so the dot is decorative.",
+      "owner": "plan-085",
+      "catalogStates": [
+        "workout/prelude",
+        "workout/prelude-rest",
+        "workout/prelude-learned",
+        "workout/prelude-warm",
+        "workout/prelude-why"
+      ]
+    },
+    {
+      "id": "fx-cue-skip",
+      "selector": ".fx-cue__skip",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Skips the suggested warm-ups for this exercise; the lifter can still log their own.",
+      "owner": "plan-085",
+      "catalogStates": [
+        "workout/prelude",
+        "workout/prelude-rest",
+        "workout/prelude-learned",
+        "workout/prelude-warm",
+        "workout/prelude-why"
+      ]
+    },
+    {
+      "id": "fx-prelude-none-link",
+      "selector": ".fx-prelude-none .text-link",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Opens why no warm-up is suggested, or adds one of the lifter's own.",
+      "owner": "plan-085",
+      "catalogStates": [
+        "workout/prelude-suppressed"
+      ]
     }
   ],
   "contextualVariants": [
@@ -16123,7 +16292,8 @@
         "workout/past-zero",
         "workout/past-zero-selected",
         "workout/past-zero-ledger",
-        "workout/past-zero-why"
+        "workout/past-zero-why",
+        "workout/prelude-tie"
       ]
     },
     {
@@ -16343,7 +16513,11 @@
         "workout/past-zero",
         "workout/past-zero-selected",
         "workout/past-zero-ledger",
-        "workout/past-zero-why"
+        "workout/past-zero-why",
+        "workout/prelude",
+        "workout/prelude-rest",
+        "workout/prelude-summary",
+        "workout/prelude-tie"
       ]
     },
     {
@@ -16372,7 +16546,11 @@
         "workout/past-zero",
         "workout/past-zero-selected",
         "workout/past-zero-ledger",
-        "workout/past-zero-why"
+        "workout/past-zero-why",
+        "workout/prelude",
+        "workout/prelude-rest",
+        "workout/prelude-summary",
+        "workout/prelude-tie"
       ]
     }
   ],
@@ -16490,7 +16668,10 @@
         "workout/stage-tip",
         "workout/last-rep-slow",
         "workout/past-zero-ledger",
-        "workout/past-zero-why"
+        "workout/past-zero-why",
+        "workout/prelude-rest",
+        "workout/prelude-summary",
+        "workout/prelude-tie"
       ]
     },
     {
@@ -16524,7 +16705,10 @@
         "workout/stage-tip",
         "workout/last-rep-slow",
         "workout/past-zero-ledger",
-        "workout/past-zero-why"
+        "workout/past-zero-why",
+        "workout/prelude-rest",
+        "workout/prelude-summary",
+        "workout/prelude-tie"
       ]
     },
     {
@@ -16565,7 +16749,11 @@
         "workout/past-zero",
         "workout/past-zero-selected",
         "workout/past-zero-ledger",
-        "workout/past-zero-why"
+        "workout/past-zero-why",
+        "workout/prelude",
+        "workout/prelude-rest",
+        "workout/prelude-summary",
+        "workout/prelude-tie"
       ],
       "cssLiterals": [
         {
