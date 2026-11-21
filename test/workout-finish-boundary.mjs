@@ -499,6 +499,7 @@ async function pastZero(browser) {
   const { context, page } = await freshWorkout(browser, { rirMode: "numeric", effortScale: "reps" });
   try {
     const shelf = page.locator("#workout .exercise.is-current:not(.is-peek) .focus-shelf");
+    const setupBefore = await page.evaluate(() => buildSharedSetupPayload());
     const [target] = await draftTargets(page);
     await page.evaluate(async ({ target, weight, reps }) => {
       for (const [metricId, value] of [[weight, "105"], [reps, "6"]]) {
@@ -528,7 +529,22 @@ async function pastZero(browser) {
     await shelf.locator('[data-shelf-field="rir"]').click();
     await shelf.getByRole("button", { name: "0", exact: true }).click();
     const chips = shelf.getByRole("group", { name: "Partial reps after 0 reps left" });
+    await chips.waitFor();
+    assert.equal(await chips.evaluate(el => getComputedStyle(el).animationDuration), "0.24s");
+    assert.equal(await chips.locator("button:focus").getAttribute("aria-pressed"), "true");
     await chips.getByRole("button", { name: "3 partial reps" }).click({ timeout: 3000 });
+    await shelf.locator('[data-shelf-field="rir"]').click();
+    await shelf.getByRole("group", { name: "Reps left", exact: true }).waitFor();
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await shelf.locator('[data-shelf-field="rir"]').click();
+    assert.equal(await chips.evaluate(el => getComputedStyle(el).animationName), "none");
+    assert.equal(await chips.getByRole("button", { name: "3 partial reps" }).getAttribute("aria-pressed"), "true");
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await chips.getByRole("button", { name: "Zero partial reps, back to Reps left" }).click();
+    const zero = shelf.getByRole("group", { name: "Reps left", exact: true }).getByRole("button", { name: "0", exact: true });
+    assert.equal(await zero.getAttribute("aria-pressed"), "true");
+    await zero.click();
+    await chips.getByRole("button", { name: "3 partial reps" }).click();
     await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForApp(page);
@@ -553,6 +569,8 @@ async function pastZero(browser) {
     const saved = await page.evaluate(() => window.__repforgeWorkoutDraft.state().log.filter(row => row.session !== "past-zero-previous"));
     assert.deepEqual(saved.map(({ load, reps, rir, partialReps }) => ({ load, reps, rir, partialReps })),
       [{ load: 105, reps: 6, rir: 0, partialReps: 3 }]);
+    assert.deepEqual(await page.evaluate(() => buildSharedSetupPayload()), setupBefore,
+      "performed partials leave the canonical v4/v5 setup encoder input unchanged");
     const summary = await page.evaluate(() => window.__repforgeSessionSummary.current());
     assert.deepEqual({ reps: summary.reps, volume: summary.volume, records: summary.prs.length },
       { reps: 6, volume: 630, records: 0 });

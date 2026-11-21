@@ -3130,7 +3130,7 @@ function noteCommittedWorkingSets(draft){
   if(countedWorkingSets.draftId!==draft.draftId)countedWorkingSets={draftId:draft.draftId,keys:new Set()};
   for(const [exerciseId,exercise] of Object.entries(draft.exercises||{}))
     for(const [setId,set] of Object.entries(exercise?.sets||{}))
-      if(set.role!=="warmup"&&set.completion!=="pending")countedWorkingSets.keys.add(`${exerciseId}\u0000${setId}`)}
+      if((set.correction||set).role!=="warmup"&&(set.correction||set).completion!=="pending")countedWorkingSets.keys.add(`${exerciseId}\u0000${setId}`)}
 /* A completed set keeps what it was performed as after an uncommit, so a
    draft that held a working set still says so across a reload. */
 function draftEverHeldWorkingSet(draft){
@@ -10508,22 +10508,27 @@ function focusPartialComparison(rec,index,current=null){
   const inputs=rec?.progressionInputs;
   return inputs&&rec.prescription?window.RepForgeProgression?.partialRepComparison?.(
     rec.prescription,inputs.history,current,index,inputs.loadingContext):null}
-function currentPartialEvidence(ex,n,rec){
+function currentPartialEvidence(ex,n,rec,{markup=false}={}){
   const draft=activeWorkoutDraft?.exercises?.[ex.id],inputs=rec.progressionInputs;
   if(!draft||!inputs)return null;
   const working=draft.setOrder.map(id=>draft.sets[id]).filter(set=>set.origin!=="ramp");
   const last=working.map((set,index)=>({set,index})).filter(({set})=>set.completion!=="pending"&&set.role==="working")
     .sort((a,b)=>String(a.set.completion.completedAt).localeCompare(String(b.set.completion.completedAt))).at(-1);
   const current=inputs.currentSession.find(set=>set.setIndex===last?.index);
+  const evidence=(key,n,kg,full,count,extra={})=>{
+    const load=kg==null?"":`${fmtLoad(kg)} × `,vars={...extra,n:fmt(n)};
+    return markup?evidenceSay(key,{...Object.fromEntries(Object.entries(vars).map(([key,value])=>[key,esc(value)])),
+      set:`<span class="fx-cue__fig">${esc(load)}${performedRepsHtml(full,count)}</span>`})
+      :t(key,{...vars,set:load+performedRepsText(full,count)})};
   if(current?.partialReps){
     const tie=focusPartialComparison(rec,last.index,current);
-    const set=`${fmtLoad(tie?.current.displayLoadKg??metricFieldValue(last.set,"load"))} × `+
-      performedRepsText(last.set.programmed.metrics?metricFieldValue(last.set,"reps"):last.set.edited.reps,current.partialReps);
-    return tie?.status==="win"?t("partials.after",{n:last.set.ordinal,set,more:partialOptionLabel(tie.difference)})
-      :t("partials.saved",{n:last.set.ordinal,set})}
+    const load=tie?.current.displayLoadKg??metricFieldValue(last.set,"load");
+    const full=last.set.programmed.metrics?metricFieldValue(last.set,"reps"):last.set.edited.reps;
+    return evidence(tie?.status==="win"?"partials.after":"partials.saved",last.set.ordinal,load,full,current.partialReps,
+      tie?.status==="win"?{more:partialOptionLabel(tie.difference)}:{})}
   const index=working.findIndex(set=>set.ordinal===n),previous=focusPartialComparison(rec,index);
-  return previous?.partialReps&&previous.rir===0?t("partials.before",{n,
-    set:`${fmtLoad(previous.displayLoadKg)} × ${performedRepsText(previous.reps,previous.partialReps)}`}):null}
+  return previous?.partialReps&&previous.rir===0
+    ?evidence("partials.before",n,previous.displayLoadKg,previous.reps,previous.partialReps):null}
 
 function focusEvidenceText(ex,n,r,cue){
   if(cue.kind==="edit")return"";
@@ -10532,8 +10537,8 @@ function focusEvidenceText(ex,n,r,cue){
   const effort=isWordMode(),mono=evidenceFig,plain=v=>esc(v),say=evidenceSay;
   if(cue.kind==="planned")return esc(t("focus.evidence.planned"));
   if(cue.kind==="maxset")return esc(t("maxset.fail_rule"));
-  const partial=currentPartialEvidence(ex,n,r);
-  if(partial)return esc(partial);
+  const partial=currentPartialEvidence(ex,n,r,{markup:true});
+  if(partial)return partial;
   if(cue.kind!=="now"){
     const key=focusNoSuggestionKey(ex,r,n,cue.kind);
     return say(`focus.evidence.none_${key}`,{what:esc(t(effort?"focus.evidence.what_effort":"focus.evidence.what_rir")),
@@ -12100,17 +12105,18 @@ function bindWorkout(){
   $w(".term").forEach(b=>b.onclick=e=>{e.stopPropagation();glossaryPopover(b.dataset.term,b)});
   $w("[data-why]").forEach(b=>b.onclick=e=>{e.stopPropagation();openWhySheet(b.dataset.why,b)});
   $w(".saveset").forEach(b=>b.onclick=async()=>{const key=b.dataset.save,target=draftTargetFromKey(key);
-    if(!activeWorkoutDraft||!target)return;
+    const draftId=activeWorkoutDraft?.draftId;
+    if(!draftId||!target)return;
     await WorkoutSession.flush();
-    const set=activeWorkoutDraft?.exercises?.[target.exerciseInstanceId]?.sets?.[target.setId];
-    if(!b.isConnected||!set)return;
+    if(activeWorkoutDraft?.draftId!==draftId)return;
+    const set=activeWorkoutDraft.exercises[target.exerciseInstanceId]?.sets[target.setId];
+    if(!set||set.completion!=="pending")return;
     const base=prog.find(target.exerciseInstanceId),shown=base?sessionExercise(base):null;
-    if(shown&&set.completion==="pending"&&!focusEdit&&await saveRampEasy(shown,target.ordinal,recommendation(shown)))return;
+    if(shown&&!focusEdit&&await saveRampEasy(shown,target.ordinal,recommendation(shown)))return;
     const editing=!!(focusEdit&&`${focusEdit.exId}_${focusEdit.n}`===key);
-    const type=set.completion==="pending"?"completeSet":"uncommitSet";
     // A set showing values carried from the set above (lastSetCarry) logs those values, not what lies under them.
     let prefill=null;
-    if(type==="completeSet"){
+    {
       const base=prog.find(target.exerciseInstanceId),ex=base?sessionExercise(base):null,r=ex?recommendation(ex):null;
       const carry=ex?lastSetCarry(target.exerciseInstanceId,target.ordinal,r):null;
       if(carry){
@@ -12130,13 +12136,13 @@ function bindWorkout(){
         const vals=setFieldVals(ex,target.ordinal,r,hydrateWorkoutDraft(),last(ex));
         const shown=field==="effort"?vals.effortVal:vals.numericEffort.prefill;
         if(shown)prefill={field,value:shown}}}
-    const refreshReservation=type==="completeSet"?reserveDraftRefresh():null;
+    const refreshReservation=reserveDraftRefresh();
     let refreshStarted=false;
     try{
-      const opening=type==="completeSet"&&shown?focusRamp(shown,target.ordinal,recommendation(shown)):null;
+      const opening=shown?focusRamp(shown,target.ordinal,recommendation(shown)):null;
       const startingLoad=opening&&(!set.startingLoad||set.startingLoad.basis==="typed")
         ?{...opening.record,basis:"typed",openingKg:Number(metricFieldValue(set,"load"))}:null;
-      const result=await WorkoutSession.dispatch(type,{exerciseInstanceId:target.exerciseInstanceId,setId:target.setId,
+      const result=await WorkoutSession.dispatch("completeSet",{exerciseInstanceId:target.exerciseInstanceId,setId:target.setId,expectedPending:true,
         ...(prefill?{prefill}:{}),...(startingLoad?{startingLoad}:{})});
       if(result.status==="domain-error"){applyDraftIssue(result.error?.issues);return}
       if(result.status!=="applied")return;
@@ -12160,7 +12166,7 @@ function bindWorkout(){
       renderWorkout();
       // The action's own button is rebuilt: a corrected set returns to its row, a logged one hands on to the next set.
       if(nowDone)focusWorkoutHandoff(editing?"row":"next",{exId:target.exerciseInstanceId,n:target.ordinal});
-      if(tie?.status==="win")toast(t(tie.difference===1?"partials.tie.one":"partials.tie.many",{n:fmt(tie.difference)}));
+      if(tie?.status==="win")toast(t(tie.difference===1?"partials.tie.one":"partials.tie.many",{n:fmt(tie.difference)}),{placement:"top"});
       // A logged test set's result sits under its row: bring it into the window (Plan 077 PR 3).
       if(nowDone&&!editing)focusCard()?.querySelector(".ledgerline__result")?.scrollIntoView({block:"nearest"});
     }finally{if(refreshReservation&&!refreshStarted)refreshReservation.cancel()}});
@@ -12197,8 +12203,16 @@ function bindWorkout(){
     if(REPS_LEFT.includes(next)){
       const input=$(`[data-k="${key}_rir"]`);if(!input)return;
       if(next==="0"&&shelfUi.key===key&&WorkoutDraft.canRecordPartials(draftSetAt(...setKeyParts(key)))){
-        const result=await WorkoutSession.dispatch("setNumericEffort",{exerciseInstanceId:target.exerciseInstanceId,setId:target.setId,
-          value:"0",partialReps:partialCount(draftSetAt(...setKeyParts(key)))},{draftId:activeWorkoutDraft.draftId});
+        const count=partialCount(draftSetAt(...setKeyParts(key))),pendingKey=`${key}_rir`;
+        setEffortPick(key,next,dir);
+        input.value=next;
+        const token=holdPendingField(pendingKey,next),recoveryField={key:pendingKey,
+          exerciseInstanceId:target.exerciseInstanceId,setId:target.setId,field:"rir",metricId:null};
+        let result;
+        try{
+          result=await WorkoutSession.dispatch("setNumericEffort",{exerciseInstanceId:target.exerciseInstanceId,setId:target.setId,
+            value:next,partialReps:count},{draftId:activeWorkoutDraft.draftId,pendingField:{key:pendingKey,token},recoveryField});
+        }finally{settlePendingField(pendingKey,token,{rejected:result?.status!=="applied"})}
         if(result.status==="applied"){updateSaveMeta();showPartialPage(key,true,{entrance:true})}
         return}
       setEffortPick(key,next,dir);input.value=next;await input.oninput?.();return}
@@ -12346,16 +12360,17 @@ function liftPR(mine,past){
   const bestLoad=Math.max(...past.map(x=>+x.load));
   const bestReps=Math.max(0,...past.filter(x=>sameLoad(+x.load,bestLoad)).map(x=>+x.reps));
   const bestE=Math.max(...past.map(x=>e1rm(+x.load,+x.reps)));
-  const top=Math.max(...mine.map(x=>+x.load));
-  if(top>bestLoad&&!sameLoad(top,bestLoad)){
-    const row=mine.filter(x=>sameLoad(+x.load,top)).sort((a,b)=>+b.reps-+a.reps)[0];
-    return{kind:"load",load:top,reps:+row.reps,delta:top-bestLoad}}
-  if(sameLoad(top,bestLoad)){
-    const reps=Math.max(...mine.filter(x=>sameLoad(+x.load,top)).map(x=>+x.reps));
-    if(reps>bestReps)return{kind:"reps",load:top,reps,delta:reps-bestReps}}
-  const best=mine.reduce((a,b)=>e1rm(+b.load,+b.reps)>e1rm(+a.load,+a.reps)?b:a);
+  const top=Math.max(...mine.map(x=>+x.load)),topRows=mine.filter(x=>sameLoad(+x.load,top));
+  const bestAtTop=topRows.reduce((a,b)=>+b.reps>+a.reps||+b.reps===+a.reps&&savedPartialWin(a,b)?b:a);
+  const record=(kind,row,delta)=>({kind,load:+row.load,reps:+row.reps,delta,
+    ...(partialCount(row)?{partialReps:row.partialReps}:{})});
+  if(top>bestLoad&&!sameLoad(top,bestLoad))return{...record("load",bestAtTop,top-bestLoad),load:top};
+  if(sameLoad(top,bestLoad)&&+bestAtTop.reps>bestReps)return{...record("reps",bestAtTop,+bestAtTop.reps-bestReps),load:top};
+  const best=mine.reduce((a,b)=>{
+    const prior=e1rm(+a.load,+a.reps),next=e1rm(+b.load,+b.reps);
+    return next>prior||next===prior&&savedPartialWin(a,b)?b:a});
   const e=e1rm(+best.load,+best.reps);
-  if(e>bestE)return{kind:"e1rm",load:+best.load,reps:+best.reps,delta:e-bestE};
+  if(e>bestE)return record("e1rm",best,e-bestE);
   return null}
 
 /** One record line per lift that set one, strongest claim first. */
@@ -12394,6 +12409,13 @@ function sessionMuscleWork(rows){
 /** What a set of saved rows says about each lift it touched: the canonical outcome state (read from the evidence
  *  projection, never derived here), the sets performed, the record it set when `prs` carries one, and the engine's
  *  next target. The session summary and Today's finished day both read their lift groups from here. */
+function summaryReadbackSets(rows){
+  const perSet=row=>({load:+row.load,reps:+row.reps,...(partialCount(row)?{partialReps:row.partialReps}:{})});
+  const sets=[...rows].sort((a,b)=>(+a.set||0)-(+b.set||0));
+  const top=sets.reduce((a,b)=>+b.load>+a.load||
+    sameLoad(+a.load,+b.load)&&(+b.reps>+a.reps||+b.reps===+a.reps&&savedPartialWin(a,b))?b:a);
+  return{sets:sets.map(perSet),...(sets.some(partialCount)?{bestSet:perSet(top)}:{})}}
+
 function sessionOutcomeGroups(rows,prs=[]){
   const work=performedWorkingRows(rows);
   // The session is already durable when this runs. Read the single canonical
@@ -12427,8 +12449,7 @@ function sessionOutcomeGroups(rows,prs=[]){
     // The session the lift was last logged in: the one its outcome word describes when a day holds two.
     const latest=group.rows.reduce((a,b)=>compareLogChronology(a,b)<=0?b:a);
     return{liftKey:group.liftKey,exerciseId:slot?.id??null,name:group.name,session:latest.session??null,
-      sets:[...group.rows].sort((a,b)=>(+a.set||0)-(+b.set||0)).map(row=>({load:+row.load,reps:+row.reps,
-        ...(partialCount(row)?{partialReps:row.partialReps}:{})})),
+      ...summaryReadbackSets(group.rows),
       state:item?.kind==="outcome"?{kind:"outcome",outcome:item.outcome}:item?.kind==="baseline"?{kind:"baseline"}:{kind:"insufficient",reason:item?.reason??null},
       pr:prs.find(entry=>entry.liftKey===group.liftKey)||null,
       next:line?{glyph:rxVerdict(rec),line}:null}});
@@ -12465,7 +12486,7 @@ function summaryLeadCard(prs,liftGroups,leadIndex=0){
   if(pr)return{kind:"record",name:pr.name,liftKey:pr.liftKey,load:pr.load,reps:pr.reps,...(partialCount(pr)?{partialReps:pr.partialReps}:{}),pr};
   const lift=liftGroups.find(group=>group.state.kind==="outcome"&&group.state.outcome==="improved");
   if(!lift)return null;
-  const top=lift.sets.reduce((a,b)=>b.load>a.load||(sameLoad(b.load,a.load)&&b.reps>a.reps)?b:a);
+  const top=lift.bestSet||lift.sets.reduce((a,b)=>b.load>a.load||(sameLoad(b.load,a.load)&&b.reps>a.reps)?b:a);
   return{kind:"improved",name:lift.name,liftKey:lift.liftKey,load:top.load,reps:top.reps,...(partialCount(top)?{partialReps:top.partialReps}:{}),pr:null}}
 
 function sessionFinding(rows,prevLog,date){
@@ -13156,7 +13177,7 @@ function shareCardModel(s){
     stats:pool.slice(0,4),
     row:[...plain,...pool.filter(stat=>!plain.includes(stat))].slice(0,3),
     lifts:s.liftGroups.map(group=>{
-      const top=group.sets.reduce((a,b)=>+b.load>+a.load||(sameLoad(b.load,a.load)&&+b.reps>+a.reps)?b:a);
+      const top=group.bestSet||group.sets.reduce((a,b)=>+b.load>+a.load||(sameLoad(b.load,a.load)&&+b.reps>+a.reps)?b:a);
       return{name:liftDisplayName(group.name,group.liftKey),best:shareSetText(top,unit),record:!!group.pr}}),
     more:n=>t("share.card.more",{n:fmt(n)})}}
 /** The templates this session can fill, in the sheet's order. */
@@ -13529,8 +13550,7 @@ function historyShareSummary(sid,{week=null}={}){
   const liftGroups=[...byLift.values()].map(group=>{
     const outcome=historySessionOutcome(raw.get(group.liftKey)||[])?.status;
     return{liftKey:group.liftKey,name:group.name,session:id,
-      sets:[...group.rows].sort((a,b)=>(+a.set||0)-(+b.set||0)).map(row=>({load:+row.load,reps:+row.reps,
-        ...(partialCount(row)?{partialReps:row.partialReps}:{})})),
+      ...summaryReadbackSets(group.rows),
       state:outcome==="improved"?{kind:"outcome",outcome:"improved"}:{kind:"insufficient",reason:null},
       pr:prs.find(entry=>entry.liftKey===group.liftKey)||null,next:null}});
   const date=first.date,strength=week>=2?strengthGainedThisBlock(rows,prevLog):null;
@@ -26723,7 +26743,7 @@ function whyPerformedText(prev,u){
   for(const x of rows){const run=runs.at(-1);if(run&&sameLoad(+run.load,+x.load))run.sets.push(x);else runs.push({load:x.load,sets:[x]})}
   const effort=isWordMode();
   return runs.map(run=>{
-    const reps=whyList(run.sets.map(x=>x.reps)),load=fmtLoad(run.load);
+    const reps=whyList(run.sets.map(x=>performedRepsText(x.reps,partialCount(x)))),load=fmtLoad(run.load);
     if(effort)return t("why.performed_effort",{reps,load,unit:u,efforts:whyList(run.sets.map(x=>effortLabel(effortForRir(x.rir))))});
     return t("why.performed",{reps,load,unit:u,
       rirs:whyList(run.sets.map(x=>x.rir==null||x.rir===""?t("why.effort.missing"):fmt(x.rir)))})}).join(" ")}
@@ -26838,11 +26858,12 @@ function addStandingBlock(model,standing){
   const lines=standing.reasons.map(reason=>({reason,text:t(`why.standing.${reason}`,vars)}));
   if(standing.word==="solid")lines.push({text:t("why.standing.evidence",vars)});
   model.blocks.push({leadKey:"engine-standing",lead:t("why.lead.standing"),text:standingWord(standing),lines})}
-function engineWhyModel(ex,rec,model,head){
+function engineWhyModel(ex,rec,model,head,partial){
   const n=head.inSession&&head.set?head.set.n:1,rows=engineWhyRows(ex,rec,n),take=kind=>rows.find(row=>row.kind===kind);
   const prev=last(ex).filter(x=>+x.load>0),u=unitLabel(),performed=whyPerformedText(prev,u);
   const block=(leadKey,lead,text)=>{if(text)model.blocks.push({leadKey,lead,text})};
-  block("engine-anchor",t("why.lead.engine_anchor"),[performed,take("anchor")?.text,take("fatigue")?.text].filter(Boolean).join(" "));
+  block("engine-anchor",t("why.lead.engine_anchor"),[performed,partial||take("anchor")?.text,take("fatigue")?.text].filter(Boolean).join(" "));
+  if(partial)block("partials-rule",t("partials.rule_title"),t("partials.rule"));
   block("engine-target",t(n>1?"why.lead.set2":"why.lead.engine_target",{n}),take("target")?.text);
   block("engine-assumptions",t("why.lead.engine_assumptions"),
     [take("step")?.text,take("per_side")?.text,take("per_side_bodyweight")?.text,take("bodyweight")?.text].filter(Boolean).join(" "));
@@ -26867,8 +26888,9 @@ function whySheetModel(ex,surface="focus"){
   const n=head.inSession&&head.set?head.set.n:1;
   const partial=surface==="focus"?currentPartialEvidence(ex,n,rec):null;
   if(partial){
-    model.blocks.push({leadKey:"partials",lead:"",text:partial});
-    model.blocks.push({leadKey:"partials-rule",lead:"",text:t("partials.rule")});
+    if(rec.status==="manual"){
+      model.blocks.push({leadKey:"partials",lead:t("why.lead.engine_anchor"),text:partial});
+      model.blocks.push({leadKey:"partials-rule",lead:t("partials.rule_title"),text:t("partials.rule")})}
     const facts=engineSetFacts(rec,n);
     if(facts?.reps!=null&&facts.load!=null)model.target=t("partials.target",{reps:facts.reps,load:fmtLoad(facts.load),unit:u})}
   const placed=new Set(),take=k=>{const r=pick(k);if(r)placed.add(r);return r};
@@ -26884,7 +26906,7 @@ function whySheetModel(ex,surface="focus"){
     if(mode==="bilateral"||mode==="unilateral")
       block("setup","",t("why.setup.per_side",{mode:t(`why.setup.mode.${mode}`)}));
     addStandingBlock(model,targetStanding(rec));return model}
-  if(Array.isArray(rec.targetSets))return engineWhyModel(ex,rec,model,head);
+  if(Array.isArray(rec.targetSets))return engineWhyModel(ex,rec,model,head,partial);
   const draft=loadDraft(),prev=last(ex).filter(x=>+x.load>0),performed=whyPerformedText(prev,u);
   const calc=model.calc,setRows=sets=>sets.forEach((x,i)=>calc.push({k:t("why.calc.set",{n:i+1}),v:`${fmtLoad(x.load)} × ${performedRepsText(x.reps,partialCount(x))}`,rir:effortOrRirLabel(x.rir)}));
   const lastGroup=()=>{if(prev.length){calc.push({group:t("why.calc.last",{date:shortDate(prev[0].date)})});setRows(prev)}};

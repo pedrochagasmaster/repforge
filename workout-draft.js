@@ -1636,6 +1636,7 @@
       case "completeSet": {
         item = targetSet(next, command);
         if (isDomainError(item)) return item;
+        if (command.expectedPending === true && item.set.completion !== "pending") return error("set-already-completed");
         if (hasOwn(command, "startingLoad")) {
           if (!validStartingLoad(command.startingLoad)) return error("invalid-starting-load");
           item.set.startingLoad = jsonClone(command.startingLoad);

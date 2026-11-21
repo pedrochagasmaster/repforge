@@ -13,6 +13,8 @@
 import assert from "node:assert/strict";
 import { finishEarly } from "./fixtures/focus-workout.mjs";
 import { createServer } from "node:http";
+import { execFileSync } from "node:child_process";
+import { createRequire } from "node:module";
 import { createReadStream, readFileSync, statSync } from "node:fs";
 import { dirname, extname, join, normalize, relative } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -248,30 +250,65 @@ try {
       return set?.edited?.load === "73.5" && set?.edited?.reps === "10";
     }, secondId);
     const shelf = page.locator("#workout .exercise.is-current .focus-shelf");
-    await shelf.locator('[data-shelf-field="rir"]').click();
-    await shelf.locator('[data-effchip][data-e="0"]').click();
+    // The migrated set keeps its legacy effort vocabulary. Log it first, then use
+    // the next untouched set's numeric mode to record the new optional field.
+    await shelf.locator(".saveset").click();
+    await shelf.locator(`[data-save="${secondId}_2"]`).waitFor();
+    await shelf.locator(`[data-k="${secondId}_2_reps"]`).fill("6");
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    const effortTile = shelf.locator('[data-shelf-field="rir"]');
+    if (await effortTile.getAttribute("aria-pressed") !== "true") await effortTile.click();
+    if (!await shelf.locator('[data-effspin][data-stage="c"]').count()) {
+      await shelf.locator("[data-effmenu]").click();
+      await page.locator('#nativeContextMenu [data-menu-value="c"]').click();
+      await page.locator("#nativeContextMenu").waitFor({ state: "detached" });
+      await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+      if (await effortTile.getAttribute("aria-pressed") !== "true") await effortTile.click();
+    }
+    await shelf.locator('[data-effchip][data-e="0"]').click({ timeout: 5000 });
     await shelf.locator('[data-partial-chip="2"]').click();
     await shelf.locator('[data-partial-chip="2"][aria-pressed="true"]').waitFor();
-    await page.locator("#workout .exercise.is-current .saveset").click();
+    await shelf.locator(".saveset").click();
     await page.waitForFunction((exerciseId) => {
       const draft = window.__repforgeWorkoutDraft.current();
       const exercise = draft?.exercises?.[exerciseId];
-      return exercise && exercise.sets[exercise.setOrder[0]].completion !== "pending";
+      return exercise && exercise.sets[exercise.setOrder[1]].completion !== "pending";
     }, secondId);
   }, 60000);
+  const rollbackSha = "e844a870a04c6acbd5bfbf78da30573ff4b3535e";
+  const rollbackSource = execFileSync("git", ["show", `${rollbackSha}:workout-draft.js`], { cwd: ROOT, encoding: "utf8" });
+  const rollbackModule = { exports: {} };
+  new Function("module", "require", rollbackSource)(rollbackModule, createRequire(new URL("../workout-draft.js", import.meta.url)));
+  const rollback = rollbackModule.exports;
+  const partialRaw = await stage("read the acknowledged partial draft", () => page.evaluate(key => localStorage.getItem(key), DRAFT));
+  const oldRead = rollback.parse(partialRaw);
+  assert.equal(oldRead.kind, "valid", "v770 accepts the optional field during rollback");
+  const rollbackExercise = oldRead.draft.exercises[secondId];
+  assert.equal(rollbackExercise.sets[rollbackExercise.setOrder[1]].partialReps, 2, "v770 retains the field in the draft");
+  const completedAt = new Date().toISOString(), operationId = "rollback-finish-proof";
+  const oldFinish = rollback.reduce(oldRead.draft, {
+    type: "beginFinish", completedAt, updatedAt: completedAt, operationId, expectedRevision: oldRead.draft.revision,
+    writer: { ...oldRead.draft.writer, operationId },
+  });
+  const oldRows = rollback.toHistoryRows(oldFinish, completedAt);
+  assert.ok(Array.isArray(oldRows) && oldRows.length > 0);
+  assert.ok(oldRows.every(row => !Object.hasOwn(row, "partialReps")), "v770 omits partials if it finishes the draft");
   const offlineSave = await stage("finish the workout offline", () => finishEarly(page), 60000);
   const offlineResult = await stage("read the offline save", () => page.evaluate(({ stateKey, draftKey, checkpointKey, exerciseId }) => {
     const state = JSON.parse(localStorage.getItem(stateKey) || "{}");
     const checkpoint = JSON.parse(localStorage.getItem(checkpointKey) || "null");
-    const row = state.log?.find((candidate) => candidate.exerciseId === exerciseId);
-    return { row, draftRaw: localStorage.getItem(draftKey), checkpoint };
+    const rows = state.log?.filter((candidate) => candidate.exerciseId === exerciseId);
+    const [row, partial] = rows || [];
+    return { row, partial, draftRaw: localStorage.getItem(draftKey), checkpoint };
   }, { stateKey: STATE, draftKey: DRAFT, checkpointKey: CHECKPOINT, exerciseId: secondId }));
   assert(offlineSave.localOk || offlineSave.idbOk, "the fully offline History transaction commits");
   assert.deepEqual(
-    [offlineResult.row?.load, offlineResult.row?.reps, offlineResult.row?.rir, offlineResult.row?.partialReps],
-    [73.5, 10, 0, 2],
+    [offlineResult.row?.load, offlineResult.row?.reps, offlineResult.row?.rir],
+    [73.5, 10, 1],
     "the offline save compiles the migrated visible values into History"
   );
+  assert.deepEqual([offlineResult.partial?.reps, offlineResult.partial?.rir, offlineResult.partial?.partialReps],
+    [6, 0, 2], "the updated cached app saves partials on the next working set while offline");
   assert.equal(offlineResult.draftRaw, null, "the committed offline save removes the active draft");
   assert.equal(offlineResult.checkpoint?.kind, "tombstone", "the offline save protects removal from an old writer");
 

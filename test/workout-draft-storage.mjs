@@ -1209,9 +1209,10 @@ async function main() {
     const partial = await page.evaluate(async () => {
       const owner = window.__repforgeWorkoutDraft, draft = owner.current();
       const exerciseInstanceId = draft.session.selectedExerciseId, exercise = draft.exercises[exerciseInstanceId];
-      const setId = exercise.setOrder[0], reps = exercise.sets[setId].programmed.metrics.find(metric => metric.semantic === "reps");
+      const setId = exercise.setOrder[0], reps = exercise.sets[setId].programmed.metrics?.find(metric => metric.semantic === "reps");
       const target = { exerciseInstanceId, setId };
-      await owner.dispatch("editMetricValue", { ...target, metricId: reps.id, value: "6" });
+      if (reps) await owner.dispatch("editMetricValue", { ...target, metricId: reps.id, value: "6" });
+      else await owner.dispatch("editSetField", { ...target, field: "reps", value: "6" });
       await owner.dispatch("setNumericEffort", { ...target, value: "0", partialReps: 0 });
       const selected = await owner.dispatch("setNumericEffort", { ...target, value: "0", partialReps: 2 });
       return selected.status;

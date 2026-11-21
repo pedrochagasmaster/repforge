@@ -31,6 +31,8 @@
   --accent:#E04E14;
   --accent-deep:#B8410E;
   --partial-on-cta:var(--share-card-accent);
+  --font-size-partial-reps:.78em;
+  --font-size-partial-shelf:.62em;
   --positive:#2F7D33;
   --cta:#161513;
   --well:#FAF8F5;
@@ -9778,12 +9780,12 @@ body.is-entry-editor #entryProgramName,
 
 .partial-reps{
   margin-inline-start:1px;
-  font-size:.78em;
+  font-size:var(--font-size-partial-reps);
   color:var(--accent-deep);
   font-weight:var(--weight-semibold);
   letter-spacing:0
 }
-.shelf__val .partial-reps{font-size:.62em;vertical-align:.32em;margin-inline-start:2px}
+.shelf__val .partial-reps{font-size:var(--font-size-partial-shelf);vertical-align:.32em;margin-inline-start:2px}
 .saveset .partial-reps{color:var(--partial-on-cta)}
 .shelf__pads .shelf__chip--partial:not([aria-pressed="true"]){color:var(--accent-deep)}
 .shelf__pads--past-zero{animation:past-zero-in 240ms cubic-bezier(.2,.7,.2,1)}

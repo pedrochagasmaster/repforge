@@ -17,7 +17,7 @@ import { CAPTURE_NOW } from "./session.mjs";
 import { DIRECTION_D_DATA } from "./direction-d-fixture.generated.mjs";
 import { DIRECTION_D_CANONICAL_DATA } from "./direction-d-canonical-fixture.generated.mjs";
 import { seedProgram, seedProgramMeta } from "../../test/fixtures/seed-program.mjs";
-import { metricLogRow } from "../../test/fixtures/history-metric-rows.mjs";
+import { definitionSlot, metricLogRow } from "../../test/fixtures/history-metric-rows.mjs";
 
 function isoDaysAgo(n) {
   const d = new Date(Date.parse(CAPTURE_NOW));
@@ -101,6 +101,23 @@ export function directionDState() {
     },
     programMeta, program, log, programHistory: [], customExercises, _storageRevision: 40,
   };
+}
+
+export function pastZeroState(lang, saved = false) {
+  const state = localeState(directionDState(), lang);
+  const squat = state.program[0];
+  for (const cycle of definitionSlot(state.programMeta, squat).prescriptionsByCycle) {
+    for (const set of cycle.sets) set.rir = 0;
+  }
+  const date = isoDaysAgo(7);
+  state.settings = { ...state.settings, rirMode: "numeric", slowRepTaps: false };
+  const partialRow = (session, date, set, reps, partialReps) => metricLogRow(state.programMeta, squat, {
+    session, date, set, load: 105, reps, rir: 0, extra: { effortSource: "reps_left", partialReps },
+  });
+  state.log = [[6, 2], [6, 1], [5, 2]].map(([reps, count], index) =>
+    partialRow("past-zero-previous", date, index + 1, reps, count));
+  if (saved) state.log.push(partialRow("past-zero-saved", isoDaysAgo(0), 1, 6, 3));
+  return state;
 }
 
 export function emptyFirstRunState() {

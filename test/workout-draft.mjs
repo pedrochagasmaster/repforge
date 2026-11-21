@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-import { execFileSync } from "node:child_process";
 import { createRequire } from "node:module";
 import fc from "fast-check";
 
@@ -1366,15 +1365,6 @@ console.log(`\n${results.passed} passed, ${results.failed} failed`);
   const logged = apply(partial, "completeSet", { ...at, completedAt: "2026-08-15T10:05:00.000Z" });
   assert(current(apply(logged, "setRirMode", { value: "effort" })).partialReps === 3,
     "switching global effort mode preserves a logged numeric row");
-  const rollbackSha = "e844a870a04c6acbd5bfbf78da30573ff4b3535e";
-  const rollbackSource = execFileSync("git", ["show", `${rollbackSha}:workout-draft.js`], { encoding: "utf8" });
-  const rollbackModule = { exports: {} };
-  new Function("module", "require", rollbackSource)(rollbackModule, createRequire(new URL("../workout-draft.js", import.meta.url)));
-  const finishing = apply(logged, "beginFinish");
-  const oldDraft = rollbackModule.exports.parse(JSON.stringify(finishing));
-  const oldRows = rollbackModule.exports.toHistoryRows(oldDraft.draft, "2026-08-15T10:05:00.000Z");
-  assert(oldDraft.kind === "valid" && current(oldDraft.draft).partialReps === 3 && !Object.hasOwn(oldRows[0], "partialReps"),
-    "the previous DraftV2 release reads the aggregate but would omit partials when compiling a new history row");
   const opened = apply(logged, "uncommitSet", { ...at, correct: true });
   const recalled = Draft.parse(Draft.serialize(select(opened, 4))).draft;
   const canceled = apply(recalled, "cancelSetCorrection", at);
