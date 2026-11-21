@@ -8,7 +8,7 @@ const require = createRequire(import.meta.url);
 const { savedLiftIdentity } = require("../progression-engine.js");
 const { DEFINITIONS } = require("../exercise-metrics.js");
 const { dumbbellLoadsKg } = require("../starting-loads.js");
-const { suggestWarmups, classifyWarmupFinish } = require("../warmup-suggestions.js");
+const { suggestWarmups, classifyWarmupFinish, previewWarmupEdit } = require("../warmup-suggestions.js");
 
 const NOW = Date.UTC(2026, 10, 20, 12);
 const MINUTE = 60_000;
@@ -85,7 +85,7 @@ test("approved baseline uses canonical offered loads and yields exact plate arit
   assert.deepEqual(result.suggestions.map(step => step.platesPerSideKg), [[], [20], [25, 5, 2.5]]);
   assert.deepEqual(result.evidence, {
     liftKey, workLoadKg: 105, barKg: 20, resetGeneration: null, earlierLift: null,
-    sessions: [], skipStreak: 0, unavailableReason: null,
+    sessions: [], skipStreak: 0, unavailableReason: null, lowestLighterLoadKg: 20,
   });
 });
 
@@ -109,6 +109,7 @@ test("no known bar omits its step and hint; grid ties go down and collisions kee
   assert.deepEqual(pairs(suggest({ ...machine, availableLoadsKg: [60, 100] })), [[60, 5]]);
   assert.deepEqual(pairs(suggest({ ...machine, workLoadKg: 5, availableLoadsKg: [5, 10] })), []);
   assert.deepEqual(pairs(suggest({ workLoadKg: 20, availableLoadsKg: grid })), []);
+  assert.deepEqual(pairs(suggest({ workLoadKg: 22.5 })), [[20, 8]]);
 });
 
 test("the dumbbell ladder stays per hand and a display-unit round trip keeps canonical kg choices", () => {
@@ -136,6 +137,8 @@ test("unsupported loading returns explicit reasons and preserves manual warm-up 
     [{ workLoadKg: null }, "unknown-work-load", true],
     [{ liftKey: null }, "unknown-lift", true],
     [{ workLoadKg: 20 }, "no-lighter-load", true],
+    [{ equipmentKind: "unknown" }, "unknown-equipment", true],
+    [{ loadingConvention: "per_side" }, "unsupported-loading", true],
   ];
   for (const [input, unavailableReason, manualAllowed] of cases) {
     const result = suggest(input);
@@ -196,6 +199,7 @@ test("already warm uses the latest qualifying logged working lift and two matchi
   assert.equal(result.reason, "already-warm");
   assert.deepEqual(pairs(result), warm);
   assert.deepEqual(result.evidence.earlierLift, earlierLift);
+  assert.deepEqual(pairs(suggest({ observations, completedWorkingLifts, workLoadKg: 120 })), [[80, 3]]);
   assert.deepEqual(result.evidence.sessions, shortHistory.map(({ sessionId, savedAt }) => ({ sessionId, savedAt })));
   assert.equal(suggest({ observations }).reason, "learned");
   assert.equal(suggest({ observations, completedWorkingLifts: [{ ...recentLegPress, completedAt: NOW - 15 * MINUTE }] }).reason, "already-warm");
@@ -302,4 +306,134 @@ test("once more requires a first change that survives normalization and can teac
   assert.equal(stale.onceMore, false);
   const resumed = finish(warm, { suggestion: suggest({ observations: [skip(-3), skip(-2), skip(-1)] }) });
   assert.equal(resumed.observation.decision, "edited");
+});
+
+test("each learning context keeps its own six observations", () => {
+  const ordinary = [saved(-8), saved(-7)];
+  const short = [inContext(-8), inContext(-7)];
+  assert.equal(suggest({ observations: [...ordinary, ...Array.from({ length: 5 }, (_, i) => inContext(i - 5))] }).reason,
+    "learned");
+  assert.equal(suggest({ observations: [...short, ...Array.from({ length: 5 }, (_, i) => saved(i - 5))],
+    completedWorkingLifts: [recentLegPress] }).reason, "already-warm");
+});
+
+test("both sessions snap to the active grid and invalid performed order or a working load cannot teach", () => {
+  const oneOffGrid = saved(-2, [[59, 5]]);
+  const oneOnGrid = saved(-1, [[60, 5]]);
+  for (const observations of [[oneOffGrid, oneOnGrid], [{ ...oneOffGrid, savedAt: NOW }, { ...oneOnGrid, savedAt: NOW - DAY }]]) {
+    assert.deepEqual(pairs(suggest({ observations })), [[60, 5]]);
+  }
+  const changedStep = suggest({
+    availableLoadsKg: [20, 55, 60, 65, 85, 105],
+    observations: [oneOffGrid, saved(-1, [[62.5, 5]])],
+  });
+  assert.equal(changedStep.reason, "learned");
+  assert.deepEqual(pairs(changedStep), [[60, 5]]);
+  const metricLadderPreparation = [[12, 5], [18, 2]];
+  const lbLadder = dumbbellLoadsKg("lb");
+  const lbLadderPreparation = [[lbLadder[4], 5], [lbLadder[7], 2]];
+  for (const [previous, current] of [[metricLadderPreparation, lbLadderPreparation], [lbLadderPreparation, metricLadderPreparation]]) {
+    const result = suggest({ equipmentKind: "dumbbell", barKg: null, workLoadKg: 25, availableLoadsKg: lbLadder,
+      observations: [saved(-2, previous, { barKg: null, workLoadKg: 25 }), saved(-1, current, { barKg: null, workLoadKg: 25 })] });
+    assert.equal(result.reason, "learned");
+    assert.deepEqual(pairs(result), lbLadderPreparation);
+  }
+  for (const invalid of [[[85, 2], [60, 5]], [[60, 5], [60, 2]], [[110, 3]], [[105, 3]], [[59, 5], [61, 3]]]) {
+    assert.equal(suggest({ observations: [saved(-2, invalid), saved(-1, invalid)] }).reason, "baseline");
+  }
+});
+
+test("an explicit skip counts only when an automatic sequence was offered", () => {
+  const suppressed = suggest({ observations: [skip(-3), skip(-2), skip(-1)] });
+  for (const suggestion of [suppressed, suggest({ workLoadKg: 20 })]) {
+    assert.deepEqual(finish([], { suggestion, skipped: true }), { observation: null, onceMore: false });
+  }
+  assert.equal(finish([[65, 3]], { suggestion: suppressed }).observation.decision, "edited");
+});
+
+test("bar hints and input loads stay within the canonical 1000 kg limit", () => {
+  const result = suggest({ workLoadKg: 1000, availableLoadsKg: [20, 570, 800, 1002.5, Number.MAX_VALUE] });
+  assert.deepEqual(pairs(result), [[20, 8], [570, 5], [800, 2]]);
+  assert.equal(result.suggestions[2].platesPerSideKg.reduce((sum, kg) => sum + kg, 0) * 2 + 20, 800);
+  assert.deepEqual(pairs(suggest({ workLoadKg: 1010, availableLoadsKg: [20, 1002.5] })), []);
+  assert.equal(finish([[1002.5, 1]]).observation, null);
+});
+
+test("the pounds and unknown-bar adapter uses only the offered grid without plate hints", () => {
+  const kg = lb => lb * 0.45359237;
+  const availableLoadsKg = [45, 135, 185, 225].map(kg);
+  const result = suggest({ workLoadKg: kg(225), availableLoadsKg, barKg: null });
+  assert.deepEqual(pairs(result), [[kg(135), 5], [kg(185), 2]]);
+  assert.deepEqual(result.suggestions.map(step => step.platesPerSideKg), [null, null]);
+  assert.equal(result.evidence.lowestLighterLoadKg, kg(45));
+});
+
+test("malformed input fails closed and nullable list inputs are accepted", () => {
+  assert.equal(suggestWarmups().reason, "none-with-reason");
+  assert.equal(suggestWarmups(null).reason, "none-with-reason");
+  assert.equal(suggest({ metricSemantics: null }).evidence.unavailableReason, "unsupported-metrics");
+  assert.equal(suggest({ completedWorkingLifts: 42, observations: {}, availableLoadsKg: null }).reason, "none-with-reason");
+  assert.equal(classifyWarmupFinish().observation, null);
+  assert.equal(classifyWarmupFinish(null).observation, null);
+  assert.equal(finish(warm, { observations: null, availableLoadsKg: null }).observation.decision, "edited");
+  for (const steps of [null, {}]) assert.equal(finish(warm, { steps }).observation, null);
+  for (const patch of [{ liftKey: 7 }, { workLoadKg: NaN }, { barKg: NaN }, { barKg: undefined }, { earlierLift: "leg press" }]) {
+    const original = suggest();
+    assert.equal(finish(warm, { suggestion: { ...original, evidence: { ...original.evidence, ...patch } } }).observation, null);
+  }
+  for (const suggestions of [null, {}, [null], [{ loadKg: NaN, reps: 1 }]]) {
+    assert.equal(finish(warm, { suggestion: { ...suggest(), suggestions } }).observation, null);
+  }
+});
+
+test("suppression survives missing time, while learned suggestions require a known evidence window", () => {
+  for (const now of [undefined, null, NaN]) {
+    assert.equal(suggest({ now, observations: [saved(-6), saved(-5)] }).reason, "baseline");
+    assert.equal(suggest({ now, observations: [skip(-3), skip(-2), skip(-1)] }).reason, "suppressed");
+    assert.equal(suggest({ now, observations: [skip(-3), skip(-2), skip(-1), saved(-0.5)] }).reason, "baseline");
+  }
+});
+
+test("an established preference that cannot scale uses the baseline with its own reason and evidence", () => {
+  const first = saved(-2, [[30, 4]], { workLoadKg: 100, barKg: null });
+  const second = saved(-1, [[30, 4]], { workLoadKg: 100, barKg: null });
+  const result = suggest({ equipmentKind: "machine", barKg: null, workLoadKg: 40, availableLoadsKg: [20, 30, 35, 40],
+    observations: [first, second] });
+  assert.equal(result.reason, "baseline-fallback");
+  assert.deepEqual(pairs(result), [[20, 5], [30, 2]]);
+  assert.deepEqual(result.evidence.sessions, [first, second].map(({ sessionId, savedAt }) => ({ sessionId, savedAt })));
+});
+
+test("Add one can take the baseline five-rep step or the lowest reachable lighter load", () => {
+  const result = suggest();
+  assert.deepEqual(result.suggestions.find(step => step.reps === 5 && step.loadKg !== result.evidence.barKg),
+    { loadKg: 60, reps: 5, platesPerSideKg: [20] });
+  const withoutBaseline = suggest({ equipmentKind: "machine", barKg: null, workLoadKg: 100, availableLoadsKg: [100, 95, 90] });
+  assert.deepEqual(pairs(withoutBaseline), []);
+  assert.equal(withoutBaseline.evidence.lowestLighterLoadKg, 90);
+  assert.equal(suggest({ loadingConvention: "assistance", metricSemantics: ["reps", "assistanceKg"] })
+    .evidence.lowestLighterLoadKg, null);
+});
+
+function preview(sequence, loggedStepIndex, overrides = {}) {
+  const steps = sequence.map(([loadKg, reps], i) => ({ loadKg, reps, ...(i <= loggedStepIndex && { setId: `logged-${i}` }) }));
+  return previewWarmupEdit({ suggestion: suggest(), steps, loggedStepIndex, now: NOW, sessionId: "today",
+    availableLoadsKg: grid, ...overrides });
+}
+
+test("mid-workout preview reports an edited step or sequence with no working set or learning write", () => {
+  const edited = [[20, 8], [65, 5], [85, 2]];
+  assert.deepEqual(preview(edited, 1), { onceMore: true, kind: "step", step: { loadKg: 65, reps: 5 } });
+  assert.deepEqual(preview([...baseline, [95, 1]], 3), { onceMore: true, kind: "sequence", step: null });
+  assert.deepEqual(preview([[20, 8], [65, 5], [90, 2]], 1), { onceMore: true, kind: "sequence", step: null });
+  const noNotice = { onceMore: false, kind: null, step: null };
+  assert.deepEqual(preview(edited, 0), noNotice);
+  assert.deepEqual(preview(edited, 1, { steps: edited.map(([loadKg, reps]) => ({ loadKg, reps })) }), noNotice);
+  assert.deepEqual(preview(edited, 1, { steps: edited.map(([loadKg, reps]) => ({ loadKg, reps, setId: "duplicate" })) }), noNotice);
+  assert.deepEqual(preview([[20, 8], [59, 5], [85, 2]], 1), noNotice);
+  assert.deepEqual(preview(edited, 1, { observations: [saved(-1, [[20, 8], [64, 5], [85, 2]])] }), noNotice);
+  assert.deepEqual(preview(edited, 1, { resetGeneration: "new" }), noNotice);
+  assert.deepEqual(previewWarmupEdit(null), noNotice);
+  assert.equal(finish([[20, 8], [64, 5], [85, 2]]).onceMore, true);
+  assert.equal(finish(edited, { observations: [saved(-1, [[20, 8], [64, 5], [85, 2]])] }).onceMore, false);
 });
