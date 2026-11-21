@@ -4,6 +4,7 @@ import "./starting-loads.mjs";
 import "./engine-standing.mjs";
 // Request policy is a consumer of standing; retain its module proof in the PR engine owner.
 import "./effort-calibration.mjs";
+import "./warmup-suggestions.mjs";
 import assert from "node:assert/strict";
 import path from "node:path";
 import { createRequire } from "node:module";
