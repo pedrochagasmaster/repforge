@@ -17,6 +17,7 @@ The only list of open, deferred and paused work. Order is top to bottom within e
 - Free one-off sessions: manual, classic, muscle-focus and time/equipment adaptation; pure one-offs never advance or reorder the active program or its progression.
 - Validate temporary equipment contexts through one-offs: exact available equipment, compatible substitutions and fewer equipment changes; measure repeated switching before adding persistent gyms.
 - Collect alpha data on unsupported import concepts; categorical measurement shipped in #255, and executable grammar expansion waits for evidence of blocked adoption.
+- [Plan 085](../plans/085-warmups-partials.md): suggested warm-ups that learn from saved workouts and partial reps after 0 reps left. Preserve working-set slots and full-rep progression. Owner review of policy and EN/PT copy precedes implementation.
 
 ## Bugs after alpha
 
