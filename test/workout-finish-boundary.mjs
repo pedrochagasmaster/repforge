@@ -862,12 +862,123 @@ async function prelude(browser) {
   }
 }
 
+/* Prelude learning and its states. Earlier sessions are built from the real draft commands and the app's own save projection,
+   then committed; the cue, Why sheet, reset and the quiet suppressed row are read from the screen. */
+async function savedWarmupSession(page, { id, daysAgo, steps, skip = false }) {
+  await page.evaluate(async ({ id, daysAgo, steps, skip }) => {
+    const W = window.RepForgeWorkoutDraft, exId = "seed-ex-2";
+    let draft = window.__repforgeWorkoutDraft.current(), n = 0;
+    const when = new Date(Date.now() - daysAgo * 86400000).toISOString();
+    const run = (type, fields = {}) => {
+      const operationId = `fake-${id}-${++n}`;
+      const next = W.reduce(draft, { exerciseInstanceId: exId, ...fields, type, operationId, expectedRevision: draft.revision, updatedAt: when, writer: { ...draft.writer, operationId } });
+      if (W.isDomainError(next)) throw new Error(`${type}: ${JSON.stringify(next)}`);
+      draft = next;
+    };
+    const ex = sessionExercise(prog.find(exId)), live = warmupSuggest(ex);
+    const suggested = live.result.suggestions;
+    run("initWarmupPrelude", { plan: warmupPlanOf(live), steps: (suggested.length ? suggested : [{ loadKg: 60, reps: 5 }]).map((item, index) => ({ stepId: `${id}-${index}`, loadKg: item.loadKg, reps: item.reps })) });
+    const record = () => draft.exercises[exId].warmupPrelude;
+    if (skip) run("skipWarmupSteps");
+    else {
+      const [loadMetric, repsMetric] = [record().composition.metrics.find((m) => m.semantic === "loadKg"), record().composition.metrics.find((m) => m.semantic === "reps")];
+      for (let index = 0; index < steps.length; index++) {
+        const step = record().steps[index];
+        if (!step) run("addWarmupStep", { stepId: `${id}-m${index}`, values: { [loadMetric.id]: String(steps[index][0]), [repsMetric.id]: String(steps[index][1]) } });
+        else { run("editWarmupStep", { stepId: step.stepId, metricId: loadMetric.id, value: String(steps[index][0]) }); run("editWarmupStep", { stepId: step.stepId, metricId: repsMetric.id, value: String(steps[index][1]) }); }
+        run("completeWarmupStep", { stepId: record().steps[index].stepId, completedAt: when });
+      }
+      if (record().steps.some((step) => step.completion === "pending")) run("skipWarmupSteps");
+    }
+    const setId = draft.exercises[exId].setOrder[0];
+    for (const metric of draft.exercises[exId].sets[setId].programmed.metrics) run("editMetricValue", { setId, metricId: metric.id, value: metric.semantic === "reps" ? "6" : "105" });
+    run("editSetField", { setId, field: "rir", value: "1" });
+    run("completeSet", { setId, completedAt: when });
+    run("beginFinish");
+    const rows = W.toHistoryRows(draft, when).map((row) => ({ ...row, session: id, date: when.slice(0, 10) }));
+    const observations = warmupObservationsForSave({ ...draft, draftId: id }, rows, when);
+    const proposal = window.__repforgeWorkoutDraft.state();
+    proposal.log = [...proposal.log, ...rows];
+    if (observations) proposal.warmupObservations = { ...(proposal.warmupObservations || {}), ...observations };
+    const result = await window.__repforgeCommitProposedState(proposal);
+    if (!result.committed) throw new Error("could not save " + id);
+  }, { id, daysAgo, steps, skip });
+}
+
+async function openLegCurl(page) {
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForApp(page);
+  const current = await page.locator("#workout .exercise.is-current:not(.is-peek)").getAttribute("data-ex");
+  if (current !== "seed-ex-2") await page.locator('#woProgress button[data-focusgo="1"]').click();
+  await page.waitForFunction(() => document.querySelector("#workout .exercise.is-current:not(.is-peek)")?.dataset.ex === "seed-ex-2");
+}
+
+async function preludeLearning(browser) {
+  const { context, page } = await freshWorkout(browser, { rirMode: "numeric", effortScale: "reps" });
+  try {
+    const card = page.locator("#workout .exercise.is-current:not(.is-peek)");
+    const shelf = card.locator(".focus-shelf");
+    const target = (await draftTargets(page)).find((item) => item.exerciseInstanceId === "seed-ex-2");
+    await page.evaluate(async ({ target, weight, reps }) => {
+      for (const [metricId, value] of [[weight, "105"], [reps, "6"]]) await window.__repforgeWorkoutDraft.dispatch("editMetricValue", { ...target, metricId, value });
+    }, { target, weight: WEIGHT, reps: REPS });
+    // Two sessions with the same changed warm-up make it the lifter's own.
+    await savedWarmupSession(page, { id: "learn-1", daysAgo: 6, steps: [[40, 8], [80, 2]] });
+    await savedWarmupSession(page, { id: "learn-2", daysAgo: 4, steps: [[40, 8], [80, 2]] });
+    await openLegCurl(page);
+    const cue = card.locator(".fx-cue--warm");
+    await cue.waitFor({ timeout: 5000 });
+    assert.match(await cue.locator(".fx-cue__evidence").innerText(), /^Your warm-up from recent .+ sessions, adjusted to 105 kg\./, "two agreeing sessions make the learned cue");
+    const learnedFirst = await cue.locator(".fx-cue__load").innerText();
+    assert.ok(Number(learnedFirst) < 60, `the learned first step is lighter than the starting one: ${learnedFirst}`);
+    await cue.getByRole("button", { name: "Why this warm-up" }).click();
+    const sheet = page.locator("#whySheet");
+    await sheet.waitFor({ state: "visible" });
+    assert.equal((await page.locator("#whyTitle").innerText()).trim(), "Why this warm-up");
+    assert.equal((await page.locator("#whyDecision").innerText()).trim(), "Learned from your sets");
+    assert.match(await page.locator("#whyEvidence").innerText(), /^Based on 2 sessions/);
+    assert.equal(await page.evaluate(() => Object.values(window.__repforgeWorkoutDraft.current().exercises).some((exercise) => exercise.warmupPrelude)), false, "opening Why writes nothing");
+    await sheet.getByRole("button", { name: /^Forget my warm-up for / }).click();
+    await page.getByText("Warm-up preference cleared.", { exact: true }).waitFor({ timeout: 5000 });
+    await page.waitForFunction(() => !document.querySelector("#whySheet.is-open"));
+    await cue.locator(".fx-cue__evidence", { hasText: "A starting warm-up for 105 kg." }).waitFor({ timeout: 5000 });
+    assert.deepEqual(Object.keys(await page.evaluate(() => window.__repforgeWorkoutDraft.state().warmupPreferences)).length, 1, "a reset keeps one token for the lift");
+
+    // Three whole skips pause the suggestion, and a later reset or a logged warm-up brings it back.
+    await savedWarmupSession(page, { id: "skip-1", daysAgo: 3, skip: true, steps: [] });
+    await savedWarmupSession(page, { id: "skip-2", daysAgo: 2, skip: true, steps: [] });
+    await savedWarmupSession(page, { id: "skip-3", daysAgo: 1, skip: true, steps: [] });
+    await openLegCurl(page);
+    const quiet = card.locator(".fx-prelude-none");
+    await quiet.waitFor({ timeout: 5000 });
+    assert.equal(await card.locator(".fx-cue--warm").count(), 0, "no warm-up is the cue once three skips pause it");
+    assert.match(await quiet.innerText(), /no warm-ups suggested/i);
+    await quiet.getByRole("button", { name: "Why?" }).click();
+    assert.equal((await page.locator("#whyDecision").innerText()).trim(), "Usually skips");
+    await page.keyboard.press("Escape");
+    await page.waitForFunction(() => !document.querySelector("#whySheet.is-open"));
+    await quiet.getByRole("button", { name: "Add one" }).click();
+    await page.getByText("Warm-up added. Log it when you're done.", { exact: true }).waitFor({ timeout: 5000 });
+    await cue.waitFor();
+    assert.equal(await page.evaluate(() => window.__repforgeWorkoutDraft.current().exercises["seed-ex-2"].warmupPrelude.steps.map((step) => step.source).join()), "manual", "Add one stores a manual step");
+    // Skipping it again is a whole skip with nothing logged; the lifter can still go to the work.
+    await cue.getByRole("button", { name: "Skip warm-ups" }).click();
+    await page.getByText("Skipped. Skip three sessions in a row to pause suggestions.", { exact: true }).waitFor({ timeout: 5000 });
+    await shelf.getByRole("button", { name: "Log set 1" }).waitFor();
+    assert.equal(await card.locator(".ledgerline--warmup").count(), 0, "nothing was logged, so there is no W row");
+    console.log("PASS: Prelude learns from two agreeing sessions, resets, pauses after three skips and offers Add one");
+  } finally {
+    await context.close();
+  }
+}
+
 const browser = await launchChromium();
 const pastZeroOnly = process.env.REPFORGE_PAST_ZERO_ONLY === "1";
 const preludeOnly = process.env.REPFORGE_PRELUDE_ONLY === "1";
 try {
   if (!preludeOnly) await pastZero(browser);
   await prelude(browser);
+  await preludeLearning(browser);
   if (!pastZeroOnly && !preludeOnly) await otherFinishContracts(browser);
 } finally {
   await browser.close();
