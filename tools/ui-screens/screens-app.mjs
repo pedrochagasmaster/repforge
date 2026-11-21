@@ -817,7 +817,7 @@ async function preludeFocus(page, state) {
   }
   const log = async () => {
     await active.locator(".saveset").click();
-    await page.waitForFunction(() => window.__repforgeWorkoutDraft.flush().then(() => true));
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
   };
   if (state === "rest" || state === "summary" || state === "tie") {
     await log();

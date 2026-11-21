@@ -809,10 +809,12 @@ async function prelude(browser) {
     await page.locator(".resttab__label", { hasText: "Warm-up rest" }).waitFor({ timeout: 5000 });
 
     // Log the rest. The last one hands over to set 1.
+    const loggedSteps = () => page.evaluate(() => window.__repforgeWorkoutDraft.current().exercises["seed-ex-2"].warmupPrelude.steps.filter((step) => step.completion !== "pending").length);
     for (let guard = 0; guard < 6 && await card.locator(".fx-cue--warm").count(); guard++) {
+      const before = await loggedSteps();
       await shelf.locator(".saveset").click();
-      await page.waitForFunction(() => window.__repforgeWorkoutDraft.current() && true);
-      await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+      await page.waitForFunction((count) => window.__repforgeWorkoutDraft.current().exercises["seed-ex-2"].warmupPrelude.steps
+        .filter((step) => step.completion !== "pending").length > count, before);
     }
     await page.getByText("Warmed up. Set 1 is next.", { exact: true }).waitFor({ timeout: 5000 });
     const summary = card.locator(".ledgerline--warmup");
