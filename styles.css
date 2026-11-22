@@ -9776,10 +9776,14 @@ body.is-entry-editor #entryProgramName,
 #reviewPanel > :first-child,#reviewPanel > :first-child > .section-label:first-child{margin-top:0}
 /* A lift's sessions table, opened in place, spans the group's full width: at 320 and large text it needs every column. */
 #strengthDash .sumcard > .evrow__detail{margin:0 calc(-1 * var(--space-16) - 1px);padding-left:0;padding-right:0;width:auto;max-width:none}
-/* The rules run edge to edge; the text keeps a gutter so the date and the last column clear the card's edge. */
-#strengthDash .sumcard > .evrow__detail > :not(.evtable){padding-inline:var(--space-16)}
-#strengthDash .sumcard > .evrow__detail .evtable :is(th,td):first-child{padding-left:var(--space-16)}
-#strengthDash .sumcard > .evrow__detail .evtable :is(th,td):last-child{padding-right:var(--space-16)}
+/* The rules run edge to edge; where the columns have room, the text keeps a gutter so the date and the last column
+   clear the card's edge. The width is read in em, so enlarged text, which needs every column, keeps the full bleed. */
+#strengthDash .sumcard > .evrow__detail{container-type:inline-size}
+@container (min-width: 17em){
+  #strengthDash .sumcard > .evrow__detail > :not(.evtable){padding-inline:var(--space-16)}
+  #strengthDash .sumcard > .evrow__detail .evtable :is(th,td):first-child{padding-left:var(--space-16)}
+  #strengthDash .sumcard > .evrow__detail .evtable :is(th,td):last-child{padding-right:var(--space-16)}
+}
 /* The Strength page keeps the canonical outcome word on each lift, on its own line scoped to the last session. */
 .liftrow .evrow__out{display:inline;margin:0;font-size:inherit;line-height:inherit}
 /* The Volume page's muscles on the same grouped surface as Strength and Records. */
