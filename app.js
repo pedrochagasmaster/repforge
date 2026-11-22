@@ -11150,8 +11150,12 @@ function focusCue(ex,n,r,draft,prev,editing){
   // is the engine's in-session answer, which the parity check does not compare.
   const parity=sg.src==="base"&&!sg.tempered?` data-parity-target="${esc(ex.id)}"`:"";
   return{kind:"now",move,loadText,reps,parity,
-    headHtml:esc(sentence).replace("\u0000",`<b class="fx-cue__load"${parity}>${esc(loadText)}</b>`),
+    headHtml:esc(sentence).replace("\u0000",`<b class="fx-cue__load"${parity}>${cueLoadHtml(loadText)}</b>`),
     sub:t("focus.cue.reps",{reps})}}
+
+/** The cue's figure, set in Mono: its decimal mark takes a narrow cell rather than a full Mono advance, so
+ *  "107.5" does not read as "107 . 5". The text is unchanged for copy and assistive technology. */
+function cueLoadHtml(text){return esc(text).replace(/[.,](?=\d)/,mark=>`<span class="fx-cue__dec">${mark}</span>`)}
 
 /* ---- The rest clock's readings (rest timer redesign, owner-approved mock 2026-10-23) ----
    The rest reads the one clock (rest-timer.js): there is no second clock and nothing stored.
@@ -11426,13 +11430,13 @@ function focusLedgerRowsHtml(ex,r,draft,prev,{peek=false}){
   const editN=focusEdit&&focusEdit.exId===ex.id?focusEdit.n:0;
   const freshN=focusIsFresh(ex,peek)?focusLogged.n:0;
   const expanded=focusLedgerExpanded(ex,peek);
-  let after=0,folded=focusLedgerFoldCount(ex,peek);
-  for(let n=active+1;n<=sessionSetCount(ex)&&!after;n++)if(!committed.has(`${ex.id}_${n}`))after=n;
+  let folded=focusLedgerFoldCount(ex,peek);
   const rows=[];
   for(let n=1;n<=sessionSetCount(ex);n++){
     const key=`${ex.id}_${n}`;
     const done=committed.has(key)&&n!==editN;
-    if(!expanded&&!done&&n!==active&&n!==after)continue;
+    // Every set still to come is listed (owner, 2026-11-22): showing only the next one left an unexplained gap above
+    // Next whenever a later set was hidden. Logged sets still fold behind the disclosure; what passes the window scrolls.
     const fold=!expanded&&done&&folded-->0;
     const open=n===active&&!preludeWarm;
     const vals=focusRowVals(ex,n,r,draft,prev);
@@ -26261,7 +26265,7 @@ function landingDemoHtml(add,testSet){
     `<g filter="url(#landingContourShadow)"><path class="restlight__shape firstrun-demo__base"/><path class="restlight__hair firstrun-demo__base"/>`+
     `<g clip-path="url(#landingAboveEdge)">${tabParts("restlight__shape")}</g><g clip-path="url(#landingAboveHair)">${tabParts("restlight__hair")}</g></g></svg>`;
   const mark=`<span class="fx-cue__mark" aria-hidden="true">${verdictMarkHtml("up")}</span>`;
-  const head1=esc(t("focus.cue.up",{load:"\u0000",unit})).replace("\u0000",`<b class="fx-cue__load">${esc(kg)}</b>`);
+  const head1=esc(t("focus.cue.up",{load:"\u0000",unit})).replace("\u0000",`<b class="fx-cue__load">${cueLoadHtml(kg)}</b>`);
   const evidence=evidenceSay("focus.evidence.history",{load:evidenceFig(`${landingNum(load0)} × ${landingNum(reps0)}`),rir:esc(landingNum(rir0))})+" "+
     evidenceSay("focus.evidence.target",{reps:esc(reps),rir:esc(landingNum(rir))})+` <span class="firstrun-demo__why">${esc(t("focus.evidence.why"))}</span>`;
   const meta=`${singleRir(t("focus.exmeta.range",{sets:landingNum(c.sets),min:landingNum(c.repMin),max:landingNum(c.repMax),rmin:landingNum(rir),rmax:landingNum(rir)}))} · ${t("program.progression.adaptive")}`;

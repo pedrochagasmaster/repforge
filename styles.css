@@ -1271,8 +1271,11 @@ article.exercise--focus.is-hero-compact.is-standing-compact .fcard__context > .f
    with nothing to fold, the heads (RIR's is the glossary's way in from Focus) stay. */
 .exercise--focus.is-hero-compact .fcard__ledger:has(.ledger__more:not([hidden])) .ledgerline__head{display:none}
 .exercise--focus.is-text-scaled .text-link.focus-ex__why,.exercise--focus.is-text-scaled .fx-cue__cancel{font-size:min(var(--font-size-control),var(--large-cap-body))}
-.exercise--focus.is-text-scaled .ledgerline__head,.exercise--focus.is-text-scaled .ledgerline{grid-template-columns:auto minmax(0,1fr)}
-.exercise--focus.is-text-scaled .ledgerline__head > :first-child{visibility:hidden}
+/* Enlarged text keeps one set column for the heads and every row, so the figures stay aligned under their heads. The
+   column holds the capped set number, check or warm-up mark; the Set head may run past it into the load column's
+   unused leading space rather than widen the column. */
+.exercise--focus.is-text-scaled .ledgerline__head,.exercise--focus.is-text-scaled .ledgerline{grid-template-columns:calc(var(--large-cap-small) * 1.6) minmax(0,1fr)}
+.exercise--focus.is-text-scaled .ledgerline__head > :first-child{white-space:nowrap}
 .exercise--focus.is-text-scaled .ledgerline__head{font-size:min(var(--font-size-label),var(--large-cap-caption))}
 .exercise--focus.is-text-scaled .ledgerline__vals{display:grid;grid-template-columns:minmax(max-content,1.6fr) minmax(max-content,1fr) minmax(max-content,1fr);font-size:min(var(--font-size-body),var(--large-cap-data))}
 .exercise--focus.is-text-scaled .ledgerline__vals > .fx-col{min-width:0}
@@ -1501,6 +1504,8 @@ article.exercise--focus .fcard__context > .fx-next{margin-top:auto;min-height:52
   font-weight:var(--weight-focus-cue);line-height:var(--line-focus-cue);letter-spacing:-.02em;color:var(--color-ink);
 }
 .fx-cue__load{font-family:var(--font-training-data);font-weight:var(--weight-semibold);letter-spacing:-.03em}
+/* A Mono decimal mark sits in a full-width cell; the figure closes it up to the mark's own width. */
+.fx-cue__dec{margin-inline:-.17em}
 .fx-cue__l2{
   margin:var(--space-4) 0 0;font-family:var(--font-language);font-size:var(--font-size-focus-cue-second);
   line-height:var(--line-standard);letter-spacing:-.01em;color:var(--color-ink-secondary);
@@ -9771,6 +9776,14 @@ body.is-entry-editor #entryProgramName,
 #reviewPanel > :first-child,#reviewPanel > :first-child > .section-label:first-child{margin-top:0}
 /* A lift's sessions table, opened in place, spans the group's full width: at 320 and large text it needs every column. */
 #strengthDash .sumcard > .evrow__detail{margin:0 calc(-1 * var(--space-16) - 1px);padding-left:0;padding-right:0;width:auto;max-width:none}
+/* The rules run edge to edge; where the columns have room, the text keeps a gutter so the date and the last column
+   clear the card's edge. The width is read in em, so enlarged text, which needs every column, keeps the full bleed. */
+#strengthDash .sumcard > .evrow__detail{container-type:inline-size}
+@container (min-width: 17em){
+  #strengthDash .sumcard > .evrow__detail > :not(.evtable){padding-inline:var(--space-16)}
+  #strengthDash .sumcard > .evrow__detail .evtable :is(th,td):first-child{padding-left:var(--space-16)}
+  #strengthDash .sumcard > .evrow__detail .evtable :is(th,td):last-child{padding-right:var(--space-16)}
+}
 /* The Strength page keeps the canonical outcome word on each lift, on its own line scoped to the last session. */
 .liftrow .evrow__out{display:inline;margin:0;font-size:inherit;line-height:inherit}
 /* The Volume page's muscles on the same grouped surface as Strength and Records. */
