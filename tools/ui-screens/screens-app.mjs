@@ -16,6 +16,7 @@ import { catalogState, directionDState, emptyEntryState, localeState, pastZeroSt
 import { CAPTURE_NOW, dismissChrome, LOG_DRAFT, replayGuide, seed, sleep } from "./session.mjs";
 import { definitionSlot, installGeneratedProgram, isWeightRepsSlot, metricLogRow } from "../../test/fixtures/history-metric-rows.mjs";
 import { finishEarly } from "../../test/fixtures/focus-workout.mjs";
+import { savedAfterLeadSessions, savedWarmupSession } from "../../test/fixtures/prelude-sessions.mjs";
 import { openShelfField } from "../../test/browser.mjs";
 import { DIRECTION_D_CANONICAL_ID_BY_LEGACY_ID } from "./direction-d-canonical-fixture.generated.mjs";
 
@@ -481,6 +482,7 @@ function profileFinishState(event,lang){
 }
 export function appState(key, lang) {
   if (key.includes("/past-zero")) return pastZeroState(lang, !key.startsWith("workout/"));
+  if (key.startsWith("workout/prelude")) return pastZeroState(lang, false);
   if(key.startsWith("session/profile-finish-"))return profileFinishState(key.slice("session/profile-finish-".length),lang);
   if(key==="today/profile")return wellTailoredProfileState(lang);
   if (["today/profile-first", "today/profile-scope", "progress/profile-reader", "progress/profile-scope"].includes(key)) {
@@ -793,6 +795,78 @@ async function pastZeroFocus(page, state) {
   }
 }
 
+/* Plan 085 Prelude: the same squat the Past zero states use, with the history each warm-up state reads. */
+async function preludeFocus(page, state) {
+  await focusMode(page);
+  const active = page.locator("#workout .exercise.is-current:not(.is-peek)");
+  const exId = await active.getAttribute("data-ex");
+  const history = {
+    learned: [[[20, 10], [50, 5], [70, 3], [90, 1]], [[20, 10], [50, 5], [70, 3], [90, 1]]],
+    suppressed: [null, null, null],
+  }[state];
+  const otherId = await page.evaluate(() => window.__repforgeWorkoutDraft.current().exerciseOrder[1]);
+  for (const [index, steps] of (history || []).entries()) {
+    await savedWarmupSession(page, { exId, id: `prelude-${state}-${index}`, daysAgo: 6 - index, steps: steps || [], skip: !steps });
+  }
+  if (state === "warm") {
+    for (const index of [0, 1]) await savedAfterLeadSessions(page, { exId, otherId, replacementName: "45° leg press", id: `prelude-warm-${index}`, daysAgo: 6 - index, feeler: [70, 3] });
+  }
+  if (history || state === "warm") {
+    // A fresh workout, so today's suggestions come from the history just saved (the first set and the hero agree).
+    const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("repforge_v1")));
+    await seed(page, saved);
+    await focusMode(page);
+  }
+  if (state === "warm") {
+    // The lead lift is done first today: a leg press set, ten minutes before the squat.
+    await page.evaluate(async ({ otherId, exId }) => {
+      const api = window.__repforgeWorkoutDraft, replacement = window.RepForgeExerciseCatalog.snapshot().exercises.find((entry) => entry.name === "45° leg press");
+      const squat = api.current().exercises[exId];
+      await api.dispatch("substituteExercise", { exerciseInstanceId: otherId, selectedAt: new Date().toISOString(),
+        replacement: { exerciseInstanceId: otherId, sourceExerciseId: api.current().exercises[otherId].sourceExerciseId, displayName: replacement.name, libraryId: replacement.id, primary: squat.programmed.primary, secondary: "" } });
+      const setId = api.current().exercises[otherId].setOrder[0], at = { exerciseInstanceId: otherId, setId };
+      for (const metric of api.current().exercises[otherId].sets[setId].programmed.metrics) await api.dispatch("editMetricValue", { ...at, metricId: metric.id, value: metric.semantic === "reps" ? "10" : "120" });
+      await api.dispatch("editSetField", { ...at, field: "rir", value: "1" });
+      await api.dispatch("completeSet", { ...at, completedAt: new Date(Date.now() - 10 * 60000).toISOString() });
+      await api.flush();
+      renderWorkout();
+    }, { otherId, exId });
+  }
+  const cue = active.locator(".fx-cue--warm");
+  if (state === "suppressed") {
+    await active.locator(".fx-prelude-none").waitFor();
+    return;
+  }
+  await cue.waitFor({ timeout: 8000 }).catch(async (error) => {
+    const why = await page.evaluate((id) => { const s = warmupSuggest(sessionExercise(prog.find(id))); return s && { reason: s.result.reason, evidence: s.result.evidence, work: s.workLoadKg, kind: s.equipmentKind }; }, exId);
+    throw new Error(`no warm-up cue: ${JSON.stringify(why)} ${error.message}`);
+  });
+  if (state === "why") {
+    await cue.locator(".fx-cue__why").click();
+    await page.locator("#whySheet.is-open").waitFor();
+    return;
+  }
+  const log = async () => {
+    await active.locator(".saveset").click();
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+  };
+  if (state === "rest" || state === "summary" || state === "tie") {
+    await log();
+    await page.locator("#restTab").waitFor();
+  }
+  if (state === "summary" || state === "tie") {
+    while (await active.locator(".fx-cue--warm").count()) await log();
+    await active.locator(".ledgerline--warmup").waitFor();
+  }
+  if (state === "tie") {
+    await active.locator('[data-shelf-field="rir"]').click();
+    await active.locator('[data-effchip][data-e="0"]').click();
+    await active.locator('[data-partial-chip="3"]').click();
+    await active.locator(".saveset").click();
+    await active.locator('[data-editn="1"] .partial-reps').first().waitFor({ state: "attached", timeout: 7500 });
+  }
+}
+
 async function openTransferState(page, state) {
   await page.evaluate((name) => window.__repforgeUi.openInstallTransferState(name), state);
   await page.waitForSelector(`#iosInstallSheet[data-transfer-state="${state}"].is-open`, { timeout: 10000 });
@@ -950,7 +1024,7 @@ async function openHistoryEditor(page) {
   await page.waitForSelector(".session--edit", { timeout: 20000 });
 }
 
-const PER_SIDE_READING_EXERCISES = Object.freeze({
+export const PER_SIDE_READING_EXERCISES = Object.freeze({
   unilateral: "1a55c6f170d88031b658c6e278a82a88",
   bilateral: "1a05c6f170d8803ba48ec1443eab5978",
 });
@@ -1132,7 +1206,7 @@ async function waitForExerciseChartViewport(page, { chartFocused }) {
   return result;
 }
 
-async function installPerSideHistory(page, { bodyweightAssumption = false } = {}) {
+export async function installPerSideHistory(page, { bodyweightAssumption = false } = {}) {
   await page.waitForFunction(() => !!window.RepForgeExerciseCatalog?.snapshot?.() &&
     typeof window.__repforgeFinalizeProgramSetup === "function", undefined, { timeout: 15000 });
   const state = await page.evaluate(async ({ rowId, pressId }) => {
@@ -2472,6 +2546,14 @@ export const APP_SCENARIOS = {
     }
   },
 
+  "workout/prelude": page => preludeFocus(page, "baseline"),
+  "workout/prelude-rest": page => preludeFocus(page, "rest"),
+  "workout/prelude-summary": page => preludeFocus(page, "summary"),
+  "workout/prelude-learned": page => preludeFocus(page, "learned"),
+  "workout/prelude-suppressed": page => preludeFocus(page, "suppressed"),
+  "workout/prelude-warm": page => preludeFocus(page, "warm"),
+  "workout/prelude-why": page => preludeFocus(page, "why"),
+  "workout/prelude-tie": page => preludeFocus(page, "tie"),
   "workout/past-zero": page => pastZeroFocus(page, "zero"),
   "workout/past-zero-selected": page => pastZeroFocus(page, "selected"),
   "workout/past-zero-ledger": page => pastZeroFocus(page, "ledger"),

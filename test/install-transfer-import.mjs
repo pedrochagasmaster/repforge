@@ -329,6 +329,16 @@ async function saveWorkout(page) {
     await input.fill(String(reps ? 8 : 60));
   }
   await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+  // One logged warm-up beside the sets: it saves as a warm-up row and as the session's learning record (Plan 085).
+  await page.evaluate(async ({ id }) => {
+    const hook = window.__repforgeWorkoutDraft, draft = hook.current();
+    const metrics = draft.exercises[id].sets[draft.exercises[id].setOrder[0]].programmed.metrics;
+    const values = Object.fromEntries(metrics.map((metric) => [metric.id, metric.semantic === "reps" ? "5" : "40"]));
+    const plan = warmupPlanOf(warmupSuggest(sessionExercise(prog.find(id))));
+    await hook.dispatch("addWarmupStep", { exerciseInstanceId: id, stepId: "transfer-warm", plan, values });
+    await hook.dispatch("completeWarmupStep", { exerciseInstanceId: id, stepId: "transfer-warm", completedAt: new Date().toISOString() });
+    await hook.flush();
+  }, { id: active.id });
   const shelf = page.locator("#workout .exercise.is-current .focus-shelf");
   await shelf.locator('[data-shelf-field="rir"]').click();
   if (!await shelf.locator('[data-effchip][data-e="0"]').count()) {
@@ -351,6 +361,20 @@ async function saveWorkout(page) {
   await page.waitForFunction(() => document.querySelector("#sessionSummary")?.hidden === false, undefined, { timeout: 10000 });
   await page.locator("#sumDone").click();
   await page.waitForFunction(() => document.querySelector("#sessionSummary")?.hidden === true, undefined, { timeout: 10000 });
+  await flush(page);
+  // The session's learning record, named by the rows it was learned from (this lift gets no automatic suggestion, so the
+  // record is written the way a lifter's own first warm-up would be).
+  const written = await page.evaluate(async () => {
+    const proposal = window.__repforgeWorkoutDraft.state();
+    const warm = proposal.log.find((row) => row.origin === "suggested-warmup"), work = proposal.log.find((row) => !row.warmup && row.exerciseId === warm?.exerciseId);
+    if (!warm || !work) return false;
+    proposal.warmupObservations = { [warm.session]: { v: 1, observations: [{ v: 1, liftKey: "transfer-lift", exerciseId: warm.exerciseId,
+      performedKey: String(work.performedLibraryId || work.performedMovementId), workingOrdinal: work.set, warmupOrdinals: [warm.warmupOrdinal],
+      savedAt: Date.now(), resetGeneration: null, decision: "edited", workLoadKg: 60, barKg: null, earlierLift: null,
+      stepGrid: [{ rungKg: 40, belowKg: 2.5, aboveKg: 2.5 }] }] } };
+    return (await window.__repforgeCommitProposedState(proposal)).committed === true;
+  });
+  if (!written) throw new Error("the saved warm-up row was not available to name");
   await flush(page);
 }
 
@@ -402,6 +426,12 @@ async function createAcknowledgedDraft(page) {
     await hook.dispatch("setNumericEffort", { ...target, value: "0", partialReps: 0 });
     const partial = await hook.dispatch("setNumericEffort", { ...target, value: "0", partialReps: 3 });
     if (partial.status !== "applied") return { ok: false, code: "draft-partials-refused", partial };
+    // A pending manual warm-up rides in the draft too.
+    const metricsOf = current.exercises[exerciseId].sets[setId].programmed.metrics;
+    const pendingValues = Object.fromEntries(metricsOf.map((metric) => [metric.id, metric.semantic === "reps" ? "5" : "30"]));
+    const added = await hook.dispatch("addWarmupStep", { exerciseInstanceId: exerciseId, stepId: "transfer-pending", values: pendingValues,
+      plan: warmupPlanOf(warmupSuggest(sessionExercise(prog.find(exerciseId)))) });
+    if (added.status !== "applied") return { ok: false, code: "draft-warmup-refused", added };
     await hook.dispatch("setSessionNotes", { value: "install transfer acknowledged draft" });
     await hook.flush();
     const live = hook.current();
@@ -2399,6 +2429,12 @@ async function main() {
       "the source's saved partials remain separate from the full reps",
       sourceObservation.durableState.log.map(({ exerciseId, set, setIndex, load, reps, rir, effortSource, partialReps, metricIds }) =>
         ({ exerciseId, set, setIndex, load, reps, rir, effortSource, partialReps, metricIds })));
+    check(sourceObservation.durableState.log.some(row => row.origin === "suggested-warmup" && row.warmupOrdinal === 1) &&
+      Object.keys(sourceObservation.durableState.warmupObservations || {}).length === 1,
+      "the source's saved warm-up row and its learning record are part of the transfer",
+      sourceObservation.durableState.warmupObservations);
+    check(Object.values(envelope.workoutDraft.exercises).some(exercise => exercise.warmupPrelude?.steps?.some(step => step.completion === "pending")),
+      "a pending Prelude step rides in the envelope's DraftV2");
     check(sameValue(envelope.workoutDraft, sourceObservation.draft.logical), "envelope DraftV2 equals the real production logical clone");
     check(sameValue(envelope.programEntryDraft, sourceObservation.candidate), "envelope candidate equals the production persisted candidate");
 

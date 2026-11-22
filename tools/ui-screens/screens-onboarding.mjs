@@ -709,7 +709,16 @@ async function managedImportTo(page, step) {
     : { status: 429, contentType: "application/json", body: JSON.stringify({ ok: false, code: "limit_reached", retryAfter: 3600 }) }));
   await freeformTo(page, "filled");
   await page.waitForSelector("#entryManagedConvert:not([disabled])", { timeout: 20000 });
-  if (step === "ready") return;
+  if (step === "ready") {
+    // The pasted program's own scroll inside the field is left wherever filling and focus put it, which differs
+    // between runs; the frame is about the ready Convert state, so start the field at its first line.
+    await page.evaluate(() => {
+      const field = document.querySelector("#entryFreeformIn");
+      if (field) { field.setSelectionRange(0, 0); field.scrollTop = 0; }
+    });
+    await page.waitForFunction(() => document.querySelector("#entryFreeformIn")?.scrollTop === 0, undefined, { polling: "raf" });
+    return;
+  }
   await page.click("#entryManagedConvert");
   if (step === "gaps") {
     await page.waitForSelector("#entryFreeformSubmitGaps", { timeout: 20000 });

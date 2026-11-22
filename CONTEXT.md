@@ -68,6 +68,11 @@ How one lift's session compares with its previous session of the same lift: impr
 Derived at read time and never stored, so a rule change re-reads all history. The summary, History and Progress show the same outcome for the same lift and session.
 _Avoid_: Delta status, regression, grade, verdict (a verdict is the engine's recommendation)
 
+**Suggested warm-up**:
+A short preparation sequence Focus offers before an exercise's working sets (Plan 085, "Prelude"), with its own cue, rail and shelf. It is stored beside the sets, never in them, and never counts toward volume, records, completion or the next weight. It learns from what the lifter logs and saves, and can be reset per lift. A lift's manual warm-up sets and Find your weight calibration take precedence.
+_PT (user-facing)_: aquecimento.
+_Avoid_: ramp (that word belongs to calibration), warm-up set (a programmed set switched to warm-up)
+
 **Log row**:
 One recorded set — load, reps, RIR — linked to an exercise template via exercise id.
 _Avoid_: Set entry, record
