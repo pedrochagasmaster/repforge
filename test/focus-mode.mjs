@@ -1644,6 +1644,9 @@ async function main() {
     "with history the cue names the load and reps the engine put in the first set", JSON.stringify({ cue, cueLoad, first }));
     assert(Number((await shelfLoad())?.replace(",", ".")) === Number(first.load),
       "the shelf shows the same recommended load the cue names", JSON.stringify({ shelf: await shelfLoad(), first }));
+    // Packet C: the header line names the prescription only; the adaptive strategy's name carries no in-gym decision.
+    assert(/^\d+ × \d+–\d+ reps · [\d.,–]+ left$/.test(cue.meta) && !/Adaptive/.test(cue.meta),
+      "an adaptive slot's Focus header shows the prescription without a strategy name", cue.meta);
     const move = assertCueMark(cue, "Adaptive cue");
     const expectedMove = Number(first.load) === 100 ? "hold" : Number(first.load) > 100 ? "up" : "down";
     assert(move === expectedMove, "the cue's move is the recommendation against last session's 100 kg", JSON.stringify({ move, first }));
