@@ -86,6 +86,22 @@ for (const lang of ["en", "pt"]) {
   assert(leaks.length === 0, `one effort word: no ${lang.toUpperCase()} Why or recommendation string names RIR or reserve`, leaks);
 }
 
+/* A count of one reads in the singular ("1 rep", not "1 reps"): each Why
+ * string that puts a count before a noun has .one/.other forms and app.js
+ * picks the form, as #814 did for the anchor sentence. */
+const COUNTED_WHY = ["why.performed", "why.performed_effort", "why.set1", "why.set1_effort",
+  "why.engine.target", "why.engine.target_norir", "why.calc.capacity_v"];
+const SINGULAR_NOUN = { en: /\b1 rep\b/, pt: /\b1 (rep|repetição)\b/ };
+const PLURAL_AFTER_ONE = { en: /\b1 reps\b/, pt: /\b1 (reps|repetições)\b/ };
+for (const lang of ["en", "pt"]) {
+  const dict = JSON.parse(readFileSync(new URL(`../i18n-${lang}.json`, import.meta.url), "utf8"));
+  const fill = (text, n) => String(text || "").replace(/\{(reps|cap)\}/g, String(n)).replace(/\{\w+\}/g, "9");
+  const wrong = COUNTED_WHY.filter((key) => key in dict || !(`${key}.one` in dict) || !(`${key}.other` in dict)
+    || !SINGULAR_NOUN[lang].test(fill(dict[`${key}.one`], 1)) || PLURAL_AFTER_ONE[lang].test(fill(dict[`${key}.one`], 1))
+    || !/\b2 (reps|repetições)\b/.test(fill(dict[`${key}.other`], 2)));
+  assert(wrong.length === 0, `singular: every counted ${lang.toUpperCase()} Why string has a "1 rep" form and a plural form`, wrong);
+}
+
 async function seed(page, { ambiguousPerSideReview = false, knownModeNullConfigRequired = false } = {}) {
   return page.evaluate(({ request, weight, reps, ambiguousPerSideReview, knownModeNullConfigRequired }) => {
     const generated = window.RepForgeProgramCompiler.generateProgram(request, window.RepForgeExerciseCatalog.snapshot());
@@ -537,8 +553,8 @@ try {
   const performedExpectations = await page.evaluate(({ load1, load2 }) => {
     const t = window.RepForgeI18n.t;
     return {
-      set1: t("why.performed", { reps: "6", load: load1, unit: "kg", rirs: "2" }),
-      set2: t("why.performed", { reps: "8", load: load2, unit: "kg", rirs: "1" }),
+      set1: t("why.performed.other", { reps: "6", load: load1, unit: "kg", rirs: "2" }),
+      set2: t("why.performed.other", { reps: "8", load: load2, unit: "kg", rirs: "1" }),
     };
   }, { load1: fmtNum(110), load2: fmtNum(100) });
   assert((anchorBlock?.text || "").includes(performedExpectations.set1) && (anchorBlock?.text || "").includes(performedExpectations.set2),
@@ -566,7 +582,7 @@ try {
     const rir = truthBefore.firstRir;
     const expectedTarget = await page.evaluate(({ rir, reps, load, unit }) => {
       const t = window.RepForgeI18n.t;
-      return t(rir != null ? "why.engine.target" : "why.engine.target_norir", { rir, reps, load, unit });
+      return t(`${rir != null ? "why.engine.target" : "why.engine.target_norir"}.${+reps === 1 ? "one" : "other"}`, { rir, reps, load, unit });
     }, { rir: fmtNum(rir), reps, load: fmtNum(load), unit: "kg" });
     assert(targetBlock.text === expectedTarget,
       "the sheet names the target with RIR and reps exactly as window.RepForgeI18n.t renders it",
