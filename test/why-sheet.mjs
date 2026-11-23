@@ -75,6 +75,17 @@ function assert(cond, name, detail) {
   else { results.failed++; console.log(`  ✗ ${name}`); if (detail != null) console.log(`    ${typeof detail === "string" ? detail : JSON.stringify(detail).slice(0, 2000)}`); }
 }
 
+/* One word for effort (CONTEXT.md "Reps left"): the Why sheet and the
+ * recommendation copy beside the logging shelf name the quantity the way the
+ * shelf does, "reps left" / "sobrando". RIR stays a glossary word. */
+const OTHER_EFFORT_WORD = { en: /\bRIR\b|in reserve/i, pt: /\bRIR\b|reserva/i };
+const effortWordLeaks = (lang, text) => OTHER_EFFORT_WORD[lang].test(String(text).replace(/\{\w+\}/g, ""));
+for (const lang of ["en", "pt"]) {
+  const dict = JSON.parse(readFileSync(new URL(`../i18n-${lang}.json`, import.meta.url), "utf8"));
+  const leaks = Object.keys(dict).filter((key) => /^(why|rec)\./.test(key) && effortWordLeaks(lang, dict[key]));
+  assert(leaks.length === 0, `one effort word: no ${lang.toUpperCase()} Why or recommendation string names RIR or reserve`, leaks);
+}
+
 async function seed(page, { ambiguousPerSideReview = false, knownModeNullConfigRequired = false } = {}) {
   return page.evaluate(({ request, weight, reps, ambiguousPerSideReview, knownModeNullConfigRequired }) => {
     const generated = window.RepForgeProgramCompiler.generateProgram(request, window.RepForgeExerciseCatalog.snapshot());
@@ -515,6 +526,9 @@ try {
     const singular = lang === "pt" ? "na última sessão" : "last session";
     assert(anchorText.includes(singular) && !/\b1 (sessions|sessões)\b/.test(anchorText),
       `the anchor reads one session in the singular in ${lang}`, anchorText);
+    const sheetText = localized.blocks.map((b) => b.text).join(" ");
+    assert(!effortWordLeaks(lang, sheetText) && sheetText.includes(lang === "pt" ? "sobrando" : "reps left"),
+      `one effort word: the rendered ${lang.toUpperCase()} Why sheet says reps left, never RIR`, sheetText);
   }
   // RT-01: the "What you showed" block (data-lead="engine-anchor") names each
   // of last session's two sets at its own load — never one shared sentence.

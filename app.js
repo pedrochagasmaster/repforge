@@ -27941,7 +27941,8 @@ function showContextualGuide(id,{returnFocus=null,persistDeferred=false,after=nu
   removeContextualGuide();
   dialog.dataset.guide=id;
   dialog.querySelector(".entry-dialog__title").textContent=t(`guide.${id}.title`);
-  dialog.querySelector(".entry-dialog__body").textContent=t(`guide.${id}.body`);
+  // On the reps-left stage the first set is where the lifter first meets the number, so its guide says what it means.
+  dialog.querySelector(".entry-dialog__body").textContent=t(id==="first-set"&&!isWordMode()?"guide.first-set.body_reps_left":`guide.${id}.body`);
   dialog.querySelector("#guideDialogOk").textContent=t("why.ok");
   const invoker=returnFocus instanceof HTMLElement||typeof returnFocus==="function"?returnFocus:null;
   // The anchor may be rebuilt while the guide is up (a running rest timer redraws the shelf), so it is found again on close.
