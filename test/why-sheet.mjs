@@ -315,7 +315,8 @@ async function expectedAnchorText(page, truth) {
     if (anchor.source === "current_session") {
       text = t("why.engine.anchor_session", { set: (anchor.setIndex ?? 0) + 1, load: displayLoad, cap, unit });
     } else if (cap) {
-      text = t("why.engine.anchor_history", { n: (anchor.sessionIds || []).length || 1, load: displayLoad, cap, unit });
+      const n = (anchor.sessionIds || []).length || 1;
+      text = t(n === 1 ? "why.engine.anchor_history.one" : "why.engine.anchor_history.other", { n, load: displayLoad, cap, unit });
     }
     if (showFatigue) text += ` ${t("why.engine.fatigue", { cap: fatigueCap, unit })}`;
     return text;
@@ -508,6 +509,12 @@ try {
     const expected = lang === "pt" ? "Ainda conhecendo este exercício" : "Still learning this lift";
     assert(footing?.text.includes(expected) && !/why\.standing|standing\.learning/.test(footing.text),
       `P080: Why standing is translated in ${lang}`, footing);
+    // One logged session of history: the anchor names it in the singular,
+    // never "over the last 1 sessions" / "nas últimas 1 sessões".
+    const anchorText = localized.blocks.find((b) => b.lead === "engine-anchor")?.text || "";
+    const singular = lang === "pt" ? "na última sessão" : "last session";
+    assert(anchorText.includes(singular) && !/\b1 (sessions|sessões)\b/.test(anchorText),
+      `the anchor reads one session in the singular in ${lang}`, anchorText);
   }
   // RT-01: the "What you showed" block (data-lead="engine-anchor") names each
   // of last session's two sets at its own load — never one shared sentence.

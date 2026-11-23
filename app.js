@@ -27564,9 +27564,12 @@ function engineWhyRows(ex,rec,n=1){
   const cap=Number.isFinite(anchor.capacityKg)?fmtLoad(Math.round(anchor.capacityKg*2)/2):null;
   if(anchor.source==="current_session")rows.push(whyRow("anchor",{text:t("why.engine.anchor_session",
     {set:(anchor.setIndex??0)+1,load:fmtLoad(anchor.displayLoadKg),cap,unit:u})}));
-  else if(cap)rows.push(whyRow("anchor",{text:t(PER_SIDE_LOAD_SEMANTICS.has(loadMetric?.semantic)
-    ?"why.engine.anchor_history_per_side":"why.engine.anchor_history",
-    {n:(anchor.sessionIds||[]).length||1,load:fmtLoad(anchor.displayLoadKg),cap,unit:u})}));
+  else if(cap){const sessions=(anchor.sessionIds||[]).length||1;
+    const perSide=PER_SIDE_LOAD_SEMANTICS.has(loadMetric?.semantic);
+    rows.push(whyRow("anchor",{text:t(sessions===1
+      ?perSide?"why.engine.anchor_history_per_side.one":"why.engine.anchor_history.one"
+      :perSide?"why.engine.anchor_history_per_side.other":"why.engine.anchor_history.other",
+      {n:sessions,load:fmtLoad(anchor.displayLoadKg),cap,unit:u})}))}
   if(facts.fatigued)
     rows.push(whyRow("fatigue",{text:t("why.engine.fatigue",{cap:fmtLoad(Math.round(projected*2)/2),unit:u})}));
   if(load!=null&&reps!=null)rows.push(whyRow("target",{text:t(rir!=null?"why.engine.target":"why.engine.target_norir",
@@ -27681,8 +27684,8 @@ function whySheetModel(ex,surface="focus"){
     const n=reps?.facts?.reps??setSuggestion(ex,1,rec,{},last(ex).find(x=>+x.set===1)).reps??ex.min;
     if(rec.reenterReps&&load&&reps){
       block(sameLoad(rec.load,rec.lastLoad)?"load_hold":"load",t(sameLoad(rec.load,rec.lastLoad)?"why.lead.load_hold":"why.lead.load"),load.text);
-      block("reps",t("why.lead.reps",{n}),reps.text)}
-    else block("reps",t("why.lead.reps",{n}),[load?.text,reps?.text].filter(Boolean).join(" "));
+      block("reps",t(n===1?"why.lead.reps.one":"why.lead.reps.other",{n}),reps.text)}
+    else block("reps",t(n===1?"why.lead.reps.one":"why.lead.reps.other",{n}),[load?.text,reps?.text].filter(Boolean).join(" "));
     lastGroup();
     calc.push({group:t("why.calc.working")});
     if(rec.cr!=null)calc.push({k:t("why.calc.capacity"),v:t("why.calc.capacity_v",{cap:Math.round(rec.cr),load:fmtLoad(rec.lastLoad),unit:u}),sub:showed?.text});
