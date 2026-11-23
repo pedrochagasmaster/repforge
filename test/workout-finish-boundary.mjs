@@ -341,8 +341,11 @@ async function restOverrunOffer(browser) {
   await softly("Restore: a stored, consistent rest past the cap opens the question after a reload, once", async () => {
     const { context, page } = await freshWorkout(browser);
     await logOneSet(page);
-    await plantRest(page, { kind: "running", deadlineMs: Date.now() - 4200000, lengthSec: 120, exerciseId: null, rang: false,
-      expiresAt: Date.now() - 4200000 + 3600000 });
+    // One clock reading: the app accepts a running record only when its expiry is exactly the deadline plus the cap, so two
+    // Date.now() calls a millisecond apart planted an inconsistent record that was (rightly) dropped without a question.
+    const deadlineMs = Date.now() - 4200000;
+    await plantRest(page, { kind: "running", deadlineMs, lengthSec: 120, exerciseId: null, rang: false,
+      expiresAt: deadlineMs + 3600000 });
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForApp(page);
     await page.waitForSelector("#sessionEarlyPrompt:not(.hidden)", { timeout: 5000 }).catch(() => {});
