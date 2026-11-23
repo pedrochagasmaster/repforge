@@ -1571,6 +1571,14 @@ async function peerActions(browser) {
         `${tag} Track is a bounded pill with the arrow, not an underlined link`, JSON.stringify(track));
       assert(create.title === tr(lang, "landing.build") && create.cap === tr(lang, "landing.build.cap"), `${tag} Build reads its title and what it does`, JSON.stringify(create));
       assert(track.title === tr(lang, "landing.track") && track.cap === tr(lang, "landing.track.cap"), `${tag} Track reads its title and what it does`, JSON.stringify(track));
+      const names = await page.evaluate(() => ["#firstRunCreate", "#firstRunImport"].map((selector) => {
+        const node = document.querySelector(selector);
+        const ref = (attr) => (node.getAttribute(attr) || "").split(/\s+/).filter(Boolean).map((id) => document.getElementById(id)?.textContent.trim()).join(" ");
+        return { name: ref("aria-labelledby"), description: ref("aria-describedby") };
+      }));
+      assert(names[0].name === tr(lang, "landing.build") && names[0].description === tr(lang, "landing.build.cap") &&
+        names[1].name === tr(lang, "landing.track") && names[1].description === tr(lang, "landing.track.cap"),
+        `${tag} each route is named by its title and described by its caption`, JSON.stringify(names));
       assert(trackClose && createClose && trackClose.w === createClose.w && trackClose.font === createClose.font && trackClose.arrow && !/underline/.test(trackClose.line),
         `${tag} the closing band repeats the two as peers`, JSON.stringify({ createClose, trackClose }));
       assert(read.data === tr(lang, "landing.hero.data", { settings: tr(lang, "nav.settings"), export: tr(lang, "settings.export_backup_json") }),
