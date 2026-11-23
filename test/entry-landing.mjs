@@ -108,7 +108,7 @@ function landingSnapshot() {
     kind: root?.dataset.entryLanding || null,
     headline: text("#firstRunHeadline"),
     lede: text("#firstRunLede"),
-    resumeText: text("#firstRunCreate"),
+    resumeText: text("#firstRunCreateLabel"),
     closeText: text("#firstRunCreateClose"),
     createShown: shown("#firstRunCreate"),
     importShown: shown("#firstRunImport"),
