@@ -1581,10 +1581,22 @@ const dayLabel=d=>{
   return localizedDayName(dayStructureFor(s,meta),d,meta?.programDefinition);
 };
 const download=(text,name,type="text/plain")=>{const u=URL.createObjectURL(new Blob([text],{type})),a=document.createElement("a");a.href=u;a.download=name;document.body.append(a);a.click();a.remove();URL.revokeObjectURL(u)};
+/* Hand a file to the system share sheet where it can take files, otherwise download it, and say what happened:
+   "shared"; "cancelled" when the lifter closed the sheet (AbortError), which downloads nothing; or "downloaded" when
+   there is no file sharing or the browser refused the share (NotAllowedError, TypeError, anything else). share() is
+   called synchronously, so a caller that has not awaited anything yet is still inside the tap's user activation (#817). */
+function shareFile(text,name,type,title){
+  let file=null;
+  try{if(typeof navigator.share==="function"&&navigator.canShare){file=new File([text],name,{type});if(!navigator.canShare({files:[file]}))file=null}}catch{file=null}
+  if(!file){download(text,name,type);return Promise.resolve("downloaded")}
+  let sharing;
+  try{sharing=navigator.share({files:[file],title})}catch(error){sharing=Promise.reject(error)}
+  return Promise.resolve(sharing).then(()=>"shared",error=>{
+    if(error?.name==="AbortError")return "cancelled";
+    download(text,name,type);return "downloaded"})}
+/* Program files and text keep their earlier behaviour: a closed sheet still downloads. */
 async function shareOrDownload(text,name,type,title="Taurifer backup"){
-  try{if(navigator.canShare){const file=new File([text],name,{type});
-    if(navigator.canShare({files:[file]})){await navigator.share({files:[file],title});return}}}catch{}
-  download(text,name,type)}
+  if(await shareFile(text,name,type,title)==="cancelled")download(text,name,type)}
 /* Words and numeric reps left share the effort shelf. Legacy tokens remain readable. */
 const EFFORT_RIR={easy:3,hard:1,max:0,r0:0,r1:1,r2:2,r3p:3,unsure:null};
 const EFFORT_STEPS=["easy","hard","max"];
@@ -6133,7 +6145,8 @@ window.__repforgeStorage={
   health(){return DurableState.getStorageHealth()},
   rebaseForTest(base,proposal,target,opts){return rebaseStateChange(base,proposal,target,opts)},
   replaceImport(incoming,io,opts){requireAdapter(io,"replaceImport");return replaceImportedState(incoming,io,opts)},
-  mergeImport(incoming,io){requireAdapter(io,"mergeImport");return mergeImportedLog(incoming,io)}}
+  mergeImport(incoming,io){requireAdapter(io,"mergeImport");return mergeImportedLog(incoming,io)},
+  backupExportSettled:()=>backupExportPending}
 function days(){
   const fromEx=[...new Set((state.program||[]).map(x=>x.day))];
   const fromStruct=structureDayLabels(state.programMeta);
@@ -18269,14 +18282,22 @@ function exportCsv(){
     ...state.log.map(r=>cols.map(c=>q(c[1](r))).join(","))].join("\n");
   download(csv,`taurifer_log_${today()}.csv`,"text/csv");
 }
-async function exportJson(){
-  const proposal=cloneSnapshot(state);proposal.settings.lastExport=new Date().toISOString();
-  const result=await commitProposedState(proposal);
-  if(!(result.localOk||result.idbOk))return result;
-  const text=JSON.stringify(exportableState(state)),name=`taurifer_backup_${today()}.json`;
-  shareOrDownload(text,name,"application/json");
-  renderSettings();
-  return result}
+/* Settings → Export backup JSON and the finish screen's backup cue (#817). The file is built and handed to the share
+   sheet before anything is awaited, so the share stays inside the tap's user activation (iOS refuses a share that
+   comes after the durable commit's lock and IndexedDB round trip). The backup time is committed only afterwards, and
+   only when the file left the app: a completed share or a started download. A closed sheet records nothing. */
+let backupExportPending=Promise.resolve();
+function exportJson(){
+  const at=new Date().toISOString(),snapshot=cloneSnapshot(state);snapshot.settings.lastExport=at;
+  const text=JSON.stringify(exportableState(snapshot)),name=`taurifer_backup_${today()}.json`;
+  const run=shareFile(text,name,"application/json","Taurifer backup").then(async outcome=>{
+    if(outcome==="cancelled")return{outcome,cancelled:true,localOk:false,idbOk:false};
+    const proposal=cloneSnapshot(state);proposal.settings.lastExport=at;
+    const result=await commitProposedState(proposal);
+    renderSettings();
+    return{...result,outcome}});
+  backupExportPending=run.catch(()=>{});
+  return run}
 const fileSlug=s=>String(s||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,40);
 /* A program-only export carries its own custom definitions. Without them a
    template arriving on another device points at a "custom:…" id that device has
@@ -26614,6 +26635,8 @@ function renderLandingWays(){
   fill("ways.written",esc(t("landing.ways.written.body",{weeks:landingNum(defaultProgramMeta().mesocycleLengthWeeks)})));
   fill("ways.where",landingRich("landing.ways.paste.where",{},{track:t("landing.track"),hub:t("entry.hub.title"),
     own:t("entry.hub.b.import.title"),paste:t("entry.import_source.to_freeform")}));
+  fill("hero.data",landingRich("landing.hero.data",{},{settings:t("nav.settings"),export:t("settings.export_backup_json")}));
+  fill("ways.today",landingRich("landing.ways.paste.today",{},{use:t("entry.preview.activate_first"),today:t("nav.log")}));
   fill("data.pointer",landingRich("landing.data.pointer",{},{settings:t("nav.settings"),privacy:t("privacy.open")}));
   fill("faq.coach.a1",landingRich("landing.faq.coach.a1",{},{control:t("program.share_setup")}));
   fill("faq.data.a2",landingRich("landing.faq.data.a2",{},{settings:t("nav.settings"),toggle:t("settings.analytics.title")}));
