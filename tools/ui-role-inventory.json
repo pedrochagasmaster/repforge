@@ -583,6 +583,11 @@
       "content": "flat",
       "scenario": "Every lift is a first exposure: the baseline sentence, no outcome words, and the next targets from the engine."
     },
+    "session/summary-backup": {
+      "owner": "packet-e",
+      "content": "flat",
+      "scenario": "The Day 1 finish screen when a backup is due: the quiet note that training history is saved only on this device, Save a backup copy and Not now, above Share and Done."
+    },
     "progress/overview": {
       "owner": "plan-056",
       "content": "flat",
@@ -6378,6 +6383,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "session/summary",
+        "session/summary-backup",
         "session/summary-finding",
         "session/summary-lifts",
         "session/summary-declined",
@@ -6407,6 +6413,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "session/summary",
+        "session/summary-backup",
         "session/summary-finding",
         "session/summary-lifts",
         "session/summary-declined",
@@ -6690,6 +6697,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "session/summary",
+        "session/summary-backup",
         "session/summary-finding",
         "session/summary-lifts",
         "session/summary-declined",
@@ -6720,6 +6728,7 @@
       "owner": "finish-share",
       "catalogStates": [
         "session/summary",
+        "session/summary-backup",
         "session/summary-finding",
         "session/summary-lifts",
         "session/summary-declined",
@@ -7109,6 +7118,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "session/summary",
+        "session/summary-backup",
         "session/summary-finding",
         "session/summary-lifts",
         "session/summary-declined",
@@ -7118,6 +7128,48 @@
         "session/profile-finish-checked",
         "session/profile-finish-agreeing",
         "session/past-zero"
+      ]
+    },
+    {
+      "id": "sumbackupsave",
+      "selector": "#sumBackupSave",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "The backup cue's action: writes Settings' backup file and hands it to the share sheet or a download, shown only when a backup is due (Packet E).",
+      "owner": "packet-e",
+      "catalogStates": [
+        "session/summary-backup"
+      ]
+    },
+    {
+      "id": "sumbackupdismiss",
+      "selector": "#sumBackupDismiss",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "Dismisses the backup cue until its rule fires again, without changing training state (Packet E).",
+      "owner": "packet-e",
+      "neverDisabledReason": "Dismissing the cue is always possible.",
+      "catalogStates": [
+        "session/summary-backup"
       ]
     },
     {
@@ -9092,6 +9144,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "session/summary",
+        "session/summary-backup",
         "session/summary-finding",
         "session/summary-lifts",
         "session/summary-declined",
@@ -9772,6 +9825,7 @@
         "workout/why-per-side",
         "workout/why-in-session",
         "session/summary",
+        "session/summary-backup",
         "session/summary-lifts",
         "session/summary-maintained",
         "session/summary-declined",
@@ -14540,6 +14594,7 @@
       "owner": "plan-081",
       "catalogStates": [
         "session/summary",
+        "session/summary-backup",
         "session/summary-finding",
         "session/summary-first",
         "session/summary-maintained",
@@ -14695,6 +14750,7 @@
         "install/transfer-unknown",
         "install/transfer-claimed-expired",
         "session/summary",
+        "session/summary-backup",
         "session/summary-finding",
         "session/summary-maintained",
         "session/summary-declined",
@@ -14816,6 +14872,7 @@
         "progress/profile-scope",
         "session/summary-profile",
         "session/summary",
+        "session/summary-backup",
         "session/summary-finding",
         "session/summary-maintained",
         "session/summary-declined",
@@ -14887,6 +14944,7 @@
         "progress/overview-profile-first",
         "session/summary-profile",
         "session/summary",
+        "session/summary-backup",
         "session/summary-finding",
         "session/summary-maintained",
         "session/summary-declined",
@@ -14956,6 +15014,7 @@
         "progress/profile-scope",
         "session/summary-profile",
         "session/summary",
+        "session/summary-backup",
         "session/summary-finding",
         "session/summary-maintained",
         "session/summary-declined",
@@ -15444,6 +15503,7 @@
         "progress/profile-scope",
         "session/summary-profile",
         "session/summary",
+        "session/summary-backup",
         "session/summary-finding",
         "session/summary-maintained",
         "session/summary-declined",
@@ -15515,6 +15575,7 @@
       "owner": "plan-084",
       "catalogStates": [
         "session/summary",
+        "session/summary-backup",
         "session/summary-finding",
         "session/summary-profile",
         "session/summary-maintained",
@@ -15551,6 +15612,7 @@
       "owner": "plan-084",
       "catalogStates": [
         "session/summary",
+        "session/summary-backup",
         "session/summary-finding",
         "session/summary-profile",
         "session/summary-maintained",
@@ -15583,6 +15645,7 @@
       "owner": "plan-084",
       "catalogStates": [
         "session/summary",
+        "session/summary-backup",
         "session/summary-finding",
         "session/summary-profile",
         "session/summary-maintained",
@@ -15614,6 +15677,7 @@
       "owner": "plan-084",
       "catalogStates": [
         "session/summary",
+        "session/summary-backup",
         "session/summary-finding",
         "session/summary-profile",
         "session/summary-maintained",
@@ -16455,6 +16519,7 @@
       "owner": "plan-057/058",
       "catalogStates": [
         "session/summary",
+        "session/summary-backup",
         "session/summary-finding",
         "session/summary-maintained",
         "session/summary-declined",

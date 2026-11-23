@@ -4173,6 +4173,19 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
 .sum-cards__hint{margin:var(--space-8) 0 0;text-align:center;text-wrap:balance;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
 .sum-see{display:flex;margin:var(--space-18) 0 0}
 .sum-see #sumSee{width:100%}
+/* The backup cue (Packet E): a quiet note in the report, set like the baseline line, with two text actions that are
+   full targets. It is never a banner or a button pair competing with Share and Done. */
+.sum-backup{margin-top:var(--space-18);padding-left:14px;border-left:2px solid var(--boundary-selected-quiet)}
+.sum-backup__text,.sum-backup__done{margin:0;font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-reading);color:var(--color-ink-secondary)}
+.sum-backup__done{margin-top:var(--space-18);padding-left:14px;border-left:2px solid var(--boundary-selected-quiet)}
+.sum-backup__done:focus{outline:none}
+.sum-backup__done:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+.sum-backup__actions{display:flex;flex-wrap:wrap;column-gap:var(--space-18)}
+.sum-backup__actions .text-link{display:inline-flex;align-items:center;min-height:var(--control-target);padding:0;font-family:var(--font-language);font-weight:var(--weight-semibold);text-align:left}
+.sum-backup__save.text-link{color:var(--color-ink)}
+.sum-backup__dismiss.text-link{color:var(--color-ink-secondary);font-weight:var(--weight-regular)}
+.sum-backup__actions .text-link:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+.sum-backup__actions .text-link:disabled{color:var(--color-disabled-reason);cursor:default}
 .sum-split{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-12);margin-top:var(--space-26)}
 .sum-split__k{margin:0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
 .sum-week{margin:0;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-medium);line-height:var(--line-standard);color:var(--color-ink)}

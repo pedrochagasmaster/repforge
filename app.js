@@ -13700,6 +13700,11 @@ function sessionSummaryHtml(s){
         `<p class="sum-next__meta">${esc(tOne("today.exercise_count",s.next.exercises))}</p></div>`:"")+`</div>`)}
   // The session in History, after the report it summarises.
   out.push(`<p class="sum-see"><button type="button" id="sumSee">${esc(t("summary.see_session"))}</button></p>`);
+  // A backup the lifter does not have to remember (Packet E): one quiet cue, only when a copy is due.
+  if(backupCueDue())out.push(`<div class="sum-backup" id="sumBackup">`+
+    `<p class="sum-backup__text" id="sumBackupText">${esc(t("summary.backup.body"))}</p>`+
+    `<div class="sum-backup__actions"><button type="button" class="text-link sum-backup__save" id="sumBackupSave" aria-describedby="sumBackupText">${esc(t("summary.backup.save"))}</button>`+
+    `<button type="button" class="text-link sum-backup__dismiss" id="sumBackupDismiss">${esc(t("summary.backup.dismiss"))}</button></div></div>`);
   // Share is the strong action (owner decisions, 2026-11-05) and sends the card in view; Done ends the session.
   out.push(`<div class="sum-actions"><button type="button" class="btn btn--cta btn--noarrow" id="sumShare">${esc(t("summary.share"))}</button>`+
     `<button type="button" class="btn btn--steel" id="sumDone">${esc(t("summary.done"))}</button></div>`);
@@ -13772,7 +13777,40 @@ function renderSessionSummary(s){
   const share=$("#sumShare");if(share)share.onclick=()=>openShareSheet(share);
   const see=$("#sumSee");if(see)see.onclick=()=>{
     HistoryUi.startReading(s.session);
-    closeSessionSummary({nav:"history"})}}
+    closeSessionSummary({nav:"history"})};
+  wireSummaryBackupCue()}
+
+/* The backup cue (Packet E). A saved session is the moment the record grew, so that is where the cue may appear:
+   once at least BACKUP_CUE_SESSIONS saved sessions and BACKUP_CUE_DAYS days have passed since the later of the last
+   backup (`settings.lastExport`, the time Settings shows) and the last "Not now" (`backupCueDismissedAt`, a
+   device-only UI preference). With neither, the first counted session starts the clock. It never appears on a device
+   with no saved session, so a fresh device stays eligible for the install transfer. The tap is Settings' Export
+   backup JSON: the same file, to the share sheet where files can be shared, else as a download. */
+const BACKUP_CUE_SESSIONS=3,BACKUP_CUE_DAYS=7;
+function backupCueDue(nowMs=Date.now()){
+  const anchors=[state?.settings?.lastExport,uiPrefs.backupCueDismissedAt].map(v=>typeof v==="string"?Date.parse(v):NaN).filter(Number.isFinite);
+  const anchor=anchors.length?Math.max(...anchors):null,sessions=new Map();
+  for(const row of state?.log||[]){
+    if(!isWork(row))continue;
+    const at=Date.parse(row.created||`${row.date}T12:00:00`);if(!Number.isFinite(at))continue;
+    const id=String(row.session??"");sessions.set(id,Math.min(sessions.get(id)??Infinity,at))}
+  const since=[...sessions.values()].filter(at=>anchor==null||at>anchor);
+  if(since.length<BACKUP_CUE_SESSIONS)return false;
+  return nowMs-(anchor??Math.min(...since))>=BACKUP_CUE_DAYS*86400000}
+function wireSummaryBackupCue(){
+  const cue=$("#sumBackup");if(!cue)return;
+  const save=$("#sumBackupSave"),dismiss=$("#sumBackupDismiss");
+  save.onclick=async()=>{
+    if(save.disabled)return;save.disabled=true;
+    let result;try{result=await exportJson()}catch{result=null}
+    if(!result||!(result.localOk||result.idbOk)){save.disabled=false;return}
+    const done=document.createElement("p");
+    done.className="sum-backup__done";done.setAttribute("role","status");done.tabIndex=-1;
+    done.textContent=t("settings.storage.last_backup",{lastBackup:String(state.settings.lastExport||"").slice(0,10)});
+    cue.replaceWith(done);done.focus({preventScroll:true})};
+  dismiss.onclick=()=>{
+    updateUiPrefs(prefs=>({...prefs,backupCueDismissedAt:new Date().toISOString()}));
+    cue.remove();$("#sumDone")?.focus({preventScroll:true})}}
 
 function clearSessionSummaryView(){
   clearSummaryProfileReturn();syncRouteHistory();
