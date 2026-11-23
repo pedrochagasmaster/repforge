@@ -278,8 +278,8 @@ const readLanding = () => {
     lang: document.documentElement.lang || null,
     headline: text("#firstRunHeadline"),
     lede: text("#firstRunLede"),
-    create: { shown: shown("#firstRunCreate"), text: text("#firstRunCreate") },
-    import: { shown: shown("#firstRunImport"), text: text("#firstRunImport") },
+    create: { shown: shown("#firstRunCreate"), text: text("#firstRunCreateLabel") },
+    import: { shown: shown("#firstRunImport"), text: text("#firstRunImportLabel") },
     createClose: shown("#firstRunCreateClose"),
     importClose: shown("#firstRunImportClose"),
     privacy: { shown: shown("#firstRunPrivacy"), text: text("#firstRunPrivacy") },
@@ -1543,12 +1543,63 @@ async function heldCatalogProof(browser) {
 }
 
 // ---------------------------------------------------------------------------
+async function peerActions(browser) {
+  phase("Peer actions: Track is a pill as big as Build, each says what it does, and the hero says where records live");
+  for (const lang of ["en", "pt"]) {
+    for (const width of [390, 320]) {
+      const { context, page, errors } = await landingPage(browser, { lang, width });
+      const read = await page.evaluate(() => {
+        const box = (selector) => {
+          const node = document.querySelector(selector);
+          if (!node) return null;
+          const r = node.getBoundingClientRect(), style = getComputedStyle(node);
+          return { w: Math.round(r.width), h: Math.round(r.height), font: style.fontSize, weight: style.fontWeight, radius: style.borderTopLeftRadius,
+            border: parseFloat(style.borderTopWidth) || 0, fill: style.backgroundColor, line: style.textDecorationLine,
+            arrow: !!node.querySelector(".firstrun-row__go"),
+            title: (node.querySelector(".firstrun-row__title")?.textContent || "").replace(/\s+/g, " ").trim(),
+            cap: (node.querySelector(".firstrun-row__cap")?.textContent || "").replace(/\s+/g, " ").trim() };
+        };
+        const fill = (key) => (document.querySelector(`[data-landing-fill="${key}"]`)?.textContent || "").replace(/\s+/g, " ").trim();
+        return { create: box("#firstRunCreate"), track: box("#firstRunImport"), createClose: box("#firstRunCreateClose"), trackClose: box("#firstRunImportClose"),
+          data: fill("hero.data"), overflow: document.querySelector("#firstRun").scrollWidth > document.querySelector("#firstRun").clientWidth };
+      });
+      const tag = `[${lang} ${width}]`;
+      const { create, track, createClose, trackClose } = read;
+      assert(track && create && track.w === create.w && Math.abs(track.h - create.h) <= 1 && track.font === create.font && track.weight === create.weight && track.radius === create.radius,
+        `${tag} Track has Build's width, height, type and radius`, JSON.stringify({ create, track }));
+      assert(track.arrow && !/underline/.test(track.line) && (track.border > 0 || track.fill !== "rgba(0, 0, 0, 0)"),
+        `${tag} Track is a bounded pill with the arrow, not an underlined link`, JSON.stringify(track));
+      assert(create.title === tr(lang, "landing.build") && create.cap === tr(lang, "landing.build.cap"), `${tag} Build reads its title and what it does`, JSON.stringify(create));
+      assert(track.title === tr(lang, "landing.track") && track.cap === tr(lang, "landing.track.cap"), `${tag} Track reads its title and what it does`, JSON.stringify(track));
+      assert(trackClose && createClose && trackClose.w === createClose.w && trackClose.font === createClose.font && trackClose.arrow && !/underline/.test(trackClose.line),
+        `${tag} the closing band repeats the two as peers`, JSON.stringify({ createClose, trackClose }));
+      assert(read.data === tr(lang, "landing.hero.data", { settings: tr(lang, "nav.settings"), export: tr(lang, "settings.export_backup_json") }),
+        `${tag} the hero says where records live and names the backup control`, read.data);
+      assert(!read.overflow, `${tag} no sideways scroll`);
+      assert(errors.length === 0, `${tag} no uncaught page errors`, errors.slice(0, 2).join(" | "));
+      await context.close();
+    }
+  }
+  const { context, page } = await landingPage(browser, { lang: "pt" });
+  await page.evaluate(() => document.querySelector("#firstRunHandBtn").scrollIntoView({ block: "center", behavior: "instant" }));
+  await page.click("#firstRunHandBtn");
+  const today = await page.evaluate(() => (document.querySelector('[data-landing-fill="ways.today"]')?.textContent || "").replace(/\s+/g, " ").trim());
+  assert(today === tr("pt", "landing.ways.paste.today", { use: tr("pt", "entry.preview.activate_first"), today: tr("pt", "nav.log") }),
+    "the paste walkthrough ends on Today, naming the activation control", today);
+  await context.close();
+}
+
 async function main() {
   console.log(`Landing variants\nTarget: ${BASE}${FAULT ? `\nFault: ${FAULT}` : ""}`);
   engineTruth();
   copyPins();
   const browser = await launchChromium();
   try {
+    await peerActions(browser);
+    if (process.env.LANDING_VARIANTS_ONLY === "peers") {
+      if (results.failed) throw new Error("peer actions proof failed");
+      return;
+    }
     await heldDockExit(browser);
     if (process.env.LANDING_VARIANTS_ONLY === "dock") {
       if (results.failed) throw new Error("held dock proof failed");

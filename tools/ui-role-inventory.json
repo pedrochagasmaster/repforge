@@ -3454,9 +3454,10 @@
       "id": "firstrunimport",
       "selector": "#firstRunImport",
       "roles": {
-        "control": "quiet-navigation"
+        "control": "secondary",
+        "boundary": "required"
       },
-      "variant": "landing-text-link",
+      "variant": "landing-ink-peer",
       "facets": [],
       "states": [
         "default",
@@ -3465,8 +3466,8 @@
         "focus-visible",
         "disabled"
       ],
-      "rationale": "Opens the import route without committing training state; the final page draws it as an underlined text link under the creation pill.",
-      "owner": "plan-064/r2",
+      "rationale": "Opens the import route without committing training state; the peer of Build (Packet F), the same pill drawn as an outline in the band's ink, with its arrow and a caption.",
+      "owner": "packet-f",
       "catalogStates": [
         "onboarding-shared/invalid",
         "onboarding-start/first-run",
@@ -3484,9 +3485,10 @@
       "id": "firstrunimportclose",
       "selector": "#firstRunImportClose",
       "roles": {
-        "control": "quiet-navigation"
+        "control": "secondary",
+        "boundary": "required"
       },
-      "variant": "landing-text-link",
+      "variant": "landing-ink-peer",
       "facets": [],
       "states": [
         "default",
@@ -3495,8 +3497,8 @@
         "focus-visible",
         "disabled"
       ],
-      "rationale": "Repeats the same import route at the closing band as an underlined text link, with no boundary of its own.",
-      "owner": "plan-064/r2",
+      "rationale": "Repeats the import route at the closing band as Build's outlined peer, with its arrow.",
+      "owner": "packet-f",
       "catalogStates": [
         "onboarding-shared/invalid",
         "onboarding-start/first-run",
@@ -16207,12 +16209,21 @@
     },
     {
       "id": "landing-text-link",
-      "selector": "#firstRunImport, #firstRunImportClose, #firstRunSharedCreate",
+      "selector": "#firstRunSharedCreate",
       "role": "quiet-navigation",
-      "rationale": "Import and shared-gate text actions are underlined quiet navigation controls with no boundary, in the ink of the band they sit on.",
+      "rationale": "The shared gate's create-from-scratch action is an underlined quiet navigation control with no boundary, in the ink of the band it sits on.",
       "owner": "plan-072",
       "catalogStates": [
-        "onboarding-shared/gate",
+        "onboarding-shared/gate"
+      ]
+    },
+    {
+      "id": "landing-ink-peer",
+      "selector": "#firstRunImport, #firstRunImportClose",
+      "role": "secondary",
+      "rationale": "Track is Build's peer on the landing (Packet F): the same pill geometry, type and arrow, outlined in the band's ink instead of filled, so the two routes read as equals.",
+      "owner": "packet-f",
+      "catalogStates": [
         "onboarding-shared/invalid",
         "onboarding-start/first-run",
         "onboarding-start/first-run-proof",
