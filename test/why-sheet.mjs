@@ -75,6 +75,33 @@ function assert(cond, name, detail) {
   else { results.failed++; console.log(`  ✗ ${name}`); if (detail != null) console.log(`    ${typeof detail === "string" ? detail : JSON.stringify(detail).slice(0, 2000)}`); }
 }
 
+/* One word for effort (CONTEXT.md "Reps left"): the Why sheet and the
+ * recommendation copy beside the logging shelf name the quantity the way the
+ * shelf does, "reps left" / "sobrando". RIR stays a glossary word. */
+const OTHER_EFFORT_WORD = { en: /\bRIR\b|in reserve/i, pt: /\bRIR\b|reserva/i };
+const effortWordLeaks = (lang, text) => OTHER_EFFORT_WORD[lang].test(String(text).replace(/\{\w+\}/g, ""));
+for (const lang of ["en", "pt"]) {
+  const dict = JSON.parse(readFileSync(new URL(`../i18n-${lang}.json`, import.meta.url), "utf8"));
+  const leaks = Object.keys(dict).filter((key) => /^(why|rec)\./.test(key) && effortWordLeaks(lang, dict[key]));
+  assert(leaks.length === 0, `one effort word: no ${lang.toUpperCase()} Why or recommendation string names RIR or reserve`, leaks);
+}
+
+/* A count of one reads in the singular ("1 rep", not "1 reps"): each Why
+ * string that puts a count before a noun has .one/.other forms and app.js
+ * picks the form, as #814 did for the anchor sentence. */
+const COUNTED_WHY = ["why.performed", "why.performed_effort", "why.set1", "why.set1_effort",
+  "why.engine.target", "why.engine.target_norir", "why.calc.capacity_v"];
+const SINGULAR_NOUN = { en: /\b1 rep\b/, pt: /\b1 (rep|repetição)\b/ };
+const PLURAL_AFTER_ONE = { en: /\b1 reps\b/, pt: /\b1 (reps|repetições)\b/ };
+for (const lang of ["en", "pt"]) {
+  const dict = JSON.parse(readFileSync(new URL(`../i18n-${lang}.json`, import.meta.url), "utf8"));
+  const fill = (text, n) => String(text || "").replace(/\{(reps|cap)\}/g, String(n)).replace(/\{\w+\}/g, "9");
+  const wrong = COUNTED_WHY.filter((key) => key in dict || !(`${key}.one` in dict) || !(`${key}.other` in dict)
+    || !SINGULAR_NOUN[lang].test(fill(dict[`${key}.one`], 1)) || PLURAL_AFTER_ONE[lang].test(fill(dict[`${key}.one`], 1))
+    || !/\b2 (reps|repetições)\b/.test(fill(dict[`${key}.other`], 2)));
+  assert(wrong.length === 0, `singular: every counted ${lang.toUpperCase()} Why string has a "1 rep" form and a plural form`, wrong);
+}
+
 async function seed(page, { ambiguousPerSideReview = false, knownModeNullConfigRequired = false } = {}) {
   return page.evaluate(({ request, weight, reps, ambiguousPerSideReview, knownModeNullConfigRequired }) => {
     const generated = window.RepForgeProgramCompiler.generateProgram(request, window.RepForgeExerciseCatalog.snapshot());
@@ -315,7 +342,8 @@ async function expectedAnchorText(page, truth) {
     if (anchor.source === "current_session") {
       text = t("why.engine.anchor_session", { set: (anchor.setIndex ?? 0) + 1, load: displayLoad, cap, unit });
     } else if (cap) {
-      text = t("why.engine.anchor_history", { n: (anchor.sessionIds || []).length || 1, load: displayLoad, cap, unit });
+      const n = (anchor.sessionIds || []).length || 1;
+      text = t(n === 1 ? "why.engine.anchor_history.one" : "why.engine.anchor_history.other", { n, load: displayLoad, cap, unit });
     }
     if (showFatigue) text += ` ${t("why.engine.fatigue", { cap: fatigueCap, unit })}`;
     return text;
@@ -508,6 +536,15 @@ try {
     const expected = lang === "pt" ? "O Taurifer ainda está conhecendo este exercício" : "Taurifer is still learning this lift";
     assert(footing?.text.includes(expected) && !/why\.standing|standing\.learning/.test(footing.text),
       `P080: Why standing is translated in ${lang}`, footing);
+    // One logged session of history: the anchor names it in the singular,
+    // never "over the last 1 sessions" / "nas últimas 1 sessões".
+    const anchorText = localized.blocks.find((b) => b.lead === "engine-anchor")?.text || "";
+    const singular = lang === "pt" ? "na última sessão" : "last session";
+    assert(anchorText.includes(singular) && !/\b1 (sessions|sessões)\b/.test(anchorText),
+      `the anchor reads one session in the singular in ${lang}`, anchorText);
+    const sheetText = localized.blocks.map((b) => b.text).join(" ");
+    assert(!effortWordLeaks(lang, sheetText) && sheetText.includes(lang === "pt" ? "sobrando" : "reps left"),
+      `one effort word: the rendered ${lang.toUpperCase()} Why sheet says reps left, never RIR`, sheetText);
   }
   // RT-01: the "What you showed" block (data-lead="engine-anchor") names each
   // of last session's two sets at its own load — never one shared sentence.
@@ -516,8 +553,8 @@ try {
   const performedExpectations = await page.evaluate(({ load1, load2 }) => {
     const t = window.RepForgeI18n.t;
     return {
-      set1: t("why.performed", { reps: "6", load: load1, unit: "kg", rirs: "2" }),
-      set2: t("why.performed", { reps: "8", load: load2, unit: "kg", rirs: "1" }),
+      set1: t("why.performed.other", { reps: "6", load: load1, unit: "kg", rirs: "2" }),
+      set2: t("why.performed.other", { reps: "8", load: load2, unit: "kg", rirs: "1" }),
     };
   }, { load1: fmtNum(110), load2: fmtNum(100) });
   assert((anchorBlock?.text || "").includes(performedExpectations.set1) && (anchorBlock?.text || "").includes(performedExpectations.set2),
@@ -545,7 +582,7 @@ try {
     const rir = truthBefore.firstRir;
     const expectedTarget = await page.evaluate(({ rir, reps, load, unit }) => {
       const t = window.RepForgeI18n.t;
-      return t(rir != null ? "why.engine.target" : "why.engine.target_norir", { rir, reps, load, unit });
+      return t(`${rir != null ? "why.engine.target" : "why.engine.target_norir"}.${+reps === 1 ? "one" : "other"}`, { rir, reps, load, unit });
     }, { rir: fmtNum(rir), reps, load: fmtNum(load), unit: "kg" });
     assert(targetBlock.text === expectedTarget,
       "the sheet names the target with RIR and reps exactly as window.RepForgeI18n.t renders it",
