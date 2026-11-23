@@ -53,6 +53,10 @@ for (const lang of ["en", "pt"]) {
   const offenders = REPS_LEFT_KEYS.filter((key) => typeof catalog[key] !== "string" || /\bRIR\b|reserv/i.test(catalog[key]));
   check(offenders.length === 0, `editor and Review effort labels say reps left in ${lang}, never RIR`,
     offenders.map((key) => `${key}=${catalog[key]}`));
+  // The copy gate reads a bare "{n} word" template as approving any text before that word (direction-d-gate:
+  // "an effort suffix cannot approve an invented word"), so the set-line label leads and the figure follows.
+  check(/^\p{L}/u.test(catalog["entry.review.rir"] || ""), `the ${lang} set-line effort label starts with its word, not the figure`,
+    catalog["entry.review.rir"]);
 }
 
 async function waitForApp(page) {

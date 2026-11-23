@@ -2224,7 +2224,7 @@
       const rirs = sets.map(set => set.rir);
       const parts = [texts.length === 1 ? `${format(adapter, sets.length)} × ${texts[0]}` : rt("entry.review.sheet.n_sets", { n: sets.length }, `${sets.length} sets`)];
       if (rirs.some(value => Number.isFinite(value)))
-        parts.push(rt("entry.review.rir", { n: rirs.map(value => Number.isFinite(value) ? format(adapter, value) : "–").join("·") }, "left"));
+        parts.push(rt("entry.review.rir", { n: rirs.map(value => Number.isFinite(value) ? format(adapter, value) : "–").join("·") }, "Left"));
       return parts.join(" · ");
     }
 
@@ -2391,7 +2391,7 @@
         `<div class="review__rowbody"><h3 class="review__name">${esc(name)}</h3>` +
         (mark ? `<span class="review__mark" data-role="row-mark"><span class="review__dot" aria-hidden="true"></span>${esc(mark)}</span>` : "") +
         `<ol class="review__sets">${lines.map((line, index) => `<li data-role="set-line"><span class="review__setn num">${index + 1}</span><span class="review__reps">${nums(line.text)}</span>` +
-          (line.rir == null ? "" : `<span class="review__rir">${nums(rt("entry.review.rir", { n: format(adapter, line.rir) }, `${line.rir} left`))}</span>`) + `</li>`).join("")}</ol>` +
+          (line.rir == null ? "" : `<span class="review__rir">${nums(rt("entry.review.rir", { n: format(adapter, line.rir) }, `Left ${line.rir}`))}</span>`) + `</li>`).join("")}</ol>` +
         `</div>${icon("chev-right")}</article><button type="button" class="native-row-menu visually-hidden" data-row-menu="${esc(exercise.id)}" aria-haspopup="menu" aria-label="${esc(label("more"))}: ${esc(name)}"><span class="icon-mask icon-mask--overflow" aria-hidden="true"></span></button></div>`;
     }
     function dayPanelHtml(day) {

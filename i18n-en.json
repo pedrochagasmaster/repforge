@@ -2761,7 +2761,7 @@
   "entry.review.move_down": "Move {name} down",
   "entry.review.reps": "{min}–{max} reps",
   "entry.review.reps_side": "{min}–{max} reps per side",
-  "entry.review.rir": "{n} left",
+  "entry.review.rir": "Left {n}",
   "entry.review.execution_mode.question": "How do you do this exercise?",
   "entry.review.execution_mode.bilateral": "Both sides together",
   "entry.review.execution_mode.unilateral": "One side at a time",
