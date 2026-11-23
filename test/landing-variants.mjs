@@ -1581,7 +1581,10 @@ async function peerActions(browser) {
         `${tag} each route is named by its title and described by its caption`, JSON.stringify(names));
       assert(trackClose && createClose && trackClose.w === createClose.w && trackClose.font === createClose.font && trackClose.arrow && !/underline/.test(trackClose.line),
         `${tag} the closing band repeats the two as peers`, JSON.stringify({ createClose, trackClose }));
-      assert(read.data === tr(lang, "landing.hero.data", { settings: tr(lang, "nav.settings"), export: tr(lang, "settings.export_backup_json") }),
+      // The data line names the session summary's own backup action (Packet E), never a promise of automatic backup.
+      assert(/\{save\}/.test(CATALOG[lang]["landing.hero.data"]) && !/automatic|autom[aá]tic/i.test(CATALOG[lang]["landing.hero.data"]),
+        `${tag} the data line points at the summary's backup action and promises nothing automatic`, CATALOG[lang]["landing.hero.data"]);
+      assert(read.data === tr(lang, "landing.hero.data", { save: tr(lang, "summary.backup.save") }),
         `${tag} the hero says where records live and names the backup control`, read.data);
       assert(!read.overflow, `${tag} no sideways scroll`);
       assert(errors.length === 0, `${tag} no uncaught page errors`, errors.slice(0, 2).join(" | "));
