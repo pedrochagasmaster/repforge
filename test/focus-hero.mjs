@@ -274,7 +274,7 @@ try {
     const targetBlock = sheet.find((block) => block.lead === "engine-target")?.text || "";
     ok(anchorBlock.includes(await t(page, "why.engine.anchor_session", { set: 1, load: num(engine.anchor.displayLoadKg),
       cap: num(Math.round(engine.anchor.capacityKg * 2) / 2), unit: "kg" })), "the Why sheet anchors on the same set and load", sheet);
-    ok(targetBlock === await t(page, "why.engine.target", { rir: num(engine.rir), reps: engine.reps, load: num(engine.load), unit: "kg" }),
+    ok(targetBlock === await t(page, `why.engine.target.${+engine.reps === 1 ? "one" : "other"}`, { rir: num(engine.rir), reps: engine.reps, load: num(engine.load), unit: "kg" }),
       "the Why sheet's target is the same reps and RIR as the line, at the hero's load", { targetBlock, engine });
     await page.click("#whyClose");
     await page.waitForSelector("#whySheet", { state: "hidden" });
