@@ -134,7 +134,7 @@ _PT (user-facing)_: carga inicial.
 _Avoid_: Target load, predicted strength
 
 **Standing**:
-How well-founded a lift's estimate is, said in words on the target and explained in Why: solid, still learning this lift, first time at this load. Derived from the row count, set-to-set agreement and the lifter's test-set reliability on that lift. Never a percentage, never a grade.
+How well-founded a lift's estimate is, said in words on the target and explained in Why: solid, Taurifer is still learning this lift, first time at this load. Derived from the row count, set-to-set agreement and the lifter's test-set reliability on that lift. Never a percentage, never a grade.
 _Avoid_: Confidence score, accuracy, certainty %, reliability rating
 
 **Finding**:

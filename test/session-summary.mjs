@@ -875,6 +875,128 @@ async function run() {
   }
 
   // ---- 8 — Settings says what the browser says about durability ----------------
+  // ---- Packet E — a backup the lifter does not have to remember ----------------
+  // The finish screen offers one quiet "save a backup copy" once three saved sessions and seven days have passed since
+  // the later of the last backup and the last "Not now". The tap is Settings' Export backup JSON: the same file, to the
+  // system share sheet where files can be shared and as a download otherwise. "Not now" holds until the rule fires again.
+  phase("The finish screen offers a backup copy once one is due");
+  {
+    const UI = "repforge_ui_v1";
+    const curl = (date) => history(date, [["ex2", "Dumbbell curl", 1, 10, 8, 1, "Biceps", ""]]);
+    const daysAgoIso = (n) => new Date(Date.now() - n * 86400000).toISOString();
+    const setUi = (value) => page.evaluate(([k, v]) => v == null ? localStorage.removeItem(k) : localStorage.setItem(k, JSON.stringify(v)), [UI, value]);
+    const finishCurl = async () => {
+      await enterLog(page);
+      await logSet(page, "ex2", 1, 12.5, 10, 1);
+      await finishEarly(page);
+      await page.waitForSelector("#sessionSummary:not(.hidden)", { timeout: 8000 });
+    };
+    const readCue = () => page.evaluate(() => {
+      const cue = document.querySelector("#sumBackup"), save = document.querySelector("#sumBackupSave"), dismiss = document.querySelector("#sumBackupDismiss");
+      const box = (el) => { const r = el?.getBoundingClientRect(); return r ? Math.round(r.height) : 0; };
+      return { shown: !!cue && !cue.hidden && cue.getClientRects().length > 0, text: cue?.querySelector(".sum-backup__text")?.textContent.trim() || "",
+        save: save?.textContent.trim() || "", dismiss: dismiss?.textContent.trim() || "", saveH: box(save), dismissH: box(dismiss),
+        beforeActions: !!cue && !!document.querySelector(".sum-actions") && !!(cue.compareDocumentPosition(document.querySelector(".sum-actions")) & Node.DOCUMENT_POSITION_FOLLOWING) };
+    });
+    const stored = () => page.evaluate(([k, u]) => ({ lastExport: JSON.parse(localStorage.getItem(k)).settings.lastExport,
+      dismissed: (JSON.parse(localStorage.getItem(u) || "{}") || {}).backupCueDismissedAt ?? null }), [KEY, UI]);
+    const closeSummary = async () => {
+      await page.click("#sumDone");
+      await page.waitForSelector("#sessionSummary.hidden", { state: "attached", timeout: 5000 });
+    };
+
+    // Two earlier sessions, ten and five days back, never backed up: the third saved session makes a copy due.
+    await setUi(null);
+    await seed(page, fixture({ log: [...curl(isoDaysAgo(10)), ...curl(isoDaysAgo(5))] }));
+    await page.evaluate(() => {
+      window.__sharedBackup = null;
+      Object.defineProperty(navigator, "canShare", { configurable: true, value: (data) => Array.isArray(data?.files) && data.files.length === 1 });
+      Object.defineProperty(navigator, "share", { configurable: true, value: async (data) => {
+        const file = data.files[0];
+        window.__sharedBackup = { name: file.name, type: file.type, text: await file.text(), title: data.title };
+      } });
+    });
+    await finishCurl();
+    let cue = await readCue();
+    assert(cue.shown && cue.text === "Your training history is saved only on this device." &&
+      cue.save === "Save a backup copy" && cue.dismiss === "Not now",
+      "a third saved session with no backup yet offers a backup copy on the finish screen", JSON.stringify(cue));
+    assert(cue.beforeActions && cue.saveH >= 44 && cue.dismissH >= 44,
+      "the cue sits in the report above Share and Done, and both of its actions are full targets", JSON.stringify(cue));
+    await page.click("#sumBackupSave");
+    await page.waitForFunction(() => !!window.__sharedBackup, undefined, { timeout: 5000 });
+    const shared = await page.evaluate(() => window.__sharedBackup);
+    const saved = await page.evaluate((k) => JSON.parse(localStorage.getItem(k)), KEY);
+    let parsed = null;
+    try { parsed = JSON.parse(shared.text); } catch {}
+    assert(/^taurifer_backup_\d{4}-\d{2}-\d{2}\.json$/.test(shared.name) && shared.type === "application/json" &&
+      parsed?.log?.length === saved.log.length && parsed?.programMeta?.id === saved.programMeta.id,
+      "Save a backup copy hands the system share sheet the same backup file Settings exports", JSON.stringify({ name: shared.name, type: shared.type, rows: parsed?.log?.length }));
+    assert(typeof saved.settings.lastExport === "string" && Date.now() - Date.parse(saved.settings.lastExport) < 60000,
+      "the backup time is recorded where Settings reads it", saved.settings.lastExport);
+    await page.waitForFunction(() => !document.querySelector("#sumBackupSave"), undefined, { timeout: 3000 }).catch(() => {});
+    const after = await page.evaluate(() => ({ cue: !!document.querySelector("#sumBackupSave"),
+      done: document.querySelector(".sum-backup__done")?.textContent.trim() || "", focus: document.activeElement?.classList.contains("sum-backup__done") }));
+    assert(!after.cue && /^Last backup was \d{4}-\d{2}-\d{2}\.$/.test(after.done) && after.focus,
+      "after the backup the cue gives way to when it was made, and focus stays on that line", JSON.stringify(after));
+    await closeSummary();
+    await page.click("#openSettings");
+    await page.waitForSelector("#settings.view.active");
+    const note = await page.evaluate(() => document.querySelector("#storageNote")?.textContent.trim() || "");
+    assert(note.includes(after.done), "Settings shows when the last backup was made", note);
+
+    // A backup two days old: the same three sessions offer nothing.
+    await seed(page, (() => { const s = fixture({ log: [...curl(isoDaysAgo(10)), ...curl(isoDaysAgo(5))] }); s.settings.lastExport = daysAgoIso(2); return s; })());
+    await finishCurl();
+    cue = await readCue();
+    assert(!cue.shown, "with a recent backup the finish screen offers none", JSON.stringify(cue));
+    await closeSummary();
+
+    // Without file sharing the tap downloads the same file.
+    await seed(page, fixture({ log: [...curl(isoDaysAgo(10)), ...curl(isoDaysAgo(5))] }));
+    await page.evaluate(() => Object.defineProperty(navigator, "canShare", { configurable: true, value: () => false }));
+    await finishCurl();
+    const download = page.waitForEvent("download", { timeout: 5000 });
+    await page.click("#sumBackupSave");
+    const file = await download.catch(() => null);
+    assert(/^taurifer_backup_\d{4}-\d{2}-\d{2}\.json$/.test(file?.suggestedFilename() || ""),
+      "where files cannot be shared the backup downloads", file?.suggestedFilename() || "no download");
+    await closeSummary();
+
+    // Not now: the cue goes, the choice stays on this device, and the next session does not bring it back.
+    await setUi(null);
+    await seed(page, fixture({ log: [...curl(isoDaysAgo(10)), ...curl(isoDaysAgo(5))] }));
+    await finishCurl();
+    await page.click("#sumBackupDismiss");
+    const dismissed = await page.evaluate(() => ({ cue: !!document.querySelector("#sumBackup"), focus: document.activeElement?.id }));
+    const prefs = await stored();
+    assert(!dismissed.cue && dismissed.focus === "sumDone" && typeof prefs.dismissed === "string" && !prefs.lastExport,
+      "Not now removes the cue, moves focus to Done and is kept in device preferences, not in the backup", JSON.stringify({ dismissed, prefs }));
+    await closeSummary();
+    await finishCurl();
+    cue = await readCue();
+    assert(!cue.shown, "the cue does not come back on the next session after Not now", JSON.stringify(cue));
+    await closeSummary();
+
+    // Once the rule fires again after a dismissal (three sessions and seven days since it), the cue returns.
+    await setUi({ backupCueDismissedAt: daysAgoIso(12) });
+    await seed(page, fixture({ log: [...curl(isoDaysAgo(10)), ...curl(isoDaysAgo(5))] }));
+    await finishCurl();
+    cue = await readCue();
+    assert(cue.shown, "the cue returns when three sessions and seven days have passed since Not now", JSON.stringify(cue));
+    await closeSummary();
+
+    // Portuguese.
+    await setUi(null);
+    await seed(page, (() => { const s = fixture({ log: [...curl(isoDaysAgo(10)), ...curl(isoDaysAgo(5))] }); s.settings.lang = "pt"; return s; })());
+    await finishCurl();
+    cue = await readCue();
+    assert(cue.shown && cue.text === "Seu histórico de treino fica salvo só neste dispositivo." &&
+      cue.save === "Salvar uma cópia de backup" && cue.dismiss === "Agora não", "the cue reads in Portuguese", JSON.stringify(cue));
+    await closeSummary();
+    await setUi(null);
+  }
+
   phase("Settings reports whether the browser keeps the data");
   const DURABILITY = {
     en: {

@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 304 screens,
-1911 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 305 screens,
+1919 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -286,6 +286,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Session summary — share editor](screens/session/summary-share-edit__phone-390-light-en.png) | 8 | The share sheet's editor open on the Sticker over the chosen photo: the card in its frame with the drag and pinch hint, the size slider, Darken photo, Reset, and Cancel and Done. |
 | [Session summary — Line sticker on clear](screens/session/summary-share-line__phone-390-light-en.png) | 8 | The share sheet on the Line sticker with the clear background: the transparent card over the preview's check, its formats and grounds, and Save and Share. |
 | [Session summary — first session](screens/session/summary-first__phone-390-light-en.png) | 8 | Every lift is a first exposure: only the stats card, the fallback tiles (sets, total reps, kg moved), the baseline sentence, no outcome words, and the next targets from the engine. |
+| [Session summary — backup due](screens/session/summary-backup__phone-390-light-en.png) | 8 | The Day 1 finish screen when three sessions and seven days have passed since the last backup: the quiet note that training history is saved only on this device, Save a backup copy and Not now, above Share and Done. |
 | [Saved profile finish — first Solid](screens/session/profile-finish-solid__phone-390-light-en.png) | 8 | The final finish/finding slot after a successful saved session with first Solid; four real lift dates plus the stage transition, without duplicate finding credit. |
 | [Saved profile finish — first valid test set](screens/session/profile-finish-checked__phone-390-light-en.png) | 8 | The final finish/finding slot after a successful saved session with first valid test set; four real lift dates plus the stage transition, without duplicate finding credit. |
 | [Saved profile finish — third agreeing test set](screens/session/profile-finish-agreeing__phone-390-light-en.png) | 8 | The final finish/finding slot after a successful saved session with third agreeing test set; four real lift dates plus the stage transition, without duplicate finding credit. |
