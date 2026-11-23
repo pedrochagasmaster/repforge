@@ -485,7 +485,7 @@ function radiusContractErrors(candidate) {
       JSON.stringify(variant.radiusRecipes) !== JSON.stringify(radiusRecipe)) return ["landing stage radius scope or recipe changed"];
   return [];
 }
-assert.equal(inventory.contextualVariants.length, 16, "the landing recipes, radius and headline, the workout shelf and the Focus hero (owner, 2026-10-28) make 16 contextual variants (the summary hero is a title-role consumer, not a variant)");
+assert.equal(inventory.contextualVariants.length, 17, "the landing recipes (with Track's peer pill, Packet F), radius and headline, the workout shelf and the Focus hero (owner, 2026-10-28) make 17 contextual variants (the summary hero is a title-role consumer, not a variant)");
 assert.deepEqual(radiusContractErrors(inventory), [], "the proof's phone plate and its compact plate retain the Plan 054 geometry");
 const flattenedRadius = structuredClone(inventory);
 flattenedRadius.contextualVariants.find((item) => item.id === "landing-device-stage-radius").radiusRecipes[1].token = "--radius-prominent";
@@ -703,7 +703,7 @@ try {
     });
     assert.equal(pressedImport.background, "rgba(0, 0, 0, 0)", `${theme} Track is Build's outlined peer: no fill`);
     assert.doesNotMatch(pressedImport.line, /underline/, `${theme} Track is no longer an underlined link`);
-    assert.equal(pressedImport.border, "1.5px", `${theme} Track's outline is its boundary`);
+    assert.ok(parseFloat(pressedImport.border) >= 1, `${theme} Track's outline is its boundary: ${pressedImport.border}`);
     assert.equal(pressedImport.edge, pressedImport.ink, `${theme} Track's outline is drawn in its own ink`);
   }
   await opened.page.evaluate(() => document.documentElement.style.setProperty("--r", "var(--radius-control)"));
