@@ -512,7 +512,7 @@ try {
     JSON.stringify(truthBefore.standing) === JSON.stringify(truthBefore.resultStanding),
     "P080: recommendation carries the engine's standing without recomputing it", truthBefore);
   const standingLine = await page.evaluate(() => document.querySelector("#workout .exercise.is-current .fx-cue__standing")?.textContent ?? null);
-  assert(standingLine === "Still learning this lift", "P080: Focus quietly names a learning target", standingLine);
+  assert(standingLine === "Taurifer is still learning this lift", "P080: Focus quietly names a learning target", standingLine);
 
   // RT-05, before any set this session: the headline is exactly the Focus cue.
   const cueBefore = await focusCue(page);
@@ -526,14 +526,14 @@ try {
 
   const standingBlock = whyBefore.blocks.find((b) => b.lead === "engine-standing");
   assert(standingBlock?.text.includes("session") &&
-    standingBlock?.text.includes("Still learning this lift"),
+    standingBlock?.text.includes("Taurifer is still learning this lift"),
     "P080: Why explains the learning word and its set/session evidence", standingBlock);
   for (const lang of ["pt", "en"]) {
     await closeWhy(page);
     await page.evaluate((lang) => window.RepForgeI18n.setLang(lang), lang);
     const localized = await openWhy(page);
     const footing = localized.blocks.find((b) => b.lead === "engine-standing");
-    const expected = lang === "pt" ? "Ainda conhecendo este exercício" : "Still learning this lift";
+    const expected = lang === "pt" ? "O Taurifer ainda está conhecendo este exercício" : "Taurifer is still learning this lift";
     assert(footing?.text.includes(expected) && !/why\.standing|standing\.learning/.test(footing.text),
       `P080: Why standing is translated in ${lang}`, footing);
     // One logged session of history: the anchor names it in the singular,
@@ -903,10 +903,10 @@ try {
     "B1: restoring Hack squat restores its own standing evidence");
   assert(restored.target === original.target, "B1: restoration keeps the original selected load");
   await closeWhy(swapPage);
-  assert(await swapPage.locator(`${focus} .fx-cue__standing`).textContent() === "Still learning this lift", "B1: restored Focus reads Hack squat standing");
+  assert(await swapPage.locator(`${focus} .fx-cue__standing`).textContent() === "Taurifer is still learning this lift", "B1: restored Focus reads Hack squat standing");
   await swapPage.locator("#woDayTitle [data-exopen]").click();
   await swapPage.locator("#exDetail .recblock").first().waitFor();
-  assert(await swapPage.locator("#exDetail .recblock__standing").textContent() === "Still learning this lift",
+  assert(await swapPage.locator("#exDetail .recblock__standing").textContent() === "Taurifer is still learning this lift",
     "B1: restored exercise page reads Hack squat standing");
   await swapContext.close();
   assert(errors.length === 0, "no page errors during the why-sheet sessions", errors);

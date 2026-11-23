@@ -11508,8 +11508,8 @@ function toggleFocusLedger(button){
   // Opening reveals the logged rows under the disclosure where the lifter is looking; closing brings the open set back.
   if(!open)settleFocusContext(moved)}
 
-/** The line under the exercise name: sets and reps, the effort window, and the
- *  name of the strategy that sets the target. Read off the program's own
+/** The line under the exercise name: sets and reps, the effort window, and, unless
+ *  the adaptive engine sets the target, the name of the strategy that does. Read off the program's own
  *  envelope; a slot with none is the range it always was. */
 /** An effort window of one value reads as that value: "1 left", never "1–1 left". */
 const singleRir=line=>String(line).replace(/(· )(\d+(?:[.,]\d+)?)–\2(?= (?:left|sobrando))/g,"$1$2");
@@ -11518,10 +11518,10 @@ function focusExMeta(ex){
   // A canonical slot is adaptive or manual; its RIR comes from its own sets.
   const facts=canonicalSlotFacts(ex);
   if(facts){
-    const name=t(facts.adaptive?"program.progression.adaptive":"program.progression.strategy.manual");
     const line=facts.rirMin==null?t("focus.exmeta.manual",{sets:+ex.sets||1,min:ex.min,max:ex.max})
       :t("focus.exmeta.range",{sets:+ex.sets||1,min:ex.min,max:ex.max,rmin:fmt(facts.rirMin),rmax:fmt(facts.rirMax)});
-    return `${singleRir(line)} · ${name}`}
+    // The adaptive engine is the default and its cue already says what to do; only a manual slot names itself.
+    return facts.adaptive?singleRir(line):`${singleRir(line)} · ${t("program.progression.strategy.manual")}`}
   const env=progressionForExercise(ex),id=env?.strategy?.id||"range",p=env?.strategy?.params||{};
   const sets=+p.workingSets||+ex.sets||1;
   const rmin=fmt(p.targetRirMin!=null?p.targetRirMin:0),rmax=fmt(p.targetRirMax!=null?p.targetRirMax:state.settings.rirHigh);
@@ -13636,6 +13636,7 @@ function summaryProfileHtml(s){
     :stage==="calibrated"&&check?t("profile.finish.agreeing",{n:lift.checks.length,guess:check.guess,did:check.reps}):"";
   return `<section class="sum-profile" id="sumProfile" aria-labelledby="sumProfileTitle">`+
     `<h3 class="profile-heading" id="sumProfileTitle">${esc(t("profile.ring.title"))}</h3>`+
+    `<p class="profile-intro sum-profile__meaning">${esc(t("profile.title"))}</p>`+
     `<button type="button" id="sumProfileOpen" class="sum-profile__open">${profileReadingHtml(change.after,change.log)}`+
     `<span class="profile-caption">${esc(t("profile.finish.open"))}</span></button>`+
     (lift?`<h4 class="sum-profile__lift">${esc(profileLiftName(lift))} · ${esc(profileStageName(lift.stage))}</h4>`:"")+
@@ -26208,7 +26209,7 @@ const landingChapterAt=time=>{const at=landingLoopTime(time);let i=0;while(i+1<L
 const landingLoopTime=time=>{const L=LANDING_DEMO.loop;return Number.isFinite(time)?((time%L)+L)%L:0};
 /** Every catalog string the proof's screen shows; test/landing-demo-copy.mjs fails when one leaves a catalog or Focus
  *  stops saying it. */
-const LANDING_DEMO_KEYS=["focus.exmeta.range","program.progression.adaptive","focus.cue.up","focus.cue.reps",
+const LANDING_DEMO_KEYS=["focus.exmeta.range","focus.cue.up","focus.cue.reps",
   "focus.evidence.history","focus.evidence.target","focus.evidence.why","log.set","log.reps","focus.col.left","focus.field.left",
   "focus.prev_line","focus.next_row","focus.metric.load_kg","focus.metric.reps","focus.shelf.pad_load","focus.shelf.log_set",
   "rest.inline.label","rest.inline.done","landing.outcomes.next_label","landing.outcomes.target","landing.outcomes.did_same",
@@ -26268,7 +26269,7 @@ function landingDemoHtml(add,testSet){
   const head1=esc(t("focus.cue.up",{load:"\u0000",unit})).replace("\u0000",`<b class="fx-cue__load">${cueLoadHtml(kg)}</b>`);
   const evidence=evidenceSay("focus.evidence.history",{load:evidenceFig(`${landingNum(load0)} × ${landingNum(reps0)}`),rir:esc(landingNum(rir0))})+" "+
     evidenceSay("focus.evidence.target",{reps:esc(reps),rir:esc(landingNum(rir))})+` <span class="firstrun-demo__why">${esc(t("focus.evidence.why"))}</span>`;
-  const meta=`${singleRir(t("focus.exmeta.range",{sets:landingNum(c.sets),min:landingNum(c.repMin),max:landingNum(c.repMax),rmin:landingNum(rir),rmax:landingNum(rir)}))} · ${t("program.progression.adaptive")}`;
+  const meta=`${singleRir(t("focus.exmeta.range",{sets:landingNum(c.sets),min:landingNum(c.repMin),max:landingNum(c.repMax),rmin:landingNum(rir),rmax:landingNum(rir)}))}`;
   const nextRow=esc(t("focus.next_row",{name:"\u0000"})).replace("\u0000",`<b>${esc(landingExerciseName(LANDING_DEMO.next))}</b>`);
   // The session the target came from, as its ledger read: no "last" line under rows that are the last session.
   const lastSession=c.logged.map(([l,r,e])=>line(check,[landingNum(l),landingNum(r),landingNum(e)],false," firstrun-demo__last","")).join("");
