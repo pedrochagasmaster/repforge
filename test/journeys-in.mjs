@@ -449,7 +449,7 @@ phase("Journey 4: landing (unchanged) -> chooser resume -> activation");
   await waitForFirstRun(page);
   const landing = await handoff(page, "reload -> landing", { view: "log", landing: true, focus: "#firstRun", top: false });
   const lead = await page.evaluate(() => ({ headline: document.querySelector("#firstRunHeadline").textContent.trim(),
-    label: document.querySelector("#firstRunCreate").textContent.trim() }));
+    label: document.querySelector("#firstRunCreateLabel").textContent.trim() }));
   assert(lead.headline === CATALOG.en["landing.headline"] && lead.label === CATALOG.en["landing.build"],
     "the landing is the same full page, with Build, whatever was left half done", JSON.stringify(lead));
   void landing;
