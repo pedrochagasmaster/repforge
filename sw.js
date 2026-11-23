@@ -1,6 +1,6 @@
-const CACHE = "repforge-v783";
+const CACHE = "repforge-v786";
 const ASSETS = [
-  "./", "./index.html", "./styles.css", "./styles.css?v=779", "./motion-polish.css", "./motion-polish.css?v=643", "./manifest.webmanifest",
+  "./", "./index.html", "./styles.css", "./styles.css?v=786", "./motion-polish.css", "./motion-polish.css?v=643", "./manifest.webmanifest",
   { url: "./vendor/motion/motion.js", owner: "RepForgeMotion", required: false, immutable: true },
   { url: "./vendor/dnd-kit/dnd-kit.js", owner: "RepForgeDndRuntime", required: false },
   { url: "./vendor/dnd-kit/dnd-kit.runtime.js", owner: "RepForgeDndRuntime", required: false, immutable: true },
