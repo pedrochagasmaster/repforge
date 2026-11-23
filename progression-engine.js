@@ -1,11 +1,13 @@
 (function (root) {
   "use strict";
 
-  const ENGINE_VERSION = "078.2";
+  const ENGINE_VERSION = "078.3";
   const STANDING_VERSION = "standing@078.1";
   // Reps in reserve are reliable near failure and guesses far from it, so a performed set earns capacity for at most
   // this many (owner, 2026-11-05; Plan 077 OD-23b). Targets keep their own 0–6 bound.
   const RIR_CREDIT_CAP = 5;
+  // The most one session can lift the history anchor above the median of the latest three.
+  const ANCHOR_JUMP_LIMIT = 0.15;
   // Effort calibration (Plan 077, OD-18): the caller's per-lift shift, read as `rir − delta` on reported sets. Only this
   // version is understood; any other, or a delta outside [−1, 2], leaves the engine as it was (delta 0).
   const CALIBRATION_VERSION = "calibration@077.1";
@@ -453,13 +455,19 @@
     const latest = withFirst.slice(-3);
     if (!latest.length) return null;
     const mostRecent = latest.at(-1);
+    // The median steadies the estimate against one odd session, but it lags a lifter who improved: it cannot sit below
+    // what the latest first set performed. Those full reps at that load are fact, with no reported effort in them
+    // (owner report, 2026-11-23). A latest set further above the median than ANCHOR_JUMP_LIMIT is the odd session.
+    const medianKg = median(latest.map((entry) => entry.first.capacityKg));
+    const performedKg = mostRecent.first.effectiveLoadKg * (1 + mostRecent.first.reps / 30);
+    const capacityKg = performedKg > medianKg && performedKg <= medianKg * (1 + ANCHOR_JUMP_LIMIT) ? performedKg : medianKg;
     return {
       source: "history",
       sessionId: mostRecent.session.sessionId,
       sessionIds: latest.map((entry) => entry.session.sessionId),
       setIndex: 0,
       effectiveLoadKg: median(latest.map((entry) => entry.first.effectiveLoadKg)),
-      capacityKg: median(latest.map((entry) => entry.first.capacityKg)),
+      capacityKg,
       displayLoadKg: mostRecent.first.displayLoadKg,
       loadingConvention: mostRecent.first.loadingConvention,
       equipmentId: mostRecent.first.equipmentId,
