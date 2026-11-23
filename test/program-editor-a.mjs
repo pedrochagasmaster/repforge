@@ -22,7 +22,7 @@
  *
  * Run: node tools/run-tests.mjs entry --suite program-editor-a
  */
-import { writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
 import { installSeedProgram, seedProgram } from "./fixtures/seed-program.mjs";
 
@@ -40,6 +40,19 @@ function check(condition, message, detail) {
   failures.push(message);
   console.error(`  ✗ ${message}`);
   if (detail !== undefined) console.error(`    ${typeof detail === "string" ? detail : JSON.stringify(detail).slice(0, 1500)}`);
+}
+
+/* Owner follow-up to #810 (2026-11-23): the program editor and onboarding Review name the effort target
+   in the logging shelf's words, "Reps left" / "Reps sobrando", never RIR or reps in reserve. The glossary,
+   landing FAQ, import, Settings and Progress keep RIR on purpose and are not listed here. */
+const REPS_LEFT_KEYS = ["program.editor.metric_rir", "program.editor.week_left", "program.editor.rir_all",
+  "program.editor.issue.rir", "program.editor.field_error.rir", "entry.review.rir", "entry.review.sheet.rir_col",
+  "entry.review.sheet.rir_down", "entry.review.sheet.rir_up"];
+for (const lang of ["en", "pt"]) {
+  const catalog = JSON.parse(readFileSync(new URL(`../i18n-${lang}.json`, import.meta.url), "utf8"));
+  const offenders = REPS_LEFT_KEYS.filter((key) => typeof catalog[key] !== "string" || /\bRIR\b|reserv/i.test(catalog[key]));
+  check(offenders.length === 0, `editor and Review effort labels say reps left in ${lang}, never RIR`,
+    offenders.map((key) => `${key}=${catalog[key]}`));
 }
 
 async function waitForApp(page) {
@@ -192,6 +205,10 @@ async function editJourney(page) {
   const rows = await ledger(page);
   check(rows.length === 3 && rows.every((row) => row.reps === "4–7 reps"), "the ledger shows three sets of 4–7 reps", rows);
   check(rows[0].rir === "3", "set 1's RIR stepped from the default", rows);
+  const sheetText = await page.locator(SHEET).innerText();
+  check(/\bleft\b/i.test(sheetText) && !/\bRIR\b/.test(sheetText), "the set ledger heads its effort column Left, never RIR", sheetText);
+  check(/reps left on set 1/i.test(await page.locator(`${SHEET} [data-role="rir-step"][data-set-index="1"][data-delta="1"]`).getAttribute("aria-label") || ""),
+    "the effort stepper's name says reps left");
 
   // A week-7 exception through Weeks.
   check(/Same in all 7 weeks/.test(await page.locator(`${SHEET} [data-role="weeks-open"]`).textContent()),
@@ -201,6 +218,8 @@ async function editJourney(page) {
   await page.locator(`${SHEET} [data-role="week-row"][data-cycle-index="7"]`).click();
   const weekRir = page.locator(`${SHEET} [data-role="prescription-field"][data-cycle-index="7"][data-set-index="1"][data-field="rir"]`);
   await weekRir.waitFor({ timeout: 5000 });
+  const weekText = await page.locator(SHEET).innerText();
+  check(/\bleft\b/i.test(weekText) && !/\bRIR\b/.test(weekText), "the week grid heads its effort column Left, never RIR", weekText);
   await weekRir.fill("4");
   await weekRir.press("Enter");
   await weekRir.blur();
