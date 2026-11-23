@@ -12,7 +12,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { buildProgramLab } from "../build-programlab.mjs";
 import { maybeStartLocalPreview } from "../local-preview.mjs";
-import { catalogState, directionDState, emptyEntryState, localeState, pastZeroState } from "./fixtures.mjs";
+import { catalogState, directionDState, emptyEntryState, localeState, pastZeroState, portugueseLifterState } from "./fixtures.mjs";
 import { CAPTURE_NOW, dismissChrome, LOG_DRAFT, replayGuide, seed, sleep } from "./session.mjs";
 import { definitionSlot, installGeneratedProgram, isWeightRepsSlot, metricLogRow } from "../../test/fixtures/history-metric-rows.mjs";
 import { finishEarly } from "../../test/fixtures/focus-workout.mjs";
@@ -480,7 +480,12 @@ function profileFinishState(event,lang){
   }
   return state;
 }
+/** A Portuguese frame draws what a Portuguese lifter's device holds (see portugueseLifterState). */
 export function appState(key, lang) {
+  const state = appStateFor(key, lang);
+  return lang === "pt" ? portugueseLifterState(state) : state;
+}
+function appStateFor(key, lang) {
   if (key.includes("/past-zero")) return pastZeroState(lang, !key.startsWith("workout/"));
   if (key.startsWith("workout/prelude")) return pastZeroState(lang, false);
   if(key.startsWith("session/profile-finish-"))return profileFinishState(key.slice("session/profile-finish-".length),lang);
