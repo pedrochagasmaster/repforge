@@ -177979,7 +177979,7 @@
           "tag": "button",
           "name": "Build my program",
           "labelledBy": "Build my program",
-          "describedBy": "Answer a few questions, or pick a ready-made program.",
+          "describedBy": "Answer a few questions.",
           "type": "button"
         },
         {
@@ -177988,13 +177988,13 @@
         },
         {
           "tag": "span",
-          "text": "Answer a few questions, or pick a ready-made program."
+          "text": "Answer a few questions."
         },
         {
           "tag": "button",
           "name": "Track my current program",
           "labelledBy": "Track my current program",
-          "describedBy": "Paste it from a message or a note, then check each exercise.",
+          "describedBy": "Paste it from a message or note.",
           "type": "button"
         },
         {
@@ -178003,15 +178003,11 @@
         },
         {
           "tag": "span",
-          "text": "Paste it from a message or a note, then check each exercise."
+          "text": "Paste it from a message or note."
         },
         {
           "tag": "ul",
           "label": "At a glance"
-        },
-        {
-          "tag": "li",
-          "text": "No account"
         },
         {
           "tag": "li",
@@ -178023,7 +178019,7 @@
         },
         {
           "tag": "p",
-          "text": "Your program and history stay on this phone. To keep a copy, open and tap ."
+          "text": "No account. Your program and history stay on this phone. To keep a copy, open and tap ."
         },
         {
           "tag": "b",
@@ -178619,7 +178615,7 @@
           "tag": "button",
           "name": "Build my program",
           "labelledBy": "Build my program",
-          "describedBy": "Answer a few questions, or pick a ready-made program.",
+          "describedBy": "Answer a few questions.",
           "type": "button"
         },
         {
@@ -178628,13 +178624,13 @@
         },
         {
           "tag": "span",
-          "text": "Answer a few questions, or pick a ready-made program."
+          "text": "Answer a few questions."
         },
         {
           "tag": "button",
           "name": "Track my current program",
           "labelledBy": "Track my current program",
-          "describedBy": "Paste it from a message or a note, then check each exercise.",
+          "describedBy": "Paste it from a message or note.",
           "type": "button"
         },
         {
@@ -178643,15 +178639,11 @@
         },
         {
           "tag": "span",
-          "text": "Paste it from a message or a note, then check each exercise."
+          "text": "Paste it from a message or note."
         },
         {
           "tag": "ul",
           "label": "At a glance"
-        },
-        {
-          "tag": "li",
-          "text": "No account"
         },
         {
           "tag": "li",
@@ -178663,7 +178655,7 @@
         },
         {
           "tag": "p",
-          "text": "Your program and history stay on this phone. To keep a copy, open and tap ."
+          "text": "No account. Your program and history stay on this phone. To keep a copy, open and tap ."
         },
         {
           "tag": "b",
@@ -179259,7 +179251,7 @@
           "tag": "button",
           "name": "Montar meu treino",
           "labelledBy": "Montar meu treino",
-          "describedBy": "Responda algumas perguntas ou escolha um treino pronto.",
+          "describedBy": "Responda algumas perguntas.",
           "type": "button"
         },
         {
@@ -179268,13 +179260,13 @@
         },
         {
           "tag": "span",
-          "text": "Responda algumas perguntas ou escolha um treino pronto."
+          "text": "Responda algumas perguntas."
         },
         {
           "tag": "button",
           "name": "Acompanhar meu treino atual",
           "labelledBy": "Acompanhar meu treino atual",
-          "describedBy": "Cole de uma mensagem ou nota e confira cada exercício.",
+          "describedBy": "Cole de uma mensagem ou nota.",
           "type": "button"
         },
         {
@@ -179283,15 +179275,11 @@
         },
         {
           "tag": "span",
-          "text": "Cole de uma mensagem ou nota e confira cada exercício."
+          "text": "Cole de uma mensagem ou nota."
         },
         {
           "tag": "ul",
           "label": "Em resumo"
-        },
-        {
-          "tag": "li",
-          "text": "Sem conta"
         },
         {
           "tag": "li",
@@ -179303,7 +179291,7 @@
         },
         {
           "tag": "p",
-          "text": "Seu treino e seu histórico ficam neste celular. Para guardar uma cópia, abra e toque em ."
+          "text": "Sem conta. Seu treino e seu histórico ficam neste celular. Para guardar uma cópia, abra e toque em ."
         },
         {
           "tag": "b",
@@ -184366,7 +184354,7 @@
           "tag": "button",
           "name": "Build my program",
           "labelledBy": "Build my program",
-          "describedBy": "Answer a few questions, or pick a ready-made program.",
+          "describedBy": "Answer a few questions.",
           "type": "button"
         },
         {
@@ -184375,13 +184363,13 @@
         },
         {
           "tag": "span",
-          "text": "Answer a few questions, or pick a ready-made program."
+          "text": "Answer a few questions."
         },
         {
           "tag": "button",
           "name": "Track my current program",
           "labelledBy": "Track my current program",
-          "describedBy": "Paste it from a message or a note, then check each exercise.",
+          "describedBy": "Paste it from a message or note.",
           "type": "button"
         },
         {
@@ -184390,15 +184378,11 @@
         },
         {
           "tag": "span",
-          "text": "Paste it from a message or a note, then check each exercise."
+          "text": "Paste it from a message or note."
         },
         {
           "tag": "ul",
           "label": "At a glance"
-        },
-        {
-          "tag": "li",
-          "text": "No account"
         },
         {
           "tag": "li",
@@ -184410,7 +184394,7 @@
         },
         {
           "tag": "p",
-          "text": "Your program and history stay on this phone. To keep a copy, open and tap ."
+          "text": "No account. Your program and history stay on this phone. To keep a copy, open and tap ."
         },
         {
           "tag": "b",
@@ -185000,7 +184984,7 @@
           "tag": "button",
           "name": "Build my program",
           "labelledBy": "Build my program",
-          "describedBy": "Answer a few questions, or pick a ready-made program.",
+          "describedBy": "Answer a few questions.",
           "type": "button"
         },
         {
@@ -185009,13 +184993,13 @@
         },
         {
           "tag": "span",
-          "text": "Answer a few questions, or pick a ready-made program."
+          "text": "Answer a few questions."
         },
         {
           "tag": "button",
           "name": "Track my current program",
           "labelledBy": "Track my current program",
-          "describedBy": "Paste it from a message or a note, then check each exercise.",
+          "describedBy": "Paste it from a message or note.",
           "type": "button"
         },
         {
@@ -185024,15 +185008,11 @@
         },
         {
           "tag": "span",
-          "text": "Paste it from a message or a note, then check each exercise."
+          "text": "Paste it from a message or note."
         },
         {
           "tag": "ul",
           "label": "At a glance"
-        },
-        {
-          "tag": "li",
-          "text": "No account"
         },
         {
           "tag": "li",
@@ -185044,7 +185024,7 @@
         },
         {
           "tag": "p",
-          "text": "Your program and history stay on this phone. To keep a copy, open and tap ."
+          "text": "No account. Your program and history stay on this phone. To keep a copy, open and tap ."
         },
         {
           "tag": "b",
@@ -185634,7 +185614,7 @@
           "tag": "button",
           "name": "Build my program",
           "labelledBy": "Build my program",
-          "describedBy": "Answer a few questions, or pick a ready-made program.",
+          "describedBy": "Answer a few questions.",
           "type": "button"
         },
         {
@@ -185643,13 +185623,13 @@
         },
         {
           "tag": "span",
-          "text": "Answer a few questions, or pick a ready-made program."
+          "text": "Answer a few questions."
         },
         {
           "tag": "button",
           "name": "Track my current program",
           "labelledBy": "Track my current program",
-          "describedBy": "Paste it from a message or a note, then check each exercise.",
+          "describedBy": "Paste it from a message or note.",
           "type": "button"
         },
         {
@@ -185658,15 +185638,11 @@
         },
         {
           "tag": "span",
-          "text": "Paste it from a message or a note, then check each exercise."
+          "text": "Paste it from a message or note."
         },
         {
           "tag": "ul",
           "label": "At a glance"
-        },
-        {
-          "tag": "li",
-          "text": "No account"
         },
         {
           "tag": "li",
@@ -185678,7 +185654,7 @@
         },
         {
           "tag": "p",
-          "text": "Your program and history stay on this phone. To keep a copy, open and tap ."
+          "text": "No account. Your program and history stay on this phone. To keep a copy, open and tap ."
         },
         {
           "tag": "b",
@@ -186268,7 +186244,7 @@
           "tag": "button",
           "name": "Build my program",
           "labelledBy": "Build my program",
-          "describedBy": "Answer a few questions, or pick a ready-made program.",
+          "describedBy": "Answer a few questions.",
           "type": "button"
         },
         {
@@ -186277,13 +186253,13 @@
         },
         {
           "tag": "span",
-          "text": "Answer a few questions, or pick a ready-made program."
+          "text": "Answer a few questions."
         },
         {
           "tag": "button",
           "name": "Track my current program",
           "labelledBy": "Track my current program",
-          "describedBy": "Paste it from a message or a note, then check each exercise.",
+          "describedBy": "Paste it from a message or note.",
           "type": "button"
         },
         {
@@ -186292,15 +186268,11 @@
         },
         {
           "tag": "span",
-          "text": "Paste it from a message or a note, then check each exercise."
+          "text": "Paste it from a message or note."
         },
         {
           "tag": "ul",
           "label": "At a glance"
-        },
-        {
-          "tag": "li",
-          "text": "No account"
         },
         {
           "tag": "li",
@@ -186312,7 +186284,7 @@
         },
         {
           "tag": "p",
-          "text": "Your program and history stay on this phone. To keep a copy, open and tap ."
+          "text": "No account. Your program and history stay on this phone. To keep a copy, open and tap ."
         },
         {
           "tag": "b",
@@ -186902,7 +186874,7 @@
           "tag": "button",
           "name": "Build my program",
           "labelledBy": "Build my program",
-          "describedBy": "Answer a few questions, or pick a ready-made program.",
+          "describedBy": "Answer a few questions.",
           "type": "button"
         },
         {
@@ -186911,13 +186883,13 @@
         },
         {
           "tag": "span",
-          "text": "Answer a few questions, or pick a ready-made program."
+          "text": "Answer a few questions."
         },
         {
           "tag": "button",
           "name": "Track my current program",
           "labelledBy": "Track my current program",
-          "describedBy": "Paste it from a message or a note, then check each exercise.",
+          "describedBy": "Paste it from a message or note.",
           "type": "button"
         },
         {
@@ -186926,15 +186898,11 @@
         },
         {
           "tag": "span",
-          "text": "Paste it from a message or a note, then check each exercise."
+          "text": "Paste it from a message or note."
         },
         {
           "tag": "ul",
           "label": "At a glance"
-        },
-        {
-          "tag": "li",
-          "text": "No account"
         },
         {
           "tag": "li",
@@ -186946,7 +186914,7 @@
         },
         {
           "tag": "p",
-          "text": "Your program and history stay on this phone. To keep a copy, open and tap ."
+          "text": "No account. Your program and history stay on this phone. To keep a copy, open and tap ."
         },
         {
           "tag": "b",
@@ -187536,7 +187504,7 @@
           "tag": "button",
           "name": "Montar meu treino",
           "labelledBy": "Montar meu treino",
-          "describedBy": "Responda algumas perguntas ou escolha um treino pronto.",
+          "describedBy": "Responda algumas perguntas.",
           "type": "button"
         },
         {
@@ -187545,13 +187513,13 @@
         },
         {
           "tag": "span",
-          "text": "Responda algumas perguntas ou escolha um treino pronto."
+          "text": "Responda algumas perguntas."
         },
         {
           "tag": "button",
           "name": "Acompanhar meu treino atual",
           "labelledBy": "Acompanhar meu treino atual",
-          "describedBy": "Cole de uma mensagem ou nota e confira cada exercício.",
+          "describedBy": "Cole de uma mensagem ou nota.",
           "type": "button"
         },
         {
@@ -187560,15 +187528,11 @@
         },
         {
           "tag": "span",
-          "text": "Cole de uma mensagem ou nota e confira cada exercício."
+          "text": "Cole de uma mensagem ou nota."
         },
         {
           "tag": "ul",
           "label": "Em resumo"
-        },
-        {
-          "tag": "li",
-          "text": "Sem conta"
         },
         {
           "tag": "li",
@@ -187580,7 +187544,7 @@
         },
         {
           "tag": "p",
-          "text": "Seu treino e seu histórico ficam neste celular. Para guardar uma cópia, abra e toque em ."
+          "text": "Sem conta. Seu treino e seu histórico ficam neste celular. Para guardar uma cópia, abra e toque em ."
         },
         {
           "tag": "b",
@@ -188170,7 +188134,7 @@
           "tag": "button",
           "name": "Build my program",
           "labelledBy": "Build my program",
-          "describedBy": "Answer a few questions, or pick a ready-made program.",
+          "describedBy": "Answer a few questions.",
           "type": "button"
         },
         {
@@ -188179,13 +188143,13 @@
         },
         {
           "tag": "span",
-          "text": "Answer a few questions, or pick a ready-made program."
+          "text": "Answer a few questions."
         },
         {
           "tag": "button",
           "name": "Track my current program",
           "labelledBy": "Track my current program",
-          "describedBy": "Paste it from a message or a note, then check each exercise.",
+          "describedBy": "Paste it from a message or note.",
           "type": "button"
         },
         {
@@ -188194,15 +188158,11 @@
         },
         {
           "tag": "span",
-          "text": "Paste it from a message or a note, then check each exercise."
+          "text": "Paste it from a message or note."
         },
         {
           "tag": "ul",
           "label": "At a glance"
-        },
-        {
-          "tag": "li",
-          "text": "No account"
         },
         {
           "tag": "li",
@@ -188214,7 +188174,7 @@
         },
         {
           "tag": "p",
-          "text": "Your program and history stay on this phone. To keep a copy, open and tap ."
+          "text": "No account. Your program and history stay on this phone. To keep a copy, open and tap ."
         },
         {
           "tag": "b",
@@ -188804,7 +188764,7 @@
           "tag": "button",
           "name": "Build my program",
           "labelledBy": "Build my program",
-          "describedBy": "Answer a few questions, or pick a ready-made program.",
+          "describedBy": "Answer a few questions.",
           "type": "button"
         },
         {
@@ -188813,13 +188773,13 @@
         },
         {
           "tag": "span",
-          "text": "Answer a few questions, or pick a ready-made program."
+          "text": "Answer a few questions."
         },
         {
           "tag": "button",
           "name": "Track my current program",
           "labelledBy": "Track my current program",
-          "describedBy": "Paste it from a message or a note, then check each exercise.",
+          "describedBy": "Paste it from a message or note.",
           "type": "button"
         },
         {
@@ -188828,15 +188788,11 @@
         },
         {
           "tag": "span",
-          "text": "Paste it from a message or a note, then check each exercise."
+          "text": "Paste it from a message or note."
         },
         {
           "tag": "ul",
           "label": "At a glance"
-        },
-        {
-          "tag": "li",
-          "text": "No account"
         },
         {
           "tag": "li",
@@ -188848,7 +188804,7 @@
         },
         {
           "tag": "p",
-          "text": "Your program and history stay on this phone. To keep a copy, open and tap ."
+          "text": "No account. Your program and history stay on this phone. To keep a copy, open and tap ."
         },
         {
           "tag": "b",
@@ -189447,7 +189403,7 @@
           "tag": "button",
           "name": "Build my program",
           "labelledBy": "Build my program",
-          "describedBy": "Answer a few questions, or pick a ready-made program.",
+          "describedBy": "Answer a few questions.",
           "type": "button"
         },
         {
@@ -189456,13 +189412,13 @@
         },
         {
           "tag": "span",
-          "text": "Answer a few questions, or pick a ready-made program."
+          "text": "Answer a few questions."
         },
         {
           "tag": "button",
           "name": "Track my current program",
           "labelledBy": "Track my current program",
-          "describedBy": "Paste it from a message or a note, then check each exercise.",
+          "describedBy": "Paste it from a message or note.",
           "type": "button"
         },
         {
@@ -189471,15 +189427,11 @@
         },
         {
           "tag": "span",
-          "text": "Paste it from a message or a note, then check each exercise."
+          "text": "Paste it from a message or note."
         },
         {
           "tag": "ul",
           "label": "At a glance"
-        },
-        {
-          "tag": "li",
-          "text": "No account"
         },
         {
           "tag": "li",
@@ -189491,7 +189443,7 @@
         },
         {
           "tag": "p",
-          "text": "Your program and history stay on this phone. To keep a copy, open and tap ."
+          "text": "No account. Your program and history stay on this phone. To keep a copy, open and tap ."
         },
         {
           "tag": "b",
@@ -190090,7 +190042,7 @@
           "tag": "button",
           "name": "Montar meu treino",
           "labelledBy": "Montar meu treino",
-          "describedBy": "Responda algumas perguntas ou escolha um treino pronto.",
+          "describedBy": "Responda algumas perguntas.",
           "type": "button"
         },
         {
@@ -190099,13 +190051,13 @@
         },
         {
           "tag": "span",
-          "text": "Responda algumas perguntas ou escolha um treino pronto."
+          "text": "Responda algumas perguntas."
         },
         {
           "tag": "button",
           "name": "Acompanhar meu treino atual",
           "labelledBy": "Acompanhar meu treino atual",
-          "describedBy": "Cole de uma mensagem ou nota e confira cada exercício.",
+          "describedBy": "Cole de uma mensagem ou nota.",
           "type": "button"
         },
         {
@@ -190114,15 +190066,11 @@
         },
         {
           "tag": "span",
-          "text": "Cole de uma mensagem ou nota e confira cada exercício."
+          "text": "Cole de uma mensagem ou nota."
         },
         {
           "tag": "ul",
           "label": "Em resumo"
-        },
-        {
-          "tag": "li",
-          "text": "Sem conta"
         },
         {
           "tag": "li",
@@ -190134,7 +190082,7 @@
         },
         {
           "tag": "p",
-          "text": "Seu treino e seu histórico ficam neste celular. Para guardar uma cópia, abra e toque em ."
+          "text": "Sem conta. Seu treino e seu histórico ficam neste celular. Para guardar uma cópia, abra e toque em ."
         },
         {
           "tag": "b",
@@ -190733,7 +190681,7 @@
           "tag": "button",
           "name": "Build my program",
           "labelledBy": "Build my program",
-          "describedBy": "Answer a few questions, or pick a ready-made program.",
+          "describedBy": "Answer a few questions.",
           "type": "button"
         },
         {
@@ -190742,13 +190690,13 @@
         },
         {
           "tag": "span",
-          "text": "Answer a few questions, or pick a ready-made program."
+          "text": "Answer a few questions."
         },
         {
           "tag": "button",
           "name": "Track my current program",
           "labelledBy": "Track my current program",
-          "describedBy": "Paste it from a message or a note, then check each exercise.",
+          "describedBy": "Paste it from a message or note.",
           "type": "button"
         },
         {
@@ -190757,15 +190705,11 @@
         },
         {
           "tag": "span",
-          "text": "Paste it from a message or a note, then check each exercise."
+          "text": "Paste it from a message or note."
         },
         {
           "tag": "ul",
           "label": "At a glance"
-        },
-        {
-          "tag": "li",
-          "text": "No account"
         },
         {
           "tag": "li",
@@ -190777,7 +190721,7 @@
         },
         {
           "tag": "p",
-          "text": "Your program and history stay on this phone. To keep a copy, open and tap ."
+          "text": "No account. Your program and history stay on this phone. To keep a copy, open and tap ."
         },
         {
           "tag": "b",
@@ -191367,7 +191311,7 @@
           "tag": "button",
           "name": "Build my program",
           "labelledBy": "Build my program",
-          "describedBy": "Answer a few questions, or pick a ready-made program.",
+          "describedBy": "Answer a few questions.",
           "type": "button"
         },
         {
@@ -191376,13 +191320,13 @@
         },
         {
           "tag": "span",
-          "text": "Answer a few questions, or pick a ready-made program."
+          "text": "Answer a few questions."
         },
         {
           "tag": "button",
           "name": "Track my current program",
           "labelledBy": "Track my current program",
-          "describedBy": "Paste it from a message or a note, then check each exercise.",
+          "describedBy": "Paste it from a message or note.",
           "type": "button"
         },
         {
@@ -191391,15 +191335,11 @@
         },
         {
           "tag": "span",
-          "text": "Paste it from a message or a note, then check each exercise."
+          "text": "Paste it from a message or note."
         },
         {
           "tag": "ul",
           "label": "At a glance"
-        },
-        {
-          "tag": "li",
-          "text": "No account"
         },
         {
           "tag": "li",
@@ -191411,7 +191351,7 @@
         },
         {
           "tag": "p",
-          "text": "Your program and history stay on this phone. To keep a copy, open and tap ."
+          "text": "No account. Your program and history stay on this phone. To keep a copy, open and tap ."
         },
         {
           "tag": "b",
@@ -192001,7 +191941,7 @@
           "tag": "button",
           "name": "Montar meu treino",
           "labelledBy": "Montar meu treino",
-          "describedBy": "Responda algumas perguntas ou escolha um treino pronto.",
+          "describedBy": "Responda algumas perguntas.",
           "type": "button"
         },
         {
@@ -192010,13 +191950,13 @@
         },
         {
           "tag": "span",
-          "text": "Responda algumas perguntas ou escolha um treino pronto."
+          "text": "Responda algumas perguntas."
         },
         {
           "tag": "button",
           "name": "Acompanhar meu treino atual",
           "labelledBy": "Acompanhar meu treino atual",
-          "describedBy": "Cole de uma mensagem ou nota e confira cada exercício.",
+          "describedBy": "Cole de uma mensagem ou nota.",
           "type": "button"
         },
         {
@@ -192025,15 +191965,11 @@
         },
         {
           "tag": "span",
-          "text": "Cole de uma mensagem ou nota e confira cada exercício."
+          "text": "Cole de uma mensagem ou nota."
         },
         {
           "tag": "ul",
           "label": "Em resumo"
-        },
-        {
-          "tag": "li",
-          "text": "Sem conta"
         },
         {
           "tag": "li",
@@ -192045,7 +191981,7 @@
         },
         {
           "tag": "p",
-          "text": "Seu treino e seu histórico ficam neste celular. Para guardar uma cópia, abra e toque em ."
+          "text": "Sem conta. Seu treino e seu histórico ficam neste celular. Para guardar uma cópia, abra e toque em ."
         },
         {
           "tag": "b",
@@ -192635,7 +192571,7 @@
           "tag": "button",
           "name": "Build my program",
           "labelledBy": "Build my program",
-          "describedBy": "Answer a few questions, or pick a ready-made program.",
+          "describedBy": "Answer a few questions.",
           "type": "button"
         },
         {
@@ -192644,13 +192580,13 @@
         },
         {
           "tag": "span",
-          "text": "Answer a few questions, or pick a ready-made program."
+          "text": "Answer a few questions."
         },
         {
           "tag": "button",
           "name": "Track my current program",
           "labelledBy": "Track my current program",
-          "describedBy": "Paste it from a message or a note, then check each exercise.",
+          "describedBy": "Paste it from a message or note.",
           "type": "button"
         },
         {
@@ -192659,15 +192595,11 @@
         },
         {
           "tag": "span",
-          "text": "Paste it from a message or a note, then check each exercise."
+          "text": "Paste it from a message or note."
         },
         {
           "tag": "ul",
           "label": "At a glance"
-        },
-        {
-          "tag": "li",
-          "text": "No account"
         },
         {
           "tag": "li",
@@ -192679,7 +192611,7 @@
         },
         {
           "tag": "p",
-          "text": "Your program and history stay on this phone. To keep a copy, open and tap ."
+          "text": "No account. Your program and history stay on this phone. To keep a copy, open and tap ."
         },
         {
           "tag": "b",
@@ -193278,7 +193210,7 @@
           "tag": "button",
           "name": "Build my program",
           "labelledBy": "Build my program",
-          "describedBy": "Answer a few questions, or pick a ready-made program.",
+          "describedBy": "Answer a few questions.",
           "type": "button"
         },
         {
@@ -193287,13 +193219,13 @@
         },
         {
           "tag": "span",
-          "text": "Answer a few questions, or pick a ready-made program."
+          "text": "Answer a few questions."
         },
         {
           "tag": "button",
           "name": "Track my current program",
           "labelledBy": "Track my current program",
-          "describedBy": "Paste it from a message or a note, then check each exercise.",
+          "describedBy": "Paste it from a message or note.",
           "type": "button"
         },
         {
@@ -193302,15 +193234,11 @@
         },
         {
           "tag": "span",
-          "text": "Paste it from a message or a note, then check each exercise."
+          "text": "Paste it from a message or note."
         },
         {
           "tag": "ul",
           "label": "At a glance"
-        },
-        {
-          "tag": "li",
-          "text": "No account"
         },
         {
           "tag": "li",
@@ -193322,7 +193250,7 @@
         },
         {
           "tag": "p",
-          "text": "Your program and history stay on this phone. To keep a copy, open and tap ."
+          "text": "No account. Your program and history stay on this phone. To keep a copy, open and tap ."
         },
         {
           "tag": "b",
@@ -193921,7 +193849,7 @@
           "tag": "button",
           "name": "Montar meu treino",
           "labelledBy": "Montar meu treino",
-          "describedBy": "Responda algumas perguntas ou escolha um treino pronto.",
+          "describedBy": "Responda algumas perguntas.",
           "type": "button"
         },
         {
@@ -193930,13 +193858,13 @@
         },
         {
           "tag": "span",
-          "text": "Responda algumas perguntas ou escolha um treino pronto."
+          "text": "Responda algumas perguntas."
         },
         {
           "tag": "button",
           "name": "Acompanhar meu treino atual",
           "labelledBy": "Acompanhar meu treino atual",
-          "describedBy": "Cole de uma mensagem ou nota e confira cada exercício.",
+          "describedBy": "Cole de uma mensagem ou nota.",
           "type": "button"
         },
         {
@@ -193945,15 +193873,11 @@
         },
         {
           "tag": "span",
-          "text": "Cole de uma mensagem ou nota e confira cada exercício."
+          "text": "Cole de uma mensagem ou nota."
         },
         {
           "tag": "ul",
           "label": "Em resumo"
-        },
-        {
-          "tag": "li",
-          "text": "Sem conta"
         },
         {
           "tag": "li",
@@ -193965,7 +193889,7 @@
         },
         {
           "tag": "p",
-          "text": "Seu treino e seu histórico ficam neste celular. Para guardar uma cópia, abra e toque em ."
+          "text": "Sem conta. Seu treino e seu histórico ficam neste celular. Para guardar uma cópia, abra e toque em ."
         },
         {
           "tag": "b",
@@ -194564,7 +194488,7 @@
           "tag": "button",
           "name": "Build my program",
           "labelledBy": "Build my program",
-          "describedBy": "Answer a few questions, or pick a ready-made program.",
+          "describedBy": "Answer a few questions.",
           "type": "button"
         },
         {
@@ -194573,13 +194497,13 @@
         },
         {
           "tag": "span",
-          "text": "Answer a few questions, or pick a ready-made program."
+          "text": "Answer a few questions."
         },
         {
           "tag": "button",
           "name": "Track my current program",
           "labelledBy": "Track my current program",
-          "describedBy": "Paste it from a message or a note, then check each exercise.",
+          "describedBy": "Paste it from a message or note.",
           "type": "button"
         },
         {
@@ -194588,15 +194512,11 @@
         },
         {
           "tag": "span",
-          "text": "Paste it from a message or a note, then check each exercise."
+          "text": "Paste it from a message or note."
         },
         {
           "tag": "ul",
           "label": "At a glance"
-        },
-        {
-          "tag": "li",
-          "text": "No account"
         },
         {
           "tag": "li",
@@ -194608,7 +194528,7 @@
         },
         {
           "tag": "p",
-          "text": "Your program and history stay on this phone. To keep a copy, open and tap ."
+          "text": "No account. Your program and history stay on this phone. To keep a copy, open and tap ."
         },
         {
           "tag": "b",
@@ -195207,7 +195127,7 @@
           "tag": "button",
           "name": "Build my program",
           "labelledBy": "Build my program",
-          "describedBy": "Answer a few questions, or pick a ready-made program.",
+          "describedBy": "Answer a few questions.",
           "type": "button"
         },
         {
@@ -195216,13 +195136,13 @@
         },
         {
           "tag": "span",
-          "text": "Answer a few questions, or pick a ready-made program."
+          "text": "Answer a few questions."
         },
         {
           "tag": "button",
           "name": "Track my current program",
           "labelledBy": "Track my current program",
-          "describedBy": "Paste it from a message or a note, then check each exercise.",
+          "describedBy": "Paste it from a message or note.",
           "type": "button"
         },
         {
@@ -195231,15 +195151,11 @@
         },
         {
           "tag": "span",
-          "text": "Paste it from a message or a note, then check each exercise."
+          "text": "Paste it from a message or note."
         },
         {
           "tag": "ul",
           "label": "At a glance"
-        },
-        {
-          "tag": "li",
-          "text": "No account"
         },
         {
           "tag": "li",
@@ -195251,7 +195167,7 @@
         },
         {
           "tag": "p",
-          "text": "Your program and history stay on this phone. To keep a copy, open and tap ."
+          "text": "No account. Your program and history stay on this phone. To keep a copy, open and tap ."
         },
         {
           "tag": "b",
@@ -195850,7 +195766,7 @@
           "tag": "button",
           "name": "Montar meu treino",
           "labelledBy": "Montar meu treino",
-          "describedBy": "Responda algumas perguntas ou escolha um treino pronto.",
+          "describedBy": "Responda algumas perguntas.",
           "type": "button"
         },
         {
@@ -195859,13 +195775,13 @@
         },
         {
           "tag": "span",
-          "text": "Responda algumas perguntas ou escolha um treino pronto."
+          "text": "Responda algumas perguntas."
         },
         {
           "tag": "button",
           "name": "Acompanhar meu treino atual",
           "labelledBy": "Acompanhar meu treino atual",
-          "describedBy": "Cole de uma mensagem ou nota e confira cada exercício.",
+          "describedBy": "Cole de uma mensagem ou nota.",
           "type": "button"
         },
         {
@@ -195874,15 +195790,11 @@
         },
         {
           "tag": "span",
-          "text": "Cole de uma mensagem ou nota e confira cada exercício."
+          "text": "Cole de uma mensagem ou nota."
         },
         {
           "tag": "ul",
           "label": "Em resumo"
-        },
-        {
-          "tag": "li",
-          "text": "Sem conta"
         },
         {
           "tag": "li",
@@ -195894,7 +195806,7 @@
         },
         {
           "tag": "p",
-          "text": "Seu treino e seu histórico ficam neste celular. Para guardar uma cópia, abra e toque em ."
+          "text": "Sem conta. Seu treino e seu histórico ficam neste celular. Para guardar uma cópia, abra e toque em ."
         },
         {
           "tag": "b",
@@ -196493,7 +196405,7 @@
           "tag": "button",
           "name": "Build my program",
           "labelledBy": "Build my program",
-          "describedBy": "Answer a few questions, or pick a ready-made program.",
+          "describedBy": "Answer a few questions.",
           "type": "button"
         },
         {
@@ -196502,13 +196414,13 @@
         },
         {
           "tag": "span",
-          "text": "Answer a few questions, or pick a ready-made program."
+          "text": "Answer a few questions."
         },
         {
           "tag": "button",
           "name": "Track my current program",
           "labelledBy": "Track my current program",
-          "describedBy": "Paste it from a message or a note, then check each exercise.",
+          "describedBy": "Paste it from a message or note.",
           "type": "button"
         },
         {
@@ -196517,15 +196429,11 @@
         },
         {
           "tag": "span",
-          "text": "Paste it from a message or a note, then check each exercise."
+          "text": "Paste it from a message or note."
         },
         {
           "tag": "ul",
           "label": "At a glance"
-        },
-        {
-          "tag": "li",
-          "text": "No account"
         },
         {
           "tag": "li",
@@ -196537,7 +196445,7 @@
         },
         {
           "tag": "p",
-          "text": "Your program and history stay on this phone. To keep a copy, open and tap ."
+          "text": "No account. Your program and history stay on this phone. To keep a copy, open and tap ."
         },
         {
           "tag": "b",
@@ -197136,7 +197044,7 @@
           "tag": "button",
           "name": "Build my program",
           "labelledBy": "Build my program",
-          "describedBy": "Answer a few questions, or pick a ready-made program.",
+          "describedBy": "Answer a few questions.",
           "type": "button"
         },
         {
@@ -197145,13 +197053,13 @@
         },
         {
           "tag": "span",
-          "text": "Answer a few questions, or pick a ready-made program."
+          "text": "Answer a few questions."
         },
         {
           "tag": "button",
           "name": "Track my current program",
           "labelledBy": "Track my current program",
-          "describedBy": "Paste it from a message or a note, then check each exercise.",
+          "describedBy": "Paste it from a message or note.",
           "type": "button"
         },
         {
@@ -197160,15 +197068,11 @@
         },
         {
           "tag": "span",
-          "text": "Paste it from a message or a note, then check each exercise."
+          "text": "Paste it from a message or note."
         },
         {
           "tag": "ul",
           "label": "At a glance"
-        },
-        {
-          "tag": "li",
-          "text": "No account"
         },
         {
           "tag": "li",
@@ -197180,7 +197084,7 @@
         },
         {
           "tag": "p",
-          "text": "Your program and history stay on this phone. To keep a copy, open and tap ."
+          "text": "No account. Your program and history stay on this phone. To keep a copy, open and tap ."
         },
         {
           "tag": "b",
@@ -197779,7 +197683,7 @@
           "tag": "button",
           "name": "Montar meu treino",
           "labelledBy": "Montar meu treino",
-          "describedBy": "Responda algumas perguntas ou escolha um treino pronto.",
+          "describedBy": "Responda algumas perguntas.",
           "type": "button"
         },
         {
@@ -197788,13 +197692,13 @@
         },
         {
           "tag": "span",
-          "text": "Responda algumas perguntas ou escolha um treino pronto."
+          "text": "Responda algumas perguntas."
         },
         {
           "tag": "button",
           "name": "Acompanhar meu treino atual",
           "labelledBy": "Acompanhar meu treino atual",
-          "describedBy": "Cole de uma mensagem ou nota e confira cada exercício.",
+          "describedBy": "Cole de uma mensagem ou nota.",
           "type": "button"
         },
         {
@@ -197803,15 +197707,11 @@
         },
         {
           "tag": "span",
-          "text": "Cole de uma mensagem ou nota e confira cada exercício."
+          "text": "Cole de uma mensagem ou nota."
         },
         {
           "tag": "ul",
           "label": "Em resumo"
-        },
-        {
-          "tag": "li",
-          "text": "Sem conta"
         },
         {
           "tag": "li",
@@ -197823,7 +197723,7 @@
         },
         {
           "tag": "p",
-          "text": "Seu treino e seu histórico ficam neste celular. Para guardar uma cópia, abra e toque em ."
+          "text": "Sem conta. Seu treino e seu histórico ficam neste celular. Para guardar uma cópia, abra e toque em ."
         },
         {
           "tag": "b",
@@ -198422,7 +198322,7 @@
           "tag": "button",
           "name": "Build my program",
           "labelledBy": "Build my program",
-          "describedBy": "Answer a few questions, or pick a ready-made program.",
+          "describedBy": "Answer a few questions.",
           "type": "button"
         },
         {
@@ -198431,13 +198331,13 @@
         },
         {
           "tag": "span",
-          "text": "Answer a few questions, or pick a ready-made program."
+          "text": "Answer a few questions."
         },
         {
           "tag": "button",
           "name": "Track my current program",
           "labelledBy": "Track my current program",
-          "describedBy": "Paste it from a message or a note, then check each exercise.",
+          "describedBy": "Paste it from a message or note.",
           "type": "button"
         },
         {
@@ -198446,15 +198346,11 @@
         },
         {
           "tag": "span",
-          "text": "Paste it from a message or a note, then check each exercise."
+          "text": "Paste it from a message or note."
         },
         {
           "tag": "ul",
           "label": "At a glance"
-        },
-        {
-          "tag": "li",
-          "text": "No account"
         },
         {
           "tag": "li",
@@ -198466,7 +198362,7 @@
         },
         {
           "tag": "p",
-          "text": "Your program and history stay on this phone. To keep a copy, open and tap ."
+          "text": "No account. Your program and history stay on this phone. To keep a copy, open and tap ."
         },
         {
           "tag": "b",
@@ -199056,7 +198952,7 @@
           "tag": "button",
           "name": "Build my program",
           "labelledBy": "Build my program",
-          "describedBy": "Answer a few questions, or pick a ready-made program.",
+          "describedBy": "Answer a few questions.",
           "type": "button"
         },
         {
@@ -199065,13 +198961,13 @@
         },
         {
           "tag": "span",
-          "text": "Answer a few questions, or pick a ready-made program."
+          "text": "Answer a few questions."
         },
         {
           "tag": "button",
           "name": "Track my current program",
           "labelledBy": "Track my current program",
-          "describedBy": "Paste it from a message or a note, then check each exercise.",
+          "describedBy": "Paste it from a message or note.",
           "type": "button"
         },
         {
@@ -199080,15 +198976,11 @@
         },
         {
           "tag": "span",
-          "text": "Paste it from a message or a note, then check each exercise."
+          "text": "Paste it from a message or note."
         },
         {
           "tag": "ul",
           "label": "At a glance"
-        },
-        {
-          "tag": "li",
-          "text": "No account"
         },
         {
           "tag": "li",
@@ -199100,7 +198992,7 @@
         },
         {
           "tag": "p",
-          "text": "Your program and history stay on this phone. To keep a copy, open and tap ."
+          "text": "No account. Your program and history stay on this phone. To keep a copy, open and tap ."
         },
         {
           "tag": "b",
@@ -199690,7 +199582,7 @@
           "tag": "button",
           "name": "Montar meu treino",
           "labelledBy": "Montar meu treino",
-          "describedBy": "Responda algumas perguntas ou escolha um treino pronto.",
+          "describedBy": "Responda algumas perguntas.",
           "type": "button"
         },
         {
@@ -199699,13 +199591,13 @@
         },
         {
           "tag": "span",
-          "text": "Responda algumas perguntas ou escolha um treino pronto."
+          "text": "Responda algumas perguntas."
         },
         {
           "tag": "button",
           "name": "Acompanhar meu treino atual",
           "labelledBy": "Acompanhar meu treino atual",
-          "describedBy": "Cole de uma mensagem ou nota e confira cada exercício.",
+          "describedBy": "Cole de uma mensagem ou nota.",
           "type": "button"
         },
         {
@@ -199714,15 +199606,11 @@
         },
         {
           "tag": "span",
-          "text": "Cole de uma mensagem ou nota e confira cada exercício."
+          "text": "Cole de uma mensagem ou nota."
         },
         {
           "tag": "ul",
           "label": "Em resumo"
-        },
-        {
-          "tag": "li",
-          "text": "Sem conta"
         },
         {
           "tag": "li",
@@ -199734,7 +199622,7 @@
         },
         {
           "tag": "p",
-          "text": "Seu treino e seu histórico ficam neste celular. Para guardar uma cópia, abra e toque em ."
+          "text": "Sem conta. Seu treino e seu histórico ficam neste celular. Para guardar uma cópia, abra e toque em ."
         },
         {
           "tag": "b",
@@ -200324,7 +200212,7 @@
           "tag": "button",
           "name": "Build my program",
           "labelledBy": "Build my program",
-          "describedBy": "Answer a few questions, or pick a ready-made program.",
+          "describedBy": "Answer a few questions.",
           "type": "button"
         },
         {
@@ -200333,13 +200221,13 @@
         },
         {
           "tag": "span",
-          "text": "Answer a few questions, or pick a ready-made program."
+          "text": "Answer a few questions."
         },
         {
           "tag": "button",
           "name": "Track my current program",
           "labelledBy": "Track my current program",
-          "describedBy": "Paste it from a message or a note, then check each exercise.",
+          "describedBy": "Paste it from a message or note.",
           "type": "button"
         },
         {
@@ -200348,15 +200236,11 @@
         },
         {
           "tag": "span",
-          "text": "Paste it from a message or a note, then check each exercise."
+          "text": "Paste it from a message or note."
         },
         {
           "tag": "ul",
           "label": "At a glance"
-        },
-        {
-          "tag": "li",
-          "text": "No account"
         },
         {
           "tag": "li",
@@ -200368,7 +200252,7 @@
         },
         {
           "tag": "p",
-          "text": "Your program and history stay on this phone. To keep a copy, open and tap ."
+          "text": "No account. Your program and history stay on this phone. To keep a copy, open and tap ."
         },
         {
           "tag": "b",
@@ -200962,7 +200846,7 @@
           "tag": "button",
           "name": "Build my program",
           "labelledBy": "Build my program",
-          "describedBy": "Answer a few questions, or pick a ready-made program.",
+          "describedBy": "Answer a few questions.",
           "type": "button"
         },
         {
@@ -200971,13 +200855,13 @@
         },
         {
           "tag": "span",
-          "text": "Answer a few questions, or pick a ready-made program."
+          "text": "Answer a few questions."
         },
         {
           "tag": "button",
           "name": "Track my current program",
           "labelledBy": "Track my current program",
-          "describedBy": "Paste it from a message or a note, then check each exercise.",
+          "describedBy": "Paste it from a message or note.",
           "type": "button"
         },
         {
@@ -200986,15 +200870,11 @@
         },
         {
           "tag": "span",
-          "text": "Paste it from a message or a note, then check each exercise."
+          "text": "Paste it from a message or note."
         },
         {
           "tag": "ul",
           "label": "At a glance"
-        },
-        {
-          "tag": "li",
-          "text": "No account"
         },
         {
           "tag": "li",
@@ -201006,7 +200886,7 @@
         },
         {
           "tag": "p",
-          "text": "Your program and history stay on this phone. To keep a copy, open and tap ."
+          "text": "No account. Your program and history stay on this phone. To keep a copy, open and tap ."
         },
         {
           "tag": "b",
@@ -201600,7 +201480,7 @@
           "tag": "button",
           "name": "Montar meu treino",
           "labelledBy": "Montar meu treino",
-          "describedBy": "Responda algumas perguntas ou escolha um treino pronto.",
+          "describedBy": "Responda algumas perguntas.",
           "type": "button"
         },
         {
@@ -201609,13 +201489,13 @@
         },
         {
           "tag": "span",
-          "text": "Responda algumas perguntas ou escolha um treino pronto."
+          "text": "Responda algumas perguntas."
         },
         {
           "tag": "button",
           "name": "Acompanhar meu treino atual",
           "labelledBy": "Acompanhar meu treino atual",
-          "describedBy": "Cole de uma mensagem ou nota e confira cada exercício.",
+          "describedBy": "Cole de uma mensagem ou nota.",
           "type": "button"
         },
         {
@@ -201624,15 +201504,11 @@
         },
         {
           "tag": "span",
-          "text": "Cole de uma mensagem ou nota e confira cada exercício."
+          "text": "Cole de uma mensagem ou nota."
         },
         {
           "tag": "ul",
           "label": "Em resumo"
-        },
-        {
-          "tag": "li",
-          "text": "Sem conta"
         },
         {
           "tag": "li",
@@ -201644,7 +201520,7 @@
         },
         {
           "tag": "p",
-          "text": "Seu treino e seu histórico ficam neste celular. Para guardar uma cópia, abra e toque em ."
+          "text": "Sem conta. Seu treino e seu histórico ficam neste celular. Para guardar uma cópia, abra e toque em ."
         },
         {
           "tag": "b",
@@ -202238,7 +202114,7 @@
           "tag": "button",
           "name": "Build my program",
           "labelledBy": "Build my program",
-          "describedBy": "Answer a few questions, or pick a ready-made program.",
+          "describedBy": "Answer a few questions.",
           "type": "button"
         },
         {
@@ -202247,13 +202123,13 @@
         },
         {
           "tag": "span",
-          "text": "Answer a few questions, or pick a ready-made program."
+          "text": "Answer a few questions."
         },
         {
           "tag": "button",
           "name": "Track my current program",
           "labelledBy": "Track my current program",
-          "describedBy": "Paste it from a message or a note, then check each exercise.",
+          "describedBy": "Paste it from a message or note.",
           "type": "button"
         },
         {
@@ -202262,15 +202138,11 @@
         },
         {
           "tag": "span",
-          "text": "Paste it from a message or a note, then check each exercise."
+          "text": "Paste it from a message or note."
         },
         {
           "tag": "ul",
           "label": "At a glance"
-        },
-        {
-          "tag": "li",
-          "text": "No account"
         },
         {
           "tag": "li",
@@ -202282,7 +202154,7 @@
         },
         {
           "tag": "p",
-          "text": "Your program and history stay on this phone. To keep a copy, open and tap ."
+          "text": "No account. Your program and history stay on this phone. To keep a copy, open and tap ."
         },
         {
           "tag": "b",
@@ -202881,7 +202753,7 @@
           "tag": "button",
           "name": "Build my program",
           "labelledBy": "Build my program",
-          "describedBy": "Answer a few questions, or pick a ready-made program.",
+          "describedBy": "Answer a few questions.",
           "type": "button"
         },
         {
@@ -202890,13 +202762,13 @@
         },
         {
           "tag": "span",
-          "text": "Answer a few questions, or pick a ready-made program."
+          "text": "Answer a few questions."
         },
         {
           "tag": "button",
           "name": "Track my current program",
           "labelledBy": "Track my current program",
-          "describedBy": "Paste it from a message or a note, then check each exercise.",
+          "describedBy": "Paste it from a message or note.",
           "type": "button"
         },
         {
@@ -202905,15 +202777,11 @@
         },
         {
           "tag": "span",
-          "text": "Paste it from a message or a note, then check each exercise."
+          "text": "Paste it from a message or note."
         },
         {
           "tag": "ul",
           "label": "At a glance"
-        },
-        {
-          "tag": "li",
-          "text": "No account"
         },
         {
           "tag": "li",
@@ -202925,7 +202793,7 @@
         },
         {
           "tag": "p",
-          "text": "Your program and history stay on this phone. To keep a copy, open and tap ."
+          "text": "No account. Your program and history stay on this phone. To keep a copy, open and tap ."
         },
         {
           "tag": "b",
@@ -203524,7 +203392,7 @@
           "tag": "button",
           "name": "Montar meu treino",
           "labelledBy": "Montar meu treino",
-          "describedBy": "Responda algumas perguntas ou escolha um treino pronto.",
+          "describedBy": "Responda algumas perguntas.",
           "type": "button"
         },
         {
@@ -203533,13 +203401,13 @@
         },
         {
           "tag": "span",
-          "text": "Responda algumas perguntas ou escolha um treino pronto."
+          "text": "Responda algumas perguntas."
         },
         {
           "tag": "button",
           "name": "Acompanhar meu treino atual",
           "labelledBy": "Acompanhar meu treino atual",
-          "describedBy": "Cole de uma mensagem ou nota e confira cada exercício.",
+          "describedBy": "Cole de uma mensagem ou nota.",
           "type": "button"
         },
         {
@@ -203548,15 +203416,11 @@
         },
         {
           "tag": "span",
-          "text": "Cole de uma mensagem ou nota e confira cada exercício."
+          "text": "Cole de uma mensagem ou nota."
         },
         {
           "tag": "ul",
           "label": "Em resumo"
-        },
-        {
-          "tag": "li",
-          "text": "Sem conta"
         },
         {
           "tag": "li",
@@ -203568,7 +203432,7 @@
         },
         {
           "tag": "p",
-          "text": "Seu treino e seu histórico ficam neste celular. Para guardar uma cópia, abra e toque em ."
+          "text": "Sem conta. Seu treino e seu histórico ficam neste celular. Para guardar uma cópia, abra e toque em ."
         },
         {
           "tag": "b",

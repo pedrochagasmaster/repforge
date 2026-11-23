@@ -6273,7 +6273,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun__cta .firstrun-row__text{gap:2px}
 .firstrun__cta .firstrun-row__cap{font-weight:var(--weight-regular)}
 .firstrun-hero__data{
-  margin:var(--firstrun-gap-2) auto 0;max-width:40ch;text-align:center;text-wrap:pretty;
+  margin:var(--firstrun-gap-1) auto 0;max-width:40ch;text-align:center;text-wrap:pretty;
   font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--firstrun-ink-soft);
 }
 .firstrun-hero__data:empty{display:none}
