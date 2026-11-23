@@ -192634,6 +192634,8 @@
         {
           "tag": "button",
           "name": "Build my program",
+          "labelledBy": "Build my program",
+          "describedBy": "Answer a few questions, or pick a ready-made program.",
           "type": "button"
         },
         {
@@ -192641,10 +192643,23 @@
           "text": "Build my program"
         },
         {
+          "tag": "span",
+          "text": "Answer a few questions, or pick a ready-made program."
+        },
+        {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
+          "labelledBy": "Track my current program",
+          "describedBy": "Paste it from a message or a note, then check each exercise.",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
+        },
+        {
+          "tag": "span",
+          "text": "Paste it from a message or a note, then check each exercise."
         },
         {
           "tag": "ul",
@@ -192661,6 +192676,18 @@
         {
           "tag": "li",
           "text": "Free to build and log"
+        },
+        {
+          "tag": "p",
+          "text": "Your program and history stay on this phone. To keep a copy, open and tap ."
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
+        },
+        {
+          "tag": "b",
+          "text": "Export backup JSON"
         },
         {
           "tag": "section",
@@ -193174,9 +193201,12 @@
         },
         {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
         },
         {
           "tag": "span",
@@ -193247,6 +193277,8 @@
         {
           "tag": "button",
           "name": "Build my program",
+          "labelledBy": "Build my program",
+          "describedBy": "Answer a few questions, or pick a ready-made program.",
           "type": "button"
         },
         {
@@ -193254,10 +193286,23 @@
           "text": "Build my program"
         },
         {
+          "tag": "span",
+          "text": "Answer a few questions, or pick a ready-made program."
+        },
+        {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
+          "labelledBy": "Track my current program",
+          "describedBy": "Paste it from a message or a note, then check each exercise.",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
+        },
+        {
+          "tag": "span",
+          "text": "Paste it from a message or a note, then check each exercise."
         },
         {
           "tag": "ul",
@@ -193274,6 +193319,18 @@
         {
           "tag": "li",
           "text": "Free to build and log"
+        },
+        {
+          "tag": "p",
+          "text": "Your program and history stay on this phone. To keep a copy, open and tap ."
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
+        },
+        {
+          "tag": "b",
+          "text": "Export backup JSON"
         },
         {
           "tag": "section",
@@ -193787,9 +193844,12 @@
         },
         {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
         },
         {
           "tag": "span",
@@ -193860,6 +193920,8 @@
         {
           "tag": "button",
           "name": "Montar meu treino",
+          "labelledBy": "Montar meu treino",
+          "describedBy": "Responda algumas perguntas ou escolha um treino pronto.",
           "type": "button"
         },
         {
@@ -193867,10 +193929,23 @@
           "text": "Montar meu treino"
         },
         {
+          "tag": "span",
+          "text": "Responda algumas perguntas ou escolha um treino pronto."
+        },
+        {
           "tag": "button",
-          "text": "Acompanhar meu treino atual",
           "name": "Acompanhar meu treino atual",
+          "labelledBy": "Acompanhar meu treino atual",
+          "describedBy": "Cole de uma mensagem ou nota e confira cada exercício.",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Acompanhar meu treino atual"
+        },
+        {
+          "tag": "span",
+          "text": "Cole de uma mensagem ou nota e confira cada exercício."
         },
         {
           "tag": "ul",
@@ -193887,6 +193962,18 @@
         {
           "tag": "li",
           "text": "Grátis para montar e registrar"
+        },
+        {
+          "tag": "p",
+          "text": "Seu treino e seu histórico ficam neste celular. Para guardar uma cópia, abra e toque em ."
+        },
+        {
+          "tag": "b",
+          "text": "Ajustes"
+        },
+        {
+          "tag": "b",
+          "text": "Exportar backup JSON"
         },
         {
           "tag": "section",
@@ -194400,9 +194487,12 @@
         },
         {
           "tag": "button",
-          "text": "Acompanhar meu treino atual",
           "name": "Acompanhar meu treino atual",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Acompanhar meu treino atual"
         },
         {
           "tag": "span",
@@ -194473,6 +194563,8 @@
         {
           "tag": "button",
           "name": "Build my program",
+          "labelledBy": "Build my program",
+          "describedBy": "Answer a few questions, or pick a ready-made program.",
           "type": "button"
         },
         {
@@ -194480,10 +194572,23 @@
           "text": "Build my program"
         },
         {
+          "tag": "span",
+          "text": "Answer a few questions, or pick a ready-made program."
+        },
+        {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
+          "labelledBy": "Track my current program",
+          "describedBy": "Paste it from a message or a note, then check each exercise.",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
+        },
+        {
+          "tag": "span",
+          "text": "Paste it from a message or a note, then check each exercise."
         },
         {
           "tag": "ul",
@@ -194500,6 +194605,18 @@
         {
           "tag": "li",
           "text": "Free to build and log"
+        },
+        {
+          "tag": "p",
+          "text": "Your program and history stay on this phone. To keep a copy, open and tap ."
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
+        },
+        {
+          "tag": "b",
+          "text": "Export backup JSON"
         },
         {
           "tag": "section",
@@ -195013,9 +195130,12 @@
         },
         {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
         },
         {
           "tag": "span",
@@ -195086,6 +195206,8 @@
         {
           "tag": "button",
           "name": "Build my program",
+          "labelledBy": "Build my program",
+          "describedBy": "Answer a few questions, or pick a ready-made program.",
           "type": "button"
         },
         {
@@ -195093,10 +195215,23 @@
           "text": "Build my program"
         },
         {
+          "tag": "span",
+          "text": "Answer a few questions, or pick a ready-made program."
+        },
+        {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
+          "labelledBy": "Track my current program",
+          "describedBy": "Paste it from a message or a note, then check each exercise.",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
+        },
+        {
+          "tag": "span",
+          "text": "Paste it from a message or a note, then check each exercise."
         },
         {
           "tag": "ul",
@@ -195113,6 +195248,18 @@
         {
           "tag": "li",
           "text": "Free to build and log"
+        },
+        {
+          "tag": "p",
+          "text": "Your program and history stay on this phone. To keep a copy, open and tap ."
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
+        },
+        {
+          "tag": "b",
+          "text": "Export backup JSON"
         },
         {
           "tag": "section",
@@ -195626,9 +195773,12 @@
         },
         {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
         },
         {
           "tag": "span",
@@ -195699,6 +195849,8 @@
         {
           "tag": "button",
           "name": "Montar meu treino",
+          "labelledBy": "Montar meu treino",
+          "describedBy": "Responda algumas perguntas ou escolha um treino pronto.",
           "type": "button"
         },
         {
@@ -195706,10 +195858,23 @@
           "text": "Montar meu treino"
         },
         {
+          "tag": "span",
+          "text": "Responda algumas perguntas ou escolha um treino pronto."
+        },
+        {
           "tag": "button",
-          "text": "Acompanhar meu treino atual",
           "name": "Acompanhar meu treino atual",
+          "labelledBy": "Acompanhar meu treino atual",
+          "describedBy": "Cole de uma mensagem ou nota e confira cada exercício.",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Acompanhar meu treino atual"
+        },
+        {
+          "tag": "span",
+          "text": "Cole de uma mensagem ou nota e confira cada exercício."
         },
         {
           "tag": "ul",
@@ -195726,6 +195891,18 @@
         {
           "tag": "li",
           "text": "Grátis para montar e registrar"
+        },
+        {
+          "tag": "p",
+          "text": "Seu treino e seu histórico ficam neste celular. Para guardar uma cópia, abra e toque em ."
+        },
+        {
+          "tag": "b",
+          "text": "Ajustes"
+        },
+        {
+          "tag": "b",
+          "text": "Exportar backup JSON"
         },
         {
           "tag": "section",
@@ -196239,9 +196416,12 @@
         },
         {
           "tag": "button",
-          "text": "Acompanhar meu treino atual",
           "name": "Acompanhar meu treino atual",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Acompanhar meu treino atual"
         },
         {
           "tag": "span",
@@ -196312,6 +196492,8 @@
         {
           "tag": "button",
           "name": "Build my program",
+          "labelledBy": "Build my program",
+          "describedBy": "Answer a few questions, or pick a ready-made program.",
           "type": "button"
         },
         {
@@ -196319,10 +196501,23 @@
           "text": "Build my program"
         },
         {
+          "tag": "span",
+          "text": "Answer a few questions, or pick a ready-made program."
+        },
+        {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
+          "labelledBy": "Track my current program",
+          "describedBy": "Paste it from a message or a note, then check each exercise.",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
+        },
+        {
+          "tag": "span",
+          "text": "Paste it from a message or a note, then check each exercise."
         },
         {
           "tag": "ul",
@@ -196339,6 +196534,18 @@
         {
           "tag": "li",
           "text": "Free to build and log"
+        },
+        {
+          "tag": "p",
+          "text": "Your program and history stay on this phone. To keep a copy, open and tap ."
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
+        },
+        {
+          "tag": "b",
+          "text": "Export backup JSON"
         },
         {
           "tag": "section",
@@ -196852,9 +197059,12 @@
         },
         {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
         },
         {
           "tag": "span",
@@ -196925,6 +197135,8 @@
         {
           "tag": "button",
           "name": "Build my program",
+          "labelledBy": "Build my program",
+          "describedBy": "Answer a few questions, or pick a ready-made program.",
           "type": "button"
         },
         {
@@ -196932,10 +197144,23 @@
           "text": "Build my program"
         },
         {
+          "tag": "span",
+          "text": "Answer a few questions, or pick a ready-made program."
+        },
+        {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
+          "labelledBy": "Track my current program",
+          "describedBy": "Paste it from a message or a note, then check each exercise.",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
+        },
+        {
+          "tag": "span",
+          "text": "Paste it from a message or a note, then check each exercise."
         },
         {
           "tag": "ul",
@@ -196952,6 +197177,18 @@
         {
           "tag": "li",
           "text": "Free to build and log"
+        },
+        {
+          "tag": "p",
+          "text": "Your program and history stay on this phone. To keep a copy, open and tap ."
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
+        },
+        {
+          "tag": "b",
+          "text": "Export backup JSON"
         },
         {
           "tag": "section",
@@ -197465,9 +197702,12 @@
         },
         {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
         },
         {
           "tag": "span",
@@ -197538,6 +197778,8 @@
         {
           "tag": "button",
           "name": "Montar meu treino",
+          "labelledBy": "Montar meu treino",
+          "describedBy": "Responda algumas perguntas ou escolha um treino pronto.",
           "type": "button"
         },
         {
@@ -197545,10 +197787,23 @@
           "text": "Montar meu treino"
         },
         {
+          "tag": "span",
+          "text": "Responda algumas perguntas ou escolha um treino pronto."
+        },
+        {
           "tag": "button",
-          "text": "Acompanhar meu treino atual",
           "name": "Acompanhar meu treino atual",
+          "labelledBy": "Acompanhar meu treino atual",
+          "describedBy": "Cole de uma mensagem ou nota e confira cada exercício.",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Acompanhar meu treino atual"
+        },
+        {
+          "tag": "span",
+          "text": "Cole de uma mensagem ou nota e confira cada exercício."
         },
         {
           "tag": "ul",
@@ -197565,6 +197820,18 @@
         {
           "tag": "li",
           "text": "Grátis para montar e registrar"
+        },
+        {
+          "tag": "p",
+          "text": "Seu treino e seu histórico ficam neste celular. Para guardar uma cópia, abra e toque em ."
+        },
+        {
+          "tag": "b",
+          "text": "Ajustes"
+        },
+        {
+          "tag": "b",
+          "text": "Exportar backup JSON"
         },
         {
           "tag": "section",
@@ -198078,9 +198345,12 @@
         },
         {
           "tag": "button",
-          "text": "Acompanhar meu treino atual",
           "name": "Acompanhar meu treino atual",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Acompanhar meu treino atual"
         },
         {
           "tag": "span",
@@ -198151,6 +198421,8 @@
         {
           "tag": "button",
           "name": "Build my program",
+          "labelledBy": "Build my program",
+          "describedBy": "Answer a few questions, or pick a ready-made program.",
           "type": "button"
         },
         {
@@ -198158,10 +198430,23 @@
           "text": "Build my program"
         },
         {
+          "tag": "span",
+          "text": "Answer a few questions, or pick a ready-made program."
+        },
+        {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
+          "labelledBy": "Track my current program",
+          "describedBy": "Paste it from a message or a note, then check each exercise.",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
+        },
+        {
+          "tag": "span",
+          "text": "Paste it from a message or a note, then check each exercise."
         },
         {
           "tag": "ul",
@@ -198178,6 +198463,18 @@
         {
           "tag": "li",
           "text": "Free to build and log"
+        },
+        {
+          "tag": "p",
+          "text": "Your program and history stay on this phone. To keep a copy, open and tap ."
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
+        },
+        {
+          "tag": "b",
+          "text": "Export backup JSON"
         },
         {
           "tag": "section",
@@ -198691,9 +198988,12 @@
         },
         {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
         },
         {
           "tag": "span",
@@ -198755,6 +199055,8 @@
         {
           "tag": "button",
           "name": "Build my program",
+          "labelledBy": "Build my program",
+          "describedBy": "Answer a few questions, or pick a ready-made program.",
           "type": "button"
         },
         {
@@ -198762,10 +199064,23 @@
           "text": "Build my program"
         },
         {
+          "tag": "span",
+          "text": "Answer a few questions, or pick a ready-made program."
+        },
+        {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
+          "labelledBy": "Track my current program",
+          "describedBy": "Paste it from a message or a note, then check each exercise.",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
+        },
+        {
+          "tag": "span",
+          "text": "Paste it from a message or a note, then check each exercise."
         },
         {
           "tag": "ul",
@@ -198782,6 +199097,18 @@
         {
           "tag": "li",
           "text": "Free to build and log"
+        },
+        {
+          "tag": "p",
+          "text": "Your program and history stay on this phone. To keep a copy, open and tap ."
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
+        },
+        {
+          "tag": "b",
+          "text": "Export backup JSON"
         },
         {
           "tag": "section",
@@ -199295,9 +199622,12 @@
         },
         {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
         },
         {
           "tag": "span",
@@ -199359,6 +199689,8 @@
         {
           "tag": "button",
           "name": "Montar meu treino",
+          "labelledBy": "Montar meu treino",
+          "describedBy": "Responda algumas perguntas ou escolha um treino pronto.",
           "type": "button"
         },
         {
@@ -199366,10 +199698,23 @@
           "text": "Montar meu treino"
         },
         {
+          "tag": "span",
+          "text": "Responda algumas perguntas ou escolha um treino pronto."
+        },
+        {
           "tag": "button",
-          "text": "Acompanhar meu treino atual",
           "name": "Acompanhar meu treino atual",
+          "labelledBy": "Acompanhar meu treino atual",
+          "describedBy": "Cole de uma mensagem ou nota e confira cada exercício.",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Acompanhar meu treino atual"
+        },
+        {
+          "tag": "span",
+          "text": "Cole de uma mensagem ou nota e confira cada exercício."
         },
         {
           "tag": "ul",
@@ -199386,6 +199731,18 @@
         {
           "tag": "li",
           "text": "Grátis para montar e registrar"
+        },
+        {
+          "tag": "p",
+          "text": "Seu treino e seu histórico ficam neste celular. Para guardar uma cópia, abra e toque em ."
+        },
+        {
+          "tag": "b",
+          "text": "Ajustes"
+        },
+        {
+          "tag": "b",
+          "text": "Exportar backup JSON"
         },
         {
           "tag": "section",
@@ -199899,9 +200256,12 @@
         },
         {
           "tag": "button",
-          "text": "Acompanhar meu treino atual",
           "name": "Acompanhar meu treino atual",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Acompanhar meu treino atual"
         },
         {
           "tag": "span",
@@ -199963,6 +200323,8 @@
         {
           "tag": "button",
           "name": "Build my program",
+          "labelledBy": "Build my program",
+          "describedBy": "Answer a few questions, or pick a ready-made program.",
           "type": "button"
         },
         {
@@ -199970,10 +200332,23 @@
           "text": "Build my program"
         },
         {
+          "tag": "span",
+          "text": "Answer a few questions, or pick a ready-made program."
+        },
+        {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
+          "labelledBy": "Track my current program",
+          "describedBy": "Paste it from a message or a note, then check each exercise.",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
+        },
+        {
+          "tag": "span",
+          "text": "Paste it from a message or a note, then check each exercise."
         },
         {
           "tag": "ul",
@@ -199990,6 +200365,18 @@
         {
           "tag": "li",
           "text": "Free to build and log"
+        },
+        {
+          "tag": "p",
+          "text": "Your program and history stay on this phone. To keep a copy, open and tap ."
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
+        },
+        {
+          "tag": "b",
+          "text": "Export backup JSON"
         },
         {
           "tag": "section",
@@ -200507,9 +200894,12 @@
         },
         {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
         },
         {
           "tag": "span",
@@ -200571,6 +200961,8 @@
         {
           "tag": "button",
           "name": "Build my program",
+          "labelledBy": "Build my program",
+          "describedBy": "Answer a few questions, or pick a ready-made program.",
           "type": "button"
         },
         {
@@ -200578,10 +200970,23 @@
           "text": "Build my program"
         },
         {
+          "tag": "span",
+          "text": "Answer a few questions, or pick a ready-made program."
+        },
+        {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
+          "labelledBy": "Track my current program",
+          "describedBy": "Paste it from a message or a note, then check each exercise.",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
+        },
+        {
+          "tag": "span",
+          "text": "Paste it from a message or a note, then check each exercise."
         },
         {
           "tag": "ul",
@@ -200598,6 +201003,18 @@
         {
           "tag": "li",
           "text": "Free to build and log"
+        },
+        {
+          "tag": "p",
+          "text": "Your program and history stay on this phone. To keep a copy, open and tap ."
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
+        },
+        {
+          "tag": "b",
+          "text": "Export backup JSON"
         },
         {
           "tag": "section",
@@ -201115,9 +201532,12 @@
         },
         {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
         },
         {
           "tag": "span",
@@ -201179,6 +201599,8 @@
         {
           "tag": "button",
           "name": "Montar meu treino",
+          "labelledBy": "Montar meu treino",
+          "describedBy": "Responda algumas perguntas ou escolha um treino pronto.",
           "type": "button"
         },
         {
@@ -201186,10 +201608,23 @@
           "text": "Montar meu treino"
         },
         {
+          "tag": "span",
+          "text": "Responda algumas perguntas ou escolha um treino pronto."
+        },
+        {
           "tag": "button",
-          "text": "Acompanhar meu treino atual",
           "name": "Acompanhar meu treino atual",
+          "labelledBy": "Acompanhar meu treino atual",
+          "describedBy": "Cole de uma mensagem ou nota e confira cada exercício.",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Acompanhar meu treino atual"
+        },
+        {
+          "tag": "span",
+          "text": "Cole de uma mensagem ou nota e confira cada exercício."
         },
         {
           "tag": "ul",
@@ -201206,6 +201641,18 @@
         {
           "tag": "li",
           "text": "Grátis para montar e registrar"
+        },
+        {
+          "tag": "p",
+          "text": "Seu treino e seu histórico ficam neste celular. Para guardar uma cópia, abra e toque em ."
+        },
+        {
+          "tag": "b",
+          "text": "Ajustes"
+        },
+        {
+          "tag": "b",
+          "text": "Exportar backup JSON"
         },
         {
           "tag": "section",
@@ -201723,9 +202170,12 @@
         },
         {
           "tag": "button",
-          "text": "Acompanhar meu treino atual",
           "name": "Acompanhar meu treino atual",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Acompanhar meu treino atual"
         },
         {
           "tag": "span",
