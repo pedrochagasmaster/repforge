@@ -6,7 +6,7 @@ The only list of open, deferred and paused work. Order is top to bottom within e
 
 - Plan 059: starts once the owner's real-phone testing below is done (owner, 2026-11-15). Validate one release candidate end to end on one commit, including accessibility, privacy, telemetry, offline and update behavior.
 - Real-phone pass (owner testing over several days from 2026-11-15): install, install transfer, a full workout with the keyboard and 200% text, a setup link opened into the installed app, Android installed-app launch, program generation and Your profile, plus wheel/sheet/dock behavior; include iOS/VoiceOver and Android/TalkBack on the release candidate.
-- Backup cue (Packet E, promoted from Later): a quiet "Save a backup copy" on the finish screen once three saved sessions and seven days have passed since the later of the last backup and the last "Not now"; same file as Settings' export, to the share sheet or a download; no cloud sync. Owner to approve the trigger rule, whether it also appears on Today, and the EN/PT copy.
+- Backup cue (Packet E, #811, promoted from Later): a quiet "Save a backup copy" on the finish screen once three saved sessions and seven days have passed since the later of the last backup and the last "Not now"; same file as Settings' export, to the share sheet or a download; no cloud sync. Owner to approve the trigger rule, whether it also appears on Today, and the EN/PT copy.
 
 ## Waiting on owner
 
