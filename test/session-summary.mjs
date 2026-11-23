@@ -963,6 +963,40 @@ async function run() {
       "where files cannot be shared the backup downloads", file?.suggestedFilename() || "no download");
     await closeSummary();
 
+    // #817: a cancelled share sheet keeps the cue and records nothing; a share the browser refuses downloads instead.
+    const stubShareError = (name) => page.evaluate((name) => {
+      window.__cueProbe = { shares: 0, downloads: 0 };
+      const create = URL.createObjectURL.bind(URL);
+      URL.createObjectURL = (blob) => { if (blob?.type === "application/json") window.__cueProbe.downloads++; return create(blob); };
+      Object.defineProperty(navigator, "canShare", { configurable: true, value: (data) => Array.isArray(data?.files) });
+      Object.defineProperty(navigator, "share", { configurable: true, value: async () => { window.__cueProbe.shares++; throw new DOMException("stub", name); } });
+    }, name);
+    await seed(page, fixture({ log: [...curl(isoDaysAgo(10)), ...curl(isoDaysAgo(5))] }));
+    await stubShareError("AbortError");
+    await finishCurl();
+    await page.click("#sumBackupSave");
+    await page.evaluate(() => window.__repforgeStorage.backupExportSettled());
+    await page.evaluate(() => window.__repforgeStorage.flush());
+    const cancelled = await page.evaluate((k) => ({ ...window.__cueProbe, lastExport: JSON.parse(localStorage.getItem(k)).settings.lastExport,
+      cue: !!document.querySelector("#sumBackupSave"), enabled: document.querySelector("#sumBackupSave")?.disabled === false,
+      done: !!document.querySelector(".sum-backup__done") }), KEY);
+    assert(cancelled.shares === 1 && cancelled.downloads === 0 && cancelled.lastExport === "" && cancelled.cue && cancelled.enabled && !cancelled.done,
+      "cancelling the share sheet keeps the cue, downloads nothing and records no backup", JSON.stringify(cancelled));
+    await closeSummary();
+
+    await seed(page, fixture({ log: [...curl(isoDaysAgo(10)), ...curl(isoDaysAgo(5))] }));
+    await stubShareError("NotAllowedError");
+    await finishCurl();
+    const refusedDownload = page.waitForEvent("download", { timeout: 5000 });
+    await page.click("#sumBackupSave");
+    const refusedFile = await refusedDownload.catch(() => null);
+    await page.evaluate(() => window.__repforgeStorage.backupExportSettled());
+    const refused = await page.evaluate((k) => ({ ...window.__cueProbe, lastExport: JSON.parse(localStorage.getItem(k)).settings.lastExport,
+      done: document.querySelector(".sum-backup__done")?.textContent.trim() || "" }), KEY);
+    assert(!!refusedFile && refused.shares === 1 && !!refused.lastExport && /^Last backup was /.test(refused.done),
+      "a share the browser refuses falls back to a download, and the cue reports the backup", JSON.stringify({ refused, file: refusedFile?.suggestedFilename() }));
+    await closeSummary();
+
     // Not now: the cue goes, the choice stays on this device, and the next session does not bring it back.
     await setUi(null);
     await seed(page, fixture({ log: [...curl(isoDaysAgo(10)), ...curl(isoDaysAgo(5))] }));
