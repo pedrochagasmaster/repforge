@@ -204,6 +204,17 @@ for (const [lang, label] of [["en", "left"], ["pt", "sobrando"]]) {
     check(has(failures, "not a catalog"), `${lang}: an effort suffix cannot approve an invented word (${value})`, show(failures));
   }
 }
+// A lifter's own day name is data even when it starts with a catalog phrase ("Dia 2", "Day 2")
+// and holds a separator: the share card prints it whole beside the catalog label and the date.
+for (const [lang, day, date] of [["pt", "Dia 2 · misto", "12 ago"], ["en", "Day 2 · heavy", "12 Aug"]]) {
+  const catalog = loadCatalog(lang);
+  const line = name => ({ text: [{ text: `${catalog.dictionary["share.tpl_stats"]}: ${name}, ${date}`, locator: "figure.sharecard" }],
+    requestedI18nKeys: [], timerLabels: [], data: { strings: [day], dateWords: [date.split(" ")[1]] } });
+  const own = checkStrings(line(day), catalog);
+  check(own.length === 0, `${lang}: a lifter's day name that starts with a catalog phrase is data`, show(own));
+  const invented = checkStrings(line(day.replace(/\S+$/u, "Quantum")), catalog);
+  check(has(invented, "not a catalog"), `${lang}: a word that is neither data nor catalog after that phrase is still rejected`, show(invented));
+}
 if (process.argv.includes("--catalog-composition-only")) {
   console.log(`\n${results.passed} passed, ${results.failed} failed`);
   process.exit(results.failed ? 1 : 0);
