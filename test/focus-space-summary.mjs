@@ -190,6 +190,9 @@ try {
       const ledger = await page.evaluate(() => document.querySelector("#workout .exercise--focus.is-current [data-editn='1'] [data-lv='rir']")?.textContent.trim());
       check(shown && ledger === shown, "the logged row reads the RIR the shelf showed", { shown, ledger });
       await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+      // The fixture's history is old enough for the finish screen's backup cue (Packet E). This case measures where the
+      // bar sits on a short report, so the lifter has just said "Not now" to that cue.
+      await page.evaluate(() => window.__repforgeUi.setPref("backupCueDismissedAt", new Date().toISOString()));
       await finishEarly(page);
       await page.waitForSelector("#sessionSummary:not(.hidden)", { timeout: 15000 });
       await page.evaluate(() => window.__repforgeStorage.flush());
@@ -207,8 +210,10 @@ try {
       const bar = await page.evaluate(() => {
         const sheet = document.querySelector("#sessionSummary"), actions = sheet.querySelector(".sum-actions"), done = sheet.querySelector("#sumDone");
         return { height: innerHeight, short: sheet.scrollHeight <= sheet.clientHeight + 1, bar: actions.getBoundingClientRect().bottom,
-          done: done.getBoundingClientRect().bottom, pad: parseFloat(getComputedStyle(actions).paddingBottom) };
+          done: done.getBoundingClientRect().bottom, pad: parseFloat(getComputedStyle(actions).paddingBottom),
+          cue: !!sheet.querySelector("#sumBackup") };
       });
+      check(!bar.cue, "one lift, one set: the backup cue the lifter dismissed is not on the report", bar);
       check(bar.short, "one lift, one set: the summary is short enough to need no scroll (the case under test)", bar);
       check(near(bar.bar, bar.height) && near(bar.done, bar.height - bar.pad), "a short summary holds its action bar at the bottom of the screen", bar);
     } finally { await context.close(); }
