@@ -968,6 +968,12 @@ async function seedMeaningfulDestination(page, kind, envelope) {
       localStorage.setItem(uiKey, JSON.stringify(prefs));
       return { ok: true };
     }
+    if (kind === "backup-cue-dismissed") {
+      // "Not now" on the finish screen's backup cue (Packet E) is the lifter's own choice, kept in device preferences.
+      const at = new Date().toISOString();
+      await window.__repforgeUi.setPref("backupCueDismissedAt", at);
+      return { ok: window.__repforgeUi.loadUiPrefs().backupCueDismissedAt === at };
+    }
     if (kind === "invalid-pref-stamps") {
       const prefs = parse(localStorage.getItem(uiKey)) || {};
       localStorage.setItem(uiKey, JSON.stringify({ ...prefs, __repforgePrefWrites: { unknown: 7 } }));
@@ -1162,6 +1168,7 @@ async function runMeaningfulDestinationMatrix(browser, envelope, only = null) {
     ["seen findings only", "findings-seen"],
     ["unknown finding preference", "findings-unknown"],
     ["malformed finding preference", "findings-malformed"],
+    ["backup cue dismissal", "backup-cue-dismissed"],
     ["unknown-guide-only", "unknown-guide"],
     ["wrong-version-guide-only", "wrong-version-guide"],
     ["missing-version-guide-only", "missing-version-guide"],
