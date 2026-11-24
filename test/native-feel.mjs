@@ -2650,11 +2650,11 @@ async function refreshLayout(browser) {
           const menu = document.querySelector(".native-context__menu").getBoundingClientRect();
           return { gridAligned, menuSeparated: menu.bottom <= box.top + 1 || menu.top >= box.bottom - 1, contained: texts.every(r => r.left >= box.left - 1 && r.right <= box.right + 1 && r.top >= box.top - 1 && r.bottom <= box.bottom + 1), separated: !label || !value || label.right <= value.left + 1 || label.bottom <= value.top + 1 };
         }
-        return { toastHidden: document.querySelector("#toast")?.classList.contains("hidden"), fade: getComputedStyle(document.body, "::after").display };
+        return { toastHidden: document.querySelector("#toast")?.classList.contains("hidden"), fade: getComputedStyle(document.body, "::after").content };
       });
       if (process.env.REPFORGE_ARTIFACT_DIR) await opened.page.screenshot({ path: `${process.env.REPFORGE_ARTIFACT_DIR}/refresh-${state.replace("/", "-")}-${lang}-${width}.png` });
       if (state === "onboarding-import/editor-empty-day") assert(geometry.toastHidden, "empty-day catalog waits until the acknowledged removal announcement ends");
-      else if (state === "workout/invalid-draft") assert(geometry.fade === "none", "recovery actions are not painted over by the Today fade", JSON.stringify(geometry));
+      else if (state === "workout/invalid-draft") assert(["none", "normal"].includes(geometry.fade), "no paper band is drawn over the recovery actions (owner, 2026-11-24: the band is gone)", JSON.stringify(geometry));
       else assert(geometry.contained && geometry.separated && geometry.menuSeparated && geometry.gridAligned, `${state} ${lang}: lifted preview contains its text without collisions`, JSON.stringify(geometry));
     } finally { await opened.context.close(); }
   }

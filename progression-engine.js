@@ -1,11 +1,13 @@
 (function (root) {
   "use strict";
 
-  const ENGINE_VERSION = "078.2";
+  const ENGINE_VERSION = "078.4";
   const STANDING_VERSION = "standing@078.1";
   // Reps in reserve are reliable near failure and guesses far from it, so a performed set earns capacity for at most
   // this many (owner, 2026-11-05; Plan 077 OD-23b). Targets keep their own 0–6 bound.
   const RIR_CREDIT_CAP = 5;
+  // The most one session can lift the history anchor above the median of the latest three.
+  const ANCHOR_JUMP_LIMIT = 0.15;
   // Effort calibration (Plan 077, OD-18): the caller's per-lift shift, read as `rir − delta` on reported sets. Only this
   // version is understood; any other, or a delta outside [−1, 2], leaves the engine as it was (delta 0).
   const CALIBRATION_VERSION = "calibration@077.1";
@@ -453,13 +455,19 @@
     const latest = withFirst.slice(-3);
     if (!latest.length) return null;
     const mostRecent = latest.at(-1);
+    // The median steadies the estimate against one odd session, but it lags a lifter who improved: it cannot sit below
+    // the latest first set's own capacity, read as the median reads it (reps left capped, calibration applied) (owner,
+    // 2026-11-24). A latest set further above the median than ANCHOR_JUMP_LIMIT is the odd session and is ignored.
+    const medianKg = median(latest.map((entry) => entry.first.capacityKg));
+    const latestKg = mostRecent.first.capacityKg;
+    const capacityKg = latestKg > medianKg && latestKg <= medianKg * (1 + ANCHOR_JUMP_LIMIT) ? latestKg : medianKg;
     return {
       source: "history",
       sessionId: mostRecent.session.sessionId,
       sessionIds: latest.map((entry) => entry.session.sessionId),
       setIndex: 0,
       effectiveLoadKg: median(latest.map((entry) => entry.first.effectiveLoadKg)),
-      capacityKg: median(latest.map((entry) => entry.first.capacityKg)),
+      capacityKg,
       displayLoadKg: mostRecent.first.displayLoadKg,
       loadingConvention: mostRecent.first.loadingConvention,
       equipmentId: mostRecent.first.equipmentId,
