@@ -192,7 +192,18 @@ const PORTUGUESE_LIFTER_TEXT = Object.freeze({
   "Full body": "Corpo inteiro",
   "Day 2 · mixed": "Dia 2 · misto",
   "Designer catalog": "Catálogo de design",
+  "Rack on pin 9": "Rack no pino 9",
+  "Back pad on 4": "Encosto na posição 4",
 });
+
+/* The exercise note the lifter types in the note scenarios, in the frame's language. */
+const LIFTER_EXERCISE_NOTE = Object.freeze({
+  en: "Seat 4, pin 3. Wide grip and pause at the bottom of each rep.",
+  pt: "Banco na 4, pino 3. Pegada aberta e pausa embaixo em cada repetição.",
+});
+export function lifterExerciseNote(lang) {
+  return LIFTER_EXERCISE_NOTE[lang] || LIFTER_EXERCISE_NOTE.en;
+}
 
 /**
  * What a Portuguese lifter's device holds for the same program. The design

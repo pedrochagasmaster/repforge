@@ -12,7 +12,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { buildProgramLab } from "../build-programlab.mjs";
 import { maybeStartLocalPreview } from "../local-preview.mjs";
-import { catalogState, directionDState, emptyEntryState, localeState, pastZeroState, portugueseLifterState } from "./fixtures.mjs";
+import { catalogState, directionDState, emptyEntryState, lifterExerciseNote, localeState, pastZeroState, portugueseLifterState } from "./fixtures.mjs";
 import { CAPTURE_NOW, dismissChrome, LOG_DRAFT, replayGuide, seed, sleep } from "./session.mjs";
 import { definitionSlot, installGeneratedProgram, isWeightRepsSlot, metricLogRow } from "../../test/fixtures/history-metric-rows.mjs";
 import { finishEarly } from "../../test/fixtures/focus-workout.mjs";
@@ -1024,6 +1024,22 @@ async function openLibrary(page) {
 
 async function openProgram(page) {
   await view(page, "program");
+}
+
+/** Filling a field scrolls it into view. On a slow runner a fixed wait could end while that scroll was still
+ *  moving, so the same state landed about 2 px apart between CI runs (history/edit-dirty, PT at 200% text). Wait
+ *  until the document and every scrolled ancestor of the editor have kept the same position for 250 ms. */
+async function historyEditScrollSettled(page) {
+  await page.waitForFunction(() => {
+    const editor = document.querySelector(".session--edit");
+    const boxes = [document.scrollingElement];
+    for (let node = editor; node; node = node.parentElement) if (node.scrollHeight > node.clientHeight) boxes.push(node);
+    const key = boxes.map((box) => box ? box.scrollTop : -1).join(","), now = performance.now();
+    const memo = window.__catalogHistoryScroll;
+    if (!memo || memo.key !== key) { window.__catalogHistoryScroll = { key, since: now }; return false; }
+    return now - memo.since >= 250;
+  }, undefined, { polling: "raf", timeout: 10000 });
+  await page.evaluate(() => { delete window.__catalogHistoryScroll; });
 }
 
 async function openHistoryEditor(page) {
@@ -2926,7 +2942,8 @@ export const APP_SCENARIOS = {
     await focusMode(page);
     await page.locator("#woOverflowBtn").click({ timeout: 20000 }); await page.locator('[data-workout-action="note"]').click();
     await page.waitForSelector("#exNoteSheet.is-open", { timeout: 20000 });
-    await page.fill("#exNoteText", "Seat 4, pin 3. Wide grip and pause at the bottom of each rep.");
+    const lang = await page.evaluate(() => document.documentElement.lang);
+    await page.fill("#exNoteText", lifterExerciseNote(/^pt/i.test(lang) ? "pt" : "en"));
     await page.locator("#exNoteSave").click();
     await page.waitForSelector("#workout .exercise.is-current .fx-note", { timeout: 20000 });
     await page.waitForFunction(() => document.querySelector("#exNoteSheet")?.hidden === true, undefined, { timeout: 20000 });
@@ -3368,7 +3385,8 @@ export const APP_SCENARIOS = {
     // the retired flat "load|" key.
     await page.locator('.session--edit [data-edrm="2"]').click();
     await page.locator(`.session--edit input[data-ek$="|${ADAPTIVE_WEIGHT_METRIC_ID}"]`).first().fill("105");
-    await sleep(page, 500);
+    await sleep(page, 200);
+    await historyEditScrollSettled(page);
   },
   "history/edit-invalid": async (page) => {
     await openHistoryEditor(page);
@@ -3378,6 +3396,7 @@ export const APP_SCENARIOS = {
     // The reason stays under the row until the value is fixed, so the frame needs no toast timing.
     await page.waitForSelector(".session--edit [data-histedit-error]", { timeout: 10000 });
     await sleep(page, 400);
+    await historyEditScrollSettled(page);
   },
   "history/delete-confirm": async (page) => {
     await view(page, "history");
@@ -3408,6 +3427,7 @@ export const APP_SCENARIOS = {
     await page.locator("[data-edsave]").click();
     await page.waitForSelector('[data-history-operation="conflict"]', { timeout: 20000 });
     await sleep(page, 400);
+    await historyEditScrollSettled(page);
   },
 
   "library/list": async (page) => {
