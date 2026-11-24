@@ -1026,6 +1026,22 @@ async function openProgram(page) {
   await view(page, "program");
 }
 
+/** Filling a field scrolls it into view. On a slow runner a fixed wait could end while that scroll was still
+ *  moving, so the same state landed about 2 px apart between CI runs (history/edit-dirty, PT at 200% text). Wait
+ *  until the document and every scrolled ancestor of the editor have kept the same position for 250 ms. */
+async function historyEditScrollSettled(page) {
+  await page.waitForFunction(() => {
+    const editor = document.querySelector(".session--edit");
+    const boxes = [document.scrollingElement];
+    for (let node = editor; node; node = node.parentElement) if (node.scrollHeight > node.clientHeight) boxes.push(node);
+    const key = boxes.map((box) => box ? box.scrollTop : -1).join(","), now = performance.now();
+    const memo = window.__catalogHistoryScroll;
+    if (!memo || memo.key !== key) { window.__catalogHistoryScroll = { key, since: now }; return false; }
+    return now - memo.since >= 250;
+  }, undefined, { polling: "raf", timeout: 10000 });
+  await page.evaluate(() => { delete window.__catalogHistoryScroll; });
+}
+
 async function openHistoryEditor(page) {
   await view(page, "history");
   await page.waitForSelector("#sessions .session__open", { timeout: 20000 });
@@ -3368,7 +3384,8 @@ export const APP_SCENARIOS = {
     // the retired flat "load|" key.
     await page.locator('.session--edit [data-edrm="2"]').click();
     await page.locator(`.session--edit input[data-ek$="|${ADAPTIVE_WEIGHT_METRIC_ID}"]`).first().fill("105");
-    await sleep(page, 500);
+    await sleep(page, 200);
+    await historyEditScrollSettled(page);
   },
   "history/edit-invalid": async (page) => {
     await openHistoryEditor(page);
@@ -3378,6 +3395,7 @@ export const APP_SCENARIOS = {
     // The reason stays under the row until the value is fixed, so the frame needs no toast timing.
     await page.waitForSelector(".session--edit [data-histedit-error]", { timeout: 10000 });
     await sleep(page, 400);
+    await historyEditScrollSettled(page);
   },
   "history/delete-confirm": async (page) => {
     await view(page, "history");
@@ -3408,6 +3426,7 @@ export const APP_SCENARIOS = {
     await page.locator("[data-edsave]").click();
     await page.waitForSelector('[data-history-operation="conflict"]', { timeout: 20000 });
     await sleep(page, 400);
+    await historyEditScrollSettled(page);
   },
 
   "library/list": async (page) => {
