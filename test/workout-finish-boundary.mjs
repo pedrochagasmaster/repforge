@@ -169,6 +169,27 @@ async function promptOpen(page) {
 }
 
 
+/* Waits until the draft and the durable state have taken every pending write. */
+async function settleStorage(page) {
+  await page.evaluate(async () => {
+    await window.__repforgeWorkoutDraft.flush();
+    await window.__repforgeStorage?.flush?.();
+  });
+}
+
+/* What a restore that offered nothing was looking at, so a failure names its cause. */
+async function restoreDiagnostics(page) {
+  return page.evaluate(() => ({
+    view: document.querySelector(".view.active")?.id ?? null,
+    workoutShown: !document.querySelector("#workoutShell")?.classList.contains("hidden"),
+    sheetOpen: document.body.classList.contains("is-sheet-open"),
+    draftRecovery: !document.querySelector("#draftRecovery")?.classList.contains("hidden"),
+    openDialogs: [...document.querySelectorAll("[role=dialog]:not(.hidden),.sheet.is-open")].map((el) => el.id || el.className),
+    restRecord: localStorage.getItem("repforge_rest_v1"),
+    restActive: window.__repforgeRest?.state?.().active ?? null,
+  }));
+}
+
 /* Writes a record for the draft the lifter is in, as the app itself would have left it. */
 async function plantRest(page, rest) {
   await page.evaluate(({ rest }) => {
@@ -341,14 +362,23 @@ async function restOverrunOffer(browser) {
   await softly("Restore: a stored, consistent rest past the cap opens the question after a reload, once", async () => {
     const { context, page } = await freshWorkout(browser);
     await logOneSet(page);
-    await plantRest(page, { kind: "running", deadlineMs: Date.now() - 4200000, lengthSec: 120, exerciseId: null, rang: false,
-      expiresAt: Date.now() - 4200000 + 3600000 });
+    // The reload must find the draft and the planted record as written: let every draft and storage write settle first,
+    // so no save still in flight from logging the set lands after the plant or reaches the reload half-written.
+    await settleStorage(page);
+    const planted = { kind: "running", deadlineMs: Date.now() - 4200000, lengthSec: 120, exerciseId: null, rang: false,
+      expiresAt: Date.now() - 4200000 + 3600000 };
+    await plantRest(page, planted);
+    await settleStorage(page);
+    assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem("repforge_rest_v1"))?.rest), planted,
+      "the planted rest is still the stored record when the page reloads");
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForApp(page);
-    await page.waitForSelector("#sessionEarlyPrompt:not(.hidden)", { timeout: 5000 }).catch(() => {});
+    const opened = await page.waitForFunction(() => !document.querySelector("#sessionEarlyPrompt").classList.contains("hidden"),
+      null, { timeout: 10000 }).then(() => true, () => false);
     const reason = await reasonState(page);
-    assert.equal(reason.reasonShown && reason.reasonText === REST_REASON, true,
-      "a rest that passed the cap while the app was away opens the question after a reload: " + JSON.stringify(reason));
+    assert.equal(opened && reason.reasonShown && reason.reasonText === REST_REASON, true,
+      "a rest that passed the cap while the app was away opens the question after a reload: " +
+      JSON.stringify({ opened, ...reason, ...(await restoreDiagnostics(page)) }));
     assert.equal(await page.evaluate(() => !window.__repforgeRest.state().active), true, "the restored rest is ended");
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForApp(page);
