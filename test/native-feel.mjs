@@ -642,6 +642,25 @@ async function nativeControls(browser, { appearanceOnly = false } = {}) {
   const noLens = await page.addStyleTag({ content: "nav .dock-lens{background:transparent!important}" });
   assert((await measureDock()).some(item => item.status === 'fail'), "without the lens the tab is marked by colour alone, which the checker rejects");
   await noLens.evaluate(el => el.remove());
+  // Issue #818: the dark dock is smoked glass, so the page under it shows through. The selected label must hold 4.5:1
+  // whatever is behind the lens; the worst case is the lightest ground a page can put there, a pure white block.
+  await page.evaluate(() => {
+    document.documentElement.dataset.theme = 'dark';
+    const ground = Object.assign(document.createElement('div'), { id: 'dockWorstGround' });
+    ground.style.cssText = 'position:fixed;z-index:24;left:0;right:0;bottom:0;height:120px;background:rgb(255,255,255);pointer-events:none';
+    document.body.append(ground);
+    document.querySelector('nav button.active>[data-i18n]').id = 'dockActiveLabel';
+  });
+  // The label's colour transitions with the theme; measure the settled dark ink, not a frame of the fade.
+  await page.waitForFunction(() => { const probe = document.createElement('span'); probe.style.color = 'var(--accent-deep)'; document.body.append(probe);
+    const settled = getComputedStyle(probe).color === getComputedStyle(document.querySelector('#dockActiveLabel')).color; probe.remove(); return settled; });
+  const darkDock = await page.evaluate(measureRenderedRoles, { components: [{ selector: "nav button[data-view]", roles: { control: "quiet-navigation", boundary: "state-cues" } }],
+    pixels: (await page.screenshot()).toString("base64") });
+  const darkLabel = darkDock.filter(item => item.selector === 'text:#dockActiveLabel'), darkCues = darkDock.filter(item => item.kind === 'state-cues');
+  assert(darkLabel.length === 1 && darkLabel[0].status === 'pass' && darkCues.length === 1 && darkCues[0].status === 'pass',
+    "dark: over a white page the selected tab's label holds 4.5:1 on the lens, and the lens still marks the tab", JSON.stringify({ darkLabel, darkCues }));
+  await page.evaluate(() => { document.querySelector('#dockWorstGround').remove(); document.querySelector('#dockActiveLabel').removeAttribute('id');
+    document.documentElement.dataset.theme = 'light'; });
   const row = '#todayExList [data-context-row]';
   const hasRows = await page.locator(row).count();
   assert(hasRows > 0 && await page.locator('#todayExList [data-row-menu]').count() > 0, "Today rows keep an actions button for keyboard and assistive technology");

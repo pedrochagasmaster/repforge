@@ -583,6 +583,11 @@
       "content": "flat",
       "scenario": "Every lift is a first exposure: the baseline sentence, no outcome words, and the next targets from the engine."
     },
+    "session/summary-backup": {
+      "owner": "packet-e",
+      "content": "flat",
+      "scenario": "The Day 1 finish screen when a backup is due: the quiet note that training history is saved only on this device, Save a backup copy and Not now, above Share and Done."
+    },
     "progress/overview": {
       "owner": "plan-056",
       "content": "flat",
@@ -3454,9 +3459,10 @@
       "id": "firstrunimport",
       "selector": "#firstRunImport",
       "roles": {
-        "control": "quiet-navigation"
+        "control": "secondary",
+        "boundary": "required"
       },
-      "variant": "landing-text-link",
+      "variant": "landing-ink-peer",
       "facets": [],
       "states": [
         "default",
@@ -3465,8 +3471,8 @@
         "focus-visible",
         "disabled"
       ],
-      "rationale": "Opens the import route without committing training state; the final page draws it as an underlined text link under the creation pill.",
-      "owner": "plan-064/r2",
+      "rationale": "Opens the import route without committing training state; the peer of Build (Packet F), the same pill drawn as an outline in the band's ink, with its arrow and a caption.",
+      "owner": "packet-f",
       "catalogStates": [
         "onboarding-shared/invalid",
         "onboarding-start/first-run",
@@ -3484,9 +3490,10 @@
       "id": "firstrunimportclose",
       "selector": "#firstRunImportClose",
       "roles": {
-        "control": "quiet-navigation"
+        "control": "secondary",
+        "boundary": "required"
       },
-      "variant": "landing-text-link",
+      "variant": "landing-ink-peer",
       "facets": [],
       "states": [
         "default",
@@ -3495,8 +3502,8 @@
         "focus-visible",
         "disabled"
       ],
-      "rationale": "Repeats the same import route at the closing band as an underlined text link, with no boundary of its own.",
-      "owner": "plan-064/r2",
+      "rationale": "Repeats the import route at the closing band as Build's outlined peer, with its arrow.",
+      "owner": "packet-f",
       "catalogStates": [
         "onboarding-shared/invalid",
         "onboarding-start/first-run",
@@ -6378,6 +6385,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "session/summary",
+        "session/summary-backup",
         "session/summary-finding",
         "session/summary-lifts",
         "session/summary-declined",
@@ -6407,6 +6415,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "session/summary",
+        "session/summary-backup",
         "session/summary-finding",
         "session/summary-lifts",
         "session/summary-declined",
@@ -6690,6 +6699,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "session/summary",
+        "session/summary-backup",
         "session/summary-finding",
         "session/summary-lifts",
         "session/summary-declined",
@@ -6720,6 +6730,7 @@
       "owner": "finish-share",
       "catalogStates": [
         "session/summary",
+        "session/summary-backup",
         "session/summary-finding",
         "session/summary-lifts",
         "session/summary-declined",
@@ -7109,6 +7120,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "session/summary",
+        "session/summary-backup",
         "session/summary-finding",
         "session/summary-lifts",
         "session/summary-declined",
@@ -7118,6 +7130,48 @@
         "session/profile-finish-checked",
         "session/profile-finish-agreeing",
         "session/past-zero"
+      ]
+    },
+    {
+      "id": "sumbackupsave",
+      "selector": "#sumBackupSave",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "The backup cue's action: writes Settings' backup file and hands it to the share sheet or a download, shown only when a backup is due (Packet E).",
+      "owner": "packet-e",
+      "catalogStates": [
+        "session/summary-backup"
+      ]
+    },
+    {
+      "id": "sumbackupdismiss",
+      "selector": "#sumBackupDismiss",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "Dismisses the backup cue until its rule fires again, without changing training state (Packet E).",
+      "owner": "packet-e",
+      "neverDisabledReason": "Dismissing the cue is always possible.",
+      "catalogStates": [
+        "session/summary-backup"
       ]
     },
     {
@@ -9092,6 +9146,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "session/summary",
+        "session/summary-backup",
         "session/summary-finding",
         "session/summary-lifts",
         "session/summary-declined",
@@ -9772,6 +9827,7 @@
         "workout/why-per-side",
         "workout/why-in-session",
         "session/summary",
+        "session/summary-backup",
         "session/summary-lifts",
         "session/summary-maintained",
         "session/summary-declined",
@@ -14540,6 +14596,7 @@
       "owner": "plan-081",
       "catalogStates": [
         "session/summary",
+        "session/summary-backup",
         "session/summary-finding",
         "session/summary-first",
         "session/summary-maintained",
@@ -14695,6 +14752,7 @@
         "install/transfer-unknown",
         "install/transfer-claimed-expired",
         "session/summary",
+        "session/summary-backup",
         "session/summary-finding",
         "session/summary-maintained",
         "session/summary-declined",
@@ -14816,6 +14874,7 @@
         "progress/profile-scope",
         "session/summary-profile",
         "session/summary",
+        "session/summary-backup",
         "session/summary-finding",
         "session/summary-maintained",
         "session/summary-declined",
@@ -14887,6 +14946,7 @@
         "progress/overview-profile-first",
         "session/summary-profile",
         "session/summary",
+        "session/summary-backup",
         "session/summary-finding",
         "session/summary-maintained",
         "session/summary-declined",
@@ -14956,6 +15016,7 @@
         "progress/profile-scope",
         "session/summary-profile",
         "session/summary",
+        "session/summary-backup",
         "session/summary-finding",
         "session/summary-maintained",
         "session/summary-declined",
@@ -15444,6 +15505,7 @@
         "progress/profile-scope",
         "session/summary-profile",
         "session/summary",
+        "session/summary-backup",
         "session/summary-finding",
         "session/summary-maintained",
         "session/summary-declined",
@@ -15515,6 +15577,7 @@
       "owner": "plan-084",
       "catalogStates": [
         "session/summary",
+        "session/summary-backup",
         "session/summary-finding",
         "session/summary-profile",
         "session/summary-maintained",
@@ -15551,6 +15614,7 @@
       "owner": "plan-084",
       "catalogStates": [
         "session/summary",
+        "session/summary-backup",
         "session/summary-finding",
         "session/summary-profile",
         "session/summary-maintained",
@@ -15583,6 +15647,7 @@
       "owner": "plan-084",
       "catalogStates": [
         "session/summary",
+        "session/summary-backup",
         "session/summary-finding",
         "session/summary-profile",
         "session/summary-maintained",
@@ -15614,6 +15679,7 @@
       "owner": "plan-084",
       "catalogStates": [
         "session/summary",
+        "session/summary-backup",
         "session/summary-finding",
         "session/summary-profile",
         "session/summary-maintained",
@@ -16207,12 +16273,21 @@
     },
     {
       "id": "landing-text-link",
-      "selector": "#firstRunImport, #firstRunImportClose, #firstRunSharedCreate",
+      "selector": "#firstRunSharedCreate",
       "role": "quiet-navigation",
-      "rationale": "Import and shared-gate text actions are underlined quiet navigation controls with no boundary, in the ink of the band they sit on.",
+      "rationale": "The shared gate's create-from-scratch action is an underlined quiet navigation control with no boundary, in the ink of the band it sits on.",
       "owner": "plan-072",
       "catalogStates": [
-        "onboarding-shared/gate",
+        "onboarding-shared/gate"
+      ]
+    },
+    {
+      "id": "landing-ink-peer",
+      "selector": "#firstRunImport, #firstRunImportClose",
+      "role": "secondary",
+      "rationale": "Track is Build's peer on the landing (Packet F): the same pill geometry, type and arrow, outlined in the band's ink instead of filled, so the two routes read as equals.",
+      "owner": "packet-f",
+      "catalogStates": [
         "onboarding-shared/invalid",
         "onboarding-start/first-run",
         "onboarding-start/first-run-proof",
@@ -16455,6 +16530,7 @@
       "owner": "plan-057/058",
       "catalogStates": [
         "session/summary",
+        "session/summary-backup",
         "session/summary-finding",
         "session/summary-maintained",
         "session/summary-declined",

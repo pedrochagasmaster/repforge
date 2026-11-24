@@ -2157,6 +2157,13 @@
       "variants": "demandingText"
     },
     {
+      "id": "summary-backup",
+      "flow": "session",
+      "label": "Session summary — backup due",
+      "scenario": "The Day 1 finish screen when three sessions and seven days have passed since the last backup: the quiet note that training history is saved only on this device, Save a backup copy and Not now, above Share and Done.",
+      "variants": "demandingText"
+    },
+    {
       "id": "overview",
       "flow": "progress",
       "label": "Progress — overview",

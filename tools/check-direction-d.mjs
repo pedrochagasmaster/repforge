@@ -610,7 +610,8 @@ function catalogMatchers(dictionary) {
         .replace(/\\\{\w+\\\}/g, number);
       const methods = Object.entries(dictionary).filter(([name]) => name === "program.progression.adaptive"
         || name.startsWith("program.progression.strategy.")).map(([, label]) => escape(String(label)));
-      patterns.push(new RegExp(`^${line} · (?:${methods.join("|")})$`, "iu"));
+      // An adaptive slot's line ends at the effort window; other strategies still name themselves.
+      patterns.push(new RegExp(`^${line}(?: · (?:${methods.join("|")}))?$`, "iu"));
     }
     for (const segment of String(value).split(/<[^>]*>/)) {
       const normal = segment.replace(/\s+/g, " ").trim();

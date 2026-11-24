@@ -485,7 +485,7 @@ function radiusContractErrors(candidate) {
       JSON.stringify(variant.radiusRecipes) !== JSON.stringify(radiusRecipe)) return ["landing stage radius scope or recipe changed"];
   return [];
 }
-assert.equal(inventory.contextualVariants.length, 16, "the landing recipes, radius and headline, the workout shelf and the Focus hero (owner, 2026-10-28) make 16 contextual variants (the summary hero is a title-role consumer, not a variant)");
+assert.equal(inventory.contextualVariants.length, 17, "the landing recipes (with Track's peer pill, Packet F), radius and headline, the workout shelf and the Focus hero (owner, 2026-10-28) make 17 contextual variants (the summary hero is a title-role consumer, not a variant)");
 assert.deepEqual(radiusContractErrors(inventory), [], "the proof's phone plate and its compact plate retain the Plan 054 geometry");
 const flattenedRadius = structuredClone(inventory);
 flattenedRadius.contextualVariants.find((item) => item.id === "landing-device-stage-radius").radiusRecipes[1].token = "--radius-prominent";
@@ -497,14 +497,16 @@ const widenedRadiusOwner = structuredClone(inventory);
 widenedRadiusOwner.contextualVariants.find((item) => item.id === "landing-device-stage-radius").catalogStates.push("onboarding-shared/preview");
 assert.ok(radiusContractErrors(widenedRadiusOwner).length, "stage radius cannot claim the entry preview state");
 
-// Owner decision L-1 (PR #295): the ink pill with its arrow, the underlined Track link, and the one floating Build control.
+// Owner decision L-1 (PR #295): the ink pill with its arrow and the one floating Build control. Packet F makes Track
+// Build's outlined peer; the underlined link stays only for the shared gate's create-from-scratch action.
 const landingRecipes = [
   { id: "landing-ink-primary", role: "primary", boundary: "decorative", elevation: undefined,
     selectors: ["#firstRunCreate", "#firstRunCreateClose", "#firstRunSharedStart"], states: [...landingEverywhere],
     stateFor: (selector) => selector === "#firstRunSharedStart" ? ["onboarding-shared/gate"] : [...landingStates] },
   { id: "landing-text-link", role: "quiet-navigation", boundary: undefined, elevation: undefined,
-    selectors: ["#firstRunImport", "#firstRunImportClose", "#firstRunSharedCreate"], states: [...landingStates, "onboarding-shared/gate"],
-    stateFor: (selector) => selector === "#firstRunSharedCreate" ? ["onboarding-shared/gate"] : [...landingStates] },
+    selectors: ["#firstRunSharedCreate"], states: ["onboarding-shared/gate"], stateFor: () => ["onboarding-shared/gate"] },
+  { id: "landing-ink-peer", role: "secondary", boundary: "required", elevation: undefined,
+    selectors: ["#firstRunImport", "#firstRunImportClose"], states: [...landingStates], stateFor: () => [...landingStates] },
   { id: "landing-sticky-build", role: "primary", boundary: "decorative", elevation: "floating",
     selectors: ["#firstRunCreateDock"], states: landingScrolled, stateFor: () => landingScrolled },
 ];
@@ -530,13 +532,13 @@ function landingContractErrors(candidate) {
   if (candidate.contextualVariants.some((item) => item.id === "landing-climax-data")) errors.push("retired climax variant is back");
   return errors;
 }
-assert.deepEqual(landingContractErrors(inventory), [], "the creation pill, the Track link and the sticky Build control have exact recipes and only their rendered states");
+assert.deepEqual(landingContractErrors(inventory), [], "the creation pill, its Track peer and the sticky Build control have exact recipes and only their rendered states");
 const wrongLandingRole = structuredClone(inventory);
-wrongLandingRole.components.find((item) => item.selector === "#firstRunImport").roles.control = "secondary";
+wrongLandingRole.components.find((item) => item.selector === "#firstRunImport").roles.control = "quiet-navigation";
 assert.ok(landingContractErrors(wrongLandingRole).some((error) => error.includes("#firstRunImport")), "visual resemblance cannot silently reclassify import");
 const widenedLandingVariant = structuredClone(inventory);
-widenedLandingVariant.contextualVariants.find((item) => item.id === "landing-text-link").selector = ".firstrun__link";
-assert.ok(landingContractErrors(widenedLandingVariant).includes("landing-text-link declaration"), "a broad landing selector cannot replace exact IDs");
+widenedLandingVariant.contextualVariants.find((item) => item.id === "landing-ink-peer").selector = ".firstrun__cta--peer";
+assert.ok(landingContractErrors(widenedLandingVariant).includes("landing-ink-peer declaration"), "a broad landing selector cannot replace exact IDs");
 const wrongLandingOwner = structuredClone(inventory);
 wrongLandingOwner.components.find((item) => item.selector === "#firstRunCreateClose").catalogStates.push("onboarding-shared/preview");
 assert.ok(landingContractErrors(wrongLandingOwner).some((error) => error.includes("#firstRunCreateClose")), "landing recipe cannot spread into the shared proposal state");
@@ -695,14 +697,14 @@ try {
     const pressedImport = await opened.page.locator("#firstRunImport").evaluate((button) => {
       button.classList.add("is-pressed");
       const style = getComputedStyle(button);
-      const read = { decoration: style.textDecorationColor, ink: style.color, background: style.backgroundColor, line: style.textDecorationLine, border: style.borderTopWidth };
+      const read = { ink: style.color, edge: style.borderTopColor, background: style.backgroundColor, line: style.textDecorationLine, border: style.borderTopWidth };
       button.classList.remove("is-pressed");
       return read;
     });
-    assert.equal(pressedImport.decoration, pressedImport.ink, `${theme} Track press draws its underline in full ink`);
-    assert.equal(pressedImport.background, "rgba(0, 0, 0, 0)", `${theme} Track is a text link: no fill`);
-    assert.match(pressedImport.line, /underline/, `${theme} Track stays underlined`);
-    assert.equal(pressedImport.border, "0px", `${theme} Track has no boundary of its own`);
+    assert.equal(pressedImport.background, "rgba(0, 0, 0, 0)", `${theme} Track is Build's outlined peer: no fill`);
+    assert.doesNotMatch(pressedImport.line, /underline/, `${theme} Track is no longer an underlined link`);
+    assert.ok(parseFloat(pressedImport.border) >= 1, `${theme} Track's outline is its boundary: ${pressedImport.border}`);
+    assert.equal(pressedImport.edge, pressedImport.ink, `${theme} Track's outline is drawn in its own ink`);
   }
   await opened.page.evaluate(() => document.documentElement.style.setProperty("--r", "var(--radius-control)"));
   assert.ok((await tokenContract()).errors.some((error) => error.includes("--r must remain absent")), "a retired compatibility alias cannot be reintroduced");

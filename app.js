@@ -1581,10 +1581,22 @@ const dayLabel=d=>{
   return localizedDayName(dayStructureFor(s,meta),d,meta?.programDefinition);
 };
 const download=(text,name,type="text/plain")=>{const u=URL.createObjectURL(new Blob([text],{type})),a=document.createElement("a");a.href=u;a.download=name;document.body.append(a);a.click();a.remove();URL.revokeObjectURL(u)};
+/* Hand a file to the system share sheet where it can take files, otherwise download it, and say what happened:
+   "shared"; "cancelled" when the lifter closed the sheet (AbortError), which downloads nothing; or "downloaded" when
+   there is no file sharing or the browser refused the share (NotAllowedError, TypeError, anything else). share() is
+   called synchronously, so a caller that has not awaited anything yet is still inside the tap's user activation (#817). */
+function shareFile(text,name,type,title){
+  let file=null;
+  try{if(typeof navigator.share==="function"&&navigator.canShare){file=new File([text],name,{type});if(!navigator.canShare({files:[file]}))file=null}}catch{file=null}
+  if(!file){download(text,name,type);return Promise.resolve("downloaded")}
+  let sharing;
+  try{sharing=navigator.share({files:[file],title})}catch(error){sharing=Promise.reject(error)}
+  return Promise.resolve(sharing).then(()=>"shared",error=>{
+    if(error?.name==="AbortError")return "cancelled";
+    download(text,name,type);return "downloaded"})}
+/* Program files and text keep their earlier behaviour: a closed sheet still downloads. */
 async function shareOrDownload(text,name,type,title="Taurifer backup"){
-  try{if(navigator.canShare){const file=new File([text],name,{type});
-    if(navigator.canShare({files:[file]})){await navigator.share({files:[file],title});return}}}catch{}
-  download(text,name,type)}
+  if(await shareFile(text,name,type,title)==="cancelled")download(text,name,type)}
 /* Words and numeric reps left share the effort shelf. Legacy tokens remain readable. */
 const EFFORT_RIR={easy:3,hard:1,max:0,r0:0,r1:1,r2:2,r3p:3,unsure:null};
 const EFFORT_STEPS=["easy","hard","max"];
@@ -6133,7 +6145,8 @@ window.__repforgeStorage={
   health(){return DurableState.getStorageHealth()},
   rebaseForTest(base,proposal,target,opts){return rebaseStateChange(base,proposal,target,opts)},
   replaceImport(incoming,io,opts){requireAdapter(io,"replaceImport");return replaceImportedState(incoming,io,opts)},
-  mergeImport(incoming,io){requireAdapter(io,"mergeImport");return mergeImportedLog(incoming,io)}}
+  mergeImport(incoming,io){requireAdapter(io,"mergeImport");return mergeImportedLog(incoming,io)},
+  backupExportSettled:()=>backupExportPending}
 function days(){
   const fromEx=[...new Set((state.program||[]).map(x=>x.day))];
   const fromStruct=structureDayLabels(state.programMeta);
@@ -11508,8 +11521,8 @@ function toggleFocusLedger(button){
   // Opening reveals the logged rows under the disclosure where the lifter is looking; closing brings the open set back.
   if(!open)settleFocusContext(moved)}
 
-/** The line under the exercise name: sets and reps, the effort window, and the
- *  name of the strategy that sets the target. Read off the program's own
+/** The line under the exercise name: sets and reps, the effort window, and, unless
+ *  the adaptive engine sets the target, the name of the strategy that does. Read off the program's own
  *  envelope; a slot with none is the range it always was. */
 /** An effort window of one value reads as that value: "1 left", never "1–1 left". */
 const singleRir=line=>String(line).replace(/(· )(\d+(?:[.,]\d+)?)–\2(?= (?:left|sobrando))/g,"$1$2");
@@ -11518,10 +11531,10 @@ function focusExMeta(ex){
   // A canonical slot is adaptive or manual; its RIR comes from its own sets.
   const facts=canonicalSlotFacts(ex);
   if(facts){
-    const name=t(facts.adaptive?"program.progression.adaptive":"program.progression.strategy.manual");
     const line=facts.rirMin==null?t("focus.exmeta.manual",{sets:+ex.sets||1,min:ex.min,max:ex.max})
       :t("focus.exmeta.range",{sets:+ex.sets||1,min:ex.min,max:ex.max,rmin:fmt(facts.rirMin),rmax:fmt(facts.rirMax)});
-    return `${singleRir(line)} · ${name}`}
+    // The adaptive engine is the default and its cue already says what to do; only a manual slot names itself.
+    return facts.adaptive?singleRir(line):`${singleRir(line)} · ${t("program.progression.strategy.manual")}`}
   const env=progressionForExercise(ex),id=env?.strategy?.id||"range",p=env?.strategy?.params||{};
   const sets=+p.workingSets||+ex.sets||1;
   const rmin=fmt(p.targetRirMin!=null?p.targetRirMin:0),rmax=fmt(p.targetRirMax!=null?p.targetRirMax:state.settings.rirHigh);
@@ -13636,6 +13649,7 @@ function summaryProfileHtml(s){
     :stage==="calibrated"&&check?t("profile.finish.agreeing",{n:lift.checks.length,guess:check.guess,did:check.reps}):"";
   return `<section class="sum-profile" id="sumProfile" aria-labelledby="sumProfileTitle">`+
     `<h3 class="profile-heading" id="sumProfileTitle">${esc(t("profile.ring.title"))}</h3>`+
+    `<p class="profile-intro sum-profile__meaning">${esc(t("profile.title"))}</p>`+
     `<button type="button" id="sumProfileOpen" class="sum-profile__open">${profileReadingHtml(change.after,change.log)}`+
     `<span class="profile-caption">${esc(t("profile.finish.open"))}</span></button>`+
     (lift?`<h4 class="sum-profile__lift">${esc(profileLiftName(lift))} · ${esc(profileStageName(lift.stage))}</h4>`:"")+
@@ -13699,6 +13713,11 @@ function sessionSummaryHtml(s){
         `<p class="sum-next__meta">${esc(tOne("today.exercise_count",s.next.exercises))}</p></div>`:"")+`</div>`)}
   // The session in History, after the report it summarises.
   out.push(`<p class="sum-see"><button type="button" id="sumSee">${esc(t("summary.see_session"))}</button></p>`);
+  // A backup the lifter does not have to remember (Packet E): one quiet cue, only when a copy is due.
+  if(backupCueDue())out.push(`<div class="sum-backup" id="sumBackup">`+
+    `<p class="sum-backup__text" id="sumBackupText">${esc(t("summary.backup.body"))}</p>`+
+    `<div class="sum-backup__actions"><button type="button" class="text-link sum-backup__save" id="sumBackupSave" aria-describedby="sumBackupText">${esc(t("summary.backup.save"))}</button>`+
+    `<button type="button" class="text-link sum-backup__dismiss" id="sumBackupDismiss">${esc(t("summary.backup.dismiss"))}</button></div></div>`);
   // Share is the strong action (owner decisions, 2026-11-05) and sends the card in view; Done ends the session.
   out.push(`<div class="sum-actions"><button type="button" class="btn btn--cta btn--noarrow" id="sumShare">${esc(t("summary.share"))}</button>`+
     `<button type="button" class="btn btn--steel" id="sumDone">${esc(t("summary.done"))}</button></div>`);
@@ -13771,7 +13790,40 @@ function renderSessionSummary(s){
   const share=$("#sumShare");if(share)share.onclick=()=>openShareSheet(share);
   const see=$("#sumSee");if(see)see.onclick=()=>{
     HistoryUi.startReading(s.session);
-    closeSessionSummary({nav:"history"})}}
+    closeSessionSummary({nav:"history"})};
+  wireSummaryBackupCue()}
+
+/* The backup cue (Packet E). A saved session is the moment the record grew, so that is where the cue may appear:
+   once at least BACKUP_CUE_SESSIONS saved sessions and BACKUP_CUE_DAYS days have passed since the later of the last
+   backup (`settings.lastExport`, the time Settings shows) and the last "Not now" (`backupCueDismissedAt`, a
+   device-only UI preference). With neither, the first counted session starts the clock. It never appears on a device
+   with no saved session, so a fresh device stays eligible for the install transfer. The tap is Settings' Export
+   backup JSON: the same file, to the share sheet where files can be shared, else as a download. */
+const BACKUP_CUE_SESSIONS=3,BACKUP_CUE_DAYS=7;
+function backupCueDue(nowMs=Date.now()){
+  const anchors=[state?.settings?.lastExport,uiPrefs.backupCueDismissedAt].map(v=>typeof v==="string"?Date.parse(v):NaN).filter(Number.isFinite);
+  const anchor=anchors.length?Math.max(...anchors):null,sessions=new Map();
+  for(const row of state?.log||[]){
+    if(!isWork(row))continue;
+    const at=Date.parse(row.created||`${row.date}T12:00:00`);if(!Number.isFinite(at))continue;
+    const id=String(row.session??"");sessions.set(id,Math.min(sessions.get(id)??Infinity,at))}
+  const since=[...sessions.values()].filter(at=>anchor==null||at>anchor);
+  if(since.length<BACKUP_CUE_SESSIONS)return false;
+  return nowMs-(anchor??Math.min(...since))>=BACKUP_CUE_DAYS*86400000}
+function wireSummaryBackupCue(){
+  const cue=$("#sumBackup");if(!cue)return;
+  const save=$("#sumBackupSave"),dismiss=$("#sumBackupDismiss");
+  save.onclick=async()=>{
+    if(save.disabled)return;save.disabled=true;
+    let result;try{result=await exportJson()}catch{result=null}
+    if(!result||!(result.localOk||result.idbOk)){save.disabled=false;return}
+    const done=document.createElement("p");
+    done.className="sum-backup__done";done.setAttribute("role","status");done.tabIndex=-1;
+    done.textContent=t("settings.storage.last_backup",{lastBackup:String(state.settings.lastExport||"").slice(0,10)});
+    cue.replaceWith(done);done.focus({preventScroll:true})};
+  dismiss.onclick=()=>{
+    updateUiPrefs(prefs=>({...prefs,backupCueDismissedAt:new Date().toISOString()}));
+    cue.remove();$("#sumDone")?.focus({preventScroll:true})}}
 
 function clearSessionSummaryView(){
   clearSummaryProfileReturn();syncRouteHistory();
@@ -18230,14 +18282,22 @@ function exportCsv(){
     ...state.log.map(r=>cols.map(c=>q(c[1](r))).join(","))].join("\n");
   download(csv,`taurifer_log_${today()}.csv`,"text/csv");
 }
-async function exportJson(){
-  const proposal=cloneSnapshot(state);proposal.settings.lastExport=new Date().toISOString();
-  const result=await commitProposedState(proposal);
-  if(!(result.localOk||result.idbOk))return result;
-  const text=JSON.stringify(exportableState(state)),name=`taurifer_backup_${today()}.json`;
-  shareOrDownload(text,name,"application/json");
-  renderSettings();
-  return result}
+/* Settings → Export backup JSON and the finish screen's backup cue (#817). The file is built and handed to the share
+   sheet before anything is awaited, so the share stays inside the tap's user activation (iOS refuses a share that
+   comes after the durable commit's lock and IndexedDB round trip). The backup time is committed only afterwards, and
+   only when the file left the app: a completed share or a started download. A closed sheet records nothing. */
+let backupExportPending=Promise.resolve();
+function exportJson(){
+  const at=new Date().toISOString(),snapshot=cloneSnapshot(state);snapshot.settings.lastExport=at;
+  const text=JSON.stringify(exportableState(snapshot)),name=`taurifer_backup_${today()}.json`;
+  const run=shareFile(text,name,"application/json","Taurifer backup").then(async outcome=>{
+    if(outcome==="cancelled")return{outcome,cancelled:true,localOk:false,idbOk:false};
+    const proposal=cloneSnapshot(state);proposal.settings.lastExport=at;
+    const result=await commitProposedState(proposal);
+    renderSettings();
+    return{...result,outcome}});
+  backupExportPending=run.catch(()=>{});
+  return run}
 const fileSlug=s=>String(s||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,40);
 /* A program-only export carries its own custom definitions. Without them a
    template arriving on another device points at a "custom:…" id that device has
@@ -26208,7 +26268,7 @@ const landingChapterAt=time=>{const at=landingLoopTime(time);let i=0;while(i+1<L
 const landingLoopTime=time=>{const L=LANDING_DEMO.loop;return Number.isFinite(time)?((time%L)+L)%L:0};
 /** Every catalog string the proof's screen shows; test/landing-demo-copy.mjs fails when one leaves a catalog or Focus
  *  stops saying it. */
-const LANDING_DEMO_KEYS=["focus.exmeta.range","program.progression.adaptive","focus.cue.up","focus.cue.reps",
+const LANDING_DEMO_KEYS=["focus.exmeta.range","focus.cue.up","focus.cue.reps",
   "focus.evidence.history","focus.evidence.target","focus.evidence.why","log.set","log.reps","focus.col.left","focus.field.left",
   "focus.prev_line","focus.next_row","focus.metric.load_kg","focus.metric.reps","focus.shelf.pad_load","focus.shelf.log_set",
   "rest.inline.label","rest.inline.done","landing.outcomes.next_label","landing.outcomes.target","landing.outcomes.did_same",
@@ -26268,7 +26328,7 @@ function landingDemoHtml(add,testSet){
   const head1=esc(t("focus.cue.up",{load:"\u0000",unit})).replace("\u0000",`<b class="fx-cue__load">${cueLoadHtml(kg)}</b>`);
   const evidence=evidenceSay("focus.evidence.history",{load:evidenceFig(`${landingNum(load0)} × ${landingNum(reps0)}`),rir:esc(landingNum(rir0))})+" "+
     evidenceSay("focus.evidence.target",{reps:esc(reps),rir:esc(landingNum(rir))})+` <span class="firstrun-demo__why">${esc(t("focus.evidence.why"))}</span>`;
-  const meta=`${singleRir(t("focus.exmeta.range",{sets:landingNum(c.sets),min:landingNum(c.repMin),max:landingNum(c.repMax),rmin:landingNum(rir),rmax:landingNum(rir)}))} · ${t("program.progression.adaptive")}`;
+  const meta=`${singleRir(t("focus.exmeta.range",{sets:landingNum(c.sets),min:landingNum(c.repMin),max:landingNum(c.repMax),rmin:landingNum(rir),rmax:landingNum(rir)}))}`;
   const nextRow=esc(t("focus.next_row",{name:"\u0000"})).replace("\u0000",`<b>${esc(landingExerciseName(LANDING_DEMO.next))}</b>`);
   // The session the target came from, as its ledger read: no "last" line under rows that are the last session.
   const lastSession=c.logged.map(([l,r,e])=>line(check,[landingNum(l),landingNum(r),landingNum(e)],false," firstrun-demo__last","")).join("");
@@ -26575,6 +26635,8 @@ function renderLandingWays(){
   fill("ways.written",esc(t("landing.ways.written.body",{weeks:landingNum(defaultProgramMeta().mesocycleLengthWeeks)})));
   fill("ways.where",landingRich("landing.ways.paste.where",{},{track:t("landing.track"),hub:t("entry.hub.title"),
     own:t("entry.hub.b.import.title"),paste:t("entry.import_source.to_freeform")}));
+  fill("hero.data",landingRich("landing.hero.data",{},{save:t("summary.backup.save")}));
+  fill("ways.today",landingRich("landing.ways.paste.today",{},{use:t("entry.preview.activate_first"),today:t("nav.log")}));
   fill("data.pointer",landingRich("landing.data.pointer",{},{settings:t("nav.settings"),privacy:t("privacy.open")}));
   fill("faq.coach.a1",landingRich("landing.faq.coach.a1",{},{control:t("program.share_setup")}));
   fill("faq.data.a2",landingRich("landing.faq.data.a2",{},{settings:t("nav.settings"),toggle:t("settings.analytics.title")}));
@@ -27474,6 +27536,8 @@ const WHY_RANGE_LEAD={top:"top",cap_top:"top",cap_top2:"top",hold:"hold",push_re
 const whyList=items=>{const a=items.map(String);
   try{return new Intl.ListFormat(I18N?.getLang?.()==="pt"?"pt-BR":"en-GB",{style:"long",type:"conjunction"}).format(a)}
   catch{return a.join(", ")}};
+/** A Why string's .one or .other form: one only for a count of exactly 1. */
+const whyCount=(key,n)=>`${key}.${Number(n)===1?"one":"other"}`;
 /** The first sentence of the first block: what was performed, and the RIR (or effort) it used. */
 function whyPerformedText(prev,u){
   const rows=prev.filter(x=>+x.load>0&&+x.reps>0);if(!rows.length)return"";
@@ -27483,8 +27547,10 @@ function whyPerformedText(prev,u){
   const effort=isWordMode();
   return runs.map(run=>{
     const reps=whyList(run.sets.map(x=>performedRepsMarked(x.reps,partialCount(x)))),load=fmtLoad(run.load);
-    if(effort)return t("why.performed_effort",{reps,load,unit:u,efforts:whyList(run.sets.map(x=>effortLabel(effortForRir(x.rir))))});
-    return t("why.performed",{reps,load,unit:u,
+    // A run of several sets lists several counts, so only a lone single rep reads in the singular.
+    const n=run.sets.length===1&&!partialCount(run.sets[0])?+run.sets[0].reps:0;
+    if(effort)return t(whyCount("why.performed_effort",n),{reps,load,unit:u,efforts:whyList(run.sets.map(x=>effortLabel(effortForRir(x.rir))))});
+    return t(whyCount("why.performed",n),{reps,load,unit:u,
       rirs:whyList(run.sets.map(x=>x.rir==null||x.rir===""?t("why.effort.missing"):fmt(x.rir)))})}).join(" ")}
 /** "102.5 kg × 8" / "137.5 kg × 5 + 117.5 kg × 8, 8": the sets the engine asks for, grouped by load. */
 function setsTargetLine(ex,rec){
@@ -27564,12 +27630,15 @@ function engineWhyRows(ex,rec,n=1){
   const cap=Number.isFinite(anchor.capacityKg)?fmtLoad(Math.round(anchor.capacityKg*2)/2):null;
   if(anchor.source==="current_session")rows.push(whyRow("anchor",{text:t("why.engine.anchor_session",
     {set:(anchor.setIndex??0)+1,load:fmtLoad(anchor.displayLoadKg),cap,unit:u})}));
-  else if(cap)rows.push(whyRow("anchor",{text:t(PER_SIDE_LOAD_SEMANTICS.has(loadMetric?.semantic)
-    ?"why.engine.anchor_history_per_side":"why.engine.anchor_history",
-    {n:(anchor.sessionIds||[]).length||1,load:fmtLoad(anchor.displayLoadKg),cap,unit:u})}));
+  else if(cap){const sessions=(anchor.sessionIds||[]).length||1;
+    const perSide=PER_SIDE_LOAD_SEMANTICS.has(loadMetric?.semantic);
+    rows.push(whyRow("anchor",{text:t(sessions===1
+      ?perSide?"why.engine.anchor_history_per_side.one":"why.engine.anchor_history.one"
+      :perSide?"why.engine.anchor_history_per_side.other":"why.engine.anchor_history.other",
+      {n:sessions,load:fmtLoad(anchor.displayLoadKg),cap,unit:u})}))}
   if(facts.fatigued)
     rows.push(whyRow("fatigue",{text:t("why.engine.fatigue",{cap:fmtLoad(Math.round(projected*2)/2),unit:u})}));
-  if(load!=null&&reps!=null)rows.push(whyRow("target",{text:t(rir!=null?"why.engine.target":"why.engine.target_norir",
+  if(load!=null&&reps!=null)rows.push(whyRow("target",{text:t(rir!=null?(reps===1?"why.engine.target.one":"why.engine.target.other"):(reps===1?"why.engine.target_norir.one":"why.engine.target_norir.other"),
     {rir:fmt(rir),reps,load:fmtLoad(load),unit:u})}));
   const loads=(assumptions.availableLoadsKg||[]).slice().sort((a,b)=>a-b);
   const steps=loads.slice(1).map((value,index)=>Math.round((value-loads[index])*1000)/1000).filter(step=>step>0);
@@ -27663,13 +27732,13 @@ function whySheetModel(ex,surface="focus"){
     // In-session: the capacity the set showed comes before the prediction for the next one, never the reverse.
     const seen=session.at(-1),sg=setSuggestion(ex,nextSet,rec,draft,last(ex).find(x=>+x.set===nextSet)),note=take("session"),observed=Math.round(repsAtLoad(seen.cap,seen.load));
     block("set1",t("why.lead.set1",{n:session.length}),isWordMode()
-      ?t("why.set1_effort",{n:session.length,cap:observed,reps:seen.reps,load:fmtLoad(seen.load),unit:u,effort:effortLabel(effortForRir(seen.rir))})
-      :t("why.set1",{n:session.length,cap:observed,reps:seen.reps,load:fmtLoad(seen.load),unit:u,rir:fmt(seen.rir)}),t("why.session"));
+      ?t(whyCount("why.set1_effort",seen.reps),{n:session.length,cap:observed,reps:seen.reps,load:fmtLoad(seen.load),unit:u,effort:effortLabel(effortForRir(seen.rir))})
+      :t(whyCount("why.set1",seen.reps),{n:session.length,cap:observed,reps:seen.reps,load:fmtLoad(seen.load),unit:u,rir:fmt(seen.rir)}),t("why.session"));
     const predicted=sg.src==="session-hold"&&sg.pred!=null?t("why.set2",{pred:fmt(sg.pred),rir:fmt(sg.typ),reps:sg.reps}):"";
     block("set2",t("why.lead.set2",{n:nextSet}),[note?.text,predicted].filter(Boolean).join(" "));
     calc.push({group:t("why.session")});
     session.forEach((x,i)=>calc.push({k:t("why.calc.set",{n:i+1}),v:`${fmtLoad(x.load)} × ${performedRepsMarked(x.reps,partialCount(x))}`,rir:effortOrRirLabel(x.rir)}));
-    calc.push({k:t("why.calc.capacity"),v:t("why.calc.capacity_v",{cap:observed,load:fmtLoad(seen.load),unit:u})});
+    calc.push({k:t("why.calc.capacity"),v:t(whyCount("why.calc.capacity_v",observed),{cap:observed,load:fmtLoad(seen.load),unit:u})});
     if(predicted)calc.push({k:t("why.calc.rep_target"),v:whyRepTarget({capacity:sg.capacity,pred:sg.pred,rir:sg.typ,reps:sg.reps,min:ex.min,max:ex.max})});
     calc.push({sum:true,k:t("why.calc.set",{n:nextSet}),v:`${fmtLoad(sg.load)} ${u} × ${sg.reps}`});
     model.evidence=t("why.evidence",{n:1,date:shortDate(today())});
@@ -27681,11 +27750,11 @@ function whySheetModel(ex,surface="focus"){
     const n=reps?.facts?.reps??setSuggestion(ex,1,rec,{},last(ex).find(x=>+x.set===1)).reps??ex.min;
     if(rec.reenterReps&&load&&reps){
       block(sameLoad(rec.load,rec.lastLoad)?"load_hold":"load",t(sameLoad(rec.load,rec.lastLoad)?"why.lead.load_hold":"why.lead.load"),load.text);
-      block("reps",t("why.lead.reps",{n}),reps.text)}
-    else block("reps",t("why.lead.reps",{n}),[load?.text,reps?.text].filter(Boolean).join(" "));
+      block("reps",t(n===1?"why.lead.reps.one":"why.lead.reps.other",{n}),reps.text)}
+    else block("reps",t(n===1?"why.lead.reps.one":"why.lead.reps.other",{n}),[load?.text,reps?.text].filter(Boolean).join(" "));
     lastGroup();
     calc.push({group:t("why.calc.working")});
-    if(rec.cr!=null)calc.push({k:t("why.calc.capacity"),v:t("why.calc.capacity_v",{cap:Math.round(rec.cr),load:fmtLoad(rec.lastLoad),unit:u}),sub:showed?.text});
+    if(rec.cr!=null)calc.push({k:t("why.calc.capacity"),v:t(whyCount("why.calc.capacity_v",Math.round(rec.cr)),{cap:Math.round(rec.cr),load:fmtLoad(rec.lastLoad),unit:u}),sub:showed?.text});
     const params=progressionForExercise(ex)?.strategy?.params||{},max=params.repMax??ex.max,min=params.repMin??ex.min;
     if(["top","cap_top","cap_top2"].includes(rec.reason))calc.push({k:t("why.calc.rule"),v:t("why.calc.rule_top",{max})});
     else if(["hold","push_reps"].includes(rec.reason))calc.push({k:t("why.calc.rule"),v:t("why.calc.rule_hold",{min,max})});
@@ -27938,7 +28007,8 @@ function showContextualGuide(id,{returnFocus=null,persistDeferred=false,after=nu
   removeContextualGuide();
   dialog.dataset.guide=id;
   dialog.querySelector(".entry-dialog__title").textContent=t(`guide.${id}.title`);
-  dialog.querySelector(".entry-dialog__body").textContent=t(`guide.${id}.body`);
+  // On the reps-left stage the first set is where the lifter first meets the number, so its guide says what it means.
+  dialog.querySelector(".entry-dialog__body").textContent=t(id==="first-set"&&!isWordMode()?"guide.first-set.body_reps_left":`guide.${id}.body`);
   dialog.querySelector("#guideDialogOk").textContent=t("why.ok");
   const invoker=returnFocus instanceof HTMLElement||typeof returnFocus==="function"?returnFocus:null;
   // The anchor may be rebuilt while the guide is up (a running rest timer redraws the shelf), so it is found again on close.

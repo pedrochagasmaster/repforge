@@ -33,7 +33,7 @@
   <link rel="apple-touch-startup-image" href="icons/splash-1640x2360.png" media="screen and (device-width: 820px) and (device-height: 1180px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
   <link rel="apple-touch-startup-image" href="icons/splash-1668x2224.png" media="screen and (device-width: 834px) and (device-height: 1112px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
   <link rel="apple-touch-startup-image" href="icons/splash-1536x2048.png" media="screen and (device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
-  <link rel="stylesheet" href="styles.css?v=773">
+  <link rel="stylesheet" href="styles.css?v=786">
   <link rel="stylesheet" href="motion-polish.css?v=643">
   <!-- Runs before the first paint, and only reads.
        Theme: app.js owns the Appearance setting, but it is the last script on the
@@ -726,10 +726,14 @@
 
             <p id="firstRunSharedError" class="firstrun__error hidden" role="status"></p>
             <div id="firstRunStandardProgram" class="firstrun__actions">
-              <button type="button" class="firstrun__cta" id="firstRunCreate">
-                <span id="firstRunCreateLabel" data-i18n="landing.build">Build my program</span><span class="firstrun-row__go" aria-hidden="true"></span>
+              <!-- Two peer routes (Packet F, revision 779): the lifter who already follows a program sees their door as
+                   plainly as the one that builds a program. Same pill, same type; Track takes the band's outlined recipe. -->
+              <button type="button" class="firstrun__cta" id="firstRunCreate" aria-labelledby="firstRunCreateLabel" aria-describedby="firstRunCreateCap">
+                <span class="firstrun-row__text"><span class="firstrun-row__title" id="firstRunCreateLabel" data-i18n="landing.build">Build my program</span><span class="firstrun-row__cap" id="firstRunCreateCap" data-i18n="landing.build.cap">Answer a few questions.</span></span><span class="firstrun-row__go" aria-hidden="true"></span>
               </button>
-              <button type="button" class="firstrun__link" id="firstRunImport" data-i18n="landing.track">Track my current program</button>
+              <button type="button" class="firstrun__cta firstrun__cta--peer" id="firstRunImport" aria-labelledby="firstRunImportLabel" aria-describedby="firstRunImportCap">
+                <span class="firstrun-row__text"><span class="firstrun-row__title" id="firstRunImportLabel" data-i18n="landing.track">Track my current program</span><span class="firstrun-row__cap" id="firstRunImportCap" data-i18n="landing.track.cap">Paste it from a message or note.</span></span><span class="firstrun-row__go" aria-hidden="true"></span>
+              </button>
               <!-- Shown only while a setup is saved and no program is active (owner, 2026-10-31): one quiet extra
                    action that resumes it at its step. The rest of the landing is the same page. -->
               <div id="firstRunResume" class="firstrun-resume hidden">
@@ -748,10 +752,10 @@
               <button type="button" class="firstrun__link" id="firstRunSharedCreate" data-i18n="setup.shared.create">Create a program from scratch</button>
             </div>
             <ul class="firstrun-chips" data-i18n-aria="landing.hero.chips_aria" aria-label="At a glance">
-              <li data-i18n="landing.hero.chip.account">No account</li>
               <li data-i18n="landing.hero.chip.offline">Works offline once opened</li>
               <li data-i18n="landing.hero.chip.free">Free to build and log</li>
             </ul>
+            <p class="firstrun-hero__data" data-landing-fill="hero.data"></p>
           </div>
         </div>
       </section>
@@ -839,6 +843,7 @@ Triceps pushdown 3x12-15</pre>
                 <p data-i18n="landing.ways.paste.prompt">You copy Taurifer's prompt, paste it into ChatGPT or Claude along with your program, and bring the reply back. Before anything is saved, you check every exercise.</p>
                 <p class="firstrun-seeing" data-i18n="landing.ways.paste.seeing">Below, the app screen where you check the exercises.</p>
                 <figure class="firstrun-shot-figure"><img class="firstrun-shot" data-shot="paste-review" data-landing-shot width="780" height="1242" src="assets/brand/paste-review-en-light.webp" alt="" loading="lazy" decoding="async"></figure>
+                <p data-landing-fill="ways.today"></p>
                 <p class="firstrun-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></svg><span data-i18n="entry.freeform.privacy">What you paste is held in this browser tab only for this import. It never enters history, exports or telemetry, and Taurifer drops it when the flow ends.</span></p>
                 <p data-landing-fill="ways.where"></p>
               </div>
@@ -974,7 +979,9 @@ Triceps pushdown 3x12-15</pre>
               <button type="button" class="firstrun__cta" id="firstRunCreateClose">
                 <span id="firstRunCreateCloseLabel" data-i18n="landing.build">Build my program</span><span class="firstrun-row__go" aria-hidden="true"></span>
               </button>
-              <button type="button" class="firstrun__link" id="firstRunImportClose" data-i18n="landing.track">Track my current program</button>
+              <button type="button" class="firstrun__cta firstrun__cta--peer" id="firstRunImportClose">
+                <span id="firstRunImportCloseLabel" data-i18n="landing.track">Track my current program</span><span class="firstrun-row__go" aria-hidden="true"></span>
+              </button>
             </div>
           </div>
         </div>
@@ -1610,7 +1617,7 @@ Triceps pushdown 3x12-15</pre>
   <script src="posthog-init.js"></script>
   <script src="schedule.js"></script>
   <script src="notify.js"></script>
-  <script src="i18n.js?v=772"></script>
+  <script src="i18n.js?v=783"></script>
   <script src="exercises.js?v=728"></script>
   <script src="generation-identity.js?v=459"></script>
   <script src="exercise-catalog.js?v=459"></script>
@@ -1650,6 +1657,6 @@ Triceps pushdown 3x12-15</pre>
   <script src="history-ui.js?v=772"></script>
   <script src="share-cards.js?v=771"></script>
   <script src="warmup-suggestions.js?v=772"></script>
-  <script src="app.js?v=777"></script>
+  <script src="app.js?v=787"></script>
 </body>
 </html>

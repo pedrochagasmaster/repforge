@@ -351,12 +351,16 @@ export const DIRECTION_D_SUMMARY_SESSION = Object.freeze({
   "session/summary-share-photo": "dd-2026-08-31-day1",
   "session/summary-share-edit": "dd-2026-08-31-day1",
   "session/summary-share-line": "dd-2026-08-31-day1",
+  "session/summary-backup": "dd-2026-08-31-day1",
 });
-function directionDThroughSession(sessionId) {
+/* The lifter backed up that morning, so the finish screen offers no backup copy (Packet E); only
+   session/summary-backup draws the screen with a copy due. */
+function directionDThroughSession(sessionId, { backupDue = false } = {}) {
   const state = directionDState();
   const date = state.log.find((row) => row.session === sessionId)?.date;
   if (!date) throw new Error(`The Direction D fixture has no session ${sessionId}`);
   state.log = state.log.filter((row) => String(row.date) <= date);
+  state.settings.lastExport = backupDue ? "" : `${date}T00:00:00.000Z`;
   return state;
 }
 
@@ -467,6 +471,8 @@ function profileFinishState(event,lang){
   if(state.program.length!==4)throw new Error("profile finish requires four comparable lifts");
   state.program=[state.program[1],state.program[2],state.program[3],state.program[0]];
   state.log=[];
+  // Backed up at the capture moment, so the finish screen offers no backup copy (Packet E).
+  state.settings.lastExport=CAPTURE_NOW;
   const date=age=>new Date(Date.parse(CAPTURE_NOW)-age*864e5).toISOString().slice(0,10);
   for(const [index,ex] of state.program.entries()){
     const featured=index===2,ages=featured&&event==="solid"?[3]:Array.from({length:15},(_,i)=>45-i*3);
@@ -529,7 +535,7 @@ function appStateFor(key, lang) {
     state.log = withTestSets(state.log);
     return localeState(state, lang);
   }
-  if (DIRECTION_D_SUMMARY_SESSION[key]) return localeState(directionDThroughSession(DIRECTION_D_SUMMARY_SESSION[key]), lang);
+  if (DIRECTION_D_SUMMARY_SESSION[key]) return localeState(directionDThroughSession(DIRECTION_D_SUMMARY_SESSION[key], { backupDue: key === "session/summary-backup" }), lang);
   if (key.startsWith("progress/sibling-") || key === "progress/volume-reduction-preview" ||
       ["progress/recovery-ineligible","progress/recovery-questions","progress/recovery-preview","progress/recovery-active","progress/recovery-reassessment"].includes(key)) {
     return emptyEntryState(lang);
@@ -3152,6 +3158,16 @@ export const APP_SCENARIOS = {
   "session/summary-declined": async (page) => {
     await openFixtureSummary(page, DIRECTION_D_SUMMARY_SESSION["session/summary-declined"]);
     await page.waitForSelector('.sum-outcome[data-outcome="declined"]', { timeout: 20000 });
+  },
+  // A backup is due (Packet E): the finish screen scrolled to the quiet cue above Share and Done.
+  "session/summary-backup": async (page) => {
+    await openFixtureSummary(page, DIRECTION_D_SUMMARY_SESSION["session/summary-backup"]);
+    await page.waitForSelector("#sumBackup", { timeout: 20000 });
+    await page.evaluate(() => {
+      const sheet = document.querySelector("#sessionSummary"), cue = document.querySelector("#sumBackup");
+      sheet.scrollTop = Math.max(0, cue.getBoundingClientRect().top - sheet.getBoundingClientRect().top + sheet.scrollTop - 240);
+    });
+    await sleep(page, 400);
   },
   "session/summary-first": async (page) => {
     await openFixtureSummary(page, DIRECTION_D_SUMMARY_SESSION["session/summary-first"]);

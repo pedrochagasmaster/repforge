@@ -177978,6 +177978,8 @@
         {
           "tag": "button",
           "name": "Build my program",
+          "labelledBy": "Build my program",
+          "describedBy": "Answer a few questions.",
           "type": "button"
         },
         {
@@ -177985,18 +177987,27 @@
           "text": "Build my program"
         },
         {
+          "tag": "span",
+          "text": "Answer a few questions."
+        },
+        {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
+          "labelledBy": "Track my current program",
+          "describedBy": "Paste it from a message or note.",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
+        },
+        {
+          "tag": "span",
+          "text": "Paste it from a message or note."
         },
         {
           "tag": "ul",
           "label": "At a glance"
-        },
-        {
-          "tag": "li",
-          "text": "No account"
         },
         {
           "tag": "li",
@@ -178005,6 +178016,14 @@
         {
           "tag": "li",
           "text": "Free to build and log"
+        },
+        {
+          "tag": "p",
+          "text": "No account. Your history stays on this phone, and after some workouts Taurifer offers ."
+        },
+        {
+          "tag": "b",
+          "text": "Save a backup copy"
         },
         {
           "tag": "section",
@@ -178518,9 +178537,12 @@
         },
         {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
         },
         {
           "tag": "span",
@@ -178588,6 +178610,8 @@
         {
           "tag": "button",
           "name": "Build my program",
+          "labelledBy": "Build my program",
+          "describedBy": "Answer a few questions.",
           "type": "button"
         },
         {
@@ -178595,18 +178619,27 @@
           "text": "Build my program"
         },
         {
+          "tag": "span",
+          "text": "Answer a few questions."
+        },
+        {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
+          "labelledBy": "Track my current program",
+          "describedBy": "Paste it from a message or note.",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
+        },
+        {
+          "tag": "span",
+          "text": "Paste it from a message or note."
         },
         {
           "tag": "ul",
           "label": "At a glance"
-        },
-        {
-          "tag": "li",
-          "text": "No account"
         },
         {
           "tag": "li",
@@ -178615,6 +178648,14 @@
         {
           "tag": "li",
           "text": "Free to build and log"
+        },
+        {
+          "tag": "p",
+          "text": "No account. Your history stays on this phone, and after some workouts Taurifer offers ."
+        },
+        {
+          "tag": "b",
+          "text": "Save a backup copy"
         },
         {
           "tag": "section",
@@ -179128,9 +179169,12 @@
         },
         {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
         },
         {
           "tag": "span",
@@ -179198,6 +179242,8 @@
         {
           "tag": "button",
           "name": "Montar meu treino",
+          "labelledBy": "Montar meu treino",
+          "describedBy": "Responda algumas perguntas.",
           "type": "button"
         },
         {
@@ -179205,18 +179251,27 @@
           "text": "Montar meu treino"
         },
         {
+          "tag": "span",
+          "text": "Responda algumas perguntas."
+        },
+        {
           "tag": "button",
-          "text": "Acompanhar meu treino atual",
           "name": "Acompanhar meu treino atual",
+          "labelledBy": "Acompanhar meu treino atual",
+          "describedBy": "Cole de uma mensagem ou nota.",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Acompanhar meu treino atual"
+        },
+        {
+          "tag": "span",
+          "text": "Cole de uma mensagem ou nota."
         },
         {
           "tag": "ul",
           "label": "Em resumo"
-        },
-        {
-          "tag": "li",
-          "text": "Sem conta"
         },
         {
           "tag": "li",
@@ -179225,6 +179280,14 @@
         {
           "tag": "li",
           "text": "Grátis para montar e registrar"
+        },
+        {
+          "tag": "p",
+          "text": "Sem conta. Seu histórico fica neste celular, e depois de alguns treinos o Taurifer oferece ."
+        },
+        {
+          "tag": "b",
+          "text": "Salvar uma cópia de backup"
         },
         {
           "tag": "section",
@@ -179738,9 +179801,12 @@
         },
         {
           "tag": "button",
-          "text": "Acompanhar meu treino atual",
           "name": "Acompanhar meu treino atual",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Acompanhar meu treino atual"
         },
         {
           "tag": "span",
@@ -184275,6 +184341,8 @@
         {
           "tag": "button",
           "name": "Build my program",
+          "labelledBy": "Build my program",
+          "describedBy": "Answer a few questions.",
           "type": "button"
         },
         {
@@ -184282,18 +184350,27 @@
           "text": "Build my program"
         },
         {
+          "tag": "span",
+          "text": "Answer a few questions."
+        },
+        {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
+          "labelledBy": "Track my current program",
+          "describedBy": "Paste it from a message or note.",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
+        },
+        {
+          "tag": "span",
+          "text": "Paste it from a message or note."
         },
         {
           "tag": "ul",
           "label": "At a glance"
-        },
-        {
-          "tag": "li",
-          "text": "No account"
         },
         {
           "tag": "li",
@@ -184302,6 +184379,14 @@
         {
           "tag": "li",
           "text": "Free to build and log"
+        },
+        {
+          "tag": "p",
+          "text": "No account. Your history stays on this phone, and after some workouts Taurifer offers ."
+        },
+        {
+          "tag": "b",
+          "text": "Save a backup copy"
         },
         {
           "tag": "section",
@@ -184815,9 +184900,12 @@
         },
         {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
         },
         {
           "tag": "span",
@@ -184879,6 +184967,8 @@
         {
           "tag": "button",
           "name": "Build my program",
+          "labelledBy": "Build my program",
+          "describedBy": "Answer a few questions.",
           "type": "button"
         },
         {
@@ -184886,18 +184976,27 @@
           "text": "Build my program"
         },
         {
+          "tag": "span",
+          "text": "Answer a few questions."
+        },
+        {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
+          "labelledBy": "Track my current program",
+          "describedBy": "Paste it from a message or note.",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
+        },
+        {
+          "tag": "span",
+          "text": "Paste it from a message or note."
         },
         {
           "tag": "ul",
           "label": "At a glance"
-        },
-        {
-          "tag": "li",
-          "text": "No account"
         },
         {
           "tag": "li",
@@ -184906,6 +185005,14 @@
         {
           "tag": "li",
           "text": "Free to build and log"
+        },
+        {
+          "tag": "p",
+          "text": "No account. Your history stays on this phone, and after some workouts Taurifer offers ."
+        },
+        {
+          "tag": "b",
+          "text": "Save a backup copy"
         },
         {
           "tag": "section",
@@ -185419,9 +185526,12 @@
         },
         {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
         },
         {
           "tag": "span",
@@ -185483,6 +185593,8 @@
         {
           "tag": "button",
           "name": "Build my program",
+          "labelledBy": "Build my program",
+          "describedBy": "Answer a few questions.",
           "type": "button"
         },
         {
@@ -185490,18 +185602,27 @@
           "text": "Build my program"
         },
         {
+          "tag": "span",
+          "text": "Answer a few questions."
+        },
+        {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
+          "labelledBy": "Track my current program",
+          "describedBy": "Paste it from a message or note.",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
+        },
+        {
+          "tag": "span",
+          "text": "Paste it from a message or note."
         },
         {
           "tag": "ul",
           "label": "At a glance"
-        },
-        {
-          "tag": "li",
-          "text": "No account"
         },
         {
           "tag": "li",
@@ -185510,6 +185631,14 @@
         {
           "tag": "li",
           "text": "Free to build and log"
+        },
+        {
+          "tag": "p",
+          "text": "No account. Your history stays on this phone, and after some workouts Taurifer offers ."
+        },
+        {
+          "tag": "b",
+          "text": "Save a backup copy"
         },
         {
           "tag": "section",
@@ -186023,9 +186152,12 @@
         },
         {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
         },
         {
           "tag": "span",
@@ -186087,6 +186219,8 @@
         {
           "tag": "button",
           "name": "Build my program",
+          "labelledBy": "Build my program",
+          "describedBy": "Answer a few questions.",
           "type": "button"
         },
         {
@@ -186094,18 +186228,27 @@
           "text": "Build my program"
         },
         {
+          "tag": "span",
+          "text": "Answer a few questions."
+        },
+        {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
+          "labelledBy": "Track my current program",
+          "describedBy": "Paste it from a message or note.",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
+        },
+        {
+          "tag": "span",
+          "text": "Paste it from a message or note."
         },
         {
           "tag": "ul",
           "label": "At a glance"
-        },
-        {
-          "tag": "li",
-          "text": "No account"
         },
         {
           "tag": "li",
@@ -186114,6 +186257,14 @@
         {
           "tag": "li",
           "text": "Free to build and log"
+        },
+        {
+          "tag": "p",
+          "text": "No account. Your history stays on this phone, and after some workouts Taurifer offers ."
+        },
+        {
+          "tag": "b",
+          "text": "Save a backup copy"
         },
         {
           "tag": "section",
@@ -186627,9 +186778,12 @@
         },
         {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
         },
         {
           "tag": "span",
@@ -186691,6 +186845,8 @@
         {
           "tag": "button",
           "name": "Build my program",
+          "labelledBy": "Build my program",
+          "describedBy": "Answer a few questions.",
           "type": "button"
         },
         {
@@ -186698,18 +186854,27 @@
           "text": "Build my program"
         },
         {
+          "tag": "span",
+          "text": "Answer a few questions."
+        },
+        {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
+          "labelledBy": "Track my current program",
+          "describedBy": "Paste it from a message or note.",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
+        },
+        {
+          "tag": "span",
+          "text": "Paste it from a message or note."
         },
         {
           "tag": "ul",
           "label": "At a glance"
-        },
-        {
-          "tag": "li",
-          "text": "No account"
         },
         {
           "tag": "li",
@@ -186718,6 +186883,14 @@
         {
           "tag": "li",
           "text": "Free to build and log"
+        },
+        {
+          "tag": "p",
+          "text": "No account. Your history stays on this phone, and after some workouts Taurifer offers ."
+        },
+        {
+          "tag": "b",
+          "text": "Save a backup copy"
         },
         {
           "tag": "section",
@@ -187231,9 +187404,12 @@
         },
         {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
         },
         {
           "tag": "span",
@@ -187295,6 +187471,8 @@
         {
           "tag": "button",
           "name": "Montar meu treino",
+          "labelledBy": "Montar meu treino",
+          "describedBy": "Responda algumas perguntas.",
           "type": "button"
         },
         {
@@ -187302,18 +187480,27 @@
           "text": "Montar meu treino"
         },
         {
+          "tag": "span",
+          "text": "Responda algumas perguntas."
+        },
+        {
           "tag": "button",
-          "text": "Acompanhar meu treino atual",
           "name": "Acompanhar meu treino atual",
+          "labelledBy": "Acompanhar meu treino atual",
+          "describedBy": "Cole de uma mensagem ou nota.",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Acompanhar meu treino atual"
+        },
+        {
+          "tag": "span",
+          "text": "Cole de uma mensagem ou nota."
         },
         {
           "tag": "ul",
           "label": "Em resumo"
-        },
-        {
-          "tag": "li",
-          "text": "Sem conta"
         },
         {
           "tag": "li",
@@ -187322,6 +187509,14 @@
         {
           "tag": "li",
           "text": "Grátis para montar e registrar"
+        },
+        {
+          "tag": "p",
+          "text": "Sem conta. Seu histórico fica neste celular, e depois de alguns treinos o Taurifer oferece ."
+        },
+        {
+          "tag": "b",
+          "text": "Salvar uma cópia de backup"
         },
         {
           "tag": "section",
@@ -187835,9 +188030,12 @@
         },
         {
           "tag": "button",
-          "text": "Acompanhar meu treino atual",
           "name": "Acompanhar meu treino atual",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Acompanhar meu treino atual"
         },
         {
           "tag": "span",
@@ -187899,6 +188097,8 @@
         {
           "tag": "button",
           "name": "Build my program",
+          "labelledBy": "Build my program",
+          "describedBy": "Answer a few questions.",
           "type": "button"
         },
         {
@@ -187906,18 +188106,27 @@
           "text": "Build my program"
         },
         {
+          "tag": "span",
+          "text": "Answer a few questions."
+        },
+        {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
+          "labelledBy": "Track my current program",
+          "describedBy": "Paste it from a message or note.",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
+        },
+        {
+          "tag": "span",
+          "text": "Paste it from a message or note."
         },
         {
           "tag": "ul",
           "label": "At a glance"
-        },
-        {
-          "tag": "li",
-          "text": "No account"
         },
         {
           "tag": "li",
@@ -187926,6 +188135,14 @@
         {
           "tag": "li",
           "text": "Free to build and log"
+        },
+        {
+          "tag": "p",
+          "text": "No account. Your history stays on this phone, and after some workouts Taurifer offers ."
+        },
+        {
+          "tag": "b",
+          "text": "Save a backup copy"
         },
         {
           "tag": "section",
@@ -188439,9 +188656,12 @@
         },
         {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
         },
         {
           "tag": "span",
@@ -188503,6 +188723,8 @@
         {
           "tag": "button",
           "name": "Build my program",
+          "labelledBy": "Build my program",
+          "describedBy": "Answer a few questions.",
           "type": "button"
         },
         {
@@ -188510,18 +188732,27 @@
           "text": "Build my program"
         },
         {
+          "tag": "span",
+          "text": "Answer a few questions."
+        },
+        {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
+          "labelledBy": "Track my current program",
+          "describedBy": "Paste it from a message or note.",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
+        },
+        {
+          "tag": "span",
+          "text": "Paste it from a message or note."
         },
         {
           "tag": "ul",
           "label": "At a glance"
-        },
-        {
-          "tag": "li",
-          "text": "No account"
         },
         {
           "tag": "li",
@@ -188530,6 +188761,14 @@
         {
           "tag": "li",
           "text": "Free to build and log"
+        },
+        {
+          "tag": "p",
+          "text": "No account. Your history stays on this phone, and after some workouts Taurifer offers ."
+        },
+        {
+          "tag": "b",
+          "text": "Save a backup copy"
         },
         {
           "tag": "section",
@@ -189043,9 +189282,12 @@
         },
         {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
         },
         {
           "tag": "span",
@@ -189116,6 +189358,8 @@
         {
           "tag": "button",
           "name": "Build my program",
+          "labelledBy": "Build my program",
+          "describedBy": "Answer a few questions.",
           "type": "button"
         },
         {
@@ -189123,18 +189367,27 @@
           "text": "Build my program"
         },
         {
+          "tag": "span",
+          "text": "Answer a few questions."
+        },
+        {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
+          "labelledBy": "Track my current program",
+          "describedBy": "Paste it from a message or note.",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
+        },
+        {
+          "tag": "span",
+          "text": "Paste it from a message or note."
         },
         {
           "tag": "ul",
           "label": "At a glance"
-        },
-        {
-          "tag": "li",
-          "text": "No account"
         },
         {
           "tag": "li",
@@ -189143,6 +189396,14 @@
         {
           "tag": "li",
           "text": "Free to build and log"
+        },
+        {
+          "tag": "p",
+          "text": "No account. Your history stays on this phone, and after some workouts Taurifer offers ."
+        },
+        {
+          "tag": "b",
+          "text": "Save a backup copy"
         },
         {
           "tag": "section",
@@ -189656,9 +189917,12 @@
         },
         {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
         },
         {
           "tag": "span",
@@ -189729,6 +189993,8 @@
         {
           "tag": "button",
           "name": "Montar meu treino",
+          "labelledBy": "Montar meu treino",
+          "describedBy": "Responda algumas perguntas.",
           "type": "button"
         },
         {
@@ -189736,18 +190002,27 @@
           "text": "Montar meu treino"
         },
         {
+          "tag": "span",
+          "text": "Responda algumas perguntas."
+        },
+        {
           "tag": "button",
-          "text": "Acompanhar meu treino atual",
           "name": "Acompanhar meu treino atual",
+          "labelledBy": "Acompanhar meu treino atual",
+          "describedBy": "Cole de uma mensagem ou nota.",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Acompanhar meu treino atual"
+        },
+        {
+          "tag": "span",
+          "text": "Cole de uma mensagem ou nota."
         },
         {
           "tag": "ul",
           "label": "Em resumo"
-        },
-        {
-          "tag": "li",
-          "text": "Sem conta"
         },
         {
           "tag": "li",
@@ -189756,6 +190031,14 @@
         {
           "tag": "li",
           "text": "Grátis para montar e registrar"
+        },
+        {
+          "tag": "p",
+          "text": "Sem conta. Seu histórico fica neste celular, e depois de alguns treinos o Taurifer oferece ."
+        },
+        {
+          "tag": "b",
+          "text": "Salvar uma cópia de backup"
         },
         {
           "tag": "section",
@@ -190269,9 +190552,12 @@
         },
         {
           "tag": "button",
-          "text": "Acompanhar meu treino atual",
           "name": "Acompanhar meu treino atual",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Acompanhar meu treino atual"
         },
         {
           "tag": "span",
@@ -190342,6 +190628,8 @@
         {
           "tag": "button",
           "name": "Build my program",
+          "labelledBy": "Build my program",
+          "describedBy": "Answer a few questions.",
           "type": "button"
         },
         {
@@ -190349,18 +190637,27 @@
           "text": "Build my program"
         },
         {
+          "tag": "span",
+          "text": "Answer a few questions."
+        },
+        {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
+          "labelledBy": "Track my current program",
+          "describedBy": "Paste it from a message or note.",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
+        },
+        {
+          "tag": "span",
+          "text": "Paste it from a message or note."
         },
         {
           "tag": "ul",
           "label": "At a glance"
-        },
-        {
-          "tag": "li",
-          "text": "No account"
         },
         {
           "tag": "li",
@@ -190369,6 +190666,14 @@
         {
           "tag": "li",
           "text": "Free to build and log"
+        },
+        {
+          "tag": "p",
+          "text": "No account. Your history stays on this phone, and after some workouts Taurifer offers ."
+        },
+        {
+          "tag": "b",
+          "text": "Save a backup copy"
         },
         {
           "tag": "section",
@@ -190882,9 +191187,12 @@
         },
         {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
         },
         {
           "tag": "span",
@@ -190946,6 +191254,8 @@
         {
           "tag": "button",
           "name": "Build my program",
+          "labelledBy": "Build my program",
+          "describedBy": "Answer a few questions.",
           "type": "button"
         },
         {
@@ -190953,18 +191263,27 @@
           "text": "Build my program"
         },
         {
+          "tag": "span",
+          "text": "Answer a few questions."
+        },
+        {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
+          "labelledBy": "Track my current program",
+          "describedBy": "Paste it from a message or note.",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
+        },
+        {
+          "tag": "span",
+          "text": "Paste it from a message or note."
         },
         {
           "tag": "ul",
           "label": "At a glance"
-        },
-        {
-          "tag": "li",
-          "text": "No account"
         },
         {
           "tag": "li",
@@ -190973,6 +191292,14 @@
         {
           "tag": "li",
           "text": "Free to build and log"
+        },
+        {
+          "tag": "p",
+          "text": "No account. Your history stays on this phone, and after some workouts Taurifer offers ."
+        },
+        {
+          "tag": "b",
+          "text": "Save a backup copy"
         },
         {
           "tag": "section",
@@ -191486,9 +191813,12 @@
         },
         {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
         },
         {
           "tag": "span",
@@ -191550,6 +191880,8 @@
         {
           "tag": "button",
           "name": "Montar meu treino",
+          "labelledBy": "Montar meu treino",
+          "describedBy": "Responda algumas perguntas.",
           "type": "button"
         },
         {
@@ -191557,18 +191889,27 @@
           "text": "Montar meu treino"
         },
         {
+          "tag": "span",
+          "text": "Responda algumas perguntas."
+        },
+        {
           "tag": "button",
-          "text": "Acompanhar meu treino atual",
           "name": "Acompanhar meu treino atual",
+          "labelledBy": "Acompanhar meu treino atual",
+          "describedBy": "Cole de uma mensagem ou nota.",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Acompanhar meu treino atual"
+        },
+        {
+          "tag": "span",
+          "text": "Cole de uma mensagem ou nota."
         },
         {
           "tag": "ul",
           "label": "Em resumo"
-        },
-        {
-          "tag": "li",
-          "text": "Sem conta"
         },
         {
           "tag": "li",
@@ -191577,6 +191918,14 @@
         {
           "tag": "li",
           "text": "Grátis para montar e registrar"
+        },
+        {
+          "tag": "p",
+          "text": "Sem conta. Seu histórico fica neste celular, e depois de alguns treinos o Taurifer oferece ."
+        },
+        {
+          "tag": "b",
+          "text": "Salvar uma cópia de backup"
         },
         {
           "tag": "section",
@@ -192090,9 +192439,12 @@
         },
         {
           "tag": "button",
-          "text": "Acompanhar meu treino atual",
           "name": "Acompanhar meu treino atual",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Acompanhar meu treino atual"
         },
         {
           "tag": "span",
@@ -192154,6 +192506,8 @@
         {
           "tag": "button",
           "name": "Build my program",
+          "labelledBy": "Build my program",
+          "describedBy": "Answer a few questions.",
           "type": "button"
         },
         {
@@ -192161,18 +192515,27 @@
           "text": "Build my program"
         },
         {
+          "tag": "span",
+          "text": "Answer a few questions."
+        },
+        {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
+          "labelledBy": "Track my current program",
+          "describedBy": "Paste it from a message or note.",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
+        },
+        {
+          "tag": "span",
+          "text": "Paste it from a message or note."
         },
         {
           "tag": "ul",
           "label": "At a glance"
-        },
-        {
-          "tag": "li",
-          "text": "No account"
         },
         {
           "tag": "li",
@@ -192181,6 +192544,14 @@
         {
           "tag": "li",
           "text": "Free to build and log"
+        },
+        {
+          "tag": "p",
+          "text": "No account. Your history stays on this phone, and after some workouts Taurifer offers ."
+        },
+        {
+          "tag": "b",
+          "text": "Save a backup copy"
         },
         {
           "tag": "section",
@@ -192694,9 +193065,12 @@
         },
         {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
         },
         {
           "tag": "span",
@@ -192767,6 +193141,8 @@
         {
           "tag": "button",
           "name": "Build my program",
+          "labelledBy": "Build my program",
+          "describedBy": "Answer a few questions.",
           "type": "button"
         },
         {
@@ -192774,18 +193150,27 @@
           "text": "Build my program"
         },
         {
+          "tag": "span",
+          "text": "Answer a few questions."
+        },
+        {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
+          "labelledBy": "Track my current program",
+          "describedBy": "Paste it from a message or note.",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
+        },
+        {
+          "tag": "span",
+          "text": "Paste it from a message or note."
         },
         {
           "tag": "ul",
           "label": "At a glance"
-        },
-        {
-          "tag": "li",
-          "text": "No account"
         },
         {
           "tag": "li",
@@ -192794,6 +193179,14 @@
         {
           "tag": "li",
           "text": "Free to build and log"
+        },
+        {
+          "tag": "p",
+          "text": "No account. Your history stays on this phone, and after some workouts Taurifer offers ."
+        },
+        {
+          "tag": "b",
+          "text": "Save a backup copy"
         },
         {
           "tag": "section",
@@ -193307,9 +193700,12 @@
         },
         {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
         },
         {
           "tag": "span",
@@ -193380,6 +193776,8 @@
         {
           "tag": "button",
           "name": "Montar meu treino",
+          "labelledBy": "Montar meu treino",
+          "describedBy": "Responda algumas perguntas.",
           "type": "button"
         },
         {
@@ -193387,18 +193785,27 @@
           "text": "Montar meu treino"
         },
         {
+          "tag": "span",
+          "text": "Responda algumas perguntas."
+        },
+        {
           "tag": "button",
-          "text": "Acompanhar meu treino atual",
           "name": "Acompanhar meu treino atual",
+          "labelledBy": "Acompanhar meu treino atual",
+          "describedBy": "Cole de uma mensagem ou nota.",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Acompanhar meu treino atual"
+        },
+        {
+          "tag": "span",
+          "text": "Cole de uma mensagem ou nota."
         },
         {
           "tag": "ul",
           "label": "Em resumo"
-        },
-        {
-          "tag": "li",
-          "text": "Sem conta"
         },
         {
           "tag": "li",
@@ -193407,6 +193814,14 @@
         {
           "tag": "li",
           "text": "Grátis para montar e registrar"
+        },
+        {
+          "tag": "p",
+          "text": "Sem conta. Seu histórico fica neste celular, e depois de alguns treinos o Taurifer oferece ."
+        },
+        {
+          "tag": "b",
+          "text": "Salvar uma cópia de backup"
         },
         {
           "tag": "section",
@@ -193920,9 +194335,12 @@
         },
         {
           "tag": "button",
-          "text": "Acompanhar meu treino atual",
           "name": "Acompanhar meu treino atual",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Acompanhar meu treino atual"
         },
         {
           "tag": "span",
@@ -193993,6 +194411,8 @@
         {
           "tag": "button",
           "name": "Build my program",
+          "labelledBy": "Build my program",
+          "describedBy": "Answer a few questions.",
           "type": "button"
         },
         {
@@ -194000,18 +194420,27 @@
           "text": "Build my program"
         },
         {
+          "tag": "span",
+          "text": "Answer a few questions."
+        },
+        {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
+          "labelledBy": "Track my current program",
+          "describedBy": "Paste it from a message or note.",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
+        },
+        {
+          "tag": "span",
+          "text": "Paste it from a message or note."
         },
         {
           "tag": "ul",
           "label": "At a glance"
-        },
-        {
-          "tag": "li",
-          "text": "No account"
         },
         {
           "tag": "li",
@@ -194020,6 +194449,14 @@
         {
           "tag": "li",
           "text": "Free to build and log"
+        },
+        {
+          "tag": "p",
+          "text": "No account. Your history stays on this phone, and after some workouts Taurifer offers ."
+        },
+        {
+          "tag": "b",
+          "text": "Save a backup copy"
         },
         {
           "tag": "section",
@@ -194533,9 +194970,12 @@
         },
         {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
         },
         {
           "tag": "span",
@@ -194606,6 +195046,8 @@
         {
           "tag": "button",
           "name": "Build my program",
+          "labelledBy": "Build my program",
+          "describedBy": "Answer a few questions.",
           "type": "button"
         },
         {
@@ -194613,18 +195055,27 @@
           "text": "Build my program"
         },
         {
+          "tag": "span",
+          "text": "Answer a few questions."
+        },
+        {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
+          "labelledBy": "Track my current program",
+          "describedBy": "Paste it from a message or note.",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
+        },
+        {
+          "tag": "span",
+          "text": "Paste it from a message or note."
         },
         {
           "tag": "ul",
           "label": "At a glance"
-        },
-        {
-          "tag": "li",
-          "text": "No account"
         },
         {
           "tag": "li",
@@ -194633,6 +195084,14 @@
         {
           "tag": "li",
           "text": "Free to build and log"
+        },
+        {
+          "tag": "p",
+          "text": "No account. Your history stays on this phone, and after some workouts Taurifer offers ."
+        },
+        {
+          "tag": "b",
+          "text": "Save a backup copy"
         },
         {
           "tag": "section",
@@ -195146,9 +195605,12 @@
         },
         {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
         },
         {
           "tag": "span",
@@ -195219,6 +195681,8 @@
         {
           "tag": "button",
           "name": "Montar meu treino",
+          "labelledBy": "Montar meu treino",
+          "describedBy": "Responda algumas perguntas.",
           "type": "button"
         },
         {
@@ -195226,18 +195690,27 @@
           "text": "Montar meu treino"
         },
         {
+          "tag": "span",
+          "text": "Responda algumas perguntas."
+        },
+        {
           "tag": "button",
-          "text": "Acompanhar meu treino atual",
           "name": "Acompanhar meu treino atual",
+          "labelledBy": "Acompanhar meu treino atual",
+          "describedBy": "Cole de uma mensagem ou nota.",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Acompanhar meu treino atual"
+        },
+        {
+          "tag": "span",
+          "text": "Cole de uma mensagem ou nota."
         },
         {
           "tag": "ul",
           "label": "Em resumo"
-        },
-        {
-          "tag": "li",
-          "text": "Sem conta"
         },
         {
           "tag": "li",
@@ -195246,6 +195719,14 @@
         {
           "tag": "li",
           "text": "Grátis para montar e registrar"
+        },
+        {
+          "tag": "p",
+          "text": "Sem conta. Seu histórico fica neste celular, e depois de alguns treinos o Taurifer oferece ."
+        },
+        {
+          "tag": "b",
+          "text": "Salvar uma cópia de backup"
         },
         {
           "tag": "section",
@@ -195759,9 +196240,12 @@
         },
         {
           "tag": "button",
-          "text": "Acompanhar meu treino atual",
           "name": "Acompanhar meu treino atual",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Acompanhar meu treino atual"
         },
         {
           "tag": "span",
@@ -195832,6 +196316,8 @@
         {
           "tag": "button",
           "name": "Build my program",
+          "labelledBy": "Build my program",
+          "describedBy": "Answer a few questions.",
           "type": "button"
         },
         {
@@ -195839,18 +196325,27 @@
           "text": "Build my program"
         },
         {
+          "tag": "span",
+          "text": "Answer a few questions."
+        },
+        {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
+          "labelledBy": "Track my current program",
+          "describedBy": "Paste it from a message or note.",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
+        },
+        {
+          "tag": "span",
+          "text": "Paste it from a message or note."
         },
         {
           "tag": "ul",
           "label": "At a glance"
-        },
-        {
-          "tag": "li",
-          "text": "No account"
         },
         {
           "tag": "li",
@@ -195859,6 +196354,14 @@
         {
           "tag": "li",
           "text": "Free to build and log"
+        },
+        {
+          "tag": "p",
+          "text": "No account. Your history stays on this phone, and after some workouts Taurifer offers ."
+        },
+        {
+          "tag": "b",
+          "text": "Save a backup copy"
         },
         {
           "tag": "section",
@@ -196372,9 +196875,12 @@
         },
         {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
         },
         {
           "tag": "span",
@@ -196445,6 +196951,8 @@
         {
           "tag": "button",
           "name": "Build my program",
+          "labelledBy": "Build my program",
+          "describedBy": "Answer a few questions.",
           "type": "button"
         },
         {
@@ -196452,18 +196960,27 @@
           "text": "Build my program"
         },
         {
+          "tag": "span",
+          "text": "Answer a few questions."
+        },
+        {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
+          "labelledBy": "Track my current program",
+          "describedBy": "Paste it from a message or note.",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
+        },
+        {
+          "tag": "span",
+          "text": "Paste it from a message or note."
         },
         {
           "tag": "ul",
           "label": "At a glance"
-        },
-        {
-          "tag": "li",
-          "text": "No account"
         },
         {
           "tag": "li",
@@ -196472,6 +196989,14 @@
         {
           "tag": "li",
           "text": "Free to build and log"
+        },
+        {
+          "tag": "p",
+          "text": "No account. Your history stays on this phone, and after some workouts Taurifer offers ."
+        },
+        {
+          "tag": "b",
+          "text": "Save a backup copy"
         },
         {
           "tag": "section",
@@ -196985,9 +197510,12 @@
         },
         {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
         },
         {
           "tag": "span",
@@ -197058,6 +197586,8 @@
         {
           "tag": "button",
           "name": "Montar meu treino",
+          "labelledBy": "Montar meu treino",
+          "describedBy": "Responda algumas perguntas.",
           "type": "button"
         },
         {
@@ -197065,18 +197595,27 @@
           "text": "Montar meu treino"
         },
         {
+          "tag": "span",
+          "text": "Responda algumas perguntas."
+        },
+        {
           "tag": "button",
-          "text": "Acompanhar meu treino atual",
           "name": "Acompanhar meu treino atual",
+          "labelledBy": "Acompanhar meu treino atual",
+          "describedBy": "Cole de uma mensagem ou nota.",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Acompanhar meu treino atual"
+        },
+        {
+          "tag": "span",
+          "text": "Cole de uma mensagem ou nota."
         },
         {
           "tag": "ul",
           "label": "Em resumo"
-        },
-        {
-          "tag": "li",
-          "text": "Sem conta"
         },
         {
           "tag": "li",
@@ -197085,6 +197624,14 @@
         {
           "tag": "li",
           "text": "Grátis para montar e registrar"
+        },
+        {
+          "tag": "p",
+          "text": "Sem conta. Seu histórico fica neste celular, e depois de alguns treinos o Taurifer oferece ."
+        },
+        {
+          "tag": "b",
+          "text": "Salvar uma cópia de backup"
         },
         {
           "tag": "section",
@@ -197598,9 +198145,12 @@
         },
         {
           "tag": "button",
-          "text": "Acompanhar meu treino atual",
           "name": "Acompanhar meu treino atual",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Acompanhar meu treino atual"
         },
         {
           "tag": "span",
@@ -197671,6 +198221,8 @@
         {
           "tag": "button",
           "name": "Build my program",
+          "labelledBy": "Build my program",
+          "describedBy": "Answer a few questions.",
           "type": "button"
         },
         {
@@ -197678,18 +198230,27 @@
           "text": "Build my program"
         },
         {
+          "tag": "span",
+          "text": "Answer a few questions."
+        },
+        {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
+          "labelledBy": "Track my current program",
+          "describedBy": "Paste it from a message or note.",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
+        },
+        {
+          "tag": "span",
+          "text": "Paste it from a message or note."
         },
         {
           "tag": "ul",
           "label": "At a glance"
-        },
-        {
-          "tag": "li",
-          "text": "No account"
         },
         {
           "tag": "li",
@@ -197698,6 +198259,14 @@
         {
           "tag": "li",
           "text": "Free to build and log"
+        },
+        {
+          "tag": "p",
+          "text": "No account. Your history stays on this phone, and after some workouts Taurifer offers ."
+        },
+        {
+          "tag": "b",
+          "text": "Save a backup copy"
         },
         {
           "tag": "section",
@@ -198211,9 +198780,12 @@
         },
         {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
         },
         {
           "tag": "span",
@@ -198275,6 +198847,8 @@
         {
           "tag": "button",
           "name": "Build my program",
+          "labelledBy": "Build my program",
+          "describedBy": "Answer a few questions.",
           "type": "button"
         },
         {
@@ -198282,18 +198856,27 @@
           "text": "Build my program"
         },
         {
+          "tag": "span",
+          "text": "Answer a few questions."
+        },
+        {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
+          "labelledBy": "Track my current program",
+          "describedBy": "Paste it from a message or note.",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
+        },
+        {
+          "tag": "span",
+          "text": "Paste it from a message or note."
         },
         {
           "tag": "ul",
           "label": "At a glance"
-        },
-        {
-          "tag": "li",
-          "text": "No account"
         },
         {
           "tag": "li",
@@ -198302,6 +198885,14 @@
         {
           "tag": "li",
           "text": "Free to build and log"
+        },
+        {
+          "tag": "p",
+          "text": "No account. Your history stays on this phone, and after some workouts Taurifer offers ."
+        },
+        {
+          "tag": "b",
+          "text": "Save a backup copy"
         },
         {
           "tag": "section",
@@ -198815,9 +199406,12 @@
         },
         {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
         },
         {
           "tag": "span",
@@ -198879,6 +199473,8 @@
         {
           "tag": "button",
           "name": "Montar meu treino",
+          "labelledBy": "Montar meu treino",
+          "describedBy": "Responda algumas perguntas.",
           "type": "button"
         },
         {
@@ -198886,18 +199482,27 @@
           "text": "Montar meu treino"
         },
         {
+          "tag": "span",
+          "text": "Responda algumas perguntas."
+        },
+        {
           "tag": "button",
-          "text": "Acompanhar meu treino atual",
           "name": "Acompanhar meu treino atual",
+          "labelledBy": "Acompanhar meu treino atual",
+          "describedBy": "Cole de uma mensagem ou nota.",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Acompanhar meu treino atual"
+        },
+        {
+          "tag": "span",
+          "text": "Cole de uma mensagem ou nota."
         },
         {
           "tag": "ul",
           "label": "Em resumo"
-        },
-        {
-          "tag": "li",
-          "text": "Sem conta"
         },
         {
           "tag": "li",
@@ -198906,6 +199511,14 @@
         {
           "tag": "li",
           "text": "Grátis para montar e registrar"
+        },
+        {
+          "tag": "p",
+          "text": "Sem conta. Seu histórico fica neste celular, e depois de alguns treinos o Taurifer oferece ."
+        },
+        {
+          "tag": "b",
+          "text": "Salvar uma cópia de backup"
         },
         {
           "tag": "section",
@@ -199419,9 +200032,12 @@
         },
         {
           "tag": "button",
-          "text": "Acompanhar meu treino atual",
           "name": "Acompanhar meu treino atual",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Acompanhar meu treino atual"
         },
         {
           "tag": "span",
@@ -199483,6 +200099,8 @@
         {
           "tag": "button",
           "name": "Build my program",
+          "labelledBy": "Build my program",
+          "describedBy": "Answer a few questions.",
           "type": "button"
         },
         {
@@ -199490,18 +200108,27 @@
           "text": "Build my program"
         },
         {
+          "tag": "span",
+          "text": "Answer a few questions."
+        },
+        {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
+          "labelledBy": "Track my current program",
+          "describedBy": "Paste it from a message or note.",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
+        },
+        {
+          "tag": "span",
+          "text": "Paste it from a message or note."
         },
         {
           "tag": "ul",
           "label": "At a glance"
-        },
-        {
-          "tag": "li",
-          "text": "No account"
         },
         {
           "tag": "li",
@@ -199510,6 +200137,14 @@
         {
           "tag": "li",
           "text": "Free to build and log"
+        },
+        {
+          "tag": "p",
+          "text": "No account. Your history stays on this phone, and after some workouts Taurifer offers ."
+        },
+        {
+          "tag": "b",
+          "text": "Save a backup copy"
         },
         {
           "tag": "section",
@@ -200027,9 +200662,12 @@
         },
         {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
         },
         {
           "tag": "span",
@@ -200091,6 +200729,8 @@
         {
           "tag": "button",
           "name": "Build my program",
+          "labelledBy": "Build my program",
+          "describedBy": "Answer a few questions.",
           "type": "button"
         },
         {
@@ -200098,18 +200738,27 @@
           "text": "Build my program"
         },
         {
+          "tag": "span",
+          "text": "Answer a few questions."
+        },
+        {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
+          "labelledBy": "Track my current program",
+          "describedBy": "Paste it from a message or note.",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
+        },
+        {
+          "tag": "span",
+          "text": "Paste it from a message or note."
         },
         {
           "tag": "ul",
           "label": "At a glance"
-        },
-        {
-          "tag": "li",
-          "text": "No account"
         },
         {
           "tag": "li",
@@ -200118,6 +200767,14 @@
         {
           "tag": "li",
           "text": "Free to build and log"
+        },
+        {
+          "tag": "p",
+          "text": "No account. Your history stays on this phone, and after some workouts Taurifer offers ."
+        },
+        {
+          "tag": "b",
+          "text": "Save a backup copy"
         },
         {
           "tag": "section",
@@ -200635,9 +201292,12 @@
         },
         {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
         },
         {
           "tag": "span",
@@ -200699,6 +201359,8 @@
         {
           "tag": "button",
           "name": "Montar meu treino",
+          "labelledBy": "Montar meu treino",
+          "describedBy": "Responda algumas perguntas.",
           "type": "button"
         },
         {
@@ -200706,18 +201368,27 @@
           "text": "Montar meu treino"
         },
         {
+          "tag": "span",
+          "text": "Responda algumas perguntas."
+        },
+        {
           "tag": "button",
-          "text": "Acompanhar meu treino atual",
           "name": "Acompanhar meu treino atual",
+          "labelledBy": "Acompanhar meu treino atual",
+          "describedBy": "Cole de uma mensagem ou nota.",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Acompanhar meu treino atual"
+        },
+        {
+          "tag": "span",
+          "text": "Cole de uma mensagem ou nota."
         },
         {
           "tag": "ul",
           "label": "Em resumo"
-        },
-        {
-          "tag": "li",
-          "text": "Sem conta"
         },
         {
           "tag": "li",
@@ -200726,6 +201397,14 @@
         {
           "tag": "li",
           "text": "Grátis para montar e registrar"
+        },
+        {
+          "tag": "p",
+          "text": "Sem conta. Seu histórico fica neste celular, e depois de alguns treinos o Taurifer oferece ."
+        },
+        {
+          "tag": "b",
+          "text": "Salvar uma cópia de backup"
         },
         {
           "tag": "section",
@@ -201243,9 +201922,12 @@
         },
         {
           "tag": "button",
-          "text": "Acompanhar meu treino atual",
           "name": "Acompanhar meu treino atual",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Acompanhar meu treino atual"
         },
         {
           "tag": "span",
@@ -201307,6 +201989,8 @@
         {
           "tag": "button",
           "name": "Build my program",
+          "labelledBy": "Build my program",
+          "describedBy": "Answer a few questions.",
           "type": "button"
         },
         {
@@ -201314,18 +201998,27 @@
           "text": "Build my program"
         },
         {
+          "tag": "span",
+          "text": "Answer a few questions."
+        },
+        {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
+          "labelledBy": "Track my current program",
+          "describedBy": "Paste it from a message or note.",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
+        },
+        {
+          "tag": "span",
+          "text": "Paste it from a message or note."
         },
         {
           "tag": "ul",
           "label": "At a glance"
-        },
-        {
-          "tag": "li",
-          "text": "No account"
         },
         {
           "tag": "li",
@@ -201334,6 +202027,14 @@
         {
           "tag": "li",
           "text": "Free to build and log"
+        },
+        {
+          "tag": "p",
+          "text": "No account. Your history stays on this phone, and after some workouts Taurifer offers ."
+        },
+        {
+          "tag": "b",
+          "text": "Save a backup copy"
         },
         {
           "tag": "section",
@@ -201847,9 +202548,12 @@
         },
         {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
         },
         {
           "tag": "span",
@@ -201920,6 +202624,8 @@
         {
           "tag": "button",
           "name": "Build my program",
+          "labelledBy": "Build my program",
+          "describedBy": "Answer a few questions.",
           "type": "button"
         },
         {
@@ -201927,18 +202633,27 @@
           "text": "Build my program"
         },
         {
+          "tag": "span",
+          "text": "Answer a few questions."
+        },
+        {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
+          "labelledBy": "Track my current program",
+          "describedBy": "Paste it from a message or note.",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
+        },
+        {
+          "tag": "span",
+          "text": "Paste it from a message or note."
         },
         {
           "tag": "ul",
           "label": "At a glance"
-        },
-        {
-          "tag": "li",
-          "text": "No account"
         },
         {
           "tag": "li",
@@ -201947,6 +202662,14 @@
         {
           "tag": "li",
           "text": "Free to build and log"
+        },
+        {
+          "tag": "p",
+          "text": "No account. Your history stays on this phone, and after some workouts Taurifer offers ."
+        },
+        {
+          "tag": "b",
+          "text": "Save a backup copy"
         },
         {
           "tag": "section",
@@ -202460,9 +203183,12 @@
         },
         {
           "tag": "button",
-          "text": "Track my current program",
           "name": "Track my current program",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
         },
         {
           "tag": "span",
@@ -202533,6 +203259,8 @@
         {
           "tag": "button",
           "name": "Montar meu treino",
+          "labelledBy": "Montar meu treino",
+          "describedBy": "Responda algumas perguntas.",
           "type": "button"
         },
         {
@@ -202540,18 +203268,27 @@
           "text": "Montar meu treino"
         },
         {
+          "tag": "span",
+          "text": "Responda algumas perguntas."
+        },
+        {
           "tag": "button",
-          "text": "Acompanhar meu treino atual",
           "name": "Acompanhar meu treino atual",
+          "labelledBy": "Acompanhar meu treino atual",
+          "describedBy": "Cole de uma mensagem ou nota.",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Acompanhar meu treino atual"
+        },
+        {
+          "tag": "span",
+          "text": "Cole de uma mensagem ou nota."
         },
         {
           "tag": "ul",
           "label": "Em resumo"
-        },
-        {
-          "tag": "li",
-          "text": "Sem conta"
         },
         {
           "tag": "li",
@@ -202560,6 +203297,14 @@
         {
           "tag": "li",
           "text": "Grátis para montar e registrar"
+        },
+        {
+          "tag": "p",
+          "text": "Sem conta. Seu histórico fica neste celular, e depois de alguns treinos o Taurifer oferece ."
+        },
+        {
+          "tag": "b",
+          "text": "Salvar uma cópia de backup"
         },
         {
           "tag": "section",
@@ -203073,9 +203818,12 @@
         },
         {
           "tag": "button",
-          "text": "Acompanhar meu treino atual",
           "name": "Acompanhar meu treino atual",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Acompanhar meu treino atual"
         },
         {
           "tag": "span",
