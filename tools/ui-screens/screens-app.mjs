@@ -12,7 +12,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { buildProgramLab } from "../build-programlab.mjs";
 import { maybeStartLocalPreview } from "../local-preview.mjs";
-import { catalogState, directionDState, emptyEntryState, localeState, pastZeroState, portugueseLifterState } from "./fixtures.mjs";
+import { catalogState, directionDState, emptyEntryState, lifterExerciseNote, localeState, pastZeroState, portugueseLifterState } from "./fixtures.mjs";
 import { CAPTURE_NOW, dismissChrome, LOG_DRAFT, replayGuide, seed, sleep } from "./session.mjs";
 import { definitionSlot, installGeneratedProgram, isWeightRepsSlot, metricLogRow } from "../../test/fixtures/history-metric-rows.mjs";
 import { finishEarly } from "../../test/fixtures/focus-workout.mjs";
@@ -2926,7 +2926,8 @@ export const APP_SCENARIOS = {
     await focusMode(page);
     await page.locator("#woOverflowBtn").click({ timeout: 20000 }); await page.locator('[data-workout-action="note"]').click();
     await page.waitForSelector("#exNoteSheet.is-open", { timeout: 20000 });
-    await page.fill("#exNoteText", "Seat 4, pin 3. Wide grip and pause at the bottom of each rep.");
+    const lang = await page.evaluate(() => document.documentElement.lang);
+    await page.fill("#exNoteText", lifterExerciseNote(/^pt/i.test(lang) ? "pt" : "en"));
     await page.locator("#exNoteSave").click();
     await page.waitForSelector("#workout .exercise.is-current .fx-note", { timeout: 20000 });
     await page.waitForFunction(() => document.querySelector("#exNoteSheet")?.hidden === true, undefined, { timeout: 20000 });
