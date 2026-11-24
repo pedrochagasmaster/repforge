@@ -15136,7 +15136,7 @@ const repforgeProgramTransitionAdapter = {
     }));
     const preview = { source: "build", program: cloneSnapshot(program), programDefinition: cloneSnapshot(definition),
       days, customExercises: custom };
-    const name = state?.programMeta?.name || "Taurifer program";
+    const name = state?.programMeta?.name || t("untitled_program");
     const result = {
       schemaVersion: ProgramEntry.SCHEMA_VERSION,
       route: "build",
