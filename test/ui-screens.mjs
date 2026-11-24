@@ -20,6 +20,7 @@ import { compareCatalog, comparePngBuffers, CI_STRICT_THRESHOLDS } from "../tool
 import { checkCatalog } from "../tools/check-ui-screens.mjs";
 import { expandCaptures, loadManifest, variantSlug } from "../tools/ui-screens/manifest.mjs";
 import { APP_SCENARIOS, appState } from "../tools/ui-screens/screens-app.mjs";
+import * as fixtureModule from "../tools/ui-screens/fixtures.mjs";
 import { ONBOARDING_SCENARIOS } from "../tools/ui-screens/screens-onboarding.mjs";
 import { selectCaptures } from "../tools/capture-ui-screens.mjs";
 import { SUITES, parseShard } from "./suites.mjs";
@@ -175,6 +176,7 @@ assert.match(appScreens.slice(replayScenarioStart, replayScenarioEnd),
   const { EXERCISE_LIBRARY } = createRequire(import.meta.url)("../exercises.js");
   const library = new Map(EXERCISE_LIBRARY.map((entry) => [entry.id, entry]));
   const ENGLISH_LIFTER_TEXT = ["Full body", "Day 2 · mixed", "Designer catalog"];
+  const ENGLISH_LIFTER_NOTES = ["Rack on pin 9", "Back pad on 4", "Seat 4, pin 3. Wide grip and pause at the bottom of each rep."];
   const appKeys = [...new Set(captures.filter((item) => item.locale === "pt" && !item.flow.startsWith("onboarding"))
     .map((item) => `${item.flow}/${item.screen}`))];
   const problems = [];
@@ -199,7 +201,24 @@ assert.match(appScreens.slice(replayScenarioStart, replayScenarioEnd),
     const lifterText = [state.programMeta?.name, ...(state.programMeta?.programDefinition?.days || []).map((day) => day.name),
       ...(state.program || []).map((row) => row.day), ...(state.log || []).map((row) => row.day)];
     for (const text of ENGLISH_LIFTER_TEXT) if (lifterText.includes(text)) problems.push(`${key}: English lifter text "${text}"`);
+    // The lifter's own setup notes are their text too (owner, 2026-11-23).
+    const notes = [];
+    const collectNotes = (value) => {
+      if (Array.isArray(value)) value.forEach(collectNotes);
+      else if (value && typeof value === "object") {
+        for (const [field, item] of Object.entries(value)) {
+          if (/note/i.test(field) && typeof item === "string" && item.trim()) notes.push(item);
+          collectNotes(item);
+        }
+      }
+    };
+    collectNotes(state);
+    for (const note of ENGLISH_LIFTER_NOTES) if (notes.includes(note)) problems.push(`${key}: English lifter note "${note}"`);
   }
+  // A note the lifter types in a scenario is written in the frame's language.
+  const typedNote = typeof fixtureModule.lifterExerciseNote === "function" ? fixtureModule.lifterExerciseNote("pt") : null;
+  if (!typedNote || ENGLISH_LIFTER_NOTES.includes(typedNote)) problems.push(`workout/exercise-note-line: the typed note is not Portuguese (${JSON.stringify(typedNote)})`);
+  assert.doesNotMatch(appScreens, /#exNoteText", "Seat 4/, "the exercise-note scenario takes its note from the fixture lifter's language");
   assert.ok(appKeys.length > 50, "the Portuguese app states are enumerated");
   assert.deepEqual([...new Set(problems.map((line) => line.split(":")[0]))].slice(0, 12), [],
     `Portuguese catalog states hold English names a Portuguese lifter would not have:\n${problems.slice(0, 12).join("\n")}`);
