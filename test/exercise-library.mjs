@@ -137,6 +137,30 @@ assert(isDeepStrictEqual(mediaFileIds, licensedMediaIds),
 assert(EXERCISE_LIBRARY.every(exercise => exercise.media || exercise.mediaBg == null),
   "unmapped movements carry no fallback image or field color");
 
+{
+  // Vendored Gym visual animations: exact-name matches only, pinned by hash, credited in the product.
+  const { checkVendoredGifs, ATTRIBUTION } = await import("../tools/vendor-exercise-gifs.mjs");
+  const gifProblems = checkVendoredGifs();
+  assert(gifProblems.length === 0, "vendored exercise animations match their exact-name manifest",
+    gifProblems.slice(0, 6).join(" | "));
+  const gifManifest = existsSync(join(ROOT, "tools/exercise-gifs.json"))
+    ? JSON.parse(readFileSync(join(ROOT, "tools/exercise-gifs.json"), "utf8")) : { entries: {} };
+  assert(Object.keys(gifManifest.entries).length === 61,
+    "61 catalog movements carry a vendored animation", `${Object.keys(gifManifest.entries).length} mapped`);
+  assert(EXERCISE_LIBRARY.every(exercise => !/exercise-gifs|gymvisual|\.gif/i.test(JSON.stringify(exercise))),
+    "the search index does not reference the animations until the app displays them");
+  const shell = readFileSync(join(ROOT, "index.html"), "utf8");
+  const creditRow = shell.match(/id="settingsMediaCredit"[\s\S]*?<\/div>/)?.[0] || "";
+  assert(creditRow.includes(ATTRIBUTION) && creditRow.includes('data-i18n="settings.media_credit"'),
+    "Settings credits the animations with the Gym visual attribution verbatim");
+  assert(["en", "pt"].every(locale =>
+    typeof JSON.parse(readFileSync(join(ROOT, `i18n-${locale}.json`), "utf8"))["settings.media_credit"] === "string"),
+    "the credit label is translated in both locales");
+  const notice = readFileSync(join(ROOT, "NOTICE.md"), "utf8");
+  assert(notice.includes(ATTRIBUTION) && notice.includes("assets/exercise-gifs/"),
+    "NOTICE.md records the animations and their attribution");
+}
+
 const buildCheck = spawnSync(process.execPath, [join(ROOT, "tools/build-exercises.mjs"), "--check"], {
   cwd: ROOT, encoding: "utf8",
 });

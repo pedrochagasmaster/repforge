@@ -334,6 +334,19 @@ node tools/build-exercises.mjs --check
 node test/exercise-library.mjs
 ```
 
+## vendor-exercise-gifs.mjs
+
+Copies the Gym visual animations that match a catalog movement out of a local
+clone of hasaneyldrm/exercises-dataset (at the commit pinned in the script) into
+`assets/exercise-gifs/`, and writes `tools/exercise-gifs.json`. A movement
+matches only when its catalog name equals exactly one dataset name after case
+and punctuation are folded. Licence and attribution terms are in `NOTICE.md`.
+
+```
+node tools/vendor-exercise-gifs.mjs <path-to-dataset-clone>
+node tools/vendor-exercise-gifs.mjs --check
+```
+
 ## build-exercises.mjs
 
 Generates the compact synchronous picker index in `exercises.js` and the full

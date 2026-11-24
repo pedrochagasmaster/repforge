@@ -167,6 +167,16 @@ with icons, initials or silhouettes — `test/exercise-library.mjs` and
 — the one tool that needs the pinned test browser, because the files are lossy
 VP8 and Node has no decoder.
 
+`assets/exercise-gifs/` holds the 61 Gym visual animations vendored from
+hasaneyldrm/exercises-dataset under the owner's permission (`NOTICE.md`). A file
+is there only because its movement's catalog name equals exactly one dataset
+name; `tools/exercise-gifs.json` pins each to its UUID, dataset id and hash, and
+`node tools/vendor-exercise-gifs.mjs <clone>` regenerates the set (`--check`
+verifies it offline). Keep the files at 180×180 and unmodified, keep the
+"© Gym visual — https://gymvisual.com/" credit in Settings, and never add an
+animation by hand or by a looser match. The app does not display them yet and
+`exercises.js` does not reference them; they are not precached.
+
 ## Implementation and review evidence
 
 For UI-overhaul implementation or review, durable-schema changes, and new

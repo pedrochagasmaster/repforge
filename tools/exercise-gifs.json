@@ -1,0 +1,435 @@
+{
+  "schemaVersion": 1,
+  "repository": "https://github.com/hasaneyldrm/exercises-dataset",
+  "commit": "7455efae41b330c265e7cd4b78dfa848e7ce5ebd",
+  "attribution": "© Gym visual — https://gymvisual.com/",
+  "entries": {
+    "19f5c6f170d8808bb424e98de4472a7e": {
+      "sourceName": "Barbell bench press",
+      "datasetId": "0025",
+      "datasetName": "barbell bench press",
+      "file": "0025.gif",
+      "sha256": "2de66afbc9229d7c23b888b39b3c6a917ce950b429082050be29bd8f96c85d75"
+    },
+    "1a05c6f170d8803ba48ec1443eab5978": {
+      "sourceName": "Dumbbell bench press",
+      "datasetId": "0289",
+      "datasetName": "dumbbell bench press",
+      "file": "0289.gif",
+      "sha256": "3ba98c47d102bab77510300ba64c9e0c28668fcae9bb5b95b37482aae9f43e8e"
+    },
+    "1a05c6f170d880409e9cf644b585ca3a": {
+      "sourceName": "Dumbbell upright row",
+      "datasetId": "0437",
+      "datasetName": "dumbbell upright row",
+      "file": "0437.gif",
+      "sha256": "773c5daf60dbc4a628adbb2323ff0d7b3cba5ac798ec0b8065d1bec12563f43f"
+    },
+    "1a05c6f170d880638d90c257b0cb7fdd": {
+      "sourceName": "Cable upright row",
+      "datasetId": "0246",
+      "datasetName": "cable upright row",
+      "file": "0246.gif",
+      "sha256": "55a0d0f31d64d4061449d5fa3e385455b22e2f1003013faf666c0243774270c1"
+    },
+    "1a05c6f170d880639ca1ff8aeac1dd6e": {
+      "sourceName": "Barbell upright row",
+      "datasetId": "0120",
+      "datasetName": "barbell upright row",
+      "file": "0120.gif",
+      "sha256": "79f8c5ce28903e1dae01114d93c7b0b68f0ef1ae166532f569691907f2b9734d"
+    },
+    "1a05c6f170d88066930edfaf0f233e20": {
+      "sourceName": "Single arm push-up",
+      "datasetId": "0725",
+      "datasetName": "single arm push-up",
+      "file": "0725.gif",
+      "sha256": "af1d19501edf4fbb19accb0aaa750e9b6b755148bd09348eb04c3f77bd9a1632"
+    },
+    "1a05c6f170d8806ab70ee93a5c79d733": {
+      "sourceName": "Dumbbell fly",
+      "datasetId": "0308",
+      "datasetName": "dumbbell fly",
+      "file": "0308.gif",
+      "sha256": "bc51f3cfad0bade1395385553d68f77481cf6622947b49e9f6357187898924f3"
+    },
+    "1a05c6f170d8808092c2da8955b361f1": {
+      "sourceName": "Incline push-up",
+      "datasetId": "0493",
+      "datasetName": "incline push-up",
+      "file": "0493.gif",
+      "sha256": "b461ed0cfcae9dc9e25b2e82824f80f66cc450d33abb3be36b15d029290cc754"
+    },
+    "1a05c6f170d880a5b43fe13bcb1b6f3a": {
+      "sourceName": "Push-up",
+      "datasetId": "0662",
+      "datasetName": "push-up",
+      "file": "0662.gif",
+      "sha256": "22d3df1d1d7dea5edd61907e431ef6a5c4bf4bd1b6d290981a437576c3833464"
+    },
+    "1a05c6f170d880cd8e13ef0e0d5a4637": {
+      "sourceName": "Decline push-up",
+      "datasetId": "0279",
+      "datasetName": "decline push-up",
+      "file": "0279.gif",
+      "sha256": "e5430a8eb3f5ceeccea4daa1661be4b56bcdac5f547d2bfda68d2cbabe47281a"
+    },
+    "1a05c6f170d880dfb02cf76f7519927d": {
+      "sourceName": "Close grip push-up",
+      "datasetId": "0259",
+      "datasetName": "close-grip push-up",
+      "file": "0259.gif",
+      "sha256": "33560f0eb37afaea0660eedfbdeb8eed7e0ad7896bdf9d388039fa93f3ffb91c"
+    },
+    "1a05c6f170d880dfb155db9048527b8b": {
+      "sourceName": "Triceps dip",
+      "datasetId": "0814",
+      "datasetName": "triceps dip",
+      "file": "0814.gif",
+      "sha256": "939437b69dbfe28ac5e8a56eaefaca3c4a8f1b766242b732c429b3e9a9b4b7dd"
+    },
+    "1a05c6f170d880e58be2eda50377286f": {
+      "sourceName": "Dumbbell push press",
+      "datasetId": "1700",
+      "datasetName": "dumbbell push press",
+      "file": "1700.gif",
+      "sha256": "88604d14f979c30b2322d0306b55d381a7d8a337fe2326544c10b52144b3bc88"
+    },
+    "1a15c6f170d880009c83d4273fef90bd": {
+      "sourceName": "Close grip chin-up",
+      "datasetId": "1327",
+      "datasetName": "close grip chin-up",
+      "file": "1327.gif",
+      "sha256": "655acbf5074db13a0b01845ebf9c38955702fd4edaa143a16f8405bd029374e0"
+    },
+    "1a15c6f170d880169a4dd5ff44c08a34": {
+      "sourceName": "Barbell drag curl",
+      "datasetId": "0038",
+      "datasetName": "barbell drag curl",
+      "file": "0038.gif",
+      "sha256": "d86a247820425d14db45ff6ec34b0de3898eb1eefdeb3b856998031d85425348"
+    },
+    "1a15c6f170d8803fbfb3de3621bd96b5": {
+      "sourceName": "Cable shrug",
+      "datasetId": "0220",
+      "datasetName": "cable shrug",
+      "file": "0220.gif",
+      "sha256": "3307653df7610db4d0671639473ed2bf23021f8992e9f1e2b2aea4b2800f88c0"
+    },
+    "1a15c6f170d88047b707cb56112beab4": {
+      "sourceName": "Cable reverse curl",
+      "datasetId": "0206",
+      "datasetName": "cable reverse curl",
+      "file": "0206.gif",
+      "sha256": "8914311414878342131328bfa1d3f8934ccebe4f1c0d9b8c8e74225f21f80162"
+    },
+    "1a15c6f170d8805383b3da6ad1c513a9": {
+      "sourceName": "Muscle-up",
+      "datasetId": "0631",
+      "datasetName": "muscle up",
+      "file": "0631.gif",
+      "sha256": "30efd5c8e9d84b6e47f6d1e387aca415a0bb7dea82948e696153b3727faf43f8"
+    },
+    "1a15c6f170d88061b074caacc5a76081": {
+      "sourceName": "Barbell shrug",
+      "datasetId": "0095",
+      "datasetName": "barbell shrug",
+      "file": "0095.gif",
+      "sha256": "f1e98f227e445ee94ca2c049dfa87a6f84eb043f95bd9176a291d3a330c88d81"
+    },
+    "1a15c6f170d8806390e7e1743452b88c": {
+      "sourceName": "Barbell reverse curl",
+      "datasetId": "0080",
+      "datasetName": "barbell reverse curl",
+      "file": "0080.gif",
+      "sha256": "fafedfec56f75b754b78d734c830723307acde320313495f8c4ce1a4fafd99fb"
+    },
+    "1a15c6f170d880849033e0f75c6ee758": {
+      "sourceName": "Wide grip pull-up",
+      "datasetId": "1429",
+      "datasetName": "wide grip pull-up",
+      "file": "1429.gif",
+      "sha256": "493db1a5b7fe93c99d3f64382b25df69a0b9456f8e720d403e79562a32dddef9"
+    },
+    "1a15c6f170d8808b9721ff65d549d8ba": {
+      "sourceName": "Dumbbell pullover",
+      "datasetId": "0375",
+      "datasetName": "dumbbell pullover",
+      "file": "0375.gif",
+      "sha256": "12efed2a1d8a02b3d5542dde719d4437cd11cd188fc848ece2d33ab8041947fc"
+    },
+    "1a15c6f170d880b6adcbff83e8bb6b0f": {
+      "sourceName": "Chin-up",
+      "datasetId": "1326",
+      "datasetName": "chin-up",
+      "file": "1326.gif",
+      "sha256": "d35d8f6ac84bcde2f3657a0d4d2e2e2eff08c7ab6dc29a37dd7f5ce24e19dd19"
+    },
+    "1a15c6f170d880cdb451e459ddf41d2a": {
+      "sourceName": "Scapular pull-up",
+      "datasetId": "0688",
+      "datasetName": "scapular pull-up",
+      "file": "0688.gif",
+      "sha256": "c09f39d380d32d1f453b72ea01b4aea36cc21eb6749a87efc9d341b51758627e"
+    },
+    "1a15c6f170d880d392eae0869b5c9355": {
+      "sourceName": "Handstand push-up",
+      "datasetId": "0471",
+      "datasetName": "handstand push-up",
+      "file": "0471.gif",
+      "sha256": "8eb8f33c9b472a5ec6979fd5e21d6a65432b15c6c14d8f660dfaa7ae31ea2306"
+    },
+    "1a15c6f170d880d7b8cbf608580aaa50": {
+      "sourceName": "Dumbbell concentration curl",
+      "datasetId": "0297",
+      "datasetName": "dumbbell concentration curl",
+      "file": "0297.gif",
+      "sha256": "efcf0be34ec9f9b0cd3df56a856f83419e5c37a4b9c7535dc85633018d37e5e0"
+    },
+    "1a25c6f170d880708256e9a8bf6337bf": {
+      "sourceName": "Dumbbell squat",
+      "datasetId": "0413",
+      "datasetName": "dumbbell squat",
+      "file": "0413.gif",
+      "sha256": "076e94d855eb339be5b6b6c16984e6d11285c2cfcecc4a0c8a0506a1dae5f69b"
+    },
+    "1a25c6f170d880e09445d806733a82a2": {
+      "sourceName": "Dumbbell step-up",
+      "datasetId": "0431",
+      "datasetName": "dumbbell step-up",
+      "file": "0431.gif",
+      "sha256": "a1b6f1c3c11db9513a59a49954f66b7ef9cbb4999f5da4e74c8e074a5402587a"
+    },
+    "1a25c6f170d880e9a081d306d6073583": {
+      "sourceName": "Sissy squat",
+      "datasetId": "1489",
+      "datasetName": "sissy squat",
+      "file": "1489.gif",
+      "sha256": "40ca6d31a3cd4b4c042a305094c538f6d2c47f9eeaa90cb5d83bd9f918dee3cb"
+    },
+    "1a25c6f170d880feb30bf825a7d3602a": {
+      "sourceName": "Barbell overhead squat",
+      "datasetId": "0069",
+      "datasetName": "barbell overhead squat",
+      "file": "0069.gif",
+      "sha256": "eef351aaf4e51e100a13207f36b89685961b34f954d0c501f219adf4bd979dbc"
+    },
+    "1a35c6f170d8801b9d6af6cb4040482f": {
+      "sourceName": "Weighted crunch",
+      "datasetId": "0832",
+      "datasetName": "weighted crunch",
+      "file": "0832.gif",
+      "sha256": "4ed2d3846faf55f8085987f9ad5fc85cabfbb05f4ca127107526233be2423193"
+    },
+    "1a35c6f170d8803da7d8d3df40fda893": {
+      "sourceName": "Kettlebell swing",
+      "datasetId": "0549",
+      "datasetName": "kettlebell swing",
+      "file": "0549.gif",
+      "sha256": "a84dd0bca7f494f9806390e3e028f385c4a7dc5afd9852980c4f3e4f67936756"
+    },
+    "1a35c6f170d880489b7be1d31faff56b": {
+      "sourceName": "Dumbbell Romanian deadlift",
+      "datasetId": "1459",
+      "datasetName": "dumbbell romanian deadlift",
+      "file": "1459.gif",
+      "sha256": "728b2fd47d29556886078e20d5b60cfa693e7d5e4623e4d1988ab304eb85121e"
+    },
+    "1a35c6f170d880968781e5e96679c367": {
+      "sourceName": "Barbell glute bridge",
+      "datasetId": "1409",
+      "datasetName": "barbell glute bridge",
+      "file": "1409.gif",
+      "sha256": "f6792b8cfd188c4e5c3cd4c1a13429950c1334335dd9b56192b17e9793e9133c"
+    },
+    "1a35c6f170d880bebc64f4dce0d5f5f1": {
+      "sourceName": "Barbell Romanian deadlift",
+      "datasetId": "0085",
+      "datasetName": "barbell romanian deadlift",
+      "file": "0085.gif",
+      "sha256": "32d2f54834207624b965db5f4f5b875589d608990c3f85d3732062f30c3916b1"
+    },
+    "1a35c6f170d880eda0b7e8540f9367a6": {
+      "sourceName": "Barbell good morning",
+      "datasetId": "0044",
+      "datasetName": "barbell good morning",
+      "file": "0044.gif",
+      "sha256": "7d01b04b09e80504323e66295f757b2f0328dab7a3d71d637a2916d391634a1f"
+    },
+    "1a45c6f170d8804a9e47ea9bf9442850": {
+      "sourceName": "Power clean",
+      "datasetId": "0648",
+      "datasetName": "power clean",
+      "file": "0648.gif",
+      "sha256": "894cf8e28bcff4a680c3c242e807e126f419a0f4582b189976de8f72e6f050df"
+    },
+    "1a45c6f170d8805c8bc9f17b441a96d9": {
+      "sourceName": "Dumbbell side bend",
+      "datasetId": "0407",
+      "datasetName": "dumbbell side bend",
+      "file": "0407.gif",
+      "sha256": "0cfb78438c534bcd4c536c5aca32a8ed24e8cb1d6beb462f1fdabfc3824f36a2"
+    },
+    "1a45c6f170d88065be3acba9f007a364": {
+      "sourceName": "Hanging straight leg raise",
+      "datasetId": "0475",
+      "datasetName": "hanging straight leg raise",
+      "file": "0475.gif",
+      "sha256": "f0461b0c517daf19f4b5a169911a90687096e7cdb43004279e9527304f54e80c"
+    },
+    "1a45c6f170d88088a607cb473ed28d7f": {
+      "sourceName": "Cable side bend",
+      "datasetId": "0222",
+      "datasetName": "cable side bend",
+      "file": "0222.gif",
+      "sha256": "764c4d2b31ecbd89412db66cf671b5d860599be011a666a3d42b4b9a5cab158b"
+    },
+    "1dc5c6f170d88089b852feeb63b0e9e2": {
+      "sourceName": "Barbell pullover",
+      "datasetId": "0073",
+      "datasetName": "barbell pullover",
+      "file": "0073.gif",
+      "sha256": "d3aea3e7748917a92feb9397d9cbdff81bc4f9838909e8299c51a58c097e78c7"
+    },
+    "1f15c6f170d8804d99b1d1aedad699ce": {
+      "sourceName": "Barbell straight-leg deadlift",
+      "datasetId": "0116",
+      "datasetName": "barbell straight leg deadlift",
+      "file": "0116.gif",
+      "sha256": "52ed5480967eecbcfad9aa972fd59a6a525920e0d02d623330b984f4c0a9e2bd"
+    },
+    "2335c6f170d8806ca3efcb9b8fa09e94": {
+      "sourceName": "Push-up plus",
+      "datasetId": "3145",
+      "datasetName": "push-up plus",
+      "file": "3145.gif",
+      "sha256": "6f10e94d13611e132e3af15b6332fe59e89a8a60adc0a0a0cb36689e3e8fc39e"
+    },
+    "2335c6f170d880b3bf05fbd3fe896667": {
+      "sourceName": "Diamond push-up",
+      "datasetId": "0283",
+      "datasetName": "diamond push-up",
+      "file": "0283.gif",
+      "sha256": "3f6e6ce0b27eb75fa50b830c1e43c7e09338c1aec71ddf843798829d0f4da7d9"
+    },
+    "2765c6f170d8805887baffcb3def81fb": {
+      "sourceName": "Weighted Russian twist",
+      "datasetId": "0846",
+      "datasetName": "weighted russian twist",
+      "file": "0846.gif",
+      "sha256": "178a0c635d53534ff0e66ae182d17112bbdee27cc7cbb98c168456de86db36d3"
+    },
+    "2775c6f170d8801eb7ccd455a85f58ff": {
+      "sourceName": "Dead bug",
+      "datasetId": "0276",
+      "datasetName": "dead bug",
+      "file": "0276.gif",
+      "sha256": "c3dde2bfa860d8a141861ee94259e9fafee2096c74cb0553c87a05bae9544b21"
+    },
+    "2965c6f170d880f8b368e35f599819f7": {
+      "sourceName": "Barbell front raise",
+      "datasetId": "0041",
+      "datasetName": "barbell front raise",
+      "file": "0041.gif",
+      "sha256": "418f37b4efab75e7868a37191d31345a6d7cb1a9f4169348b23fb2c0a1c51ff7"
+    },
+    "2965c6f170d880fcbe4ef2971006df0a": {
+      "sourceName": "Cable front raise",
+      "datasetId": "0162",
+      "datasetName": "cable front raise",
+      "file": "0162.gif",
+      "sha256": "9d8fb2ebd6d2f7c30aabc9350926d1bfc8077449b6049eff63466c05bf709def"
+    },
+    "2995c6f170d880daa027fa6e51c2b961": {
+      "sourceName": "Glute ham raise",
+      "datasetId": "3193",
+      "datasetName": "glute-ham raise",
+      "file": "3193.gif",
+      "sha256": "c084edd198afb5db2d3000317380711b59c40363de68c3d43284cc401c7f015f"
+    },
+    "29f5c6f170d8800f9577c4c1d85c2900": {
+      "sourceName": "Dumbbell preacher curl",
+      "datasetId": "0372",
+      "datasetName": "dumbbell preacher curl",
+      "file": "0372.gif",
+      "sha256": "986253c2e61860db6345c6318a9478abda59898dd4276f415644109e10376278"
+    },
+    "2a05c6f170d8807eaae8dd03a2958412": {
+      "sourceName": "Incline close grip push-up",
+      "datasetId": "0490",
+      "datasetName": "incline close-grip push-up",
+      "file": "0490.gif",
+      "sha256": "ff0359df0dff881303eba28bdfad2756d826424fcb73a60ea44151fd31e60ec6"
+    },
+    "2a05c6f170d880a3a7b5c523968fc01b": {
+      "sourceName": "Cable hip adduction",
+      "datasetId": "0168",
+      "datasetName": "cable hip adduction",
+      "file": "0168.gif",
+      "sha256": "c290ae2d91d172432ed19062c8735087a13ac0da8e11deb1748d031c90f1fbb6"
+    },
+    "2a05c6f170d880c897bbfc6bb80b7ab3": {
+      "sourceName": "Cable concentration curl",
+      "datasetId": "1631",
+      "datasetName": "cable concentration curl",
+      "file": "1631.gif",
+      "sha256": "bdf4381cdfa8ed2311cb38aba8bf8f5d90f569141a7232ce3218dc3d32074e65"
+    },
+    "2aa5c6f170d8805eba89d16e66093142": {
+      "sourceName": "Cable shoulder press",
+      "datasetId": "0219",
+      "datasetName": "cable shoulder press",
+      "file": "0219.gif",
+      "sha256": "54a8336bf3fdc2e51ab25def8e9afa01c4282a1c33d722c2e1e41f4042576095"
+    },
+    "2ff5c6f170d880a6a051db7051c1058b": {
+      "sourceName": "Jump rope",
+      "datasetId": "2612",
+      "datasetName": "jump rope",
+      "file": "2612.gif",
+      "sha256": "4590924327d2689fb2d8419e93f8485438031812767a14684dece560ca3f77b1"
+    },
+    "3065c6f170d8807abd9fc6be633e0b19": {
+      "sourceName": "Dumbbell deadlift",
+      "datasetId": "0300",
+      "datasetName": "dumbbell deadlift",
+      "file": "0300.gif",
+      "sha256": "2a41271d75b2c7863b833e6b77e36b2a60056f92d2e5def9d1d87487ff095881"
+    },
+    "30b5c6f170d880f095f4f7f423995a46": {
+      "sourceName": "Barbell thruster",
+      "datasetId": "3305",
+      "datasetName": "barbell thruster",
+      "file": "3305.gif",
+      "sha256": "b4bacf1437684442b6957b522312d5c33393e5b6a5d400536c23099828d37869"
+    },
+    "30d5c6f170d880b280d7dd08039a0bfa": {
+      "sourceName": "Band squat",
+      "datasetId": "1004",
+      "datasetName": "band squat",
+      "file": "1004.gif",
+      "sha256": "10bbf6b46b4fa8d4c25e7172b0c19fa9c1bfe61ccefc2df20e00446abb812502"
+    },
+    "31c5c6f170d8800685abe9fd6c2983de": {
+      "sourceName": "Burpee",
+      "datasetId": "1160",
+      "datasetName": "burpee",
+      "file": "1160.gif",
+      "sha256": "d2e45138b446c4c7eced4496554736068ef66a61bd553c5fe284e3ed8aa44c53"
+    },
+    "3315c6f170d880d296abfb90dbd5aa6b": {
+      "sourceName": "Band front raise",
+      "datasetId": "0978",
+      "datasetName": "band front raise",
+      "file": "0978.gif",
+      "sha256": "3f2a69cc60f7461f20658d89b9a1c53e4303be9ece435ff6027ed2df1b050ee9"
+    },
+    "3315c6f170d880ed991de6eed4888002": {
+      "sourceName": "Band shrug",
+      "datasetId": "1018",
+      "datasetName": "band shrug",
+      "file": "1018.gif",
+      "sha256": "7a8c57719a602d26997a83e83262fbf9dba0b70054ebd09254a7778d8014e6cf"
+    }
+  }
+}

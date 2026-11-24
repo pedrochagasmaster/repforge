@@ -34,27 +34,38 @@ Taurifer uses only the **non-media** portion of that dataset: movement names,
 equipment, and muscle tags, remapped to Taurifer's own equipment and muscle
 vocabulary and reduced to a curated subset. Portuguese names are Taurifer's own.
 
-### The dataset's media is deliberately excluded
+### Exercise animations (Gym visual)
 
 That repository also ships `images/` and `videos/`. Those are **not** covered by
-its MIT license — they belong to [Gym visual](https://gymvisual.com/) and are
-redistributed there under a written permission granted to that repository
-alone. Its `NOTICE.md` is explicit that cloning does not convey any license to
-the media.
+its MIT license. They belong to [Gym visual](https://gymvisual.com/), and that
+repository's `NOTICE.md` is explicit that cloning it does not convey any license
+to the media.
 
-The Taurifer application uses **none** of it. `tools/build-exercises.mjs` reads
-only `data/exercises.json` and never opens the media directories, and
-`test/exercise-library.mjs` fails if a generated entry so much as mentions an
-upstream media path. Using that project's demo media would require a license
-obtained directly from Gym visual.
+Taurifer vendors a subset of the `videos/` animations under
+`assets/exercise-gifs/` on the strength of a separate permission from Gym visual
+that the project owner holds (recorded here on 2026-11-24). They remain the
+property of Gym visual, governed by its
+[Terms & Conditions of Use](https://gymvisual.com/content/3-terms-and-conditions-of-use),
+and this repository grants no rights to them. The terms Taurifer follows:
 
-#### Exception: the style-transfer experiment pack
+- **Attribution:** every use carries **© Gym visual — https://gymvisual.com/**.
+  The product shows it in Settings.
+- **Resolution:** the files are kept at **180×180**, byte-for-byte as published.
+
+Only movements whose catalog name equals exactly one dataset name (case and
+punctuation folded, no fuzzy or alias matching) are vendored: 61 files, pinned
+to dataset commit `7455efae41b330c265e7cd4b78dfa848e7ce5ebd` and to a content
+hash each in `tools/exercise-gifs.json`. `tools/vendor-exercise-gifs.mjs`
+produces that set and `test/exercise-library.mjs` fails on any file outside it.
+The dataset's `images/` directory and every other animation stay excluded.
+
+#### The style-transfer experiment pack
 
 `taurifer-style-transfer-experiment-pack-v4-codex-judge.zip` at the repository
 root is a research artifact, not part of the shipped application. It contains
 four `reference_exdb_*.jpg` frames and a contact sheet derived from that
 dataset's `videos/` directory — that is, from the Gym visual media described
-above. Their provenance is recorded in the pack's
+above, outside the vendored set. Their provenance is recorded in the pack's
 `benchmark/selected_pairs_manifest.csv`. They are **not** covered by the
 dataset's MIT license, no license to them is granted by this repository, and
 nothing in the app reads them.

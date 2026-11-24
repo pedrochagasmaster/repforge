@@ -94,6 +94,7 @@ app.js
 shared-setup.js         # setup-link codec (v1/v2 envelopes)
 exercises.js            # generated exercise library (see tools/README.md)
 assets/exercises/       # the 96 licensed exercise illustrations
+assets/exercise-gifs/   # 61 Gym visual exercise animations (see NOTICE.md)
 manifest.webmanifest
 sw.js
 icons/                  # SVG source, PWA icons, Apple touch icon, and iOS launch images
