@@ -967,6 +967,67 @@ try {
   }
 
   // ---------------------------------------------------------------------------
+  // 11b. Settings → Export backup JSON: each share outcome (#817)
+  // A cancelled share sheet is the lifter saying no: nothing downloads and no backup is recorded. A share the browser
+  // refuses (NotAllowedError, TypeError) falls back to a download. The share is called before the durable commit, so it
+  // stays inside the tap's user activation, and the backup time is recorded only once a share resolved or a download
+  // started.
+  // ---------------------------------------------------------------------------
+  {
+    console.log("\nSettings export: share outcomes");
+    const { context, page } = await freshContext(browser);
+    await bootThenClear(page);
+    const base = sampleState({ name: "Export", revision: 3 });
+    base.settings.lastExport = "";
+    await page.evaluate(({ k, blob }) => localStorage.setItem(k, JSON.stringify(blob)), { k: KEY, blob: base });
+    await idbPut(page, JSON.parse(JSON.stringify(base)));
+    await reloadForApp(page);
+    const stubShare = (mode) => page.evaluate(({ mode, k }) => {
+      window.__exportProbe = { downloads: 0, shares: 0, lastExportAtShare: null };
+      if (!window.__exportProbeInstalled) {
+        window.__exportProbeInstalled = true;
+        const create = URL.createObjectURL.bind(URL);
+        URL.createObjectURL = (blob) => { if (blob?.type === "application/json") window.__exportProbe.downloads++; return create(blob); };
+      }
+      Object.defineProperty(navigator, "canShare", { configurable: true, value: (data) => Array.isArray(data?.files) });
+      Object.defineProperty(navigator, "share", { configurable: true, value: async () => {
+        window.__exportProbe.shares++;
+        window.__exportProbe.lastExportAtShare = JSON.parse(localStorage.getItem(k)).settings.lastExport;
+        if (mode === "resolve") return;
+        throw new DOMException("stub", mode);
+      } });
+    }, { mode, k: KEY });
+    const exportOnce = async () => {
+      await page.evaluate(() => document.querySelector("#exportJson")?.click());
+      await page.evaluate(() => window.__repforgeStorage.backupExportSettled());
+      await page.evaluate(() => window.__repforgeStorage.flush());
+      return page.evaluate((k) => ({ ...window.__exportProbe, lastExport: JSON.parse(localStorage.getItem(k)).settings.lastExport }), KEY);
+    };
+
+    await stubShare("AbortError");
+    let probe = await exportOnce();
+    assert(probe.shares === 1 && probe.downloads === 0 && probe.lastExport === "",
+      "a cancelled share sheet downloads nothing and records no backup", JSON.stringify(probe));
+    assert(probe.lastExportAtShare === "", "the share sheet opens before anything is committed (inside the tap)", JSON.stringify(probe));
+
+    await stubShare("NotAllowedError");
+    probe = await exportOnce();
+    assert(probe.shares === 1 && probe.downloads === 1 && Date.now() - Date.parse(probe.lastExport) < 60000,
+      "a share the browser refuses falls back to a download, and the backup is recorded", JSON.stringify(probe));
+
+    await stubShare("TypeError");
+    probe = await exportOnce();
+    assert(probe.shares === 1 && probe.downloads === 1, "a share that cannot take the file falls back to a download", JSON.stringify(probe));
+
+    await stubShare("resolve");
+    const before = probe.lastExport;
+    probe = await exportOnce();
+    assert(probe.shares === 1 && probe.downloads === 0 && probe.lastExport && probe.lastExport >= before,
+      "a completed share records the backup without downloading too", JSON.stringify(probe));
+    await context.close();
+  }
+
+  // ---------------------------------------------------------------------------
   // 12. Replace / merge import revision and adapter matrix
   // ---------------------------------------------------------------------------
   {
