@@ -2459,7 +2459,7 @@
   "landing.hero.chips_aria": "Em resumo",
   "landing.hero.chip.offline": "Funciona sem internet depois de aberto",
   "landing.hero.chip.free": "Grátis para montar e registrar",
-  "landing.hero.data": "Sem conta. Seu treino e seu histórico ficam neste celular. Para guardar uma cópia, abra {settings} e toque em {export}.",
+  "landing.hero.data": "Sem conta. Seu histórico fica neste celular, e depois de alguns treinos o Taurifer oferece {save}.",
   "landing.demo.title": "Veja na prática.",
   "landing.anim.sub": "Esta é a tela de treino do app numa sessão de supino reto no Smith: a meta, um toque para registrar a série, o descanso e o que muda na próxima vez.",
   "landing.anim.ch1.title": "Saiba a carga",

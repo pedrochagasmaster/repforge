@@ -18,6 +18,9 @@ import { DIRECTION_D_DATA } from "./direction-d-fixture.generated.mjs";
 import { DIRECTION_D_CANONICAL_DATA } from "./direction-d-canonical-fixture.generated.mjs";
 import { seedProgram, seedProgramMeta } from "../../test/fixtures/seed-program.mjs";
 import { definitionSlot, metricLogRow } from "../../test/fixtures/history-metric-rows.mjs";
+import { createRequire } from "node:module";
+
+const LIBRARY_BY_ID = new Map(createRequire(import.meta.url)("../../exercises.js").EXERCISE_LIBRARY.map((entry) => [entry.id, entry]));
 
 function isoDaysAgo(n) {
   const d = new Date(Date.parse(CAPTURE_NOW));
@@ -180,4 +183,40 @@ export function activeEntryState(lang = "en") {
 
 export function localeState(state, lang) {
   return { ...state, settings: { ...state.settings, lang } };
+}
+
+/* The lifter's own words in these fixtures, as a Portuguese lifter would have
+   typed them. App-authored names need no entry here: "Day N" and generated day
+   names are localized on screen. */
+const PORTUGUESE_LIFTER_TEXT = Object.freeze({
+  "Full body": "Corpo inteiro",
+  "Day 2 · mixed": "Dia 2 · misto",
+  "Designer catalog": "Catálogo de design",
+});
+
+/**
+ * What a Portuguese lifter's device holds for the same program. The design
+ * fixtures keep the review page's English labels on real library movements,
+ * which the app reads as the lifter's own English renames. A Portuguese lifter
+ * who picked those movements has the library's own names stored, and the app
+ * shows their Portuguese names. Custom exercises and every id stay as they
+ * are; only exact stored strings are replaced.
+ */
+export function portugueseLifterState(state) {
+  const names = new Map(Object.entries(PORTUGUESE_LIFTER_TEXT));
+  const rename = (id, labels) => {
+    const entry = LIBRARY_BY_ID.get(String(id ?? ""));
+    if (entry) for (const label of labels) if (label && label !== entry.name) names.set(label, entry.name);
+  };
+  for (const row of state.program || []) rename(row.libraryId, [row.name, row.displayName]);
+  // A swapped set keeps its template's name beside the movement performed.
+  for (const row of state.log || []) rename(row.performedLibraryId, row.name === row.performedName ? [row.name] : [row.performedName]);
+  const replace = (value) => {
+    if (typeof value === "string") return names.has(value) ? names.get(value) : value;
+    if (Array.isArray(value)) return value.map(replace);
+    if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, replace(item)]));
+    return value;
+  };
+  const { settings, ...data } = state;
+  return { settings, ...replace(data) };
 }

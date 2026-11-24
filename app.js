@@ -15136,7 +15136,7 @@ const repforgeProgramTransitionAdapter = {
     }));
     const preview = { source: "build", program: cloneSnapshot(program), programDefinition: cloneSnapshot(definition),
       days, customExercises: custom };
-    const name = state?.programMeta?.name || "Taurifer program";
+    const name = state?.programMeta?.name || t("untitled_program");
     const result = {
       schemaVersion: ProgramEntry.SCHEMA_VERSION,
       route: "build",
@@ -26635,7 +26635,7 @@ function renderLandingWays(){
   fill("ways.written",esc(t("landing.ways.written.body",{weeks:landingNum(defaultProgramMeta().mesocycleLengthWeeks)})));
   fill("ways.where",landingRich("landing.ways.paste.where",{},{track:t("landing.track"),hub:t("entry.hub.title"),
     own:t("entry.hub.b.import.title"),paste:t("entry.import_source.to_freeform")}));
-  fill("hero.data",landingRich("landing.hero.data",{},{settings:t("nav.settings"),export:t("settings.export_backup_json")}));
+  fill("hero.data",landingRich("landing.hero.data",{},{save:t("summary.backup.save")}));
   fill("ways.today",landingRich("landing.ways.paste.today",{},{use:t("entry.preview.activate_first"),today:t("nav.log")}));
   fill("data.pointer",landingRich("landing.data.pointer",{},{settings:t("nav.settings"),privacy:t("privacy.open")}));
   fill("faq.coach.a1",landingRich("landing.faq.coach.a1",{},{control:t("program.share_setup")}));
