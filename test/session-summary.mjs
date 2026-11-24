@@ -925,6 +925,9 @@ async function run() {
       "the cue sits in the report above Share and Done, and both of its actions are full targets", JSON.stringify(cue));
     await page.click("#sumBackupSave");
     await page.waitForFunction(() => !!window.__sharedBackup, undefined, { timeout: 5000 });
+    // #829: the stub records the file inside the share call, but the backup time is committed only after the share
+    // resolves. Read storage once that export has settled.
+    await page.evaluate(() => window.__repforgeStorage.backupExportSettled());
     const shared = await page.evaluate(() => window.__sharedBackup);
     const saved = await page.evaluate((k) => JSON.parse(localStorage.getItem(k)), KEY);
     let parsed = null;
@@ -959,6 +962,8 @@ async function run() {
     const download = page.waitForEvent("download", { timeout: 5000 });
     await page.click("#sumBackupSave");
     const file = await download.catch(() => null);
+    // The download path commits the backup time too; let it land before the next case reseeds storage.
+    await page.evaluate(() => window.__repforgeStorage.backupExportSettled());
     assert(/^taurifer_backup_\d{4}-\d{2}-\d{2}\.json$/.test(file?.suggestedFilename() || ""),
       "where files cannot be shared the backup downloads", file?.suggestedFilename() || "no download");
     await closeSummary();
