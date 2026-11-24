@@ -355,6 +355,23 @@ if (BROWSER) {
     await context.close();
   }
 
+  // Journey C (Portuguese, unnamed program): the guided draft needs a program
+  // name, and one the app supplies is in the lifter's language, never English.
+  {
+    const { context, page } = await freshPage("pt-BR");
+    await seedGeneratedProgram(page, { days: 2, minutes: 90 });
+    await finishBlock(page);
+    await page.evaluate(() => { state.programMeta.name = ""; });
+    await openReview(page);
+    const step = await driveToPreview(page, { kind: "fewer_days", value: 2 });
+    assert.equal(step.staged, true, "PT: the unmeetable target stages the guided draft");
+    const draft = JSON.parse((await stateOf(page)).setupDraft || "{}");
+    const untitled = JSON.parse(fs.readFileSync(path.join(root, "i18n-pt.json"), "utf8")).untitled_program;
+    assert.equal(draft?.state?.result?.name, untitled, "PT: an unnamed program's guided draft is named in Portuguese");
+    await page.click("[data-flow-cancel]");
+    await context.close();
+  }
+
   // Journey D: a supported sessions-too-long diagnosis preserves frequency,
   // previews the exact target duration and remains inert before confirmation.
   {
