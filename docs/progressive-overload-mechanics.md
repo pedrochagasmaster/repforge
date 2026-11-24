@@ -187,9 +187,10 @@ sections 5 through 8.
 ## 4. What the app learns about you
 
 The engine anchors a lift on the median first-set capacity of its last three
-comparable sessions. That estimate is never lower than what the latest first
-set performed (its load and full reps, with no reps left counted), unless that
-set is more than 15% above the median, which marks it as the odd session. It uses the observed drop between sets to estimate the
+comparable sessions. That estimate is never lower than the latest first set's
+own strength score (reps left counted the same way, at most five and after any
+test-set correction), unless that set is more than 15% above the median, which
+marks it as the odd session and is ignored. It uses the observed drop between sets to estimate the
 later sets, then searches the available loads for the program's rep target.
 A test-set correction can adjust how reported reps left are read, within the
 existing load bound. Standing does not change the selected load or reps. If its evidence cannot be

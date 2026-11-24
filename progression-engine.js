@@ -1,7 +1,7 @@
 (function (root) {
   "use strict";
 
-  const ENGINE_VERSION = "078.3";
+  const ENGINE_VERSION = "078.4";
   const STANDING_VERSION = "standing@078.1";
   // Reps in reserve are reliable near failure and guesses far from it, so a performed set earns capacity for at most
   // this many (owner, 2026-11-05; Plan 077 OD-23b). Targets keep their own 0–6 bound.
@@ -456,11 +456,11 @@
     if (!latest.length) return null;
     const mostRecent = latest.at(-1);
     // The median steadies the estimate against one odd session, but it lags a lifter who improved: it cannot sit below
-    // what the latest first set performed. Those full reps at that load are fact, with no reported effort in them
-    // (owner report, 2026-11-23). A latest set further above the median than ANCHOR_JUMP_LIMIT is the odd session.
+    // the latest first set's own capacity, read as the median reads it (reps left capped, calibration applied) (owner,
+    // 2026-11-24). A latest set further above the median than ANCHOR_JUMP_LIMIT is the odd session and is ignored.
     const medianKg = median(latest.map((entry) => entry.first.capacityKg));
-    const performedKg = mostRecent.first.effectiveLoadKg * (1 + mostRecent.first.reps / 30);
-    const capacityKg = performedKg > medianKg && performedKg <= medianKg * (1 + ANCHOR_JUMP_LIMIT) ? performedKg : medianKg;
+    const latestKg = mostRecent.first.capacityKg;
+    const capacityKg = latestKg > medianKg && latestKg <= medianKg * (1 + ANCHOR_JUMP_LIMIT) ? latestKg : medianKg;
     return {
       source: "history",
       sessionId: mostRecent.session.sessionId,
