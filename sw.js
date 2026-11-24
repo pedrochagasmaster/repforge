@@ -1,13 +1,13 @@
 const CACHE = "repforge-v789";
 const ASSETS = [
-  "./", "./index.html", "./styles.css", "./styles.css?v=786", "./motion-polish.css", "./motion-polish.css?v=643", "./manifest.webmanifest",
+  "./", "./index.html", "./styles.css", "./styles.css?v=788", "./motion-polish.css", "./motion-polish.css?v=643", "./manifest.webmanifest",
   { url: "./vendor/motion/motion.js", owner: "RepForgeMotion", required: false, immutable: true },
   { url: "./vendor/dnd-kit/dnd-kit.js", owner: "RepForgeDndRuntime", required: false },
   { url: "./vendor/dnd-kit/dnd-kit.runtime.js", owner: "RepForgeDndRuntime", required: false, immutable: true },
   "./motion-layer.js", "./motion-layer.js?v=768",
   "./telemetry.js", "./telemetry.js?v=751", "./unsupported-workout-grammar.js", { url: "./posthog-config.js", owner: "RepForgeTelemetry", required: false }, "./posthog-init.js", "./schedule.js", "./notify.js", "./i18n.js", "./i18n.js?v=789", "./exercises.js", "./exercises.js?v=728", "./exercise-catalog.js?v=459", "./assets/exercise-catalog.json?v=067", "./exercise-metrics.js?v=485", "./install-transfer-contract.js", "./install-transfer-contract.js?v=772", "./install-transfer.js", "./install-transfer.js?v=673",
   "./generation-identity.js", "./generation-identity.js?v=459", "./generation-candidates.js", "./generation-candidates.js?v=466", "./generation-layout.js", "./engine-policy.js", "./engine-policy.js?v=560", "./generation-layout.js?v=560",
-  "./progression-engine.js", "./progression-engine.js?v=771", "./progress-model.js", "./progress-model.js?v=771", "./program-compiler.js", "./program-compiler.js?v=560", "./program-entry.js", "./program-entry.js?v=728", "./program-entry-adapter.js", "./program-entry-adapter.js?v=560", "./program-editor.js", "./program-editor.js?v=789", "./program-review.js", "./program-review.js?v=692",
+  "./progression-engine.js", "./progression-engine.js?v=788", "./progress-model.js", "./progress-model.js?v=771", "./program-compiler.js", "./program-compiler.js?v=560", "./program-entry.js", "./program-entry.js?v=728", "./program-entry-adapter.js", "./program-entry-adapter.js?v=560", "./program-editor.js", "./program-editor.js?v=789", "./program-review.js", "./program-review.js?v=692",
   "./shared-setup.js", "./shared-setup.js?v=574", "./starting-loads.js?v=772", "./workout-draft.js", "./workout-draft.js?v=772", "./effort-calibration.js", "./effort-calibration.js?v=728", "./calibration-gauge.js", "./calibration-gauge.js?v=728", "./program-transition.js", "./program-transition.js?v=728", "./program-engine.js?v=669", "./install-policy.js", "./install-policy.js?v=307", "./rest-timer.js", "./rest-timer.js?v=772", "./guide-registry.js", "./guide-registry.js?v=764", "./durable-state.js", "./durable-state.js?v=750", "./history-ui.js", "./history-ui.js?v=772", "./share-cards.js", "./share-cards.js?v=771", "./warmup-suggestions.js", "./warmup-suggestions.js?v=772", "./app.js", "./app.js?v=787",
   "./icons/icon.svg", "./icons/favicon-32.png", "./icons/icon-192.png",
   "./icons/icon-512.png", "./icons/icon-1024.png",
