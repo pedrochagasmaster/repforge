@@ -480,7 +480,10 @@
   --dock-rim:rgba(255,255,255,.12);
   --dock-caustic:rgba(255,255,255,.05);
   --dock-blur:blur(18px) saturate(160%) brightness(.85);
-  --dock-pill:rgba(255,255,255,.13);
+  /* The selected lens is solid smoked glass, the tone the translucent pill showed over dark pages (issue #818). A
+     see-through lens took its ground from the page, and a light page under the dock dropped the orange label below
+     4.5:1; on this solid ground --accent-deep holds 5:1 and the --accent icon 4:1 whatever is behind it. */
+  --dock-pill:#3A3733;
   --dock-pill-sheen:rgba(255,255,255,.05);
   /* Plan 075 phase 3: the scroll-edge bar's material, charcoal at 72%. The
      hairline is a literal white value, not --shadow-rgb, so it still reads
@@ -5561,8 +5564,6 @@ body.is-focus-wo .toast:not(.toast--top){bottom:calc(var(--toast-clear,0px) + va
 .profile-depth p{font-size:var(--font-size-body-small);margin:var(--space-8) 0}
 .profile-depth .profile-caption{font-size:var(--font-size-caption)}
 .profile-scope-inline{margin:var(--space-18) 0;padding-bottom:var(--space-18);border-bottom:1px solid var(--rule)}
-/* The light scope CTA shows through the dark dock lens; its small selected label needs text ink. */
-:root[data-theme="dark"] body:has(#stats.active #segOverview.active .profile-scope-inline) nav button.active>[data-i18n]{color:var(--control-quiet-ink)}
 #profileScopeTitle{margin:var(--space-12) 0 var(--space-4);font-size:var(--font-size-title);font-weight:var(--weight-semibold);line-height:var(--line-tight);letter-spacing:-.02em;overflow-wrap:anywhere}
 .profile-scope-rings{display:flex;gap:var(--space-32);align-items:center;margin:var(--space-26) 0;border-bottom:1px solid var(--rule);padding-bottom:var(--space-18)}
 .profile-scope-rings>div{flex:1;min-width:0;display:flex;align-items:center;flex-direction:column;gap:var(--space-8);text-align:center;font-size:var(--font-size-body-small)}
