@@ -3829,22 +3829,9 @@ nav button.active .nav__icon{background:var(--accent)}
 .nav__icon[data-i=program]{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round'%3E%3Cpath d='M8 4h10a2 2 0 0 1 2 2v14H8a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z'/%3E%3Cpath d='M9 9h8M9 13h8M9 17h5'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round'%3E%3Cpath d='M8 4h10a2 2 0 0 1 2 2v14H8a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z'/%3E%3Cpath d='M9 9h8M9 13h8M9 17h5'/%3E%3C/svg%3E")}
 body.is-settings nav,body.is-exercise nav,body.is-onboarding nav,
 body.is-library nav,body.is-preview nav,body.is-import nav{display:none}
-/* Paper under the dock: rows that scroll beneath the floating dock (and the gap a sticky action leaves above it) fade
-   into the page instead of showing through as ghosted text. Below the sticky action (z-index 5), above the page. */
-/* Only on Today while Start workout rides above the dock: elsewhere there is no row to clip, and the band would hide
-   content and the dock's glass (#301). */
-body:has(#log.view.active #todayDash:not(.hidden) #startWorkout:not(.hidden))::after{
-  content:"";position:fixed;left:0;right:0;bottom:0;z-index:4;pointer-events:none;
-  height:calc(var(--nav) + env(safe-area-inset-bottom) + var(--space-12) + 2 * var(--space-32) + var(--space-26));
-  /* Paper behind Start workout and the row it clips (owner hill-climb), clear again under the dock itself, which stays
-     glass (#301): the band ends where the capsule begins. */
-  background:linear-gradient(to bottom,rgba(var(--bg-rgb),0),var(--bg) var(--space-26),
-    var(--bg) calc(100% - var(--nav) - env(safe-area-inset-bottom) - var(--space-12)),
-    rgba(var(--bg-rgb),0) calc(100% - var(--nav) - env(safe-area-inset-bottom)));
-}
-body.is-settings::after,body.is-exercise::after,body.is-onboarding::after,body.is-library::after,body.is-preview::after,
-body.is-import::after,body.is-focus-wo::after,body:has(#draftRecovery:not(.hidden))::after,body:has(#history.view.active.is-session-edit)::after,
-body:has(:is(#program,[data-copy-id="program"]).program-editor-installed)::after{display:none}
+/* No paper band behind Start workout (owner, 2026-11-24): the sticky pill floats on its own shadow over the page, like
+   every other floating control, and the dock stays glass (#301). The band it replaced was a body::after gated by
+   :has(), which WebKit could leave painted after the lifter left Today. */
 body.is-settings,body.is-exercise,body.is-onboarding,
 body.is-library,body.is-preview,body.is-import{padding-bottom:env(safe-area-inset-bottom)}
 /* No paper fade under the dock (#301): the dock is glass, and glass only reads as glass when the page passes beneath
