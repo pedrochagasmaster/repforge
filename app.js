@@ -26698,7 +26698,7 @@ const LANDING_FEATURES={
        framed so the app's body text reads at its real size or close to it on a phone. A held shot is short enough that
        the window's width sets the zoom, so the edge snapping (snapLandingFeatureShots) can move its edges. */
     shots:[
-      [{at:0,x:0,y:0,w:390,h:680},{at:.35,x:0,y:0,w:390,h:560},{at:3.2,x:0,y:60,w:390,h:380}],
+      [{at:0,x:0,y:0,w:390,h:680},{at:.35,x:0,y:0,w:390,h:560},{at:3.2,x:0,y:36,w:390,h:380}],
       [{at:0,x:0,y:0,w:390,h:640},{at:.35,x:0,y:52,w:390,h:400},{at:1.25,x:0,y:240,w:390,h:400},{at:2.05,x:0,y:96,w:390,h:440},{at:4.55,x:0,y:52,w:390,h:400}],
       [{at:0,x:0,y:0,w:390,h:660},{at:.3,x:0,y:0,w:390,h:340},{at:1.35,x:0,y:196,w:390,h:464}],
       [{at:0,x:0,y:0,w:390,h:640},{at:.7,x:0,y:216,w:390,h:424},{at:3.55,x:0,y:0,w:390,h:640},{at:6.3,x:0,y:10,w:390,h:480}],
@@ -27371,8 +27371,8 @@ function createLandingController(root){
     on(window,"resize",watchBand);watchBand();
     const watch=(node,fn)=>{const io=new IntersectionObserver(fn,{root});reg.obs.push(io);io.observe(node)};
     watch(hero,entries=>{const e=entries[entries.length-1];gone=!e.isIntersecting&&e.boundingClientRect.bottom<(e.rootBounds?e.rootBounds.top:0)+1;paint()});
-    // The control steps aside once the closing band's own buttons come into view.
-    watch(close.closest(".firstrun__actions")||close,entries=>{const e=entries[entries.length-1];closing=e.isIntersecting||e.boundingClientRect.top<(e.rootBounds?e.rootBounds.top:0);paint()});
+    // The control steps aside as soon as the closing band comes into view.
+    watch(close.closest("[data-landing-section]")||close,entries=>{const e=entries[entries.length-1];closing=e.isIntersecting||e.boundingClientRect.top<(e.rootBounds?e.rootBounds.top:0);paint()});
     /* the first painted ground beneath the control's resting place decides its ink */
     const ground=(x,y)=>{
       for(const hit of document.elementsFromPoint(x,y)){
