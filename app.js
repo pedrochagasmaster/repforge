@@ -27335,6 +27335,10 @@ function createLandingController(root){
       const box=dock.getBoundingClientRect();
       const y=box.height?window.innerHeight-parseFloat(getComputedStyle(dock).bottom)-box.height/2:window.innerHeight-60;
       dock.dataset.ground=luminance(window.innerWidth/2,y)<.4?"dark":"light"});
+    /* An answer that opens moves the bands beneath the control without a scroll, so a change in the page's height
+       reads the ground again too; otherwise the control keeps the ink of a band that has moved away. */
+    const page=root.querySelector(".firstrun__inner");
+    if(page&&typeof ResizeObserver!=="undefined"){const ro=new ResizeObserver(requestTick);reg.obs.push(ro);ro.observe(page)}
     reg.nodes.push(()=>{dock.classList.remove("is-on");delete dock.dataset.ground})}
   /* ---- the status-bar band (#449) ----
      One observer whose root box is the top inset strip names the ground of the
