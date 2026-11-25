@@ -7027,7 +7027,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   .firstrun-proof{grid-column:mid/full-end}
   .firstrun-hero>.firstrun-wrap{grid-column:2;max-width:none;margin:0;padding:0 var(--firstrun-gap-3) 0 0}
   .firstrun-proof>.firstrun-wrap{grid-column:1;max-width:none;margin:0;padding:0 0 0 var(--firstrun-gap-4)}
-  .firstrun-hero .firstrun__header{position:absolute;top:0;left:calc(50% - var(--firstrun-container) / 2);right:calc(50% - var(--firstrun-container) / 2)}
+  .firstrun-hero .firstrun__header{position:absolute;top:0;left:max(var(--gut),calc(50% - var(--firstrun-container) / 2));right:max(var(--gut),calc(50% - var(--firstrun-container) / 2))}
   .firstrun-hero .firstrun-hero__title{margin-top:0}
   /* the proof: one header block (its title and its sentence, at body size) over the phone and the stepper beside it.
      The phone is 360px wide, cropped from the screen's top to its shelf's fields (app.js sizes the frame). */
@@ -7055,7 +7055,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   .firstrun-chapter__go,.firstrun-feat__tab{padding-left:var(--space-16)}
   /* the Build control: a bar across the top, the lockup on the left, a compact action on the right */
   .firstrun-dock{--firstrun-dock-at:top;top:0;bottom:auto;display:flex;align-items:center;justify-content:space-between;gap:var(--space-16);
-    padding:var(--space-8) calc(50% - var(--firstrun-container) / 2);border-top:0;border-bottom:1px solid var(--band-night-rule);transform:translateY(-100%)}
+    padding:var(--space-8) max(var(--gut),calc(50% - var(--firstrun-container) / 2));border-top:0;border-bottom:1px solid var(--band-night-rule);transform:translateY(-100%)}
   .firstrun-dock[data-ground="light"]{border-bottom-color:var(--rule-strong)}
   /* the first screen is one night: the proof shares the hero's ground beside it */
   .firstrun-hero+.firstrun-proof{--firstrun-band-bg:var(--band-night-bg)}
@@ -7129,7 +7129,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 /* The footer keeps the Build bar's height clear at the foot of the scroll. */
 .firstrun-footer{padding-block:0;padding-bottom:env(safe-area-inset-bottom)}
 .firstrun-footer .firstrun-wrap{
-  display:flex;justify-content:space-between;align-items:center;gap:12px;padding-block:var(--firstrun-gap-3);
+  display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:12px;padding-block:var(--firstrun-gap-3);
   color:var(--firstrun-ink-soft);font-size:var(--font-size-body-small);
 }
 .firstrun-footer__brand .firstrun__logo{width:24px;height:24px}
