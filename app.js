@@ -26667,7 +26667,7 @@ function renderLandingWays(){
     fill(`check.${kind}`,`<span class="firstrun-check__delta" aria-hidden="true">${sign}${esc(landingNum(Math.abs(delta)))}</span><span>`+
       esc(t(`landing.check.${kind}`,{guess:landingNum(result.guess),did:landingNum(result.did),difference:landingNum(Math.abs(result.error))}))+`</span>`)}
   // The limits read one sentence to a line.
-  fill("check.limits",String(t("landing.check.limits",limits)).split(/(?<=\.)\s+/).map(line=>`<span class="firstrun-check__line">${esc(line)}</span>`).join(""));
+  fill("check.limits",String(t("landing.check.limits",limits)).split(/(?<=\.)\s+/).map(line=>`<span class="firstrun-check__line">${esc(line).replace(/\d+/g,"<b>$&</b>")}</span>`).join(""));
   fill("faq.test.a",esc(t("landing.faq.test.a",limits)));
   fill("faq.failure.limits",esc(t("landing.faq.failure.limits",limits)));
   fill("faq.failure.choice",landingRich("landing.faq.failure.choice",{},
@@ -27353,12 +27353,14 @@ function createLandingController(root){
           const fill=getComputedStyle(node).backgroundColor,m=/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?/.exec(fill);
           if(m&&(m[4]===undefined||+m[4]>.5))return{fill,lum:(.2126*m[1]+.7152*m[2]+.0722*m[3])/255}}}
       return{fill:"",lum:1}};
-    ticks.add(()=>{
+    // Sampled on every frame the landing plays and on every scroll, so a held (or reduced-motion) page still switches.
+    const sampleGround=()=>{
       const box=dock.getBoundingClientRect();
       const y=box.height?window.innerHeight-parseFloat(getComputedStyle(dock).bottom)-box.height/2:window.innerHeight-60;
       const under=ground(window.innerWidth/2,y);
       dock.dataset.ground=under.lum<.4?"dark":"light";
-      if(under.fill)dock.style.setProperty("--firstrun-dock-ground",under.fill)});
+      if(under.fill)dock.style.setProperty("--firstrun-dock-ground",under.fill)};
+    ticks.add(sampleGround);on(root,"scroll",sampleGround);
     reg.nodes.push(()=>{dock.classList.remove("is-on");delete dock.dataset.ground;dock.style.removeProperty("--firstrun-dock-ground")})}
   /* ---- the status-bar band (#449) ----
      One observer whose root box is the top inset strip names the ground of the

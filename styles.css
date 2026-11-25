@@ -6136,7 +6136,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   padding-left:max(var(--gut),env(safe-area-inset-left));padding-right:max(var(--gut),env(safe-area-inset-right));
 }
 .firstrun-band>.firstrun-wrap>*+*{margin-top:var(--firstrun-gap-3)}
-.firstrun-check:has(+.firstrun-ways),.firstrun-ways:has(+.firstrun-features){padding-bottom:var(--firstrun-gap-2)}
+@media(max-width:899px){.firstrun .firstrun-band:not(.firstrun-hero,.firstrun-footer){padding-block:var(--firstrun-gap-5)}}
 .firstrun-band--night,.firstrun-band--raised{
   --firstrun-band-bg:var(--band-night-bg);
   --firstrun-ink:var(--band-night-ink);
@@ -6178,21 +6178,21 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 /* In the dark theme the ink band's tokens invert to a cream field; the landing keeps it a raised night band instead, so
    the page's depth runs the same way in both appearances. */
 :root[data-theme="dark"] .firstrun-band:not(.firstrun-band--night,.firstrun-band--raised,.firstrun-band--ink,.firstrun-band--orange){
-  --firstrun-band-bg:color-mix(in srgb,var(--band-night-ink) 8%,var(--band-night-bg));
+  --firstrun-band-bg:color-mix(in srgb,var(--band-night-ink) 11%,var(--band-night-bg));
 }
-:root[data-theme="dark"] .firstrun-features{--firstrun-band-bg:color-mix(in srgb,var(--band-night-ink) 8%,var(--band-night-bg))}
-:root[data-theme="dark"] .firstrun:is([data-inset-ground="faq"],[data-inset-ground="paper"])::before{background:color-mix(in srgb,var(--band-night-ink) 8%,var(--band-night-bg))}
+:root[data-theme="dark"] .firstrun-features{--firstrun-band-bg:color-mix(in srgb,var(--band-night-ink) 11%,var(--band-night-bg))}
+:root[data-theme="dark"] .firstrun-band{--firstrun-rule:color-mix(in srgb,var(--band-night-ink) 20%,transparent)}
+:root[data-theme="dark"] .firstrun-band:not(.firstrun-hero,.firstrun-footer,.firstrun-close){padding-top:calc(var(--firstrun-gap-8) + var(--space-16))}
 :root[data-theme="dark"] .firstrun-band--ink{
   --firstrun-band-bg:var(--band-night-bg);
   --firstrun-ink:var(--band-night-ink);
   --firstrun-ink-soft:var(--band-night-ink-soft);
   --firstrun-ink-faint:var(--band-night-ink-faint);
-  --firstrun-rule:var(--band-night-rule);
   --firstrun-focus:var(--band-night-ink);
   --firstrun-accent-text:var(--band-night-accent-text);
 }
 :root[data-theme="dark"] .firstrun[data-inset-ground="ink"]::before{background:var(--band-night-bg)}
-:root[data-theme="dark"] .firstrun:is([data-inset-ground="faq"],[data-inset-ground="paper"])::before{background:var(--band-night-raised)}
+:root[data-theme="dark"] .firstrun:is([data-inset-ground="faq"],[data-inset-ground="paper"])::before{background:color-mix(in srgb,var(--band-night-ink) 11%,var(--band-night-bg))}
 /* The rest light and the feature panel's tints are orange washes built for paper; on the dark grounds they turn brown,
    so the dark theme draws those frames with their edges alone. */
 :root[data-theme="dark"] .firstrun-demo__light,:root[data-theme="dark"] .firstrun-feat__tints{visibility:hidden}
@@ -6214,8 +6214,10 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun-check__examples li{display:flex;align-items:baseline;gap:var(--space-14);padding-block:var(--firstrun-gap-2);border-bottom:1px solid var(--firstrun-rule)}
 .firstrun-check__delta{flex:0 0 2.5ch;text-align:right;font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);
   font-variant-numeric:tabular-nums;color:var(--firstrun-ink)}
-.firstrun-check__line{display:inline}
-.firstrun-check__line+.firstrun-check__line::before{content:" "}
+.firstrun-check__line{display:block}
+.firstrun-check__line+.firstrun-check__line{margin-top:var(--space-4)}
+.firstrun-check__line b{font-weight:var(--weight-semibold);color:var(--firstrun-ink)}
+.firstrun-check .firstrun-sub{max-width:65ch}
 .firstrun-check .firstrun-sub{color:var(--firstrun-ink)}
 
 /* ---- Type ---- */
@@ -6297,7 +6299,8 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun-chips li{display:flex;align-items:center;gap:var(--space-8)}
 .firstrun-chips li::before{content:"";flex:none;width:16px;height:16px;background:var(--band-night-ink-soft);
   -webkit-mask:var(--check) no-repeat center/contain;mask:var(--check) no-repeat center/contain}
-.firstrun-hero__data b{font-weight:var(--weight-medium);color:inherit;white-space:nowrap}
+.firstrun-hero__data b{font-weight:var(--weight-regular);color:inherit;white-space:nowrap}
+.firstrun-hero .firstrun-hero__data{color:color-mix(in srgb,var(--band-night-ink) 25%,var(--band-night-ink-soft))}
 
 /* ---- Actions: the ink pill with its arrow, and the underlined text link ---- */
 .firstrun__cta{
@@ -6391,11 +6394,9 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .landing-touch__ring{opacity:0;border:1.5px solid rgba(var(--ink-rgb),.28)}
 .firstrun-dock .firstrun__cta{max-width:calc(var(--maxw) - var(--space-32));min-height:var(--control-target);margin-inline:auto;padding-block:var(--space-8)}
 /* Over a dark band the bar takes the night skin (the cream pill), over paper the light one: switched per band. */
-.firstrun-dock[data-ground="dark"],:root[data-theme="dark"] .firstrun-dock{--firstrun-dock-fill:var(--band-night-bg);border-color:var(--band-night-rule);
+.firstrun-dock[data-ground="dark"],:root[data-theme="dark"] .firstrun-dock{--firstrun-dock-fill:var(--band-night-bg);border-color:color-mix(in srgb,var(--band-night-ink) 20%,transparent);
   --firstrun-ink:var(--band-night-ink);--firstrun-cta-bg:var(--band-night-cta-bg);--firstrun-cta-ink:var(--band-night-cta-ink);--firstrun-cta-mark:var(--band-night-cta-ink);
   --firstrun-focus:var(--band-night-ink)}
-.firstrun-dock::before{content:"";position:absolute;left:0;right:0;bottom:100%;height:var(--space-14);pointer-events:none;
-  background:linear-gradient(to bottom,transparent,var(--firstrun-dock-fill))}
 .firstrun{scroll-padding-bottom:calc(var(--control-target) + var(--space-26))}
 .firstrun-h2{scroll-margin-top:calc(var(--control-target) + var(--space-32));scroll-margin-bottom:calc(var(--control-target) + var(--space-32))}
 
@@ -6420,7 +6421,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 /* The caption row keeps the longest caption's height so nothing below moves; the band's foot gives that reserve back,
    so a short caption is not left above an empty strip of band (polish review, 2026-10-31). */
 .firstrun-proof{padding-bottom:var(--firstrun-gap-3);--firstrun-band-bg:var(--band-night-bg)}
-.firstrun-hero{padding-bottom:var(--firstrun-gap-3)}
+.firstrun-hero{padding-bottom:var(--firstrun-gap-2)}
 .firstrun-hero+.firstrun-proof{padding-top:var(--firstrun-gap-4)}
 .firstrun-proof__device{
   --proof-device-w:clamp(176px,calc((100svh - 236px) * 390 / 844),234px);
@@ -6457,6 +6458,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun-band--night,.firstrun-band--raised,.firstrun-proof{--firstrun-row-open:color-mix(in srgb,var(--band-night-ink) 9%,var(--band-night-bg))}
 :root[data-theme="dark"] .firstrun-features{--firstrun-row-open:color-mix(in srgb,var(--band-night-ink) 9%,var(--band-night-bg))}
 .firstrun-chapter__bar{display:none}
+.firstrun-step__short{display:none}
 .firstrun-chapter__fill{position:absolute;inset:0;background:var(--band-night-accent);transform-origin:0 50%;transform:scaleX(var(--chapter-progress,0))}
 .firstrun-chapter__text{
   display:none;margin:0;padding:0 var(--space-12) var(--space-12) calc(var(--space-12) * 2 + 1.25em);font-size:var(--font-size-body);line-height:var(--line-reading);
@@ -6469,7 +6471,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 @media(max-width:899px){
   .firstrun-proof__stage{justify-items:stretch;gap:var(--firstrun-gap-2)}
   .firstrun-proof__stage>.firstrun-chapters{order:-1}
-  .firstrun-proof__device{--proof-crop:row1;background:var(--bg)}
+  .firstrun-proof__device{--proof-crop:next;background:var(--bg)}
   .firstrun-proof .firstrun-wrap>*+*{margin-top:var(--firstrun-gap-2)}
   /* five equal numbered segments; the open step's title (kept in its button for its name) is set under them */
   .firstrun .firstrun-chapters,.firstrun .firstrun-feat__tabs{position:relative;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:var(--space-4);border-bottom:0}
@@ -6477,17 +6479,23 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   .firstrun .firstrun-chapter{display:contents}
   .firstrun .firstrun-chapter::before{content:none}
   .firstrun .firstrun-chapter__go{counter-increment:step}
-  .firstrun .firstrun-chapter__go,.firstrun .firstrun-feat__tab{position:static;grid-row:1;justify-content:center;min-height:var(--control-target);padding:0;
-    border:1px solid var(--firstrun-rule);border-radius:var(--radius-control);background:none}
+  .firstrun .firstrun-chapter__go,.firstrun .firstrun-feat__tab{position:static;grid-row:1;flex-direction:column;justify-content:center;gap:2px;
+    min-height:calc(var(--control-target) + var(--space-12));padding:var(--space-4) 0;
+    border:1px solid var(--firstrun-seg-rule,var(--rule-strong));border-radius:var(--radius-control);background:none}
+  .firstrun-band--night,.firstrun-proof,:root[data-theme="dark"] .firstrun{--firstrun-seg-rule:color-mix(in srgb,var(--band-night-ink) 22%,transparent)}
+  .firstrun .firstrun-step__short{display:block;font-size:var(--font-size-label);letter-spacing:-.02em;font-weight:var(--weight-medium);line-height:var(--line-tight);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
   .firstrun .firstrun-feat__tab{display:flex;align-items:center}
   .firstrun .firstrun-feat__title::before{content:none}
   .firstrun .firstrun-feat__tab::after{content:counter(step)}
   .firstrun .firstrun-chapter__go::before,.firstrun .firstrun-feat__tab::after{width:auto;font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);color:inherit}
   .firstrun .firstrun-chapter.is-current .firstrun-chapter__go::before{color:inherit}
-  .firstrun .firstrun-chapter.is-current .firstrun-chapter__go,.firstrun .firstrun-feat__tab.is-current{border-color:var(--firstrun-ink);background:var(--firstrun-ink);color:var(--firstrun-band-bg)}
+  .firstrun .firstrun-chapter.is-current .firstrun-chapter__go,.firstrun .firstrun-feat__tab.is-current{border-color:var(--firstrun-ink);color:var(--firstrun-band-bg);
+    background:linear-gradient(var(--accent),var(--accent)) center bottom var(--space-4)/40% 3px no-repeat,var(--firstrun-ink)}
+  .firstrun .firstrun-feat__tab::after{order:-1}
   .firstrun .firstrun-feat__tab.is-current::before{content:none}
   .firstrun .firstrun-chapter__title,.firstrun .firstrun-feat__title{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
-  .firstrun .firstrun-chapter.is-current .firstrun-chapter__title,.firstrun .firstrun-feat__tab.is-current .firstrun-feat__title{display:block;min-height:0;position:absolute;left:0;right:0;top:calc(var(--control-target) + var(--space-12));
+  .firstrun .firstrun-chapter.is-current .firstrun-chapter__title,.firstrun .firstrun-feat__tab.is-current .firstrun-feat__title{display:block;min-height:0;position:absolute;left:0;right:0;top:calc(var(--control-target) + var(--space-26));
     width:auto;height:auto;overflow:visible;clip-path:none;white-space:normal;text-align:left;font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);color:var(--firstrun-ink)}
   .firstrun .firstrun-chapter__text{grid-row:2;grid-column:1/-1;padding:calc(var(--space-12) + 1.6em) 0 0}
   .firstrun .firstrun-feat__tab .firstrun-feat__text,.firstrun .firstrun-feat__tab.is-current .firstrun-feat__text{display:none}
@@ -6588,10 +6596,14 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
    the third is a control. */
 .firstrun-ways__list{list-style:none;display:grid;width:100%;max-width:var(--maxw);margin:var(--firstrun-gap-2) auto 0;counter-reset:way;
   padding:0 max(var(--gut),env(safe-area-inset-right)) 0 max(var(--gut),env(safe-area-inset-left))}
-.firstrun-way{counter-increment:way;display:flex;flex-direction:column;padding:var(--firstrun-gap-3) 0;border-top:1px solid var(--firstrun-rule)}
+.firstrun-way{counter-increment:way;display:flex;flex-direction:column;padding:var(--firstrun-gap-3) 0;border-top:2px solid var(--firstrun-ink)}
+.firstrun-way:first-child{border-top-color:var(--accent)}
 .firstrun-way:last-child{border-bottom:1px solid var(--firstrun-rule)}
 .firstrun-way>.firstrun-wrap{flex:1;display:flex;flex-direction:column;max-width:none;padding:0}
-.firstrun-way .firstrun-disclosure{margin-top:var(--firstrun-gap-2);padding-top:var(--space-12);font-size:var(--font-size-subtitle)}
+.firstrun-way .firstrun-disclosure{justify-content:flex-start;gap:var(--space-8);width:auto;align-self:flex-start;min-height:var(--control-target);
+  margin-top:var(--space-8);padding:0;border-top:0;font-size:var(--font-size-body)}
+.firstrun-way .firstrun-disclosure i{width:16px;height:16px}
+.firstrun-way .firstrun-disclosure i::before,.firstrun-way .firstrun-disclosure i::after{top:7px}
 .firstrun-way__title{margin:0;font-size:var(--font-size-metric);font-weight:var(--weight-semibold);line-height:var(--line-standard);letter-spacing:-.01em}
 .firstrun-way p{margin:var(--firstrun-gap-1) 0 0;font-size:var(--font-size-body);line-height:var(--line-reading);color:var(--firstrun-ink-soft)}
 .firstrun-disclosure{
@@ -6682,7 +6694,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 @media(min-width:900px){
   .firstrun-features .firstrun-wrap{max-width:calc(var(--maxw) * 2)}
   .firstrun-features .firstrun-sub{max-width:var(--maxw)}
-  .firstrun-feat{grid-template-columns:minmax(0,360px) minmax(0,1fr);align-items:center;column-gap:var(--firstrun-gap-8)}
+  .firstrun-feat{grid-template-columns:minmax(0,1fr) calc(400px + var(--space-32) * 2 + var(--space-26));align-items:center;column-gap:var(--firstrun-gap-8)}
   .firstrun-feat__tab{font-size:var(--font-size-subtitle)}
   .firstrun-feat__caps{display:none}
   .firstrun-feat__panel{height:640px;margin-inline:0}
@@ -6988,7 +7000,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 @media(min-width:1100px){
   .firstrun__inner{--firstrun-container:calc(var(--maxw) * 2 + var(--space-32) * 2 + var(--space-16));--firstrun-top:calc(var(--space-32) * 2 + var(--firstrun-gap-4));
     position:relative;display:grid;
-    grid-template-columns:[full-start] minmax(var(--gut),1fr) [content-start] minmax(0,calc(var(--firstrun-container) * .42)) [mid] minmax(0,calc(var(--firstrun-container) * .58)) [content-end] minmax(var(--gut),1fr) [full-end]}
+    grid-template-columns:[full-start] minmax(var(--gut),1fr) [content-start] minmax(0,calc(var(--firstrun-container) * .4)) [mid] minmax(0,calc(var(--firstrun-container) * .6)) [content-end] minmax(var(--gut),1fr) [full-end]}
   .firstrun__inner>*{grid-column:full}
   .firstrun .firstrun-wrap,.firstrun-proof .firstrun-wrap,.firstrun-features .firstrun-wrap{max-width:calc(var(--firstrun-container) + var(--gut) * 2)}
   .firstrun-ways__list{max-width:calc(var(--firstrun-container) + var(--gut) * 2)}
@@ -7003,13 +7015,18 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   .firstrun-hero .firstrun-hero__title{margin-top:0}
   /* the proof: one header block (its title and its sentence, at body size) over the phone and the stepper beside it.
      The phone is 360px wide, cropped from the screen's top to its shelf's fields (app.js sizes the frame). */
-  .firstrun-proof>.firstrun-wrap{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-rows:auto auto 1fr;column-gap:var(--firstrun-gap-2);align-items:start;margin-top:var(--space-12)}
+  .firstrun-proof>.firstrun-wrap{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-rows:auto auto 1fr;column-gap:var(--firstrun-gap-2);align-items:start;margin-top:var(--space-4)}
   .firstrun-proof .firstrun-chapter__go{white-space:nowrap}
-  .firstrun-proof>.firstrun-wrap>.firstrun-h2{grid-column:1/-1;grid-row:1;font-size:var(--font-size-body);font-weight:var(--weight-semibold);line-height:var(--line-standard);letter-spacing:0}
+  .firstrun-proof>.firstrun-wrap>.firstrun-h2{grid-column:1/-1;grid-row:1;font-size:var(--font-size-section-title);font-weight:var(--weight-semibold);line-height:var(--line-tight);letter-spacing:-.015em}
   .firstrun-proof .firstrun-wrap>.firstrun-sub{grid-column:1/-1;grid-row:2;margin-top:var(--space-4);max-width:65ch;font-size:var(--font-size-body);color:var(--firstrun-ink-soft)}
   .firstrun-proof .firstrun-proof__stage{display:contents}
-  .firstrun-proof .firstrun-proof__device{grid-column:1;grid-row:3;margin-top:var(--firstrun-gap-2);--proof-crop:next;width:360px;background:var(--bg)}
-  .firstrun-proof .firstrun-chapters{grid-column:2;grid-row:3;margin-top:var(--firstrun-gap-2)}
+  .firstrun-proof .firstrun-proof__device{grid-column:1;grid-row:3;margin-top:var(--firstrun-gap-2);--proof-crop:next;width:380px;background:var(--bg);
+    box-shadow:0 0 0 1px color-mix(in srgb,var(--band-night-ink) 16%,transparent),0 0 0 var(--space-8) var(--band-night-raised),var(--elevation-floating-shadow)}
+  .firstrun-proof .firstrun-chapters{grid-column:2;grid-row:3;align-self:center;margin-top:var(--firstrun-gap-2)}
+  /* a closed row switches the picture: a hover surface and a trailing chevron, not a disclosure's + */
+  .firstrun-chapter__go::after,.firstrun-feat__title::after{content:"\203A";margin-left:auto;font-size:var(--font-size-subtitle);font-weight:var(--weight-regular);color:var(--firstrun-ink-soft)}
+  .firstrun-chapter.is-current .firstrun-chapter__go::after,.firstrun-feat__tab.is-current .firstrun-feat__title::after{content:none}
+  .firstrun-chapter:not(.is-current) .firstrun-chapter__go:hover,.firstrun-feat__tab:not(.is-current):hover{background:color-mix(in srgb,var(--firstrun-ink) 6%,transparent)}
   .firstrun-chapter__go{font-size:var(--font-size-body)}
   .firstrun-proof .firstrun-chapter__text{font-size:var(--font-size-body-small)}
   /* the Build control: a bar across the top, the lockup on the left, a compact action on the right */
@@ -7021,7 +7038,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   .firstrun-dock__brand{display:flex}
   /* the hero's tile, inverted on the light bar: a dark tile with the light mark */
   .firstrun-dock__brand .firstrun__logo{filter:invert(1)}
-  :root[data-theme="dark"] .firstrun-dock__brand .firstrun__logo{filter:none}
+  .firstrun-dock[data-ground="dark"] .firstrun-dock__brand .firstrun__logo,:root[data-theme="dark"] .firstrun-dock__brand .firstrun__logo{filter:none}
   .firstrun-dock{box-shadow:var(--elevation-floating-shadow)}
   .firstrun-dock .firstrun__cta{width:auto;max-width:none;min-height:var(--control-target);margin:0;padding:var(--space-8) var(--space-18)}
   /* title beside content */
@@ -7048,7 +7065,9 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   /* the feature list: the stepper rows, held beside a preview capped to the screen */
   .firstrun-feat{align-items:start}
   .firstrun-feat__side{position:sticky;top:calc(var(--space-32) * 2 + var(--firstrun-gap-3))}
-  .firstrun-feat__panel{height:min(720px,calc(100svh - var(--space-32) * 4))}
+  .firstrun-feat__panel{height:min(744px,calc(100svh - var(--space-32) * 4))}
+  .firstrun-feat__side{align-self:center}
+  .firstrun-feat__tab.is-current{box-shadow:inset 0 0 0 1px var(--rule-strong)}
   /* the left-column titles meet the first row's text */
   .firstrun-data .firstrun-wrap>.firstrun-h2{margin-top:var(--firstrun-gap-3)}
   .firstrun-faq .firstrun-wrap>.firstrun-h2{margin-top:var(--space-8)}
