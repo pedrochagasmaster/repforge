@@ -89,6 +89,8 @@
      not permission for one-off sizes in other surfaces. */
   --font-size-landing-headline:2.375rem;
   --font-size-landing-headline-wide:3.25rem;
+  /* the landing mocks' caption: one step under body-small so the scaled phone's labels stay legible */
+  --font-size-landing-mock-caption:.8125rem;
   --font-size-rest-clock:clamp(2rem,10cqi,2.625rem);
   /* The Focus hero (#523, owner 2026-10-28, direction A of focus-hero.html): the instruction is the screen's headline,
      its second line, the evidence line under them and the demoted prescription line. A contextual variant, Focus only. */
@@ -116,6 +118,9 @@
   --radius-landing-stage-compact:20px;
   /* The proof's phone drawn at its screen's own size (390 px wide), so its corner is a phone's, not a card's. */
   --radius-landing-phone:44px;
+  /* the desktop demo phone's bezel: a hairline, a night-raised ring and a faint outer edge over the floating shadow */
+  --elevation-landing-device-shadow:0 0 0 1px color-mix(in srgb,var(--band-night-ink) 16%,transparent),0 0 0 var(--space-8) var(--band-night-raised),
+    0 0 0 calc(var(--space-8) + 1px) rgba(255,255,255,.12),var(--elevation-floating-shadow);
   --radius-pill:999px;
   /* Every button is a pill (the native UI kit, owner decision 2026-10-24): one token so a variant cannot drift. It is
      half the single-line CTA (54px), not 999px: a one-line button is a pill, and one whose label wraps at large text
@@ -6375,7 +6380,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun-dock[data-ground="dark"]{--firstrun-ink:var(--band-night-ink)}
 .firstrun{scroll-padding-bottom:calc(var(--control-target) + var(--space-26))}
 @media(max-width:1099px){
-  .firstrun-dock{box-shadow:0 -6px 16px rgba(var(--shadow-rgb),.08)}
+  .firstrun-dock{box-shadow:var(--elevation-persistent-shadow)}
 }
 .firstrun-h2{scroll-margin-top:calc(var(--control-target) + var(--space-32));scroll-margin-bottom:calc(var(--control-target) + var(--space-32))}
 
@@ -6431,7 +6436,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun-chapter__go::before,.firstrun-feat__title::before{content:counter(step);flex:none;width:1.25em;
   font-weight:var(--weight-medium);font-variant-numeric:tabular-nums;color:var(--firstrun-ink-soft)}
 .firstrun-chapter.is-current,.firstrun-feat__tab.is-current{position:relative;overflow:hidden;border-radius:var(--radius-surface);border-top-color:transparent;
-  background:var(--firstrun-row-open,var(--surface));box-shadow:inset 0 0 0 1px var(--firstrun-row-open-edge,var(--rule-strong))}
+  background:var(--firstrun-row-open,var(--surface));outline:1px solid var(--firstrun-row-open-edge,var(--rule-strong));outline-offset:-1px}
 .firstrun-chapter.is-current+.firstrun-chapter,.firstrun-feat__tab.is-current+.firstrun-feat__tab{border-top-color:transparent}
 .firstrun-chapter.is-current::before,.firstrun-feat__tab.is-current::before{content:"";position:absolute;left:0;top:var(--space-12);bottom:var(--space-12);width:3px;
   border-radius:var(--radius-pill);background:var(--accent)}
@@ -6474,7 +6479,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   /* the frame's bottom padding: a strip of the screen's own ground over the next row's first pixels */
   .firstrun-proof__device::after{content:"";position:absolute;z-index:6;left:0;right:0;bottom:0;height:calc(var(--space-16) + 2px);pointer-events:none;
     background:var(--firstrun-demo-ground,var(--bg))}
-  .firstrun-demo,.firstrun-fx{--font-size-label:var(--font-size-caption);--font-size-caption:calc(var(--font-size-body-small) - 1px)}
+  .firstrun-demo,.firstrun-fx{--font-size-label:var(--font-size-caption);--font-size-caption:var(--font-size-landing-mock-caption)}
   .firstrun-proof .firstrun-wrap>*+*{margin-top:var(--space-16)}
   .firstrun .firstrun-feat__caps{display:grid;margin-top:var(--space-8)}
   .firstrun-feat__panel{height:509px}
@@ -7025,8 +7030,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   .firstrun-hero .firstrun__cta,.firstrun-close .firstrun__actions{max-width:calc(var(--maxw) * .72)}
   .firstrun-proof .firstrun-proof__stage{display:contents}
   .firstrun-proof .firstrun-proof__device{grid-column:1;grid-row:3;margin-top:var(--firstrun-gap-2);--proof-crop:next;--proof-crop-inset:0;--proof-crop-pad:var(--space-26);width:380px;background:var(--bg);
-    box-shadow:0 0 0 1px color-mix(in srgb,var(--band-night-ink) 16%,transparent),0 0 0 var(--space-8) var(--band-night-raised),
-      0 0 0 calc(var(--space-8) + 1px) rgba(255,255,255,.12),var(--elevation-floating-shadow)}
+    box-shadow:var(--elevation-landing-device-shadow)}
   .firstrun-proof .firstrun-chapters{grid-column:2;grid-row:3;align-self:start;margin-top:var(--firstrun-gap-2)}
   /* the open row: a muted track the row's height (inset from its corners) with the played share filled in orange */
   .firstrun-chapter.is-current::before,.firstrun-feat__tab.is-current::before{left:var(--space-4);top:var(--space-12);bottom:var(--space-12);width:3px;border-radius:var(--radius-pill);background:var(--accent)}
