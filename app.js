@@ -27371,13 +27371,10 @@ function createLandingController(root){
       stages.forEach(node=>band.observe(node))};
     reg.obs.push({disconnect:()=>{band?.disconnect();band=null}});
     on(window,"resize",watchBand);watchBand();
-    const watch=(node,fn,rootMargin="0px")=>{const io=new IntersectionObserver(fn,{root,rootMargin});reg.obs.push(io);io.observe(node)};
+    const watch=(node,fn)=>{const io=new IntersectionObserver(fn,{root});reg.obs.push(io);io.observe(node)};
     watch(hero,entries=>{const e=entries[entries.length-1];gone=!e.isIntersecting&&e.boundingClientRect.bottom<(e.rootBounds?e.rootBounds.top:0)+1;paint()});
     // The control steps aside as soon as the closing band comes into view.
-    // The wide page's top bar stays until the closing band reaches the middle of the screen; the phone's bar steps aside
-    // as soon as the band enters.
-    watch(close.closest("[data-landing-section]")||close,entries=>{const e=entries[entries.length-1];closing=e.isIntersecting||e.boundingClientRect.top<(e.rootBounds?e.rootBounds.top:0);paint()},
-      window.innerWidth>=1100?"0px 0px -50% 0px":"0px");
+    watch(close.closest("[data-landing-section]")||close,entries=>{const e=entries[entries.length-1];closing=e.isIntersecting||e.boundingClientRect.top<(e.rootBounds?e.rootBounds.top:0);paint()});
     /* the first painted ground beneath the control's resting place decides its ink */
     const ground=(x,y)=>{
       for(const hit of document.elementsFromPoint(x,y)){
