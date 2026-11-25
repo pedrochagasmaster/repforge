@@ -1,0 +1,62 @@
+# Plan 086: Trainer loop
+
+Status: **draft, awaiting owner acceptance of [ADR 0026](../docs/adr/0026-trainer-loop-relay-and-trainer-site.md)**. Written against `origin/main` 6f2e18a; re-check every anchor before executing. Scheduling lives in the [backlog](../docs/backlog.md).
+
+## 1. Outcome and reference
+
+An in-person trainer keeps a client list at `pro.taurifer.com`, hands a program to a client by QR code or link, receives the client's training when the client chooses to send it, and sends back an adjusted program that the client accepts without losing history.
+
+The [concept mock](../docs/design/trainer-loop-mock/README.md) is the reference for the flow and for what each screen must answer. Three trainers approved its direction on 2026-11-25. It is not a visual specification: each user-visible slice needs an approved design and passes the fidelity gate against it.
+
+Out of scope: accounts, sync, payment, messaging beyond the one optional note per payload, trainer-requested data pulls, groups or shared programs across clients, and any change to solo use.
+
+## 2. Contracts this plan must respect
+
+- ADR 0026 for the relay, the two payloads, consent and the trainer site.
+- ADR 0007 for released setup-link payloads. The semantic version-1 document and the released envelopes stay locked; the handoff document is a new versioned kind, not a mutation.
+- `AGENTS.md` for storage, privacy, cache and script-revision rules, and the naming inventory.
+- `CONTEXT.md` for vocabulary. Slice 0 adds the trainer terms there before any copy is written.
+- `program-transition.js` and the `app.js` transition adapter own replacing a program while keeping history. Slice 3 uses them and adds no second path.
+- Telemetry stays a closed event list in `telemetry.js`. No payload content, link, record id or trainer name is ever an event property.
+
+## 3. Slices
+
+Each slice is one pull request with its owning tests. Slices 3 and 4 can run in parallel after slice 2.
+
+| # | Slice | Delivers | Owning proof |
+| --- | --- | --- | --- |
+| 0 | Contracts | Owner accepts ADR 0026 and resolves its open items 1, 3, 5 and 6. Amend ADR 0007, the `plans/README.md` guardrails, `AGENTS.md`, `CONTEXT.md` and the Privacy page text in one prose-only PR. | Owner review. |
+| 1 | Relay | A new service under `services/`, a shared request/record contract module, and a browser client that encrypts, uploads, downloads and decrypts. No UI. | Section 4. |
+| 2 | Program handoff | The handoff document (program, settings, starting loads, message, attribution). The app's Share uses the relay; a new client receives at the first-run gate with the trainer's name shown; the iOS handoff cookie carries the record locator; fallback to link or file when the relay is down. | Codec unit and generative suites; setup-flow browser suite extended; catalog frames. |
+| 3 | Program update for an existing client | An existing client opens a handoff, sees what changed and the note, and chooses to use it or keep the current program. History and the archive are kept. | Transition suites; a browser test that history, archive and an in-progress draft survive both choices. |
+| 4 | Training update from the app | The update document; "send my training" with the what-goes and what-stays sheet; the measured size bound. | Codec suites; a privacy test that excluded fields can never be encoded; real-log size measurement recorded in the PR. |
+| 5 | Trainer site: client list and handoff | The second static site, its storage, add client, choose or build a program with the reused editor, QR and link handoff, backup export and import. | Its own browser suite; storage-loss and backup round-trip tests; phone and laptop frames. |
+| 6 | Trainer site: review and adjust | Open an update link, client review (attendance, notes on their exercise, loads since the first week), adjust, send the update. | Browser suite covering the whole loop across both origins against a local relay. |
+| 7 | Evidence | The loop on real phones with the three trainers and one client each, in Portuguese, including an iOS Home Screen install. | Owner-run; findings go to the backlog. |
+
+## 4. Risky first proof (slice 1)
+
+The plan depends on one claim: a hand-built program that the link refuses today travels through the relay as a short link, and the service never sees plaintext. Slice 1 is done only when all of these hold:
+
+1. The four-day, seven-week program that `test/shared-setup-unit.mjs` generates, encoded in full, round-trips byte for byte through a local relay.
+2. The resulting link is short enough to print as a QR code that a phone camera reads at arm's length; record the measured length.
+3. A test inspects everything the service received and stored and finds neither the key nor any plaintext field.
+4. A record is unreadable after its expiry and a wrong key fails closed without partial output.
+5. The size bound, create rate and cost threshold reject as specified, and the kill switch stops creates while reads continue.
+
+If item 2 fails, stop and return to the owner before slice 2.
+
+## 5. Completion evidence
+
+- A green `ci` check on the final head of each slice.
+- The cross-origin loop test from slice 6 passing against the deployed staging relay.
+- Slice 7's real-phone record. Browser automation is not physical iOS or Android validation.
+- The Privacy page, `AGENTS.md` and the backlog updated in the same PR as the behavior they describe.
+
+## 6. Owner and environment gates
+
+- Acceptance of ADR 0026 and its open items before slice 1.
+- Relay provider account, staging and production deployment, and the cost threshold.
+- DNS and hosting for `pro.taurifer.com`. The repository holds no domain configuration, so this path must be supplied.
+- EN and PT copy approval for every new surface, and an approved design per user-visible slice.
+- Legal review (ADR 0026 open item 2) before any trainer outside the three reviewers uses it.
