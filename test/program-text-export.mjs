@@ -206,6 +206,33 @@ async function run() {
   const filename = download.suggestedFilename();
   assert(/^taurifer_program_treino-cecela_\d{4}-\d{2}-\d{2}\.txt$/.test(filename), "the saved file is a named .txt", filename);
 
+  // Share outcomes (#825): a closed share sheet (AbortError) is the lifter saying no, so nothing downloads; a share the
+  // browser refuses (NotAllowedError) still falls back to a download. share() runs inside the tap.
+  const stubShare = (mode) => page.evaluate((mode) => {
+    window.__textShareProbe = { downloads: 0, shares: 0 };
+    if (!window.__textShareProbeInstalled) {
+      window.__textShareProbeInstalled = true;
+      const create = URL.createObjectURL.bind(URL);
+      URL.createObjectURL = (blob) => { if (blob?.type?.startsWith("text/plain")) window.__textShareProbe.downloads++; return create(blob); };
+    }
+    Object.defineProperty(navigator, "canShare", { configurable: true, value: (data) => Array.isArray(data?.files) });
+    Object.defineProperty(navigator, "share", { configurable: true, value: () => {
+      window.__textShareProbe.shares++;
+      return Promise.reject(new DOMException("stub", mode));
+    } });
+  }, mode);
+  const shareTextOnce = async () => {
+    await page.click("#programTextShare");
+    await page.waitForTimeout(300);
+    return page.evaluate(() => ({ ...window.__textShareProbe }));
+  };
+  await stubShare("AbortError");
+  let shareProbe = await shareTextOnce();
+  assert(shareProbe.shares === 1 && shareProbe.downloads === 0, "a closed share sheet downloads nothing", JSON.stringify(shareProbe));
+  await stubShare("NotAllowedError");
+  shareProbe = await shareTextOnce();
+  assert(shareProbe.shares === 1 && shareProbe.downloads === 1, "a share the browser refuses falls back to a download", JSON.stringify(shareProbe));
+
   await page.keyboard.press("Escape");
   await page.waitForTimeout(500);
   const closed = await page.evaluate(() => ({

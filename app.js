@@ -1594,9 +1594,8 @@ function shareFile(text,name,type,title){
   return Promise.resolve(sharing).then(()=>"shared",error=>{
     if(error?.name==="AbortError")return "cancelled";
     download(text,name,type);return "downloaded"})}
-/* Program files and text keep their earlier behaviour: a closed sheet still downloads. */
-async function shareOrDownload(text,name,type,title="Taurifer backup"){
-  if(await shareFile(text,name,type,title)==="cancelled")download(text,name,type)}
+/* Program files and text: a closed sheet downloads nothing (#825); a refused share or no file sharing downloads. */
+function shareOrDownload(text,name,type,title="Taurifer backup"){return shareFile(text,name,type,title)}
 /* Words and numeric reps left share the effort shelf. Legacy tokens remain readable. */
 const EFFORT_RIR={easy:3,hard:1,max:0,r0:0,r1:1,r2:2,r3p:3,unsure:null};
 const EFFORT_STEPS=["easy","hard","max"];
