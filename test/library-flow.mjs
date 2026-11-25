@@ -10,6 +10,7 @@
  *
  * Run: node test/library-flow.mjs   (requires the app served over HTTP)
  */
+import { createRequire } from "module";
 import { pathToFileURL } from "url";
 import { applyInstalledEditor, openInstalledEditor } from "./fixtures/installed-editor.mjs";
 import { launchChromium } from "./browser.mjs";
@@ -29,7 +30,7 @@ const results = { passed: 0, failed: 0 };
 const CHIN_UP = "1a15c6f170d880b6adcbff83e8bb6b0f";
 const BARBELL_BENCH = "19f5c6f170d8808bb424e98de4472a7e";
 const SMITH_BENCH = "1a05c6f170d88058a3a0c07e098a9605";
-const MAPPED = 69;
+const MAPPED = createRequire(import.meta.url)("../exercises.js").EXERCISE_LIBRARY.filter(exercise => exercise.media).length;
 function assert(cond, name, detail) {
   if (cond) { results.passed++; console.log(`  ✓ ${name}`); }
   else { results.failed++; console.log(`  ✗ ${name}`); if (detail != null) console.log(`    ${detail}`); }

@@ -56,12 +56,12 @@ and this repository grants no rights to them. The terms Taurifer follows:
   same 180×180 and under the same terms and attribution. Nothing else is derived
   from the animations.
 
-Only movements whose catalog name equals exactly one dataset name (case and
-punctuation folded, no fuzzy or alias matching) are vendored: 61 files, pinned
-to dataset commit `7455efae41b330c265e7cd4b78dfa848e7ce5ebd` and to a content
-hash each in `tools/exercise-gifs.json`. `tools/vendor-exercise-gifs.mjs`
-produces that set and `test/exercise-library.mjs` fails on any file outside it.
-The dataset's `images/` directory and every other animation stay excluded.
+Only animations that a reviewed match in `tools/exercise-gif-matches.json`
+assigns to a catalog movement are vendored, pinned to dataset commit
+`7455efae41b330c265e7cd4b78dfa848e7ce5ebd` and to a content hash each in
+`tools/exercise-gifs.json`. `tools/vendor-exercise-gifs.mjs` produces that set
+and `test/exercise-library.mjs` fails on any file outside it. The dataset's
+`images/` directory and every unmatched animation stay excluded.
 
 #### The style-transfer experiment pack
 

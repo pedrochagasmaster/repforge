@@ -97,8 +97,9 @@ const wrongIndexRows = EXERCISE_LIBRARY.filter(index => {
   const expectedBg = stillOf(index.id) ? "#ffffff" : reviewed?.mediaId ? mediaBg[reviewed.mediaId] : null;
   return index.namePt !== expectedNamePt || !isDeepStrictEqual(index.aliases, expectedAliases) ||
     index.media !== expectedMedia || index.mediaBg !== expectedBg ||
+    !isDeepStrictEqual(index.mediaShown, animations[index.id]?.differences) ||
     !isDeepStrictEqual(Object.keys(index).sort(), [
-      "aliases", "id", "media", "mediaBg", "name", "namePt",
+      "aliases", "id", "media", "mediaBg", ...(animations[index.id]?.differences ? ["mediaShown"] : []), "name", "namePt",
       ...(Object.hasOwn(raw, "searchBoostValue") ? ["searchBoostValue"] : []),
     ]);
 });
@@ -144,17 +145,20 @@ const invalidMediaMappings = mediaRows.filter(exercise => {
     exercise.mediaBg !== mediaBg[mapping.mediaId] || !/^#[0-9a-f]{6}$/.test(String(exercise.mediaBg)) ||
     !existsSync(join(ROOT, exercise.media));
 });
-assert(mediaRows.length === 8 && Object.keys(curation.entries).filter(id => curation.entries[id].mediaId).length === 20,
-  "20 exact-movement UUID mappings carry a licensed illustration; 8 show it, 12 show their animation instead", `${mediaRows.length} shown`);
-assert(animatedRows.length === 61 && animatedRows.every(exercise =>
+const illustrated = Object.keys(curation.entries).filter(id => curation.entries[id].mediaId);
+const animatedCount = Object.keys(animations).length;
+assert(illustrated.length === 20 && mediaRows.length === illustrated.filter(id => !animations[id]).length,
+  "20 exact-movement UUID mappings carry a licensed illustration; an animation replaces it where both exist",
+  `${mediaRows.length} illustrations shown`);
+assert(animatedRows.length === animatedCount && animatedRows.every(exercise =>
   exercise.media === stillOf(exercise.id) && exercise.mediaBg === "#ffffff" && existsSync(join(ROOT, exercise.media))),
-  "61 movements show the first frame of their animation on its white ground", `${animatedRows.length} animated`);
+  "every matched movement shows the first frame of its animation on its white ground", `${animatedRows.length} of ${animatedCount}`);
 assert(invalidMediaMappings.length === 0, "each artwork path is backed by its reviewed UUID/name/background mapping",
   invalidMediaMappings.map(exercise => exercise.id).join(", "));
-assert(EXERCISE_LIBRARY.filter(exercise => !exercise.media && exercise.mediaBg == null).length === 1276,
-  "the other 1,276 source movements retain the empty media tile");
-assert(mediaFiles.length === 96 && unreferencedFiles.length === 88,
-  "all 96 licensed files stay closed and 88 unmatched or replaced files remain unreferenced",
+assert(EXERCISE_LIBRARY.filter(exercise => !exercise.media && exercise.mediaBg == null).length === 1345 - animatedCount - mediaRows.length,
+  "every other source movement retains the empty media tile");
+assert(mediaFiles.length === 96 && unreferencedFiles.length === 96 - mediaRows.length,
+  "all 96 licensed files stay closed and unmatched or replaced files remain unreferenced",
   `${mediaFiles.length} files; ${unreferencedFiles.length} unreferenced`);
 assert(isDeepStrictEqual(mediaFileIds, licensedMediaIds),
   "the existing sampled-media allowlist still defines the complete licensed file set");
@@ -162,21 +166,22 @@ assert(EXERCISE_LIBRARY.every(exercise => exercise.media || exercise.mediaBg == 
   "unmapped movements carry no fallback image or field color");
 
 {
-  // Vendored Gym visual animations: exact-name matches only, pinned by hash, credited in the product.
+  // Vendored Gym visual animations: reviewed matches only, pinned by hash, credited in the product.
   const { checkVendoredGifs, ATTRIBUTION } = await import("../tools/vendor-exercise-gifs.mjs");
   const gifProblems = checkVendoredGifs();
-  assert(gifProblems.length === 0, "vendored exercise animations match their exact-name manifest",
+  assert(gifProblems.length === 0, "vendored exercise animations match their reviewed matches and hashes",
     gifProblems.slice(0, 6).join(" | "));
   const gifManifest = existsSync(join(ROOT, "tools/exercise-gifs.json"))
     ? JSON.parse(readFileSync(join(ROOT, "tools/exercise-gifs.json"), "utf8")) : { entries: {} };
-  assert(Object.keys(gifManifest.entries).length === 61,
-    "61 catalog movements carry a vendored animation", `${Object.keys(gifManifest.entries).length} mapped`);
+  assert(Object.keys(gifManifest.entries).length >= 500,
+    "at least 500 catalog movements carry a vendored animation", `${Object.keys(gifManifest.entries).length} mapped`);
   assert(EXERCISE_LIBRARY.every(exercise => !/exercise-gifs|gymvisual|\.gif/i.test(JSON.stringify(exercise))),
     "the search index names only stills; the app derives each animation's path from its still");
   const worker = readFileSync(join(ROOT, "sw.js"), "utf8");
-  assert(Object.values(gifManifest.entries).every(entry => worker.includes(`"./assets/exercise-stills/${entry.datasetId}.webp"`)) &&
-    !/exercise-gifs/.test(worker),
-    "every still is precached so lists work offline; the animations are fetched on demand");
+  assert(!/exercise-gifs|exercise-stills/.test(worker),
+    "neither stills nor animations are precached; each is cached the first time it is shown");
+  assert(/addEventListener\("error",exerciseMediaFailed,true\)/.test(readFileSync(join(ROOT, "app.js"), "utf8")),
+    "a still or animation that cannot load (offline, never cached) falls back to the empty tile");
   const app = readFileSync(join(ROOT, "app.js"), "utf8");
   assert(/const EXERCISE_STILL=\/\^assets\\\/exercise-stills\\\/\(\\d\{4\}\)\\\.webp\$\//.test(app) &&
     app.includes("`assets/exercise-gifs/${m[1]}.gif`") && /function playExerciseAnimations\(root\)\{[^}]*?if\(reducedMotion\(\)\|\|/.test(app),
@@ -188,6 +193,11 @@ assert(EXERCISE_LIBRARY.every(exercise => exercise.media || exercise.mediaBg == 
   assert(["en", "pt"].every(locale =>
     typeof JSON.parse(readFileSync(join(ROOT, `i18n-${locale}.json`), "utf8"))["settings.media_credit"] === "string"),
     "the credit label is translated in both locales");
+  const { DIFFERENCES } = await import("../tools/vendor-exercise-gifs.mjs");
+  assert(["en", "pt"].every(locale => {
+    const strings = JSON.parse(readFileSync(join(ROOT, `i18n-${locale}.json`), "utf8"));
+    return typeof strings["media.shown"] === "string" && DIFFERENCES.every(code => typeof strings[`media.shown.${code}`] === "string");
+  }), "every difference a similar animation can name has its caption in both locales");
   const notice = readFileSync(join(ROOT, "NOTICE.md"), "utf8");
   assert(notice.includes(ATTRIBUTION) && notice.includes("assets/exercise-gifs/"),
     "NOTICE.md records the animations and their attribution");

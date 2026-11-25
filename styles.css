@@ -4489,6 +4489,11 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
    movement, short of the blur a 450px box would put on it. Its ground is pure
    white, which the field already takes from the movement's own colour. */
 .exdet-art--animation .exdet-art__img{width:min(64%,270px)}
+/* What a similar animation shows differently. It sits in the field's bottom
+   band, under the picture, in the quiet caption voice. */
+.exart-shown{margin:0;padding:0 16px var(--space-12);text-align:center;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
+.exdet-art--animation:has(.exart-shown) .exdet-art__figure{padding-bottom:var(--space-12)}
+.exthumb--lg + .exart-shown{padding:var(--space-8) 0 0}
 /* Four columns of rules around a single stat cluster fight the orange
    recommendation rail for the eye. On this page whitespace does the grouping,
    so the shared band drops its frame here and only here. */

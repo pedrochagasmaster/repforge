@@ -167,21 +167,27 @@ with icons, initials or silhouettes — `test/exercise-library.mjs` and
 — the one tool that needs the pinned test browser, because the files are lossy
 VP8 and Node has no decoder.
 
-`assets/exercise-gifs/` holds the 61 Gym visual animations vendored from
-hasaneyldrm/exercises-dataset under the owner's permission (`NOTICE.md`). A file
-is there only because its movement's catalog name equals exactly one dataset
-name; `tools/exercise-gifs.json` pins each to its UUID, dataset id and hash, and
-`node tools/vendor-exercise-gifs.mjs <clone>` regenerates the set (`--check`
-verifies it offline). Keep the files at 180×180 and unmodified, keep the
-"© Gym visual — https://gymvisual.com/" credit in Settings, and never add an
-animation by hand or by a looser match. An animation replaces a movement's
-illustration. `exercises.js` names only its still, the lossless first frame under
-`assets/exercise-stills/` (`--stills` re-derives them, needs ffmpeg); lists show
-the still, and the exercise page and library preview play the animation over it,
-at no more than 270px, except under reduced motion. `app.js` derives the
-animation's path from the still's dataset id. Stills are precached; animations
-are fetched when first shown and cached then. The screen catalog draws the still
-(`__repforgeStillFigures`), because a frame taken mid-loop differs between runs.
+`assets/exercise-gifs/` holds the Gym visual animations vendored from
+hasaneyldrm/exercises-dataset under the owner's permission (`NOTICE.md`).
+`tools/exercise-gif-matches.json` is the reviewed source: one entry per catalog
+UUID naming its animation, a tier (`exact`, `variant`, `similar`) and why; the
+review rule is in `tools/README.md`. Several movements may share one animation.
+`node tools/vendor-exercise-gifs.mjs <clone>` copies the animations those
+matches use, derives each one's lossless first frame under
+`assets/exercise-stills/` (needs ffmpeg) and writes `tools/exercise-gifs.json`
+with their hashes (`--check` verifies it all offline). Keep the files at 180×180
+and unmodified, keep the "© Gym visual — https://gymvisual.com/" credit in
+Settings, and never add a match without the review the rule describes. An
+animation replaces a movement's illustration. `exercises.js` names only its
+still; a `similar` match also carries `mediaShown`, the closed difference codes
+the page prints under the animation ("Shown with both arms, seated.",
+`media.shown.*` strings). Lists show the still, and the exercise page and
+library preview play the animation over it, at no more than 270px, except under
+reduced motion. `app.js` derives the animation's path from the still's dataset
+id. Neither stills nor animations are precached; the worker keeps each the
+first time it is shown, and one that fails offline falls back to the empty tile.
+The screen catalog draws the still (`__repforgeStillFigures`), because a frame
+taken mid-loop differs between runs.
 
 ## Implementation and review evidence
 

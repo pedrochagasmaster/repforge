@@ -15841,7 +15841,7 @@ function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
   const artHtml=artSrc?`<div class="exdet-art${artAnimated?" exdet-art--animation":""}"`+
     (artBg?` style="--exercise-art-bg:${esc(artBg)}"`:"")+`><div class="exdet-art__figure">`+
     exerciseFigure(artEntry,{cls:"exdet-art__img",alt:t(artAnimated?"preview.animation_alt":"preview.art_alt",{name})})+
-    `</div></div>`:"";
+    `</div>${exerciseShownNote(artEntry)}</div>`:"";
 
   const rec=tmpl?recommendation(tmpl,{savedHistoryOnly:true}):null;
   // With no weight to suggest (a Manual lift, one that needs setup, one with no usable history) the block says what
@@ -18759,6 +18759,13 @@ function exerciseFigure(e,{cls,alt}){
   const src=exerciseMedia(e),anim=exerciseAnimation(e),px=exerciseMediaSize(e);
   return `<img class="${esc(cls)}${anim?" is-animation":""}" src="${esc(src)}" alt="${esc(alt)}" decoding="async" `+
     `width="${px}" height="${px}"${anim?` data-animation="${esc(anim)}"`:""}>`}
+/* A `similar` animation is the same movement shown with one or two visible
+   differences (both arms for a one-arm movement, seated for a standing one).
+   The line under it names them so the lifter is not taught the wrong setup. */
+function exerciseShownNote(e){
+  const codes=Array.isArray(e?.mediaShown)&&exerciseAnimation(e)?e.mediaShown:[];
+  if(!codes.length)return"";
+  return `<p class="exart-shown">${esc(t("media.shown",{list:codes.map(c=>t("media.shown."+c)).join(", ")}))}</p>`}
 function playExerciseAnimations(root){
   // The screen catalog sets the flag: a frame taken mid-loop is different on every run.
   if(reducedMotion()||window.__repforgeStillFigures===true)return;
@@ -18766,6 +18773,17 @@ function playExerciseAnimations(root){
     const src=img.dataset.animation,loader=new Image();
     loader.onload=()=>{if(img.isConnected&&img.dataset.animation===src)img.src=src};
     loader.src=src}}
+/* Stills and animations are not precached (there are hundreds); the worker keeps
+   each one the first time it is shown. Offline, one never shown fails to load:
+   a thumbnail then becomes the empty tile, a large figure disappears, and an
+   animation that fails leaves its still in place. */
+function exerciseMediaFailed(ev){
+  const img=ev.target;
+  if(!(img instanceof HTMLImageElement)||!EXERCISE_STILL.test(img.getAttribute("src")||""))return;
+  img.removeAttribute("src");img.alt="";img.setAttribute("aria-hidden","true");
+  if(img.classList.contains("exthumb")&&!img.classList.contains("exthumb--lg"))img.classList.add("exthumb--empty");
+  else (img.closest(".exdet-art")||img).hidden=true}
+document.addEventListener("error",exerciseMediaFailed,true);
 /* A program slot and an identity recovered from a log row both carry a library
    id rather than the artwork itself, so the illustration has to come from the
    definition they point at. A custom entry resolves too and simply has none. */
@@ -20087,7 +20105,7 @@ function renderExercisePreview(){
     // A large illustration carries instructional content, so it is described
     // rather than hidden; the empty tile has nothing to describe.
     (exerciseMedia(e)
-      ?exerciseFigure(e,{cls:"exthumb exthumb--lg",alt:t(exerciseAnimation(e)?"preview.animation_alt":"preview.art_alt",{name:libraryName(e)})})
+      ?exerciseFigure(e,{cls:"exthumb exthumb--lg",alt:t(exerciseAnimation(e)?"preview.animation_alt":"preview.art_alt",{name:libraryName(e)})})+exerciseShownNote(e)
       :emptyThumb({size:"lg"}))+
     `<h3 class="preview__head">${esc(t("preview.muscles"))}</h3>`+
     `<dl class="preview__rows">`+

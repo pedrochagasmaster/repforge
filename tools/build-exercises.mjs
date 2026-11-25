@@ -163,6 +163,8 @@ function main() {
     if (animation) {
       row.media = stillPath(animation);
       row.mediaBg = STILL_BG;
+      // A similar animation says what it shows differently; nothing else carries the key.
+      if (animation.differences) row.mediaShown = animation.differences;
     } else if (reviewed?.mediaId) {
       row.media = `assets/exercises/${reviewed.mediaId}.webp`;
       row.mediaBg = mediaBg[reviewed.mediaId];

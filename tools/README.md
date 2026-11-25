@@ -336,22 +336,43 @@ node test/exercise-library.mjs
 
 ## vendor-exercise-gifs.mjs
 
-Copies the Gym visual animations that match a catalog movement out of a local
-clone of hasaneyldrm/exercises-dataset (at the commit pinned in the script) into
-`assets/exercise-gifs/`, and writes `tools/exercise-gifs.json`. A movement
-matches only when its catalog name equals exactly one dataset name after case
-and punctuation are folded. Licence and attribution terms are in `NOTICE.md`.
+Copies the Gym visual animations that `exercise-gif-matches.json` assigns to
+catalog movements out of a local clone of hasaneyldrm/exercises-dataset (at the
+commit pinned in the script) into `assets/exercise-gifs/`, derives each one's
+first frame into `assets/exercise-stills/` with ffmpeg (lossless WebP), and
+writes `tools/exercise-gifs.json` with both hashes. Licence and attribution
+terms are in `NOTICE.md`. `build-exercises.mjs` reads the manifest: a movement
+with an animation gets its still as `media`, and a `similar` one its
+`mediaShown` codes.
 
 ```
 node tools/vendor-exercise-gifs.mjs <path-to-dataset-clone>
-node tools/vendor-exercise-gifs.mjs --stills
 node tools/vendor-exercise-gifs.mjs --check
 ```
 
-Both writing modes also derive each animation's first frame into
-`assets/exercise-stills/` with ffmpeg (lossless WebP) and record its hash;
-`--stills` does only that, from the committed animations. `build-exercises.mjs`
-reads the manifest: a movement with an animation gets its still as `media`.
+### exercise-gif-matches.json
+
+The reviewed decision for each catalog movement that shows an animation. A
+movement absent from it shows its illustration or the empty tile. Each entry
+names the dataset animation and one tier:
+
+- `exact`: the same movement, equipment class, body position and laterality.
+- `variant`: as exact, differing only in something the animation cannot show or
+  barely shows: tempo, pauses, rep scheme, a small grip or stance width change,
+  a bench angle within about 15°, a cue, a handle on the same cable station.
+  Pin-loaded and plate-loaded machines count as the dataset's lever machine.
+- `similar`: the same movement (same joint actions along the same path) with
+  one or two visible differences, each named by a `differences` code from
+  `DIFFERENCES` in the script. The page prints them under the animation. An
+  equipment code is allowed only when the load sits in the same place and moves
+  along the same path.
+
+Never a different exercise for the same muscle, an added or missing object
+(ball, box, band), or more than two differences. The 2026-11-25 set was built in
+three passes: a reviewer per movement with the full dataset and the start/end
+frames, an independent verifier on every exact and variant pair, and a final
+check of every similar pair and every verifier rejection. Edit an entry only
+after looking at the animation's frames.
 
 ## build-exercises.mjs
 
