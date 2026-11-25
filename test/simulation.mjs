@@ -8878,7 +8878,7 @@ async function main() {
   // may already have swapped the animation in by the time it is read.
   const ART_SRC = "assets/exercise-stills/0585.webp", ART_GIF = "assets/exercise-gifs/0585.gif";
   const isArtSrc = (src) => src === ART_SRC || src === ART_GIF;
-  const ART_SLOT = "seed-ex-13", PLAIN_SLOT = "seed-ex-1", ART_NAME = "Leg extension";
+  const ART_SLOT = "seed-ex-13", PLAIN_SLOT = "seed-ex-3", ART_NAME = "Leg extension";
   const artHistoryRows = (iso, session) =>
     [1, 2, 3].map((n) => ({
       date: iso, session, day: "Day 3", exerciseId: ART_SLOT, name: ART_NAME,
@@ -8993,7 +8993,7 @@ async function main() {
     artPlain.wrappers === 0 && artPlain.imgs === 0 && artPlain.emptyTiles === 0,
     "A movement without licensed art renders no media block and no placeholder",
     JSON.stringify(artPlain),
-    "Open the exercise page for the seed's Hack squat"
+    "Open the exercise page for the seed's Incline chest press"
   );
   assert(
     artFailures.filter((u) => u.includes("assets/exercises/")).length === 0,
