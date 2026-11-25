@@ -10,7 +10,7 @@ The only list of open, deferred and paused work. Order is top to bottom within e
 
 ## Waiting on owner
 
-- #315 Portuguese exercise names: use the existing review tool, resume progress from `backup/2026-10-15/pt-name-review-progress`, and publish approved names and aliases.
+- #315 Portuguese exercise names: the 128 movements Generate uses are published (`test/fixtures/generator-pt-names.json`). Remaining: 56 owner approvals saved on `backup/2026-10-15/pt-name-review-progress` for movements Generate does not use, and the other 1,150 drafted names (Build and Import picks), through the existing review tool.
 
 ## After alpha (Next)
 
