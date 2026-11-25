@@ -26459,6 +26459,19 @@ function layoutLandingDemo(d){
   // session's sheet are. A zoomed shot is LANDING_DEMO.zoom px of the screen's width, as tall as the frame's shape;
   // a narrower frame frames less, so the screen's 14px text stays at 13px or more, down to 366px of screen (its
   // gutters' worth: below that a shot would cut the screen's own text at the frame's edges).
+  // A cropped stage (--proof-crop on the frame: "next" on a phone, "fields" on the wide page) opens on the screen's own
+  // top and ends on a whole part of it (after the Next row, or after the shelf's fields), at the screen's full width:
+  // the frame takes the height that crop needs, so it ends on its own rounded edge rather than through a line.
+  const crop=getComputedStyle(d.frame).getPropertyValue("--proof-crop").trim();
+  let cropShot=null;
+  if(crop){
+    const sc=d.root.getBoundingClientRect(),k0=sc.width/d.root.offsetWidth||1;
+    const end=d.root.querySelector(crop==="fields"?".firstrun-demo__fields":".firstrun-demo__next");
+    const top=24,bottom=end?(end.getBoundingClientRect().bottom-sc.top)/k0+(crop==="fields"?6:16):d.root.offsetHeight;
+    const k=d.frame.clientWidth/d.root.offsetWidth;
+    d.frame.style.height=`${Math.round((bottom-top)*k)}px`;
+    cropShot={x:d.glass.offsetLeft+d.rig.clientLeft,y:d.glass.offsetTop+d.rig.clientTop+top,w:d.root.offsetWidth,h:bottom-top}}
+  else d.frame.style.removeProperty("height");
   const view={w:d.frame.clientWidth,h:d.frame.clientHeight},glassX=d.glass.offsetLeft+d.rig.clientLeft,glassY=d.glass.offsetTop+d.rig.clientTop;
   // A frame of 400px or more (the desktop's) shows the phone's whole width, still at reading size.
   const rigBox={w:d.rig.offsetWidth,h:d.rig.offsetHeight};
@@ -26494,7 +26507,8 @@ function layoutLandingDemo(d){
   d.view=view;d.rigBox=rigBox;
   // A frame of the phone's own shape (the wide page's hero) shows the whole screen throughout: nothing to move to.
   const whole=view.h/view.w>=rigBox.h/rigBox.w*.95;
-  d.shots=whole?[{at:0,...full}]:[{at:0,...full},{at:.45,...cue},{at:2.7,...foot},{at:LANDING_DEMO.pull,move:.4,...full}];
+  d.shots=cropShot?[{at:0,...cropShot},{at:2.7,...foot},{at:LANDING_DEMO.pull,move:.4,...cropShot}]
+    :whole?[{at:0,...full}]:[{at:0,...full},{at:.45,...cue},{at:2.7,...foot},{at:LANDING_DEMO.pull,move:.4,...full}];
   d.last=new WeakMap();d.laid=true;
   return true}
 function renderLandingProof(add){
