@@ -1,0 +1,473 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Taurifer Trainer Loop</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/*FONTS*/
+@font-face{font-family:"Plex Sans";src:url(../../../fonts/plexsans.woff2) format("woff2");font-weight:100 700;font-display:swap}
+@font-face{font-family:"Plex Mono";src:url(../../../fonts/plexmono-400.woff2) format("woff2");font-weight:400;font-display:swap}
+@font-face{font-family:"Plex Mono";src:url(../../../fonts/plexmono-500.woff2) format("woff2");font-weight:500;font-display:swap}
+/*END-FONTS*/
+/* Layout: two phones side by side on a desk (trainer left, client right) under one guide strip; at phone width a single screen fills the page and follows whoever acts next. Mock-only; values mirror styles.css tokens (DESIGN.md). */
+:root{
+  --bg:#F4F2EF;--surface:#FFFFFF;--well:#FAF8F5;--ink:#1B1A17;--ink-soft:#6A665F;--ink-faint:#716D66;
+  --rule:#E4E1DA;--rule-strong:#D9D5CD;--accent:#E04E14;--accent-deep:#B8410E;--accent-ink:#FFFFFF;
+  --cta:#161513;--cta-ink:#FFFFFF;--positive:#2F7D33;--danger:#C93A2B;--scrim:rgba(27,26,23,.42);
+  --dock-glass:rgba(250,248,245,.72);--dock-pill:#FFFFFF;--desk:#E7E3DC;--bezel:#161513;
+  --shadow:0 18px 50px rgba(27,26,23,.18);--qr-bg:#FFFFFF;--qr-fg:#161513;
+  --sans:"Plex Sans","IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"Plex Mono","IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --gl:max(16px,env(safe-area-inset-left,0px));--gr:max(16px,env(safe-area-inset-right,0px));
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#141310;--surface:#1E1C18;--well:#191713;--ink:#F2EFE9;--ink-soft:#ADA79D;--ink-faint:#99938A;
+  --rule:#2E2B26;--rule-strong:#4A453D;--accent:#F2703B;--accent-deep:#FF8A3D;--accent-ink:#231A14;
+  --cta:#F2EFE9;--cta-ink:#161513;--positive:#63C267;--danger:#FF6670;--scrim:rgba(0,0,0,.62);
+  --dock-glass:rgba(30,28,24,.78);--dock-pill:#3A3733;--desk:#0B0A08;--bezel:#35312B;
+  --shadow:0 18px 50px rgba(0,0,0,.5);color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141310;--surface:#1E1C18;--well:#191713;--ink:#F2EFE9;--ink-soft:#ADA79D;--ink-faint:#99938A;
+  --rule:#2E2B26;--rule-strong:#4A453D;--accent:#F2703B;--accent-deep:#FF8A3D;--accent-ink:#231A14;
+  --cta:#F2EFE9;--cta-ink:#161513;--positive:#63C267;--danger:#FF6670;--scrim:rgba(0,0,0,.62);
+  --dock-glass:rgba(30,28,24,.78);--dock-pill:#3A3733;--desk:#0B0A08;--bezel:#35312B;
+  --shadow:0 18px 50px rgba(0,0,0,.5);color-scheme:dark}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--desk);color:var(--ink);font:400 16px/1.4 var(--sans);overflow:hidden;-webkit-font-smoothing:antialiased}
+button,input,textarea{font:inherit;color:inherit}
+button{background:none;border:0;padding:0;cursor:pointer;text-align:inherit;-webkit-tap-highlight-color:transparent}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+svg{display:block;flex:none}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+/* demo chrome */
+.app{height:100%;display:flex;flex-direction:column}
+.chrome{flex:none;background:var(--bg);border-bottom:1px solid var(--rule);padding:10px var(--gr) 12px var(--gl);display:grid;gap:10px}
+.chrome__row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.brand{font-weight:600;letter-spacing:-.01em;margin-right:auto}
+.brand span{color:var(--ink-soft);font-weight:400}
+.seg{display:inline-flex;border:1px solid var(--rule-strong);border-radius:999px;padding:2px;background:var(--well)}
+.seg button{min-height:32px;padding:0 12px;border-radius:999px;font-size:.8125rem;color:var(--ink-soft)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.ghost{min-height:36px;padding:0 12px;border-radius:999px;border:1px solid var(--rule-strong);font-size:.8125rem}
+.guide{display:flex;gap:12px;align-items:center}
+.guide__n{font-family:var(--mono);font-size:.75rem;color:var(--ink-soft);white-space:nowrap}
+.guide__t{flex:1;min-width:0;margin:0;font-size:.9375rem;text-wrap:pretty}
+.guide__t b{font-weight:600}
+.guide .btn{flex:none;width:auto;min-height:40px;padding:0 16px;font-size:.875rem}
+.who{display:none}
+
+.desk{flex:1;min-height:0;display:flex;justify-content:center;gap:40px;padding:0}
+.slot{display:flex;flex-direction:column;min-height:0;flex:1;min-width:0}
+.slot[hidden]{display:none}
+.slot__label{display:none}
+.phone{position:relative;flex:1;min-height:0;background:var(--bg);overflow:hidden;display:flex;flex-direction:column}
+.screen{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:14px var(--gr) 28px var(--gl)}
+.screen.has-dock{padding-bottom:104px}
+.screen.has-bar{padding-bottom:20px}
+
+@media (min-width:900px){
+  .chrome{padding-inline:max(24px,var(--gl)) max(24px,var(--gr))}
+  .who{display:none}
+  .desk{align-items:center;padding:20px 24px}
+  .slot{flex:none;width:390px;height:100%;max-height:800px}
+  .slot[hidden]{display:flex}
+  .slot__label{display:flex;align-items:center;gap:8px;font-size:.8125rem;color:var(--ink-soft);padding:0 6px 10px}
+  .slot__label b{color:var(--ink);font-weight:600}
+  .turn{margin-left:auto;font-size:.6875rem;letter-spacing:.06em;text-transform:uppercase;color:var(--accent-deep);font-weight:600}
+  .phone{border-radius:34px;box-shadow:0 0 0 8px var(--bezel),var(--shadow);transition:opacity .25s}
+  .slot:not(.is-turn) .phone{opacity:.62}
+  .screen{padding-inline:16px}
+}
+@media (max-width:899px){.who{display:inline-flex;margin-right:auto}.brand{display:none}.chrome{gap:8px;padding-top:8px}}
+
+/* type */
+.eyebrow{font-size:.6875rem;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-faint);font-weight:600;margin:0}
+.crumb{color:var(--ink-soft);font-size:.875rem;margin:0}
+h1{font-size:1.875rem;line-height:1.12;letter-spacing:-.02em;font-weight:600;margin:4px 0 4px;text-wrap:balance}
+h2{font-size:1.25rem;line-height:1.2;letter-spacing:-.01em;font-weight:600;margin:0}
+.sub{color:var(--ink-soft);margin:0}
+.small{font-size:.875rem;color:var(--ink-soft);margin:0}
+.sec{margin-top:26px}
+.sec>.eyebrow{padding-bottom:10px;border-bottom:1px solid var(--rule)}
+
+/* bars and buttons */
+.bar{display:flex;align-items:center;justify-content:space-between;min-height:44px;margin:-6px 0 6px}
+.link{color:var(--accent-deep);font-weight:500;min-height:44px;display:inline-flex;align-items:center;gap:2px}
+.link svg{margin-left:-6px}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:54px;border-radius:999px;font-weight:600;padding:0 20px;text-align:center}
+.btn.primary{background:var(--cta);color:var(--cta-ink)}
+.btn.secondary{border:1px solid var(--ink-soft)}
+.btn[aria-disabled="true"]{opacity:.38}
+.actionbar{flex:none;background:var(--bg);border-top:1px solid var(--rule);padding:12px var(--gr) 14px var(--gl);display:grid;gap:10px}
+.actionbar .small{text-align:center}
+.float-cta{position:absolute;left:var(--gl);right:var(--gr);bottom:92px;z-index:2}
+.float-cta .btn{box-shadow:0 8px 22px rgba(0,0,0,.2)}
+
+/* rows */
+.rows{display:grid}
+.row{display:flex;align-items:center;gap:12px;min-height:56px;padding:12px 0;border-bottom:1px solid var(--rule);width:100%}
+.row__main{flex:1;min-width:0}
+.row__t{display:block;font-weight:500}
+.row__s{display:block;font-size:.875rem;color:var(--ink-soft)}
+.row__s.warn{color:var(--accent-deep)}
+.chev{color:var(--ink-faint)}
+.badge{flex:none;font-size:.6875rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;background:var(--accent);color:var(--accent-ink);border-radius:999px;padding:3px 9px}
+.avatar{flex:none;width:40px;height:40px;border-radius:50%;background:var(--surface);border:1px solid var(--rule-strong);display:grid;place-items:center;font-size:.8125rem;font-weight:600;color:var(--ink-soft)}
+.radio{flex:none;width:22px;height:22px;border-radius:50%;border:1.5px solid var(--ink-faint)}
+.radio.on{border:7px solid var(--ink)}
+.field{display:grid;gap:6px;margin-top:18px}
+.field label{font-size:.8125rem;color:var(--ink-soft)}
+.field input,.field textarea{background:var(--surface);border:1px solid var(--rule-strong);border-radius:12px;padding:13px 14px;width:100%;resize:none}
+.search{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--rule);border-radius:12px;padding:0 12px;min-height:44px;color:var(--ink-faint);margin-top:16px}
+
+/* tables */
+.tbl{width:100%;border-collapse:collapse}
+.tbl th{font-size:.6875rem;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-faint);font-weight:600;text-align:right;padding:10px 0;border-bottom:1px solid var(--rule)}
+.tbl th:first-child,.tbl td:first-child{text-align:left}
+.tbl td{padding:13px 0;border-bottom:1px solid var(--rule);text-align:right;vertical-align:baseline}
+.tbl td:first-child{padding-right:10px}
+.tbl .kg{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:1.125rem;white-space:nowrap}
+.tbl .tg{font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--ink-soft);white-space:nowrap;padding-left:14px}
+.tbl .from{color:var(--ink-faint);font-size:.9375rem}
+.up{color:var(--accent)}
+.flat{color:var(--ink-faint)}
+.tag{display:inline-block;font-size:.6875rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--accent-deep);margin-left:6px;white-space:nowrap}
+.strike{text-decoration:line-through;color:var(--ink-faint)}
+
+/* today */
+.segs{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin:10px 0 0}
+.segs i{height:3px;border-radius:2px;background:var(--rule-strong)}
+.segs i.done{background:var(--ink-soft)}
+.segs i.now{background:var(--accent)}
+.by{display:flex;align-items:center;gap:8px;font-size:.875rem;color:var(--ink-soft);margin:14px 0 0;padding:12px 0;border-block:1px solid var(--rule)}
+.nudge{display:flex;align-items:center;gap:12px;width:100%;margin-top:14px;padding:14px;border-radius:12px;background:var(--surface);border:1px solid var(--rule)}
+
+/* attendance */
+.att{display:grid;grid-template-columns:auto repeat(4,1fr) auto;gap:8px 8px;align-items:center;padding:14px 0;border-bottom:1px solid var(--rule)}
+.att .h{font-size:.6875rem;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);text-align:center}
+.att .w{font-family:var(--mono);font-size:.8125rem;color:var(--ink-soft)}
+.att .c{height:26px;border-radius:6px;background:var(--ink)}
+.att .c.miss{background:none;border:1.5px dashed var(--accent)}
+.att .n{font-family:var(--mono);font-size:.8125rem;color:var(--ink-soft);text-align:right}
+.flag{display:flex;gap:12px;padding:14px 0;border-bottom:1px solid var(--rule)}
+.flag__dot{flex:none;width:8px;height:8px;border-radius:50%;background:var(--accent);margin-top:7px}
+.quote{margin:6px 0 0;padding-left:10px;border-left:2px solid var(--rule-strong);color:var(--ink-soft);font-size:.9375rem}
+.status{display:flex;gap:10px;align-items:center;margin-top:14px;padding:12px 14px;border-radius:12px;background:var(--surface);border:1px solid var(--rule);font-size:.875rem}
+.status svg{color:var(--positive)}
+
+/* chips */
+.chips{display:flex;gap:8px;overflow-x:auto;margin:16px 0 4px;padding-bottom:2px}
+.chip{flex:none;min-height:36px;padding:0 14px;border-radius:999px;border:1px solid var(--rule-strong);font-size:.875rem;color:var(--ink-soft)}
+.chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+
+/* handoff */
+.qr{background:var(--qr-bg);color:var(--qr-fg);border-radius:16px;padding:18px;width:min(240px,70%);margin:22px auto 14px;border:1px solid var(--rule)}
+.qr svg{width:100%;height:auto}
+.center{text-align:center}
+.idle{flex:1;display:grid;place-content:center;justify-items:center;gap:10px;text-align:center;padding:24px;color:var(--ink-soft)}
+.idle svg{color:var(--ink-faint)}
+.gatecard{margin-top:22px;border-radius:16px;background:var(--surface);border:1px solid var(--rule);padding:4px 16px}
+.gatecard .row:last-child{border-bottom:0}
+.diff{padding:14px 0;border-bottom:1px solid var(--rule)}
+.diff .eyebrow{margin-bottom:4px}
+
+/* dock */
+.dock{position:absolute;left:14px;right:14px;bottom:12px;z-index:3;display:flex;padding:5px;border-radius:999px;background:var(--dock-glass);backdrop-filter:blur(14px) saturate(180%);-webkit-backdrop-filter:blur(14px) saturate(180%);box-shadow:0 6px 24px rgba(0,0,0,.14),0 0 0 .5px var(--rule-strong)}
+.dock button{flex:1;min-width:0;display:grid;justify-items:center;gap:2px;padding:7px 0 6px;border-radius:999px;font-size:.6875rem;font-weight:500;color:var(--ink-soft)}
+.dock button[aria-current="page"]{background:var(--dock-pill);color:var(--accent-deep);box-shadow:0 1px 4px rgba(0,0,0,.1)}
+
+/* sheet */
+.scrim{position:absolute;inset:0;background:var(--scrim);z-index:5}
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:6;background:var(--surface);border-radius:16px 16px 0 0;padding:10px var(--gr) 16px var(--gl);max-height:88%;overflow-y:auto;box-shadow:0 -10px 40px rgba(0,0,0,.2);animation:rise .28s cubic-bezier(.2,.8,.2,1)}
+.sheet__grab{width:38px;height:5px;border-radius:3px;background:var(--rule-strong);margin:0 auto 10px}
+.sheet__head{display:flex;gap:12px;align-items:flex-start;justify-content:space-between}
+.close{flex:none;width:32px;height:32px;border-radius:50%;background:var(--bg);display:grid;place-items:center}
+.list2{margin:14px 0 0;padding:0;list-style:none;display:grid;gap:8px;font-size:.9375rem}
+.list2 li{display:flex;gap:10px;align-items:flex-start}
+.list2 svg{margin-top:3px;color:var(--positive)}
+.list2.no svg{color:var(--ink-faint)}
+.list2.no{color:var(--ink-soft)}
+.toast{position:absolute;left:50%;bottom:110px;transform:translateX(-50%);z-index:9;background:var(--ink);color:var(--bg);font-size:.8125rem;padding:9px 14px;border-radius:999px;white-space:nowrap;pointer-events:none}
+
+/* guide target */
+.hint{position:relative;box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--accent);animation:pulse 1.5s ease-in-out infinite}
+.row.hint,.nudge.hint{border-radius:10px}
+@keyframes pulse{50%{box-shadow:0 0 0 2px var(--bg),0 0 0 8px color-mix(in srgb,var(--accent) 35%,transparent)}}
+@keyframes rise{from{transform:translateY(40px);opacity:.4}}
+@media (prefers-reduced-motion:reduce){.hint,.sheet{animation:none}.phone{transition:none}}
+</style>
+</head><body>
+<div class="app">
+  <div class="chrome">
+    <div class="chrome__row">
+      <span class="brand">Taurifer <span id="brandSub"></span></span>
+      <span class="seg who" id="who"></span>
+      <span class="seg" id="lang"><button data-act="lang" data-v="en">EN</button><button data-act="lang" data-v="pt">PT</button></span>
+      <button class="ghost" data-act="restart" id="restart"></button>
+    </div>
+    <div class="guide" id="guide"></div>
+  </div>
+  <div class="desk">
+    <div class="slot" data-slot="trainer"><div class="slot__label" id="lblTrainer"></div><div class="phone" data-who="trainer"></div></div>
+    <div class="slot" data-slot="client"><div class="slot__label" id="lblClient"></div><div class="phone" data-who="client"></div></div>
+  </div>
+</div>
+<script>
+(function(){
+"use strict";
+// Mock-only story: every screen derives from one step counter. Nothing is stored or sent.
+const L={
+  brandSub:["· trainer loop, concept demo","· ciclo do treinador, demonstração"],
+  restart:["Restart","Recomeçar"],back:["Back","Voltar"],
+  trainerLbl:["<b>Rafael</b> · personal trainer","<b>Rafael</b> · personal trainer"],
+  clientLbl:["<b>Marina</b> · client","<b>Marina</b> · aluna"],
+  turn:["Acting now","Em ação"],rafael:["Rafael","Rafael"],marina:["Marina","Marina"],
+  inert:["Not part of this demo","Fora desta demonstração"],
+  g0:["Rafael keeps every client in Taurifer, on his own phone. Tap <b>Add client</b>.","Rafael guarda todos os alunos no Taurifer, no próprio celular. Toque em <b>Adicionar aluno</b>."],
+  g1:["He picks one of his own programs for Marina. Tap <b>Create and hand over</b>.","Ele escolhe um dos próprios treinos para a Marina. Toque em <b>Criar e entregar</b>."],
+  g2:["At the gym Marina scans the code. No account, no app store. Tap <b>Send link</b> to send it by message instead.","Na academia, a Marina lê o código. Sem conta, sem loja de apps. Toque em <b>Enviar link</b> para mandar por mensagem."],
+  g3:["Marina's phone opens the program with Rafael's name on it. Tap <b>Start this program</b>.","O celular da Marina abre o treino com o nome do Rafael. Toque em <b>Começar este treino</b>."],
+  g4:["Rafael's loads are already in. Marina trains three weeks, two days with him and two alone.","As cargas do Rafael já estão no treino. A Marina treina três semanas, dois dias com ele e dois sozinha."],
+  g4b:["Skip 3 weeks","Pular 3 semanas"],
+  g5:["Rafael has not seen her solo days. Tap <b>Send Rafael your last 3 weeks</b>.","O Rafael não viu os dias em que ela treinou sozinha. Toque em <b>Enviar ao Rafael as últimas 3 semanas</b>."],
+  g6:["She sees exactly what goes and what stays. Tap <b>Send</b>.","Ela vê exatamente o que vai e o que fica. Toque em <b>Enviar</b>."],
+  g7:["Rafael's list shows a new update. Tap <b>Marina Souza</b>.","A lista do Rafael mostra uma atualização. Toque em <b>Marina Souza</b>."],
+  g8:["Attendance, what needs his eye, and every load since week 1. Tap <b>Adjust program</b>.","Frequência, o que merece atenção e todas as cargas desde a semana 1. Toque em <b>Ajustar treino</b>."],
+  g9:["Marina's note sits on the exercise it is about. Tap <b>Overhead press</b>.","A nota da Marina aparece no exercício em questão. Toque em <b>Desenvolvimento com barra</b>."],
+  g10:["Tap <b>Swap for Landmine press</b>.","Toque em <b>Trocar por Desenvolvimento landmine</b>."],
+  g11:["One change and a message for her. Tap <b>Send update to Marina</b>.","Uma mudança e um recado para ela. Toque em <b>Enviar atualização para Marina</b>."],
+  g12:["Marina sees what changed and why. Her history stays. Tap <b>Use the update</b>.","A Marina vê o que mudou e por quê. O histórico dela continua. Toque em <b>Usar a atualização</b>."],
+  g13:["That is the loop: program out, training back, adjustment out. No accounts and no server in between.","Esse é o ciclo: treino vai, resultado volta, ajuste vai. Sem contas e sem servidor no meio."],
+  // dock
+  today:["Today","Hoje"],clients:["Clients","Alunos"],progress:["Progress","Progresso"],history:["History","Histórico"],program:["Program","Treino"],
+  // roster
+  rosterSub:["{n} clients · kept on this phone","{n} alunos · guardados neste celular"],search:["Search clients","Buscar alunos"],
+  addClient:["Add client","Adicionar aluno"],newUpdate:["New","Novo"],
+  c1:["Updated yesterday · 4 of 4 this week","Atualizou ontem · 4 de 4 nesta semana"],
+  c2:["No update in 12 days","Sem atualização há 12 dias"],
+  c3:["Block ends this week","Bloco termina nesta semana"],
+  c4:["Updated Monday · 3 of 3 this week","Atualizou segunda · 3 de 3 nesta semana"],
+  c5:["Updated 4 days ago · 2 of 4 this week","Atualizou há 4 dias · 2 de 4 nesta semana"],
+  mSent:["Program sent · not opened yet","Treino enviado · ainda não abriu"],
+  mStarted:["Started today · week 1 of 6","Começou hoje · semana 1 de 6"],
+  mQuiet:["Week 4 of 6 · no update yet","Semana 4 de 6 · sem atualização"],
+  mNew:["Sent 3 weeks of training · just now","Enviou 3 semanas de treino · agora"],
+  mUpd:["Update sent · not opened yet","Atualização enviada · ainda não abriu"],
+  mUsing:["Using your update since today","Usando sua atualização desde hoje"],
+  // new client
+  cancel:["Cancel","Cancelar"],newClient:["New client","Novo aluno"],name:["Name","Nome"],
+  yourPrograms:["Your programs","Seus treinos"],p1:["Upper/Lower","Superior/Inferior"],p1s:["4 days · 6 weeks","4 dias · 6 semanas"],
+  p2:["Full body","Corpo inteiro"],p2s:["3 days · 6 weeks","3 dias · 6 semanas"],p3:["Glute focus","Foco em glúteos"],p3s:["4 days · 8 weeks","4 dias · 8 semanas"],
+  buildNew:["Build a new program","Montar um treino novo"],signature:["Your name on the program","Seu nome no treino"],
+  signatureS:["Marina sees this when she opens it.","A Marina vê isto ao abrir o treino."],create:["Create and hand over","Criar e entregar"],
+  // handoff
+  done:["Done","Concluir"],handTitle:["Hand over to Marina","Entregar para Marina"],
+  handBody:["Marina points her phone camera at this code. The program opens in her browser.","A Marina aponta a câmera do celular para este código. O treino abre no navegador dela."],
+  sendLink:["Send link","Enviar link"],copyLink:["Copy link","Copiar link"],
+  handFoot:["Carries the program, your name and its settings. Nothing about your other clients.","Leva o treino, seu nome e os ajustes. Nada sobre seus outros alunos."],
+  // idle
+  idleT:["Marina's phone","Celular da Marina"],idleS:["Nothing yet. Rafael is setting up her program.","Nada ainda. O Rafael está preparando o treino dela."],
+  // gate
+  received:["Program received","Treino recebido"],gateH:["Upper/Lower, from Rafael Lima","Superior/Inferior, de Rafael Lima"],
+  gateB:["Nothing changes on this phone until you tap Start this program.","Nada muda neste celular até você tocar em Começar este treino."],
+  gate1:["4 days per week · 6 weeks","4 dias por semana · 6 semanas"],gate1s:["Upper A, Lower A, Upper B, Lower B","Superior A, Inferior A, Superior B, Inferior B"],
+  gate2:["Starting loads set by Rafael","Cargas iniciais definidas pelo Rafael"],gate2s:["You can still change any of them.","Você ainda pode mudar qualquer uma."],
+  start:["Start this program","Começar este treino"],see:["See the program","Ver o treino"],
+  // today
+  d1:["Monday, November 2","Segunda-feira, 2 de novembro"],d2:["Wednesday, November 25","Quarta-feira, 25 de novembro"],
+  wk:["Week {n} of 6","Semana {n} de 6"],by:["Program by Rafael Lima · CREF 012345-G/SP","Treino de Rafael Lima · CREF 012345-G/SP"],
+  upperB:["Upper B","Superior B"],exercise:["Exercise","Exercício"],target:["Target","Meta"],
+  startWorkout:["Start workout","Começar sessão"],nudgeT:["Send Rafael your last 3 weeks","Enviar ao Rafael as últimas 3 semanas"],
+  nudgeS:["10 sessions he has not seen","10 sessões que ele ainda não viu"],sentT:["Sent to Rafael today","Enviado ao Rafael hoje"],
+  sentS:["Next one whenever you choose","O próximo, quando você quiser"],isNew:["New","Novo"],
+  e1:["Incline dumbbell press","Supino inclinado com halteres"],e2:["Lat pulldown","Puxada alta"],e3:["Overhead press","Desenvolvimento com barra"],
+  e3b:["Landmine press","Desenvolvimento landmine"],e4:["Cable seated row","Remada baixa na polia"],e5:["Dumbbell lateral raise","Elevação lateral com halteres"],
+  e6:["Triceps pushdown","Tríceps na polia"],e7:["Leg press","Leg press"],e8:["Romanian deadlift","Levantamento terra romeno"],
+  // send sheet
+  sendTitle:["Send update to Rafael","Enviar atualização ao Rafael"],goes:["What goes","O que vai"],stays:["What stays on this phone","O que fica neste celular"],
+  go1:["10 sessions since November 2: exercises, loads, reps and effort","10 sessões desde 2 de novembro: exercícios, cargas, repetições e esforço"],
+  go2:["Your note from November 19","Sua nota de 19 de novembro"],go3:["Your current program","Seu treino atual"],
+  st1:["Everything from before this program","Tudo de antes deste treino"],st2:["Body weight and app settings","Peso corporal e ajustes do app"],
+  msg:["Message (optional)","Recado (opcional)"],send:["Send","Enviar"],
+  sendFoot:["Goes through the app you choose. Taurifer does not store it.","Vai pelo app que você escolher. O Taurifer não guarda uma cópia."],
+  // client detail
+  client:["Client","Aluna"],cSub:["Upper/Lower · week 4 of 6","Superior/Inferior · semana 4 de 6"],
+  attendance:["Attendance","Frequência"],attTotal:["10 of 12 sessions","10 de 12 sessões"],wkS:["W","S"],
+  look:["Worth a look","Vale olhar"],f1:["Note on Overhead press, November 19","Nota em Desenvolvimento com barra, 19 de novembro"],
+  f1q:["Shoulder pinched on the last reps.","Senti o ombro beliscar nas últimas repetições."],
+  f2:["Lower B missed two weeks running","Inferior B faltou duas semanas seguidas"],f2s:["Both on Saturdays, training alone.","As duas no sábado, treinando sozinha."],
+  f3:["Lat pulldown has not moved","Puxada alta não saiu do lugar"],f3s:["45 kg × 10, 10, 9 for three sessions.","45 kg × 10, 10, 9 por três sessões."],
+  loads:["Loads since week 1 (kg)","Cargas desde a semana 1 (kg)"],w1:["Week 1","Semana 1"],now:["Now","Agora"],
+  effort:["Effort","Esforço"],effortS:["Most working sets logged with 1 or 2 reps left.","A maioria das séries foi registrada com 1 ou 2 repetições sobrando."],
+  allSessions:["All 10 sessions","Todas as 10 sessões"],adjust:["Adjust program","Ajustar treino"],
+  stSent:["Update sent today. Marina has not opened it yet.","Atualização enviada hoje. A Marina ainda não abriu."],
+  stUsing:["Marina started using your update today.","A Marina começou a usar sua atualização hoje."],
+  // adjust
+  adjSub:["Marina Souza · Upper/Lower","Marina Souza · Superior/Inferior"],upperA:["Upper A","Superior A"],lowerA:["Lower A","Inferior A"],lowerB:["Lower B","Inferior B"],
+  note:["Marina's note","Nota da Marina"],changed:["Changed","Alterado"],msgTo:["Message to Marina","Recado para Marina"],
+  msgV:["We swap the overhead press until your shoulder settles. Tell me how the landmine feels.","Trocamos o desenvolvimento até o ombro melhorar. Me conta como fica o landmine."],
+  sendUpd:["Send update to Marina","Enviar atualização para Marina"],noChange:["Change something to send an update.","Altere algo para enviar uma atualização."],
+  swap:["Swap for Landmine press","Trocar por Desenvolvimento landmine"],swapS:["Same sets and range, kinder on the shoulder","Mesmas séries e faixa, mais gentil com o ombro"],
+  swapOther:["Swap for another exercise","Trocar por outro exercício"],lower:["Lower the load","Reduzir a carga"],remove:["Remove from this day","Remover deste dia"],
+  // update gate
+  updEy:["Program update","Atualização do treino"],updH:["Rafael changed one exercise","O Rafael mudou um exercício"],
+  updB:["Your history stays. The change starts with your next session.","Seu histórico continua. A mudança vale a partir da próxima sessão."],
+  fromRafael:["From Rafael","Do Rafael"],use:["Use the update","Usar a atualização"],keep:["Keep my current program","Manter meu treino atual"]
+};
+let lang=(navigator.language||"en").toLowerCase().startsWith("pt")?"pt":"en",step=0,view=null,toastT=0;
+try{const s=localStorage.getItem("trainer-loop-lang");if(s==="en"||s==="pt")lang=s}catch(e){}
+const t=(k,v)=>{let s=(L[k]||[k,k])[lang==="pt"?1:0];if(v)for(const x in v)s=s.replace("{"+x+"}",v[x]);return s};
+const STEPS=[["trainer","addClient"],["trainer","create"],["trainer","sendLink"],["client","start"],["client","skip"],["client","openSend"],["client","send"],
+  ["trainer","openMarina"],["trainer","adjust"],["trainer","flagRow"],["trainer","swap"],["trainer","sendUpd"],["client","use"],["client","restart"]];
+const I={
+  chev:'<svg class="chev" width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4l5 5-5 5"/></svg>',
+  back:'<svg width="20" height="20" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4L6 9l5 5"/></svg>',
+  plus:'<svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M9 3v12M3 9h12"/></svg>',
+  x:'<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 3l8 8M11 3l-8 8"/></svg>',
+  check:'<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3L13 4.5"/></svg>',
+  dash:'<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 8h8"/></svg>',
+  up:'<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:-1px"><path d="M7 12V2M3 6l4-4 4 4"/></svg>',
+  arrow:'<svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10h14M11 4l6 6-6 6"/></svg>',
+  search:'<svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="8" cy="8" r="5"/><path d="M12 12l4 4"/></svg>',
+  phone:'<svg width="40" height="40" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="11" y="4" width="18" height="32" rx="4"/><path d="M17 31h6" stroke-linecap="round"/></svg>',
+  d_today:'<path d="M4 10l8-6 8 6v9a1 1 0 01-1 1h-4v-6H9v6H5a1 1 0 01-1-1z"/>',
+  d_clients:'<circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.700 6 6M16 5.200a3.200 3.200 0 010 6M17.500 14.300c2.100.800 3.500 2.900 3.500 5.700"/>',
+  d_progress:'<path d="M6 20v-7M12 20V5M18 20v-10"/>',
+  d_history:'<path d="M4 12a8 8 0 108-8 8 8 0 00-6 2.700M5 3v4h4M12 8v4l3 2"/>',
+  d_program:'<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/>'
+};
+const dockIc=n=>'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+I["d_"+n]+"</svg>";
+const dock=(tabs,cur)=>'<nav class="dock">'+tabs.map(n=>'<button data-act="x"'+(n===cur?' aria-current="page"':"")+">"+dockIc(n)+"<span>"+t(n)+"</span></button>").join("")+"</nav>";
+const row=(o)=>'<'+(o.act?'button data-act="'+o.act+'"':"div")+' class="row">'+(o.lead||"")+'<span class="row__main"><span class="row__t">'+o.t+"</span>"+(o.s?'<span class="row__s'+(o.warn?" warn":"")+'">'+o.s+"</span>":"")+"</span>"+(o.trail||"")+"</"+(o.act?"button":"div")+">";
+const av=n=>'<span class="avatar">'+n+"</span>";
+
+function qr(){ // decorative code, not scannable
+  let s=20261125,n=25,out="";const r=()=>(s=(s*1103515245+12345)&0x7fffffff)/0x7fffffff;
+  const finder=(x,y)=>x<7&&y<7||x>n-8&&y<7||x<7&&y>n-8;
+  for(let y=0;y<n;y++)for(let x=0;x<n;x++){
+    let on;if(finder(x,y)){const fx=x<7?x:x-(n-7),fy=y<7?y:y-(n-7);on=fx===0||fx===6||fy===0||fy===6||(fx>1&&fx<5&&fy>1&&fy<5)}
+    else if((x===7&&y<8)||(y===7&&x<8)||(x===n-8&&y<8)||(y===7&&x>n-9)||(x===7&&y>n-9)||(y===n-8&&x<8))on=false;else on=r()>.52;
+    if(on)out+='<rect x="'+x+'" y="'+y+'" width="1.02" height="1.02"/>'}
+  return '<svg viewBox="0 0 25 25" fill="currentColor" role="img" aria-label="QR">'+out+"</svg>"}
+
+// ---------- trainer screens ----------
+function roster(){
+  const m=step<3?null:step===3?"mSent":step===4?"mStarted":step<7?"mQuiet":"mNew";
+  const others=[["CM","Carlos Menezes","c1"],["JA","Júlia Andrade","c2",1],["PF","Paulo Ferreira","c3"],["RL","Renata Lopes","c4"],["TN","Thiago Nunes","c5"]];
+  return '<div class="screen has-dock"><div class="bar"><span></span><button class="link" data-act="addClient">'+I.plus+"&nbsp;"+t("addClient")+"</button></div>"+
+    "<h1>"+t("clients")+'</h1><p class="sub">'+t("rosterSub",{n:m?6:5})+'</p><div class="search">'+I.search+"<span>"+t("search")+'</span></div><div class="rows" style="margin-top:8px">'+
+    (m?row({act:"openMarina",lead:av("MS"),t:"Marina Souza",s:t(m),trail:(step===7?'<span class="badge">'+t("newUpdate")+"</span>":"")+I.chev}):"")+
+    others.map(o=>row({act:"x",lead:av(o[0]),t:o[1],s:t(o[2]),warn:o[3],trail:I.chev})).join("")+"</div></div>"+dock(["today","clients","progress","history","program"],"clients")}
+function newClient(){
+  return '<div class="screen has-bar"><div class="bar"><button class="link" data-act="x">'+t("cancel")+"</button></div><h1>"+t("newClient")+"</h1>"+
+    '<div class="field"><label for="cname">'+t("name")+'</label><input id="cname" value="Marina Souza" autocomplete="off"></div>'+
+    '<div class="sec"><p class="eyebrow">'+t("yourPrograms")+'</p><div class="rows">'+
+    row({act:"x",t:t("p1"),s:t("p1s"),trail:'<span class="radio on"></span>'})+row({act:"x",t:t("p2"),s:t("p2s"),trail:'<span class="radio"></span>'})+
+    row({act:"x",t:t("p3"),s:t("p3s"),trail:'<span class="radio"></span>'})+row({act:"x",t:t("buildNew"),trail:I.chev})+"</div></div>"+
+    '<div class="sec"><p class="eyebrow">'+t("signature")+'</p><div class="rows">'+row({t:"Rafael Lima · CREF 012345-G/SP",s:t("signatureS")})+"</div></div></div>"+
+    '<div class="actionbar"><button class="btn primary" data-act="create">'+t("create")+"</button></div>"}
+function handoff(){
+  return '<div class="screen has-bar"><div class="bar"><span></span><button class="link" data-act="x">'+t("done")+"</button></div><h1>"+t("handTitle")+'</h1><p class="sub">'+t("p1")+" · "+t("p1s")+"</p>"+
+    '<div class="qr">'+qr()+'</div><p class="small center" style="max-width:30ch;margin-inline:auto">'+t("handBody")+"</p></div>"+
+    '<div class="actionbar"><button class="btn primary" data-act="sendLink">'+t("sendLink")+'</button><button class="btn secondary" data-act="x">'+t("copyLink")+'</button><p class="small">'+t("handFoot")+"</p></div>"}
+const LIFTS=[["e7","120","140",1],["e1","12","14",1],["e4","40","45",1],["e8","40","42.5",1],["e2","45","45",0],["e3","20","20",0]];
+function clientDetail(){
+  const cell=m=>'<span class="c'+(m?" miss":"")+'"></span>';
+  const wk=(n,miss,c)=>'<span class="w">'+t("wkS")+n+"</span>"+cell(0)+cell(0)+cell(0)+cell(miss)+'<span class="n">'+c+"/4</span>";
+  const st=step===12?"stSent":step>=13?"stUsing":"";
+  return '<div class="screen has-bar"><div class="bar"><button class="link" data-act="x">'+I.back+t("clients")+'</button></div><p class="crumb">'+t("client")+"</p><h1>Marina Souza</h1>"+
+    '<p class="sub">'+t("cSub")+"</p>"+(st?'<div class="status">'+I.check+"<span>"+t(st)+"</span></div>":"")+
+    '<div class="sec"><p class="eyebrow">'+t("attendance")+" · "+t("attTotal")+'</p><div class="att"><span></span>'+["upperA","lowerA","upperB","lowerB"].map(k=>'<span class="h">'+t(k)+"</span>").join("")+"<span></span>"+
+    wk(1,0,4)+wk(2,1,3)+wk(3,1,3)+"</div></div>"+
+    '<div class="sec"><p class="eyebrow">'+t("look")+"</p>"+
+    '<div class="flag"><span class="flag__dot"></span><div><span class="row__t">'+t("f1")+'</span><p class="quote">'+t("f1q")+"</p></div></div>"+
+    '<div class="flag"><span class="flag__dot"></span><div><span class="row__t">'+t("f2")+'</span><span class="row__s">'+t("f2s")+"</span></div></div>"+
+    '<div class="flag"><span class="flag__dot"></span><div><span class="row__t">'+t("f3")+'</span><span class="row__s num">'+t("f3s")+"</span></div></div></div>"+
+    '<div class="sec"><p class="eyebrow" style="border:0;padding:0">'+t("loads")+'</p><table class="tbl"><thead><tr><th>'+t("exercise")+"</th><th>"+t("w1")+"</th><th>"+t("now")+"</th></tr></thead><tbody>"+
+    LIFTS.map(l=>"<tr><td>"+t(l[0])+'</td><td class="kg from">'+l[1]+'</td><td class="kg" style="padding-left:14px">'+(l[3]?'<span class="up">'+I.up+"</span> ":'<span class="flat">= </span>')+l[2]+"</td></tr>").join("")+"</tbody></table></div>"+
+    '<div class="sec"><p class="eyebrow">'+t("effort")+'</p><div class="rows">'+row({t:t("effortS")})+row({act:"x",t:t("allSessions"),trail:I.chev})+"</div></div></div>"+
+    (step===8?'<div class="actionbar"><button class="btn primary" data-act="adjust">'+t("adjust")+"</button></div>":"")}
+function adjust(){
+  const ch=step>=11,r=(n,tg,kg,extra)=>"<tr><td>"+n+(extra||"")+'</td><td class="tg">'+tg+'</td><td class="kg" style="padding-left:14px">'+kg+"</td></tr>";
+  const ohp=ch?'<tr><td>'+t("e3b")+'<span class="tag">'+t("changed")+'</span><br><span class="small strike">'+t("e3")+'</span></td><td class="tg">3 × 8–12</td><td class="kg" style="padding-left:14px">15</td></tr>'
+    :'<tr><td><button data-act="flagRow" style="font-weight:500;padding:4px 6px;margin:-4px -6px;border-radius:8px">'+t("e3")+'<span class="tag">'+t("note")+'</span></button></td><td class="tg">3 × 8–12</td><td class="kg" style="padding-left:14px">20</td></tr>';
+  let h='<div class="screen has-bar"><div class="bar"><button class="link" data-act="x">'+I.back+"Marina</button></div><h1>"+t("adjust")+'</h1><p class="sub">'+t("adjSub")+"</p>"+
+    '<div class="chips">'+["upperA","lowerA","upperB","lowerB"].map(k=>'<button class="chip'+(k==="upperB"?" on":"")+'" data-act="x">'+t(k)+"</button>").join("")+"</div>"+
+    '<table class="tbl"><thead><tr><th>'+t("exercise")+"</th><th>"+t("target")+"</th><th>kg</th></tr></thead><tbody>"+
+    r(t("e1"),"3 × 8–12","14")+r(t("e2"),"3 × 8–12","45")+ohp+r(t("e4"),"3 × 8–12","45")+r(t("e5"),"2 × 10–15","6")+r(t("e6"),"2 × 10–15","22.5")+"</tbody></table>"+
+    (ch?'<div class="field"><label for="msgto">'+t("msgTo")+'</label><textarea id="msgto" rows="3">'+t("msgV")+"</textarea></div>":"")+"</div>"+
+    '<div class="actionbar"><button class="btn primary" data-act="'+(ch?"sendUpd":"x")+'"'+(ch?"":' aria-disabled="true"')+">"+t("sendUpd")+"</button>"+(ch?"":'<p class="small">'+t("noChange")+"</p>")+"</div>";
+  if(step===10)h+='<div class="scrim" data-act="closeSheet"></div><div class="sheet"><div class="sheet__grab"></div><div class="sheet__head"><div><h2>'+t("e3")+'</h2><p class="quote">'+t("f1q")+'</p></div><button class="close" data-act="closeSheet" aria-label="Close">'+I.x+"</button></div>"+
+    '<div class="rows" style="margin-top:10px">'+row({act:"swap",t:t("swap"),s:t("swapS"),trail:I.chev})+row({act:"x",t:t("swapOther"),trail:I.chev})+row({act:"x",t:t("lower"),trail:I.chev})+row({act:"x",t:'<span style="color:var(--danger)">'+t("remove")+"</span>"})+"</div></div>";
+  return h}
+
+// ---------- client screens ----------
+function idle(){return '<div class="idle">'+I.phone+'<h2 style="color:var(--ink)">'+t("idleT")+'</h2><p class="small" style="max-width:26ch">'+t("idleS")+"</p></div>"}
+function gate(){
+  return '<div class="screen has-bar" style="padding-top:34px"><p class="eyebrow">'+t("received")+'</p><h1 style="margin-top:10px">'+t("gateH")+"</h1>"+
+    '<div class="gatecard">'+row({lead:av("RL"),t:"Rafael Lima",s:"Personal trainer · CREF 012345-G/SP"})+row({t:t("gate1"),s:t("gate1s")})+row({t:t("gate2"),s:t("gate2s")})+"</div></div>"+
+    '<div class="actionbar"><p class="small">'+t("gateB")+'</p><button class="btn primary" data-act="start">'+t("start")+'</button><button class="btn secondary" data-act="x">'+t("see")+"</button></div>"}
+function todayC(){
+  const late=step>=5,fin=step>=13,w=late?4:1;
+  const rows=late?[["e1","14"],["e2","45"],fin?["e3b","15",1]:["e3","20"],["e4","45"],["e5","6"],["e6","22.5"]]:[["e1","12"],["e2","45"],["e3","20"],["e4","40"],["e5","5"],["e6","20"]];
+  const tg=i=>i>3?"2 × 10–15":"3 × 8–12";
+  let h='<div class="screen has-dock" style="padding-bottom:176px"><h1 style="margin-top:22px">'+t("today")+'</h1><p class="sub">'+t(late?"d2":"d1")+"</p>"+
+    '<p style="margin:18px 0 0"><b style="font-weight:600">'+t("p1")+'</b> <span class="sub">· '+t("wk",{n:w})+'</span></p><div class="segs">'+[1,2,3,4,5,6].map(n=>'<i class="'+(n<w?"done":n===w?"now":"")+'"></i>').join("")+"</div>"+
+    '<p class="by">'+t("by")+"</p>"+
+    (late&&step<7?'<button class="nudge" data-act="openSend"><span class="row__main"><span class="row__t">'+t("nudgeT")+'</span><span class="row__s">'+t("nudgeS")+"</span></span>"+I.chev+"</button>":"")+
+    (step>=7&&!fin?'<div class="status">'+I.check+'<span><b style="font-weight:600">'+t("sentT")+"</b> · "+t("sentS")+"</span></div>":"")+
+    '<h2 style="margin-top:24px">'+t("upperB")+'</h2><table class="tbl" style="margin-top:6px"><thead><tr><th>'+t("exercise")+"</th><th>kg</th><th>"+t("target")+"</th></tr></thead><tbody>"+
+    rows.map((r,i)=>"<tr><td>"+t(r[0])+(r[2]?'<span class="tag">'+t("isNew")+"</span>":"")+'</td><td class="kg">'+r[1]+'</td><td class="tg">'+tg(i)+"</td></tr>").join("")+"</tbody></table></div>"+
+    '<div class="float-cta"><button class="btn primary" data-act="x">'+t("startWorkout")+" "+I.arrow+"</button></div>"+dock(["today","progress","history","program"],"today");
+  if(step===6)h+='<div class="scrim" data-act="closeSheet"></div><div class="sheet"><div class="sheet__grab"></div><div class="sheet__head"><h2>'+t("sendTitle")+'</h2><button class="close" data-act="closeSheet" aria-label="Close">'+I.x+"</button></div>"+
+    '<p class="eyebrow" style="margin-top:16px">'+t("goes")+'</p><ul class="list2"><li>'+I.check+"<span>"+t("go1")+"</span></li><li>"+I.check+"<span>"+t("go2")+"</span></li><li>"+I.check+"<span>"+t("go3")+"</span></li></ul>"+
+    '<p class="eyebrow" style="margin-top:18px">'+t("stays")+'</p><ul class="list2 no"><li>'+I.dash+"<span>"+t("st1")+"</span></li><li>"+I.dash+"<span>"+t("st2")+"</span></li></ul>"+
+    '<div class="field"><label for="cmsg">'+t("msg")+'</label><input id="cmsg" autocomplete="off"></div>'+
+    '<div style="display:grid;gap:10px;margin-top:16px"><button class="btn primary" data-act="send">'+t("send")+'</button><p class="small center">'+t("sendFoot")+"</p></div></div>";
+  return h}
+function updateGate(){
+  return '<div class="screen has-bar" style="padding-top:34px"><p class="eyebrow">'+t("updEy")+'</p><h1 style="margin-top:10px">'+t("updH")+"</h1>"+
+    '<div class="gatecard" style="padding-block:2px"><div class="diff"><p class="eyebrow">'+t("upperB")+'</p><span class="strike">'+t("e3")+'<br><span class="num" style="font-size:.875rem">3 × 8–12 · 20 kg</span></span><br><span class="row__t">'+t("e3b")+'<br><span class="num" style="font-size:.875rem">3 × 8–12 · 15 kg</span></span></div>'+
+    '<div class="diff" style="border:0"><p class="eyebrow">'+t("fromRafael")+'</p><span>'+t("msgV")+"</span></div></div></div>"+
+    '<div class="actionbar"><p class="small">'+t("updB")+'</p><button class="btn primary" data-act="use">'+t("use")+'</button><button class="btn secondary" data-act="x">'+t("keep")+"</button></div>"}
+
+// ---------- shell ----------
+const $=s=>document.querySelector(s);
+function render(){
+  const who=STEPS[step][0],shown=view||who;
+  document.documentElement.lang=lang==="pt"?"pt-BR":"en";
+  $("#brandSub").textContent=t("brandSub");$("#restart").textContent=t("restart");
+  document.querySelectorAll("#lang button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.v===lang));
+  $("#who").innerHTML=[["trainer","rafael"],["client","marina"]].map(p=>'<button data-act="view" data-v="'+p[0]+'" aria-pressed="'+(shown===p[0])+'">'+t(p[1])+"</button>").join("");
+  $("#lblTrainer").innerHTML="<span>"+t("trainerLbl")+"</span>"+(who==="trainer"?'<span class="turn">'+t("turn")+"</span>":"");
+  $("#lblClient").innerHTML="<span>"+t("clientLbl")+"</span>"+(who==="client"?'<span class="turn">'+t("turn")+"</span>":"");
+  $("#guide").innerHTML='<span class="guide__n">'+(step+1)+"/"+STEPS.length+'</span><p class="guide__t">'+t("g"+step)+"</p>"+
+    (step===4?'<button class="btn primary" data-act="skip">'+t("g4b")+"</button>":"")+(step===13?'<button class="btn primary" data-act="restart">'+t("restart")+"</button>":"")+
+    (step>0&&step<13?'<button class="ghost" data-act="back">'+t("back")+"</button>":"");
+  const T=step===0?roster():step===1?newClient():step===2?handoff():step<8?roster():step===8?clientDetail():step<12?adjust():clientDetail();
+  const C=step<3?idle():step===3?gate():step<12?todayC():step===12?updateGate():todayC();
+  $('.phone[data-who="trainer"]').innerHTML=T;$('.phone[data-who="client"]').innerHTML=C;
+  document.querySelectorAll(".slot").forEach(s=>{const me=s.dataset.slot;s.hidden=me!==shown;s.classList.toggle("is-turn",me===who)});
+  const tg=STEPS[step][1],el=$('.phone[data-who="'+who+'"] [data-act="'+tg+'"]:not(.scrim)')||$('#guide [data-act="'+tg+'"]');
+  if(el){el.classList.add("hint");if(el.closest(".screen,.sheet"))el.scrollIntoView({block:"nearest"})}
+}
+function toast(phone){
+  const host=phone||$(".slot:not([hidden]) .phone");if(!host)return;
+  host.querySelectorAll(".toast").forEach(n=>n.remove());
+  const d=document.createElement("div");d.className="toast";d.setAttribute("role","status");d.textContent=t("inert");host.appendChild(d);
+  clearTimeout(toastT);toastT=setTimeout(()=>d.remove(),1600)}
+document.addEventListener("click",e=>{
+  const b=e.target.closest("[data-act]");if(!b)return;const a=b.dataset.act;
+  if(a==="lang"){lang=b.dataset.v;try{localStorage.setItem("trainer-loop-lang",lang)}catch(x){}return render()}
+  if(a==="view"){view=b.dataset.v;return render()}
+  if(a==="restart"){step=0;view=null;return render()}
+  if(a==="back"||a==="closeSheet"){step=Math.max(0,step-1);view=null;return render()}
+  const inPhone=b.closest(".phone");
+  if(a===STEPS[step][1]&&(!inPhone||inPhone.dataset.who===STEPS[step][0])){step++;view=null;return render()}
+  toast(inPhone)});
+render();
+})();
+</script>
+</body></html>
