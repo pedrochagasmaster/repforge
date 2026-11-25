@@ -27378,7 +27378,8 @@ function createLandingController(root){
     /* the first painted ground beneath the control's resting place decides its ink */
     const ground=(x,y)=>{
       for(const hit of document.elementsFromPoint(x,y)){
-        if(dock.contains(hit))continue;
+        // the bar reads the band, not a picture passing under it
+        if(dock.contains(hit)||hit.closest("[data-landing-stage]"))continue;
         for(let node=hit;node&&node!==document.documentElement;node=node.parentElement){
           const fill=getComputedStyle(node).backgroundColor,m=/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?/.exec(fill);
           if(m&&(m[4]===undefined||+m[4]>.5))return{fill,lum:(.2126*m[1]+.7152*m[2]+.0722*m[3])/255}}}
