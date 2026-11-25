@@ -26466,8 +26466,8 @@ function layoutLandingDemo(d){
   let cropShot=null;
   if(crop){
     const sc=d.root.getBoundingClientRect(),k0=sc.width/d.root.offsetWidth||1;
-    const end=d.root.querySelector(crop==="fields"?".firstrun-demo__fields":".firstrun-demo__next");
-    const top=24,bottom=end?(end.getBoundingClientRect().bottom-sc.top)/k0+(crop==="fields"?6:16):d.root.offsetHeight;
+    const end=d.root.querySelector(crop==="fields"?".firstrun-demo__fields":crop==="row1"?".firstrun-demo__row":".firstrun-demo__next");
+    const top=24,bottom=end?(end.getBoundingClientRect().bottom-sc.top)/k0+(crop==="fields"?6:crop==="row1"?4:16):d.root.offsetHeight;
     const k=d.frame.clientWidth/d.root.offsetWidth;
     d.frame.style.height=`${Math.round((bottom-top)*k)}px`;
     cropShot={x:d.glass.offsetLeft+d.rig.clientLeft,y:d.glass.offsetTop+d.rig.clientTop+top,w:d.root.offsetWidth,h:bottom-top}}
