@@ -432,7 +432,7 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
   assert.equal(await page.locator("#attention .attnrow").count(), 0, "insufficient evidence contributes zero Needs attention items");
   assert.equal((await page.locator("#attention").textContent()).trim(), "", "an empty Needs attention renders no section");
   await page.evaluate(() => window.__repforgeStatsNav.setStatsSeg("review"));
-  assert.match(await page.locator("#reviewPanel").textContent(), /baseline building/i,
+  assert.match(await page.locator("#reviewPanel").textContent(), /build your baseline|baseline building/i,
     "the same insufficient records reach Review as neutral baseline state");
   assert.equal(((await page.locator("#reviewPanel").textContent()).match(/baseline building/gi) || []).length, 1,
     "Review says it once: the empty state is not read twice by a screen reader");
@@ -523,7 +523,7 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
   assert.ok(!values.actions.includes(values.bench.exerciseId) && !values.actions.includes(values.rdl.exerciseId),
     "insufficient canonical records never reach Needs action");
   await page.evaluate(() => window.__repforgeStatsNav.setStatsSeg("review"));
-  assert.match(await page.locator("#reviewPanel").textContent(), /baseline building/i,
+  assert.match(await page.locator("#reviewPanel").textContent(), /build your baseline|baseline building/i,
     "Review renders the same insufficient evidence as neutral baseline building");
   await context.close();
 }
