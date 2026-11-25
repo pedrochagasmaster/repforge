@@ -185,7 +185,11 @@ async function main() {
   });
   const badRequests = [];
   const isExerciseArtwork = (url) => /\/assets\/exercise(s|-stills|-gifs)\//.test(new URL(url).pathname);
-  page.on("requestfailed", (r) => { if (isExerciseArtwork(r.url())) badRequests.push(r.url()); });
+  // A lazy still whose row is redrawn while the catalog's chunks arrive is cancelled by the browser: that is an aborted
+  // request for artwork that exists, not a request for missing artwork.
+  page.on("requestfailed", (r) => {
+    if (isExerciseArtwork(r.url()) && !/ERR_ABORTED/.test(r.failure()?.errorText || "")) badRequests.push(`${r.failure()?.errorText || "failed"} ${r.url()}`);
+  });
   page.on("response", (r) => {
     if (r.status() >= 400 && isExerciseArtwork(r.url())) badRequests.push(`${r.status()} ${r.url()}`);
   });
