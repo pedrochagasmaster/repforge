@@ -1594,9 +1594,8 @@ function shareFile(text,name,type,title){
   return Promise.resolve(sharing).then(()=>"shared",error=>{
     if(error?.name==="AbortError")return "cancelled";
     download(text,name,type);return "downloaded"})}
-/* Program files and text keep their earlier behaviour: a closed sheet still downloads. */
-async function shareOrDownload(text,name,type,title="Taurifer backup"){
-  if(await shareFile(text,name,type,title)==="cancelled")download(text,name,type)}
+/* Program files and text: a closed sheet downloads nothing (#825); a refused share or no file sharing downloads. */
+function shareOrDownload(text,name,type,title="Taurifer backup"){return shareFile(text,name,type,title)}
 /* Words and numeric reps left share the effort shelf. Legacy tokens remain readable. */
 const EFFORT_RIR={easy:3,hard:1,max:0,r0:0,r1:1,r2:2,r3p:3,unsure:null};
 const EFFORT_STEPS=["easy","hard","max"];
@@ -27336,6 +27335,10 @@ function createLandingController(root){
       const box=dock.getBoundingClientRect();
       const y=box.height?window.innerHeight-parseFloat(getComputedStyle(dock).bottom)-box.height/2:window.innerHeight-60;
       dock.dataset.ground=luminance(window.innerWidth/2,y)<.4?"dark":"light"});
+    /* An answer that opens moves the bands beneath the control without a scroll, so a change in the page's height
+       reads the ground again too; otherwise the control keeps the ink of a band that has moved away. */
+    const page=root.querySelector(".firstrun__inner");
+    if(page&&typeof ResizeObserver!=="undefined"){const ro=new ResizeObserver(requestTick);reg.obs.push(ro);ro.observe(page)}
     reg.nodes.push(()=>{dock.classList.remove("is-on");delete dock.dataset.ground})}
   /* ---- the status-bar band (#449) ----
      One observer whose root box is the top inset strip names the ground of the
