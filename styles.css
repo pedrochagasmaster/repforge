@@ -6162,8 +6162,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   --firstrun-cta-ink:var(--band-orange-cta-ink);
   --firstrun-cta-mark:var(--band-orange-cta-ink);
 }
-.firstrun-band--orange .firstrun__cta--peer{background:transparent;border-color:var(--band-orange-ink)}
-.firstrun-band--orange .firstrun-sub{font-weight:var(--weight-medium);color:var(--band-orange-ink)}
+.firstrun-band--orange .firstrun__cta--peer{background:color-mix(in srgb,var(--band-orange-ink) 8%,transparent)}
 .firstrun-band--ink{
   --firstrun-band-bg:var(--band-ink-bg);
   --firstrun-ink:var(--band-ink-ink);
@@ -6177,10 +6176,8 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 /* In the dark theme the ink band's tokens invert to a cream field; the landing keeps it a raised night band instead, so
    the page's depth runs the same way in both appearances. */
 :root[data-theme="dark"] .firstrun-band:not(.firstrun-band--night,.firstrun-band--raised,.firstrun-band--ink,.firstrun-band--orange){
-  --firstrun-band-bg:var(--band-night-bg);
+  --firstrun-band-bg:var(--band-night-raised);
 }
-:root[data-theme="dark"] .firstrun-band:not(.firstrun-hero,.firstrun-proof,.firstrun-close,.firstrun-footer){border-top:1px solid var(--rule-strong)}
-:root[data-theme="dark"] .firstrun-features{--firstrun-band-bg:var(--band-night-bg)}
 :root[data-theme="dark"] .firstrun-band--ink{
   --firstrun-band-bg:var(--band-night-bg);
   --firstrun-ink:var(--band-night-ink);
@@ -6191,7 +6188,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   --firstrun-accent-text:var(--band-night-accent-text);
 }
 :root[data-theme="dark"] .firstrun[data-inset-ground="ink"]::before{background:var(--band-night-bg)}
-:root[data-theme="dark"] .firstrun:is([data-inset-ground="faq"],[data-inset-ground="paper"])::before{background:var(--band-night-bg)}
+:root[data-theme="dark"] .firstrun:is([data-inset-ground="faq"],[data-inset-ground="paper"])::before{background:var(--band-night-raised)}
 /* The rest light and the feature panel's tints are orange washes built for paper; on the dark grounds they turn brown,
    so the dark theme draws those frames with their edges alone. */
 :root[data-theme="dark"] .firstrun-demo__light,:root[data-theme="dark"] .firstrun-feat__tints{visibility:hidden}
@@ -6199,10 +6196,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 :root[data-theme="dark"] .firstrun-proof__glass{box-shadow:inset 0 0 0 1px var(--rule-strong)}
 :root[data-theme="dark"] .firstrun-proof__glass>*{border-radius:inherit}
 :root[data-theme="dark"] .firstrun-demo :is(.ledgerline__prev,.ledgerline__head,.fx-col){color:var(--color-ink-secondary)}
-:root[data-theme="dark"] .firstrun-feat__panel{background:var(--band-night-raised);box-shadow:inset 0 0 0 1px var(--rule-strong)}
-:root[data-theme="dark"] .firstrun-feat__win{box-shadow:inset 0 0 0 1px var(--rule-strong)}
-:root[data-theme="dark"] .firstrun-fx .sumcard{box-shadow:inset 0 0 0 1px var(--rule-strong)}
-:root[data-theme="dark"] .firstrun-fx :is(.phero__cap,.liftrow__l2,.phero__eyebrow){color:var(--color-ink-secondary)}
+:root[data-theme="dark"] .firstrun-feat__panel{background:color-mix(in srgb,var(--accent) 7%,var(--band-night-raised))}
 
 /* ---- Test-set comparisons ---- */
 .firstrun-check__examples{list-style:none;padding:0;margin:0;font-size:var(--font-size-body);line-height:var(--line-reading)}
@@ -6210,8 +6204,8 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun-check__delta{flex:0 0 3ch;font-family:var(--font-training-data);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);
   font-variant-numeric:tabular-nums;color:var(--firstrun-ink)}
 .firstrun-check__line{display:block}
-.firstrun-check__line+.firstrun-check__line{margin-top:var(--space-4)}
-.firstrun-check .firstrun-sub{color:var(--firstrun-ink-soft)}
+.firstrun-check__line{padding-block:var(--space-8);border-top:1px solid var(--firstrun-rule)}
+.firstrun-check .firstrun-sub{color:var(--firstrun-ink)}
 
 /* ---- Type ---- */
 .firstrun-h1{
@@ -6248,7 +6242,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun__wordmark{font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);letter-spacing:-.01em;color:var(--firstrun-ink)}
 .firstrun__utility{margin-left:auto;display:flex;align-items:center;justify-content:flex-end;gap:var(--space-14);flex-wrap:wrap}
 .firstrun__utility-action{
-  display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:var(--control-target);min-width:var(--control-target);padding:8px var(--space-8);margin-right:calc(var(--space-8) * -1);
+  display:inline-flex;align-items:center;gap:7px;min-height:var(--control-target);padding:8px 0;
   border:0;background:none;color:var(--firstrun-ink);font:inherit;font-size:var(--font-size-body-small);
   text-decoration:underline;text-underline-offset:4px;cursor:pointer;
 }
@@ -6286,13 +6280,9 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun__error:empty{display:none}
 .firstrun__actions{display:grid;gap:var(--firstrun-gap-1);margin-top:var(--firstrun-gap-4)}
 .firstrun-chips{
-  display:grid;gap:var(--space-4);margin:var(--firstrun-gap-2) 0 0;padding:0;list-style:none;
+  display:flex;flex-wrap:wrap;justify-content:flex-start;gap:var(--space-4) var(--space-18);margin:var(--firstrun-gap-2) 0 0;padding:0;list-style:none;
   font-size:var(--font-size-body);line-height:var(--line-standard);color:var(--firstrun-ink);
 }
-.firstrun-chips li{display:flex;align-items:center;gap:var(--space-8)}
-.firstrun-chips li::before{content:"";flex:none;width:16px;height:16px;background:var(--band-night-ink-soft);
-  -webkit-mask:var(--check) no-repeat center/contain;mask:var(--check) no-repeat center/contain}
-.firstrun-hero__data b{font-weight:var(--weight-medium);color:inherit}
 
 /* ---- Actions: the ink pill with its arrow, and the underlined text link ---- */
 .firstrun__cta{
@@ -6304,7 +6294,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 }
 .firstrun__cta.is-pressed:not(:disabled){transform:var(--control-pressed-transform)}
 .firstrun__cta:disabled{background:var(--control-primary-disabled-bg);color:var(--color-ink);opacity:1}
-.firstrun__cta .firstrun-row__go{color:currentColor;width:18px;height:18px;flex:0 0 18px}
+.firstrun__cta .firstrun-row__go{color:var(--firstrun-cta-mark);width:18px;height:18px;flex:0 0 18px}
 .firstrun__cta .firstrun-row__title{color:inherit;font-size:var(--font-size-control)}
 .firstrun__cta .firstrun-row__cap{color:inherit;font-size:var(--font-size-body-small)}
 /* Track, the peer of Build (Packet F): the same pill, type and arrow, drawn as an outline in the band's own ink so the
@@ -6313,7 +6303,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   border:1.5px solid var(--firstrun-ink);padding:calc(var(--space-12) - 1.5px) calc(var(--space-18) - 1.5px);
   background:transparent;color:var(--firstrun-ink);
 }
-.firstrun__cta--peer .firstrun-row__go{color:currentColor}
+.firstrun__cta--peer .firstrun-row__go{color:var(--firstrun-ink)}
 .firstrun__cta .firstrun-row__text{gap:2px}
 .firstrun__cta .firstrun-row__cap{font-weight:var(--weight-regular)}
 .firstrun-hero__data{
@@ -6366,8 +6356,9 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun-dock{
   position:fixed;z-index:1;left:0;right:0;bottom:0;
   padding:var(--space-16) max(var(--gut),env(safe-area-inset-right)) calc(var(--space-14) + env(safe-area-inset-bottom)) max(var(--gut),env(safe-area-inset-left));
-  /* One bar on every band: the night surface, a hairline on its top edge and a soft shadow upwards, the cream button. */
-  background:var(--band-night-bg);border-top:1px solid var(--band-night-boundary-required);box-shadow:var(--elevation-sheet-shadow);
+  /* The strip takes the colour of the band beneath it (written by the landing controller), fading in over its top edge,
+     so text scrolling under the control is covered rather than crossed. */
+  background:var(--firstrun-dock-ground,var(--band-night-bg));border-top:1px solid var(--band-night-rule);
   transform:translateY(100%);visibility:hidden;
   transition:transform .2s cubic-bezier(.2,.7,.2,1),visibility 0s .2s;
   /* The ring sits on the band, not on the control, so it takes the ink the band's own ring takes: the accent
@@ -6382,7 +6373,8 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .landing-touch__disc{background:radial-gradient(circle,rgba(var(--ink-rgb),.14),rgba(var(--ink-rgb),.24));border:1px solid rgba(var(--bg-rgb),.55)}
 .landing-touch__ring{opacity:0;border:1.5px solid rgba(var(--ink-rgb),.28)}
 .firstrun-dock .firstrun__cta{max-width:calc(var(--maxw) - var(--space-32));margin-inline:auto;box-shadow:var(--elevation-floating-shadow)}
-.firstrun-dock[data-ground="never"]{
+.firstrun-dock[data-ground="light"]{
+  border-top-color:var(--rule-on-surface);
   --firstrun-cta-bg:var(--band-orange-ink);
   --firstrun-cta-ink:var(--band-orange-cta-ink);
   --firstrun-cta-mark:var(--band-orange-cta-mark);
@@ -6406,7 +6398,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun-hero{padding-bottom:var(--firstrun-gap-3)}
 .firstrun-hero+.firstrun-proof{padding-top:var(--firstrun-gap-4)}
 .firstrun-proof__device{
-  --proof-device-w:clamp(176px,calc((100svh - 150px) * 390 / 844),320px);
+  --proof-device-w:clamp(176px,calc((100svh - 236px) * 390 / 844),234px);
   position:relative;width:100%;height:calc(var(--proof-device-w) * 844 / 390 + var(--space-16));overflow:hidden;isolation:isolate;
   border-radius:var(--radius-landing-stage);background:var(--band-night-bg);
 }
@@ -6419,33 +6411,36 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   border-radius:var(--radius-landing-phone);background:var(--bg);
 }
 .firstrun-proof__screen{position:absolute;left:0;top:0;width:390px;height:844px;pointer-events:none}
-/* The landing's selector (the chapters here, the feature tabs below): compact segments with 8px corners and a quiet
-   outline, the current one filled in the band's own ink. It never takes the CTA's pill shape. The rows wrap and centre,
-   so every label is whole; the current chapter's caption sits right under them. */
-.firstrun-chapters,.firstrun-feat__tabs{list-style:none;margin:0;padding:0;width:100%;display:flex;flex-wrap:wrap;justify-content:center;gap:var(--space-8)}
+/* The chapters are the landing's tab pattern (shared with the feature tabs): a wrapping row of pill chips, the playing one
+   filled with the band's primary fill and a thin accent line that fills with the chapter; its caption sits under the row. */
+.firstrun-chapters{list-style:none;margin:0;padding:0;width:100%;display:flex;flex-wrap:wrap;gap:var(--space-8)}
 .firstrun-chapter-caps{display:grid;width:100%;margin-top:calc(var(--firstrun-gap-2) * -1 + var(--space-12))}
 .firstrun-chapter{display:contents}
-.firstrun-chapter__go,.firstrun-feat__tab{
-  position:relative;display:inline-flex;align-items:center;justify-content:center;flex:none;min-height:var(--control-target);margin:0;padding:0 var(--space-12);
-  border:1px solid var(--firstrun-rule);border-radius:var(--radius-control);background:none;cursor:pointer;overflow:hidden;white-space:nowrap;
+.firstrun-chapter__go{
+  position:relative;display:inline-flex;align-items:center;flex:none;min-height:var(--control-target);margin:0;padding:0 var(--space-14);
+  border:1px solid var(--firstrun-ink-faint);border-radius:var(--radius-pill);background:none;cursor:pointer;overflow:hidden;white-space:nowrap;
   font-family:var(--font-language);font-size:var(--font-size-body-small);font-weight:var(--weight-semibold);line-height:var(--line-tight);
-  color:var(--firstrun-ink);-webkit-tap-highlight-color:transparent;
+  color:var(--firstrun-ink-soft);-webkit-tap-highlight-color:transparent;
 }
-.firstrun-chapter.is-current .firstrun-chapter__go,.firstrun-feat__tab.is-current{border-color:var(--firstrun-ink);background:var(--firstrun-ink);color:var(--firstrun-band-bg)}
+.firstrun-chapter.is-current .firstrun-chapter__go{border-color:var(--firstrun-cta-bg);background:var(--firstrun-cta-bg);color:var(--firstrun-cta-ink)}
 .firstrun-chapter__bar{display:none}
 .firstrun-chapter__fill{position:absolute;inset:0;background:var(--band-night-accent);transform-origin:0 50%;transform:scaleX(var(--chapter-progress,0))}
 .firstrun-chapter__text{
   display:none;margin:0;font-size:var(--font-size-body);line-height:var(--line-reading);
-  color:var(--firstrun-ink);text-wrap:pretty;
+  color:var(--firstrun-ink-soft);text-wrap:pretty;
 }
 .firstrun-chapter__text.is-current{display:block}
 .firstrun-chapter__result{display:block;margin-top:var(--space-12)}
-/* Below 900px both selectors are two equal columns, the fifth across the row under them; a long label takes two lines. */
+/* A phone: the chips and the feature tabs are one sideways row with a fade at the trailing edge. */
 @media(max-width:899px){
+  .firstrun .firstrun-chapters,.firstrun .firstrun-feat__tabs{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;width:auto;
+    margin-inline:calc(var(--gut) * -1);padding-inline:var(--gut);scroll-padding-inline:var(--gut);
+    -webkit-mask-image:linear-gradient(to right,var(--ink) calc(100% - var(--space-16) * 4),transparent calc(100% - var(--space-8)));
+    mask-image:linear-gradient(to right,var(--ink) calc(100% - var(--space-16) * 4),transparent calc(100% - var(--space-8)))}
+  .firstrun-chapters::-webkit-scrollbar,.firstrun-feat__tabs::-webkit-scrollbar{display:none}
+  .firstrun-chapters::after,.firstrun-feat__tabs::after{content:"";flex:0 0 calc(var(--space-16) * 3)}
+  .firstrun-chapter__go,.firstrun-feat__tab{padding:0 var(--space-12)}
   .firstrun-proof__stage{justify-items:stretch}
-  .firstrun .firstrun-chapters,.firstrun .firstrun-feat__tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
-  .firstrun-chapter__go,.firstrun-feat__tab{width:100%;padding:var(--space-4) var(--space-8);white-space:normal;text-align:center}
-  .firstrun-chapter:last-child>.firstrun-chapter__go,.firstrun-feat__tab:last-child{grid-column:1/-1}
 }
 @media(max-width:340px){.firstrun-proof__device{border-radius:var(--radius-landing-stage-compact)}}
 @media(min-width:900px){
@@ -6481,7 +6476,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 /* Next is Focus's quiet navigation row: a hairline above, the name, and a chevron at its end. */
 .firstrun-demo__next{pointer-events:none;min-height:52px;margin-top:var(--space-26);border-top:1px solid var(--boundary-decorative);border-radius:var(--radius-none);background:transparent;color:var(--color-ink)}
 .firstrun-demo .fcard__ledger+.firstrun-demo__next{margin-top:0}
-.firstrun-demo__next>span:first-child{min-width:0;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.firstrun-demo__next>span:first-child{min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .firstrun-demo__shelf .shelf__fieldbtn{justify-content:flex-end}
 .firstrun-demo__shelf{position:absolute;left:0;right:0;bottom:0;padding:var(--shelf-inset) var(--shelf-inset) calc(var(--shelf-inset) + 34px)}
 .firstrun-demo__log{position:relative}
@@ -6544,9 +6539,12 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun-way{counter-increment:way;display:flex;flex-direction:column;padding:var(--firstrun-gap-3) 0;border-top:1px solid var(--firstrun-rule)}
 .firstrun-way:last-child{border-bottom:1px solid var(--firstrun-rule)}
 .firstrun-way>.firstrun-wrap{flex:1;display:flex;flex-direction:column}
-.firstrun-way .firstrun-disclosure{margin-top:auto;padding-top:var(--space-12);font-size:var(--font-size-subtitle)}
-.firstrun-way p+.firstrun-disclosure{margin-top:var(--firstrun-gap-2)}
-.firstrun-way__title{margin:0;font-size:var(--font-size-metric);font-weight:var(--weight-semibold);line-height:var(--line-standard);letter-spacing:-.01em}
+.firstrun-way .firstrun-disclosure{justify-content:flex-start;gap:var(--space-8);width:auto;min-height:var(--control-target);margin-top:var(--space-8);padding:0;border-top:0;
+  text-decoration:underline;text-decoration-color:var(--firstrun-ink-soft);text-underline-offset:4px}
+.firstrun-way .firstrun-disclosure i{width:16px;height:16px}
+.firstrun-way .firstrun-disclosure i::before,.firstrun-way .firstrun-disclosure i::after{top:7px}
+.firstrun-way>.firstrun-wrap{max-width:none;padding:0}
+.firstrun-way__title{margin:0;font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-standard);letter-spacing:-.01em}
 .firstrun-way__title::before{content:counter(way,decimal-leading-zero);display:block;margin-bottom:var(--space-4);
   font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);font-variant-numeric:tabular-nums;color:var(--firstrun-ink)}
 .firstrun-way p{margin:var(--firstrun-gap-1) 0 0;font-size:var(--font-size-body);line-height:var(--line-reading);color:var(--firstrun-ink-soft)}
@@ -6589,7 +6587,17 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
    inside it never move the page. Each screen is the app's light theme (.theme-light), built 390 wide. */
 .firstrun-feat{display:grid;gap:var(--space-16);margin-top:var(--firstrun-gap-4)}
 .firstrun-feat__side{min-width:0}
-.firstrun-features{--firstrun-band-bg:var(--bg)}
+.firstrun-feat__tabs{display:flex;flex-wrap:wrap;gap:var(--space-8);
+}
+.firstrun-feat__tabs::-webkit-scrollbar{display:none}
+.firstrun-feat__tab{
+  position:relative;flex:none;min-height:var(--control-target);margin:0;padding:0 var(--space-14);overflow:hidden;
+  border:1px solid var(--firstrun-ink-faint);border-radius:var(--radius-pill);background:none;
+  font-family:var(--font-language);font-size:var(--font-size-body-small);font-weight:var(--weight-semibold);line-height:var(--line-standard);
+  text-align:left;white-space:nowrap;color:var(--firstrun-ink-soft);cursor:pointer}
+.firstrun-feat__tab.is-current{border-color:var(--cta);background:var(--cta);color:var(--cta-ink)}
+/* On the dark theme's grounds the selected chip is the same cream as the demo's chips above it. */
+:root[data-theme="dark"] .firstrun-feat__tab.is-current{border-color:var(--band-night-cta-bg);background:var(--band-night-cta-bg);color:var(--band-night-cta-ink)}
 .firstrun-feat__tab:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px;border-radius:var(--radius-control)}
 .firstrun-feat__title{display:block}
 .firstrun-feat__text{display:none}
@@ -6613,8 +6621,6 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   mask-image:linear-gradient(to bottom,var(--ink) calc(100% - var(--space-32)),transparent)}
 .firstrun-fx--progress .phero__stats{grid-template-columns:repeat(3,auto);justify-content:space-between}
 .firstrun-fx--progress .phero__cap{white-space:nowrap}
-.firstrun-fx--progress .phero__stat{padding-right:var(--space-8)}
-.firstrun-fx--progress .liftrow{gap:var(--space-16)}
 .firstrun-feat__win{position:absolute;left:50%;top:50%;overflow:hidden;border-radius:var(--radius-landing-stage-compact);background:var(--bg);
   box-shadow:var(--elevation-floating-shadow);
   opacity:0;visibility:hidden;transform:translate(-50%,-50%) translateY(10px) scale(.985);
@@ -6964,18 +6970,17 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   .firstrun-proof>.firstrun-wrap{grid-column:1;max-width:none;margin:0;padding:0 0 0 var(--firstrun-gap-2)}
   .firstrun-hero .firstrun__header{position:absolute;top:0;left:calc(50% - var(--firstrun-container) / 2);right:calc(50% - var(--firstrun-container) / 2)}
   .firstrun-hero .firstrun-hero__title{margin-top:0}
-  /* the proof's title is a body-size line, so the headline is the page's one entry point; the phone (the whole screen,
-     its text at 11px or more) sits under it, the chapters as one row of equal segments under the phone, the playing
-     chapter's caption under them and the band's sentence last */
-  .firstrun-proof>.firstrun-wrap{display:flex;flex-direction:column}
-  .firstrun-proof .firstrun-h2{font-size:var(--font-size-body);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--firstrun-ink)}
-  .firstrun-proof .firstrun-wrap>.firstrun-proof__stage{margin-top:var(--space-12)}
-  .firstrun-proof .firstrun-h2+.firstrun-sub{order:1;margin-top:var(--firstrun-gap-2);max-width:none;font-size:var(--font-size-body);color:var(--firstrun-ink-soft)}
-  .firstrun-proof__stage{grid-template-columns:minmax(0,1fr);justify-items:center;row-gap:var(--space-12)}
-  .firstrun-proof__device{--proof-device-w:clamp(260px,calc((100svh - 250px) * 390 / 844),306px);width:calc(var(--proof-device-w) * 418 / 390)}
-  .firstrun-chapters{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:var(--space-4)}
-  .firstrun-chapter__go{width:100%;padding:var(--space-4) var(--space-8);white-space:normal;text-align:center;font-size:var(--font-size-caption)}
-  .firstrun-chapter-caps{margin-top:0}
+  /* the proof's title steps back to a label, so the headline is the page's one entry point */
+  .firstrun-proof .firstrun-h2{font-size:var(--font-size-caption);font-weight:var(--weight-semibold);letter-spacing:var(--track-label);text-transform:uppercase;
+    line-height:var(--line-standard);color:var(--firstrun-ink-soft)}
+  .firstrun-proof .firstrun-h2+.firstrun-sub{margin-top:var(--space-8);max-width:none;font-size:var(--font-size-body)}
+  .firstrun-proof .firstrun-wrap>.firstrun-proof__stage{margin-top:var(--firstrun-gap-3)}
+  .firstrun-proof__stage{grid-template-columns:auto minmax(0,1fr);grid-template-rows:auto 1fr;align-items:start;justify-items:stretch;column-gap:var(--firstrun-gap-3);row-gap:var(--firstrun-gap-2)}
+  .firstrun-proof__device{grid-row:1/span 2;--proof-device-w:clamp(220px,calc((100svh - 330px) * 390 / 844),300px);
+    width:calc(var(--proof-device-w) * 418 / 390)}
+  .firstrun-chapters{flex-direction:column;flex-wrap:nowrap}
+  .firstrun-chapter__go{justify-content:flex-start;width:100%}
+  .firstrun-chapter-caps{grid-column:2;margin-top:0}
   .firstrun-proof .firstrun-chapter__text{font-size:var(--font-size-body)}
   /* the Build control: a bar across the top, the lockup on the left, a compact action on the right */
   .firstrun-dock{--firstrun-dock-at:top;top:0;bottom:auto;display:flex;align-items:center;justify-content:space-between;gap:var(--space-16);
@@ -6998,17 +7003,12 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   .firstrun-ways__list{grid-template-columns:repeat(3,minmax(0,1fr));column-gap:var(--firstrun-gap-4);align-items:stretch}
   .firstrun-way:last-child{border-bottom:0}
   .firstrun-way p{flex:0 0 auto}
-  /* the feature list: plain rows in full ink divided by hairlines, the current one filled with its explanation under it */
-  .firstrun-feat{align-items:start}
-  .firstrun .firstrun-feat__tabs{display:flex;flex-direction:column;gap:0}
-  .firstrun-feat__tab,.firstrun-feat__tab.is-current{display:block;width:100%;padding:var(--space-14) var(--space-16);border:0;border-top:1px solid var(--firstrun-rule);
-    border-radius:var(--radius-none);background:none;color:var(--firstrun-ink);font-size:var(--font-size-subtitle);text-align:left;white-space:normal}
-  .firstrun-feat__tab:last-child{border-bottom:1px solid var(--firstrun-rule)}
-  .firstrun-feat__tab.is-current{border-radius:var(--radius-surface);border-top-color:transparent;background:var(--surface)}
-  .firstrun-feat__tab.is-current+.firstrun-feat__tab{border-top-color:transparent}
-  :root[data-theme="dark"] .firstrun-feat__tab.is-current{background:var(--band-night-raised)}
-  .firstrun-feat__tab.is-current .firstrun-feat__text{color:var(--color-ink-secondary)}
-  .firstrun-feat__panel{height:720px}
+  /* the feature list: the same control language as the chips, as rows */
+  .firstrun .firstrun-feat__tabs{gap:var(--space-8)}
+  .firstrun-feat__tab,.firstrun-feat__tab.is-current{padding:var(--space-12) var(--space-16);border:1px solid var(--firstrun-ink-faint);border-radius:var(--radius-surface);
+    font-size:var(--font-size-subtitle)}
+  .firstrun-feat__tab.is-current{border:1.5px solid var(--color-ink);background:var(--surface);color:var(--color-ink)}
+  :root[data-theme="dark"] .firstrun-feat__tab.is-current{border-color:var(--band-night-ink);background:var(--band-night-bg);color:var(--band-night-ink)}
   /* reading sizes for a desk distance */
   .firstrun-sub,.firstrun-check__examples,.firstrun-way p,.firstrun-rows p,.firstrun-qa__a,
   .firstrun-feat__tab.is-current .firstrun-feat__text{font-size:var(--font-size-subtitle)}
