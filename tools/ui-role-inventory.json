@@ -3654,6 +3654,37 @@
       ]
     },
     {
+      "id": "firstrunstepnav",
+      "selector": ".firstrun-step-head__nav",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": "landing-step-nav",
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "The narrow page's previous and next step buttons beside the step title and its \"1 of 5\" count: each moves the playing phone one step without committing any state, and is aria-disabled at the end it cannot pass.",
+      "owner": "pr-835",
+      "catalogStates": [
+        "onboarding-shared/gate",
+        "onboarding-shared/invalid",
+        "onboarding-start/first-run",
+        "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-proof-test",
+        "onboarding-start/first-run-check",
+        "onboarding-start/first-run-ways",
+        "onboarding-start/first-run-features",
+        "onboarding-start/first-run-data",
+        "onboarding-start/first-run-faq-open",
+        "onboarding-start/first-run-close"
+      ]
+    },
+    {
       "id": "firstrunfeaturetab",
       "selector": ".firstrun-feat__tab",
       "roles": {
