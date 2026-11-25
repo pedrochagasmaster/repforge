@@ -26713,7 +26713,7 @@ function renderLandingWays(){
     fill(`check.${kind}`,`<span class="firstrun-check__delta" aria-hidden="true">${sign}${esc(landingNum(Math.abs(delta)))}</span><span>`+
       esc(t(`landing.check.${kind}`,{guess:landingNum(result.guess),did:landingNum(result.did),difference:landingNum(Math.abs(result.error))}))+`</span>`)}
   // The limits read one sentence to a line.
-  fill("check.limits",String(t("landing.check.limits",limits)).split(/(?<=\.)\s+/).map(line=>`<span class="firstrun-check__line">${esc(line).replace(/\d+/g,"<b>$&</b>")}</span>`).join(""));
+  fill("check.limits",String(t("landing.check.limits",limits)).split(/(?<=\.)\s+/).map(line=>`<span class="firstrun-check__line">${esc(line).replace(/\d+/g,"<b>$&</b>")}</span>`).join(" "));
   fill("faq.test.a",esc(t("landing.faq.test.a",limits)));
   fill("faq.failure.limits",esc(t("landing.faq.failure.limits",limits)));
   fill("faq.failure.choice",landingRich("landing.faq.failure.choice",{},
@@ -27255,7 +27255,10 @@ function createLandingController(root){
       `<button type="button" class="firstrun-step-head__nav" data-step-nav="-1" aria-label="${esc(t("landing.steps.prev"))}"><span aria-hidden="true">\u2039</span></button>`+
       `<button type="button" class="firstrun-step-head__nav" data-step-nav="1" aria-label="${esc(t("landing.steps.next"))}"><span aria-hidden="true">\u203A</span></button>`;
     list.before(head);
-    let cap=null;if(textSel){cap=document.createElement("p");cap.className="firstrun-step-cap";cap.setAttribute("aria-hidden","true");list.after(cap)}
+    // The captions sit stacked in one cell, the open one shown, so the block is as tall as the longest and nothing
+    // under it moves when the step changes.
+    let cap=null;if(textSel){cap=document.createElement("p");cap.className="firstrun-step-cap";
+      cap.innerHTML=items.map((el,k)=>`<span class="firstrun-step-cap__t" data-step-cap="${k}">${el.querySelector(textSel)?.innerHTML||""}</span>`).join("");list.after(cap)}
     const current=()=>Math.max(0,items.findIndex(el=>el.classList.contains("is-current")));
     // The manual arrows stop at the ends (the player's own loop still wraps).
     on(head,"click",e=>{const nav=e.target.closest("[data-step-nav]");if(!nav||nav.getAttribute("aria-disabled")==="true")return;
@@ -27265,7 +27268,8 @@ function createLandingController(root){
       head.firstChild.textContent=items[i]?.querySelector(titleSel)?.textContent||"";
       head.children[1].textContent=t("landing.steps.count",{n:landingNum(i+1),total:landingNum(items.length)});
       head.querySelectorAll("[data-step-nav]").forEach(nav=>{const end=Number(nav.dataset.stepNav)<0?i===0:i===items.length-1;nav.setAttribute("aria-disabled",String(end))});
-      if(cap)cap.innerHTML=items[i]?.querySelector(textSel)?.innerHTML||""};
+      if(cap)[...cap.children].forEach((node,k)=>{node.classList.toggle("is-current",k===i);
+        if(k===i&&node.innerHTML!==(items[k]?.querySelector(textSel)?.innerHTML||""))node.innerHTML=items[k].querySelector(textSel).innerHTML})};
     const mo=new MutationObserver(sync);mo.observe(list,{subtree:true,attributes:true,attributeFilter:["class"],childList:true,characterData:true});reg.obs.push(mo);sync()});
   /* The clock is the demo's own: seconds summed from the frames' timestamps, each step clamped to 0–50ms and the
      first frame after a (re)start counted as 0, so it never reads another clock and never runs backwards. */
@@ -27402,8 +27406,9 @@ function createLandingController(root){
     // whose root box is the band the control takes at the foot of the screen, and any stage in that band sends the
     // control away until it leaves. The band follows the screen's size, so a resize rebuilds it.
     const stages=[...root.querySelectorAll("[data-landing-stage]")],under=new Set();
-    // The control stays on from the end of the hero to the closing band: stepping aside for each stage read as flicker.
-    const paint=()=>dock.classList.toggle("is-on",gone&&!closing);
+    // A stage (the proof's phone, the feature panel) is never under the phone's bar; the wide page's top bar stays.
+    const atTop=()=>getComputedStyle(dock).getPropertyValue("--firstrun-dock-at").trim()==="top";
+    const paint=()=>dock.classList.toggle("is-on",gone&&!closing&&(!under.size||atTop()));
     let band=null;
     const watchBand=()=>{
       band?.disconnect();under.clear();
