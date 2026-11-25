@@ -6183,9 +6183,9 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 /* In the dark theme the ink band's tokens invert to a cream field; the landing keeps it a raised night band instead, so
    the page's depth runs the same way in both appearances. */
 :root[data-theme="dark"] .firstrun-band:not(.firstrun-band--night,.firstrun-band--raised,.firstrun-band--ink,.firstrun-band--orange){
-  --firstrun-band-bg:color-mix(in srgb,var(--band-night-ink) 11%,var(--band-night-bg));
+  --firstrun-band-bg:color-mix(in srgb,var(--band-night-ink) 13%,var(--band-night-bg));
 }
-:root[data-theme="dark"] .firstrun-features{--firstrun-band-bg:color-mix(in srgb,var(--band-night-ink) 11%,var(--band-night-bg))}
+:root[data-theme="dark"] .firstrun-features{--firstrun-band-bg:color-mix(in srgb,var(--band-night-ink) 13%,var(--band-night-bg))}
 :root[data-theme="dark"] .firstrun-band{--firstrun-rule:color-mix(in srgb,var(--band-night-ink) 20%,transparent)}
 :root[data-theme="dark"] .firstrun-band:not(.firstrun-hero,.firstrun-proof,.firstrun-footer,.firstrun-close){padding-top:calc(var(--firstrun-gap-8) + var(--space-16))}
 :root[data-theme="dark"] .firstrun-band--ink{
@@ -6203,7 +6203,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
    so the dark theme draws those frames with their edges alone. */
 :root[data-theme="dark"] .firstrun-demo__light,:root[data-theme="dark"] .firstrun-feat__tints{visibility:hidden}
 :root[data-theme="dark"] .firstrun-demo{background:color-mix(in srgb,var(--band-night-ink) 14%,var(--band-night-bg));box-shadow:inset 0 1px 0 color-mix(in srgb,var(--band-night-ink) 14%,transparent)}
-:root[data-theme="dark"] .firstrun-demo__ring{background:rgba(var(--ink-rgb),.07)}
+:root[data-theme="dark"] .firstrun-demo__ring{background:rgba(var(--accent-rgb),.15)}
 :root[data-theme="dark"] .firstrun-demo .ledgerline__vals{color:var(--band-night-ink)}
 :root[data-theme="dark"] .firstrun-fx .sumcard.phero{background:color-mix(in srgb,var(--band-night-ink) 15%,var(--band-night-bg))}
 :root[data-theme="dark"] .firstrun-check .firstrun-sub{color:color-mix(in srgb,var(--band-night-ink) 80%,transparent)}
@@ -6213,7 +6213,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 :root[data-theme="dark"] .firstrun-proof__glass{box-shadow:inset 0 0 0 1px var(--rule-strong)}
 :root[data-theme="dark"] .firstrun-proof__glass>*{border-radius:inherit}
 :root[data-theme="dark"] .firstrun-demo :is(.ledgerline__prev,.ledgerline__head,.fx-col){color:var(--color-ink-secondary)}
-:root[data-theme="dark"] .firstrun-feat__panel{background:color-mix(in srgb,var(--band-night-ink) 17%,var(--band-night-bg));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--band-night-ink) 18%,transparent)}
+:root[data-theme="dark"] .firstrun-feat__panel{background:color-mix(in srgb,var(--band-night-ink) 8%,var(--band-night-bg));box-shadow:none;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--band-night-ink) 18%,transparent)}
 :root[data-theme="dark"] .firstrun-footer{border-top:1px solid var(--rule-strong)}
 :root[data-theme="dark"] :is(.firstrun-demo,.firstrun-fx){--boundary-decorative:color-mix(in srgb,var(--band-night-ink) 20%,transparent);--rule:color-mix(in srgb,var(--band-night-ink) 20%,transparent);--rule-on-surface:color-mix(in srgb,var(--band-night-ink) 20%,transparent)}
 :root[data-theme="dark"] .firstrun-feat__win{box-shadow:var(--elevation-floating-shadow)}
@@ -6547,6 +6547,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun-demo__defs{position:absolute}
 .firstrun-demo__head{padding:0 var(--space-8)}
 .firstrun-demo__progress{margin:var(--space-8) var(--space-16) 0;gap:var(--space-8)}
+.firstrun-demo__progress .segbar__seg:not(.is-current){background:color-mix(in srgb,var(--color-ink) 17%,transparent)}
 .firstrun-demo__card{padding:0 var(--space-16)}
 .firstrun-demo__card .fx-head{margin:var(--space-16) 0 0}
 .firstrun-demo__ev,.firstrun-demo__ring,.firstrun-demo__log,
@@ -6689,6 +6690,9 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun-feat__cap.is-current{opacity:1;visibility:visible;transition:opacity .2s cubic-bezier(.2,.7,.2,1)}
 .firstrun-feat__panel{position:relative;height:440px;margin-inline:calc(var(--gut) * -1 + var(--space-8));overflow:hidden;isolation:isolate;border-radius:var(--radius-landing-stage);
   background:var(--well)}
+/* one mock frame: the Progress window wears the hero phone's frame, on a flat stage */
+.firstrun-feat__tints{display:none}
+.firstrun .firstrun-feat__win{border-radius:var(--radius-landing-stage);box-shadow:0 0 0 1px color-mix(in srgb,var(--ink) 22%,transparent),var(--elevation-sheet-shadow)}
 .firstrun-feat__tint{position:absolute;inset:0;opacity:0;transition:opacity .6s cubic-bezier(.2,.7,.2,1)}
 .firstrun-feat__tint.is-current{opacity:1}
 .firstrun-feat__tint--1{background:radial-gradient(90% 70% at 80% 0%,rgba(var(--accent-rgb),.16),rgba(var(--accent-rgb),0) 62%),linear-gradient(160deg,rgba(var(--accent-rgb),.10),rgba(var(--accent-rgb),.05))}
@@ -6701,9 +6705,11 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun-fx--progress .phero__cap{white-space:nowrap}
 .firstrun-fx--progress .phero__stat{padding-right:var(--space-8)}
 .firstrun-fx .sumhead__link{word-spacing:.12em}
-/* the Progress summary's frame ends after the bench row: a strip of the screen's own ground is its bottom padding */
-.firstrun-feat__win:has([data-feature-screen="0"])::after{content:"";position:absolute;z-index:5;left:0;right:0;bottom:0;height:var(--space-16);
-  background:var(--bg);pointer-events:none}
+/* the Progress summary shows its strength card with the bench row alone, and the screen itself is clipped 16px under
+   that card's rounded foot, so nothing past it can show */
+.firstrun-fx--progress .liftrow+.liftrow{display:none}
+.firstrun-feat__screen[data-feature-screen="0"]{clip-path:polygon(0 0,100% 0,100% 555px,0 555px)}
+@media(min-width:1100px){.firstrun-feat__screen[data-feature-screen="0"]{clip-path:polygon(0 0,100% 0,100% 551px,0 551px)}}
 .firstrun-fx--progress .phero__headline{padding-right:var(--space-4);font-size:var(--font-size-body)}
 .firstrun-fx--progress .liftrow{gap:var(--space-16)}
 .firstrun-feat__win{position:absolute;left:50%;top:50%;overflow:hidden;border-radius:var(--radius-landing-stage-compact);background:var(--bg);
@@ -7113,8 +7119,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   /* the feature list: the stepper rows, held beside a preview capped to the screen */
   .firstrun-feat{align-items:start}
   .firstrun-feat__side{position:sticky;top:calc(var(--space-32) * 2 + var(--firstrun-gap-3))}
-  .firstrun-feat__panel{height:511px;width:400px;justify-self:end}
-  .firstrun-feat__win:has([data-feature-screen="0"])::after{height:calc(var(--space-16) + var(--space-4))}
+  .firstrun-feat__panel{height:560px;width:440px;justify-self:center}
   .firstrun .firstrun-feat{grid-template-columns:minmax(0,520px) minmax(0,1fr);align-items:start}
   .firstrun-feat__side{align-self:start;margin-top:0}
   /* the paste hand-off, a full-width row under the three columns */

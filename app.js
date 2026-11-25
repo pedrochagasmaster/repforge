@@ -27386,7 +27386,9 @@ function createLandingController(root){
     // Sampled on every frame the landing plays and on every scroll, so a held (or reduced-motion) page still switches.
     const sampleGround=()=>{
       const box=dock.getBoundingClientRect();
-      const y=box.height?window.innerHeight-parseFloat(getComputedStyle(dock).bottom)-box.height/2:window.innerHeight-60;
+      // The wide page's bar sits at the top: it takes the band just under its own foot.
+      const atTop=box.height&&box.top<8;
+      const y=atTop?box.bottom+4:box.height?window.innerHeight-parseFloat(getComputedStyle(dock).bottom)-box.height/2:window.innerHeight-60;
       const under=ground(window.innerWidth/2,y);
       dock.dataset.ground=under.lum<.4?"dark":"light";
       if(under.fill)dock.style.setProperty("--firstrun-dock-ground",under.fill)};
