@@ -244,7 +244,7 @@ async function main() {
     // counts no bodyweight, so its Why says nothing about bodyweight.
     check(why.includes("total load") && why.includes("per side") && why.includes("× 2") && !/bodyweight/i.test(why),
       "Why explains the bilateral multiplier and counts no bodyweight for a lift below the material threshold", why);
-    check(why.includes("last session, at 25 kg per side"),
+    check(why.includes("last session (25 kg per side)"),
       "Why labels its generated historical strength anchor as a per-side load", why);
     await page.locator("#whyClose").click();
     await page.waitForSelector("#whySheet", { state: "hidden", timeout: 5000 });
