@@ -4,7 +4,7 @@ Status: **draft, awaiting owner acceptance of [ADR 0026](../docs/adr/0026-traine
 
 ## 1. Outcome and reference
 
-An in-person trainer keeps a client list at `pro.taurifer.com`, hands a program to a client by QR code or link, receives the client's training when the client chooses to send it, and sends back an adjusted program that the client accepts without losing history.
+An in-person trainer keeps a client list at `studio.taurifer.com`, hands a program to a client by QR code or link, receives the client's training when the client chooses to send it, and sends back an adjusted program that the client accepts without losing history.
 
 The [concept mock](../docs/design/trainer-loop-mock/README.md) is the reference for the flow and for what each screen must answer. Three trainers approved its direction on 2026-11-25. It is not a visual specification: each user-visible slice needs an approved design and passes the fidelity gate against it.
 
@@ -25,7 +25,7 @@ Each slice is one pull request with its owning tests. Slices 3 and 4 can run in 
 
 | # | Slice | Delivers | Owning proof |
 | --- | --- | --- | --- |
-| 0 | Contracts | Owner accepts ADR 0026 and resolves its open items 1, 3, 5 and 6. Amend ADR 0007, the `plans/README.md` guardrails, `AGENTS.md`, `CONTEXT.md` and the Privacy page text in one prose-only PR. | Owner review. |
+| 0 | Contracts | Owner accepts ADR 0026 and resolves its open items 2, 4 and 5. Amend ADR 0007, the `plans/README.md` guardrails, `AGENTS.md`, `CONTEXT.md` and the Privacy page text in one prose-only PR. | Owner review. |
 | 1 | Relay | A new service under `services/`, a shared request/record contract module, and a browser client that encrypts, uploads, downloads and decrypts. No UI. | Section 4. |
 | 2 | Program handoff | The handoff document (program, settings, starting loads, message, attribution). The app's Share uses the relay; a new client receives at the first-run gate with the trainer's name shown; the iOS handoff cookie carries the record locator; fallback to link or file when the relay is down. | Codec unit and generative suites; setup-flow browser suite extended; catalog frames. |
 | 3 | Program update for an existing client | An existing client opens a handoff, sees what changed and the note, and chooses to use it or keep the current program. History and the archive are kept. | Transition suites; a browser test that history, archive and an in-progress draft survive both choices. |
@@ -57,6 +57,6 @@ If item 2 fails, stop and return to the owner before slice 2.
 
 - Acceptance of ADR 0026 and its open items before slice 1.
 - Relay provider account, staging and production deployment, and the cost threshold.
-- DNS and hosting for `pro.taurifer.com`. The repository holds no domain configuration, so this path must be supplied.
+- DNS and hosting for `studio.taurifer.com`. The repository holds no domain configuration, so this path must be supplied.
 - EN and PT copy approval for every new surface, and an approved design per user-visible slice.
-- Legal review (ADR 0026 open item 2) before any trainer outside the three reviewers uses it.
+- Legal review (ADR 0026 open item 1) before any trainer outside the three reviewers uses it.

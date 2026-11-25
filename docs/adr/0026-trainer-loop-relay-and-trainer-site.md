@@ -9,7 +9,7 @@
 
 1. The audience is the in-person personal trainer with roughly 15–30 clients.
 2. A local trainer view is reopened. The trainer keeps a client list.
-3. The trainer's tool is a separate site at `pro.taurifer.com`. It does not include the rest of the app.
+3. The trainer's tool is a separate site at `studio.taurifer.com`. It does not include the rest of the app. The owner first chose `pro` and replaced it the same day because Pro already names the app's paid tier; "studio" reads the same in English and Portuguese and names a workplace, not Taurifer.
 4. Payloads travel through an encrypted relay. A relay link stays readable for seven days.
 5. Three trainers reviewed the [concept mock](../design/trainer-loop-mock/README.md) and approved its direction. They named the transport format and the separate site as the two conditions.
 
@@ -64,7 +64,7 @@ Both are versioned documents validated before anything is persisted, with the sa
 
 ## The trainer site
 
-- A second static site in this repository, served at `pro.taurifer.com`. It has its own origin and therefore its own storage, so the client list never touches the app's single-program state.
+- A second static site in this repository, served at `studio.taurifer.com`. It has its own origin and therefore its own storage, so the client list never touches the app's single-program state.
 - No account and no sync. The client list, each client's programs and received updates are stored on the trainer's device.
 - It reuses the program editor, exercise catalogue, program compiler and the payload codecs. It does not include workout logging, Progress or History for the trainer.
 - Because clearing browser data or changing devices would erase a trainer's client list, a backup export and import ships in the same slice as the client list.
@@ -84,9 +84,8 @@ Both are versioned documents validated before anything is persisted, with the sa
 
 ## Open items for the owner
 
-1. **The name "Pro".** The app's paid tier is already called Pro. `pro.taurifer.com` for trainers may read as that tier. Confirm the subdomain or pick another before any copy is written.
-2. **Legal review.** A trainer who receives updates holds a client's training data and notes that may mention pain or injury. Review under LGPD before the alpha, together with the CREF-registered professional the coach-layer strategy already requires.
-3. **Guardrail wording.** `plans/README.md` says "no full coach SaaS". This ADR adds no account, payment or hosted client data, but the owner should restate that line so it is clear the trainer site is inside it.
-4. **Who pays.** The commercial model for trainers is undecided and is outside this ADR.
-5. **Provider and cost threshold** for the relay.
-6. **Hosting** for a second site: the repository holds no domain configuration, so the deployment path is unknown to the plan.
+1. **Legal review.** A trainer who receives updates holds a client's training data and notes that may mention pain or injury. Review under LGPD before the alpha, together with the CREF-registered professional the coach-layer strategy already requires.
+2. **Guardrail wording.** `plans/README.md` says "no full coach SaaS". This ADR adds no account, payment or hosted client data, but the owner should restate that line so it is clear the trainer site is inside it.
+3. **Who pays.** The commercial model for trainers is undecided and is outside this ADR.
+4. **Provider and cost threshold** for the relay.
+5. **Hosting** for a second site: the repository holds no domain configuration, so the deployment path is unknown to the plan.
