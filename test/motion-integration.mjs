@@ -925,7 +925,9 @@ async function landingProofMotion(browser, { reducedMotion = "no-preference" } =
   });
   if (reduced) {
     assert(!written.proof.playing && written.proof.frames === 0 && written.props.length === 0, "under reduced motion the phone does not play", JSON.stringify(written));
-    await page.click('[data-chapter="4"]');
+    // On a phone the chapters are reached with the title line's next button (the stepper rows show from 900px).
+    if (await page.locator('[data-chapter="4"]').isVisible()) await page.click('[data-chapter="4"]');
+    else for (let step = 0; step < 4; step++) await page.click('.firstrun-proof__stage .firstrun-step-head [data-step-nav="1"]');
     const still = await page.evaluate(() => ({ proof: window.__repforgeLandingProof(),
       sheet: getComputedStyle(document.querySelector(".firstrun-demo__sheet")).transform, frames: window.__repforgeLandingProof().frames }));
     assert(still.proof.chapter === 4 && still.frames === 0 && /^(none|matrix\(1, 0, 0, 1, 0, 0\))$/.test(still.sheet),

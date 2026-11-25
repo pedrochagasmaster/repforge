@@ -6462,7 +6462,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun-band--night,.firstrun-band--raised,.firstrun-proof{--firstrun-row-open:color-mix(in srgb,var(--band-night-ink) 14%,var(--band-night-bg));
   --firstrun-row-open-edge:color-mix(in srgb,var(--band-night-ink) 22%,transparent)}
 .firstrun-chapter__bar{display:none}
-.firstrun-step__short,.firstrun-step-head,.firstrun-step-cap,.firstrun-step-rail,.firstrun-kicker{display:none}
+.firstrun-step-head,.firstrun-step-cap,.firstrun-kicker{display:none}
 .firstrun-chapter__fill{position:absolute;inset:0;background:var(--band-night-accent);transform-origin:0 50%;transform:scaleX(var(--chapter-progress,0))}
 .firstrun-chapter__text{
   display:none;margin:0;padding:0 var(--space-12) var(--space-12) calc(var(--space-12) * 2 + 1.25em);font-size:var(--font-size-body);line-height:var(--line-reading);
