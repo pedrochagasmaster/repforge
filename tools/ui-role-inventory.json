@@ -3623,6 +3623,30 @@
       ]
     },
     {
+      "id": "firstrundock",
+      "selector": "#firstRunDock",
+      "roles": {
+        "elevation": "persistent-action"
+      },
+      "variant": "landing-build-bar",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "The bar that holds the landing's persistent Build control: an opaque full-width surface in the ground of the band beneath it, with a hairline on its edge (the foot on a phone, the top on the wide page). It shows once the hero action has scrolled away, steps aside over the stages on a phone and when the closing band arrives, and never exists on the received-program gate. The Build control inside it keeps its own row.",
+      "owner": "plan-064/r2",
+      "catalogStates": [
+        "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-proof-test",
+        "onboarding-start/first-run-check",
+        "onboarding-start/first-run-ways",
+        "onboarding-start/first-run-features",
+        "onboarding-start/first-run-data",
+        "onboarding-start/first-run-faq-open",
+        "onboarding-start/first-run-close"
+      ]
+    },
+    {
       "id": "firstrunproofchapter",
       "selector": ".firstrun-chapter__go",
       "roles": {
