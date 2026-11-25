@@ -53,7 +53,7 @@ const required = Object.freeze({
   ],
   app: ["#themeSegments", "#langRow", "#restSec", "#voiceToggle", "#notifyToggle", "#notifyConfigRow", "#installApp"],
   data: ["#exportJson", "#exportCsv", "#importJson", "#telemetryToggle", "#privacyDetails", "#reset"],
-  help: ["#guideReplayToggle", "#guideReplayList", "#settingsAbout", "#settingsSupport"],
+  help: ["#guideReplayToggle", "#guideReplayList", "#settingsMediaCredit", "#settingsAbout", "#settingsSupport"],
 });
 
 const browser = await launchChromium();

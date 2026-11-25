@@ -7,6 +7,8 @@ import { createHash } from "node:crypto";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { STILL_BG, readGifManifest, stillPath } from "./vendor-exercise-gifs.mjs";
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "..");
 const SOURCE_PATH = join(ROOT, "plans/067/data/app_file.json");
@@ -44,6 +46,7 @@ function main() {
   const curation = readJson(CURATION_PATH);
   const draftNames = readJson(DRAFT_NAMES_PATH);
   const mediaBg = readJson(MEDIA_BG_PATH);
+  const animations = readGifManifest().entries;
   const problems = [];
 
   if (curation.schemaVersion !== 1) problems.push("curation schemaVersion must be 1");
@@ -154,7 +157,15 @@ function main() {
       aliases,
       searchBoostValue: exercise.searchBoostValue,
     };
-    if (reviewed?.mediaId) {
+    // A vendored animation wins over an illustration: the list shows its still,
+    // and the app derives the animation's path from the still's.
+    const animation = animations[exercise.id];
+    if (animation) {
+      row.media = stillPath(animation);
+      row.mediaBg = STILL_BG;
+      // A similar animation says what it shows differently; nothing else carries the key.
+      if (animation.differences) row.mediaShown = animation.differences;
+    } else if (reviewed?.mediaId) {
       row.media = `assets/exercises/${reviewed.mediaId}.webp`;
       row.mediaBg = mediaBg[reviewed.mediaId];
     } else {
