@@ -104,6 +104,23 @@ const wrongIndexRows = EXERCISE_LIBRARY.filter(index => {
 });
 assert(wrongIndexRows.length === 0, "compact index identities and search/display fields match their source IDs",
   wrongIndexRows.slice(0, 6).map(row => row.id).join(", "));
+// #315: every movement Generate uses shows an owner-approved Portuguese name in
+// PT (the app's display rule reads the index row's namePt), not a draft.
+const generatorPtNames = JSON.parse(readFileSync(join(__dirname, "fixtures/generator-pt-names.json"), "utf8"));
+const unapprovedGeneratorNames = generatorPtNames.movements.filter(movement => {
+  const reviewed = curation.entries[movement.id];
+  const index = indexById.get(movement.id);
+  return !reviewed || reviewed.sourceName !== movement.name || reviewed.namePt !== movement.namePt ||
+    !isDeepStrictEqual(reviewed.aliases, movement.aliases) ||
+    Object.hasOwn(draftNames.entries, movement.id) ||
+    !index || index.name !== movement.name || index.namePt !== movement.namePt;
+});
+assert(generatorPtNames.movements.length === 128 &&
+  new Set(generatorPtNames.movements.map(movement => movement.id)).size === 128 &&
+  unapprovedGeneratorNames.length === 0,
+  "the 128 generator movements resolve to their approved Portuguese names",
+  `${unapprovedGeneratorNames.length} unapproved: ` +
+    unapprovedGeneratorNames.slice(0, 4).map(movement => `${movement.id} ${movement.name}`).join(" | "));
 assert(EXERCISE_LIBRARY.every(index => Array.isArray(index.aliases)),
   "canonical names, source alternatives, and reviewed Portuguese terms are searchable");
 assert(Object.entries(curation.entries).every(([id, reviewed]) => {

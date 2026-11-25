@@ -11,38 +11,12 @@
     "Supino com pausa"
    ]
   },
-  "1a05c6f170d88000945dfdee74e96234": {
-   "sourceName": "Seated neutral grip dumbbell overhead press",
-   "namePt": "Desenvolvimento sentado com halteres pegada neutra",
-   "aliases": [
-    "Desenvolvimento neutro sentado"
-   ]
-  },
-  "1a05c6f170d88001a638d8c959467497": {
-   "sourceName": "45° incline pause dumbbell press",
-   "namePt": "Supino inclinado 45° com pausa com halteres",
-   "aliases": [
-    "Supino inclinado com pausa com halteres"
-   ]
-  },
-  "1a05c6f170d88007a78cd3f390c3dcdd": {
-   "sourceName": "Seated plate-loaded machine incline press",
-   "namePt": "Supino inclinado sentado na máquina articulada",
-   "aliases": [
-    "Supino inclinado articulado"
-   ]
-  },
   "1a05c6f170d880088024e8984aed4e6a": {
    "sourceName": "Seated pin-loaded machine incline press",
    "namePt": "Supino inclinado sentado na máquina de pino",
    "aliases": [
     "Supino máquina inclinado sentado"
    ]
-  },
-  "1a05c6f170d88017acc8c48b6ccdd639": {
-   "sourceName": "Pause dumbbell bench press",
-   "namePt": "Supino com halteres com pausa",
-   "aliases": []
   },
   "1a05c6f170d880198e1aceac084f30eb": {
    "sourceName": "45° incline barbell press",
@@ -55,14 +29,6 @@
    "sourceName": "Decline dumbbell press",
    "namePt": "Supino declinado com halteres",
    "aliases": []
-  },
-  "1a05c6f170d8801f98afff449f6a3b05": {
-   "sourceName": "Low-to-high cable fly",
-   "namePt": "Crossover de baixo para cima",
-   "aliases": [
-    "Crucifixo de baixo para cima na polia",
-    "Crossover polia baixa"
-   ]
   },
   "1a05c6f170d88025ae85dd6b7d9f417e": {
    "sourceName": "Decline pause dumbbell press",
@@ -82,11 +48,6 @@
    "aliases": [
     "Floor press com barra"
    ]
-  },
-  "1a05c6f170d8802ba26bf25efbec5e68": {
-   "sourceName": "Standing dumbbell overhead press",
-   "namePt": "Desenvolvimento em pé com halteres",
-   "aliases": []
   },
   "1a05c6f170d8802d9233da6c4897b8e7": {
    "sourceName": "Barbell push press",
@@ -127,14 +88,6 @@
     "Crossover polia alta"
    ]
   },
-  "1a05c6f170d8803da198c200611265c3": {
-   "sourceName": "Seated plate-loaded machine chest press",
-   "namePt": "Supino sentado na máquina articulada",
-   "aliases": [
-    "Supino articulado",
-    "Supino vertical articulado"
-   ]
-  },
   "1a05c6f170d8803dad22e04308bd0a98": {
    "sourceName": "Single arm dumbbell bench press",
    "namePt": "Supino unilateral com halter",
@@ -149,11 +102,6 @@
     "Z press com barra",
     "Desenvolvimento sentado no chão com barra"
    ]
-  },
-  "1a05c6f170d88044b720f479bb37d97b": {
-   "sourceName": "Standing neutral grip dumbbell overhead press",
-   "namePt": "Desenvolvimento em pé com halteres pegada neutra",
-   "aliases": []
   },
   "1a05c6f170d88045aa23e20a3b1a6bc4": {
    "sourceName": "Bradford press",
@@ -224,24 +172,10 @@
    "namePt": "Supino com kettlebell",
    "aliases": []
   },
-  "1a05c6f170d8806b911acf558c5af4f6": {
-   "sourceName": "45° incline dumbbell press",
-   "namePt": "Supino inclinado 45° com halteres",
-   "aliases": [
-    "Supino inclinado com halteres"
-   ]
-  },
   "1a05c6f170d8806c83bac84cb4b90d45": {
    "sourceName": "Wide grip barbell overhead press",
    "namePt": "Desenvolvimento com barra pegada aberta",
    "aliases": []
-  },
-  "1a05c6f170d88071a523c5abb44472c9": {
-   "sourceName": "Kettlebell floor press",
-   "namePt": "Supino no chão com kettlebell",
-   "aliases": [
-    "Floor press com kettlebell"
-   ]
   },
   "1a05c6f170d8807590e2d79fc558e368": {
    "sourceName": "45° incline pause barbell press",
@@ -280,25 +214,11 @@
     "Supino fechado"
    ]
   },
-  "1a05c6f170d8807cbae8c6f25fc1a3be": {
-   "sourceName": "Pin-loaded machine chest press",
-   "namePt": "Supino máquina",
-   "aliases": [
-    "Supino sentado na máquina"
-   ]
-  },
   "1a05c6f170d8807e94eec0bc1e8af713": {
    "sourceName": "Deficit push-up",
    "namePt": "Flexão de braço com déficit",
    "aliases": [
     "Flexão de braço com mãos elevadas"
-   ]
-  },
-  "1a05c6f170d88083b873d58cf6251e56": {
-   "sourceName": "Kneeling push-up",
-   "namePt": "Flexão de braço ajoelhado",
-   "aliases": [
-    "Flexão com joelhos no chão"
    ]
   },
   "1a05c6f170d88086b7e3da51deb96425": {
@@ -408,13 +328,6 @@
     "Supino em pé unilateral na polia"
    ]
   },
-  "1a05c6f170d880ccbf5aeb7f1b3fcee5": {
-   "sourceName": "45° incline Smith machine press",
-   "namePt": "Supino inclinado 45° no Smith",
-   "aliases": [
-    "Supino inclinado no Smith"
-   ]
-  },
   "1a05c6f170d880ceb4edebad298afca7": {
    "sourceName": "Seated barbell behind-the-neck overhead press",
    "namePt": "Desenvolvimento por trás da nuca sentado com barra",
@@ -448,11 +361,6 @@
    "namePt": "Supino declinado no Smith",
    "aliases": []
   },
-  "1a05c6f170d880d983adf3f27171db52": {
-   "sourceName": "Standing kettlebell overhead press",
-   "namePt": "Desenvolvimento em pé com kettlebell",
-   "aliases": []
-  },
   "1a05c6f170d880db967edeae7b23fd4f": {
    "sourceName": "Close grip barbell overhead press",
    "namePt": "Desenvolvimento com barra pegada fechada",
@@ -465,14 +373,6 @@
    "namePt": "Push press unilateral com halter",
    "aliases": [
     "Desenvolvimento com impulso unilateral com halter"
-   ]
-  },
-  "1a05c6f170d880e28b6bfbd0e217fcbc": {
-   "sourceName": "Standing dumbbell lateral raise",
-   "namePt": "Elevação lateral em pé com halteres",
-   "aliases": [
-    "Elevação lateral",
-    "Elevação lateral com halteres"
    ]
   },
   "1a05c6f170d880e2b66afebd843e3b9f": {
@@ -522,13 +422,6 @@
     "Desenvolvimento unilateral sentado"
    ]
   },
-  "1a05c6f170d880ff9314c15594dd3671": {
-   "sourceName": "45° incline dumbbell fly",
-   "namePt": "Crucifixo inclinado 45° com halteres",
-   "aliases": [
-    "Crucifixo inclinado com halteres"
-   ]
-  },
   "1a15c6f170d880008e4bd7c88314ca8a": {
    "sourceName": "Meadows row",
    "namePt": "Remada Meadows",
@@ -557,13 +450,6 @@
     "Plate pinch"
    ]
   },
-  "1a15c6f170d88003bf5cd77bef6a5034": {
-   "sourceName": "EZ bar skull crusher",
-   "namePt": "Tríceps testa com barra W",
-   "aliases": [
-    "Tríceps testa"
-   ]
-  },
   "1a15c6f170d88004a245f5a0ea564b67": {
    "sourceName": "Bent-over neutral grip T-bar row",
    "namePt": "Remada cavalinho pegada neutra",
@@ -583,18 +469,6 @@
     "Panturrilha sentado unilateral articulada"
    ]
   },
-  "1a15c6f170d8800abba4d3ef66a48aa6": {
-   "sourceName": "Standing dumbbell shrug",
-   "namePt": "Encolhimento em pé com halteres",
-   "aliases": []
-  },
-  "1a15c6f170d8800abe49f4321d63a1ef": {
-   "sourceName": "Bent-over underhand grip barbell row",
-   "namePt": "Remada curvada com barra pegada supinada",
-   "aliases": [
-    "Remada curvada supinada com barra"
-   ]
-  },
   "1a15c6f170d8800ba699c5125f79af15": {
    "sourceName": "Machine biceps curl with arms at sides",
    "namePt": "Rosca direta na máquina com braços ao lado do corpo",
@@ -605,29 +479,6 @@
    "namePt": "Tríceps coice na polia pegada neutra",
    "aliases": []
   },
-  "1a15c6f170d8800d8fc9d2c235673bf6": {
-   "sourceName": "Overhand grip cable lat pulldown",
-   "namePt": "Puxada frontal pegada pronada",
-   "aliases": [
-    "Pulldown",
-    "Puxada alta",
-    "Puxada frente",
-    "Puxada frontal",
-    "Puxada na polia"
-   ]
-  },
-  "1a15c6f170d88010a5b5f71c3ef7890d": {
-   "sourceName": "Seated neutral grip dumbbell rear delt fly",
-   "namePt": "Crucifixo inverso sentado com halteres pegada neutra",
-   "aliases": [
-    "Voador inverso sentado com halteres pegada neutra"
-   ]
-  },
-  "1a15c6f170d880129623ecf7b410009b": {
-   "sourceName": "Standing machine shrug",
-   "namePt": "Encolhimento em pé na máquina",
-   "aliases": []
-  },
   "1a15c6f170d8801383bce169e240d03c": {
    "sourceName": "Standing tib raise",
    "namePt": "Elevação de tibial em pé",
@@ -635,33 +486,11 @@
     "Dorsiflexão em pé"
    ]
   },
-  "1a15c6f170d880148cade872878baf4c": {
-   "sourceName": "Dumbbell Kelso shrug",
-   "namePt": "Encolhimento Kelso com halteres",
-   "aliases": [
-    "Encolhimento horizontal com halteres",
-    "Retração escapular com halteres"
-   ]
-  },
   "1a15c6f170d88014a0ccdeb82dfbc1f4": {
    "sourceName": "Overhand grip plate-loaded machine lat pulldown",
    "namePt": "Puxada frontal na máquina articulada pegada pronada",
    "aliases": [
     "Puxada articulada"
-   ]
-  },
-  "1a15c6f170d88014a710f8ada9a1e94a": {
-   "sourceName": "Cable face pull",
-   "namePt": "Face pull na polia com corda",
-   "aliases": [
-    "Face pull"
-   ]
-  },
-  "1a15c6f170d88015841af06a4533b9b3": {
-   "sourceName": "Incline hammer curl",
-   "namePt": "Rosca martelo inclinado com halteres",
-   "aliases": [
-    "Rosca martelo no banco inclinado"
    ]
   },
   "1a15c6f170d880169a4dd5ff44c08a34": {
@@ -686,11 +515,6 @@
    "namePt": "Elevação em T deitado de bruços",
    "aliases": []
   },
-  "1a15c6f170d8801ba086cdf6a79bd3a4": {
-   "sourceName": "Bent-over kettlebell row",
-   "namePt": "Remada curvada com kettlebell",
-   "aliases": []
-  },
   "1a15c6f170d8801cac29f53975faddf2": {
    "sourceName": "Smith machine behind-the-back shrug",
    "namePt": "Encolhimento por trás do corpo no Smith",
@@ -705,14 +529,6 @@
     "Rosca no crossover"
    ]
   },
-  "1a15c6f170d8801d9337dba3dcb34a88": {
-   "sourceName": "Cable straight bar triceps pushdown",
-   "namePt": "Tríceps na polia com barra reta",
-   "aliases": [
-    "Tríceps pulley com barra reta",
-    "Tríceps pulley"
-   ]
-  },
   "1a15c6f170d8801da273dbdc61789e83": {
    "sourceName": "Seated dumbbell shrug",
    "namePt": "Encolhimento sentado com halteres",
@@ -721,18 +537,6 @@
   "1a15c6f170d8801eba8df62057baf55a": {
    "sourceName": "Barbell Jefferson curl",
    "namePt": "Jefferson curl com barra",
-   "aliases": []
-  },
-  "1a15c6f170d880208cfdca4035bdedab": {
-   "sourceName": "Plate-loaded machine shoulder press",
-   "namePt": "Desenvolvimento na máquina articulada",
-   "aliases": [
-    "Desenvolvimento articulado"
-   ]
-  },
-  "1a15c6f170d88021b875e863950a8388": {
-   "sourceName": "Seated dumbbell front raise",
-   "namePt": "Elevação frontal sentado com halteres",
    "aliases": []
   },
   "1a15c6f170d880238ac4f9ccd90f1e08": {
@@ -771,14 +575,6 @@
    "namePt": "Extensão de punho no rolo com braços elevados",
    "aliases": []
   },
-  "1a15c6f170d88027bdddc238baa28936": {
-   "sourceName": "Single arm Bayesian curl",
-   "namePt": "Rosca bayesiana unilateral na polia",
-   "aliases": [
-    "Rosca bayesiana",
-    "Rosca unilateral de costas para a polia"
-   ]
-  },
   "1a15c6f170d88028bfe2efd8ba6c88f7": {
    "sourceName": "Wrist roller wrist extension with bent elbows",
    "namePt": "Extensão de punho no rolo com cotovelos flexionados",
@@ -794,42 +590,11 @@
    "namePt": "Remada curvada com halteres",
    "aliases": []
   },
-  "1a15c6f170d8802c8fcac7ee0b4ff011": {
-   "sourceName": "Overhand grip machine-assisted pull-up",
-   "namePt": "Barra fixa assistida na máquina pegada pronada",
-   "aliases": [
-    "Barra fixa assistida"
-   ]
-  },
-  "1a15c6f170d8802d969ae139f42062fa": {
-   "sourceName": "Chest-supported dumbbell row (elbows-in)",
-   "namePt": "Remada com apoio no peito com halteres cotovelos junto ao corpo",
-   "aliases": [
-    "Remada no banco inclinado pegada neutra com halteres"
-   ]
-  },
-  "1a15c6f170d8802e9b7ecde43d2af104": {
-   "sourceName": "Single kettlebell skull crusher",
-   "namePt": "Tríceps testa com kettlebell",
-   "aliases": []
-  },
   "1a15c6f170d8802faaade19679c742ad": {
    "sourceName": "Asymmetrical weight wrist ulnar deviation",
    "namePt": "Desvio ulnar de punho com carga assimétrica",
    "aliases": [
     "Desvio ulnar de punho"
-   ]
-  },
-  "1a15c6f170d8802facb6eb0a316ae895": {
-   "sourceName": "Overhand grip cable row",
-   "namePt": "Remada sentada na polia pegada pronada",
-   "aliases": []
-  },
-  "1a15c6f170d880308073fc37f580cda4": {
-   "sourceName": "Cable bar straight arm lat pulldown",
-   "namePt": "Pulldown com braços estendidos na polia com barra reta",
-   "aliases": [
-    "Pullover na polia com barra reta"
    ]
   },
   "1a15c6f170d880349466f4a35a01933c": {
@@ -864,11 +629,6 @@
    "namePt": "Elevação de panturrilha em pé no chão no Smith",
    "aliases": []
   },
-  "1a15c6f170d8803a8018d7745dd7b6ce": {
-   "sourceName": "Plate-loaded machine pullover",
-   "namePt": "Pullover na máquina articulada",
-   "aliases": []
-  },
   "1a15c6f170d8803a891bf223d4468a8a": {
    "sourceName": "EZ bar biceps curl",
    "namePt": "Rosca direta com barra W",
@@ -900,11 +660,6 @@
    "namePt": "Elevação em Y deitado de bruços",
    "aliases": []
   },
-  "1a15c6f170d880409004f87e18f9b974": {
-   "sourceName": "Overhand grip pin-loaded machine row",
-   "namePt": "Remada sentada na máquina pegada pronada",
-   "aliases": []
-  },
   "1a15c6f170d88040bffdd2f6127e6d4c": {
    "sourceName": "EZ bar preacher curl",
    "namePt": "Rosca Scott com barra W",
@@ -918,13 +673,6 @@
    "namePt": "Rosca unilateral com halter",
    "aliases": [
     "Rosca direta unilateral em pé com halter"
-   ]
-  },
-  "1a15c6f170d8804280dbcaba5f75cf49": {
-   "sourceName": "Half-kneeling single arm cable lat pulldown",
-   "namePt": "Puxada unilateral na polia semiajoelhado",
-   "aliases": [
-    "Puxada frontal unilateral semiajoelhado"
    ]
   },
   "1a15c6f170d8804687dfef42a3ca8dd6": {
@@ -941,11 +689,6 @@
     "Tríceps corda",
     "Tríceps pulley com corda"
    ]
-  },
-  "1a15c6f170d88047b7a9c99076376323": {
-   "sourceName": "Standing EZ bar overhead triceps extension",
-   "namePt": "Tríceps francês em pé com barra W",
-   "aliases": []
   },
   "1a15c6f170d88048ac0ae6539219933e": {
    "sourceName": "Dumbbell Jefferson curl",
@@ -965,11 +708,6 @@
   "1a15c6f170d880498730f15feec5e557": {
    "sourceName": "Underhand close grip cable lat pulldown",
    "namePt": "Puxada frontal na polia pegada supinada fechada",
-   "aliases": []
-  },
-  "1a15c6f170d88049a93dd5aded824eee": {
-   "sourceName": "Seated dumbbell lateral raise",
-   "namePt": "Elevação lateral sentado com halteres",
    "aliases": []
   },
   "1a15c6f170d88049b559fb117498028e": {
@@ -1019,14 +757,6 @@
     "Panturrilha em pé com barra"
    ]
   },
-  "1a15c6f170d880518057cd4d484cbecb": {
-   "sourceName": "Standing machine calf raise",
-   "namePt": "Elevação de panturrilha em pé na máquina",
-   "aliases": [
-    "Panturrilha em pé na máquina",
-    "Panturrilha em pé"
-   ]
-  },
   "1a15c6f170d8805196c7eefa5f50979f": {
    "sourceName": "Asymmetrical weight forearm supination",
    "namePt": "Supinação de antebraço com carga assimétrica",
@@ -1041,11 +771,6 @@
     "Barra com transição"
    ]
   },
-  "1a15c6f170d88055bfbcf0b2e871a481": {
-   "sourceName": "Standing machine lateral raise",
-   "namePt": "Elevação lateral em pé na máquina",
-   "aliases": []
-  },
   "1a15c6f170d880569efcc5eaf99b08ad": {
    "sourceName": "Single arm landmine row",
    "namePt": "Remada unilateral no landmine",
@@ -1059,11 +784,6 @@
    "aliases": [
     "Elevação lateral na máquina sentado"
    ]
-  },
-  "1a15c6f170d88058affcfe5558485d48": {
-   "sourceName": "Trap bar shrug",
-   "namePt": "Encolhimento com barra hexagonal",
-   "aliases": []
   },
   "1a15c6f170d8805b8898fd86e0d99d28": {
    "sourceName": "Seated barbell finger flexion wrist curl",
@@ -1082,18 +802,6 @@
     "Tríceps francês na polia com barra"
    ]
   },
-  "1a15c6f170d88061a160d397574438af": {
-   "sourceName": "Overhand grip machine rear delt fly",
-   "namePt": "Crucifixo inverso na máquina pegada pronada",
-   "aliases": [
-    "Peck deck inverso"
-   ]
-  },
-  "1a15c6f170d880629cb0e70c9f87e027": {
-   "sourceName": "Seated dumbbell finger flexion wrist curl",
-   "namePt": "Rosca de punho com flexão de dedos sentado com halteres",
-   "aliases": []
-  },
   "1a15c6f170d8806490d0e768051691f1": {
    "sourceName": "Scapular wall slide",
    "namePt": "Deslizamento escapular na parede",
@@ -1106,13 +814,6 @@
    "sourceName": "Seated banded ankle eversion",
    "namePt": "Eversão de tornozelo com elástico sentado",
    "aliases": []
-  },
-  "1a15c6f170d88067875bfd4347b883ef": {
-   "sourceName": "Dual cable lateral raise",
-   "namePt": "Elevação lateral na polia dupla",
-   "aliases": [
-    "Elevação lateral no crossover"
-   ]
   },
   "1a15c6f170d880689ebcce6974abf61c": {
    "sourceName": "Incline dumbbell I-raise",
@@ -1132,13 +833,6 @@
    "sourceName": "Seated dual dumbbell overhead triceps extension",
    "namePt": "Tríceps francês sentado com dois halteres",
    "aliases": []
-  },
-  "1a15c6f170d88069a1d3eb2d608c87b0": {
-   "sourceName": "Single arm cable lat pull-in",
-   "namePt": "Lat pull-in unilateral na polia",
-   "aliases": [
-    "Puxada unilateral ajoelhado cotovelo aberto na polia"
-   ]
   },
   "1a15c6f170d8806f8280ccf956dc3e30": {
    "sourceName": "Bench dip",
@@ -1176,27 +870,11 @@
     "Rosca de punho atrás do corpo com barra"
    ]
   },
-  "1a15c6f170d88074b3d4e1548e32c508": {
-   "sourceName": "45° leg press calf raise",
-   "namePt": "Panturrilha no leg press 45°",
-   "aliases": [
-    "Elevação de panturrilha no leg press",
-    "Panturrilha no leg press"
-   ]
-  },
   "1a15c6f170d88076a486ce1243ac39e5": {
    "sourceName": "Incline dumbbell T-raise",
    "namePt": "Elevação em T no banco inclinado com halteres",
    "aliases": [
     "Crucifixo inverso em T no banco inclinado"
-   ]
-  },
-  "1a15c6f170d88076aa27ee347803acb9": {
-   "sourceName": "Seated dumbbell overhead triceps extension",
-   "namePt": "Tríceps francês sentado com halter",
-   "aliases": [
-    "Tríceps francês",
-    "Tríceps francês com halter"
    ]
   },
   "1a15c6f170d88076b7f5e24347a8d8a0": {
@@ -1290,32 +968,10 @@
     "Pendurar na barra com um braço"
    ]
   },
-  "1a15c6f170d880868c06f216e31047c3": {
-   "sourceName": "Standing dumbbell hammer curl",
-   "namePt": "Rosca martelo em pé com halteres",
-   "aliases": [
-    "Rosca martelo",
-    "Rosca martelo com halteres"
-   ]
-  },
   "1a15c6f170d88086b226f5237d3b5ca4": {
    "sourceName": "Underhand grip barbell inverted row",
    "namePt": "Remada invertida com barra pegada supinada",
    "aliases": []
-  },
-  "1a15c6f170d8808aab66c6855e05e946": {
-   "sourceName": "Single arm landmine press",
-   "namePt": "Desenvolvimento unilateral no landmine",
-   "aliases": [
-    "Landmine press unilateral"
-   ]
-  },
-  "1a15c6f170d8808bbb8ecd9aae199152": {
-   "sourceName": "Neutral close grip cable lat pulldown",
-   "namePt": "Puxada frontal pegada neutra fechada",
-   "aliases": [
-    "Puxada com triângulo"
-   ]
   },
   "1a15c6f170d8808c80a4d05ecedeadc1": {
    "sourceName": "Underhand grip Yates row",
@@ -1393,26 +1049,12 @@
     "Rosca na polia com barra reta"
    ]
   },
-  "1a15c6f170d8809d8cdbf9394bfb079c": {
-   "sourceName": "Wide grip cable lat pulldown",
-   "namePt": "Puxada frontal na polia pegada aberta",
-   "aliases": [
-    "Puxada aberta",
-    "Puxada alta pegada aberta",
-    "Puxada frente aberta"
-   ]
-  },
   "1a15c6f170d8809eabb9d8ff10141916": {
    "sourceName": "Neutral grip plate-loaded machine row",
    "namePt": "Remada na máquina articulada pegada neutra",
    "aliases": [
     "Remada articulada pegada neutra"
    ]
-  },
-  "1a15c6f170d880a19fdfee37bb2e5ee3": {
-   "sourceName": "Neutral grip pin-loaded machine shoulder press",
-   "namePt": "Desenvolvimento na máquina pegada neutra",
-   "aliases": []
   },
   "1a15c6f170d880a2ac20d8a1281d1d37": {
    "sourceName": "Chest-supported overhand grip T-bar row",
@@ -1442,11 +1084,6 @@
     "Barra fixa"
    ]
   },
-  "1a15c6f170d880a8949ec06345dd11d1": {
-   "sourceName": "Pin-loaded machine overhead triceps extension",
-   "namePt": "Tríceps francês na máquina",
-   "aliases": []
-  },
   "1a15c6f170d880ac85f8eed3680b93ec": {
    "sourceName": "Close grip EZ bar biceps curl",
    "namePt": "Rosca direta com barra W pegada fechada",
@@ -1471,14 +1108,6 @@
    "namePt": "Rosca scott na máquina",
    "aliases": []
   },
-  "1a15c6f170d880b0a06fdce7d1c48a03": {
-   "sourceName": "Chest-supported dumbbell Y-raise",
-   "namePt": "Elevação Y com apoio no peito com halteres",
-   "aliases": [
-    "Elevação Y no banco inclinado",
-    "Elevação para trapézio inferior"
-   ]
-  },
   "1a15c6f170d880b0aac2d96fb0f781ee": {
    "sourceName": "Seated single arm dumbbell overhead triceps extension",
    "namePt": "Tríceps francês sentado unilateral com halter",
@@ -1490,13 +1119,6 @@
    "sourceName": "Cable shoulder external rotation with arm at side",
    "namePt": "Rotação externa de ombro na polia com braço ao lado do corpo",
    "aliases": []
-  },
-  "1a15c6f170d880b2a97ec3d948120f99": {
-   "sourceName": "Underhand grip cable lat pulldown",
-   "namePt": "Puxada frontal na polia pegada supinada",
-   "aliases": [
-    "Puxada supinada na polia"
-   ]
   },
   "1a15c6f170d880b2b06cf95892f97c0b": {
    "sourceName": "Kettlebell shrug",
@@ -1593,13 +1215,6 @@
     "Tríceps pulley unilateral pegada pronada"
    ]
   },
-  "1a15c6f170d880cb8d96e76abc77a0c4": {
-   "sourceName": "Overhand grip band-assisted pull-up",
-   "namePt": "Barra fixa assistida com elástico pegada pronada",
-   "aliases": [
-    "Barra fixa com elástico"
-   ]
-  },
   "1a15c6f170d880cdb451e459ddf41d2a": {
    "sourceName": "Scapular pull-up",
    "namePt": "Barra fixa escapular",
@@ -1619,16 +1234,6 @@
     "Puxada nuca"
    ]
   },
-  "1a15c6f170d880d2b760e4a33b36f289": {
-   "sourceName": "Standing on step single leg bodyweight calf raise",
-   "namePt": "Elevação de panturrilha unilateral em pé no step com peso corporal",
-   "aliases": []
-  },
-  "1a15c6f170d880d2be19ea52502589f2": {
-   "sourceName": "Cable straight bar overhead triceps extension",
-   "namePt": "Tríceps francês na polia com barra reta",
-   "aliases": []
-  },
   "1a15c6f170d880d392eae0869b5c9355": {
    "sourceName": "Handstand push-up",
    "namePt": "Flexão de braço em parada de mão",
@@ -1641,13 +1246,6 @@
    "namePt": "Tríceps francês com kettlebell",
    "aliases": [
     "Tríceps francês em pé com kettlebell"
-   ]
-  },
-  "1a15c6f170d880d5bdf8fd24dec58684": {
-   "sourceName": "Seated dumbbell wrist extension",
-   "namePt": "Rosca de punho inversa sentado com halteres",
-   "aliases": [
-    "Extensão de punho com halteres"
    ]
   },
   "1a15c6f170d880da9085c9c6ed1ec342": {
@@ -1744,13 +1342,6 @@
    "namePt": "Remada unilateral com kettlebell cotovelo fechado",
    "aliases": []
   },
-  "1a15c6f170d880f1ba5ef781b583618a": {
-   "sourceName": "Standing dumbbell biceps curl",
-   "namePt": "Rosca em pé com halteres",
-   "aliases": [
-    "Rosca direta com halteres"
-   ]
-  },
   "1a15c6f170d880f38e71dba3b3203cbb": {
    "sourceName": "Landmine chest press",
    "namePt": "Supino em pé no landmine",
@@ -1763,13 +1354,6 @@
    "namePt": "Tríceps testa com halteres",
    "aliases": []
   },
-  "1a15c6f170d880f4923dda7e78db672f": {
-   "sourceName": "Bent-over neutral grip dumbbell rear delt fly",
-   "namePt": "Crucifixo inverso curvado com halteres pegada neutra",
-   "aliases": [
-    "Crucifixo invertido curvado pegada neutra"
-   ]
-  },
   "1a15c6f170d880f59d33ed81d1f96f4d": {
    "sourceName": "Alternating cross-body dumbbell hammer curl",
    "namePt": "Rosca martelo cruzada alternada com halteres",
@@ -1781,14 +1365,6 @@
    "sourceName": "Dual kettlebell overhead triceps extension",
    "namePt": "Tríceps francês com dois kettlebells",
    "aliases": []
-  },
-  "1a15c6f170d880f89beacd8c81156f2d": {
-   "sourceName": "Bent-over barbell row",
-   "namePt": "Remada curvada com barra",
-   "aliases": [
-    "Remada curvada pegada pronada com barra",
-    "Remada curvada"
-   ]
   },
   "1a15c6f170d880f9a7c3de4cae380ab5": {
    "sourceName": "Standing single arm cable row",
@@ -1803,11 +1379,6 @@
   "1a15c6f170d880fb9521f93aa126739f": {
    "sourceName": "Seated cable wrist curl",
    "namePt": "Rosca de punho sentado na polia",
-   "aliases": []
-  },
-  "1a15c6f170d880fc9e97e840aa8098c7": {
-   "sourceName": "Pin-loaded machine shoulder press",
-   "namePt": "Desenvolvimento na máquina",
    "aliases": []
   },
   "1a15c6f170d880fe98b5de3ab0e91186": {
@@ -1842,15 +1413,6 @@
    "sourceName": "Full hand clean grip front squat",
    "namePt": "Agachamento frontal pegada de clean com mão inteira",
    "aliases": []
-  },
-  "1a25c6f170d88008a9adde9f71881c36": {
-   "sourceName": "Hack squat",
-   "namePt": "Agachamento hack",
-   "aliases": [
-    "Hack squat",
-    "Hack na máquina",
-    "Hack"
-   ]
   },
   "1a25c6f170d8800b8768c160b4808e67": {
    "sourceName": "Pendulum squat",
@@ -1901,11 +1463,6 @@
    "aliases": [
     "Avanço com halteres"
    ]
-  },
-  "1a25c6f170d88019bb29d293690154c8": {
-   "sourceName": "Dumbbell lateral step-down",
-   "namePt": "Descida lateral do step com halteres",
-   "aliases": []
   },
   "1a25c6f170d8801db72ecae6e8e97a0b": {
    "sourceName": "Dumbbell front foot elevated split squat",
@@ -2037,13 +1594,6 @@
     "Split squat com barra"
    ]
   },
-  "1a25c6f170d8806ba0efd970f13028c3": {
-   "sourceName": "Single leg 45° leg press",
-   "namePt": "Leg press 45° unilateral",
-   "aliases": [
-    "Leg press unilateral articulado"
-   ]
-  },
   "1a25c6f170d880738de8effd6e64a5eb": {
    "sourceName": "Kettlebell split squat",
    "namePt": "Afundo estático com kettlebell",
@@ -2057,13 +1607,6 @@
    "aliases": [
     "Leg press",
     "Leg press articulado"
-   ]
-  },
-  "1a25c6f170d880819de8ddcc87a7fb24": {
-   "sourceName": "Reverse Nordic curl",
-   "namePt": "Nórdico reverso",
-   "aliases": [
-    "Sissy ajoelhado"
    ]
   },
   "1a25c6f170d88081af74cf7f78977b75": {
@@ -2148,20 +1691,6 @@
     "Agachamento espanhol com elástico"
    ]
   },
-  "1a25c6f170d880aabf08c491ad0f9654": {
-   "sourceName": "Dumbbell sumo squat",
-   "namePt": "Agachamento sumô com halter",
-   "aliases": [
-    "Agachamento plié com halter",
-    "Agachamento plié",
-    "Agachamento sumô"
-   ]
-  },
-  "1a25c6f170d880b2a727d44db1872fd0": {
-   "sourceName": "Single leg plate-loaded leg extension",
-   "namePt": "Cadeira extensora unilateral articulada",
-   "aliases": []
-  },
   "1a25c6f170d880be85cdfb8dfcaba3eb": {
    "sourceName": "Barbell front foot elevated split squat",
    "namePt": "Agachamento afundo com pé da frente elevado com barra",
@@ -2204,13 +1733,6 @@
    "namePt": "Belt squat na máquina de polia",
    "aliases": [
     "Agachamento com cinto na polia"
-   ]
-  },
-  "1a25c6f170d880ca9d79d2832be4d932": {
-   "sourceName": "Tempo back squat",
-   "namePt": "Agachamento livre com cadência",
-   "aliases": [
-    "Agachamento com tempo controlado"
    ]
   },
   "1a25c6f170d880d0b665c0079cfecf80": {
@@ -2300,20 +1822,6 @@
     "Agachamento com barra acima da cabeça"
    ]
   },
-  "1a35c6f170d88002a708fd4827890e8c": {
-   "sourceName": "Decline weighted sit-up",
-   "namePt": "Abdominal completo declinado com carga",
-   "aliases": [
-    "Abdominal completo declinado com anilha"
-   ]
-  },
-  "1a35c6f170d8800a96aed40708dde255": {
-   "sourceName": "Ab coaster exercise",
-   "namePt": "Abdominal no ab coaster",
-   "aliases": [
-    "Ab coaster"
-   ]
-  },
   "1a35c6f170d8800b8569fc9da2916dfc": {
    "sourceName": "Feet-elevated hamstring bridge",
    "namePt": "Ponte de isquiotibiais com pés elevados",
@@ -2321,24 +1829,10 @@
     "Ponte para posteriores com pés elevados"
    ]
   },
-  "1a35c6f170d8800bab2dca0110e26c4a": {
-   "sourceName": "Lying hamstring curl",
-   "namePt": "Mesa flexora",
-   "aliases": [
-    "Flexora deitado"
-   ]
-  },
   "1a35c6f170d8800db688c4776155d095": {
    "sourceName": "Bodyweight sit-up with hands behind head",
    "namePt": "Abdominal completo com mãos atrás da cabeça",
    "aliases": []
-  },
-  "1a35c6f170d88010a78aecec412b3fe4": {
-   "sourceName": "Standing pin-loaded hamstring curl",
-   "namePt": "Flexora em pé na máquina de pino",
-   "aliases": [
-    "Flexora em pé na máquina"
-   ]
   },
   "1a35c6f170d8801c9ecaee22ba66fdbc": {
    "sourceName": "Bodyweight frog pump",
@@ -2352,15 +1846,6 @@
    "namePt": "Elevação pélvica com halter",
    "aliases": [
     "Hip thrust com halter"
-   ]
-  },
-  "1a35c6f170d8801e907be574e89e5c65": {
-   "sourceName": "Seated machine hip abduction",
-   "namePt": "Cadeira abdutora",
-   "aliases": [
-    "Abdução de quadril sentado na máquina",
-    "Abdutora",
-    "Abdução de quadril na máquina"
    ]
   },
   "1a35c6f170d8801e93a0e605a61d2274": {
@@ -2394,14 +1879,6 @@
    "aliases": [
     "Passada lateral com miniband",
     "Caminhada lateral com miniband"
-   ]
-  },
-  "1a35c6f170d88029bc9ff9ded538758c": {
-   "sourceName": "Seated hamstring curl",
-   "namePt": "Cadeira flexora",
-   "aliases": [
-    "Flexora sentada",
-    "Cadeira flexora na máquina"
    ]
   },
   "1a35c6f170d8802ebeecd725059973b2": {
@@ -2466,13 +1943,6 @@
    "sourceName": "Bodyweight crunch with hands on shoulders",
    "namePt": "Abdominal com mãos nos ombros",
    "aliases": []
-  },
-  "1a35c6f170d88050a8b7db0d4f1bc8f2": {
-   "sourceName": "Machine crunch (with overhead handles)",
-   "namePt": "Abdominal na máquina com pegadores acima da cabeça",
-   "aliases": [
-    "Abdominal sentado na máquina"
-   ]
   },
   "1a35c6f170d88051954bc0ce0aac8b61": {
    "sourceName": "Bodyweight glute ham developer hip hinge",
@@ -2550,20 +2020,6 @@
    "namePt": "Agachamento com elástico na coxa com peso corporal",
    "aliases": []
   },
-  "1a35c6f170d8807aae84e2c6eb136395": {
-   "sourceName": "Sumo deadlift",
-   "namePt": "Levantamento terra sumô",
-   "aliases": [
-    "Terra sumô"
-   ]
-  },
-  "1a35c6f170d8807c8999d24ee4aaf939": {
-   "sourceName": "Kneeling cable crunch",
-   "namePt": "Abdominal ajoelhado na polia",
-   "aliases": [
-    "Abdominal na polia alta"
-   ]
-  },
   "1a35c6f170d8807d8f40c4a3acedfaf1": {
    "sourceName": "Bodyweight crunch with hands on floor",
    "namePt": "Abdominal com mãos no chão",
@@ -2574,13 +2030,6 @@
    "namePt": "Levantamento terra com kettlebell",
    "aliases": [
     "Terra com kettlebell"
-   ]
-  },
-  "1a35c6f170d8808fa1c6e81741d5a44b": {
-   "sourceName": "Smith machine good morning",
-   "namePt": "Bom dia no Smith",
-   "aliases": [
-    "Good morning no Smith"
    ]
   },
   "1a35c6f170d880918125e6387c3849d5": {
@@ -2601,11 +2050,6 @@
    "aliases": [
     "Elevação pélvica no chão com barra"
    ]
-  },
-  "1a35c6f170d8809696b9f49a464504b0": {
-   "sourceName": "Weighted glute ham developer hip hinge",
-   "namePt": "Extensão de quadril no GHD com carga",
-   "aliases": []
   },
   "1a35c6f170d88097ba78ff6255530f23": {
    "sourceName": "Center-pendulum reverse hyperextension",
@@ -2640,13 +2084,6 @@
    "namePt": "Ponte de glúteos com pés elevados com peso corporal",
    "aliases": [
     "Ponte de glúteos com pés elevados"
-   ]
-  },
-  "1a35c6f170d880bd90eae6df2f7527e8": {
-   "sourceName": "Side-lying weighted hip abduction leg raise",
-   "namePt": "Abdução de quadril deitado de lado com caneleira",
-   "aliases": [
-    "Abdução de quadril deitado com carga"
    ]
   },
   "1a35c6f170d880c0808de2493284ed5b": {
@@ -2693,13 +2130,6 @@
     "Levantamento terra com barra e elástico"
    ]
   },
-  "1a35c6f170d880ce8ce1c99e4ba9837f": {
-   "sourceName": "Stability ball leg curl",
-   "namePt": "Flexora na bola suíça",
-   "aliases": [
-    "Flexão de joelhos na bola"
-   ]
-  },
   "1a35c6f170d880d0a972d8f5020b8a11": {
    "sourceName": "Low handle trap bar deadlift",
    "namePt": "Levantamento terra com barra hexagonal pegada baixa",
@@ -2712,25 +2142,11 @@
    "namePt": "Elevação pélvica com elástico na coxa com peso corporal",
    "aliases": []
   },
-  "1a35c6f170d880d697d3f111b6bd16f5": {
-   "sourceName": "Pause conventional deadlift",
-   "namePt": "Levantamento terra com barra com pausa",
-   "aliases": [
-    "Terra com pausa"
-   ]
-  },
   "1a35c6f170d880d6a7c1f6fd0a08993f": {
    "sourceName": "Thigh-banded frog pump",
    "namePt": "Frog pump com elástico na coxa",
    "aliases": [
     "Ponte sapo com elástico"
-   ]
-  },
-  "1a35c6f170d880d89a3af6f1022532fd": {
-   "sourceName": "Single leg kettlebell Romanian deadlift",
-   "namePt": "Stiff unilateral com kettlebell",
-   "aliases": [
-    "Levantamento terra romeno unilateral com kettlebell"
    ]
   },
   "1a35c6f170d880e09409ca60499f2367": {
@@ -3010,11 +2426,6 @@
     "Caminhada com halter acima da cabeça"
    ]
   },
-  "1a45c6f170d880689118ebb8208ffb54": {
-   "sourceName": "Goblet carry",
-   "namePt": "Caminhada goblet",
-   "aliases": []
-  },
   "1a45c6f170d88070b25eec47bc2e1940": {
    "sourceName": "Seated machine hip adduction",
    "namePt": "Cadeira adutora",
@@ -3037,11 +2448,6 @@
     "Suitcase carry com kettlebell",
     "Caminhada da mala"
    ]
-  },
-  "1a45c6f170d8808bb970dd2156495ae2": {
-   "sourceName": "Plate-weighted neck extension",
-   "namePt": "Extensão de pescoço com anilha",
-   "aliases": []
   },
   "1a45c6f170d88092a060d6c6e59dda03": {
    "sourceName": "Extended-hip ab wheel rollout",
@@ -3242,13 +2648,6 @@
    "namePt": "Rosca martelo cruzada unilateral em pé com halter",
    "aliases": [
     "Rosca pinwheel"
-   ]
-  },
-  "1ac5c6f170d8803f915fec32a9820548": {
-   "sourceName": "Pin-loaded leg press calf raise",
-   "namePt": "Panturrilha no leg press horizontal",
-   "aliases": [
-    "Elevação de panturrilha no leg press"
    ]
   },
   "1ac5c6f170d88080883cf1815a7949f5": {
@@ -3457,11 +2856,6 @@
    "namePt": "Remada sentada na polia pegada neutra aberta",
    "aliases": []
   },
-  "1d15c6f170d880a886e3e2426f08d7eb": {
-   "sourceName": "Wide grip cable row",
-   "namePt": "Remada sentada na polia pegada aberta",
-   "aliases": []
-  },
   "1d25c6f170d8800caecdf67ec170c9b9": {
    "sourceName": "Single arm high-to-low cable row",
    "namePt": "Remada unilateral de cima para baixo na polia",
@@ -3486,13 +2880,6 @@
    "namePt": "Remada seal com halteres cotovelos abertos",
    "aliases": [
     "Remada deitado no banco com halteres cotovelos abertos"
-   ]
-  },
-  "1d55c6f170d88028a79af1239c96794e": {
-   "sourceName": "Single arm cable lat pulldown",
-   "namePt": "Puxada frontal unilateral na polia",
-   "aliases": [
-    "Puxada unilateral sentado na polia"
    ]
   },
   "1d65c6f170d8806da486d7f5528de15f": {
@@ -3985,13 +3372,6 @@
     "Agachamento livre barra alta"
    ]
   },
-  "2135c6f170d88076befdd9d49319cf5d": {
-   "sourceName": "Safety squat bar squat",
-   "namePt": "Agachamento com barra safety",
-   "aliases": [
-    "Agachamento com SSB"
-   ]
-  },
   "2145c6f170d8803694e4fe4d978383de": {
    "sourceName": "Safety squat bar split squat",
    "namePt": "Afundo estático com barra safety",
@@ -4023,13 +3403,6 @@
    "namePt": "Agachamento frontal zumbi",
    "aliases": [
     "Agachamento frontal sem as mãos"
-   ]
-  },
-  "2175c6f170d88016a63deff6b692c180": {
-   "sourceName": "Pause front squat",
-   "namePt": "Agachamento frontal com barra com pausa",
-   "aliases": [
-    "Agachamento frontal com pausa"
    ]
   },
   "2175c6f170d88016b116fd4b832edc5f": {
@@ -4071,11 +3444,6 @@
     "Crossover unilateral de baixo para cima"
    ]
   },
-  "21c5c6f170d880019593eeff6244ee38": {
-   "sourceName": "Single arm cable front raise",
-   "namePt": "Elevação frontal unilateral na polia",
-   "aliases": []
-  },
   "21c5c6f170d88003a39bda54ea48d199": {
    "sourceName": "Single arm high-to-low cable fly",
    "namePt": "Crucifixo unilateral de cima para baixo na polia",
@@ -4109,24 +3477,12 @@
     "Z press com halteres"
    ]
   },
-  "2265c6f170d8801388daf25ba257a0c3": {
-   "sourceName": "Single arm dumbbell Z press",
-   "namePt": "Desenvolvimento Z unilateral com halter",
-   "aliases": [
-    "Z press unilateral"
-   ]
-  },
   "2285c6f170d880d3b0e7c4fbfb5da392": {
    "sourceName": "Touch-and-go conventional deadlift",
    "namePt": "Levantamento terra convencional toque e volta",
    "aliases": [
     "Terra touch and go"
    ]
-  },
-  "2305c6f170d8800693c2e97be7e4ff71": {
-   "sourceName": "Kneeling wide grip push-up",
-   "namePt": "Flexão de braço ajoelhado pegada aberta",
-   "aliases": []
   },
   "2305c6f170d8801b8161c48e399d6bce": {
    "sourceName": "Weighted push-up",
@@ -4136,11 +3492,6 @@
   "2305c6f170d8802492b1d3682e0381dc": {
    "sourceName": "Wide grip Smith machine bench press",
    "namePt": "Supino no Smith pegada aberta",
-   "aliases": []
-  },
-  "2305c6f170d88078a76adb67cce87454": {
-   "sourceName": "Kneeling close grip push-up",
-   "namePt": "Flexão de braço ajoelhado pegada fechada",
    "aliases": []
   },
   "2305c6f170d8809683abf39935685d38": {
@@ -4280,11 +3631,6 @@
    "namePt": "Supino inclinado baixo no Smith",
    "aliases": []
   },
-  "2405c6f170d8805e8629d8445d40121a": {
-   "sourceName": "High incline Smith machine press",
-   "namePt": "Supino inclinado alto no Smith",
-   "aliases": []
-  },
   "2405c6f170d88066aa57f7e9c8af3988": {
    "sourceName": "Spoto press",
    "namePt": "Supino Spoto",
@@ -4319,11 +3665,6 @@
    "aliases": [
     "Prancha lateral com abdução de quadril"
    ]
-  },
-  "2475c6f170d880a9a73df6833698d8c0": {
-   "sourceName": "Dumbbell frog pump",
-   "namePt": "Frog pump com halter",
-   "aliases": []
   },
   "2485c6f170d8803a8fd1c20db2725730": {
    "sourceName": "Multi-hip machine hip flexion",
@@ -4394,13 +3735,6 @@
     "Desenvolvimento em pé com pausa"
    ]
   },
-  "24e5c6f170d880268182ee11311f01aa": {
-   "sourceName": "Lying dumbbell triceps extension pullover",
-   "namePt": "Tríceps testa com pullover com halteres",
-   "aliases": [
-    "Tríceps testa pullover com halteres"
-   ]
-  },
   "24e5c6f170d880ec9400e968c0a2f1ee": {
    "sourceName": "Lying barbell triceps extension pullover",
    "namePt": "Tríceps testa com pullover com barra",
@@ -4411,11 +3745,6 @@
   "24f5c6f170d880ceb223d5626dbea9de": {
    "sourceName": "Wide grip barbell behind-the-neck overhead press",
    "namePt": "Desenvolvimento por trás da nuca com barra pegada aberta",
-   "aliases": []
-  },
-  "2535c6f170d8801bab2af2748abfe4e1": {
-   "sourceName": "Slight decline dumbbell bench press",
-   "namePt": "Supino levemente declinado com halteres",
    "aliases": []
   },
   "2565c6f170d88044b9e8dd1209a999a6": {
@@ -4873,36 +4202,15 @@
     "Glúteo na máquina ajoelhado"
    ]
   },
-  "2915c6f170d880ccb3f2c234859d384a": {
-   "sourceName": "T-bar Kelso shrug",
-   "namePt": "Encolhimento Kelso no T-bar",
-   "aliases": [
-    "Encolhimento Kelso com apoio no peito"
-   ]
-  },
   "2925c6f170d88037b3d9c22ff48a9988": {
    "sourceName": "Neutral grip weighted pull-up",
    "namePt": "Barra fixa com carga pegada neutra",
    "aliases": []
   },
-  "2925c6f170d8809688d0f17e8a1a3328": {
-   "sourceName": "Pin-loaded row machine Kelso shrug",
-   "namePt": "Encolhimento Kelso na máquina de remada",
-   "aliases": [
-    "Kelso shrug na máquina"
-   ]
-  },
   "2925c6f170d880aeaa8bd29ff96d84d1": {
    "sourceName": "Plate-loaded row machine Kelso shrug",
    "namePt": "Encolhimento Kelso na máquina de remada articulada",
    "aliases": []
-  },
-  "2925c6f170d880e5ba36f6cc1fb32a88": {
-   "sourceName": "Plate-loaded machine hip thrust (starting from the bottom)",
-   "namePt": "Elevação pélvica na máquina articulada partindo de baixo",
-   "aliases": [
-    "Hip thrust articulado"
-   ]
   },
   "2935c6f170d88050a884d6eaff4ec24c": {
    "sourceName": "Single leg plate-loaded machine hip thrust (starting from the top)",
@@ -4993,20 +4301,6 @@
    "namePt": "Elevação lateral deitado de costas no banco inclinado com halteres",
    "aliases": []
   },
-  "2965c6f170d8803c98cff1ab8fc0bf1e": {
-   "sourceName": "Incline dumbbell front raise",
-   "namePt": "Elevação frontal inclinado com halteres",
-   "aliases": [
-    "Elevação frontal no banco inclinado"
-   ]
-  },
-  "2965c6f170d880649702f40388962902": {
-   "sourceName": "Incline chest-supported dumbbell lateral raise",
-   "namePt": "Elevação lateral com halteres com apoio no banco inclinado",
-   "aliases": [
-    "Elevação lateral inclinado com halteres"
-   ]
-  },
   "2985c6f170d880079f37d8c6cfcd84cd": {
    "sourceName": "Pause snatch grip deadlift",
    "namePt": "Levantamento terra pegada de arranco com pausa",
@@ -5036,13 +4330,6 @@
    "namePt": "Elevação glúteo-femoral com mãos atrás da cabeça",
    "aliases": [
     "GHR com mãos atrás da cabeça"
-   ]
-  },
-  "2995c6f170d8803d8ec1c1d7f755a8d9": {
-   "sourceName": "Band-assisted glute ham raise",
-   "namePt": "Elevação glúteo-femoral assistida com elástico",
-   "aliases": [
-    "GHR assistido com elástico"
    ]
   },
   "2995c6f170d880f995aed50527985177": {
@@ -5275,11 +4562,6 @@
    "namePt": "Mergulho assistido na máquina articulada com pausa",
    "aliases": []
   },
-  "2a05c6f170d880f99f47e1aed3f5f87c": {
-   "sourceName": "Head harness neck extension",
-   "namePt": "Extensão de pescoço com arnês de cabeça",
-   "aliases": []
-  },
   "2a15c6f170d8803c80eddc3aed1b7914": {
    "sourceName": "Smith machine row",
    "namePt": "Remada curvada no Smith",
@@ -5336,20 +4618,6 @@
    "namePt": "Remada curvada com déficit no Smith",
    "aliases": [
     "Remada com déficit no Smith pegada pronada"
-   ]
-  },
-  "2a15c6f170d880bcb811f5264b2c9423": {
-   "sourceName": "Standing on step single leg dumbbell calf raise",
-   "namePt": "Elevação de panturrilha unilateral em pé no step com halter",
-   "aliases": [
-    "Panturrilha unilateral com halter"
-   ]
-  },
-  "2a15c6f170d880c18cd3d6a4c77b1ce3": {
-   "sourceName": "Single leg dumbbell hip thrust",
-   "namePt": "Elevação pélvica unilateral com halter",
-   "aliases": [
-    "Hip thrust unilateral com halter"
    ]
   },
   "2a15c6f170d880d299bcc63091b71c62": {
@@ -5423,11 +4691,6 @@
     "Desenvolvimento Arnold"
    ]
   },
-  "2a25c6f170d880b99935d169af64e34f": {
-   "sourceName": "Wide grip band-assisted pull-up",
-   "namePt": "Barra fixa assistida com elástico pegada aberta",
-   "aliases": []
-  },
   "2a25c6f170d880d0808effec1172895f": {
    "sourceName": "Accentuated eccentric plate-loaded leg extension",
    "namePt": "Cadeira extensora articulada com excêntrica acentuada",
@@ -5492,13 +4755,6 @@
    "sourceName": "Dumbbell Scott curl",
    "namePt": "Rosca Scott com halteres",
    "aliases": []
-  },
-  "2a55c6f170d880f6aa9ed2abe35b5215": {
-   "sourceName": "Single arm dumbbell row (elbow-out)",
-   "namePt": "Remada unilateral com halter cotovelo aberto",
-   "aliases": [
-    "Serrote cotovelo aberto"
-   ]
   },
   "2a65c6f170d880419684e5c8a768ae66": {
    "sourceName": "Feet-up dumbbell bench press",
@@ -5734,13 +4990,6 @@
     "Rosca crucifixo sentado"
    ]
   },
-  "2ab5c6f170d88056b4b7ecef4d1ae9b4": {
-   "sourceName": "Low pulley cable face pull",
-   "namePt": "Face pull na polia baixa",
-   "aliases": [
-    "Face pull de baixo para cima"
-   ]
-  },
   "2ab5c6f170d8805e876ad553c17942b3": {
    "sourceName": "Single arm cable biceps curl (elbow-out)",
    "namePt": "Rosca unilateral na polia cotovelo aberto",
@@ -5944,19 +5193,6 @@
   "2ae5c6f170d88044bac9fce04daffe3f": {
    "sourceName": "Standing accentuated eccentric bodyweight calf raise",
    "namePt": "Elevação de panturrilha em pé com excêntrica enfatizada com peso corporal",
-   "aliases": []
-  },
-  "2ae5c6f170d8805da4e1d8dc785bc9ea": {
-   "sourceName": "Neutral grip pin-loaded machine lat pulldown",
-   "namePt": "Puxada frontal na máquina pegada neutra",
-   "aliases": [
-    "Pulldown pegada neutra",
-    "Puxada pegada neutra"
-   ]
-  },
-  "2ae5c6f170d88069bb1dc458458a3a78": {
-   "sourceName": "Overhand grip pin-loaded machine lat pulldown",
-   "namePt": "Puxada frontal na máquina pegada pronada",
    "aliases": []
   },
   "2ae5c6f170d8807da2dcd7bf23371d82": {
@@ -6510,11 +5746,6 @@
     "Remada curvada na máquina articulada pegada neutra"
    ]
   },
-  "2fe5c6f170d8801682d9ceb13569f0f9": {
-   "sourceName": "Machine viking press",
-   "namePt": "Desenvolvimento viking na máquina",
-   "aliases": []
-  },
   "2fe5c6f170d88052ba08d4afbde9c5f4": {
    "sourceName": "Landmine viking press",
    "namePt": "Desenvolvimento viking no landmine",
@@ -6737,11 +5968,6 @@
     "Elevação de joelhos nas paralelas com carga"
    ]
   },
-  "3065c6f170d880eea408cc28767961ae": {
-   "sourceName": "Single arm cable rear delt fly",
-   "namePt": "Crucifixo inverso unilateral na polia",
-   "aliases": []
-  },
   "3065c6f170d880fa8ca1fc1223bc98b8": {
    "sourceName": "Captain’s chair weighted straight leg raise",
    "namePt": "Elevação de pernas estendidas na cadeira do capitão com carga",
@@ -6852,18 +6078,6 @@
     "Elevação lateral por trás na polia"
    ]
   },
-  "30d5c6f170d880d69c07e45194b0e0a8": {
-   "sourceName": "Bent-over band row",
-   "namePt": "Remada curvada com elástico",
-   "aliases": []
-  },
-  "30d5c6f170d880e7a00ee1e7319b720d": {
-   "sourceName": "Dual handle cable lat pulldown",
-   "namePt": "Puxada frontal na polia com pegadores separados",
-   "aliases": [
-    "Puxada com dois pegadores"
-   ]
-  },
   "30f5c6f170d88010a9c0dc8c3f5f33c4": {
    "sourceName": "Pin-loaded machine high row",
    "namePt": "Remada alta na máquina",
@@ -6900,13 +6114,6 @@
    "namePt": "Burpee",
    "aliases": []
   },
-  "3205c6f170d880289289de1aac3d6030": {
-   "sourceName": "Tripod dumbbell row (elbow-in)",
-   "namePt": "Remada unilateral em três apoios com halter cotovelo fechado",
-   "aliases": [
-    "Serrote em pé com apoio na mão cotovelo fechado"
-   ]
-  },
   "3205c6f170d880668f40e922d7d28259": {
    "sourceName": "Single leg kettlebell hip thrust",
    "namePt": "Elevação pélvica unilateral com kettlebell",
@@ -6918,11 +6125,6 @@
    "aliases": [
     "Hip thrust com kettlebell"
    ]
-  },
-  "3205c6f170d880d9953aec17bd072bad": {
-   "sourceName": "Tripod kettlebell row (elbow-in)",
-   "namePt": "Remada unilateral em três apoios com kettlebell cotovelo fechado",
-   "aliases": []
   },
   "3215c6f170d8801087a4e85892bf3fe7": {
    "sourceName": "Smith machine pause squat",
@@ -6972,13 +6174,6 @@
     "Extensão lombar em pé com halteres"
    ]
   },
-  "3295c6f170d880daaee2e2962ae412dc": {
-   "sourceName": "Band chest fly",
-   "namePt": "Crucifixo com elástico",
-   "aliases": [
-    "Crucifixo em pé com elástico"
-   ]
-  },
   "32d5c6f170d88043a59ed1eb330416c7": {
    "sourceName": "Pin-loaded machine neck curl",
    "namePt": "Flexão de pescoço na máquina",
@@ -7018,13 +6213,6 @@
     "Afundo caminhando com colete"
    ]
   },
-  "32e5c6f170d880519671da392466c67d": {
-   "sourceName": "Negative chin-up",
-   "namePt": "Barra fixa supinada negativa",
-   "aliases": [
-    "Barra fixa supinada excêntrica"
-   ]
-  },
   "32e5c6f170d8805d854ff050b9d321ca": {
    "sourceName": "Weight vest reverse lunge",
    "namePt": "Afundo reverso com colete de peso",
@@ -7061,13 +6249,6 @@
    "sourceName": "Seated dumbbell shoulder external rotation",
    "namePt": "Rotação externa de ombro sentado com halter",
    "aliases": []
-  },
-  "32e5c6f170d880efad66d48095e79bdd": {
-   "sourceName": "Negative neutral grip pull-up",
-   "namePt": "Barra fixa negativa pegada neutra",
-   "aliases": [
-    "Barra fixa excêntrica pegada neutra"
-   ]
   },
   "32e5c6f170d880efb190df52550f9f93": {
    "sourceName": "Weighted inverted row",
@@ -7320,11 +6501,6 @@
   "3585c6f170d880d0b1dcc35ca0c4f9ae": {
    "sourceName": "Standing on step Smith machine calf raise",
    "namePt": "Elevação de panturrilha em pé no step no Smith",
-   "aliases": []
-  },
-  "3595c6f170d88049a505e34c26d57cdb": {
-   "sourceName": "Dumbbell overhead shrug",
-   "namePt": "Encolhimento acima da cabeça com halteres",
    "aliases": []
   },
   "3595c6f170d880a5b6e6f54871c6297f": {
@@ -8072,19 +7248,9 @@
     "Puxada lateral unilateral com braço estendido na polia"
    ]
   },
-  "3e65c6f170d8801392abdbee8ec6b254": {
-   "sourceName": "Floor kettlebell pullover",
-   "namePt": "Pullover no chão com kettlebell",
-   "aliases": []
-  },
   "3e65c6f170d8802eb00fc933fbbddb60": {
    "sourceName": "Floor dumbbell pullover",
    "namePt": "Pullover no chão com halter",
-   "aliases": []
-  },
-  "3e65c6f170d880608d78f16add1ed5d1": {
-   "sourceName": "Floor kettlebell fly",
-   "namePt": "Crucifixo no chão com kettlebells",
    "aliases": []
   },
   "3e65c6f170d8809fa530ce548a5ba3df": {
