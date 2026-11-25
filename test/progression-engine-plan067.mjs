@@ -14,7 +14,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(import.meta.url);
 const Engine = require(path.join(root, "progression-engine.js"));
 const Metrics = require(path.join(root, "exercise-metrics.js"));
-assert.equal(Engine.ENGINE_VERSION, "078.2");
+assert.equal(Engine.ENGINE_VERSION, "078.4");
 assert.equal(Engine.RIR_CREDIT_CAP, 5);
 assert.equal(Engine.FORMULA_VERSION, "rir-adjusted-epley@067.1");
 
@@ -852,6 +852,38 @@ assert.equal(futureSet.historyAnchor.capacityKg, 120 * (1 + (6 + 2) / 30),
 assert.ok(futureSet.fatigue.projectedCapacityKg < futureSet.historyAnchor.capacityKg);
 assert.ok(futureSet.targets.loadKg === 100 || futureSet.targets.loadKg === 102.5 || futureSet.targets.loadKg === 105
   || futureSet.targets.loadKg === 107.5 || futureSet.targets.loadKg === 110, "only the configured discrete grid can be returned");
+
+// Owner report, 2026-11-23: 60 x 6 then 60 x 8, both to zero in reserve, was answered with 60 x 5 at one in reserve.
+// The median of two is their mean, so the anchor sat below a set the lifter had just performed.
+{
+  const pressLoads = { bySlotId: { "slot-a": { ...context().bySlotId["slot-a"], availableLoadsKg: [55, 57.5, 60, 62.5, 65, 67.5] } } };
+  const press = (rir, setIndex) => prescription({ targets: { reps: { min: 4, max: 6 } }, rir, setIndex });
+  const first = (id, loadKg, reps, rir = 0) => ({ sessionId: id, completed: true, sets: [performedSet({ loadKg, reps, rir, setIndex: 0 })] });
+  const improved = Engine.recommendSets([press(1, 1), press(0, 2)], [first("p1", 60, 6), first("p2", 60, 8)], [], pressLoads);
+  assert.equal(improved[0].historyAnchor.capacityKg, 60 * (1 + 8 / 30), "the anchor is not below what the latest first set performed");
+  assert.deepEqual(improved.map((item) => [item.targets.loadKg, item.targets.reps]), [[62.5, 5], [65, 5]],
+    "a session that beat the earlier ones moves the next targets up at once");
+  const lagging = recommend(press(1, 1), [first("p1", 60, 6), first("p2", 60, 6), first("p3", 60, 8)], [], pressLoads);
+  assert.equal(lagging.historyAnchor.capacityKg, 60 * (1 + 8 / 30), "two earlier sessions do not hold the anchor below the latest performance");
+  // Owner, 2026-11-24: the floor reads reps left as the median does, so a set with reps left is never answered with
+  // less than a repeat of it.
+  const reported = recommend(press(1, 1), [first("p1", 60, 6), first("p2", 60, 5, 3)], [], pressLoads);
+  assert.equal(reported.historyAnchor.capacityKg, 60 * (1 + 8 / 30), "reported reps left count toward the floor");
+  assert.equal(reported.targets.loadKg, 62.5, "60 x 5 with 3 left moves the load up");
+  const repeat = recommend(prescription(), [first("h1", 100, 8, 1), first("h2", 100, 8, 1), first("h3", 105, 8, 1)]);
+  assert.deepEqual([repeat.targets.loadKg, repeat.targets.reps], [105, 8],
+    "105 x 8 with 1 left is answered with a repeat, not a lighter load");
+  const capped = recommend(press(1, 1), [first("p1", 60, 6), first("p2", 60, 6), first("p3", 60, 3, 9)], [], pressLoads);
+  assert.equal(capped.historyAnchor.capacityKg, 60 * (1 + 8 / 30), "the floor credits at most five reps left");
+  const calibrated = recommend(press(1, 1), [first("p1", 60, 6), first("p2", 60, 5, 3)], [], pressLoads,
+    { calibration: { version: Engine.CALIBRATION_VERSION, delta: 2 } });
+  assert.ok(calibrated.historyAnchor.capacityKg < reported.historyAnchor.capacityKg,
+    "a lifter who over-reports reps left gets the calibrated floor");
+  const badDay = recommend(press(1, 1), [first("p1", 60, 8), first("p2", 60, 8), first("p3", 60, 5)], [], pressLoads);
+  assert.equal(badDay.historyAnchor.capacityKg, 60 * (1 + 8 / 30), "one weaker session still leaves the median");
+  const odd = recommend(press(1, 1), [first("p1", 60, 6), first("p2", 60, 6), first("p3", 60, 12)], [], pressLoads);
+  assert.equal(odd.historyAnchor.capacityKg, 60 * (1 + 6 / 30), "a latest set more than 15% above the median is the odd session");
+}
 
 const noMeasuredDrop = recommend(prescription({ setIndex: 2 }), [{
   sessionId: "no-drop", completed: true,

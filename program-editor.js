@@ -86,7 +86,7 @@
     metricTargetAria: ({ cycle, set, metric }) => `${cycle}, ${set}, ${metric}`,
     metricTargetMinAria: ({ cycle, set, metric }) => `${cycle}, ${set}, ${metric} minimum`,
     metricTargetMaxAria: ({ cycle, set, metric }) => `${cycle}, ${set}, ${metric} maximum`,
-    metricRir: "Target RIR",
+    metricRir: "Reps left",
     loadStep: "Smallest load change",
     loadStepHint: "Suggested loads move in steps of this size.",
     suggestLoads: "Suggest loads",
@@ -1360,7 +1360,7 @@
      * day, what it needs, and where goToBlocker takes the lifter to fix it.
      */
     const ISSUE_COPY = {
-      "program.editor.issue.rir": ({ name }) => `${name}: set an RIR target. Suggest loads needs one.`,
+      "program.editor.issue.rir": ({ name }) => `${name}: set a reps-left target. Suggest loads needs one.`,
       "program.editor.issue.range": ({ name }) => `${name}: set a rep range. Suggest loads needs one.`,
       "program.editor.issue.execution_mode": ({ name }) => `${name}: choose how you do it, both sides together or one side at a time.`,
       "program.editor.issue.eligibility": ({ name }) => `${name}: Suggest loads isn't available for this exercise. Turn it off.`,
@@ -1368,7 +1368,7 @@
       "program.editor.issue.name": () => "An exercise needs a name.",
       "program.editor.issue.prescription": ({ name }) => `${name}: needs at least one set and a rep range.`,
       "program.editor.issues_count": ({ n }) => `${n} things to fix before saving.`,
-      "program.editor.field_error.rir": () => "Set an RIR target to use Suggest loads.",
+      "program.editor.field_error.rir": () => "Set a reps-left target to use Suggest loads.",
     };
     const issueText = (key, vars = {}) => rt(key, vars, ISSUE_COPY[key](vars));
     const rirVaries = () => rt("program.editor.rir_varies", undefined, "Varies by set");
@@ -2224,7 +2224,7 @@
       const rirs = sets.map(set => set.rir);
       const parts = [texts.length === 1 ? `${format(adapter, sets.length)} × ${texts[0]}` : rt("entry.review.sheet.n_sets", { n: sets.length }, `${sets.length} sets`)];
       if (rirs.some(value => Number.isFinite(value)))
-        parts.push(rt("entry.review.rir", { n: rirs.map(value => Number.isFinite(value) ? format(adapter, value) : "–").join("·") }, "RIR"));
+        parts.push(rt("entry.review.rir", { n: rirs.map(value => Number.isFinite(value) ? format(adapter, value) : "–").join("·") }, "Left"));
       return parts.join(" · ");
     }
 
@@ -2391,7 +2391,7 @@
         `<div class="review__rowbody"><h3 class="review__name">${esc(name)}</h3>` +
         (mark ? `<span class="review__mark" data-role="row-mark"><span class="review__dot" aria-hidden="true"></span>${esc(mark)}</span>` : "") +
         `<ol class="review__sets">${lines.map((line, index) => `<li data-role="set-line"><span class="review__setn num">${index + 1}</span><span class="review__reps">${nums(line.text)}</span>` +
-          (line.rir == null ? "" : `<span class="review__rir">${nums(rt("entry.review.rir", { n: format(adapter, line.rir) }, `RIR ${line.rir}`))}</span>`) + `</li>`).join("")}</ol>` +
+          (line.rir == null ? "" : `<span class="review__rir">${nums(rt("entry.review.rir", { n: format(adapter, line.rir) }, `Left ${line.rir}`))}</span>`) + `</li>`).join("")}</ol>` +
         `</div>${icon("chev-right")}</article><button type="button" class="native-row-menu visually-hidden" data-row-menu="${esc(exercise.id)}" aria-haspopup="menu" aria-label="${esc(label("more"))}: ${esc(name)}"><span class="icon-mask icon-mask--overflow" aria-hidden="true"></span></button></div>`;
     }
     function dayPanelHtml(day) {
@@ -2530,7 +2530,7 @@
         `</div>` : "";
       return `<section class="review-sheet__sec program-editor__suggest-loads is-on" data-role="loads">${toggle}` +
         (range ? `<p class="review-sheet__note program-editor__suggest-loads-range" data-role="suggest-loads-range">${nums(label("suggestLoadsRange", { min: format(adapter, range.min), max: format(adapter, range.max) }))}</p>` : "") +
-        `<div class="program-editor-a__line" data-role="suggest-loads-rir-line"><span class="review-sheet__lab">${esc(rt("program.editor.rir_all", undefined, "RIR on every set"))}</span>` +
+        `<div class="program-editor-a__line" data-role="suggest-loads-rir-line"><span class="review-sheet__lab">${esc(rt("program.editor.rir_all", undefined, "Reps left on every set"))}</span>` +
         stepper("suggest-loads-rir-step", `data-id="${esc(exercise.id)}" data-slot-id="${esc(slot.id)}"`, rir == null ? (variedRir(slot) ? rirVaries() : "–") : format(adapter, rir),
           { down: rir == null || rir > 0, up: rir == null || rir < MAX_OPT_IN_RIR, downLabel: label("metricRir"), upLabel: label("metricRir"), words: rir == null && variedRir(slot) }) + `</div>` +
         stepLine + mode + `</section>`;
@@ -2584,10 +2584,10 @@
       const differs = slot ? differingWeeks(slot) : [];
       const cycles = cyclesOf(slot).length;
       const ledger = slot ? `<div class="review-sheet__ledger" role="table" aria-label="${esc(rt("entry.review.sheet.sets", undefined, "Sets"))}">` +
-        `<div class="review-sheet__lh" role="row"><span role="columnheader">${esc(rt("entry.review.sheet.set_col", undefined, "Set"))}</span><span role="columnheader">${esc(rt("entry.review.sheet.reps_col", undefined, "Reps"))}</span><span role="columnheader">${esc(rt("entry.review.sheet.rir_col", undefined, "RIR"))}</span></div>` +
+        `<div class="review-sheet__lh" role="row"><span role="columnheader">${esc(rt("entry.review.sheet.set_col", undefined, "Set"))}</span><span role="columnheader">${esc(rt("entry.review.sheet.reps_col", undefined, "Reps"))}</span><span role="columnheader">${esc(rt("entry.review.sheet.rir_col", undefined, "Left"))}</span></div>` +
         sets.map((set, index) => `<div class="review-sheet__lr" role="row" data-role="set-ledger-row"><span class="review__setn num" role="cell">${index + 1}</span><span role="cell" data-role="set-reps">${nums(setText(slot, set))}</span>` +
-          `<span class="review-step review-step--sm" role="cell"><button type="button" data-role="rir-step" data-set-index="${index + 1}" data-delta="-1" aria-label="${esc(rt("entry.review.sheet.rir_down", { n: index + 1 }, `Lower set ${index + 1}'s RIR`))}"${set.rir != null && set.rir <= 0 ? " disabled" : ""}>−</button><b class="num" data-role="set-rir">${esc(set.rir == null ? "–" : format(adapter, set.rir))}</b>` +
-          `<button type="button" data-role="rir-step" data-set-index="${index + 1}" data-delta="1" aria-label="${esc(rt("entry.review.sheet.rir_up", { n: index + 1 }, `Raise set ${index + 1}'s RIR`))}"${set.rir != null && set.rir >= MAX_REVIEW_RIR ? " disabled" : ""}>+</button></span></div>`).join("") + `</div>` : "";
+          `<span class="review-step review-step--sm" role="cell"><button type="button" data-role="rir-step" data-set-index="${index + 1}" data-delta="-1" aria-label="${esc(rt("entry.review.sheet.rir_down", { n: index + 1 }, `Fewer reps left on set ${index + 1}`))}"${set.rir != null && set.rir <= 0 ? " disabled" : ""}>−</button><b class="num" data-role="set-rir">${esc(set.rir == null ? "–" : format(adapter, set.rir))}</b>` +
+          `<button type="button" data-role="rir-step" data-set-index="${index + 1}" data-delta="1" aria-label="${esc(rt("entry.review.sheet.rir_up", { n: index + 1 }, `More reps left on set ${index + 1}`))}"${set.rir != null && set.rir >= MAX_REVIEW_RIR ? " disabled" : ""}>+</button></span></div>`).join("") + `</div>` : "";
       const setsControl = `<div class="review-sheet__ctl"><span class="review-sheet__lab">${esc(rt("entry.review.sheet.sets", undefined, "Sets"))}</span>` +
         stepper("sets-step", `data-id="${esc(exercise.id)}"`, rt(count === 1 ? "entry.review.sheet.n_sets_one" : "entry.review.sheet.n_sets", { n: count }, `${count} sets`),
           { down: count > 1, up: count < MAX_REVIEW_SETS, downLabel: label("setsDecrease"), upLabel: label("setsIncrease") }) + `</div>`;
@@ -2644,7 +2644,7 @@
           : REP_TARGET_SEMANTICS.has(metric.semantic) ? rt("entry.review.sheet.reps_col", undefined, "Reps")
             : `${metricLabel(adapter, metric)}${unit ? ` ${unit}` : ""}`;
         return `<span class="program-editor-a__th">${esc(text)}</span>`;
-      }).join("") + `<span class="program-editor-a__th">${esc(label("metricRir"))}</span><span class="program-editor-a__th">${esc(rt("program.editor.week_rest", undefined, "Rest"))}</span>`;
+      }).join("") + `<span class="program-editor-a__th">${esc(rt("program.editor.week_left", undefined, "Left"))}</span><span class="program-editor-a__th">${esc(rt("program.editor.week_rest", undefined, "Rest"))}</span>`;
       const weekTitle = rt("program.editor.week", { n: cycle.cycleIndex }, `Week ${cycle.cycleIndex}`);
       const cells = (cycle.sets || []).map((set, index) => {
         const setTitle = label("metricSet", { n: set.setIndex });

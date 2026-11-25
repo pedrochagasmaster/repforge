@@ -212,9 +212,22 @@ async function nonRampParity(browser){
     await page.reload();await waitForAppBoot(page,{base:BASE});
     const base=await capture({stripWarmups:true});
     assert.deepEqual(head.exact,base.exact,"all engine figures match the previous release when preparation is removed from its inputs");
-    const differences=[];
-    for(let i=0;i<datasets.length;i++)for(let j=0;j<targets.length;j++)if(JSON.stringify(head.adapted[i][j])!==JSON.stringify(base.adapted[i][j]))differences.push({case:datasets[i].name,slot:targets[j].id,base:base.adapted[i][j].rec.load,head:head.adapted[i][j].rec.load});
-    console.log(`Non-ramp parity: ${engineFixtures.length} exact engine fixtures, ${fixtures.length*targets.length} fixture-adapter comparisons, ${generated.length*targets.length} generated-history comparisons (seed 790728), ${differences.length} differences`);
+    // Engine 078.3 lets the latest first set's performed capacity lift the history anchor above the median, by at most
+    // 15%. That is the one figure allowed to differ from the base release: the adapter must hand the engine the same
+    // observations and anchor on the same set, and the load can only stay or rise.
+    const raisedAnchor=(head,base)=>{
+      const from=base.rec.historyAnchor,to=head.rec.historyAnchor;
+      return!!from&&!!to&&JSON.stringify(head.inputs)===JSON.stringify(base.inputs)&&
+        JSON.stringify({...to,capacityKg:null})===JSON.stringify({...from,capacityKg:null})&&
+        to.capacityKg>from.capacityKg&&to.capacityKg<=from.capacityKg*1.15+1e-9&&
+        (base.rec.load==null||head.rec.load>=base.rec.load);
+    };
+    const differences=[];let raised=0;
+    for(let i=0;i<datasets.length;i++)for(let j=0;j<targets.length;j++)if(JSON.stringify(head.adapted[i][j])!==JSON.stringify(base.adapted[i][j])){
+      if(raisedAnchor(head.adapted[i][j],base.adapted[i][j]))raised++;
+      else differences.push({case:datasets[i].name,slot:targets[j].id,base:base.adapted[i][j].rec.load,head:head.adapted[i][j].rec.load});
+    }
+    console.log(`Non-ramp parity: ${engineFixtures.length} exact engine fixtures, ${fixtures.length*targets.length} fixture-adapter comparisons, ${generated.length*targets.length} generated-history comparisons (seed 790728), ${raised} raised anchors, ${differences.length} differences`);
     assert.deepEqual(differences,[],"ordinary history anchors, targets and eligibility must equal the base release");
   }finally{await context.close()}
 }
