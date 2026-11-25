@@ -8982,6 +8982,19 @@ async function main() {
     "Seed sessions for the mapped lift → open its exercise page"
   );
 
+  // Every seed movement now carries artwork, so the plain slot is pointed at a
+  // catalog movement that has none before its page is opened.
+  const plainEntry = await page.evaluate(() => {
+    const entry = window.__repforgeExerciseLibrary.find((e) => !e.media && /press/i.test(e.name));
+    return { id: entry.id, name: entry.name };
+  });
+  const plainSeedRow = (await getState(page)).program.find((row) => row.id === PLAIN_SLOT);
+  {
+    const state = await getState(page);
+    state.program = state.program.map((row) => row.id === PLAIN_SLOT ? { ...row, libraryId: plainEntry.id, name: plainEntry.name } : row);
+    await persistState(page, state);
+    await reloadApp(page);
+  }
   const artFailures = [];
   const onArtFailed = (req) => artFailures.push(req.url());
   page.on("requestfailed", onArtFailed);
@@ -8993,7 +9006,7 @@ async function main() {
     artPlain.wrappers === 0 && artPlain.imgs === 0 && artPlain.emptyTiles === 0,
     "A movement without licensed art renders no media block and no placeholder",
     JSON.stringify(artPlain),
-    "Open the exercise page for the seed's Incline chest press"
+    "Point a seed slot at a catalog movement with no artwork → open its exercise page"
   );
   assert(
     artFailures.filter((u) => u.includes("assets/exercises/")).length === 0,
@@ -9001,6 +9014,12 @@ async function main() {
     JSON.stringify(artFailures.slice(0, 5)),
     "Open art-less exercise pages → watch network failures"
   );
+  {
+    const state = await getState(page);
+    state.program = state.program.map((row) => row.id === PLAIN_SLOT ? { ...row, libraryId: plainSeedRow.libraryId, name: plainSeedRow.name } : row);
+    await persistState(page, state);
+    await reloadApp(page);
+  }
 
   /* The point of the whole treatment: the field has to be the paper the drawing
      is already on. Sampled here straight from the decoded pixels, with a wider
