@@ -26698,7 +26698,7 @@ const LANDING_FEATURES={
        framed so the app's body text reads at its real size or close to it on a phone. A held shot is short enough that
        the window's width sets the zoom, so the edge snapping (snapLandingFeatureShots) can move its edges. */
     shots:[
-      [{at:0,x:0,y:0,w:390,h:680},{at:.35,x:0,y:0,w:390,h:560},{at:3.2,x:0,y:36,w:390,h:380}],
+      [{at:0,x:0,y:0,w:390,h:680},{at:.35,x:0,y:0,w:390,h:560},{at:3.2,x:0,y:44,w:390,h:513,pin:"top"}],
       [{at:0,x:0,y:0,w:390,h:640},{at:.35,x:0,y:52,w:390,h:400},{at:1.25,x:0,y:240,w:390,h:400},{at:2.05,x:0,y:96,w:390,h:440},{at:4.55,x:0,y:52,w:390,h:400}],
       [{at:0,x:0,y:0,w:390,h:660},{at:.3,x:0,y:0,w:390,h:340},{at:1.35,x:0,y:196,w:390,h:464}],
       [{at:0,x:0,y:0,w:390,h:640},{at:.7,x:0,y:216,w:390,h:424},{at:3.55,x:0,y:0,w:390,h:640},{at:6.3,x:0,y:10,w:390,h:480}],
@@ -27048,6 +27048,8 @@ function snapLandingFeatureShots(f){
     const place=v=>{
       const out=base.map(shot=>({...shot}));
       for(let k=1;k<out.length;k++){
+        // a shot pinned to the top (the Progress summary, from its title) is placed as written
+        if(out[k].pin==="top")continue;
         let found=false;
         // a shot that ends at the screen's bottom (the mini bar's beat) stays there: it may only move down
         const pinned=out[k].pin==="bottom";
