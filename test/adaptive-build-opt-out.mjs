@@ -170,7 +170,7 @@ try {
     rows: [...document.querySelectorAll('#programEditorIssues .program-editor-issues__text')].map((row) => row.textContent.trim()),
     sheetOpen: !!document.querySelector("#reviewSheet.is-open"),
   }));
-  check(issues.rows.length === 1 && issues.rows[0].includes(programRow.name) && issues.rows[0].includes("set a reps-left target. Suggest loads needs one.")
+  check(issues.rows.length === 1 && issues.rows[0].includes(programRow.name) && issues.rows[0].includes("set a reps-left target so Taurifer can suggest loads.")
     && !issues.sheetOpen,
   "Apply refuses with a modal naming the exercise and the RIR it needs, before opening anything", issues);
   await page.locator('#programEditorIssues [data-issue-index="0"]').click();

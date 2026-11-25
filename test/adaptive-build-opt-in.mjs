@@ -211,7 +211,7 @@ try {
   // The refusal names the exercise and what it needs in a modal; Go to opens the field.
   await page.waitForSelector("#programEditorIssues[open]", { timeout: 5000 });
   const listed = await page.locator('#programEditorIssues .program-editor-issues__text').allTextContents();
-  check(listed.length === 1 && /: set a reps-left target\. Suggest loads needs one\.$/.test(listed[0].trim()),
+  check(listed.length === 1 && /: set a reps-left target so Taurifer can suggest loads\.$/.test(listed[0].trim()),
     "Use this program is refused with a modal that names the exercise and the RIR it needs", listed);
   await page.locator('#programEditorIssues [data-issue-index="0"]').click();
   await page.waitForSelector("#programEditorIssues", { state: "hidden", timeout: 5000 });

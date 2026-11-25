@@ -429,7 +429,7 @@ async function checkReviewScreen(page, baseline, finding) {
   const def = await reviewed(page), log = (await reviewLog(page))?.edits || [];
   const count = Review.changes(baseline, def).count;
   check(JSON.stringify(facts.rows) === JSON.stringify(facts.wanted), `${finding}: painted rows equal the saved candidate`, facts);
-  check(facts.count === (count ? `${count} ${count === 1 ? "change" : "changes"} of yours` : null),
+  check(facts.count === (count ? `${count} ${count === 1 ? "edit" : "edits"} made` : null),
     `${finding}: painted change count equals the saved candidate`, facts);
   check(facts.title === facts.name, `${finding}: painted title equals the saved candidate`, facts);
   const replayed = Review.replay(baseline, log, REVIEW_CTX);
