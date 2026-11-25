@@ -434,7 +434,7 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
   await page.evaluate(() => window.__repforgeStatsNav.setStatsSeg("review"));
   assert.match(await page.locator("#reviewPanel").textContent(), /build your baseline|baseline building/i,
     "the same insufficient records reach Review as neutral baseline state");
-  assert.equal(((await page.locator("#reviewPanel").textContent()).match(/baseline building/gi) || []).length, 1,
+  assert.equal(((await page.locator("#reviewPanel").textContent()).match(/build your baseline/gi) || []).length, 1,
     "Review says it once: the empty state is not read twice by a screen reader");
   assert.equal(await page.locator("#reviewPanel .review__verdict").count(), 0, "no verdict group without an observed outcome");
   await context.close();

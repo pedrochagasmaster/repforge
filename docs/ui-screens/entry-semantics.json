@@ -72510,7 +72510,7 @@
         },
         {
           "tag": "p",
-          "text": "Paste it however you have it: from a coach, notes app, spreadsheet or anywhere else. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+          "text": "Paste it however you have it: from a coach, notes app, spreadsheet, or anywhere else. Taurifer puts your text into a prompt for ChatGPT or Claude so the assistant returns a format that this app can read."
         },
         {
           "tag": "span",
@@ -72531,8 +72531,8 @@
         {
           "tag": "p",
           "role": "note",
-          "text": "What you paste is held in this browser tab only for this import. It never enters history, exports or telemetry, and Taurifer drops it when the flow ends.",
-          "name": "What you paste is held in this browser tab only for this import. It never enters history, exports or telemetry, and Taurifer drops it when the flow ends."
+          "text": "What you paste stays in this browser tab only for this import. It never enters history, exports, or telemetry, and Taurifer clears it when you finish or leave.",
+          "name": "What you paste stays in this browser tab only for this import. It never enters history, exports, or telemetry, and Taurifer clears it when you finish or leave."
         },
         {
           "tag": "button",
@@ -72590,7 +72590,7 @@
         },
         {
           "tag": "p",
-          "text": "Paste it however you have it: from a coach, notes app, spreadsheet or anywhere else. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+          "text": "Paste it however you have it: from a coach, notes app, spreadsheet, or anywhere else. Taurifer puts your text into a prompt for ChatGPT or Claude so the assistant returns a format that this app can read."
         },
         {
           "tag": "span",
@@ -72611,8 +72611,8 @@
         {
           "tag": "p",
           "role": "note",
-          "text": "What you paste is held in this browser tab only for this import. It never enters history, exports or telemetry, and Taurifer drops it when the flow ends.",
-          "name": "What you paste is held in this browser tab only for this import. It never enters history, exports or telemetry, and Taurifer drops it when the flow ends."
+          "text": "What you paste stays in this browser tab only for this import. It never enters history, exports, or telemetry, and Taurifer clears it when you finish or leave.",
+          "name": "What you paste stays in this browser tab only for this import. It never enters history, exports, or telemetry, and Taurifer clears it when you finish or leave."
         },
         {
           "tag": "button",
@@ -72670,7 +72670,7 @@
         },
         {
           "tag": "p",
-          "text": "Cole da forma que tiver: de um treinador, notas, planilha ou outro lugar. O Taurifer cria um comando para o ChatGPT ou Claude, que devolve o treino no formato do app."
+          "text": "Cole da forma que tiver: de um treinador, notas, planilha ou outro lugar. O Taurifer coloca seu texto em um comando para o ChatGPT ou Claude, para que o assistente devolva o treino em um formato que o app consegue ler."
         },
         {
           "tag": "span",
@@ -72691,8 +72691,8 @@
         {
           "tag": "p",
           "role": "note",
-          "text": "O que você cola é mantido apenas nesta aba, só para esta importação. Nunca entra no histórico, nas exportações nem na telemetria, e o Taurifer descarta o texto quando o fluxo termina.",
-          "name": "O que você cola é mantido apenas nesta aba, só para esta importação. Nunca entra no histórico, nas exportações nem na telemetria, e o Taurifer descarta o texto quando o fluxo termina."
+          "text": "O que você cola fica apenas nesta aba, só para esta importação. Nunca entra no histórico, nas exportações nem na telemetria, e o Taurifer limpa o texto quando você termina ou sai.",
+          "name": "O que você cola fica apenas nesta aba, só para esta importação. Nunca entra no histórico, nas exportações nem na telemetria, e o Taurifer limpa o texto quando você termina ou sai."
         },
         {
           "tag": "button",
@@ -72750,7 +72750,7 @@
         },
         {
           "tag": "p",
-          "text": "Paste it however you have it: from a coach, notes app, spreadsheet or anywhere else. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+          "text": "Paste it however you have it: from a coach, notes app, spreadsheet, or anywhere else. Taurifer puts your text into a prompt for ChatGPT or Claude so the assistant returns a format that this app can read."
         },
         {
           "tag": "span",
@@ -72768,8 +72768,8 @@
         {
           "tag": "p",
           "role": "note",
-          "text": "What you paste is held in this browser tab only for this import. It never enters history, exports or telemetry, and Taurifer drops it when the flow ends.",
-          "name": "What you paste is held in this browser tab only for this import. It never enters history, exports or telemetry, and Taurifer drops it when the flow ends."
+          "text": "What you paste stays in this browser tab only for this import. It never enters history, exports, or telemetry, and Taurifer clears it when you finish or leave.",
+          "name": "What you paste stays in this browser tab only for this import. It never enters history, exports, or telemetry, and Taurifer clears it when you finish or leave."
         },
         {
           "tag": "button",
@@ -72826,7 +72826,7 @@
         },
         {
           "tag": "p",
-          "text": "Paste it however you have it: from a coach, notes app, spreadsheet or anywhere else. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+          "text": "Paste it however you have it: from a coach, notes app, spreadsheet, or anywhere else. Taurifer puts your text into a prompt for ChatGPT or Claude so the assistant returns a format that this app can read."
         },
         {
           "tag": "span",
@@ -72844,8 +72844,8 @@
         {
           "tag": "p",
           "role": "note",
-          "text": "What you paste is held in this browser tab only for this import. It never enters history, exports or telemetry, and Taurifer drops it when the flow ends.",
-          "name": "What you paste is held in this browser tab only for this import. It never enters history, exports or telemetry, and Taurifer drops it when the flow ends."
+          "text": "What you paste stays in this browser tab only for this import. It never enters history, exports, or telemetry, and Taurifer clears it when you finish or leave.",
+          "name": "What you paste stays in this browser tab only for this import. It never enters history, exports, or telemetry, and Taurifer clears it when you finish or leave."
         },
         {
           "tag": "button",
@@ -72902,7 +72902,7 @@
         },
         {
           "tag": "p",
-          "text": "Paste it however you have it: from a coach, notes app, spreadsheet or anywhere else. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+          "text": "Paste it however you have it: from a coach, notes app, spreadsheet, or anywhere else. Taurifer puts your text into a prompt for ChatGPT or Claude so the assistant returns a format that this app can read."
         },
         {
           "tag": "span",
@@ -72920,8 +72920,8 @@
         {
           "tag": "p",
           "role": "note",
-          "text": "What you paste is held in this browser tab only for this import. It never enters history, exports or telemetry, and Taurifer drops it when the flow ends.",
-          "name": "What you paste is held in this browser tab only for this import. It never enters history, exports or telemetry, and Taurifer drops it when the flow ends."
+          "text": "What you paste stays in this browser tab only for this import. It never enters history, exports, or telemetry, and Taurifer clears it when you finish or leave.",
+          "name": "What you paste stays in this browser tab only for this import. It never enters history, exports, or telemetry, and Taurifer clears it when you finish or leave."
         },
         {
           "tag": "button",
@@ -72978,7 +72978,7 @@
         },
         {
           "tag": "p",
-          "text": "Paste it however you have it: from a coach, notes app, spreadsheet or anywhere else. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+          "text": "Paste it however you have it: from a coach, notes app, spreadsheet, or anywhere else. Taurifer puts your text into a prompt for ChatGPT or Claude so the assistant returns a format that this app can read."
         },
         {
           "tag": "span",
@@ -72996,8 +72996,8 @@
         {
           "tag": "p",
           "role": "note",
-          "text": "What you paste is held in this browser tab only for this import. It never enters history, exports or telemetry, and Taurifer drops it when the flow ends.",
-          "name": "What you paste is held in this browser tab only for this import. It never enters history, exports or telemetry, and Taurifer drops it when the flow ends."
+          "text": "What you paste stays in this browser tab only for this import. It never enters history, exports, or telemetry, and Taurifer clears it when you finish or leave.",
+          "name": "What you paste stays in this browser tab only for this import. It never enters history, exports, or telemetry, and Taurifer clears it when you finish or leave."
         },
         {
           "tag": "button",
@@ -73054,7 +73054,7 @@
         },
         {
           "tag": "p",
-          "text": "Paste it however you have it: from a coach, notes app, spreadsheet or anywhere else. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+          "text": "Paste it however you have it: from a coach, notes app, spreadsheet, or anywhere else. Taurifer puts your text into a prompt for ChatGPT or Claude so the assistant returns a format that this app can read."
         },
         {
           "tag": "span",
@@ -73072,8 +73072,8 @@
         {
           "tag": "p",
           "role": "note",
-          "text": "What you paste is held in this browser tab only for this import. It never enters history, exports or telemetry, and Taurifer drops it when the flow ends.",
-          "name": "What you paste is held in this browser tab only for this import. It never enters history, exports or telemetry, and Taurifer drops it when the flow ends."
+          "text": "What you paste stays in this browser tab only for this import. It never enters history, exports, or telemetry, and Taurifer clears it when you finish or leave.",
+          "name": "What you paste stays in this browser tab only for this import. It never enters history, exports, or telemetry, and Taurifer clears it when you finish or leave."
         },
         {
           "tag": "button",
@@ -73130,7 +73130,7 @@
         },
         {
           "tag": "p",
-          "text": "Cole da forma que tiver: de um treinador, notas, planilha ou outro lugar. O Taurifer cria um comando para o ChatGPT ou Claude, que devolve o treino no formato do app."
+          "text": "Cole da forma que tiver: de um treinador, notas, planilha ou outro lugar. O Taurifer coloca seu texto em um comando para o ChatGPT ou Claude, para que o assistente devolva o treino em um formato que o app consegue ler."
         },
         {
           "tag": "span",
@@ -73148,8 +73148,8 @@
         {
           "tag": "p",
           "role": "note",
-          "text": "O que você cola é mantido apenas nesta aba, só para esta importação. Nunca entra no histórico, nas exportações nem na telemetria, e o Taurifer descarta o texto quando o fluxo termina.",
-          "name": "O que você cola é mantido apenas nesta aba, só para esta importação. Nunca entra no histórico, nas exportações nem na telemetria, e o Taurifer descarta o texto quando o fluxo termina."
+          "text": "O que você cola fica apenas nesta aba, só para esta importação. Nunca entra no histórico, nas exportações nem na telemetria, e o Taurifer limpa o texto quando você termina ou sai.",
+          "name": "O que você cola fica apenas nesta aba, só para esta importação. Nunca entra no histórico, nas exportações nem na telemetria, e o Taurifer limpa o texto quando você termina ou sai."
         },
         {
           "tag": "button",
@@ -73206,7 +73206,7 @@
         },
         {
           "tag": "p",
-          "text": "Paste it however you have it: from a coach, notes app, spreadsheet or anywhere else. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+          "text": "Paste it however you have it: from a coach, notes app, spreadsheet, or anywhere else. Taurifer puts your text into a prompt for ChatGPT or Claude so the assistant returns a format that this app can read."
         },
         {
           "tag": "span",
@@ -73224,8 +73224,8 @@
         {
           "tag": "p",
           "role": "note",
-          "text": "What you paste is held in this browser tab only for this import. It never enters history, exports or telemetry, and Taurifer drops it when the flow ends.",
-          "name": "What you paste is held in this browser tab only for this import. It never enters history, exports or telemetry, and Taurifer drops it when the flow ends."
+          "text": "What you paste stays in this browser tab only for this import. It never enters history, exports, or telemetry, and Taurifer clears it when you finish or leave.",
+          "name": "What you paste stays in this browser tab only for this import. It never enters history, exports, or telemetry, and Taurifer clears it when you finish or leave."
         },
         {
           "tag": "button",
@@ -76006,7 +76006,7 @@
         },
         {
           "tag": "p",
-          "text": "Paste it however you have it: from a coach, notes app, spreadsheet or anywhere else. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+          "text": "Paste it however you have it: from a coach, notes app, spreadsheet, or anywhere else. Taurifer puts your text into a prompt for ChatGPT or Claude so the assistant returns a format that this app can read."
         },
         {
           "tag": "span",
@@ -76100,7 +76100,7 @@
         },
         {
           "tag": "p",
-          "text": "Paste it however you have it: from a coach, notes app, spreadsheet or anywhere else. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+          "text": "Paste it however you have it: from a coach, notes app, spreadsheet, or anywhere else. Taurifer puts your text into a prompt for ChatGPT or Claude so the assistant returns a format that this app can read."
         },
         {
           "tag": "span",
@@ -76194,7 +76194,7 @@
         },
         {
           "tag": "p",
-          "text": "Paste it however you have it: from a coach, notes app, spreadsheet or anywhere else. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+          "text": "Paste it however you have it: from a coach, notes app, spreadsheet, or anywhere else. Taurifer puts your text into a prompt for ChatGPT or Claude so the assistant returns a format that this app can read."
         },
         {
           "tag": "span",
@@ -76288,7 +76288,7 @@
         },
         {
           "tag": "p",
-          "text": "Paste it however you have it: from a coach, notes app, spreadsheet or anywhere else. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+          "text": "Paste it however you have it: from a coach, notes app, spreadsheet, or anywhere else. Taurifer puts your text into a prompt for ChatGPT or Claude so the assistant returns a format that this app can read."
         },
         {
           "tag": "span",
@@ -76382,7 +76382,7 @@
         },
         {
           "tag": "p",
-          "text": "Paste it however you have it: from a coach, notes app, spreadsheet or anywhere else. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+          "text": "Paste it however you have it: from a coach, notes app, spreadsheet, or anywhere else. Taurifer puts your text into a prompt for ChatGPT or Claude so the assistant returns a format that this app can read."
         },
         {
           "tag": "span",
@@ -76476,7 +76476,7 @@
         },
         {
           "tag": "p",
-          "text": "Cole da forma que tiver: de um treinador, notas, planilha ou outro lugar. O Taurifer cria um comando para o ChatGPT ou Claude, que devolve o treino no formato do app."
+          "text": "Cole da forma que tiver: de um treinador, notas, planilha ou outro lugar. O Taurifer coloca seu texto em um comando para o ChatGPT ou Claude, para que o assistente devolva o treino em um formato que o app consegue ler."
         },
         {
           "tag": "span",
@@ -76570,7 +76570,7 @@
         },
         {
           "tag": "p",
-          "text": "Paste it however you have it: from a coach, notes app, spreadsheet or anywhere else. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+          "text": "Paste it however you have it: from a coach, notes app, spreadsheet, or anywhere else. Taurifer puts your text into a prompt for ChatGPT or Claude so the assistant returns a format that this app can read."
         },
         {
           "tag": "span",
@@ -76664,7 +76664,7 @@
         },
         {
           "tag": "p",
-          "text": "Paste it however you have it: from a coach, notes app, spreadsheet or anywhere else. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+          "text": "Paste it however you have it: from a coach, notes app, spreadsheet, or anywhere else. Taurifer puts your text into a prompt for ChatGPT or Claude so the assistant returns a format that this app can read."
         },
         {
           "tag": "span",
@@ -76765,7 +76765,7 @@
         },
         {
           "tag": "p",
-          "text": "Paste it however you have it: from a coach, notes app, spreadsheet or anywhere else. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+          "text": "Paste it however you have it: from a coach, notes app, spreadsheet, or anywhere else. Taurifer puts your text into a prompt for ChatGPT or Claude so the assistant returns a format that this app can read."
         },
         {
           "tag": "span",
@@ -76866,7 +76866,7 @@
         },
         {
           "tag": "p",
-          "text": "Paste it however you have it: from a coach, notes app, spreadsheet or anywhere else. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+          "text": "Paste it however you have it: from a coach, notes app, spreadsheet, or anywhere else. Taurifer puts your text into a prompt for ChatGPT or Claude so the assistant returns a format that this app can read."
         },
         {
           "tag": "span",
@@ -76967,7 +76967,7 @@
         },
         {
           "tag": "p",
-          "text": "Paste it however you have it: from a coach, notes app, spreadsheet or anywhere else. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+          "text": "Paste it however you have it: from a coach, notes app, spreadsheet, or anywhere else. Taurifer puts your text into a prompt for ChatGPT or Claude so the assistant returns a format that this app can read."
         },
         {
           "tag": "span",
@@ -77068,7 +77068,7 @@
         },
         {
           "tag": "p",
-          "text": "Paste it however you have it: from a coach, notes app, spreadsheet or anywhere else. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+          "text": "Paste it however you have it: from a coach, notes app, spreadsheet, or anywhere else. Taurifer puts your text into a prompt for ChatGPT or Claude so the assistant returns a format that this app can read."
         },
         {
           "tag": "span",
@@ -77169,7 +77169,7 @@
         },
         {
           "tag": "p",
-          "text": "Cole da forma que tiver: de um treinador, notas, planilha ou outro lugar. O Taurifer cria um comando para o ChatGPT ou Claude, que devolve o treino no formato do app."
+          "text": "Cole da forma que tiver: de um treinador, notas, planilha ou outro lugar. O Taurifer coloca seu texto em um comando para o ChatGPT ou Claude, para que o assistente devolva o treino em um formato que o app consegue ler."
         },
         {
           "tag": "span",
@@ -77270,7 +77270,7 @@
         },
         {
           "tag": "p",
-          "text": "Paste it however you have it: from a coach, notes app, spreadsheet or anywhere else. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+          "text": "Paste it however you have it: from a coach, notes app, spreadsheet, or anywhere else. Taurifer puts your text into a prompt for ChatGPT or Claude so the assistant returns a format that this app can read."
         },
         {
           "tag": "span",
@@ -77371,7 +77371,7 @@
         },
         {
           "tag": "p",
-          "text": "Paste it however you have it: from a coach, notes app, spreadsheet or anywhere else. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+          "text": "Paste it however you have it: from a coach, notes app, spreadsheet, or anywhere else. Taurifer puts your text into a prompt for ChatGPT or Claude so the assistant returns a format that this app can read."
         },
         {
           "tag": "span",
@@ -77499,7 +77499,7 @@
         },
         {
           "tag": "p",
-          "text": "Paste it however you have it: from a coach, notes app, spreadsheet or anywhere else. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+          "text": "Paste it however you have it: from a coach, notes app, spreadsheet, or anywhere else. Taurifer puts your text into a prompt for ChatGPT or Claude so the assistant returns a format that this app can read."
         },
         {
           "tag": "span",
@@ -77627,7 +77627,7 @@
         },
         {
           "tag": "p",
-          "text": "Cole da forma que tiver: de um treinador, notas, planilha ou outro lugar. O Taurifer cria um comando para o ChatGPT ou Claude, que devolve o treino no formato do app."
+          "text": "Cole da forma que tiver: de um treinador, notas, planilha ou outro lugar. O Taurifer coloca seu texto em um comando para o ChatGPT ou Claude, para que o assistente devolva o treino em um formato que o app consegue ler."
         },
         {
           "tag": "span",
@@ -86087,7 +86087,7 @@
         },
         {
           "tag": "span",
-          "text": "Optional. Stays on this device and doesn't change your program yet."
+          "text": "Optional. This answer stays on your device and does not change your program."
         },
         {
           "tag": "button",
@@ -86168,7 +86168,7 @@
         },
         {
           "tag": "span",
-          "text": "Optional. Stays on this device and doesn't change your program yet."
+          "text": "Optional. This answer stays on your device and does not change your program."
         },
         {
           "tag": "button",
@@ -86249,7 +86249,7 @@
         },
         {
           "tag": "span",
-          "text": "Opcional. Fica só neste dispositivo e ainda não muda o seu treino."
+          "text": "Opcional. Esta resposta fica neste dispositivo e não muda o seu treino."
         },
         {
           "tag": "button",
@@ -86330,7 +86330,7 @@
         },
         {
           "tag": "span",
-          "text": "Optional. Stays on this device and doesn't change your program yet."
+          "text": "Optional. This answer stays on your device and does not change your program."
         }
       ]
     },
@@ -86399,7 +86399,7 @@
         },
         {
           "tag": "span",
-          "text": "Optional. Stays on this device and doesn't change your program yet."
+          "text": "Optional. This answer stays on your device and does not change your program."
         }
       ]
     },
@@ -86468,7 +86468,7 @@
         },
         {
           "tag": "span",
-          "text": "Opcional. Fica só neste dispositivo e ainda não muda o seu treino."
+          "text": "Opcional. Esta resposta fica neste dispositivo e não muda o seu treino."
         }
       ]
     },
@@ -86537,7 +86537,7 @@
         },
         {
           "tag": "span",
-          "text": "Optional. Stays on this device and doesn't change your program yet."
+          "text": "Optional. This answer stays on your device and does not change your program."
         }
       ]
     },
@@ -86606,7 +86606,7 @@
         },
         {
           "tag": "span",
-          "text": "Optional. Stays on this device and doesn't change your program yet."
+          "text": "Optional. This answer stays on your device and does not change your program."
         }
       ]
     },
@@ -86675,7 +86675,7 @@
         },
         {
           "tag": "span",
-          "text": "Opcional. Fica só neste dispositivo e ainda não muda o seu treino."
+          "text": "Opcional. Esta resposta fica neste dispositivo e não muda o seu treino."
         }
       ]
     },
@@ -87086,7 +87086,7 @@
         },
         {
           "tag": "span",
-          "text": "Optional. Stays on this device and doesn't change your program yet."
+          "text": "Optional. This answer stays on your device and does not change your program."
         },
         {
           "tag": "p",
@@ -87218,7 +87218,7 @@
         },
         {
           "tag": "span",
-          "text": "Optional. Stays on this device and doesn't change your program yet."
+          "text": "Optional. This answer stays on your device and does not change your program."
         },
         {
           "tag": "p",
@@ -87350,7 +87350,7 @@
         },
         {
           "tag": "span",
-          "text": "Opcional. Fica só neste dispositivo e ainda não muda o seu treino."
+          "text": "Opcional. Esta resposta fica neste dispositivo e não muda o seu treino."
         },
         {
           "tag": "p",
@@ -87617,7 +87617,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -87789,7 +87789,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -87882,7 +87882,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -88570,7 +88570,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -88742,7 +88742,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -88835,7 +88835,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -89523,7 +89523,7 @@
         },
         {
           "tag": "p",
-          "text": "Pode ser se você já faz com boa técnica."
+          "text": "Você pode trocar por se já faz com boa técnica."
         },
         {
           "tag": "strong",
@@ -89695,7 +89695,7 @@
         },
         {
           "tag": "p",
-          "text": "Pode ser se você já faz com boa técnica."
+          "text": "Você pode trocar por se já faz com boa técnica."
         },
         {
           "tag": "strong",
@@ -89788,7 +89788,7 @@
         },
         {
           "tag": "p",
-          "text": "Pode ser se você já faz com boa técnica."
+          "text": "Você pode trocar por se já faz com boa técnica."
         },
         {
           "tag": "strong",
@@ -91210,13 +91210,13 @@
           "role": "switch",
           "name": "Add a lighter week",
           "labelledBy": "Add a lighter week",
-          "describedBy": "A week with fewer sets, added to the seven regular weeks, so you recover.",
+          "describedBy": "Adds a recovery week with fewer sets on top of the seven regular weeks.",
           "aria-checked": "true",
           "type": "button"
         },
         {
           "tag": "p",
-          "text": "A week with fewer sets, added to the seven regular weeks, so you recover."
+          "text": "Adds a recovery week with fewer sets on top of the seven regular weeks."
         },
         {
           "tag": "span",
@@ -91323,13 +91323,13 @@
           "role": "switch",
           "name": "Add a lighter week",
           "labelledBy": "Add a lighter week",
-          "describedBy": "A week with fewer sets, added to the seven regular weeks, so you recover.",
+          "describedBy": "Adds a recovery week with fewer sets on top of the seven regular weeks.",
           "aria-checked": "true",
           "type": "button"
         },
         {
           "tag": "p",
-          "text": "A week with fewer sets, added to the seven regular weeks, so you recover."
+          "text": "Adds a recovery week with fewer sets on top of the seven regular weeks."
         },
         {
           "tag": "span",
@@ -91436,13 +91436,13 @@
           "role": "switch",
           "name": "Adicionar uma semana mais leve",
           "labelledBy": "Adicionar uma semana mais leve",
-          "describedBy": "Uma semana com menos séries, somada às sete semanas regulares, para você se recuperar.",
+          "describedBy": "Adiciona uma semana de recuperação com menos séries além das sete semanas regulares.",
           "aria-checked": "true",
           "type": "button"
         },
         {
           "tag": "p",
-          "text": "Uma semana com menos séries, somada às sete semanas regulares, para você se recuperar."
+          "text": "Adiciona uma semana de recuperação com menos séries além das sete semanas regulares."
         },
         {
           "tag": "span",
@@ -91549,13 +91549,13 @@
           "role": "switch",
           "name": "Add a lighter week",
           "labelledBy": "Add a lighter week",
-          "describedBy": "A week with fewer sets, added to the seven regular weeks, so you recover.",
+          "describedBy": "Adds a recovery week with fewer sets on top of the seven regular weeks.",
           "aria-checked": "true",
           "type": "button"
         },
         {
           "tag": "p",
-          "text": "A week with fewer sets, added to the seven regular weeks, so you recover."
+          "text": "Adds a recovery week with fewer sets on top of the seven regular weeks."
         },
         {
           "tag": "span",
@@ -91662,13 +91662,13 @@
           "role": "switch",
           "name": "Add a lighter week",
           "labelledBy": "Add a lighter week",
-          "describedBy": "A week with fewer sets, added to the seven regular weeks, so you recover.",
+          "describedBy": "Adds a recovery week with fewer sets on top of the seven regular weeks.",
           "aria-checked": "true",
           "type": "button"
         },
         {
           "tag": "p",
-          "text": "A week with fewer sets, added to the seven regular weeks, so you recover."
+          "text": "Adds a recovery week with fewer sets on top of the seven regular weeks."
         },
         {
           "tag": "span",
@@ -91775,13 +91775,13 @@
           "role": "switch",
           "name": "Adicionar uma semana mais leve",
           "labelledBy": "Adicionar uma semana mais leve",
-          "describedBy": "Uma semana com menos séries, somada às sete semanas regulares, para você se recuperar.",
+          "describedBy": "Adiciona uma semana de recuperação com menos séries além das sete semanas regulares.",
           "aria-checked": "true",
           "type": "button"
         },
         {
           "tag": "p",
-          "text": "Uma semana com menos séries, somada às sete semanas regulares, para você se recuperar."
+          "text": "Adiciona uma semana de recuperação com menos séries além das sete semanas regulares."
         },
         {
           "tag": "span",
@@ -92679,7 +92679,7 @@
         },
         {
           "tag": "p",
-          "text": "Ticked items come from Home, basic kit. Tick what you have and untick what you don't."
+          "text": "Selected items come from Home, basic kit. Check what you have and uncheck what you don't."
         },
         {
           "tag": "div",
@@ -92889,7 +92889,7 @@
         },
         {
           "tag": "p",
-          "text": "Ticked items come from Home, basic kit. Tick what you have and untick what you don't."
+          "text": "Selected items come from Home, basic kit. Check what you have and uncheck what you don't."
         },
         {
           "tag": "div",
@@ -93099,7 +93099,7 @@
         },
         {
           "tag": "p",
-          "text": "Ticked items come from Home, basic kit. Tick what you have and untick what you don't."
+          "text": "Selected items come from Home, basic kit. Check what you have and uncheck what you don't."
         },
         {
           "tag": "div",
@@ -93309,7 +93309,7 @@
         },
         {
           "tag": "p",
-          "text": "Ticked items come from Home, basic kit. Tick what you have and untick what you don't."
+          "text": "Selected items come from Home, basic kit. Check what you have and uncheck what you don't."
         },
         {
           "tag": "div",
@@ -93519,7 +93519,7 @@
         },
         {
           "tag": "p",
-          "text": "Ticked items come from Home, basic kit. Tick what you have and untick what you don't."
+          "text": "Selected items come from Home, basic kit. Check what you have and uncheck what you don't."
         },
         {
           "tag": "div",
@@ -94149,7 +94149,7 @@
         },
         {
           "tag": "p",
-          "text": "Ticked items come from Home, basic kit. Tick what you have and untick what you don't."
+          "text": "Selected items come from Home, basic kit. Check what you have and uncheck what you don't."
         },
         {
           "tag": "div",
@@ -94359,7 +94359,7 @@
         },
         {
           "tag": "p",
-          "text": "Ticked items come from Home, basic kit. Tick what you have and untick what you don't."
+          "text": "Selected items come from Home, basic kit. Check what you have and uncheck what you don't."
         },
         {
           "tag": "div",
@@ -94568,7 +94568,7 @@
         },
         {
           "tag": "p",
-          "text": "Ticked items come from Home, basic kit. Tick what you have and untick what you don't."
+          "text": "Selected items come from Home, basic kit. Check what you have and uncheck what you don't."
         },
         {
           "tag": "div",
@@ -94986,7 +94986,7 @@
         },
         {
           "tag": "p",
-          "text": "Optional. Leave out exercises you don't want, and name any you want kept in."
+          "text": "Optional. Leave out exercises that you do not want, and add any that you want to keep."
         },
         {
           "tag": "section",
@@ -95084,7 +95084,7 @@
         },
         {
           "tag": "p",
-          "text": "Optional. Leave out exercises you don't want, and name any you want kept in."
+          "text": "Optional. Leave out exercises that you do not want, and add any that you want to keep."
         },
         {
           "tag": "section",
@@ -95182,7 +95182,7 @@
         },
         {
           "tag": "p",
-          "text": "Opcional. Deixe de fora os exercícios que você não quer e indique os que quer manter."
+          "text": "Opcional. Deixe de fora os exercícios que você não quer e adicione os que quer manter."
         },
         {
           "tag": "section",
@@ -95203,11 +95203,11 @@
         },
         {
           "tag": "section",
-          "labelledBy": "Algum exercício que você quer no programa?"
+          "labelledBy": "Algum exercício que você quer no treino?"
         },
         {
           "tag": "h2",
-          "text": "Algum exercício que você quer no programa?"
+          "text": "Algum exercício que você quer no treino?"
         },
         {
           "tag": "p",
@@ -95280,7 +95280,7 @@
         },
         {
           "tag": "p",
-          "text": "Optional. Leave out exercises you don't want, and name any you want kept in."
+          "text": "Optional. Leave out exercises that you do not want, and add any that you want to keep."
         },
         {
           "tag": "section",
@@ -95398,7 +95398,7 @@
         },
         {
           "tag": "p",
-          "text": "Optional. Leave out exercises you don't want, and name any you want kept in."
+          "text": "Optional. Leave out exercises that you do not want, and add any that you want to keep."
         },
         {
           "tag": "section",
@@ -95516,7 +95516,7 @@
         },
         {
           "tag": "p",
-          "text": "Opcional. Deixe de fora os exercícios que você não quer e indique os que quer manter."
+          "text": "Opcional. Deixe de fora os exercícios que você não quer e adicione os que quer manter."
         },
         {
           "tag": "section",
@@ -95547,11 +95547,11 @@
         },
         {
           "tag": "section",
-          "labelledBy": "Algum exercício que você quer no programa?"
+          "labelledBy": "Algum exercício que você quer no treino?"
         },
         {
           "tag": "h2",
-          "text": "Algum exercício que você quer no programa?"
+          "text": "Algum exercício que você quer no treino?"
         },
         {
           "tag": "p",
@@ -95665,7 +95665,7 @@
         },
         {
           "tag": "span",
-          "text": "Optional. Stays on this device and doesn't change your program yet."
+          "text": "Optional. This answer stays on your device and does not change your program."
         },
         {
           "tag": "button",
@@ -95756,7 +95756,7 @@
         },
         {
           "tag": "span",
-          "text": "Optional. Stays on this device and doesn't change your program yet."
+          "text": "Optional. This answer stays on your device and does not change your program."
         },
         {
           "tag": "button",
@@ -95847,7 +95847,7 @@
         },
         {
           "tag": "span",
-          "text": "Opcional. Fica só neste dispositivo e ainda não muda o seu treino."
+          "text": "Opcional. Esta resposta fica neste dispositivo e não muda o seu treino."
         },
         {
           "tag": "button",
@@ -95945,7 +95945,7 @@
         },
         {
           "tag": "span",
-          "text": "Optional. Stays on this device and doesn't change your program yet."
+          "text": "Optional. This answer stays on your device and does not change your program."
         },
         {
           "tag": "button",
@@ -96043,7 +96043,7 @@
         },
         {
           "tag": "span",
-          "text": "Optional. Stays on this device and doesn't change your program yet."
+          "text": "Optional. This answer stays on your device and does not change your program."
         },
         {
           "tag": "button",
@@ -96141,7 +96141,7 @@
         },
         {
           "tag": "span",
-          "text": "Opcional. Fica só neste dispositivo e ainda não muda o seu treino."
+          "text": "Opcional. Esta resposta fica neste dispositivo e não muda o seu treino."
         },
         {
           "tag": "button",
@@ -96420,7 +96420,7 @@
         },
         {
           "tag": "p",
-          "text": "Optional. Leave anything you don't want to change at normal. Skip gives a muscle no direct work."
+          "text": "Optional. Leave muscles at normal if you do not want to change them. Choosing Skip removes direct work for that muscle."
         },
         {
           "tag": "span",
@@ -97492,7 +97492,7 @@
         },
         {
           "tag": "p",
-          "text": "Optional. Leave anything you don't want to change at normal. Skip gives a muscle no direct work."
+          "text": "Optional. Leave muscles at normal if you do not want to change them. Choosing Skip removes direct work for that muscle."
         },
         {
           "tag": "span",
@@ -98564,7 +98564,7 @@
         },
         {
           "tag": "p",
-          "text": "Optional. Leave anything you don't want to change at normal. Skip gives a muscle no direct work."
+          "text": "Optional. Leave muscles at normal if you do not want to change them. Choosing Skip removes direct work for that muscle."
         },
         {
           "tag": "span",
@@ -99636,7 +99636,7 @@
         },
         {
           "tag": "p",
-          "text": "Optional. Leave anything you don't want to change at normal. Skip gives a muscle no direct work."
+          "text": "Optional. Leave muscles at normal if you do not want to change them. Choosing Skip removes direct work for that muscle."
         },
         {
           "tag": "span",
@@ -100708,7 +100708,7 @@
         },
         {
           "tag": "p",
-          "text": "Optional. Leave anything you don't want to change at normal. Skip gives a muscle no direct work."
+          "text": "Optional. Leave muscles at normal if you do not want to change them. Choosing Skip removes direct work for that muscle."
         },
         {
           "tag": "span",
@@ -101780,7 +101780,7 @@
         },
         {
           "tag": "p",
-          "text": "Opcional. Deixe em normal o que não quiser mudar. Pular deixa o músculo sem trabalho direto."
+          "text": "Opcional. Deixe os músculos em normal se não quiser mudá-los. Escolher Pular remove o trabalho direto daquele músculo."
         },
         {
           "tag": "span",
@@ -102852,7 +102852,7 @@
         },
         {
           "tag": "p",
-          "text": "Opcional. Deixe em normal o que não quiser mudar. Pular deixa o músculo sem trabalho direto."
+          "text": "Opcional. Deixe os músculos em normal se não quiser mudá-los. Escolher Pular remove o trabalho direto daquele músculo."
         },
         {
           "tag": "span",
@@ -103924,7 +103924,7 @@
         },
         {
           "tag": "p",
-          "text": "Optional. Leave anything you don't want to change at normal. Skip gives a muscle no direct work."
+          "text": "Optional. Leave muscles at normal if you do not want to change them. Choosing Skip removes direct work for that muscle."
         },
         {
           "tag": "span",
@@ -104996,7 +104996,7 @@
         },
         {
           "tag": "p",
-          "text": "Optional. Leave anything you don't want to change at normal. Skip gives a muscle no direct work."
+          "text": "Optional. Leave muscles at normal if you do not want to change them. Choosing Skip removes direct work for that muscle."
         },
         {
           "tag": "span",
@@ -106068,7 +106068,7 @@
         },
         {
           "tag": "p",
-          "text": "Optional. Leave anything you don't want to change at normal. Skip gives a muscle no direct work."
+          "text": "Optional. Leave muscles at normal if you do not want to change them. Choosing Skip removes direct work for that muscle."
         },
         {
           "tag": "span",
@@ -107140,7 +107140,7 @@
         },
         {
           "tag": "p",
-          "text": "Opcional. Deixe em normal o que não quiser mudar. Pular deixa o músculo sem trabalho direto."
+          "text": "Opcional. Deixe os músculos em normal se não quiser mudá-los. Escolher Pular remove o trabalho direto daquele músculo."
         },
         {
           "tag": "span",
@@ -108212,7 +108212,7 @@
         },
         {
           "tag": "p",
-          "text": "Optional. Leave anything you don't want to change at normal. Skip gives a muscle no direct work."
+          "text": "Optional. Leave muscles at normal if you do not want to change them. Choosing Skip removes direct work for that muscle."
         },
         {
           "tag": "span",
@@ -109284,7 +109284,7 @@
         },
         {
           "tag": "p",
-          "text": "Optional. Leave anything you don't want to change at normal. Skip gives a muscle no direct work."
+          "text": "Optional. Leave muscles at normal if you do not want to change them. Choosing Skip removes direct work for that muscle."
         },
         {
           "tag": "span",
@@ -110356,7 +110356,7 @@
         },
         {
           "tag": "p",
-          "text": "Optional. Leave anything you don't want to change at normal. Skip gives a muscle no direct work."
+          "text": "Optional. Leave muscles at normal if you do not want to change them. Choosing Skip removes direct work for that muscle."
         },
         {
           "tag": "span",
@@ -111428,7 +111428,7 @@
         },
         {
           "tag": "p",
-          "text": "Optional. Leave anything you don't want to change at normal. Skip gives a muscle no direct work."
+          "text": "Optional. Leave muscles at normal if you do not want to change them. Choosing Skip removes direct work for that muscle."
         },
         {
           "tag": "span",
@@ -112500,7 +112500,7 @@
         },
         {
           "tag": "p",
-          "text": "Optional. Leave anything you don't want to change at normal. Skip gives a muscle no direct work."
+          "text": "Optional. Leave muscles at normal if you do not want to change them. Choosing Skip removes direct work for that muscle."
         },
         {
           "tag": "span",
@@ -113572,7 +113572,7 @@
         },
         {
           "tag": "p",
-          "text": "Opcional. Deixe em normal o que não quiser mudar. Pular deixa o músculo sem trabalho direto."
+          "text": "Opcional. Deixe os músculos em normal se não quiser mudá-los. Escolher Pular remove o trabalho direto daquele músculo."
         },
         {
           "tag": "span",
@@ -114644,7 +114644,7 @@
         },
         {
           "tag": "p",
-          "text": "Opcional. Deixe em normal o que não quiser mudar. Pular deixa o músculo sem trabalho direto."
+          "text": "Opcional. Deixe os músculos em normal se não quiser mudá-los. Escolher Pular remove o trabalho direto daquele músculo."
         },
         {
           "tag": "span",
@@ -115716,7 +115716,7 @@
         },
         {
           "tag": "p",
-          "text": "Optional. Leave anything you don't want to change at normal. Skip gives a muscle no direct work."
+          "text": "Optional. Leave muscles at normal if you do not want to change them. Choosing Skip removes direct work for that muscle."
         },
         {
           "tag": "span",
@@ -116989,7 +116989,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -117709,7 +117709,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -118429,7 +118429,7 @@
         },
         {
           "tag": "p",
-          "text": "Pode ser se você já faz com boa técnica."
+          "text": "Você pode trocar por se já faz com boa técnica."
         },
         {
           "tag": "strong",
@@ -125089,7 +125089,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -125261,7 +125261,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -125354,7 +125354,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -125908,7 +125908,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -126080,7 +126080,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -126173,7 +126173,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -126727,7 +126727,7 @@
         },
         {
           "tag": "p",
-          "text": "Pode ser se você já faz com boa técnica."
+          "text": "Você pode trocar por se já faz com boa técnica."
         },
         {
           "tag": "strong",
@@ -126899,7 +126899,7 @@
         },
         {
           "tag": "p",
-          "text": "Pode ser se você já faz com boa técnica."
+          "text": "Você pode trocar por se já faz com boa técnica."
         },
         {
           "tag": "strong",
@@ -126992,7 +126992,7 @@
         },
         {
           "tag": "p",
-          "text": "Pode ser se você já faz com boa técnica."
+          "text": "Você pode trocar por se já faz com boa técnica."
         },
         {
           "tag": "strong",
@@ -127542,7 +127542,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -127714,7 +127714,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -127807,7 +127807,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -128284,7 +128284,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -128456,7 +128456,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -128549,7 +128549,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -129026,7 +129026,7 @@
         },
         {
           "tag": "p",
-          "text": "Pode ser se você já faz com boa técnica."
+          "text": "Você pode trocar por se já faz com boa técnica."
         },
         {
           "tag": "strong",
@@ -129198,7 +129198,7 @@
         },
         {
           "tag": "p",
-          "text": "Pode ser se você já faz com boa técnica."
+          "text": "Você pode trocar por se já faz com boa técnica."
         },
         {
           "tag": "strong",
@@ -129291,7 +129291,7 @@
         },
         {
           "tag": "p",
-          "text": "Pode ser se você já faz com boa técnica."
+          "text": "Você pode trocar por se já faz com boa técnica."
         },
         {
           "tag": "strong",
@@ -129768,7 +129768,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -129940,7 +129940,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -130033,7 +130033,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -130510,7 +130510,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -130682,7 +130682,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -130775,7 +130775,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -131252,7 +131252,7 @@
         },
         {
           "tag": "p",
-          "text": "Pode ser se você já faz com boa técnica."
+          "text": "Você pode trocar por se já faz com boa técnica."
         },
         {
           "tag": "strong",
@@ -131424,7 +131424,7 @@
         },
         {
           "tag": "p",
-          "text": "Pode ser se você já faz com boa técnica."
+          "text": "Você pode trocar por se já faz com boa técnica."
         },
         {
           "tag": "strong",
@@ -131517,7 +131517,7 @@
         },
         {
           "tag": "p",
-          "text": "Pode ser se você já faz com boa técnica."
+          "text": "Você pode trocar por se já faz com boa técnica."
         },
         {
           "tag": "strong",
@@ -131816,11 +131816,11 @@
         {
           "tag": "div",
           "role": "status",
-          "name": "3 changes of yoursUndoRestore"
+          "name": "3 edits madeUndoRestore"
         },
         {
           "tag": "span",
-          "text": "3 changes of yours"
+          "text": "3 edits made"
         },
         {
           "tag": "button",
@@ -131931,7 +131931,7 @@
         },
         {
           "tag": "p",
-          "text": "Runs past 60 min, the time you chose."
+          "text": "This day runs past your 60 min limit."
         },
         {
           "tag": "button",
@@ -132040,7 +132040,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -132216,7 +132216,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -132309,7 +132309,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -132687,11 +132687,11 @@
         {
           "tag": "div",
           "role": "status",
-          "name": "3 changes of yoursUndoRestore"
+          "name": "3 edits madeUndoRestore"
         },
         {
           "tag": "span",
-          "text": "3 changes of yours"
+          "text": "3 edits made"
         },
         {
           "tag": "button",
@@ -132802,7 +132802,7 @@
         },
         {
           "tag": "p",
-          "text": "Runs past 60 min, the time you chose."
+          "text": "This day runs past your 60 min limit."
         },
         {
           "tag": "button",
@@ -132911,7 +132911,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -133087,7 +133087,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -133180,7 +133180,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -133558,11 +133558,11 @@
         {
           "tag": "div",
           "role": "status",
-          "name": "3 ajustes seusDesfazerRestaurar"
+          "name": "3 ajustes feitosDesfazerRestaurar"
         },
         {
           "tag": "span",
-          "text": "3 ajustes seus"
+          "text": "3 ajustes feitos"
         },
         {
           "tag": "button",
@@ -133673,7 +133673,7 @@
         },
         {
           "tag": "p",
-          "text": "Passa de 60 min, o tempo que você escolheu."
+          "text": "Este dia passa do seu limite de 60 min."
         },
         {
           "tag": "button",
@@ -133782,7 +133782,7 @@
         },
         {
           "tag": "p",
-          "text": "Pode ser se você já faz com boa técnica."
+          "text": "Você pode trocar por se já faz com boa técnica."
         },
         {
           "tag": "strong",
@@ -133958,7 +133958,7 @@
         },
         {
           "tag": "p",
-          "text": "Pode ser se você já faz com boa técnica."
+          "text": "Você pode trocar por se já faz com boa técnica."
         },
         {
           "tag": "strong",
@@ -134051,7 +134051,7 @@
         },
         {
           "tag": "p",
-          "text": "Pode ser se você já faz com boa técnica."
+          "text": "Você pode trocar por se já faz com boa técnica."
         },
         {
           "tag": "strong",
@@ -134591,7 +134591,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -135336,7 +135336,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -136081,7 +136081,7 @@
         },
         {
           "tag": "p",
-          "text": "Pode ser se você já faz com boa técnica."
+          "text": "Você pode trocar por se já faz com boa técnica."
         },
         {
           "tag": "strong",
@@ -139178,7 +139178,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -139966,7 +139966,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -140754,7 +140754,7 @@
         },
         {
           "tag": "p",
-          "text": "Pode ser se você já faz com boa técnica."
+          "text": "Você pode trocar por se já faz com boa técnica."
         },
         {
           "tag": "strong",
@@ -141736,7 +141736,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -142456,7 +142456,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -143176,7 +143176,7 @@
         },
         {
           "tag": "p",
-          "text": "Pode ser se você já faz com boa técnica."
+          "text": "Você pode trocar por se já faz com boa técnica."
         },
         {
           "tag": "strong",
@@ -143896,7 +143896,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -144068,7 +144068,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -144161,7 +144161,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -144638,7 +144638,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -144810,7 +144810,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -144903,7 +144903,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -145380,7 +145380,7 @@
         },
         {
           "tag": "p",
-          "text": "Pode ser se você já faz com boa técnica."
+          "text": "Você pode trocar por se já faz com boa técnica."
         },
         {
           "tag": "strong",
@@ -145552,7 +145552,7 @@
         },
         {
           "tag": "p",
-          "text": "Pode ser se você já faz com boa técnica."
+          "text": "Você pode trocar por se já faz com boa técnica."
         },
         {
           "tag": "strong",
@@ -145645,7 +145645,7 @@
         },
         {
           "tag": "p",
-          "text": "Pode ser se você já faz com boa técnica."
+          "text": "Você pode trocar por se já faz com boa técnica."
         },
         {
           "tag": "strong",
@@ -146122,7 +146122,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -146294,7 +146294,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -146387,7 +146387,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -146864,7 +146864,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -147036,7 +147036,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -147129,7 +147129,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -147606,7 +147606,7 @@
         },
         {
           "tag": "p",
-          "text": "Pode ser se você já faz com boa técnica."
+          "text": "Você pode trocar por se já faz com boa técnica."
         },
         {
           "tag": "strong",
@@ -147778,7 +147778,7 @@
         },
         {
           "tag": "p",
-          "text": "Pode ser se você já faz com boa técnica."
+          "text": "Você pode trocar por se já faz com boa técnica."
         },
         {
           "tag": "strong",
@@ -147871,7 +147871,7 @@
         },
         {
           "tag": "p",
-          "text": "Pode ser se você já faz com boa técnica."
+          "text": "Você pode trocar por se já faz com boa técnica."
         },
         {
           "tag": "strong",
@@ -148170,11 +148170,11 @@
         {
           "tag": "div",
           "role": "status",
-          "name": "5 changes of yoursUndoRestore"
+          "name": "5 edits madeUndoRestore"
         },
         {
           "tag": "span",
-          "text": "5 changes of yours"
+          "text": "5 edits made"
         },
         {
           "tag": "button",
@@ -148523,11 +148523,11 @@
         {
           "tag": "div",
           "role": "status",
-          "name": "5 changes of yoursUndoRestore"
+          "name": "5 edits madeUndoRestore"
         },
         {
           "tag": "span",
-          "text": "5 changes of yours"
+          "text": "5 edits made"
         },
         {
           "tag": "button",
@@ -148876,11 +148876,11 @@
         {
           "tag": "div",
           "role": "status",
-          "name": "5 ajustes seusDesfazerRestaurar"
+          "name": "5 ajustes feitosDesfazerRestaurar"
         },
         {
           "tag": "span",
-          "text": "5 ajustes seus"
+          "text": "5 ajustes feitos"
         },
         {
           "tag": "button",
@@ -149229,11 +149229,11 @@
         {
           "tag": "div",
           "role": "status",
-          "name": "1 change of yoursUndoRestore"
+          "name": "1 edit madeUndoRestore"
         },
         {
           "tag": "span",
-          "text": "1 change of yours"
+          "text": "1 edit made"
         },
         {
           "tag": "button",
@@ -149449,7 +149449,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -149621,7 +149621,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -149714,7 +149714,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -150224,11 +150224,11 @@
         {
           "tag": "div",
           "role": "status",
-          "name": "1 change of yoursUndoRestore"
+          "name": "1 edit madeUndoRestore"
         },
         {
           "tag": "span",
-          "text": "1 change of yours"
+          "text": "1 edit made"
         },
         {
           "tag": "button",
@@ -150444,7 +150444,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -150616,7 +150616,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -150709,7 +150709,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -151219,11 +151219,11 @@
         {
           "tag": "div",
           "role": "status",
-          "name": "1 ajuste seuDesfazerRestaurar"
+          "name": "1 ajuste feitoDesfazerRestaurar"
         },
         {
           "tag": "span",
-          "text": "1 ajuste seu"
+          "text": "1 ajuste feito"
         },
         {
           "tag": "button",
@@ -151439,7 +151439,7 @@
         },
         {
           "tag": "p",
-          "text": "Pode ser se você já faz com boa técnica."
+          "text": "Você pode trocar por se já faz com boa técnica."
         },
         {
           "tag": "strong",
@@ -151611,7 +151611,7 @@
         },
         {
           "tag": "p",
-          "text": "Pode ser se você já faz com boa técnica."
+          "text": "Você pode trocar por se já faz com boa técnica."
         },
         {
           "tag": "strong",
@@ -151704,7 +151704,7 @@
         },
         {
           "tag": "p",
-          "text": "Pode ser se você já faz com boa técnica."
+          "text": "Você pode trocar por se já faz com boa técnica."
         },
         {
           "tag": "strong",
@@ -153562,7 +153562,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -153734,7 +153734,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -153827,7 +153827,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -154304,7 +154304,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -154476,7 +154476,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -154569,7 +154569,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -155046,7 +155046,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -155218,7 +155218,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -155311,7 +155311,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -155788,7 +155788,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -155960,7 +155960,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -156053,7 +156053,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -156530,7 +156530,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -156702,7 +156702,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -156795,7 +156795,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -157272,7 +157272,7 @@
         },
         {
           "tag": "p",
-          "text": "Pode ser se você já faz com boa técnica."
+          "text": "Você pode trocar por se já faz com boa técnica."
         },
         {
           "tag": "strong",
@@ -157444,7 +157444,7 @@
         },
         {
           "tag": "p",
-          "text": "Pode ser se você já faz com boa técnica."
+          "text": "Você pode trocar por se já faz com boa técnica."
         },
         {
           "tag": "strong",
@@ -157537,7 +157537,7 @@
         },
         {
           "tag": "p",
-          "text": "Pode ser se você já faz com boa técnica."
+          "text": "Você pode trocar por se já faz com boa técnica."
         },
         {
           "tag": "strong",
@@ -158014,7 +158014,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -158186,7 +158186,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -158279,7 +158279,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -158578,11 +158578,11 @@
         {
           "tag": "div",
           "role": "status",
-          "name": "1 change of yoursUndoRestore"
+          "name": "1 edit madeUndoRestore"
         },
         {
           "tag": "span",
-          "text": "1 change of yours"
+          "text": "1 edit made"
         },
         {
           "tag": "button",
@@ -158952,7 +158952,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -159045,7 +159045,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -159353,11 +159353,11 @@
         {
           "tag": "div",
           "role": "status",
-          "name": "1 change of yoursUndoRestore"
+          "name": "1 edit madeUndoRestore"
         },
         {
           "tag": "span",
-          "text": "1 change of yours"
+          "text": "1 edit made"
         },
         {
           "tag": "button",
@@ -159727,7 +159727,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -159820,7 +159820,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -160128,11 +160128,11 @@
         {
           "tag": "div",
           "role": "status",
-          "name": "1 change of yoursUndoRestore"
+          "name": "1 edit madeUndoRestore"
         },
         {
           "tag": "span",
-          "text": "1 change of yours"
+          "text": "1 edit made"
         },
         {
           "tag": "button",
@@ -160502,7 +160502,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -160595,7 +160595,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -160903,11 +160903,11 @@
         {
           "tag": "div",
           "role": "status",
-          "name": "1 change of yoursUndoRestore"
+          "name": "1 edit madeUndoRestore"
         },
         {
           "tag": "span",
-          "text": "1 change of yours"
+          "text": "1 edit made"
         },
         {
           "tag": "button",
@@ -161277,7 +161277,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -161370,7 +161370,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -161678,11 +161678,11 @@
         {
           "tag": "div",
           "role": "status",
-          "name": "1 change of yoursUndoRestore"
+          "name": "1 edit madeUndoRestore"
         },
         {
           "tag": "span",
-          "text": "1 change of yours"
+          "text": "1 edit made"
         },
         {
           "tag": "button",
@@ -162052,7 +162052,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -162145,7 +162145,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -162453,11 +162453,11 @@
         {
           "tag": "div",
           "role": "status",
-          "name": "1 ajuste seuDesfazerRestaurar"
+          "name": "1 ajuste feitoDesfazerRestaurar"
         },
         {
           "tag": "span",
-          "text": "1 ajuste seu"
+          "text": "1 ajuste feito"
         },
         {
           "tag": "button",
@@ -162827,7 +162827,7 @@
         },
         {
           "tag": "p",
-          "text": "Pode ser se você já faz com boa técnica."
+          "text": "Você pode trocar por se já faz com boa técnica."
         },
         {
           "tag": "strong",
@@ -162920,7 +162920,7 @@
         },
         {
           "tag": "p",
-          "text": "Pode ser se você já faz com boa técnica."
+          "text": "Você pode trocar por se já faz com boa técnica."
         },
         {
           "tag": "strong",
@@ -163228,11 +163228,11 @@
         {
           "tag": "div",
           "role": "status",
-          "name": "1 change of yoursUndoRestore"
+          "name": "1 edit madeUndoRestore"
         },
         {
           "tag": "span",
-          "text": "1 change of yours"
+          "text": "1 edit made"
         },
         {
           "tag": "button",
@@ -163602,7 +163602,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -163695,7 +163695,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -164003,11 +164003,11 @@
         {
           "tag": "div",
           "role": "status",
-          "name": "1 change of yoursUndoRestore"
+          "name": "1 edit madeUndoRestore"
         },
         {
           "tag": "span",
-          "text": "1 change of yours"
+          "text": "1 edit made"
         },
         {
           "tag": "button",
@@ -164203,7 +164203,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -164375,7 +164375,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -164468,7 +164468,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -164767,11 +164767,11 @@
         {
           "tag": "div",
           "role": "status",
-          "name": "1 change of yoursUndoRestore"
+          "name": "1 edit madeUndoRestore"
         },
         {
           "tag": "span",
-          "text": "1 change of yours"
+          "text": "1 edit made"
         },
         {
           "tag": "button",
@@ -164967,7 +164967,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -165139,7 +165139,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -165232,7 +165232,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -165531,11 +165531,11 @@
         {
           "tag": "div",
           "role": "status",
-          "name": "1 ajuste seuDesfazerRestaurar"
+          "name": "1 ajuste feitoDesfazerRestaurar"
         },
         {
           "tag": "span",
-          "text": "1 ajuste seu"
+          "text": "1 ajuste feito"
         },
         {
           "tag": "button",
@@ -165731,7 +165731,7 @@
         },
         {
           "tag": "p",
-          "text": "Pode ser se você já faz com boa técnica."
+          "text": "Você pode trocar por se já faz com boa técnica."
         },
         {
           "tag": "strong",
@@ -165903,7 +165903,7 @@
         },
         {
           "tag": "p",
-          "text": "Pode ser se você já faz com boa técnica."
+          "text": "Você pode trocar por se já faz com boa técnica."
         },
         {
           "tag": "strong",
@@ -165996,7 +165996,7 @@
         },
         {
           "tag": "p",
-          "text": "Pode ser se você já faz com boa técnica."
+          "text": "Você pode trocar por se já faz com boa técnica."
         },
         {
           "tag": "strong",
@@ -167370,7 +167370,7 @@
         },
         {
           "tag": "span",
-          "text": "Optional. Stays on this device and doesn't change your program yet."
+          "text": "Optional. This answer stays on your device and does not change your program."
         },
         {
           "tag": "p",
@@ -167478,7 +167478,7 @@
         },
         {
           "tag": "span",
-          "text": "Optional. Stays on this device and doesn't change your program yet."
+          "text": "Optional. This answer stays on your device and does not change your program."
         },
         {
           "tag": "p",
@@ -167586,7 +167586,7 @@
         },
         {
           "tag": "span",
-          "text": "Opcional. Fica só neste dispositivo e ainda não muda o seu treino."
+          "text": "Opcional. Esta resposta fica neste dispositivo e não muda o seu treino."
         },
         {
           "tag": "p",
@@ -169274,7 +169274,7 @@
         },
         {
           "tag": "span",
-          "text": "Optional. Stays on this device. Used to work out the load of bodyweight exercises."
+          "text": "Optional. Your weight stays on this device and helps estimate loads for bodyweight exercises."
         },
         {
           "tag": "button",
@@ -170060,7 +170060,7 @@
         },
         {
           "tag": "span",
-          "text": "Optional. Stays on this device. Used to work out the load of bodyweight exercises."
+          "text": "Optional. Your weight stays on this device and helps estimate loads for bodyweight exercises."
         },
         {
           "tag": "button",
@@ -170846,7 +170846,7 @@
         },
         {
           "tag": "span",
-          "text": "Opcional. Fica só neste dispositivo. Usado para calcular a carga dos exercícios com o peso do corpo."
+          "text": "Opcional. Seu peso fica neste dispositivo e ajuda a calcular a carga dos exercícios com o peso do corpo."
         },
         {
           "tag": "button",
@@ -171700,7 +171700,7 @@
         },
         {
           "tag": "span",
-          "text": "Optional. Stays on this device. Used to work out the load of bodyweight exercises."
+          "text": "Optional. Your weight stays on this device and helps estimate loads for bodyweight exercises."
         },
         {
           "tag": "button",
@@ -172554,7 +172554,7 @@
         },
         {
           "tag": "span",
-          "text": "Optional. Stays on this device. Used to work out the load of bodyweight exercises."
+          "text": "Optional. Your weight stays on this device and helps estimate loads for bodyweight exercises."
         },
         {
           "tag": "button",
@@ -173408,7 +173408,7 @@
         },
         {
           "tag": "span",
-          "text": "Opcional. Fica só neste dispositivo. Usado para calcular a carga dos exercícios com o peso do corpo."
+          "text": "Opcional. Seu peso fica neste dispositivo e ajuda a calcular a carga dos exercícios com o peso do corpo."
         },
         {
           "tag": "button",
@@ -173999,7 +173999,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -174713,7 +174713,7 @@
         },
         {
           "tag": "p",
-          "text": "Could be if you already do it with good form."
+          "text": "You can swap in if you already do it with good form."
         },
         {
           "tag": "strong",
@@ -175427,7 +175427,7 @@
         },
         {
           "tag": "p",
-          "text": "Pode ser se você já faz com boa técnica."
+          "text": "Você pode trocar por se já faz com boa técnica."
         },
         {
           "tag": "strong",
