@@ -3663,6 +3663,8 @@
       ],
       "rationale": "One of the proof's five chapters: it moves the playing phone to its chapter without committing any state. Its progress line is the button's own bottom edge (a left rule from 900px) and the current chapter is marked by aria-current.",
       "owner": "plan-064/r2",
+      "sourceOnly": true,
+      "sourceOnlyReason": "from 900px only: the phone layout reaches each step through the title line's previous and next buttons (.firstrun-step-head__nav) and hides these rows, and the catalog captures phone frames. test/landing-variants.mjs and test/landing-features.mjs exercise the rows at the wide viewport.",
       "catalogStates": [
         "onboarding-shared/gate",
         "onboarding-shared/invalid",
@@ -3726,6 +3728,8 @@
       ],
       "rationale": "One of the landing's five feature tabs (owner, 2026-10-30): it moves the playing panel to its scene without committing any state. The current tab is aria-selected; its required boundary is the tab's own bottom edge (a left edge from 900px), over which its scene's progress fills.",
       "owner": "landing-features",
+      "sourceOnly": true,
+      "sourceOnlyReason": "from 900px only: the phone layout reaches each step through the title line's previous and next buttons (.firstrun-step-head__nav) and hides these rows, and the catalog captures phone frames. test/landing-variants.mjs and test/landing-features.mjs exercise the rows at the wide viewport.",
       "catalogStates": [
         "onboarding-shared/gate",
         "onboarding-shared/invalid",
