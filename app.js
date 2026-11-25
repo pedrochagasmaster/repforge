@@ -27194,6 +27194,23 @@ function createLandingController(root){
      where it is and jump it. Under reduced motion there is no clock: each chapter is a still and the chapters switch it. */
   const glass=root.querySelector(".firstrun-proof__device"),screen=root.querySelector("#firstRunDemo");
   const chapters=[...root.querySelectorAll("[data-landing-chapter]")];
+  /* On a phone both selectors are a sideways chip row. Above each sits its title line (the open step's name and a
+     "1 of 5" count, so the row reads as a set that scrolls), and under the chapters their open caption, copied from the
+     open row; the rows keep theirs for the wide page. Both follow the rows' `is-current` through one observer. */
+  [[root.querySelector(".firstrun-chapters"),".firstrun-chapter",".firstrun-chapter__title",".firstrun-chapter__text"],
+   [root.querySelector(".firstrun-feat__tabs"),".firstrun-feat__tab",".firstrun-feat__title",null]].forEach(([list,item,titleSel,textSel])=>{
+    if(!list||list.previousElementSibling?.classList.contains("firstrun-step-head"))return;
+    const head=document.createElement("div");head.className="firstrun-step-head";head.setAttribute("aria-hidden","true");
+    head.innerHTML=`<b class="firstrun-step-head__title"></b><span class="firstrun-step-head__count"></span>`;list.before(head);
+    let cap=null;if(textSel){cap=document.createElement("p");cap.className="firstrun-step-cap";cap.setAttribute("aria-hidden","true");list.after(cap)}
+    const sync=()=>{
+      const items=[...list.querySelectorAll(item)],i=Math.max(0,items.findIndex(el=>el.classList.contains("is-current")));
+      head.firstChild.textContent=items[i]?.querySelector(titleSel)?.textContent||"";
+      head.lastChild.textContent=t("landing.steps.count",{n:landingNum(i+1),total:landingNum(items.length)});
+      if(cap)cap.innerHTML=items[i]?.querySelector(textSel)?.innerHTML||"";
+      const chip=items[i]?.matches("button")?items[i]:items[i]?.querySelector("button");
+      if(chip&&list.scrollWidth>list.clientWidth+1)list.scrollTo({left:Math.max(0,chip.offsetLeft-list.offsetLeft-parseFloat(getComputedStyle(list).paddingLeft)),behavior:"auto"})};
+    const mo=new MutationObserver(sync);mo.observe(list,{subtree:true,attributes:true,attributeFilter:["class"],childList:true,characterData:true});reg.obs.push(mo);sync()});
   /* The clock is the demo's own: seconds summed from the frames' timestamps, each step clamped to 0–50ms and the
      first frame after a (re)start counted as 0, so it never reads another clock and never runs backwards. */
   const play={t:0,raf:0,last:null,seen:false,current:-1,held:false};
