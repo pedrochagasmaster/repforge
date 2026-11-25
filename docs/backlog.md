@@ -19,6 +19,8 @@ The only list of open, deferred and paused work. Order is top to bottom within e
 - Validate temporary equipment contexts through one-offs: exact available equipment, compatible substitutions and fewer equipment changes; measure repeated switching before adding persistent gyms.
 - Collect alpha data on unsupported import concepts; categorical measurement shipped in #255, and executable grammar expansion waits for evidence of blocked adoption.
 - [Plan 085](../plans/085-warmups-partials.md): suggested warm-ups that learn from saved workouts and partial reps after 0 reps left. Preserve working-set slots and full-rep progression. Policy and EN/PT copy approved 2026-11-21; slices #804 (merged), #805 and the Prelude slice in progress.
+- Coach summary share (owner, 2026-11-25): a lifter-initiated "send my block summary to my coach" as a file or text share, one-way and user-initiated like setup links; no coach view or sync. Synthetic panel signal only ([report](evals/synthetic-panel-2026-11-21/report.md)): all coach and coached-lifter personas asked for log visibility; validate with alpha coaches before building.
+- Exercise guidance for the 174 movements without an illustration (owner, 2026-11-25): decide between more licensed illustrations, a short text cue, or nothing; beginners and casual users asked for it in the synthetic panel. Builds on the illustration-style item below.
 
 ## Bugs after alpha
 
@@ -37,6 +39,7 @@ The only list of open, deferred and paused work. Order is top to bottom within e
 - Entitlements: record the provider, Pix/card, expiry, restoration, cancellation, refunds, reconciliation and no-clawback behavior in an ADR before funnel work; requires working Pro capabilities.
 - Your profile paywall design: the owner's post-alpha choice; everything stays Free in alpha, and payment, lapse or refusal never changes saved evidence or ring fill.
 - Paid beta: offer R$24.90/month and R$179.90/year only after all three Pro jobs and the full commerce lifecycle work; distinguish paid, attempted and research access.
+- Pro proposition input (owner, 2026-11-25): in the synthetic panel Pro read as vague and unbuilt (137 of 200 "definitely not"); audiences that already own a program saw no value in program generation, and the most willing audience asked for weekly set volume per muscle that adapts to recovery. Hypotheses for the post-alpha Pro decision, not evidence; see [the panel report](evals/synthetic-panel-2026-11-21/report.md).
 
 ## After paid-beta economics
 
@@ -44,7 +47,7 @@ The only list of open, deferred and paused work. Order is top to bottom within e
 - Cross-program dashboards: add comparisons only when multi-program history and renewal evidence show a useful question.
 - Multi-block planning: preserve bounded user-approved changes; requires cross-program evidence and demand.
 - Optional sync: core training and record ownership stay independent of the server; requires a demonstrated multi-device or durability problem.
-- Native shell: retain the tested web core and add native persistence, billing, lifecycle, notifications and links only when retention, monetization or measured PWA limits justify it.
+- Native shell: retain the tested web core and add native persistence, billing, lifecycle, notifications and links only when retention, monetization or measured PWA limits justify it. Synthetic panel input (owner, 2026-11-25): nearly every persona read "not in an app store" as a trust and permanence problem; record it as evidence to weigh, not a trigger.
 - Creator publishing conveniences, larger pilots and paid acquisition: wait for retention and monetization evidence.
 
 ## Later / evidence-only

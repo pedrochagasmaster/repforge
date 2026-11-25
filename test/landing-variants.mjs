@@ -26,6 +26,7 @@
  * LANDING_RASTER_FAULT=1 restores the demo ledger's old permanent layer hint.
  * LANDING_VARIANTS_ONLY=capture isolates the full-viewport camera-history proof;
  * with the fault it must fail on the ledger glyphs, without it the held frames must be identical.
+ * LANDING_VARIANTS_ONLY=ground isolates the proof that opening an answer re-reads the dock's ground.
  *
  * Also always on, and Node-only: the engine-truth oracle. The proof's case is
  * evaluated here with the adaptive engine (progression-engine.js recommendSets)
@@ -968,9 +969,9 @@ async function finalPage(browser) {
   {
     const { context, page, errors } = await landingPage(browser, { lang: "en" });
     const open = await page.evaluate(proofState);
-    // observers: the dock's three (the hero, the close and the stages' band), the status-bar band's one, the player's
-    // resize and visibility watchers, and the feature tabs' two
-    assert(open?.open && open.listeners > 0 && open.observers === 8 && !open.playing && !open.featurePlaying,
+    // observers: the dock's four (the hero, the close, the stages' band and the page's height), the status-bar band's
+    // one, the player's resize and visibility watchers, and the feature tabs' two
+    assert(open?.open && open.listeners > 0 && open.observers === 9 && !open.playing && !open.featurePlaying,
       "opening the landing mounts the controller; the proof below the fold is not playing", JSON.stringify(open));
     const at = await page.evaluate(chapterState);
     assert(at.devices === 1 && at.screen && at.count === 5 && at.current.length === 1 && at.current[0] === 0 && at.captions === 1,
@@ -1468,6 +1469,57 @@ async function dockFocusRing(browser) {
   }
 }
 
+/* Opening an answer moves the bands under the dock without a scroll (#831's CI: onboarding-start/first-run-faq-open
+   [pt/dark] measured the ring at 1.03:1). The orange closing band sits under the dock, so the dock reads a light
+   ground and takes the dark ring; the last answer then opens in place and pushes that band down, and the dock must
+   read the FAQ's dark ground again instead of keeping a dark ring on it. */
+async function dockGroundAfterAnswer(browser) {
+  phase("Persistent Build control: opening an answer re-reads the ground beneath the dock");
+  const { context, page } = await landingPage(browser, { lang: "pt", theme: "dark", reducedMotion: true });
+  try {
+    await scrollLanding(page, '#firstRun [data-landing-section="proof"]');
+    const before = await page.evaluate(async () => {
+      const root = document.querySelector("#firstRun"), dock = document.querySelector("#firstRunDock");
+      const band = document.querySelector('[data-landing-section="close"]');
+      // The dock may still be off screen here, so its resting top is read from its fixed position, not its box.
+      const restingTop = innerHeight - parseFloat(getComputedStyle(dock).bottom) - dock.offsetHeight;
+      root.scrollTop += band.getBoundingClientRect().top - (restingTop - 24);
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      return { on: dock.classList.contains("is-on"), ground: dock.dataset.ground || null };
+    });
+    assert(before.on && before.ground === "light", "the dock reads the orange closing band beneath it as a light ground", JSON.stringify(before));
+    const after = await page.evaluate(async () => {
+      const root = document.querySelector("#firstRun"), dock = document.querySelector("#firstRunDock");
+      const cta = document.querySelector("#firstRunCreateDock");
+      const scrollTop = root.scrollTop;
+      const items = document.querySelectorAll('[data-landing-section="faq"] details.firstrun-qa');
+      items[items.length - 1].open = true;
+      // Two frames for the toggle and any frame the app schedules, then a margin for a slow runner.
+      for (let i = 0; i < 2; i++) await new Promise((resolve) => requestAnimationFrame(resolve));
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      const box = cta.getBoundingClientRect(), band = document.querySelector('[data-landing-section="close"]').getBoundingClientRect();
+      cta.focus({ focusVisible: true });
+      let behind = null;
+      for (const hit of document.elementsFromPoint(box.left + box.width / 2, box.bottom + 4)) {
+        if (dock.contains(hit)) continue;
+        for (let node = hit; node && node !== document.documentElement; node = node.parentElement) {
+          const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?/.exec(getComputedStyle(node).backgroundColor);
+          if (m && (m[4] === undefined || +m[4] > 0.5)) { behind = [+m[1], +m[2], +m[3]]; break; }
+        }
+        if (behind) break;
+      }
+      const ring = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(getComputedStyle(cta).outlineColor);
+      return { scrolled: root.scrollTop !== scrollTop, on: dock.classList.contains("is-on"), ground: dock.dataset.ground || null,
+        bandBelowDock: band.top > box.bottom + 8, behind, ring: ring ? [+ring[1], +ring[2], +ring[3]] : null };
+    });
+    assert(!after.scrolled && after.on && after.bandBelowDock,
+      "the answer opens in place and pushes the orange band below the visible dock", JSON.stringify(after));
+    const ratio = after.ring && after.behind ? contrastRatio(after.ring, after.behind) : 0;
+    assert(after.ground === "dark" && ratio >= RING_MIN,
+      `the dock re-reads the FAQ's dark ground, and its ring reads ${ratio.toFixed(2)}:1 against it`, JSON.stringify(after));
+  } finally { await context.close(); }
+}
+
 // Hold the real exit transition after the observer has acknowledged the hero's return.
 async function heldDockExit(browser) {
   phase("Dock acknowledgement: a removed class can still be visibly transitioning");
@@ -1606,6 +1658,11 @@ async function main() {
   copyPins();
   const browser = await launchChromium();
   try {
+    if (process.env.LANDING_VARIANTS_ONLY === "ground") {
+      await dockGroundAfterAnswer(browser);
+      if (results.failed) throw new Error("dock ground proof failed");
+      return;
+    }
     await peerActions(browser);
     if (process.env.LANDING_VARIANTS_ONLY === "peers") {
       if (results.failed) throw new Error("peer actions proof failed");
@@ -1625,6 +1682,7 @@ async function main() {
     await characterize(browser);
     await finalPage(browser);
     await dockFocusRing(browser);
+    await dockGroundAfterAnswer(browser);
   } finally {
     await browser.close();
   }
