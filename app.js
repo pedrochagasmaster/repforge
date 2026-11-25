@@ -27180,14 +27180,6 @@ function createLandingController(root){
      where it is and jump it. Under reduced motion there is no clock: each chapter is a still and the chapters switch it. */
   const glass=root.querySelector(".firstrun-proof__device"),screen=root.querySelector("#firstRunDemo");
   const chapters=[...root.querySelectorAll("[data-landing-chapter]")];
-  /* The chapters' captions read from one row under the chips (a phone scrolls the chips sideways, the caption stays
-     put), so they move once into a caption block after the list; each keeps its chapter's index. */
-  const chapterList=root.querySelector(".firstrun-chapters");
-  if(chapterList&&!root.querySelector(".firstrun-chapter-caps")){
-    const caps=document.createElement("div");caps.className="firstrun-chapter-caps";
-    chapters.forEach((item,i)=>{const text=item.querySelector(".firstrun-chapter__text");if(text){text.dataset.chapterText=String(i);caps.append(text)}});
-    chapterList.after(caps)}
-  const chapterTexts=[...root.querySelectorAll("[data-chapter-text]")];
   /* The clock is the demo's own: seconds summed from the frames' timestamps, each step clamped to 0–50ms and the
      first frame after a (re)start counted as 0, so it never reads another clock and never runs backwards. */
   const play={t:0,raf:0,last:null,seen:false,current:-1,held:false};
@@ -27200,7 +27192,6 @@ function createLandingController(root){
       play.current=at;
       chapters.forEach((item,i)=>{
         item.classList.toggle("is-current",i===at);item.classList.toggle("is-done",i<at&&!still);
-        chapterTexts[i]?.classList.toggle("is-current",i===at);
         const go=item.querySelector("[data-chapter]");if(i===at)go.setAttribute("aria-current","step");else go.removeAttribute("aria-current")})}
     chapters.forEach((item,i)=>item.style.setProperty("--chapter-progress",i===at?String(Math.round(share*1000)/1000):i<at&&!still?"1":"0"))}
   function paint(time){
@@ -27324,9 +27315,8 @@ function createLandingController(root){
     // whose root box is the band the control takes at the foot of the screen, and any stage in that band sends the
     // control away until it leaves. The band follows the screen's size, so a resize rebuilds it.
     const stages=[...root.querySelectorAll("[data-landing-stage]")],under=new Set();
-    // A stage only sends the control away where it floats at the screen's foot; as the wide page's top bar it stays.
-    const atTop=()=>getComputedStyle(dock).getPropertyValue("--firstrun-dock-at").trim()==="top";
-    const paint=()=>dock.classList.toggle("is-on",gone&&!closing&&(!under.size||atTop()));
+    // The control stays on from the end of the hero to the closing band: stepping aside for each stage read as flicker.
+    const paint=()=>dock.classList.toggle("is-on",gone&&!closing);
     let band=null;
     const watchBand=()=>{
       band?.disconnect();under.clear();
