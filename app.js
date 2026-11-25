@@ -27196,9 +27196,9 @@ function createLandingController(root){
      where it is and jump it. Under reduced motion there is no clock: each chapter is a still and the chapters switch it. */
   const glass=root.querySelector(".firstrun-proof__device"),screen=root.querySelector("#firstRunDemo");
   const chapters=[...root.querySelectorAll("[data-landing-chapter]")];
-  /* On a phone both selectors are a stories rail (their row lists are hidden there): a title line with the open
-     step's name, a "1 of 5" count and previous/next buttons; a rail of five straight bars (past in ink, the open one
-     orange, the rest a hairline), each a button; and, under the chapters, the open caption copied from its row. Every
+  /* On a phone both selectors are a title line (their row lists are hidden there): the open
+     step's name, a "1 of 5" count and previous/next buttons right above the picture; and, under the phone, the open
+     caption copied from its row. Every
      control here presses the row's own button, so the player, the panel and the telemetry see one input. */
   [[root.querySelector(".firstrun-chapters"),".firstrun-chapter",".firstrun-chapter__title",".firstrun-chapter__text"],
    [root.querySelector(".firstrun-feat__tabs"),".firstrun-feat__tab",".firstrun-feat__title",null]].forEach(([list,item,titleSel,textSel])=>{
@@ -27208,19 +27208,17 @@ function createLandingController(root){
     head.innerHTML=`<b class="firstrun-step-head__title" aria-hidden="true"></b><span class="firstrun-step-head__count" aria-hidden="true"></span>`+
       `<button type="button" class="firstrun-step-head__nav" data-step-nav="-1" aria-label="${esc(t("landing.steps.prev"))}"><span aria-hidden="true">\u2039</span></button>`+
       `<button type="button" class="firstrun-step-head__nav" data-step-nav="1" aria-label="${esc(t("landing.steps.next"))}"><span aria-hidden="true">\u203A</span></button>`;
-    const rail=document.createElement("div");rail.className="firstrun-step-rail";
-    rail.innerHTML=items.map((el,k)=>`<button type="button" class="firstrun-step-rail__seg" data-step="${k}" aria-label="${esc(el.querySelector(titleSel)?.textContent||"")}"><i></i></button>`).join("");
-    list.before(head,rail);
-    let cap=null;if(textSel){cap=document.createElement("p");cap.className="firstrun-step-cap";cap.setAttribute("aria-hidden","true");rail.after(cap)}
+    list.before(head);
+    let cap=null;if(textSel){cap=document.createElement("p");cap.className="firstrun-step-cap";cap.setAttribute("aria-hidden","true");list.after(cap)}
     const current=()=>Math.max(0,items.findIndex(el=>el.classList.contains("is-current")));
-    on(head,"click",e=>{const nav=e.target.closest("[data-step-nav]");if(nav)press((current()+Number(nav.dataset.stepNav)+items.length)%items.length)});
-    on(rail,"click",e=>{const seg=e.target.closest("[data-step]");if(seg)press(Number(seg.dataset.step))});
+    // The manual arrows stop at the ends (the player's own loop still wraps).
+    on(head,"click",e=>{const nav=e.target.closest("[data-step-nav]");if(!nav||nav.getAttribute("aria-disabled")==="true")return;
+      const to=current()+Number(nav.dataset.stepNav);if(to>=0&&to<items.length)press(to)});
     const sync=()=>{
       const i=current();
       head.firstChild.textContent=items[i]?.querySelector(titleSel)?.textContent||"";
       head.children[1].textContent=t("landing.steps.count",{n:landingNum(i+1),total:landingNum(items.length)});
-      [...rail.children].forEach((seg,k)=>{seg.classList.toggle("is-past",k<i);seg.classList.toggle("is-current",k===i);
-        if(k===i)seg.setAttribute("aria-current","step");else seg.removeAttribute("aria-current")});
+      head.querySelectorAll("[data-step-nav]").forEach(nav=>{const end=Number(nav.dataset.stepNav)<0?i===0:i===items.length-1;nav.setAttribute("aria-disabled",String(end))});
       if(cap)cap.innerHTML=items[i]?.querySelector(textSel)?.innerHTML||""};
     const mo=new MutationObserver(sync);mo.observe(list,{subtree:true,attributes:true,attributeFilter:["class"],childList:true,characterData:true});reg.obs.push(mo);sync()});
   /* The clock is the demo's own: seconds summed from the frames' timestamps, each step clamped to 0–50ms and the
