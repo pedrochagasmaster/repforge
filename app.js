@@ -26467,10 +26467,12 @@ function layoutLandingDemo(d){
   if(crop){
     const sc=d.root.getBoundingClientRect(),k0=sc.width/d.root.offsetWidth||1;
     const end=d.root.querySelector(crop==="fields"?".firstrun-demo__fields":crop==="row1"?".firstrun-demo__row":".firstrun-demo__next");
-    const top=24,bottom=end?(end.getBoundingClientRect().bottom-sc.top)/k0+(crop==="fields"?6:crop==="row1"?4:16):d.root.offsetHeight;
-    const k=d.frame.clientWidth/d.root.offsetWidth;
+    const css=getComputedStyle(d.frame),inset=parseFloat(css.getPropertyValue("--proof-crop-inset"))||0,pad=parseFloat(css.getPropertyValue("--proof-crop-pad"));
+    const top=24,bottom=end?(end.getBoundingClientRect().bottom-sc.top)/k0+(Number.isFinite(pad)?pad:crop==="fields"?6:crop==="row1"?4:16):d.root.offsetHeight;
+    // An inset frames the screen without its side gutters, so a phone-width frame shows the screen's text a size larger.
+    const w=d.root.offsetWidth-2*inset,k=d.frame.clientWidth/w;
     d.frame.style.height=`${Math.round((bottom-top)*k)}px`;
-    cropShot={x:d.glass.offsetLeft+d.rig.clientLeft,y:d.glass.offsetTop+d.rig.clientTop+top,w:d.root.offsetWidth,h:bottom-top}}
+    cropShot={x:d.glass.offsetLeft+d.rig.clientLeft+inset,y:d.glass.offsetTop+d.rig.clientTop+top,w,h:bottom-top}}
   else d.frame.style.removeProperty("height");
   const view={w:d.frame.clientWidth,h:d.frame.clientHeight},glassX=d.glass.offsetLeft+d.rig.clientLeft,glassY=d.glass.offsetTop+d.rig.clientTop;
   // A frame of 400px or more (the desktop's) shows the phone's whole width, still at reading size.
@@ -27194,22 +27196,32 @@ function createLandingController(root){
      where it is and jump it. Under reduced motion there is no clock: each chapter is a still and the chapters switch it. */
   const glass=root.querySelector(".firstrun-proof__device"),screen=root.querySelector("#firstRunDemo");
   const chapters=[...root.querySelectorAll("[data-landing-chapter]")];
-  /* On a phone both selectors are a sideways chip row. Above each sits its title line (the open step's name and a
-     "1 of 5" count, so the row reads as a set that scrolls), and under the chapters their open caption, copied from the
-     open row; the rows keep theirs for the wide page. Both follow the rows' `is-current` through one observer. */
+  /* On a phone both selectors are a stories rail (their row lists are hidden there): a title line with the open
+     step's name, a "1 of 5" count and previous/next buttons; a rail of five straight bars (past in ink, the open one
+     orange, the rest a hairline), each a button; and, under the chapters, the open caption copied from its row. Every
+     control here presses the row's own button, so the player, the panel and the telemetry see one input. */
   [[root.querySelector(".firstrun-chapters"),".firstrun-chapter",".firstrun-chapter__title",".firstrun-chapter__text"],
    [root.querySelector(".firstrun-feat__tabs"),".firstrun-feat__tab",".firstrun-feat__title",null]].forEach(([list,item,titleSel,textSel])=>{
     if(!list||list.previousElementSibling?.classList.contains("firstrun-step-head"))return;
-    const head=document.createElement("div");head.className="firstrun-step-head";head.setAttribute("aria-hidden","true");
-    head.innerHTML=`<b class="firstrun-step-head__title"></b><span class="firstrun-step-head__count"></span>`;list.before(head);
-    let cap=null;if(textSel){cap=document.createElement("p");cap.className="firstrun-step-cap";cap.setAttribute("aria-hidden","true");list.after(cap)}
+    const items=[...list.querySelectorAll(item)],press=k=>{const el=items[k];(el?.matches("button")?el:el?.querySelector("button"))?.click()};
+    const head=document.createElement("div");head.className="firstrun-step-head";
+    head.innerHTML=`<b class="firstrun-step-head__title" aria-hidden="true"></b><span class="firstrun-step-head__count" aria-hidden="true"></span>`+
+      `<button type="button" class="firstrun-step-head__nav" data-step-nav="-1" aria-label="${esc(t("landing.steps.prev"))}"><span aria-hidden="true">\u2039</span></button>`+
+      `<button type="button" class="firstrun-step-head__nav" data-step-nav="1" aria-label="${esc(t("landing.steps.next"))}"><span aria-hidden="true">\u203A</span></button>`;
+    const rail=document.createElement("div");rail.className="firstrun-step-rail";
+    rail.innerHTML=items.map((el,k)=>`<button type="button" class="firstrun-step-rail__seg" data-step="${k}" aria-label="${esc(el.querySelector(titleSel)?.textContent||"")}"><i></i></button>`).join("");
+    list.before(head,rail);
+    let cap=null;if(textSel){cap=document.createElement("p");cap.className="firstrun-step-cap";cap.setAttribute("aria-hidden","true");rail.after(cap)}
+    const current=()=>Math.max(0,items.findIndex(el=>el.classList.contains("is-current")));
+    on(head,"click",e=>{const nav=e.target.closest("[data-step-nav]");if(nav)press((current()+Number(nav.dataset.stepNav)+items.length)%items.length)});
+    on(rail,"click",e=>{const seg=e.target.closest("[data-step]");if(seg)press(Number(seg.dataset.step))});
     const sync=()=>{
-      const items=[...list.querySelectorAll(item)],i=Math.max(0,items.findIndex(el=>el.classList.contains("is-current")));
+      const i=current();
       head.firstChild.textContent=items[i]?.querySelector(titleSel)?.textContent||"";
-      head.lastChild.textContent=t("landing.steps.count",{n:landingNum(i+1),total:landingNum(items.length)});
-      if(cap)cap.innerHTML=items[i]?.querySelector(textSel)?.innerHTML||"";
-      const chip=items[i]?.matches("button")?items[i]:items[i]?.querySelector("button");
-      if(chip&&list.scrollWidth>list.clientWidth+1)list.scrollTo({left:Math.max(0,chip.offsetLeft-list.offsetLeft-parseFloat(getComputedStyle(list).paddingLeft)),behavior:"auto"})};
+      head.children[1].textContent=t("landing.steps.count",{n:landingNum(i+1),total:landingNum(items.length)});
+      [...rail.children].forEach((seg,k)=>{seg.classList.toggle("is-past",k<i);seg.classList.toggle("is-current",k===i);
+        if(k===i)seg.setAttribute("aria-current","step");else seg.removeAttribute("aria-current")});
+      if(cap)cap.innerHTML=items[i]?.querySelector(textSel)?.innerHTML||""};
     const mo=new MutationObserver(sync);mo.observe(list,{subtree:true,attributes:true,attributeFilter:["class"],childList:true,characterData:true});reg.obs.push(mo);sync()});
   /* The clock is the demo's own: seconds summed from the frames' timestamps, each step clamped to 0–50ms and the
      first frame after a (re)start counted as 0, so it never reads another clock and never runs backwards. */
