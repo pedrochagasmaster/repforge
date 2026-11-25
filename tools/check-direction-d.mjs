@@ -610,7 +610,8 @@ function catalogMatchers(dictionary) {
         .replace(/\\\{\w+\\\}/g, number);
       const methods = Object.entries(dictionary).filter(([name]) => name === "program.progression.adaptive"
         || name.startsWith("program.progression.strategy.")).map(([, label]) => escape(String(label)));
-      patterns.push(new RegExp(`^${line} · (?:${methods.join("|")})$`, "iu"));
+      // An adaptive slot's line ends at the effort window; other strategies still name themselves.
+      patterns.push(new RegExp(`^${line}(?: · (?:${methods.join("|")}))?$`, "iu"));
     }
     for (const segment of String(value).split(/<[^>]*>/)) {
       const normal = segment.replace(/\s+/g, " ").trim();
@@ -634,6 +635,8 @@ export function checkStrings(evidence, catalog) {
 
   const dataStrings = [...new Set(evidence.data.strings)].sort((a, b) => b.length - a.length);
   const dataPattern = dataStrings.length ? new RegExp(dataStrings.map((value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|"), "giu") : null;
+  const spanning = dataStrings.filter((value) => /[·•|,;:()[\]+×–]|\s-\s/u.test(value) && /\p{L}/u.test(value));
+  const spanningPattern = spanning.length ? new RegExp(spanning.map((value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|"), "gu") : null;
   const dateWords = new Set(evidence.data.dateWords.flatMap((word) => word.toLowerCase().replace(/\./g, "").split(/\s+/)));
   // "k" is the thousands suffix of a figure ("14,3k kg moved"), not a word.
   const unitWords = new Set(["kg", "lb", "k"]);
@@ -661,7 +664,10 @@ export function checkStrings(evidence, catalog) {
     if (sentences.length > 1 && sentences.every(sentence => matchers.some(pattern => pattern.test(sentence)))) return true;
     // Keep exact catalog fragments intact before removing arbitrary raw data strings. A
     // recorded value such as "Reps" can also be part of approved copy such as "Reps por lado".
-    const protectedParts = whole.split(/(\s*[·•|,;:()[\]+×–]\s*|\s+-\s+)/u);
+    // A recorded value that spans a separator (a lifter's day name "Dia 2 · misto") is removed whole
+    // first: once split, a leading catalog fragment ("Dia 2") would be protected and its tail orphaned.
+    const unsplit = spanningPattern ? whole.replace(spanningPattern, " ") : whole;
+    const protectedParts = unsplit.split(/(\s*[·•|,;:()[\]+×–]\s*|\s+-\s+)/u);
     for (let index = 0; index < protectedParts.length; index += 2) {
       const part = protectedParts[index];
       const leading = /^\s*/u.exec(part)[0];

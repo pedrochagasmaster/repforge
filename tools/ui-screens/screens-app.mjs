@@ -12,10 +12,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { buildProgramLab } from "../build-programlab.mjs";
 import { maybeStartLocalPreview } from "../local-preview.mjs";
-import { catalogState, directionDState, emptyEntryState, localeState } from "./fixtures.mjs";
+import { catalogState, directionDState, emptyEntryState, lifterExerciseNote, localeState, pastZeroState, portugueseLifterState } from "./fixtures.mjs";
 import { CAPTURE_NOW, dismissChrome, LOG_DRAFT, replayGuide, seed, sleep } from "./session.mjs";
 import { definitionSlot, installGeneratedProgram, isWeightRepsSlot, metricLogRow } from "../../test/fixtures/history-metric-rows.mjs";
 import { finishEarly } from "../../test/fixtures/focus-workout.mjs";
+import { savedAfterLeadSessions, savedWarmupSession } from "../../test/fixtures/prelude-sessions.mjs";
 import { openShelfField } from "../../test/browser.mjs";
 import { DIRECTION_D_CANONICAL_ID_BY_LEGACY_ID } from "./direction-d-canonical-fixture.generated.mjs";
 
@@ -350,12 +351,16 @@ export const DIRECTION_D_SUMMARY_SESSION = Object.freeze({
   "session/summary-share-photo": "dd-2026-08-31-day1",
   "session/summary-share-edit": "dd-2026-08-31-day1",
   "session/summary-share-line": "dd-2026-08-31-day1",
+  "session/summary-backup": "dd-2026-08-31-day1",
 });
-function directionDThroughSession(sessionId) {
+/* The lifter backed up that morning, so the finish screen offers no backup copy (Packet E); only
+   session/summary-backup draws the screen with a copy due. */
+function directionDThroughSession(sessionId, { backupDue = false } = {}) {
   const state = directionDState();
   const date = state.log.find((row) => row.session === sessionId)?.date;
   if (!date) throw new Error(`The Direction D fixture has no session ${sessionId}`);
   state.log = state.log.filter((row) => String(row.date) <= date);
+  state.settings.lastExport = backupDue ? "" : `${date}T00:00:00.000Z`;
   return state;
 }
 
@@ -466,6 +471,8 @@ function profileFinishState(event,lang){
   if(state.program.length!==4)throw new Error("profile finish requires four comparable lifts");
   state.program=[state.program[1],state.program[2],state.program[3],state.program[0]];
   state.log=[];
+  // Backed up at the capture moment, so the finish screen offers no backup copy (Packet E).
+  state.settings.lastExport=CAPTURE_NOW;
   const date=age=>new Date(Date.parse(CAPTURE_NOW)-age*864e5).toISOString().slice(0,10);
   for(const [index,ex] of state.program.entries()){
     const featured=index===2,ages=featured&&event==="solid"?[3]:Array.from({length:15},(_,i)=>45-i*3);
@@ -479,7 +486,14 @@ function profileFinishState(event,lang){
   }
   return state;
 }
+/** A Portuguese frame draws what a Portuguese lifter's device holds (see portugueseLifterState). */
 export function appState(key, lang) {
+  const state = appStateFor(key, lang);
+  return lang === "pt" ? portugueseLifterState(state) : state;
+}
+function appStateFor(key, lang) {
+  if (key.includes("/past-zero")) return pastZeroState(lang, !key.startsWith("workout/"));
+  if (key.startsWith("workout/prelude")) return pastZeroState(lang, false);
   if(key.startsWith("session/profile-finish-"))return profileFinishState(key.slice("session/profile-finish-".length),lang);
   if(key==="today/profile")return wellTailoredProfileState(lang);
   if (["today/profile-first", "today/profile-scope", "progress/profile-reader", "progress/profile-scope"].includes(key)) {
@@ -521,7 +535,7 @@ export function appState(key, lang) {
     state.log = withTestSets(state.log);
     return localeState(state, lang);
   }
-  if (DIRECTION_D_SUMMARY_SESSION[key]) return localeState(directionDThroughSession(DIRECTION_D_SUMMARY_SESSION[key]), lang);
+  if (DIRECTION_D_SUMMARY_SESSION[key]) return localeState(directionDThroughSession(DIRECTION_D_SUMMARY_SESSION[key], { backupDue: key === "session/summary-backup" }), lang);
   if (key.startsWith("progress/sibling-") || key === "progress/volume-reduction-preview" ||
       ["progress/recovery-ineligible","progress/recovery-questions","progress/recovery-preview","progress/recovery-active","progress/recovery-reassessment"].includes(key)) {
     return emptyEntryState(lang);
@@ -748,6 +762,122 @@ async function focusMode(page) {
   await enterWorkout(page, first ? { day: first } : {});
 }
 
+/** The Focus card scrolls its open set into view after a shelf change. At large text that can leave the card itself
+ *  (which does not scroll by design; its context does) a sub-pixel 0 or 1 px down, so the same state lands 2 px
+ *  apart between runs. Return the card to 0 and wait until the context scroll stops. */
+async function focusScrollSettled(page) {
+  await page.evaluate(() => {
+    const card = document.querySelector("#workout .exercise.is-current:not(.is-peek)");
+    if (card) card.scrollTop = 0;
+  });
+  await page.waitForFunction(() => {
+    const box = document.querySelector("#workout .exercise.is-current:not(.is-peek) .fcard__context");
+    const top = box ? box.scrollTop : -1, now = performance.now();
+    const memo = window.__catalogFocusScroll;
+    if (!memo || memo.top !== top) { window.__catalogFocusScroll = { top, since: now }; return false; }
+    return now - memo.since >= 250;
+  }, undefined, { polling: "raf", timeout: 10000 });
+  await page.evaluate(() => { delete window.__catalogFocusScroll; });
+}
+
+async function pastZeroFocus(page, state) {
+  await focusMode(page);
+  await fillAdaptiveShelf(page, ADAPTIVE_WEIGHT_METRIC_ID, 105);
+  await fillAdaptiveShelf(page, ADAPTIVE_REPS_METRIC_ID, 6);
+  const active = page.locator("#workout .exercise.is-current:not(.is-peek)");
+  await active.locator('[data-shelf-field="rir"]').click();
+  await active.locator('[data-effchip][data-e="0"]').click();
+  const chips = active.locator("[data-partial-chip]");
+  await chips.first().waitFor();
+  if (state === "zero") return focusScrollSettled(page);
+  await active.locator('[data-partial-chip="3"]').click();
+  await active.locator('[data-partial-chip="3"][aria-pressed="true"]').waitFor();
+  if (state === "selected") return focusScrollSettled(page);
+  await active.locator(".saveset").click();
+  const logged = active.locator('[data-editn="1"] .partial-reps').first();
+  await logged.waitFor({ state: "attached", timeout: 7500 });
+  if (state === "ledger") {
+    await openFoldedSets(page);
+    await logged.scrollIntoViewIfNeeded();
+  }
+  if (state === "why") {
+    await active.locator(".fx-cue__why").click();
+    await page.locator("#whySheet.is-open").waitFor();
+  }
+}
+
+/* Plan 085 Prelude: the same squat the Past zero states use, with the history each warm-up state reads. */
+async function preludeFocus(page, state) {
+  await focusMode(page);
+  const active = page.locator("#workout .exercise.is-current:not(.is-peek)");
+  const exId = await active.getAttribute("data-ex");
+  const history = {
+    learned: [[[20, 10], [50, 5], [70, 3], [90, 1]], [[20, 10], [50, 5], [70, 3], [90, 1]]],
+    suppressed: [null, null, null],
+  }[state];
+  const otherId = await page.evaluate(() => window.__repforgeWorkoutDraft.current().exerciseOrder[1]);
+  for (const [index, steps] of (history || []).entries()) {
+    await savedWarmupSession(page, { exId, id: `prelude-${state}-${index}`, daysAgo: 6 - index, steps: steps || [], skip: !steps });
+  }
+  if (state === "warm") {
+    for (const index of [0, 1]) await savedAfterLeadSessions(page, { exId, otherId, replacementName: "45° leg press", id: `prelude-warm-${index}`, daysAgo: 6 - index, feeler: [70, 3] });
+  }
+  if (history || state === "warm") {
+    // A fresh workout, so today's suggestions come from the history just saved (the first set and the hero agree).
+    const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("repforge_v1")));
+    await seed(page, saved);
+    await focusMode(page);
+  }
+  if (state === "warm") {
+    // The lead lift is done first today: a leg press set, ten minutes before the squat.
+    await page.evaluate(async ({ otherId, exId }) => {
+      const api = window.__repforgeWorkoutDraft, replacement = window.RepForgeExerciseCatalog.snapshot().exercises.find((entry) => entry.name === "45° leg press");
+      const squat = api.current().exercises[exId];
+      await api.dispatch("substituteExercise", { exerciseInstanceId: otherId, selectedAt: new Date().toISOString(),
+        replacement: { exerciseInstanceId: otherId, sourceExerciseId: api.current().exercises[otherId].sourceExerciseId, displayName: replacement.name, libraryId: replacement.id, primary: squat.programmed.primary, secondary: "" } });
+      const setId = api.current().exercises[otherId].setOrder[0], at = { exerciseInstanceId: otherId, setId };
+      for (const metric of api.current().exercises[otherId].sets[setId].programmed.metrics) await api.dispatch("editMetricValue", { ...at, metricId: metric.id, value: metric.semantic === "reps" ? "10" : "120" });
+      await api.dispatch("editSetField", { ...at, field: "rir", value: "1" });
+      await api.dispatch("completeSet", { ...at, completedAt: new Date(Date.now() - 10 * 60000).toISOString() });
+      await api.flush();
+      renderWorkout();
+    }, { otherId, exId });
+  }
+  const cue = active.locator(".fx-cue--warm");
+  if (state === "suppressed") {
+    await active.locator(".fx-prelude-none").waitFor();
+    return;
+  }
+  await cue.waitFor({ timeout: 8000 }).catch(async (error) => {
+    const why = await page.evaluate((id) => { const s = warmupSuggest(sessionExercise(prog.find(id))); return s && { reason: s.result.reason, evidence: s.result.evidence, work: s.workLoadKg, kind: s.equipmentKind }; }, exId);
+    throw new Error(`no warm-up cue: ${JSON.stringify(why)} ${error.message}`);
+  });
+  if (state === "why") {
+    await cue.locator(".fx-cue__why").click();
+    await page.locator("#whySheet.is-open").waitFor();
+    return;
+  }
+  const log = async () => {
+    await active.locator(".saveset").click();
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+  };
+  if (state === "rest" || state === "summary" || state === "tie") {
+    await log();
+    await page.locator("#restTab").waitFor();
+  }
+  if (state === "summary" || state === "tie") {
+    while (await active.locator(".fx-cue--warm").count()) await log();
+    await active.locator(".ledgerline--warmup").waitFor();
+  }
+  if (state === "tie") {
+    await active.locator('[data-shelf-field="rir"]').click();
+    await active.locator('[data-effchip][data-e="0"]').click();
+    await active.locator('[data-partial-chip="3"]').click();
+    await active.locator(".saveset").click();
+    await active.locator('[data-editn="1"] .partial-reps').first().waitFor({ state: "attached", timeout: 7500 });
+  }
+}
+
 async function openTransferState(page, state) {
   await page.evaluate((name) => window.__repforgeUi.openInstallTransferState(name), state);
   await page.waitForSelector(`#iosInstallSheet[data-transfer-state="${state}"].is-open`, { timeout: 10000 });
@@ -896,6 +1026,22 @@ async function openProgram(page) {
   await view(page, "program");
 }
 
+/** Filling a field scrolls it into view. On a slow runner a fixed wait could end while that scroll was still
+ *  moving, so the same state landed about 2 px apart between CI runs (history/edit-dirty, PT at 200% text). Wait
+ *  until the document and every scrolled ancestor of the editor have kept the same position for 250 ms. */
+async function historyEditScrollSettled(page) {
+  await page.waitForFunction(() => {
+    const editor = document.querySelector(".session--edit");
+    const boxes = [document.scrollingElement];
+    for (let node = editor; node; node = node.parentElement) if (node.scrollHeight > node.clientHeight) boxes.push(node);
+    const key = boxes.map((box) => box ? box.scrollTop : -1).join(","), now = performance.now();
+    const memo = window.__catalogHistoryScroll;
+    if (!memo || memo.key !== key) { window.__catalogHistoryScroll = { key, since: now }; return false; }
+    return now - memo.since >= 250;
+  }, undefined, { polling: "raf", timeout: 10000 });
+  await page.evaluate(() => { delete window.__catalogHistoryScroll; });
+}
+
 async function openHistoryEditor(page) {
   await view(page, "history");
   await page.waitForSelector("#sessions .session__open", { timeout: 20000 });
@@ -905,7 +1051,7 @@ async function openHistoryEditor(page) {
   await page.waitForSelector(".session--edit", { timeout: 20000 });
 }
 
-const PER_SIDE_READING_EXERCISES = Object.freeze({
+export const PER_SIDE_READING_EXERCISES = Object.freeze({
   unilateral: "1a55c6f170d88031b658c6e278a82a88",
   bilateral: "1a05c6f170d8803ba48ec1443eab5978",
 });
@@ -1087,7 +1233,7 @@ async function waitForExerciseChartViewport(page, { chartFocused }) {
   return result;
 }
 
-async function installPerSideHistory(page, { bodyweightAssumption = false } = {}) {
+export async function installPerSideHistory(page, { bodyweightAssumption = false } = {}) {
   await page.waitForFunction(() => !!window.RepForgeExerciseCatalog?.snapshot?.() &&
     typeof window.__repforgeFinalizeProgramSetup === "function", undefined, { timeout: 15000 });
   const state = await page.evaluate(async ({ rowId, pressId }) => {
@@ -2427,6 +2573,33 @@ export const APP_SCENARIOS = {
     }
   },
 
+  "workout/prelude": page => preludeFocus(page, "baseline"),
+  "workout/prelude-rest": page => preludeFocus(page, "rest"),
+  "workout/prelude-summary": page => preludeFocus(page, "summary"),
+  "workout/prelude-learned": page => preludeFocus(page, "learned"),
+  "workout/prelude-suppressed": page => preludeFocus(page, "suppressed"),
+  "workout/prelude-warm": page => preludeFocus(page, "warm"),
+  "workout/prelude-why": page => preludeFocus(page, "why"),
+  "workout/prelude-tie": page => preludeFocus(page, "tie"),
+  "workout/past-zero": page => pastZeroFocus(page, "zero"),
+  "workout/past-zero-selected": page => pastZeroFocus(page, "selected"),
+  "workout/past-zero-ledger": page => pastZeroFocus(page, "ledger"),
+  "workout/past-zero-why": page => pastZeroFocus(page, "why"),
+  "history/past-zero": async page => {
+    await view(page, "history");
+    await page.locator('#sessions .session__open').first().click();
+    await page.locator(".session--read .partial-reps").first().scrollIntoViewIfNeeded();
+  },
+  "progress/past-zero": async page => {
+    await progressSegment(page, "strength");
+    const row = page.locator('#strengthDash [data-evkey="library:1a25c6f170d8803d8231d083fdd65458"]');
+    await row.click();
+    await page.locator("#strengthDash .evrow__detail:not([hidden]) .partial-reps").first().scrollIntoViewIfNeeded();
+  },
+  "session/past-zero": async page => {
+    await openFixtureSummary(page, "past-zero-saved");
+    await page.locator("#sessionSummary .sum-grp__sets .partial-reps").first().scrollIntoViewIfNeeded();
+  },
   "workout/focus": focusLearning,
   "workout/first-set-guide": async (page) => {
     // Replayed away from Focus, the guide waits for its anchor; in Focus it waits for the first tap on the shelf.
@@ -2769,7 +2942,8 @@ export const APP_SCENARIOS = {
     await focusMode(page);
     await page.locator("#woOverflowBtn").click({ timeout: 20000 }); await page.locator('[data-workout-action="note"]').click();
     await page.waitForSelector("#exNoteSheet.is-open", { timeout: 20000 });
-    await page.fill("#exNoteText", "Seat 4, pin 3. Wide grip and pause at the bottom of each rep.");
+    const lang = await page.evaluate(() => document.documentElement.lang);
+    await page.fill("#exNoteText", lifterExerciseNote(/^pt/i.test(lang) ? "pt" : "en"));
     await page.locator("#exNoteSave").click();
     await page.waitForSelector("#workout .exercise.is-current .fx-note", { timeout: 20000 });
     await page.waitForFunction(() => document.querySelector("#exNoteSheet")?.hidden === true, undefined, { timeout: 20000 });
@@ -3002,6 +3176,16 @@ export const APP_SCENARIOS = {
     await openFixtureSummary(page, DIRECTION_D_SUMMARY_SESSION["session/summary-declined"]);
     await page.waitForSelector('.sum-outcome[data-outcome="declined"]', { timeout: 20000 });
   },
+  // A backup is due (Packet E): the finish screen scrolled to the quiet cue above Share and Done.
+  "session/summary-backup": async (page) => {
+    await openFixtureSummary(page, DIRECTION_D_SUMMARY_SESSION["session/summary-backup"]);
+    await page.waitForSelector("#sumBackup", { timeout: 20000 });
+    await page.evaluate(() => {
+      const sheet = document.querySelector("#sessionSummary"), cue = document.querySelector("#sumBackup");
+      sheet.scrollTop = Math.max(0, cue.getBoundingClientRect().top - sheet.getBoundingClientRect().top + sheet.scrollTop - 240);
+    });
+    await sleep(page, 400);
+  },
   "session/summary-first": async (page) => {
     await openFixtureSummary(page, DIRECTION_D_SUMMARY_SESSION["session/summary-first"]);
     await page.waitForSelector(".sum-baseline", { timeout: 20000 });
@@ -3201,7 +3385,8 @@ export const APP_SCENARIOS = {
     // the retired flat "load|" key.
     await page.locator('.session--edit [data-edrm="2"]').click();
     await page.locator(`.session--edit input[data-ek$="|${ADAPTIVE_WEIGHT_METRIC_ID}"]`).first().fill("105");
-    await sleep(page, 500);
+    await sleep(page, 200);
+    await historyEditScrollSettled(page);
   },
   "history/edit-invalid": async (page) => {
     await openHistoryEditor(page);
@@ -3211,6 +3396,7 @@ export const APP_SCENARIOS = {
     // The reason stays under the row until the value is fixed, so the frame needs no toast timing.
     await page.waitForSelector(".session--edit [data-histedit-error]", { timeout: 10000 });
     await sleep(page, 400);
+    await historyEditScrollSettled(page);
   },
   "history/delete-confirm": async (page) => {
     await view(page, "history");
@@ -3241,6 +3427,7 @@ export const APP_SCENARIOS = {
     await page.locator("[data-edsave]").click();
     await page.waitForSelector('[data-history-operation="conflict"]', { timeout: 20000 });
     await sleep(page, 400);
+    await historyEditScrollSettled(page);
   },
 
   "library/list": async (page) => {

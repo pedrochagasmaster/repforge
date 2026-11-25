@@ -14,7 +14,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(import.meta.url);
 const Engine = require(path.join(root, "progression-engine.js"));
 const Metrics = require(path.join(root, "exercise-metrics.js"));
-assert.equal(Engine.ENGINE_VERSION, "078.2");
+assert.equal(Engine.ENGINE_VERSION, "078.4");
 assert.equal(Engine.RIR_CREDIT_CAP, 5);
 assert.equal(Engine.FORMULA_VERSION, "rir-adjusted-epley@067.1");
 
@@ -853,6 +853,38 @@ assert.ok(futureSet.fatigue.projectedCapacityKg < futureSet.historyAnchor.capaci
 assert.ok(futureSet.targets.loadKg === 100 || futureSet.targets.loadKg === 102.5 || futureSet.targets.loadKg === 105
   || futureSet.targets.loadKg === 107.5 || futureSet.targets.loadKg === 110, "only the configured discrete grid can be returned");
 
+// Owner report, 2026-11-23: 60 x 6 then 60 x 8, both to zero in reserve, was answered with 60 x 5 at one in reserve.
+// The median of two is their mean, so the anchor sat below a set the lifter had just performed.
+{
+  const pressLoads = { bySlotId: { "slot-a": { ...context().bySlotId["slot-a"], availableLoadsKg: [55, 57.5, 60, 62.5, 65, 67.5] } } };
+  const press = (rir, setIndex) => prescription({ targets: { reps: { min: 4, max: 6 } }, rir, setIndex });
+  const first = (id, loadKg, reps, rir = 0) => ({ sessionId: id, completed: true, sets: [performedSet({ loadKg, reps, rir, setIndex: 0 })] });
+  const improved = Engine.recommendSets([press(1, 1), press(0, 2)], [first("p1", 60, 6), first("p2", 60, 8)], [], pressLoads);
+  assert.equal(improved[0].historyAnchor.capacityKg, 60 * (1 + 8 / 30), "the anchor is not below what the latest first set performed");
+  assert.deepEqual(improved.map((item) => [item.targets.loadKg, item.targets.reps]), [[62.5, 5], [65, 5]],
+    "a session that beat the earlier ones moves the next targets up at once");
+  const lagging = recommend(press(1, 1), [first("p1", 60, 6), first("p2", 60, 6), first("p3", 60, 8)], [], pressLoads);
+  assert.equal(lagging.historyAnchor.capacityKg, 60 * (1 + 8 / 30), "two earlier sessions do not hold the anchor below the latest performance");
+  // Owner, 2026-11-24: the floor reads reps left as the median does, so a set with reps left is never answered with
+  // less than a repeat of it.
+  const reported = recommend(press(1, 1), [first("p1", 60, 6), first("p2", 60, 5, 3)], [], pressLoads);
+  assert.equal(reported.historyAnchor.capacityKg, 60 * (1 + 8 / 30), "reported reps left count toward the floor");
+  assert.equal(reported.targets.loadKg, 62.5, "60 x 5 with 3 left moves the load up");
+  const repeat = recommend(prescription(), [first("h1", 100, 8, 1), first("h2", 100, 8, 1), first("h3", 105, 8, 1)]);
+  assert.deepEqual([repeat.targets.loadKg, repeat.targets.reps], [105, 8],
+    "105 x 8 with 1 left is answered with a repeat, not a lighter load");
+  const capped = recommend(press(1, 1), [first("p1", 60, 6), first("p2", 60, 6), first("p3", 60, 3, 9)], [], pressLoads);
+  assert.equal(capped.historyAnchor.capacityKg, 60 * (1 + 8 / 30), "the floor credits at most five reps left");
+  const calibrated = recommend(press(1, 1), [first("p1", 60, 6), first("p2", 60, 5, 3)], [], pressLoads,
+    { calibration: { version: Engine.CALIBRATION_VERSION, delta: 2 } });
+  assert.ok(calibrated.historyAnchor.capacityKg < reported.historyAnchor.capacityKg,
+    "a lifter who over-reports reps left gets the calibrated floor");
+  const badDay = recommend(press(1, 1), [first("p1", 60, 8), first("p2", 60, 8), first("p3", 60, 5)], [], pressLoads);
+  assert.equal(badDay.historyAnchor.capacityKg, 60 * (1 + 8 / 30), "one weaker session still leaves the median");
+  const odd = recommend(press(1, 1), [first("p1", 60, 6), first("p2", 60, 6), first("p3", 60, 12)], [], pressLoads);
+  assert.equal(odd.historyAnchor.capacityKg, 60 * (1 + 6 / 30), "a latest set more than 15% above the median is the odd session");
+}
+
 const noMeasuredDrop = recommend(prescription({ setIndex: 2 }), [{
   sessionId: "no-drop", completed: true,
   sets: [performedSet({ loadKg: 100, reps: 6, rir: 2, setIndex: 0 }), performedSet({ loadKg: 110, reps: 6, rir: 2, setIndex: 1 })],
@@ -1027,3 +1059,35 @@ assert.equal(trend([session("s1", [105, 9, 1]), session("s2", [105, 7, 1]), sess
 assert.equal(trend([session("s1", [105, 9, 1]), session("s2", [105, 7, null])]).status, "insufficient_history");
 
 console.log("PASS Plan 067 adaptive progression algorithm contract");
+
+const partialSession = (id, partialReps, overrides = {}) => ({
+  sessionId: id, completed: true,
+  sets: [{ ...performedSet({ loadKg: 105, reps: 6, rir: 0 }), effortSource: "reps_left", partialReps, ...overrides }],
+});
+const priorPartial = partialSession("prior", 2);
+const morePartials = partialSession("latest", 3);
+assert.equal(trend([priorPartial, morePartials]).partialTie, "win");
+assert.equal(trend([morePartials, priorPartial]).partialTie, "loss");
+assert.equal(trend([priorPartial, partialSession("equal", 2)]).partialTie, "even");
+for (const overrides of [
+  { effortSource: "prefilled" }, { effortSource: "failure" }, { effortSource: "effort" },
+  { effortSource: "reps_left_5plus" }, { rir: 1 }, { warmup: true }, { setIndex: 1 },
+  { executionMode: "unilateral" }, { exerciseId: "other-movement" }, { equipmentId: "other-rack" }, { metricIds: [METRIC.reps] },
+  { loadingContext: { ...priorPartial.sets[0].loadingContext, externalLoadMultiplier: 2 } },
+  { metricValues: performedSet({ loadKg: 102.5 }).metricValues },
+]) {
+  assert.equal(trend([priorPartial, partialSession("different", 3, overrides)]).partialTie, undefined);
+}
+const withoutPartials = [priorPartial, morePartials].map(history => ({
+  ...history, sets: history.sets.map(({ partialReps, ...set }) => set),
+}));
+assert.deepEqual(recommend(prescription(), [priorPartial, {
+  ...morePartials, sets: [{ ...performedSet({ loadKg: 20, reps: 8, rir: 2 }), warmup: true }, ...morePartials.sets],
+}]), recommend(prescription(), withoutPartials));
+for (const extra of [{ origin: "suggested-warmup" }, { work: false }, { origin: "ramp" }]) {
+  assert.deepEqual(recommend(prescription(), [priorPartial, {
+    ...morePartials, sets: [{ ...performedSet({ loadKg: 20, reps: 8, rir: 2 }), ...extra }, ...morePartials.sets],
+  }]), recommend(prescription(), [priorPartial, morePartials]), `a set marked ${JSON.stringify(extra)} never enters the evidence`);
+}
+assert.deepEqual(recommend(prescription(), [priorPartial], morePartials.sets),
+  recommend(prescription(), withoutPartials.slice(0, 1), withoutPartials[1].sets));

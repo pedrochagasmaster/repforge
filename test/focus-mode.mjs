@@ -331,9 +331,9 @@ async function main() {
   await setSetCount(page, 0, 5);
   await enterFocus(page, 0);
   let st = await cardState(page);
-  // Layout D: the table draws the open set and the next one; with nothing logged there is no disclosure.
-  assert(st.rows === 2 && st.logged === 0 && st.open === 1 && st.queued === 1 && st.prevLines === 0 && !st.more,
-    "an exercise with no history shows the first set open and the next one, with no previous-session line", JSON.stringify(st));
+  // The table draws the open set and every set still to come (owner, 2026-11-22); with nothing logged there is no disclosure.
+  assert(st.rows === 5 && st.logged === 0 && st.open === 1 && st.queued === 4 && st.prevLines === 0 && !st.more,
+    "an exercise with no history shows the first set open and every later set, with no previous-session line", JSON.stringify(st));
   // This seed has a manual range: Taurifer does not suggest a load, and Focus labels the stored
   // range as the lifter's targets. The adaptive cue is proved below on a generated program.
   assert(st.cueKind === "is-manual" && st.cueL1 === "Your targets" && st.cueL2 === "4–8 reps" && st.cueMark === null,
@@ -356,7 +356,7 @@ async function main() {
   ]);
   await enterFocus(page, 1);
   st = await cardState(page);
-  assert(st.rows === 2 && st.prevLines === 2 && st.logged === 0 && st.open === 1,
+  assert(st.rows === 4 && st.prevLines === 4 && st.logged === 0 && st.open === 1,
     "each drawn set carries last session's matching set under its own row", JSON.stringify(st));
   assert(st.cueKind === "is-manual" && !/\d/.test(st.cueL1) && st.cueMark === null,
     "history does not make a manual program's cue invent a load", JSON.stringify(st));
@@ -409,8 +409,8 @@ async function main() {
     "after Log set, focus is on a field of the next set's shelf", JSON.stringify(afterLog));
   await endRest(page);
   st = await cardState(page);
-  assert(st.logged === 2 && st.folded === 0 && st.rows === 4 && !st.more,
-    "two logged sets stay in the table above the open set and the next one, because they fit, with no disclosure (#517)", JSON.stringify(st));
+  assert(st.logged === 2 && st.folded === 0 && st.rows === 5 && !st.more,
+    "two logged sets stay in the table above the open set and the sets to come, because they fit, with no disclosure (#517)", JSON.stringify(st));
   // The landing beat of the render that logged the set.
   const setLanded = await page.evaluate(() => {
     const card = document.querySelector("#workout .exercise.is-current");
@@ -469,7 +469,7 @@ async function main() {
   const replayed = await page.evaluate(() => document.querySelectorAll("#workout .is-fresh").length);
   assert(replayed === 0, "a later render draws the same card at rest", String(replayed));
   st = await cardState(page);
-  assert(st.logged === 2 && !st.more && st.rows === 4 && st.openBottom <= st.contextBottom + 1,
+  assert(st.logged === 2 && !st.more && st.rows === 5 && st.openBottom <= st.contextBottom + 1,
     "the landing animation leaves the table where the layout puts it, the logged sets still in place on return, the open set in view", JSON.stringify(st));
 
   // ---- 03c — the shelf --------------------------------------------------------
@@ -1644,6 +1644,9 @@ async function main() {
     "with history the cue names the load and reps the engine put in the first set", JSON.stringify({ cue, cueLoad, first }));
     assert(Number((await shelfLoad())?.replace(",", ".")) === Number(first.load),
       "the shelf shows the same recommended load the cue names", JSON.stringify({ shelf: await shelfLoad(), first }));
+    // Packet C: the header line names the prescription only; the adaptive strategy's name carries no in-gym decision.
+    assert(/^\d+ × \d+–\d+ reps · [\d.,–]+ left$/.test(cue.meta) && !/Adaptive/.test(cue.meta),
+      "an adaptive slot's Focus header shows the prescription without a strategy name", cue.meta);
     const move = assertCueMark(cue, "Adaptive cue");
     const expectedMove = Number(first.load) === 100 ? "hold" : Number(first.load) > 100 ? "up" : "down";
     assert(move === expectedMove, "the cue's move is the recommendation against last session's 100 kg", JSON.stringify({ move, first }));

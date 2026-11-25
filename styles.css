@@ -30,6 +30,9 @@
   --rule-strong:#D9D5CD;
   --accent:#E04E14;
   --accent-deep:#B8410E;
+  --partial-on-cta:var(--share-card-accent);
+  --font-size-partial-reps:.78em;
+  --font-size-partial-shelf:.62em;
   --positive:#2F7D33;
   --cta:#161513;
   --well:#FAF8F5;
@@ -446,6 +449,7 @@
   /* Text emphasis stays in the same burnt-orange family as the mark. The
      first dark pass was lighter but too peach beside the red danger action. */
   --accent-deep:#FF8A3D;
+  --partial-on-cta:var(--share-card-orange);
   --positive:#63C267;
   /* A quiet parchment rather than a lit white card. Scale and placement make
      the CTA primary; maximum luminance does not need to. */
@@ -476,7 +480,10 @@
   --dock-rim:rgba(255,255,255,.12);
   --dock-caustic:rgba(255,255,255,.05);
   --dock-blur:blur(18px) saturate(160%) brightness(.85);
-  --dock-pill:rgba(255,255,255,.13);
+  /* The selected lens is solid smoked glass, the tone the translucent pill showed over dark pages (issue #818). A
+     see-through lens took its ground from the page, and a light page under the dock dropped the orange label below
+     4.5:1; on this solid ground --accent-deep holds 5:1 and the --accent icon 4:1 whatever is behind it. */
+  --dock-pill:#3A3733;
   --dock-pill-sheen:rgba(255,255,255,.05);
   /* Plan 075 phase 3: the scroll-edge bar's material, charcoal at 72%. The
      hairline is a literal white value, not --shadow-rgb, so it still reads
@@ -1267,8 +1274,11 @@ article.exercise--focus.is-hero-compact.is-standing-compact .fcard__context > .f
    with nothing to fold, the heads (RIR's is the glossary's way in from Focus) stay. */
 .exercise--focus.is-hero-compact .fcard__ledger:has(.ledger__more:not([hidden])) .ledgerline__head{display:none}
 .exercise--focus.is-text-scaled .text-link.focus-ex__why,.exercise--focus.is-text-scaled .fx-cue__cancel{font-size:min(var(--font-size-control),var(--large-cap-body))}
-.exercise--focus.is-text-scaled .ledgerline__head,.exercise--focus.is-text-scaled .ledgerline{grid-template-columns:auto minmax(0,1fr)}
-.exercise--focus.is-text-scaled .ledgerline__head > :first-child{visibility:hidden}
+/* Enlarged text keeps one set column for the heads and every row, so the figures stay aligned under their heads. The
+   column holds the capped set number, check or warm-up mark; the Set head may run past it into the load column's
+   unused leading space rather than widen the column. */
+.exercise--focus.is-text-scaled .ledgerline__head,.exercise--focus.is-text-scaled .ledgerline{grid-template-columns:calc(var(--large-cap-small) * 1.6) minmax(0,1fr)}
+.exercise--focus.is-text-scaled .ledgerline__head > :first-child{white-space:nowrap}
 .exercise--focus.is-text-scaled .ledgerline__head{font-size:min(var(--font-size-label),var(--large-cap-caption))}
 .exercise--focus.is-text-scaled .ledgerline__vals{display:grid;grid-template-columns:minmax(max-content,1.6fr) minmax(max-content,1fr) minmax(max-content,1fr);font-size:min(var(--font-size-body),var(--large-cap-data))}
 .exercise--focus.is-text-scaled .ledgerline__vals > .fx-col{min-width:0}
@@ -1497,6 +1507,8 @@ article.exercise--focus .fcard__context > .fx-next{margin-top:auto;min-height:52
   font-weight:var(--weight-focus-cue);line-height:var(--line-focus-cue);letter-spacing:-.02em;color:var(--color-ink);
 }
 .fx-cue__load{font-family:var(--font-training-data);font-weight:var(--weight-semibold);letter-spacing:-.03em}
+/* A Mono decimal mark sits in a full-width cell; the figure closes it up to the mark's own width. */
+.fx-cue__dec{margin-inline:-.17em}
 .fx-cue__l2{
   margin:var(--space-4) 0 0;font-family:var(--font-language);font-size:var(--font-size-focus-cue-second);
   line-height:var(--line-standard);letter-spacing:-.01em;color:var(--color-ink-secondary);
@@ -3820,22 +3832,9 @@ nav button.active .nav__icon{background:var(--accent)}
 .nav__icon[data-i=program]{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round'%3E%3Cpath d='M8 4h10a2 2 0 0 1 2 2v14H8a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z'/%3E%3Cpath d='M9 9h8M9 13h8M9 17h5'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round'%3E%3Cpath d='M8 4h10a2 2 0 0 1 2 2v14H8a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z'/%3E%3Cpath d='M9 9h8M9 13h8M9 17h5'/%3E%3C/svg%3E")}
 body.is-settings nav,body.is-exercise nav,body.is-onboarding nav,
 body.is-library nav,body.is-preview nav,body.is-import nav{display:none}
-/* Paper under the dock: rows that scroll beneath the floating dock (and the gap a sticky action leaves above it) fade
-   into the page instead of showing through as ghosted text. Below the sticky action (z-index 5), above the page. */
-/* Only on Today while Start workout rides above the dock: elsewhere there is no row to clip, and the band would hide
-   content and the dock's glass (#301). */
-body:has(#log.view.active #todayDash:not(.hidden) #startWorkout:not(.hidden))::after{
-  content:"";position:fixed;left:0;right:0;bottom:0;z-index:4;pointer-events:none;
-  height:calc(var(--nav) + env(safe-area-inset-bottom) + var(--space-12) + 2 * var(--space-32) + var(--space-26));
-  /* Paper behind Start workout and the row it clips (owner hill-climb), clear again under the dock itself, which stays
-     glass (#301): the band ends where the capsule begins. */
-  background:linear-gradient(to bottom,rgba(var(--bg-rgb),0),var(--bg) var(--space-26),
-    var(--bg) calc(100% - var(--nav) - env(safe-area-inset-bottom) - var(--space-12)),
-    rgba(var(--bg-rgb),0) calc(100% - var(--nav) - env(safe-area-inset-bottom)));
-}
-body.is-settings::after,body.is-exercise::after,body.is-onboarding::after,body.is-library::after,body.is-preview::after,
-body.is-import::after,body.is-focus-wo::after,body:has(#draftRecovery:not(.hidden))::after,body:has(#history.view.active.is-session-edit)::after,
-body:has(:is(#program,[data-copy-id="program"]).program-editor-installed)::after{display:none}
+/* No paper band behind Start workout (owner, 2026-11-24): the sticky pill floats on its own shadow over the page, like
+   every other floating control, and the dock stays glass (#301). The band it replaced was a body::after gated by
+   :has(), which WebKit could leave painted after the lifter left Today. */
 body.is-settings,body.is-exercise,body.is-onboarding,
 body.is-library,body.is-preview,body.is-import{padding-bottom:env(safe-area-inset-bottom)}
 /* No paper fade under the dock (#301): the dock is glass, and glass only reads as glass when the page passes beneath
@@ -4164,6 +4163,19 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
 .sum-cards__hint{margin:var(--space-8) 0 0;text-align:center;text-wrap:balance;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
 .sum-see{display:flex;margin:var(--space-18) 0 0}
 .sum-see #sumSee{width:100%}
+/* The backup cue (Packet E): a quiet note in the report, set like the baseline line, with two text actions that are
+   full targets. It is never a banner or a button pair competing with Share and Done. */
+.sum-backup{margin-top:var(--space-18);padding-left:14px;border-left:2px solid var(--boundary-selected-quiet)}
+.sum-backup__text,.sum-backup__done{margin:0;font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-reading);color:var(--color-ink-secondary)}
+.sum-backup__done{margin-top:var(--space-18);padding-left:14px;border-left:2px solid var(--boundary-selected-quiet)}
+.sum-backup__done:focus{outline:none}
+.sum-backup__done:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+.sum-backup__actions{display:flex;flex-wrap:wrap;column-gap:var(--space-18)}
+.sum-backup__actions .text-link{display:inline-flex;align-items:center;min-height:var(--control-target);padding:0;font-family:var(--font-language);font-weight:var(--weight-semibold);text-align:left}
+.sum-backup__save.text-link{color:var(--color-ink)}
+.sum-backup__dismiss.text-link{color:var(--color-ink-secondary);font-weight:var(--weight-regular)}
+.sum-backup__actions .text-link:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+.sum-backup__actions .text-link:disabled{color:var(--color-disabled-reason);cursor:default}
 .sum-split{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-12);margin-top:var(--space-26)}
 .sum-split__k{margin:0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
 .sum-week{margin:0;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-medium);line-height:var(--line-standard);color:var(--color-ink)}
@@ -5552,8 +5564,6 @@ body.is-focus-wo .toast:not(.toast--top){bottom:calc(var(--toast-clear,0px) + va
 .profile-depth p{font-size:var(--font-size-body-small);margin:var(--space-8) 0}
 .profile-depth .profile-caption{font-size:var(--font-size-caption)}
 .profile-scope-inline{margin:var(--space-18) 0;padding-bottom:var(--space-18);border-bottom:1px solid var(--rule)}
-/* The light scope CTA shows through the dark dock lens; its small selected label needs text ink. */
-:root[data-theme="dark"] body:has(#stats.active #segOverview.active .profile-scope-inline) nav button.active>[data-i18n]{color:var(--control-quiet-ink)}
 #profileScopeTitle{margin:var(--space-12) 0 var(--space-4);font-size:var(--font-size-title);font-weight:var(--weight-semibold);line-height:var(--line-tight);letter-spacing:-.02em;overflow-wrap:anywhere}
 .profile-scope-rings{display:flex;gap:var(--space-32);align-items:center;margin:var(--space-26) 0;border-bottom:1px solid var(--rule);padding-bottom:var(--space-18)}
 .profile-scope-rings>div{flex:1;min-width:0;display:flex;align-items:center;flex-direction:column;gap:var(--space-8);text-align:center;font-size:var(--font-size-body-small)}
@@ -6222,6 +6232,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun.is-shared .firstrun-hero .firstrun-hero__title{margin-top:var(--firstrun-gap-2)}
 .firstrun.is-shared [data-landing-section]:not([data-landing-section="hero"]),
 .firstrun.is-shared .firstrun-chips,
+.firstrun.is-shared .firstrun-hero__data,
 .firstrun.is-shared #firstRunLede{display:none}
 .firstrun__shared-card{
   margin-top:var(--firstrun-gap-4);padding:18px;border:1px solid var(--band-night-cta-bg);border-radius:var(--radius-surface);
@@ -6253,6 +6264,20 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun__cta .firstrun-row__go{color:var(--firstrun-cta-mark);width:18px;height:18px;flex:0 0 18px}
 .firstrun__cta .firstrun-row__title{color:inherit;font-size:var(--font-size-control)}
 .firstrun__cta .firstrun-row__cap{color:inherit;font-size:var(--font-size-body-small)}
+/* Track, the peer of Build (Packet F): the same pill, type and arrow, drawn as an outline in the band's own ink so the
+   two routes read as equals without two identical fills. */
+.firstrun__cta--peer{
+  border:1.5px solid var(--firstrun-ink);padding:calc(var(--space-12) - 1.5px) calc(var(--space-18) - 1.5px);
+  background:transparent;color:var(--firstrun-ink);
+}
+.firstrun__cta--peer .firstrun-row__go{color:var(--firstrun-ink)}
+.firstrun__cta .firstrun-row__text{gap:2px}
+.firstrun__cta .firstrun-row__cap{font-weight:var(--weight-regular)}
+.firstrun-hero__data{
+  margin:var(--firstrun-gap-1) auto 0;max-width:40ch;text-align:center;text-wrap:pretty;
+  font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--firstrun-ink-soft);
+}
+.firstrun-hero__data:empty{display:none}
 #firstRunSharedStart{position:relative}
 #firstRunSharedStart:disabled,#firstRunSharedStart[aria-busy="true"]{cursor:progress}
 #firstRunSharedStart[aria-busy="true"] .firstrun-row__go,
@@ -9767,9 +9792,77 @@ body.is-entry-editor #entryProgramName,
 #reviewPanel > :first-child,#reviewPanel > :first-child > .section-label:first-child{margin-top:0}
 /* A lift's sessions table, opened in place, spans the group's full width: at 320 and large text it needs every column. */
 #strengthDash .sumcard > .evrow__detail{margin:0 calc(-1 * var(--space-16) - 1px);padding-left:0;padding-right:0;width:auto;max-width:none}
+/* The rules run edge to edge; where the columns have room, the text keeps a gutter so the date and the last column
+   clear the card's edge. The width is read in em, so enlarged text, which needs every column, keeps the full bleed. */
+#strengthDash .sumcard > .evrow__detail{container-type:inline-size}
+@container (min-width: 17em){
+  #strengthDash .sumcard > .evrow__detail > :not(.evtable){padding-inline:var(--space-16)}
+  #strengthDash .sumcard > .evrow__detail .evtable :is(th,td):first-child{padding-left:var(--space-16)}
+  #strengthDash .sumcard > .evrow__detail .evtable :is(th,td):last-child{padding-right:var(--space-16)}
+}
 /* The Strength page keeps the canonical outcome word on each lift, on its own line scoped to the last session. */
 .liftrow .evrow__out{display:inline;margin:0;font-size:inherit;line-height:inherit}
 /* The Volume page's muscles on the same grouped surface as Strength and Records. */
 #volumeDash .sumcard > .vrow.evrow{padding:var(--space-12) 0;border-bottom:0}
 #volumeDash .sumcard > * + .vrow.evrow{border-top:1px solid var(--rule-on-surface)}
 #volumeDash .sumcard > .evrow__detail{border-bottom:0}
+
+.partial-reps{
+  margin-inline-start:1px;
+  font-size:var(--font-size-partial-reps);
+  color:var(--accent-deep);
+  font-weight:var(--weight-semibold);
+  letter-spacing:0
+}
+.shelf__val .partial-reps{font-size:var(--font-size-partial-shelf);vertical-align:.32em;margin-inline-start:2px}
+.saveset .partial-reps{color:var(--partial-on-cta)}
+.shelf__pads .shelf__chip--partial:not([aria-pressed="true"]){color:var(--accent-deep)}
+.shelf__pads--past-zero{animation:past-zero-in 240ms cubic-bezier(.2,.7,.2,1)}
+@keyframes past-zero-in{
+  from{opacity:.2;transform:translateX(24px)}
+  to{opacity:1;transform:none}
+}
+@media (prefers-reduced-motion:reduce){.shelf__pads--past-zero{animation:none}}
+.history-partials-edit{
+  grid-column:2;
+  display:flex;
+  align-items:center;
+  gap:var(--space-8);
+  color:var(--color-ink-secondary);
+  font-size:var(--font-size-label)
+}
+#history .history-partials-edit{margin-block-start:var(--space-4);flex-wrap:wrap;min-width:0}
+#history .history-partials-edit__lab{flex:1 1 8em;min-width:0;overflow-wrap:anywhere}
+#history .history-partials-edit .edrow__in{width:4.5em;flex:none;margin-inline-start:auto}
+.history-partials-edit[hidden]{display:none}
+
+/* ---- Suggested warm-ups (Plan 085, Prelude) ----
+   The cue becomes the warm-up until the sequence is done: the load, its reps and plate hint, a rail to the working load,
+   where the lifter stands with the way to skip, and why. The shelf keeps Load and Reps. Nothing here animates. */
+.fx-rail{list-style:none;display:flex;align-items:flex-start;gap:0;margin:var(--space-12) 0 var(--space-4);padding:0}
+.fx-rail__step{position:relative;flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:6px}
+.fx-rail__step::before{content:"";position:absolute;top:4px;left:10px;right:0;height:2px;border-radius:var(--radius-pill);background:var(--boundary-decorative)}
+.fx-rail__step:last-child{flex:0 0 auto}
+.fx-rail__step:last-child::before{display:none}
+.fx-rail__step.is-done::before{background:var(--color-ink)}
+.fx-rail__dot{position:relative;width:10px;height:10px;box-sizing:border-box;border:2px solid var(--boundary-decorative);border-radius:var(--radius-round);background:var(--bg)}
+.fx-rail__step.is-done .fx-rail__dot{background:var(--color-ink);border-color:var(--color-ink)}
+.fx-rail__step.is-now .fx-rail__dot{background:var(--accent);border-color:var(--accent);box-shadow:var(--control-focus-halo-shadow)}
+.fx-rail__step--work .fx-rail__dot{border-radius:var(--radius-compact)}
+.fx-rail__v{font-family:var(--font-training-data);font-size:var(--font-size-label);color:var(--color-ink-secondary);overflow-wrap:anywhere;min-width:0}
+.fx-rail__step.is-now .fx-rail__v{color:var(--color-ink);font-weight:var(--weight-semibold)}
+.fx-cue__standrow{display:flex;align-items:baseline;justify-content:space-between;gap:var(--space-12);flex-wrap:wrap}
+.fx-cue__standrow .fx-cue__standing{margin:var(--space-4) 0 0;min-width:0}
+.fx-cue__skip{font-size:var(--font-size-body-small);padding:6px 0;white-space:nowrap}
+.shelf__fields--two{grid-template-columns:repeat(2,minmax(0,1fr))}
+.fx-prelude-none{display:flex;align-items:center;justify-content:space-between;gap:var(--space-8);flex-wrap:wrap;margin:0 0 var(--space-4);padding-bottom:var(--space-4)}
+.fx-prelude-none__label{font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);letter-spacing:var(--track-label);text-transform:uppercase;color:var(--color-ink-secondary)}
+.fx-prelude-none__acts{display:flex;gap:var(--space-16)}
+.fx-prelude-none .text-link{font-size:var(--font-size-body-small);padding:6px 0}
+.ledgerline--warmup{min-height:40px}
+.ledger__w{font-family:var(--font-training-data);font-size:var(--font-size-label);font-weight:var(--weight-semibold);letter-spacing:var(--track-label);color:var(--color-ink-secondary)}
+.fcard__ledger .ledgerline--warmup .ledgerline__vals{justify-content:flex-start;text-align:left;font-family:var(--font-language);font-size:var(--font-size-body-small);color:var(--color-ink-secondary)}
+.exercise--focus.is-text-scaled .ledgerline--warmup .ledgerline__vals{display:block}
+.exactions__warmup-input{width:4.5em;min-height:var(--control-target);text-align:right}
+.shelf__fields--one{grid-template-columns:minmax(0,1fr)}
+.fx-cue__skip,.fx-prelude-none .text-link,.exactions__warmup-ctl .text-link{min-height:var(--control-target);display:inline-flex;align-items:center}

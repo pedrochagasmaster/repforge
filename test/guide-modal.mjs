@@ -18,7 +18,7 @@ const errors = [];
 let passed = 0;
 const ok = (value, message, detail) => { assert.ok(value, `${message}${detail === undefined ? "" : ` — ${JSON.stringify(detail)}`}`); passed++; };
 
-async function freshPage({ seed = true, ui = null, viewport = { width: 390, height: 844 }, text = 1 } = {}) {
+async function freshPage({ seed = true, settings = null, ui = null, viewport = { width: 390, height: 844 }, text = 1 } = {}) {
   const context = await browser.newContext({ viewport, serviceWorkers: "block" });
   if (text !== 1) await context.addInitScript((scale) => {
     const apply = () => { if (document.documentElement) document.documentElement.style.fontSize = `${scale * 100}%`; };
@@ -33,7 +33,7 @@ async function freshPage({ seed = true, ui = null, viewport = { width: 390, heig
     localStorage.clear();
     if (value) localStorage.setItem(key, JSON.stringify(value));
   }, { key: UI_KEY, value: ui });
-  if (seed) await installSeedProgram(page, { waitFor: (target) => waitForAppBoot(target, { base: BASE }) });
+  if (seed) await installSeedProgram(page, { settings: settings || undefined, waitFor: (target) => waitForAppBoot(target, { base: BASE }) });
   else { await page.reload({ waitUntil: "domcontentloaded" }); await waitForAppBoot(page, { base: BASE }); }
   return { context, page };
 }
@@ -65,11 +65,13 @@ async function readDialog(page) {
   });
 }
 
-async function expectGuideDialog(page, id, label) {
+// The seeded program logs on the reps-left stage, so the first-set guide there
+// carries its reps-left body; the words stage is checked on its own below.
+async function expectGuideDialog(page, id, label, bodyKey = id === "first-set" ? "guide.first-set.body_reps_left" : `guide.${id}.body`) {
   await page.waitForSelector(`dialog#guideDialog[open][data-guide="${id}"]`, { timeout: 10000 });
   const dialog = await readDialog(page);
   ok(dialog.modal && dialog.entryDialog, `${label}: the guide is a modal entry dialog`, dialog);
-  ok(dialog.title === EN[`guide.${id}.title`] && dialog.body === EN[`guide.${id}.body`], `${label}: the dialog carries the guide's title and body`, dialog);
+  ok(dialog.title === EN[`guide.${id}.title`] && dialog.body === EN[bodyKey], `${label}: the dialog carries the guide's title and body`, dialog);
   ok(dialog.labelledBy && dialog.describedBy, `${label}: the dialog is named by its title and described by its body`, dialog);
   ok(JSON.stringify(dialog.buttons) === JSON.stringify([EN["why.ok"]]), `${label}: the one action is "Got it"`, dialog);
   ok(dialog.focusOnTitle, `${label}: focus starts on the title`, dialog);
@@ -259,6 +261,21 @@ async function arriveInFocus(page) {
   await page.keyboard.press("Escape");
   await expectClosed(page, "Focus utilities");
   ok(await page.evaluate(() => document.activeElement === document.querySelector("#woOverflowBtn")), "Focus utilities: focus returns to its anchor");
+  await context.close();
+}
+
+// First set on the reps-left stage explains the number with an example where
+// the lifter first meets the "Reps left" field; the words stage (Easy / Hard /
+// Max) keeps the plain body.
+{
+  ok(/reps left/i.test(EN["guide.first-set.body_reps_left"]) && /\b2\b/.test(EN["guide.first-set.body_reps_left"]),
+    "First set reps left: the body explains reps left with an example", EN["guide.first-set.body_reps_left"]);
+  const { context, page } = await freshPage({ settings: { rirMode: "effort" } });
+  await arriveInFocus(page);
+  await page.click('.focus-shelf .shelf__fieldbtn[aria-pressed="false"]');
+  await expectGuideDialog(page, "first-set", "First set words stage", "guide.first-set.body");
+  await page.click("#guideDialogOk");
+  await expectClosed(page, "First set words stage");
   await context.close();
 }
 

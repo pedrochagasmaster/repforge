@@ -24,6 +24,8 @@ export async function profileRingProofs(browser, assert, base) {
     assert(await page.locator('#todayProfile').isVisible(),'onboarded fresh program has the ink profile ring');
     if(!await page.locator('#todayProfile').isVisible())return;
     assert(await page.locator('#todayProfile svg').getAttribute('data-profile-fill')==='0','fresh profile has no invented evidence');
+    // Packet C: the fresh Today line says what the profile is, not only that saved sets start it.
+    assert((await page.locator('#todayProfileNeed').innerText()).trim()==='Your profile is what Taurifer learns from your saved sets. It starts with your first.','fresh Today names what the profile is beside the ring');
     // A raw preference reset must not let automatic profile metadata resurrect contextual guides.
     await page.evaluate(()=>localStorage.removeItem('repforge_ui_v1'));
     await page.evaluate(()=>window.__repforgeShowSettings());

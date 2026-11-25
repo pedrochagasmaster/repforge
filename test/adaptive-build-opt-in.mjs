@@ -211,7 +211,7 @@ try {
   // The refusal names the exercise and what it needs in a modal; Go to opens the field.
   await page.waitForSelector("#programEditorIssues[open]", { timeout: 5000 });
   const listed = await page.locator('#programEditorIssues .program-editor-issues__text').allTextContents();
-  check(listed.length === 1 && /: set an RIR target\. Suggest loads needs one\.$/.test(listed[0].trim()),
+  check(listed.length === 1 && /: set a reps-left target\. Suggest loads needs one\.$/.test(listed[0].trim()),
     "Use this program is refused with a modal that names the exercise and the RIR it needs", listed);
   await page.locator('#programEditorIssues [data-issue-index="0"]').click();
   await page.waitForSelector("#programEditorIssues", { state: "hidden", timeout: 5000 });
@@ -228,7 +228,7 @@ try {
       step: window.__repforgeEntryState?.()?.step,
     };
   });
-  check(refusal.invalid === "true" && refusal.noteRole === "alert" && refusal.note === "Set an RIR target to use Suggest loads." && refusal.focused,
+  check(refusal.invalid === "true" && refusal.noteRole === "alert" && refusal.note === "Set a reps-left target to use Suggest loads." && refusal.focused,
     "Use this program refuses the incomplete opt-in with a focused, described error on the RIR field", refusal);
   check(!refusal.onboarded && refusal.step === "editor", "nothing is activated while the opt-in is incomplete", refusal);
 

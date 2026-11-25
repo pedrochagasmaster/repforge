@@ -263,23 +263,24 @@ async function main() {
         const ex = stored.program.find((row) => (row.slotId || row.id) === slotId);
         const read = () => window.__repforgeRecommendation(ex);
         const withWarmups = read();
-        state.log = state.log.map(({ warmup, ...row }) => row);
-        const withoutFlags = read();
+        // Plan 085 (owner-approved 2026-11-21): warm-up rows are not performed evidence, so eight of them
+        // must read exactly like no history at all.
+        state.log = [];
+        const withoutHistory = read();
         const select = (rec) => rec.engineResults.map(({ standing, ...selection }) => selection);
         return { published: published.length, history: withWarmups.progressionInputs.history,
           standing: withWarmups.engineResults[0].standing,
           selected: withWarmups.engineResults[0].status,
-          unchanged: JSON.stringify(select(withWarmups)) === JSON.stringify(select(withoutFlags)) };
+          unchanged: JSON.stringify(select(withWarmups)) === JSON.stringify(select(withoutHistory)) };
       } finally { state.log = original; }
     }, target.slotId);
-    check(warmup.published === 1 && warmup.history.length === 8, "a real saved warm-up reaches eight comparable history sessions", warmup);
-    check(warmup.history.every((session) => session.sets.every((set) => set.warmup === true)),
-      "the production history adapter preserves the saved warm-up flag", warmup.history);
-    check(warmup.standing.word === "learning" && warmup.standing.evidence.sets === 0
+    check(warmup.published === 1 && warmup.history.length === 0,
+      "a real saved warm-up never reaches the engine's comparable history", warmup);
+    check(warmup.standing.word === "first" && warmup.standing.evidence.sets === 0
       && warmup.standing.evidence.sessions === 0 && warmup.standing.evidence.pairs === 0,
       "saved warm-ups cannot supply standing evidence or make it solid", warmup.standing);
-    check(warmup.selected === "recommended" && warmup.unchanged,
-      "preserving warm-up provenance leaves the previously selected loads and reps intact", warmup);
+    check(warmup.unchanged,
+      "eight saved warm-up sessions select exactly what no history selects", warmup);
 
     // R709-4: the actual recommendation uses the app's local calendar at the Brazil/UTC day boundary.
     await page.clock.setFixedTime(new Date("2026-11-09T01:30:00Z"));

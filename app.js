@@ -450,7 +450,7 @@ function isSafeProgramHistoryEntry(entry,customExercises=[]){
   if(!Object.prototype.hasOwnProperty.call(entry,"program"))return true;
   return Array.isArray(entry.program)&&entry.program.every(isSafeProgressionFields)}
 function isSafeLogRow(entry){
-  if(!isPlainStateObject(entry))return false;
+  if(!isPlainStateObject(entry)||!WorkoutDraft?.validHistoryPartials(entry)||!WorkoutDraft.validSuggestedWarmupRow(entry))return false;
   if(Object.prototype.hasOwnProperty.call(entry,"setIndex")&&
     (!Number.isInteger(entry.setIndex)||entry.setIndex<0))return false;
   if(!isValidMuscleDomainTree(entry))return false;
@@ -549,6 +549,9 @@ function isValidStateShape(s){
     if(!isPlainStateObject(s)||!Array.isArray(s.program)||!s.program.every(isSafeProgressionFields)||
       !Array.isArray(s.log)||!s.log.every(isSafeLogRow))return false;
     if(Object.prototype.hasOwnProperty.call(s,"sessionEvents")&&!WorkoutDraft.validateSessionEvents(s.sessionEvents))return false;
+    if(Object.prototype.hasOwnProperty.call(s,"warmupObservations")&&(!WorkoutDraft.validateWarmupObservations(s.warmupObservations)||
+      Object.keys(s.warmupObservations).length>new Set(s.log.map(row=>String(row?.session??""))).size))return false;
+    if(Object.prototype.hasOwnProperty.call(s,"warmupPreferences")&&!WorkoutDraft.validateWarmupPreferences(s.warmupPreferences))return false;
     if(Object.prototype.hasOwnProperty.call(s,"programMeta")&&!isSafeProgressionMeta(s.programMeta,s.customExercises||[]))return false;
     if(Object.prototype.hasOwnProperty.call(s,"recoveryTransitions")&&!isValidRecoveryTransitions(s.recoveryTransitions))return false;
     if(Object.prototype.hasOwnProperty.call(s,STORAGE_DRAFT_TXN)&&!pendingDraftTransaction(s))return false;
@@ -653,10 +656,43 @@ function mergeChangedArray(base,proposal,target,root,preferProposal){
       continue}
     if(changeValueEqual(tv,bv)||preferProposal)out.set(key,cloneSnapshot(pv))}
   return order.flatMap(key=>out.get(key)||[])}
+/* Plan 085: the two warm-up maps merge per key, each entry an atomic leaf, and an absent base is an empty map, so two
+   first writes for different sessions or lifts both survive. A key both sides changed keeps the entry already committed
+   (the latest reset token, the observation the first saver wrote); a key one side deleted is deleted, so a rebased retry
+   cannot resurrect older evidence. Rows are reconciled against the merged head by reconcileWarmupObservations. */
+function mergeWarmupMap(base,proposal,target,preferProposal){
+  const map=value=>changeObject(value)?value:{};
+  const b=map(base),p=map(proposal),t=map(target),out={};
+  for(const key of new Set([...Object.keys(b),...Object.keys(p),...Object.keys(t)])){
+    const has=(source,k)=>Object.prototype.hasOwnProperty.call(source,k)?source[k]:CHANGE_MISSING;
+    const bv=has(b,key),pv=has(p,key),tv=has(t,key);
+    let chosen;
+    if(changeValueEqual(pv,bv))chosen=tv;
+    else if(changeValueEqual(tv,bv))chosen=pv;
+    // Both changed it: a key either side deleted stays deleted (a rebased retry cannot resurrect it); otherwise the entry
+    // already committed wins.
+    else chosen=pv===CHANGE_MISSING||tv===CHANGE_MISSING?CHANGE_MISSING:tv;
+    if(chosen!==CHANGE_MISSING)out[key]=cloneSnapshot(chosen)}
+  return Object.keys(out).length?out:CHANGE_MISSING}
+/** Observations whose rows the merged head no longer holds are dropped, so a join never outlives its rows. */
+function reconcileWarmupObservations(snapshot){
+  if(!snapshot||!snapshot.warmupObservations)return;
+  const kept=WorkoutDraft.pruneWarmupObservations(snapshot.warmupObservations,snapshot.log||[]);
+  if(kept)snapshot.warmupObservations=kept;else delete snapshot.warmupObservations}
+/** The observations whose reset generation is the one this device holds for their lift (absent means the initial one). */
+function warmupObservationsForGenerations(observations,preferences){
+  if(!observations)return null;
+  const out={};
+  for(const [sid,record] of Object.entries(observations)){
+    const kept=record.observations.filter(item=>(preferences?.[item.liftKey]?.resetGeneration??null)===item.resetGeneration);
+    if(kept.length)out[sid]={v:record.v,observations:kept}}
+  return Object.keys(out).length?out:null}
 function mergeStateValue(base,proposal,target,path,preferProposal){
   if(changeValueEqual(proposal,base))return target===CHANGE_MISSING?CHANGE_MISSING:cloneSnapshot(target);
   if(changeValueEqual(target,base))return proposal===CHANGE_MISSING?CHANGE_MISSING:cloneSnapshot(proposal);
   const root=path[0];
+  if(path.length===1&&(root==="warmupObservations"||root==="warmupPreferences"))
+    return mergeWarmupMap(base,proposal,target,preferProposal);
   if(path.length===1&&Array.isArray(base)&&Array.isArray(proposal)&&Array.isArray(target)&&
     (root==="log"||root==="program"||root==="programHistory"||root==="customExercises"))
     return mergeChangedArray(base,proposal,target,root,preferProposal);
@@ -674,7 +710,9 @@ function mergeStateValue(base,proposal,target,path,preferProposal){
   return chosen===CHANGE_MISSING?CHANGE_MISSING:cloneSnapshot(chosen)}
 function rebaseStateChange(base,proposal,target,{preferProposal=true}={}){
   const merged=mergeStateValue(base,proposal,target,[],preferProposal);
-  return merged===CHANGE_MISSING?{}:merged}
+  const out=merged===CHANGE_MISSING?{}:merged;
+  reconcileWarmupObservations(out);
+  return out}
 function storageSnapshotsEqual(a,b){return changeValueEqual(a,b)}
 function resetPersistenceBase(snapshot){
   mutationBase=cloneSnapshot(snapshot);
@@ -1543,10 +1581,22 @@ const dayLabel=d=>{
   return localizedDayName(dayStructureFor(s,meta),d,meta?.programDefinition);
 };
 const download=(text,name,type="text/plain")=>{const u=URL.createObjectURL(new Blob([text],{type})),a=document.createElement("a");a.href=u;a.download=name;document.body.append(a);a.click();a.remove();URL.revokeObjectURL(u)};
+/* Hand a file to the system share sheet where it can take files, otherwise download it, and say what happened:
+   "shared"; "cancelled" when the lifter closed the sheet (AbortError), which downloads nothing; or "downloaded" when
+   there is no file sharing or the browser refused the share (NotAllowedError, TypeError, anything else). share() is
+   called synchronously, so a caller that has not awaited anything yet is still inside the tap's user activation (#817). */
+function shareFile(text,name,type,title){
+  let file=null;
+  try{if(typeof navigator.share==="function"&&navigator.canShare){file=new File([text],name,{type});if(!navigator.canShare({files:[file]}))file=null}}catch{file=null}
+  if(!file){download(text,name,type);return Promise.resolve("downloaded")}
+  let sharing;
+  try{sharing=navigator.share({files:[file],title})}catch(error){sharing=Promise.reject(error)}
+  return Promise.resolve(sharing).then(()=>"shared",error=>{
+    if(error?.name==="AbortError")return "cancelled";
+    download(text,name,type);return "downloaded"})}
+/* Program files and text keep their earlier behaviour: a closed sheet still downloads. */
 async function shareOrDownload(text,name,type,title="Taurifer backup"){
-  try{if(navigator.canShare){const file=new File([text],name,{type});
-    if(navigator.canShare({files:[file]})){await navigator.share({files:[file],title});return}}}catch{}
-  download(text,name,type)}
+  if(await shareFile(text,name,type,title)==="cancelled")download(text,name,type)}
 /* Words and numeric reps left share the effort shelf. Legacy tokens remain readable. */
 const EFFORT_RIR={easy:3,hard:1,max:0,r0:0,r1:1,r2:2,r3p:3,unsure:null};
 const EFFORT_STEPS=["easy","hard","max"];
@@ -1948,6 +1998,25 @@ function rowPerformedSlotMovement(row,slot){
   const current=(state.program||[]).find(ex=>(ex?.slotId||ex?.id)===slot.id);
   if(row?.performedMovementId)return!!current?.movementId&&movementIdKey(row.performedMovementId)===movementIdKey(current.movementId);
   return movementToken(loggedMovementName(row))===movementToken(current?.name)}
+function partialCount(row){return row?.partialReps>0?row.partialReps:0}
+function performedRepsText(full,count){return count>0?`${full}+${count}`:String(full)}
+function partialSuffixHtml(count){return count>0?`<span class="partial-reps">+${esc(fmt(count))}</span>`:""}
+/** "6 full reps and 3 partial reps", with the singular forms. */
+function partialsSpoken(full,count){
+  return t("partials.spoken",{full:t(String(full)==="1"?"partials.spoken_full.one":"partials.spoken_full.many",{n:full}),
+    partial:t(count===1?"partials.spoken_partial.one":"partials.spoken_partial.many",{n:fmt(count)})})}
+function performedRepsHtml(full,count){
+  if(!count)return esc(full);
+  const spoken=partialsSpoken(full,count);
+  return `<span role="img" aria-label="${esc(spoken)}">${esc(full)}${partialSuffixHtml(count)}</span>`}
+/* A partial count inside running text. Strings that reach an escaped renderer carry it between two private marks, which
+   `partialMarkup` turns into the same smaller, accent-tinted run the app draws everywhere else. */
+const PARTIAL_MARK_OPEN="\uE0A0",PARTIAL_MARK_CLOSE="\uE0A1";
+function performedRepsMarked(full,count){return count>0?`${full}${PARTIAL_MARK_OPEN}+${count}${PARTIAL_MARK_CLOSE}`:String(full)}
+function partialMarkup(text){
+  return esc(text).replace(/(\d+)\uE0A0\+(\d+)\uE0A1/g,(_,full,count)=>performedRepsHtml(full,Number(count)))}
+function partialOptionLabel(n){return t(n===0?"partials.zero":n===1?"partials.one":"partials.many",{n:fmt(n)})}
+
 /** Read-time workout projection shared by History, Progress, exercise charts and CSV.
  *  It never mutates the saved row; null per-side context stays unknown instead
  *  of becoming an assumed multiplier. */
@@ -3121,7 +3190,7 @@ function noteCommittedWorkingSets(draft){
   if(countedWorkingSets.draftId!==draft.draftId)countedWorkingSets={draftId:draft.draftId,keys:new Set()};
   for(const [exerciseId,exercise] of Object.entries(draft.exercises||{}))
     for(const [setId,set] of Object.entries(exercise?.sets||{}))
-      if(set.role!=="warmup"&&set.completion!=="pending")countedWorkingSets.keys.add(`${exerciseId}\u0000${setId}`)}
+      if((set.correction||set).role!=="warmup"&&(set.correction||set).completion!=="pending")countedWorkingSets.keys.add(`${exerciseId}\u0000${setId}`)}
 /* A completed set keeps what it was performed as after an uncommit, so a
    draft that held a working set still says so across a reload. */
 function draftEverHeldWorkingSet(draft){
@@ -3305,6 +3374,7 @@ function draftHasSessionWork(d,{ignoreDay=false}={}){
   if(d?.schemaVersion===2)return d.exerciseOrder.some(exerciseId=>{
     const exercise=d.exercises[exerciseId];
     return exercise.status==="skipped"||!!exercise.substitution||exercise.setupNotes!==exercise.programmed.notes||
+      (!!exercise.warmupPrelude&&!WorkoutDraft.preludeIsPristine(exercise.warmupPrelude))||
       exercise.setOrder.some(setId=>{const set=exercise.sets[setId];return set.completion!=="pending"||set.role==="warmup"||
         draftSetTouched(set)})})||
       d.session.notes!==""||d.session.bodyweight!=null||d.program.scheduleDate!==today()||
@@ -3889,7 +3959,7 @@ function normalizeLoaded(s,options={}){
   const hasTraining=!!(s.program?.length||s.log?.length||s.programHistory?.length||s.programMeta?.onboarded||structureDayLabels(s.programMeta));
   const settings=hasTraining&&!["numeric","effort"].includes(s.settings?.rirMode)?{...s.settings,rirMode:"numeric"}:s.settings;
   const out={settings:normalizeSettings(settings),programMeta:null,
-    program:[],log:cloneSnapshot(s.log),
+    program:[],log:cloneSnapshot(s.log).map(row=>{if(row.partialReps===0)delete row.partialReps;return row}),
     programHistory:normalizeProgramHistory(Object.prototype.hasOwnProperty.call(s,"programHistory")?s.programHistory:[],lookup),
     customExercises:customs};
   // Resolved against this snapshot's own custom definitions: during an import
@@ -3918,6 +3988,12 @@ function normalizeLoaded(s,options={}){
   if(Object.prototype.hasOwnProperty.call(s,"sessionTiming")){
     const timing=normalizeSessionTiming(s.sessionTiming,out.log);
     if(timing)out.sessionTiming=timing}
+  // Warm-up learning (Plan 085): a reference to a row that is gone is dropped here, and an empty map is omitted.
+  if(Object.prototype.hasOwnProperty.call(s,"warmupObservations")){
+    const observations=WorkoutDraft.pruneWarmupObservations(s.warmupObservations,out.log);
+    if(observations)out.warmupObservations=cloneSnapshot(observations)}
+  if(s.warmupPreferences&&typeof s.warmupPreferences==="object"&&Object.keys(s.warmupPreferences).length)
+    out.warmupPreferences=cloneSnapshot(s.warmupPreferences);
   if(Object.prototype.hasOwnProperty.call(s,"programmingContext")){
     const Entry=typeof window!=="undefined"?window.RepForgeProgramEntry:null;
     if(Entry){
@@ -3946,11 +4022,17 @@ async function mergeImportedLog(incoming,io=storageIO){
   const added=new Set(add.map(r=>r.session)).size;
   if(!added)return{revision:readRevision(state),localOk:true,idbOk:true,added:0};
   const proposal=cloneSnapshot(state);
-  proposal.log=proposal.log.concat(cloneSnapshot(add));
+  proposal.log=proposal.log.concat(cloneSnapshot(add).map(row=>{if(row.partialReps===0)delete row.partialReps;return row}));
   const addedEvents=normalizeSessionEvents(incoming.sessionEvents,add);
   if(addedEvents)proposal.sessionEvents={...(proposal.sessionEvents||{}),...addedEvents};
   const addedTiming=normalizeSessionTiming(incoming.sessionTiming,add);
   if(addedTiming)proposal.sessionTiming={...(proposal.sessionTiming||{}),...addedTiming};
+  // Imported learning is eligible only for the sessions this import adds, only under the reset generation this
+  // device already holds for that lift, and never over a local decision (Plan 085).
+  if(Object.prototype.hasOwnProperty.call(incoming,"warmupObservations")){
+    const fromAdded=Object.fromEntries(Object.entries(incoming.warmupObservations||{}).filter(([sid])=>!have.has(sid)));
+    const eligible=warmupObservationsForGenerations(WorkoutDraft.pruneWarmupObservations(fromAdded,proposal.log),proposal.warmupPreferences);
+    if(eligible)proposal.warmupObservations={...(proposal.warmupObservations||{}),...eligible}}
   migrateLogSnapshot(proposal);
   const result=await commitProposedState(proposal,io);
   result.added=added;
@@ -4199,9 +4281,9 @@ function mergeLogChronology(target,row){
 function volMapToObj(m){const o={};for(const[k,v]of m)o[k]={d:v.d,p:v.p};return o}
 function sessionsForLog(ex,log){const match=matchLift(ex),m=new Map();
   for(const x of log||[]){if(!match(x)||!(+x.load>0)||!isWork(x))continue;
-    if(!m.has(x.session))m.set(x.session,{session:x.session,date:x.date,created:x.created,loads:[],reps:[],rirs:[]});
-    const o=mergeLogChronology(m.get(x.session),x);o.loads.push(+x.load);o.reps.push(+x.reps);o.rirs.push(+x.rir)}
-  return[...m.values()].map(o=>({session:o.session,date:o.date,created:o.created,reps:o.reps,
+    if(!m.has(x.session))m.set(x.session,{session:x.session,date:x.date,created:x.created,loads:[],reps:[],rirs:[],first:null});
+    const o=mergeLogChronology(m.get(x.session),x);o.loads.push(+x.load);o.reps.push(+x.reps);o.rirs.push(+x.rir);if(x.setIndex===0&&!o.first)o.first=x}
+  return[...m.values()].map(o=>({session:o.session,date:o.date,created:o.created,reps:o.reps,first:o.first,
     med:median(o.loads),top:Math.max(...o.loads),minReps:Math.min(...o.reps),maxReps:Math.max(...o.reps),medReps:median(o.reps),
     avgRir:avg(o.rirs),bestE1rm:Math.max(...o.loads.map((load,index)=>e1rm(load,o.reps[index])))}))
     .sort(compareLogChronology)}
@@ -4229,7 +4311,7 @@ function buildBlockReview(programMeta,program,log){const p=new Program(program||
   const started=programMeta?.started||null,ended=today(),hardRir=DEFAULTS.hardRir;
   const plannedSessions=total&&days.length?total*days.length:0;
   const blockRows=(log||[]).filter(r=>!started||r.date&&(String(r.date)>=started&&String(r.date)<=ended));
-  const completedSessions=new Set(blockRows.map(r=>r.session)).size;
+  const completedSessions=new Set(blockRows.filter(isWork).map(r=>r.session)).size;
   const adherenceRatio=plannedSessions?Math.min(completedSessions/plannedSessions,1):0;
   let improvedLifts=0,flatLifts=0,regressedLifts=0,stalledLifts=0;
   for(const ex of p.exercises){const sess=sessionsForLog(ex,log),blockSess=started?sess.filter(s=>String(s.date)>=started&&String(s.date)<=ended):sess;
@@ -5722,6 +5804,12 @@ function installTransferStateMeaningful(snapshot){
     structureDayLabels(snapshot.programMeta)||Array.isArray(snapshot.log)&&snapshot.log.length||
     Array.isArray(snapshot.programHistory)&&snapshot.programHistory.length||
     Array.isArray(snapshot.customExercises)&&snapshot.customExercises.length)return true;
+  // Warm-up learning is the lifter's own record: a present nonempty or malformed map protects the destination, a valid
+  // empty one does not (Plan 085).
+  for(const key of ["warmupObservations","warmupPreferences"]){
+    if(!Object.prototype.hasOwnProperty.call(snapshot,key))continue;
+    const value=snapshot[key];
+    if(!value||typeof value!=="object"||Array.isArray(value)||Object.keys(value).length)return true}
   const carrier=snapshot.recoveryTransitions;
   if(Array.isArray(carrier?.records)&&carrier.records.length||Array.isArray(carrier?.quarantine)&&carrier.quarantine.length)return true;
   const draft=readLiveAcknowledgedDraftV2(snapshot);
@@ -6042,6 +6130,7 @@ async function runInstallTransferPreBootRequest(){
 async function deleteTrainingLog(io=storageIO,{discardDraftRaw=readDraftRaw()}={}){
   const proposal=cloneSnapshot(state);
   proposal.log=[];delete proposal.sessionTiming;delete proposal.sessionEvents;
+  delete proposal.warmupObservations;delete proposal.warmupPreferences;
   const effect=destructiveDraftClearEffect(discardDraftRaw);
   const result=await commitProposedState(proposal,io,{effect});
   if(result.localOk||result.idbOk){
@@ -6056,7 +6145,8 @@ window.__repforgeStorage={
   health(){return DurableState.getStorageHealth()},
   rebaseForTest(base,proposal,target,opts){return rebaseStateChange(base,proposal,target,opts)},
   replaceImport(incoming,io,opts){requireAdapter(io,"replaceImport");return replaceImportedState(incoming,io,opts)},
-  mergeImport(incoming,io){requireAdapter(io,"mergeImport");return mergeImportedLog(incoming,io)}}
+  mergeImport(incoming,io){requireAdapter(io,"mergeImport");return mergeImportedLog(incoming,io)},
+  backupExportSettled:()=>backupExportPending}
 function days(){
   const fromEx=[...new Set((state.program||[]).map(x=>x.day))];
   const fromStruct=structureDayLabels(state.programMeta);
@@ -6390,7 +6480,31 @@ function compareExerciseSession(ex,currentRows,readerContext=null){
   return buildSessionDelta(prev,cur)}
 // Stalled = 3+ recent sessions at the same working load with no gain in top-set reps.
 function isStalled(sess){if(sess.length<3)return false;const r=sess.slice(-3),l0=r[0].med,rep0=r[0].maxReps;
-  return r.every(s=>Math.abs(s.med-l0)<0.01)&&r.every(s=>s.maxReps<=rep0)}
+  return r.every(s=>Math.abs(s.med-l0)<0.01)&&r.every(s=>s.maxReps<=rep0)&&
+    !savedPartialWin(r[1].first,r[2].first)}
+/** Orders two sets of one workout and lift that tie on load and full reps: the one that out-partials the other first.
+ *  Progress projections carry no loading context, so for them the lift's own comparison already stands. */
+function bestSetTie(a,b){
+  const wins=(previous,current)=>current?.loadingContext?savedPartialWin(previous,current,{sameSession:true})
+    :partialCount(current)>partialCount(previous)&&current.rir===0&&previous.rir===0;
+  return wins(b,a)?-1:wins(a,b)?1:0}
+/** Whether `current` out-partials `previous` at the same load and full reps. `sameSession` compares two sets of one
+ *  workout (to choose a displayed best set), so their positions need not match; across sessions the position must. */
+function savedPartialWin(previous,current,{sameSession=false}={}){
+  if(!previous||!partialCount(current)||partialCount(current)<=partialCount(previous))return false;
+  const exerciseId=String(current.performedLibraryId||current.performedMovementId||"");
+  const {metricIds,metricDefinitions,metricType,loadingContext}=current;
+  if(!exerciseId||!loadingContext)return false;
+  const before=enginePerformedRow(previous,exerciseId,metricIds),after=enginePerformedRow(current,exerciseId,metricIds);
+  if(!before||!after)return false;
+  if(sameSession)after.setIndex=before.setIndex;
+  const prescription={id:exerciseId,slotId:exerciseId,exerciseId,metricIds,metricDefinitions,metricType,
+    setIndex:1,loadingModel:{bodyweightCoefficient:loadingContext.bodyweightCoefficient??0}};
+  // A row need not carry the mode it was trained in: the catalog supplies it, as it did when the row was read.
+  const context={bySlotId:{[exerciseId]:{...loadingContext,equipmentId:current.equipmentId,
+    executionMode:loadingContext.executionMode??after.executionMode}}};
+  return window.RepForgeProgression?.partialRepComparison?.(prescription,
+    [{completed:true,sets:[before]}],after,after.setIndex,context)?.status==="win"}
 // Recover = grinding near failure AND performance did not improve vs prior session (same/lower load).
 function recoverSignal(ex,sess,rirCeiling=0.5){sess=sess||sessionsFor(ex);if(sess.length<2)return false;
   const last=sess.at(-1),prior=sess.at(-2);
@@ -6708,7 +6822,7 @@ function canonicalPrescriptionSlot(ex,definition=state.programMeta?.programDefin
   return null}
 function enginePerformedRow(row,exerciseId,metricIds){
   const performedId=String(row?.performedLibraryId||row?.performedMovementId||"");
-  if(row?.origin==="ramp"||performedId!==exerciseId||row?.metricType!=="source_metrics@1"||
+  if(row?.origin==="ramp"||row?.origin==="suggested-warmup"||row?.warmup===true||row?.work===false||performedId!==exerciseId||row?.metricType!=="source_metrics@1"||
     !Array.isArray(row.metricIds)||JSON.stringify(row.metricIds)!==JSON.stringify(metricIds)||
     !Array.isArray(row.metricValues)||!Number.isInteger(row.setIndex)||row.setIndex<0)return null;
   const values=ExerciseMetrics?.validateMetricValues?.(metricIds,row.metricValues);
@@ -6720,7 +6834,8 @@ function enginePerformedRow(row,exerciseId,metricIds){
     loadingConvention:row.loadingConvention,metricIds:[...row.metricIds],metricValues:cloneSnapshot(row.metricValues),
     loadingContext:isPlainStateObject(row.loadingContext)?cloneSnapshot(row.loadingContext):null,
     ...(row.effortSource?{effortSource:row.effortSource}:{}),
-    ...(row.warmup===true?{warmup:true}:{}),
+    ...(partialCount(row)?{partialReps:row.partialReps}:{}),
+    executionMode:executionModeForLogRow(row),
     ...(row.effortSource==="failure"&&WorkoutDraft?.validCalibration?.(row.calibration)?{calibration:cloneSnapshot(row.calibration)}:{})}}
 /** A lift's calibration checks: its max sets in the comparable history (same equipment and loading as today), with any
  *  of `extra` (sessions not yet in the log), read by the estimator. */
@@ -6782,7 +6897,8 @@ function progressionCurrentSession(prescription){
     sets.push({exerciseId:prescription.exerciseId,completed:true,setIndex,
       rir:Number.isFinite(rir)&&rir>=0?rir:null,equipmentId:programmed?.equipmentId??null,
       loadingConvention:programmed?.loadingConvention,metricIds:[...prescription.metricIds],metricValues:values,
-      loadingContext,...(set.completion?.effortSource?{effortSource:set.completion.effortSource}:{}),
+      loadingContext,...(partialCount(set)?{partialReps:set.partialReps}:{}),
+      executionMode:executionModeForLogRow({performedLibraryId:prescription.exerciseId,loadingContext}),...(set.completion?.effortSource?{effortSource:set.completion.effortSource}:{}),
       ...(set.completion?.effortSource==="failure"&&set.calibration?{calibration:cloneSnapshot(set.calibration)}:{})})}
   return sets}
 /* The lifter's smallest load change for a movement owns its candidate loads:
@@ -6945,7 +7061,7 @@ function recommendation(ex,{savedHistoryOnly=false}={}){
     loadingAssumptions:result?.loadingAssumptions||null};
   // The observations the engine was given, so a surface can read back the set it anchored on. Not enumerable, so the
   // recommendation that serialises (and that the parity proofs compare) is exactly what it was.
-  Object.defineProperty(rec,"progressionInputs",{value:{history,currentSession}});
+  Object.defineProperty(rec,"progressionInputs",{value:{history,currentSession,loadingContext}});
   Object.defineProperty(rec,"plannedLoad",{value:status==="new"?firstActual?.planned?.value??null:null});
   // Not enumerable either: what the lift's checks say, and whether the shift moved any of its targets.
   Object.defineProperty(rec,"standing",{value:result?.standing||null});
@@ -7146,7 +7262,7 @@ function inSessionNote(ex,draft){
 // never during renderWorkout: the Log tab's render path stays free of this work.
 // One brain — every number here is a field the engine attached to its own result;
 // nothing re-derives a trigger. Returns ordered {label?,text} rows.
-function explainRecommendation(ex){
+function explainRecommendation(ex,{marked=false}={}){
   const rows=[];
   if(!ex)return rows;
   const rec=recommendation(ex),u=unitLabel();
@@ -7156,7 +7272,7 @@ function explainRecommendation(ex){
   if(rec.status==="new"){const note=inSessionNote(ex,loadDraft());return note?[whyRow("session",{label:t("why.session"),text:note})]:rows}
   const prev=last(ex).filter(x=>+x.load>0);
   if(prev.length)rows.push(whyRow("last",{label:t("why.last"),
-    text:prev.map(x=>`${fmtLoad(x.load)}\u00d7${x.reps} ${effortOrRirLabel(x.rir)}`).join(" \u00b7 ")}));
+    text:prev.map(x=>`${fmtLoad(x.load)}\u00d7${(marked?performedRepsMarked:performedRepsText)(x.reps,partialCount(x))} ${effortOrRirLabel(x.rir)}`).join(" \u00b7 ")}));
   rows.push(whyRow("showed",{text:t(isWordMode()?"why.showed_effort":"why.showed",
     {cr:Math.round(rec.cr),load:fmtLoad(rec.lastLoad),unit:u,cap:fmt(+state.settings.hardRir||4)})}));
   // The tempered line already names both the rule and the tempering, so it stands alone.
@@ -7356,7 +7472,8 @@ const restTips=[
   // the set, since the guess is made in the rest.
   {id:"max-set",eligible:(ex,n)=>!!maxSetOffer(ex,n),html:(ex,n)=>maxSetTipHtml(ex,n,false),bind:bindMaxSetTip},
   {id:"stage-tip",eligible:(ex,n)=>!stageTipEntering(ex,n)&&!!stageTipTarget(),html:()=>stageTipHtml(stageTipTarget()),bind:bindStageTip}];
-const restTipFor=(ex,n)=>restState().active&&ex&&n?restTips.find(tip=>tip.eligible(ex,n))||null:null;
+// No test-set prompt or carried value follows a warm-up (Plan 085): its rest is only a rest.
+const restTipFor=(ex,n)=>restState().active&&restState().restKind!=="warmup"&&ex&&n?restTips.find(tip=>tip.eligible(ex,n))||null:null;
 function focusRestTipHtml(ex,n){return restTipFor(ex,n)?.html(ex,n)||""}
 function focusDraftSet(exId,n){
   const draft=activeWorkoutDraft?.exercises?.[exId];
@@ -7463,7 +7580,8 @@ function paintRestTab(){
   const tab=$("#restTab");if(!tab)return;
   const v=restState(),left=restTimeLeftSec(),done=v.active&&left<=0,over=restOverSec();
   // The state is in the words: "Rest", "Paused" or "Rest done", and a countdown or a "+" count-up (owner, 2026-10-29).
-  const label=t(done?"rest.inline.done":v.held?"rest.tab.paused":"rest.inline.label");
+  const warmRest=v.restKind==="warmup"&&!done&&!v.held;
+  const label=t(done?"rest.inline.done":v.held?"rest.tab.paused":warmRest?"prelude.rest":"rest.inline.label");
   const time=done?`+${fmtClock(Math.max(0,over))}`:fmtClock(Math.max(0,left));
   const labelEl=tab.querySelector(".resttab__label"),timeEl=tab.querySelector(".resttab__time");
   if(labelEl.textContent!==label)labelEl.textContent=label;
@@ -7472,7 +7590,7 @@ function paintRestTab(){
   tab.classList.toggle("is-paused",v.held);
   const aria=v.held?t("focus.rest.paused_aria",{time})
     :done?(over>0?t("focus.rest.over_aria",{time:fmtClock(over)}):t("focus.rest.done_aria"))
-    :t("focus.rest.running_aria",{time});
+    :warmRest?t("prelude.rest.spoken",{time}):t("focus.rest.running_aria",{time});
   if(tab.getAttribute("aria-label")!==aria)tab.setAttribute("aria-label",aria);
   fitMaxSetBar(tab.closest(".focus-shelf"))}
 /** Time left as a share of the length this rest is armed at: 1 at the start, 0 at the bell. */
@@ -7680,7 +7798,7 @@ function tickRest(){
 function syncRest(){
   paintRest();
   updateRestChrome()}
-function startRest(sec,exerciseId){
+function startRest(sec,exerciseId,restKind="working"){
   const v=restState();
   // The rest belongs to the exercise whose set started it, or, from the sheet, to the one Focus is on.
   const owner=exerciseId??(v.active?v.exerciseId:focusCard()?.dataset.ex)??null;
@@ -7688,7 +7806,7 @@ function startRest(sec,exerciseId){
   const s=sec||(v.lengthSec>0?v.lengthSec:exerciseRestSec(prog.find(owner||focusCard()?.dataset.ex)));
   if(s<=0)return;
   restLastLeft=null;
-  applyRest(RepForgeRestTimer.start(restClock,{sec:s,exerciseId:owner,now:Date.now()}));
+  applyRest(RepForgeRestTimer.start(restClock,{sec:s,exerciseId:owner,now:Date.now(),restKind}));
   updateRestChrome();paintRest();
   announceRestStart(s)}
 /** The start of a rest is one line in the live region, like its end; the clock
@@ -7959,7 +8077,7 @@ function toggleRestHold(){
   if(!restState().active){startRest(restPlanSec());return}
   applyRest(RepForgeRestTimer.toggleHold(restClock,Date.now()));
   syncRest()}
-function resetRest(){if(!restState().active)return;startRest(restPlanSec())}
+function resetRest(){if(!restState().active)return;startRest(restPlanSec(),undefined,restState().restKind)}
 function endRestFromSheet(){stopRest();closeRestSheet()}
 /** What a host shows right now, without a crossfade layer that is still leaving it (a second swap during the first
  *  fades out what the lifter sees, not the layer on top of it). */
@@ -9298,11 +9416,13 @@ function verdictMarkHtml(glyph){
   if(glyph!=="up"&&glyph!=="down"&&glyph!=="hold"&&glyph!=="recover")return"";
   return `<span class="verdictmark verdictmark--${glyph}"><span class="verdictmark__glyph" aria-hidden="true"></span></span>`}
 /** "100 × 8, 8, 8" for one load, "100 × 8, 90 × 10" when the load moved. */
-function rxSetsLine(sets,withUnit){
+function rxSetsLine(sets,withUnit,{markup=false,marked=false}={}){
   const rows=sets.filter(x=>+x.reps>0);if(!rows.length)return"";
   const same=rows.every(x=>sameLoad(+x.load,+rows[0].load));
-  return same?`${fmtLoad(rows[0].load)}${withUnit?` ${unitLabel()}`:""} × ${rows.map(x=>x.reps).join(", ")}`
-    :rows.map(x=>`${fmtLoad(x.load)}\u00a0×\u00a0${x.reps}`).join(", ")}
+  const reps=row=>markup?performedRepsHtml(row.reps,partialCount(row)):marked?performedRepsMarked(row.reps,partialCount(row)):performedRepsText(row.reps,partialCount(row));
+  const load=value=>markup?esc(value):value;
+  return same?`${load(fmtLoad(rows[0].load)+(withUnit?` ${unitLabel()}`:""))} × ${rows.map(reps).join(", ")}`
+    :rows.map(row=>`${load(fmtLoad(row.load))}\u00a0×\u00a0${reps(row)}`).join(", ")}
 // @ci-domain today
 function rxTargetText(ex,rec){
   if(ex?.hasRepTarget===false)return programPrescriptionSummary(ex);
@@ -9325,7 +9445,7 @@ function todayRxModel(exs,live=null){
       :status==="current"&&!sets?.done?t("today.live.up_next")
       :status&&status!=="todo"?t("today.live.sets",{done:sets.done,total:sets.total})
       :glyph==="stalled"?rec.label
-      :prev.length?t("today.sub.before",{sets:rxSetsLine(prev)}):t("today.sub.first");
+      :prev.length?t("today.sub.before",{sets:rxSetsLine(prev,false,{marked:true})}):t("today.sub.first");
     return{ex:shown,rec,glyph,sub,status,sets,load:rec.status==="manual"||rec.load==null?null:rec.load,target:rxTargetText(shown,rec)}})}
 /** Where one exercise stands in the open session: done, partial, skipped, current, or todo (not started). */
 function todayLiveRowStatus(live,id){
@@ -9355,7 +9475,7 @@ function todayRxRowHtml(row,index){
   const describedBy=[hasVerdict?verdictId:"",isSkipped||row.status?statusId:""].filter(Boolean).join(" ");
   return `<div class="today-rx__row${isSkipped?" is-skipped":""}${row.status==="current"?" is-current":""}" data-context-row="${esc(ex.id)}" tabindex="-1" role="group" aria-label="${esc(exerciseDisplayName(ex))}" aria-describedby="todayRowActionsHint"><button type="button" class="rxrow${glyph==="manual"?" is-manual":""}" data-exopen="${esc(ex.id)}" data-verdict="${esc(glyph)}" aria-label="${esc(t("log.open_exercise_aria",{name:exerciseDisplayName(ex)}))}"${describedBy?` aria-describedby="${describedBy}"`:""}>`+
     `<span class="rxrow__mark">${row.status?todayLiveMarkHtml(row):verdictMarkHtml(glyph)}</span>`+
-    `<span class="rxrow__name">${esc(exerciseDisplayName(ex))}<span class="rxrow__sub" id="${statusId}">${esc(row.sub)}</span></span>`+
+    `<span class="rxrow__name">${esc(exerciseDisplayName(ex))}<span class="rxrow__sub" id="${statusId}">${partialMarkup(row.sub)}</span></span>`+
     `<span class="rxrow__load"${row.load!=null?` data-parity-target="${esc(ex.id)}"`:""}>${row.load!=null?esc(fmtLoad(row.load)):"\u2013"}</span>`+
     `<span class="rxrow__target">${esc(row.target).replace(/\u00d7/g,`<span class="rxrow__op">\u00d7</span>`)}</span>`+
     (hasVerdict?`<span class="visually-hidden" id="${verdictId}">${esc(rec.label)}</span>`:"")+`</button><button type="button" class="native-row-menu visually-hidden" data-row-menu="${esc(ex.id)}" aria-haspopup="menu"${isSkipped?` aria-describedby="${statusId}"`:""} aria-label="${esc(t("program.editor.more"))}: ${esc(exerciseDisplayName(ex))}"><span class="icon-mask icon-mask--overflow" aria-hidden="true"></span></button></div>`}
@@ -10062,6 +10182,8 @@ function renderExActionsSheet(exId) {
   if (substLabel) substLabel.textContent = t(isSubstituted ? "ex.actions.change_substitution" : "ex.actions.substitute");
   if (restoreOrigBtn) restoreOrigBtn.classList.toggle("hidden", !isSubstituted);
 
+  renderPreludeActions(exId, sheet);
+
   // Warmup sets list
   const warmupList = $("#exActionsWarmupList");
   if (warmupList) {
@@ -10119,10 +10241,10 @@ function renderExActionsSheet(exId) {
 function previousSetsLine(sets) {
   const rows = sets.filter(x => +x.reps > 0);
   if (!rows.length) return "";
-  if (rows.every(x => x.load == null)) return rows.map(x => x.reps).join(", ");
+  if (rows.every(x => x.load == null)) return rows.map(x => performedRepsText(x.reps,partialCount(x))).join(", ");
   const same = rows.every(x => sameLoad(+x.load, +rows[0].load));
-  return same ? `${fmtLoad(rows[0].load)} × ${rows.map(x => x.reps).join(", ")}`
-    : rows.map(x => `${fmtLoad(x.load)} × ${x.reps}`).join(", ");
+  return same ? `${fmtLoad(rows[0].load)} × ${rows.map(x => performedRepsText(x.reps,partialCount(x))).join(", ")}`
+    : rows.map(x => `${fmtLoad(x.load)} × ${performedRepsText(x.reps,partialCount(x))}`).join(", ");
 }
 
 function openExActionsSheet(exId) {
@@ -10257,6 +10379,632 @@ function setStageOf(exId,n){
     if(set.edited.effort!=null)return tokenStage(set.edited.effort)||effortStage();
     if(set.edited.rir!=null)return"c"}
   return effortStage()}
+/* ============================================================
+   Suggested warm-ups (Plan 085, "Prelude")
+   The policy (warmup-suggestions.js) is pure. This is its adapter: it supplies the performed lift's identity, the offered
+   work load, the equipment's grid and the resolved saved observations, shows the answer as the cue, rail and shelf, and
+   records what the lifter does as DraftV2 commands. Suggested warm-ups live in the exercise's warmupPrelude, outside its
+   sets, and never reach a total, a record, the engine or completion. Learning is written once, when the workout saves.
+   ============================================================ */
+const WarmupPolicy=window.RepForgeWarmupSuggestions;
+const WARMUP_REST_SEC=60;
+/* Browser suites that are not about warm-ups start every context with Prelude off (test/browser.mjs, `warmups: "live"` opts in),
+   the way they start with the guides read: a lift with history would otherwise open on its warm-up instead of its first set. */
+const warmupOn=()=>!!WarmupPolicy&&typeof window.RepForgeStartingLoads?.equipmentIndex==="function"&&window.__repforgePreludeOff!==true;
+const WARMUP_LOAD_SEMANTICS=["loadKg","assistanceKg","loadPerSideKg","persistentLoadPerSideKg"];
+const WARMUP_MAX_STEPS=6;
+/** The share of the body above which an external-load lift counts as bodyweight-dominant (weighted pull-ups, dips, back
+ *  extensions): no automatic suggestion, the lifter's own Add one stays. A squat (0.759) or hack squat (0.537) is below it. */
+const WARMUP_BODYWEIGHT_COEFFICIENT=0.85;
+const warmupMaterialBodyweight=(convention,coefficient)=>convention==="bodyweight"||convention==="assistance"||
+  (Number.isFinite(coefficient)&&coefficient>=WARMUP_BODYWEIGHT_COEFFICIENT);
+/** The movement a logged step was done as: steps follow the movement they were logged under, not the slot. */
+const warmupStepMovement=step=>{const performed=step.completion?.performed;return String(performed?.libraryId||performed?.movementId||"")};
+/** The record's steps that belong to the movement now performed: its pending ones and what was logged as it. A swap
+ *  freezes the other movement's steps; they stay in History and in Exercise actions but never in this exercise's cue. */
+const warmupStepsFor=(record,lift)=>record?record.steps.filter(step=>warmupPending(step)||(!!lift&&warmupStepMovement(step)===lift.id)):[];
+const warmupPending=step=>step.completion==="pending";
+function warmupMuscleKey(primary){
+  const first=String(primary||"").split(",")[0].trim();
+  return first&&ProgramEntry?.isCanonicalMuscleAttribution?.(first)?first.toLowerCase():null}
+/** The performed lift a draft exercise stands for now: its movement, metric composition and comparable identity. */
+function warmupLift(de){
+  if(!de||!Array.isArray(de.setOrder))return null;
+  const first=de.setOrder.map(id=>de.sets[id]).find(set=>set.role==="working"&&!set.origin);
+  if(!first||!Array.isArray(first.programmed?.metrics))return null;
+  const performed=de.substitution?.replacement||{libraryId:de.libraryId,movementId:de.programmed?.movementId,
+    displayName:de.displayName,primary:de.programmed?.primary};
+  const id=String(performed.libraryId||performed.movementId||"");
+  if(!id)return null;
+  const programmed={...de.programmed,...first.programmed};
+  const mode=executionModeForLogRow({performedLibraryId:id,loadingContext:programmed.loadingContext||{}});
+  return{id,performed,first,programmed,semantics:first.programmed.metrics.map(metric=>metric.semantic),
+    key:JSON.stringify(["w1",id,programmed.equipmentId??null,programmed.metricIds||[],programmed.loadingConvention??null,mode??null]),
+    muscle:warmupMuscleKey(performed.primary)}}
+/** A completed working set's lift, for the already-warm context. */
+function warmupCompletedLifts(){
+  const out=[];
+  for(const exId of activeWorkoutDraft?.exerciseOrder||[]){
+    const de=activeWorkoutDraft.exercises[exId];
+    if(!de||de.status==="skipped")continue;
+    const lift=warmupLift(de);if(!lift)continue;
+    for(const setId of de.setOrder){
+      const set=de.sets[setId];
+      if(set.role!=="working"||set.origin||set.completion==="pending")continue;
+      const completedAt=Date.parse(set.completion.completedAt);
+      if(Number.isFinite(completedAt))out.push({liftKey:lift.key,movementId:lift.id,primaryMuscle:lift.muscle,
+        sessionId:activeWorkoutDraft.draftId,completedAt})}}
+  return out}
+let warmupObservationMemo={log:null,map:null,value:[]};
+/** The saved observations the policy may read, resolved against the live rows (memoized on the two references). */
+function warmupSavedObservations(){
+  if(warmupObservationMemo.log!==state.log||warmupObservationMemo.map!==state.warmupObservations)
+    warmupObservationMemo={log:state.log,map:state.warmupObservations,
+      value:WorkoutDraft.resolveWarmupObservations(state.warmupObservations,state.log)};
+  return warmupObservationMemo.value}
+const warmupResetGeneration=liftKey=>state.warmupPreferences?.[liftKey]?.resetGeneration??null;
+/** The first working set's offered load, in kg. A load the lifter typed is not an offer: with none offered there is no suggestion. */
+function warmupWorkLoadKg(ex,lift){
+  const draft=hydrateWorkoutDraft(),previous=last(ex);
+  // What the first set's shelf offers: the engine's suggestion, else the previous session's set (setFieldVals' own order).
+  const shown=fromDisplay(parseDec(setFieldVals(ex,1,recommendation(ex),draft,previous).kgVal));
+  if(shown>0)return shown;
+  // A per-side row keeps its load in its metric values, not in the flat field the shelf reads.
+  const old=previous.find(item=>item.set===1)||previous.at(-1),facts=old?WorkoutDraft.warmupRowFacts(old):null;
+  return facts?.loadKg>0?facts.loadKg:null}
+/** How many more steps a record can take: the step cap less what is logged, and the ordinals that remain. */
+function warmupRoom(record){
+  const used=record?record.steps.filter(step=>!warmupPending(step)).length:0;
+  return Math.max(0,Math.min(WARMUP_MAX_STEPS-used,WARMUP_MAX_STEPS+1-(record?.nextOrdinal??1)))}
+/** A dumbbell lift's rungs, resolved from the performed lift (the substitute's, once swapped), or null. */
+function warmupLadder(de){
+  const lift=warmupLift(de);
+  return lift?dumbbellLadderKg(lift.performed.libraryId||lift.id,lift.programmed.equipmentId):null}
+/** What the equipment is, in the policy's words, and the one bar this app knows (the 20 kg barbell, in kilograms). */
+function warmupEquipment(lift){
+  const exercise=rawExercise(lift.id),chosen=lift.programmed.equipmentId?rawCatalogObject(lift.programmed.equipmentId):null;
+  const names=(chosen?[chosen]:(exercise?.resistanceEquipmentGroupIds||[]).map(id=>rawCatalogObject(id)))
+    .map(entry=>entry?.name).filter(Boolean);
+  const index=window.RepForgeStartingLoads.equipmentIndex({exercise,lookup:rawCatalogObject,equipmentName:chosen?.name||null});
+  const equipmentKind=index===0||index===1?"barbell":index===2?"dumbbell":index===3?"machine":null;
+  const standardBar=index===0&&names.length>0&&names.every(name=>/^Barbell( and weight plates)?$/.test(name));
+  return{equipmentKind,barKg:standardBar&&!isLb()&&lift.programmed.loadingConvention==="external"?20:null}}
+/** Whether manual preparation or Find your weight already owns this exercise: Prelude gives way to it. */
+function warmupPreempted(ex,de){
+  if(de.setOrder.some(id=>de.sets[id].role==="warmup"||de.sets[id].origin==="ramp"||de.sets[id].calibration))return true;
+  const n=focusActiveSet(ex);
+  return n>0&&!!focusRamp(ex,n,recommendation(ex))}
+/** The policy's answer for this exercise now, or null when Prelude does not apply. */
+function warmupSuggest(ex){
+  const de=activeWorkoutDraft?.exercises?.[ex.id];
+  const lift=de?warmupLift(de):null;if(!lift)return null;
+  const workLoadKg=warmupWorkLoadKg(ex,lift),{equipmentKind,barKg}=warmupEquipment(lift);
+  const input={liftKey:lift.key,movementId:lift.id,primaryMuscle:lift.muscle,sessionId:activeWorkoutDraft.draftId,now:Date.now(),
+    workLoadKg,availableLoadsKg:availableLoadsKg(lift.performed.libraryId||lift.id,lift.programmed.equipmentId),equipmentKind,barKg,
+    loadingConvention:lift.programmed.loadingConvention,metricSemantics:lift.semantics,
+    hasMaterialBodyweight:warmupMaterialBodyweight(lift.programmed.loadingConvention,lift.programmed.loadingContext?.bodyweightCoefficient),
+    completedWorkingLifts:warmupCompletedLifts(),observations:warmupSavedObservations(),resetGeneration:warmupResetGeneration(lift.key)};
+  let result=WarmupPolicy.suggestWarmups(input);
+  // What a swap froze counts against the step cap and the ordinals, so what is offered can always be stored.
+  const room=warmupRoom(de.warmupPrelude);
+  if(result.suggestions.length>room)result={...result,suggestions:result.suggestions.slice(0,room)};
+  return{lift,input,result,equipmentKind,workLoadKg}}
+function warmupFirstSetTouched(de){
+  const first=de.setOrder.map(id=>de.sets[id]).find(set=>set.role==="working"&&!set.origin);
+  return !!first&&(draftSetTouched(first)||hasPendingField(`${de.exerciseInstanceId}_${first.ordinal}_effort`))}
+/** The captured plan a draft command stores: the policy's answer and the context it answered. */
+function warmupPlanOf({result,equipmentKind,workLoadKg}){
+  return{reason:result.reason,suggestions:result.suggestions.map(({loadKg,reps,platesPerSideKg})=>({loadKg,reps,platesPerSideKg:platesPerSideKg??null})),
+    manualAllowed:result.manualAllowed,equipmentKind,workLoadKg:workLoadKg>0?workLoadKg:null,capturedAt:new Date().toISOString(),
+    evidence:cloneSnapshot(result.evidence)}}
+const warmupKg=value=>{const n=Number(value);return Number.isFinite(n)?n:NaN};
+function warmupMetricOf(composition,kind){
+  const metrics=composition?.metrics||[];
+  return kind==="load"?metrics.find(metric=>WARMUP_LOAD_SEMANTICS.includes(metric.semantic))||null
+    :metrics.find(metric=>metric.semantic==="reps"||metric.semantic==="repsPerSide")||null}
+/** One step as the card reads it: the canonical load (kg) and reps from its stored values, with its place in the rail. */
+function warmupStepFacts(step,composition){
+  const comp=warmupPending(step)?composition:step.completion.composition;
+  const load=warmupMetricOf(comp,"load"),reps=warmupMetricOf(comp,"reps");
+  return{step,composition:comp,loadMetric:load,repsMetric:reps,
+    loadKg:load?warmupKg(step.values[load.id]):NaN,reps:reps?warmupKg(step.values[reps.id]):NaN}}
+/** Everything Focus draws for an exercise's preparation. `stage`: "warm" (the cue is the warm-up), "summary" (logged, one
+ *  quiet W row), "suppressed" (the quiet row with Add one), or null (nothing to show). A peek copy reads the same way and
+ *  never writes. */
+/* One render asks for the same exercise's view several times (cue, ledger, shelf, and each neighbour): it is computed once for
+   the draft, the saved state and the minute it was asked in, and recomputed when any of them changes. */
+let preludeMemo={key:null,views:new Map()};
+function preludeView(ex){
+  if(!warmupOn()||!activeWorkoutDraft)return null;
+  const key=[activeWorkoutDraft,state,state.log,state.warmupObservations,state.warmupPreferences,state.settings,Math.floor(Date.now()/60000),!!focusEdit];
+  if(!preludeMemo.key||preludeMemo.key.some((part,index)=>part!==key[index]))preludeMemo={key,views:new Map()};
+  if(!preludeMemo.views.has(ex.id))preludeMemo.views.set(ex.id,computePreludeView(ex));
+  return preludeMemo.views.get(ex.id)}
+function computePreludeView(ex){
+  if(!warmupOn()||!activeWorkoutDraft)return null;
+  const de=activeWorkoutDraft.exercises?.[ex.id];
+  if(!de||de.status!=="active")return null;
+  const record=de.warmupPrelude||null;
+  const liftNow=warmupLift(de),mine=warmupStepsFor(record,liftNow);
+  const logged=mine.filter(step=>!warmupPending(step));
+  // Work has started once a working set is logged, or the lifter has begun entering the first one: its shelf is theirs then.
+  const workStarted=de.setOrder.some(id=>de.sets[id].role==="working"&&!de.sets[id].origin&&
+    (de.sets[id].completion!=="pending"||de.sets[id].performed))||
+    (!record?.steps.some(step=>!warmupPending(step))&&warmupFirstSetTouched(de));
+  const view={ex,de,record,logged,workStarted,stage:null,steps:[],current:-1,plan:null,suggestion:null,composition:record?.composition||null};
+  // A swap retired the old plan (it kept only what was logged): the replacement gets a fresh one if it is eligible.
+  const live=(!record||record.plan===null)&&!workStarted&&!warmupPreempted(ex,de)?warmupSuggest(ex):null;
+  view.suggestion=live;
+  if(record?.plan){
+    view.plan=record.plan;
+    view.steps=mine.map(step=>({...warmupStepFacts(step,record.composition),stepId:step.stepId,done:!warmupPending(step),pendingStep:warmupPending(step),
+      index:warmupSuggestedIndex(record,mine,step)}));
+  }else if(live&&live.result.suggestions.length){
+    view.plan=warmupPlanOf(live);
+    view.composition=warmupCompositionFor(live.lift);
+    const loadMetric=warmupMetricOf(view.composition,"load"),repsMetric=warmupMetricOf(view.composition,"reps");
+    const kept=logged.map(step=>({...warmupStepFacts(step,null),stepId:step.stepId,done:true}));
+    view.steps=[...kept,...live.result.suggestions.map((item,index)=>({stepId:null,done:false,pendingStep:true,
+      loadMetric,repsMetric,loadKg:item.loadKg,reps:item.reps,suggested:item,index,composition:view.composition}))]}
+  else if(live){view.plan=warmupPlanOf(live)}
+  else if(record)view.plan=record.plan;
+  view.current=view.steps.findIndex(step=>!step.done);
+  const skipped=!!record?.skipped;
+  if(view.current>=0&&!workStarted&&!skipped)view.stage="warm";
+  else if(logged.length)view.stage="summary";
+  else if(view.plan?.reason==="suppressed"&&!workStarted&&!skipped&&!(record&&mine.length))view.stage="suppressed";
+  return view}
+/** Where a step sits among this plan's suggested steps, for its plate hint: the current movement's own, and not what was logged
+ *  under an earlier plan (a frozen step of the other movement, or one logged before this plan was captured). */
+function warmupSuggestedIndex(record,mine,step){
+  if(step.source!=="suggested"||!record.plan)return-1;
+  const capturedAt=Date.parse(record.plan.capturedAt);
+  const ofPlan=item=>item.source==="suggested"&&(warmupPending(item)||!(Date.parse(item.completion.completedAt)<capturedAt));
+  return mine.filter(ofPlan).indexOf(step)}
+/** The metric composition a fresh Prelude would store, so the pre-init view can read its own fields. */
+function warmupCompositionFor(lift){
+  const programmed={...lift.programmed};
+  return{metrics:lift.first.programmed.metrics,metricIds:programmed.metricIds,metricType:programmed.metricType,
+    metricOrigin:programmed.metricOrigin,sourceLibraryId:programmed.sourceLibraryId,loadingConvention:programmed.loadingConvention}}
+const warmupLoadText=kg=>Number.isFinite(kg)?fmtLoad(kg):"—";
+/** The display text of a pending step's field: what the lifter typed, else the step's planned figure. */
+function warmupFieldText(step,kind){
+  const metric=kind==="load"?step.loadMetric:step.repsMetric;
+  if(!metric)return"";
+  const raw=step.step?step.step.values[metric.id]:kind==="load"?step.loadKg:step.reps;
+  const held=warmupPendingFields.get(`${step.stepId||"p"}:${metric.id}`);
+  if(held!==undefined)return held;
+  return metricTextValue(raw,metric)}
+/** Values the lifter typed that the draft has not acknowledged yet, so a rebuild shows what they typed. */
+const warmupPendingFields=new Map();
+const warmupInit=new Map();
+/** The step's plate hint, only while its load is the suggested one and the policy has an exact decomposition. */
+function warmupPlateText(view,step){
+  const item=step.suggested||(view.plan?.suggestions||[])[step.index??-1];
+  const plates=item?.platesPerSideKg;
+  if(!Array.isArray(plates)||!Number.isFinite(step.loadKg)||Math.abs(item.loadKg-step.loadKg)>1e-6)return"";
+  if(!plates.length)return t("prelude.plate_empty");
+  return t("prelude.plate_side",{plates:plates.map(kg=>fmtLoad(kg)).join(" + ")})}
+function preludeEvidenceHtml(view){
+  const ex=view.ex,hasWork=view.plan.workLoadKg>0,load=fmtLoad(view.plan.workLoadKg||0),unit=unitLabel(),reason=view.plan.reason;
+  const lift=exerciseDisplayName(ex);
+  // A step the lifter added, or a lift with no work load to aim at, gets the plain instruction without a target.
+  if(view.steps[view.current]?.step?.source==="manual"||!hasWork)return esc(t(hasWork?"prelude.cue.baseline":"prelude.cue.plain",{load,unit}));
+  if(reason==="learned")return esc(t("prelude.cue.learned",{lift,load,unit}));
+  if(reason==="already-warm"){
+    const earlier=warmupEarlierLiftInfo(view);
+    return esc(t("prelude.cue.warm",{muscle:earlier.muscle,lift:earlier.name}))}
+  if(reason==="suppressed")return esc(t("prelude.cue.suppressed"));
+  return esc(t("prelude.cue.baseline",{load,unit}))}
+/** The earlier lift of an already-warm plan, named from the exercise in this workout that was performed as it. */
+function warmupEarlierLiftInfo(view){
+  const lift=view.plan?.evidence?.earlierLift;
+  const draft=activeWorkoutDraft;let name="",primary="";
+  for(const id of draft?.exerciseOrder||[]){
+    const de=draft.exercises[id],performed=de.substitution?.replacement||de;
+    if(String(performed.libraryId||performed.movementId||de.programmed?.movementId||"")===lift?.movementId){
+      name=exerciseDisplayName(performed);primary=performed.primary||de.programmed?.primary||"";break}}
+  return{name:name||exerciseDisplayName(view.ex),muscle:muscleListLabel(String(primary).split(",")[0]||lift?.primaryMuscle||"")}}
+function preludeRailHtml(view,{peek}){
+  // A reps-only lift has no load to climb: there is no rail.
+  if(!view.steps[view.current]?.loadMetric||!(view.plan.workLoadKg>0))return"";
+  const unit=unitLabel(),work=view.plan.workLoadKg;
+  const items=view.steps.map((step,index)=>{
+    const cls=step.done?" is-done":index===view.current?" is-now":"";
+    const load=warmupLoadText(step.loadKg);
+    const key=step.done?"prelude.rail.done":index===view.current?"prelude.rail.now":"prelude.rail.upcoming";
+    return `<li class="fx-rail__step${cls}"${index===view.current?' aria-current="step"':""}><span class="fx-rail__dot" aria-hidden="true"></span>`+
+      `<span class="fx-rail__v" aria-hidden="true">${esc(load)}</span><span class="visually-hidden">${esc(t(key,{load,unit}))}</span></li>`}).join("");
+  const target=warmupLoadText(work);
+  return `<ol class="fx-rail" aria-label="${esc(t("prelude.rail.name"))}">${items}<li class="fx-rail__step fx-rail__step--work">`+
+    `<span class="fx-rail__dot" aria-hidden="true"></span><span class="fx-rail__v" aria-hidden="true">${esc(target)}</span>`+
+    `<span class="visually-hidden">${esc(t("prelude.rail.work",{load:target,unit}))}</span></li></ol>`}
+/** The cue while the warm-up is the next thing to do: the hero, the rail, where the lifter stands, and the way to skip. */
+function preludeCueHtml(view,{peek}){
+  const step=view.steps[view.current],unit=unitLabel(),load=warmupLoadText(step.loadKg);
+  const reps=Number.isFinite(step.reps)?t(step.reps===1?"prelude.reps.one":"prelude.reps.many",{n:fmt(step.reps)}):"";
+  // A reps-only step is told by its reps; a loaded one by its load, with the reps and plates under it.
+  const sentence=step.loadMetric?esc(t("prelude.cue",{load:"\u0000",unit})).replace("\u0000",`<b class="fx-cue__load">${esc(load)}</b>`)
+    :esc(t("prelude.cue_reps",{reps:"\u0000"})).replace("\u0000",`<b class="fx-cue__load">${esc(reps)}</b>`);
+  const plates=step.loadMetric?warmupPlateText(view,step):"",line=!step.loadMetric?"":plates?t("prelude.rep_line",{reps,plates}):reps;
+  const total=view.steps.length,at=view.current+1;
+  const standing=view.plan.workLoadKg>0&&step.loadMetric?t("prelude.standing",{step:at,total,load:warmupLoadText(view.plan.workLoadKg),unit})
+    :t("prelude.standing_plain",{step:at,total});
+  const attrs=id=>peek?dead():` data-wu-${id}="${esc(view.ex.id)}"`;
+  return `<div class="fx-cue is-now fx-cue--warm"><p class="fx-cue__l1">${sentence}</p>`+
+    (line?`<p class="fx-cue__l2">${esc(line)}</p>`:"")+preludeRailHtml(view,{peek})+
+    `<div class="fx-cue__standrow"><p class="fx-cue__standing">${esc(standing)}</p>`+
+    `<button type="button" class="text-link fx-cue__skip"${attrs("skip")}>${esc(t("prelude.skip"))}</button></div>`+
+    `<p class="fx-cue__evidence">${preludeEvidenceHtml(view)} <button type="button" class="text-link focus-ex__why fx-cue__why"${attrs("why")} aria-label="${esc(t("prelude.why.open_aria"))}">${esc(t("focus.evidence.why"))}</button></p></div>`}
+/** The shelf for a warm-up step: Load and Reps, their pads, and the one action that records what was done. */
+const warmupUi={exId:"",field:"load",editing:false};
+function warmupSelectedField(view){
+  const has=kind=>!!(kind==="load"?view.steps[view.current]?.loadMetric:view.steps[view.current]?.repsMetric);
+  const asked=warmupUi.exId===view.ex.id?warmupUi.field:"load";
+  return has(asked)?asked:has("load")?"load":"reps"}
+function preludeFieldHtml(view,kind,{peek}){
+  const step=view.steps[view.current],metric=kind==="load"?step.loadMetric:step.repsMetric;
+  if(!metric)return"";
+  const unit=kind==="load"?metricDisplayUnit(metric):"",label=`${metricLabel(metric)}${unit?`, ${unit}`:""}`;
+  const short=metricLabel(metric),shown=shelfText(warmupFieldText(step,kind));
+  const selected=warmupSelectedField(view)===kind,live=selected&&warmupUi.editing&&!peek;
+  const cls=`shelf__field${selected?" is-sel":""}${live?" is-editing":""}`;
+  const face=shelfFaceHtml(short,label,shown,unit);
+  if(peek)return `<div class="${cls}"><span class="shelf__fieldbtn">${face}</span></div>`;
+  const hint=selected?` aria-label="${esc(`${label} ${shown||"—"}, ${t("focus.field.picker_hint")}`)}"`:"";
+  return `<div class="${cls}" data-field="${kind}" data-wu-fieldwrap="${kind}"><button type="button" class="shelf__fieldbtn" data-wu-field="${kind}" data-wu-ex="${esc(view.ex.id)}" aria-pressed="${selected?"true":"false"}"${hint}>${face}</button>`+
+    `<input class="shelf__input" data-wk="${esc(view.ex.id)}:${esc(metric.id)}" data-wu-kind="${kind}" type="text" inputmode="${kind==="reps"?"numeric":"decimal"}" enterkeyhint="next" aria-label="${esc(label)}" autocomplete="off" value="${esc(warmupFieldText(step,kind))}"${live?"":' tabindex="-1" aria-hidden="true"'}>`+
+    `${live?`<span class="shelf__lab shelf__lab--edit" aria-hidden="true">${esc(short)}</span>`:""}</div>`}
+function preludePadsHtml(view,{peek}){
+  const step=view.steps[view.current],kind=warmupSelectedField(view),metric=kind==="load"?step.loadMetric:step.repsMetric;
+  const ladder=kind==="load"?warmupLadder(view.de):null;
+  const pad=dir=>{
+    // A dumbbell lift's pads say how far the next rung is, as the working shelf's do.
+    const view_=ladder?ladderPad(ladder,parseDec(warmupFieldText(step,"load")),dir,unitLabel()):null;
+    const text=kind==="reps"?t("focus.shelf.pad_reps",{sign:dir>0?"+":"−"})
+      :view_?view_.text:t("focus.shelf.pad_load",{sign:dir>0?"+":"−",step:shelfLoadStep(),unit:unitLabel()});
+    return `<button type="button" class="stepbtn shelf__pad"${peek?dead():` data-wu-step="${esc(view.ex.id)}:${esc(metric.id)}" data-wu-kind="${kind}" data-dir="${dir}"${view_?.off?" disabled":""}`}>${esc(text)}</button>`};
+  return `<div class="shelf__pads">${pad(-1)}${pad(1)}</div>`}
+function preludeCtaText(view){
+  const next=view.steps.slice(view.current+1).find(step=>!step.done);
+  if(!next)return t("prelude.cta.work");
+  return next.loadMetric?t("prelude.cta.next",{load:warmupLoadText(next.loadKg),unit:unitLabel()}):t("prelude.cta.next_reps",{reps:fmt(next.reps)})}
+function preludeShelfHtml(view,{peek}){
+  const label=preludeCtaText(view);
+  return `<div class="focus-shelf workshelf is-prelude" role="region" aria-label="${esc(label)}"><div class="shelf__fields ${view.steps[view.current].loadMetric?"shelf__fields--two":"shelf__fields--one"}">`+
+    `${preludeFieldHtml(view,"load",{peek})}${preludeFieldHtml(view,"reps",{peek})}</div>${preludePadsHtml(view,{peek})}`+
+    `<button type="button" class="btn btn--cta btn--noarrow saveset"${peek?dead():` data-wu-log="${esc(view.ex.id)}"`}>${esc(label)}</button></div>`}
+/** The one quiet W row above the work: the logged loads in order, and that they do not count. */
+function preludeSummaryRowHtml(view,{peek}){
+  const facts=view.logged.map(step=>warmupStepFacts(step,null)),unit=unitLabel();
+  // A reps-only warm-up is listed by its reps.
+  const loaded=facts.every(item=>item.loadMetric),list=facts.map(item=>loaded?warmupLoadText(item.loadKg):fmt(item.reps));
+  const vals=loaded?t("prelude.row.vals",{loads:list.join(" · "),unit}):t("prelude.row.vals_reps",{reps:list.join(" · ")});
+  const spoken=loaded?t("prelude.row.spoken",{loads:list.join(", "),unit}):t("prelude.row.spoken_reps",{reps:list.join(", ")});
+  return `<div class="ledgerline ledgerline--warmup"><span class="ledgerline__idx" aria-hidden="true"><span class="ledger__w">${esc(t("ledger.set.warmup"))}</span></span>`+
+    `<span class="ledgerline__vals ledgerline__vals--wide" aria-hidden="true">${esc(vals)}</span>`+
+    `<span class="visually-hidden">${esc(spoken)}</span></div>`}
+/** "No warm-ups suggested" with Why? and Add one, when three skips have paused the suggestion. */
+function preludeQuietRowHtml(view,{peek}){
+  const attrs=id=>peek?dead():` data-wu-${id}="${esc(view.ex.id)}"`;
+  return `<div class="fx-prelude-none"><span class="fx-prelude-none__label">${esc(t("prelude.none"))}</span><span class="fx-prelude-none__acts">`+
+    `<button type="button" class="text-link"${attrs("why")} aria-label="${esc(t("prelude.why.open_aria"))}">${esc(t("focus.evidence.why"))}</button>`+
+    `<button type="button" class="text-link"${attrs("add")}>${esc(t("prelude.none.add"))}</button></span></div>`}
+
+/* ---- Commands ---- */
+/** Store the plan this exercise is showing, the first time a command needs it. One attempt at a time per exercise. */
+async function ensurePrelude(ex){
+  const de=activeWorkoutDraft?.exercises?.[ex.id];
+  if(de?.warmupPrelude?.plan)return de.warmupPrelude;
+  if(warmupInit.has(ex.id))return warmupInit.get(ex.id);
+  const attempt=(async()=>{
+    const view=preludeView(ex);
+    if(!view?.suggestion)return null;
+    const steps=view.suggestion.result.suggestions.map(item=>({stepId:`wu-${uid()}`,loadKg:item.loadKg,reps:item.reps}));
+    const result=await WorkoutSession.dispatch("initWarmupPrelude",{exerciseInstanceId:ex.id,plan:warmupPlanOf(view.suggestion),steps,
+      ...(view.record&&view.record.plan===null?{replace:true}:{})});
+    if(result.status!=="applied")return null;
+    return activeWorkoutDraft.exercises[ex.id]?.warmupPrelude||null})();
+  warmupInit.set(ex.id,attempt);
+  try{return await attempt}finally{warmupInit.delete(ex.id)}}
+function warmupExerciseById(exId){const base=prog.find(exId);return base?sessionExercise(base):null}
+function warmupCurrentStep(record){return record?.steps.find(warmupPending)||null}
+/** A dumbbell lift's pads follow its load field as it changes, as the working shelf's do. */
+function syncWarmupLadderPads(input){
+  const[exId,metricId]=String(input?.dataset?.wk||"").split(":"),de=activeWorkoutDraft?.exercises?.[exId],ladder=de?warmupLadder(de):null;
+  if(!ladder||input.dataset.wuKind!=="load")return;
+  const value=parseDec(input.value);
+  $$(`.stepbtn[data-wu-step="${CSS.escape(`${exId}:${metricId}`)}"]`).forEach(button=>{
+    const view=ladderPad(ladder,value,+button.dataset.dir,unitLabel());
+    button.textContent=view.text;button.disabled=view.off})}
+/** A typed or stepped value on the warm-up shelf reaches the draft as the step's own edit. */
+async function editWarmupField(input){
+  syncWarmupLadderPads(input);
+  const [exId,metricId]=String(input.dataset.wk||"").split(":"),ex=warmupExerciseById(exId);
+  if(!ex||!activeWorkoutDraft)return;
+  const view=preludeView(ex);if(!view||view.stage!=="warm")return;
+  const metric=[view.steps[view.current]?.loadMetric,view.steps[view.current]?.repsMetric].find(item=>item?.id===metricId);
+  if(!metric)return;
+  const heldKey=`${view.steps[view.current].stepId||"p"}:${metricId}`;
+  warmupPendingFields.set(heldKey,input.value);
+  try{
+    const record=await ensurePrelude(ex),step=warmupCurrentStep(record);
+    if(!step)return;
+    await WorkoutSession.dispatch("editWarmupStep",{exerciseInstanceId:exId,stepId:step.stepId,metricId,value:canonicalMetricInput(metric,input.value)},
+      {pendingValue:input.value});
+  }finally{
+    // The acknowledged draft owns the value from here; a newer keystroke keeps its own held text.
+    if(warmupPendingFields.get(heldKey)===input.value)warmupPendingFields.delete(heldKey)}
+  updateSaveMeta()}
+async function logWarmupStep(exId){
+  const draftId=activeWorkoutDraft?.draftId;if(!draftId)return;
+  await WorkoutSession.flush();
+  if(activeWorkoutDraft?.draftId!==draftId)return;
+  const ex=warmupExerciseById(exId);if(!ex)return;
+  const before=preludeView(ex);if(!before||before.stage!=="warm")return;
+  const record=await ensurePrelude(ex),step=warmupCurrentStep(record);if(!step)return;
+  const suggestionIndex=record.steps.filter(item=>item.source==="suggested").indexOf(step);
+  const result=await WorkoutSession.dispatch("completeWarmupStep",{exerciseInstanceId:exId,stepId:step.stepId,completedAt:new Date().toISOString()});
+  if(result.status==="domain-error"){
+    // A load or reps that cannot be logged: say which, mark it and put the lifter on it (the working shelf does the same).
+    const facts=warmupStepFacts(step,record.composition),parsed=facts.loadMetric?ExerciseMetrics.parseMetricValue(facts.loadMetric,step.values[facts.loadMetric.id]):null;
+    // The metric's own parse decides: a load above the limit or in a form the draft refuses is the load's fault, not the reps'.
+    const loadBad=!!facts.loadMetric&&!(parsed?.ok&&parsed.value>0),metric=loadBad?facts.loadMetric:facts.repsMetric;
+    const input=metric?$(`input[data-wk="${CSS.escape(exId)}:${CSS.escape(metric.id)}"]`):null;
+    if(input){warmupUi.exId=exId;warmupUi.field=loadBad?"load":"reps";warmupUi.editing=true;refreshWarmupShelf();
+      const live=$(`input[data-wk="${CSS.escape(exId)}:${CSS.escape(metric.id)}"]`)||input;
+      applyFieldError({ok:false,error:{key:loadBad?"validation.load_metric":"validation.reps"},el:live});try{live.focus({preventScroll:true})}catch{}}
+    else toast(t(loadBad?"validation.load_metric":"validation.reps"));
+    return}
+  if(result.status!=="applied")return;
+  lastCommitAt=Date.now();if(!sessionStartedAt)sessionStartedAt=lastCommitAt;
+  // The rest after a warm-up is its own short one, and only for an exercise that rests at all (Plan 085, Q4).
+  if(exerciseRestSec(prog.find(exId))>0){applyRest(RepForgeRestTimer.setLength(restClock,0));startRest(WARMUP_REST_SEC,exId,"warmup")}
+  armUnfinishedWatch();
+  const after=activeWorkoutDraft.exercises[exId].warmupPrelude,lastStep=!after.steps.some(warmupPending);
+  const toastText=warmupEditToast(after,step.stepId,suggestionIndex,before);
+  renderWorkout();
+  focusWorkoutHandoff("cta");
+  if(toastText)toast(toastText,{placement:"top"});
+  else if(lastStep)toast(t("prelude.toast.handoff"),{placement:"top"})}
+/** The "once more" notice for a warm-up that was changed, only when the policy can classify the complete change. */
+function warmupEditToast(record,stepId,suggestionIndex,before){
+  if(!warmupOn()||!record.plan||record.plan.evidence.liftKey==null)return"";
+  const index=warmupStepsFor(record,warmupLift(activeWorkoutDraft.exercises[before.ex.id])).findIndex(item=>item.stepId===stepId);if(index<0)return"";
+  const ex=before.ex,lift=warmupLift(activeWorkoutDraft.exercises[ex.id]);if(!lift)return"";
+  const steps=[],liftNow=warmupLift(activeWorkoutDraft.exercises[before.ex.id]),mine=warmupStepsFor(record,liftNow);
+  for(const item of mine){
+    const facts=warmupStepFacts(item,record.composition);
+    if(!(facts.reps>0)||(facts.loadMetric&&!(facts.loadKg>0)))return"";
+    steps.push({...(warmupPending(item)?{}:{setId:item.stepId}),loadKg:facts.loadKg,reps:facts.reps})}
+  if(steps.some(item=>!(item.loadKg>0)))return"";
+  const preview=WarmupPolicy.previewWarmupEdit({suggestion:{reason:record.plan.reason,suggestions:record.plan.suggestions,
+    manualAllowed:record.plan.manualAllowed,evidence:record.plan.evidence},steps,loggedStepIndex:index,sessionId:activeWorkoutDraft.draftId,
+    now:Date.now(),resetGeneration:warmupResetGeneration(lift.key),observations:warmupSavedObservations(),
+    availableLoadsKg:availableLoadsKg(lift.performed.libraryId||lift.id,lift.programmed.equipmentId)});
+  if(!preview.onceMore)return"";
+  return preview.kind==="step"
+    ?t("prelude.toast.edit_step",{load:fmtLoad(preview.step.loadKg),reps:fmt(preview.step.reps)}):t("prelude.toast.edit_sequence")}
+async function skipWarmups(exId){
+  const ex=warmupExerciseById(exId);if(!ex)return;
+  const draftId=activeWorkoutDraft?.draftId;await WorkoutSession.flush();
+  if(activeWorkoutDraft?.draftId!==draftId)return;
+  const record=await ensurePrelude(ex);if(!record)return;
+  const result=await WorkoutSession.dispatch("skipWarmupSteps",{exerciseInstanceId:exId});
+  if(result.status!=="applied")return;
+  renderWorkout();focusWorkoutHandoff("next",{exId,n:1});
+  toast(t("prelude.toast.skip"),{placement:"top"})}
+/** "Add one": the policy's baseline with no history, as the lifter's own step to edit and log. */
+async function addManualWarmup(exId){
+  const ex=warmupExerciseById(exId),de=activeWorkoutDraft?.exercises?.[exId];if(!ex||!de)return;
+  const draftId=activeWorkoutDraft.draftId;await WorkoutSession.flush();
+  if(activeWorkoutDraft?.draftId!==draftId)return;
+  const lift=warmupLift(de);if(!lift)return;
+  const live=warmupSuggest(ex);if(!live)return;
+  const composition=warmupCompositionFor(lift),loadMetric=warmupMetricOf(composition,"load"),repsMetric=warmupMetricOf(composition,"reps");
+  if(!repsMetric)return;
+  const baseline=live.result.reason==="suppressed"||live.result.reason==="learned"||live.result.reason==="already-warm"||live.result.reason==="baseline-fallback"
+    ?WarmupPolicy.suggestWarmups({...live.input,observations:[]}):live.result;
+  const pick=baseline.suggestions.find(item=>item.reps===WarmupPolicy.POLICY.FIRST_PERCENTAGE_REPS&&!(baseline.evidence.barKg&&Math.abs(item.loadKg-baseline.evidence.barKg)<1e-6))
+    ||baseline.suggestions[0];
+  const loadKg=pick?pick.loadKg:baseline.evidence.lowestLighterLoadKg;
+  const values={[repsMetric.id]:String(pick?pick.reps:WarmupPolicy.POLICY.FIRST_PERCENTAGE_REPS)};
+  if(loadMetric){if(loadKg>0)values[loadMetric.id]=String(Math.round(loadKg*1000)/1000);else if(live.result.manualAllowed===false)return;else values[loadMetric.id]=""}
+  const plan=warmupPlanOf(live);
+  const result=await WorkoutSession.dispatch("addWarmupStep",{exerciseInstanceId:exId,stepId:`wu-${uid()}`,values,
+    ...(de.warmupPrelude?.plan?{}:{plan})});
+  if(result.status!=="applied")return;
+  warmupUi.exId=exId;warmupUi.field=loadMetric?"load":"reps";warmupUi.editing=false;
+  renderWorkout();
+  // The new step's own first tile takes focus, where the lifter will adjust it.
+  const tile=focusCard()?.querySelector(`.focus-shelf [data-wu-field="${warmupUi.field}"]`);
+  if(!tile||!focusWorkoutControl(tile))focusWorkoutHandoff("cta");
+  toast(t("prelude.toast.add"),{placement:"top"})}
+/** Forget this lift's preference: a new reset token, committed through the state queue and the cross-tab lock. */
+async function resetWarmupLearning(exId){
+  const ex=warmupExerciseById(exId),de=activeWorkoutDraft?.exercises?.[exId],lift=de?warmupLift(de):null;if(!lift)return false;
+  const proposal=cloneSnapshot(state);
+  proposal.warmupPreferences={...(proposal.warmupPreferences||{}),[lift.key]:{v:1,resetGeneration:`g-${uid()}`,resetAt:new Date().toISOString()}};
+  const result=await commitProposedState(proposal);
+  if(result.committed!==true&&!(result.localOk||result.idbOk))return false;
+  toast(t("prelude.toast.reset"),{placement:"top"});
+  return true}
+/* The wheel and the typed field share the shelf's own paths: a value is written through the field's input. */
+function warmupStepFor(exId){const de=activeWorkoutDraft?.exercises?.[exId];return de?.warmupPrelude?warmupCurrentStep(de.warmupPrelude):null}
+function bindWarmupControls(){
+  $w("[data-wu-skip]").forEach(button=>button.onclick=()=>skipWarmups(button.dataset.wuSkip));
+  $w("[data-wu-why]").forEach(button=>button.onclick=e=>{e.stopPropagation();openWarmupWhySheet(button.dataset.wuWhy,button)});
+  $w("[data-wu-add]").forEach(button=>button.onclick=()=>addManualWarmup(button.dataset.wuAdd));
+  $w("[data-wu-log]").forEach(button=>button.onclick=()=>logWarmupStep(button.dataset.wuLog));
+  $w("input[data-wk]").forEach(input=>{input.oninput=()=>editWarmupField(input);input.onfocus=()=>input.select()});
+  $w("[data-wu-field]").forEach(button=>button.onclick=()=>{
+    const exId=button.dataset.wuEx,kind=button.dataset.wuField;
+    if(warmupUi.exId===exId&&warmupUi.field===kind&&!warmupUi.editing){
+      const input=$(`input[data-wk^="${CSS.escape(exId)}:"][data-wu-kind="${kind}"]`);
+      if(input){openWarmupWheel(exId,kind,input,button);return}}
+    warmupUi.exId=exId;warmupUi.field=kind;warmupUi.editing=false;refreshWarmupShelf(kind)});
+  $w("[data-wu-step]").forEach(button=>button.onclick=()=>{
+    const[exId,metricId]=button.dataset.wuStep.split(":"),kind=button.dataset.wuKind,dir=+button.dataset.dir||0;
+    const input=$(`input[data-wk="${CSS.escape(exId)}:${CSS.escape(metricId)}"]`);if(!input)return;
+    const current=parseDec(input.value)||0;
+    if(kind==="reps")input.value=fmtPlain(Math.max(1,current+dir));
+    else{
+      const de=activeWorkoutDraft?.exercises?.[exId],ladder=de?warmupLadder(de):null;
+      const step=parseDec(shelfLoadStep())||1;
+      input.value=fmtPlain(ladder?ladderNeighbour(ladder,current,dir):Math.max(0,Math.round((current+step*dir)*10)/10))}
+    const el=input.closest(".shelf__field")?.querySelector(".shelf__val");
+    if(el)el.textContent=shelfText(input.value);
+    editWarmupField(input)})}
+/** The shelf alone, rebuilt for a field choice. Focus goes to the control the lifter was on. */
+function refreshWarmupShelf(focus=null){
+  const card=focusCard();if(!card)return;
+  const ex=warmupExerciseById(card.dataset.ex),view=ex?preludeView(ex):null;
+  if(!view||view.stage!=="warm")return;
+  const old=card.querySelector(".focus-shelf");if(!old)return;
+  old.outerHTML=preludeShelfHtml(view,{peek:false});
+  bindWorkout();syncRestTab();syncFocusFloor();
+  if(focus){const el=card.querySelector(`.focus-shelf [data-wu-field="${focus}"]`);if(el)focusWorkoutControl(el)}}
+function openWarmupWheel(exId,kind,input,opener){
+  const key=`${exId}_wu`;
+  const de=activeWorkoutDraft?.exercises?.[exId];
+  openWheelSheet(key,kind,kind,{input,opener,ladder:kind==="load"&&de?warmupLadder(de):null,
+    onKeyboard:()=>{warmupUi.exId=exId;warmupUi.field=kind;warmupUi.editing=true;refreshWarmupShelf();
+      const el=focusCard()?.querySelector(`.focus-shelf input[data-wu-kind="${kind}"]`);if(el){try{el.focus({preventScroll:true})}catch{}el.select()}}})}
+/* ---- Why this warm-up ---- */
+function warmupSequenceText(view){
+  const unit=unitLabel(),steps=view.steps.length?view.steps:(view.plan?.suggestions||[]).map(item=>({loadKg:item.loadKg,reps:item.reps}));
+  const sets=steps.map(step=>("loadMetric" in step&&!step.loadMetric)?`${fmt(step.reps)}`:`${warmupLoadText(step.loadKg)} × ${fmt(step.reps)}`).join(", ");
+  // With no work load to aim at there is no "then …": the sequence is just the steps.
+  if(!(view.plan.workLoadKg>0))return steps.length?sets:"";
+  const load=warmupLoadText(view.plan.workLoadKg);
+  return steps.length?t("prelude.why.sequence",{sets,load,unit}):t("prelude.why.sequence_none",{load,unit})}
+function warmupWhyModel(view){
+  const reason=view.plan.reason,evidence=view.plan.evidence||{},blocks=[];
+  const lift=exerciseDisplayName(view.ex),unit=unitLabel(),loads=(view.plan.suggestions||[]).map(item=>fmtLoad(item.loadKg));
+  const sets=(view.plan.suggestions||[]).map(item=>`${fmtLoad(item.loadKg)} × ${fmt(item.reps)}`).join(", ");
+  let source,decision;
+  if(reason==="learned"){decision=t("prelude.why.decision.learned");source=t("prelude.why.source.learned",{sets:`${sets} ${unit}`})}
+  else if(reason==="already-warm"){
+    const earlier=warmupEarlierLiftInfo(view),minutes=Math.max(1,Math.round((evidence.earlierLift?.elapsedMs||0)/60000));
+    decision=t("prelude.why.decision.warm");source=t("prelude.why.source.warm",{muscle:earlier.muscle,minutes,lift:earlier.name})}
+  else if(reason==="suppressed"){decision=t("prelude.why.decision.skips");source=t("prelude.why.source.suppressed")}
+  else{decision=t("prelude.why.decision.first");source=t("prelude.why.source.baseline")}
+  blocks.push({lead:t("prelude.why.source_head"),text:source});
+  blocks.push({reset:true});
+  // "How it learns. Log the same change twice…": the sentence's first clause is its bold lead.
+  for(const key of ["prelude.why.learning","prelude.why.exclusions"]){
+    const line=t(key),cut=line.indexOf(". ");
+    blocks.push(cut>0?{lead:line.slice(0,cut),text:line.slice(cut+2)}:{lead:"",text:line})}
+  const sessions=(evidence.sessions||[]).length,dates=(evidence.sessions||[]).map(item=>item.savedAt).filter(Number.isFinite).sort((a,b)=>a-b);
+  let footer="";
+  if(sessions&&reason==="already-warm")footer=t("prelude.why.evidence_with",{n:sessions,lift:warmupEarlierLiftInfo(view).name});
+  else if(sessions)footer=t("prelude.why.evidence",{n:sessions,dates:dates.length>1?`${shortDate(new Date(dates[0]).toISOString().slice(0,10))} – ${shortDate(new Date(dates.at(-1)).toISOString().slice(0,10))}`:shortDate(new Date(dates[0]).toISOString().slice(0,10))});
+  return{target:warmupSequenceText(view),decision,blocks,footer,lift}}
+function openWarmupWhySheet(exId,opener){
+  const ex=warmupExerciseById(exId);if(!ex)return;
+  const view=preludeView(ex);if(!view?.plan)return;
+  const sheet=$("#whySheet"),scrim=$("#whyScrim");if(!sheet)return;
+  const model=warmupWhyModel(view);
+  $("#whyTitle").textContent=t("prelude.why.title");
+  const target=$("#whyTarget");if(target){target.innerHTML=`<span>${esc(model.target)}</span>`;target.classList.toggle("hidden",!model.target)}
+  $("#whyDecision").textContent=model.decision;
+  const body=$("#whyBody");
+  if(body){
+    // The reset follows the source so it is in view at the medium detent; the rest of the explanation scrolls below it.
+    body.innerHTML=model.blocks.map(block=>block.reset
+      ?`<button type="button" class="whysheet__disc" data-wu-reset="${esc(exId)}"><span>${esc(t("prelude.why.reset",{lift:model.lift}))}</span></button>`
+      :`<div class="whysheet__block">${block.lead?`<b class="whysheet__lead">${esc(block.lead)}</b>`:""}<p class="whysheet__text">${esc(block.text)}</p></div>`).join("");
+    body.querySelector("[data-wu-reset]").onclick=async()=>{
+      const done=await resetWarmupLearning(exId);
+      if(done){await closeWhySheet();renderWorkout()}}}
+  const evidence=$("#whyEvidence");if(evidence){evidence.textContent=model.footer;evidence.classList.toggle("hidden",!model.footer)}
+  document.body.classList.add("is-sheet-open");
+  openModal(sheet,{initialFocus:$("#whyClose"),returnFocus:opener,onEscape:closeWhySheet,scrim,delayHide:reducedMotion()?0:280});
+  requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim?.classList.add("is-open")})}
+/* ---- Exercise actions: review, correct, remove and add ---- */
+function renderPreludeActions(exId,sheet){
+  const list=$("#exActionsPreludeList"),section=$("#exActionsPreludeSection");if(!list||!section)return;
+  if(!warmupOn()){section.classList.add("hidden");return}
+  const ex=warmupExerciseById(exId),de=activeWorkoutDraft?.exercises?.[exId];
+  const record=de?.warmupPrelude,logged=record?record.steps.filter(step=>!warmupPending(step)):[];
+  const lift=de?warmupLift(de):null,canAdd=!!lift&&!record?.steps.some(warmupPending)&&(record?record.steps.length<6&&record.nextOrdinal<=6:true);
+  section.classList.toggle("hidden",!logged.length&&!canAdd);
+  const unit=unitLabel();
+  const rows=logged.map(step=>{
+    const facts=warmupStepFacts(step,null),n=step.completion.ordinal;
+    const figure=facts.loadMetric?`${warmupLoadText(facts.loadKg)} ${unit} × ${fmt(facts.reps)}`:t(facts.reps===1?"prelude.reps.one":"prelude.reps.many",{n:fmt(facts.reps)});
+    return `<div class="exactions__warmup-row" data-wu-row="${esc(step.stepId)}"><div class="exactions__warmup-info"><span class="exactions__warmup-num">${esc(t("ledger.set.warmup"))}${n}</span>`+
+      `<span class="exactions__warmup-role">${esc(figure)}</span></div>`+
+      `<span class="exactions__warmup-ctl"><button type="button" class="text-link" data-wu-edit="${esc(step.stepId)}">${esc(t("prelude.manage.edit"))}</button>`+
+      `<button type="button" class="text-link" data-wu-remove="${esc(step.stepId)}">${esc(t("prelude.manage.remove"))}</button></span></div>`}).join("");
+  list.innerHTML=rows+(canAdd?`<button type="button" class="exactions__act" id="exActionAddWarmup"><span class="exactions__act-text"><span>${esc(t("prelude.manage.add"))}</span></span></button>`:"");
+  list.querySelectorAll("[data-wu-remove]").forEach(button=>button.onclick=async()=>{
+    const result=await WorkoutSession.dispatch("removeWarmupStep",{exerciseInstanceId:exId,stepId:button.dataset.wuRemove});
+    if(result.status!=="applied")return;
+    renderWorkout();renderExActionsSheet(exId);
+    (sheet?.querySelector("#exActionAddWarmup")||sheet?.querySelector("[data-wu-edit]"))?.focus({preventScroll:true})});
+  list.querySelectorAll("[data-wu-edit]").forEach(button=>button.onclick=()=>openWarmupCorrection(exId,button.dataset.wuEdit,button.closest("[data-wu-row]")));
+  list.querySelector("#exActionAddWarmup")?.addEventListener("click",async()=>{
+    await closeExActionsSheet();await addManualWarmup(exId)})}
+/** A logged step's two figures, edited in place and saved as one correction that keeps its ordinal. */
+function openWarmupCorrection(exId,stepId,row){
+  const de=activeWorkoutDraft?.exercises?.[exId],step=de?.warmupPrelude?.steps.find(item=>item.stepId===stepId);if(!step||!row)return;
+  const facts=warmupStepFacts(step,null),unit=facts.loadMetric?metricDisplayUnit(facts.loadMetric):"";
+  const loadInput=facts.loadMetric?`<input class="shelf__input exactions__warmup-input" inputmode="decimal" aria-label="${esc(`${metricLabel(facts.loadMetric)}${unit?`, ${unit}`:""}`)}" value="${esc(metricTextValue(step.values[facts.loadMetric.id],facts.loadMetric))}" data-wu-fix="load">`:"";
+  row.innerHTML=`<div class="exactions__warmup-info"><span class="exactions__warmup-num">${esc(t("ledger.set.warmup"))}${step.completion.ordinal}</span></div>`+
+    `<span class="exactions__warmup-ctl">${loadInput}`+
+    `<input class="shelf__input exactions__warmup-input" inputmode="numeric" aria-label="${esc(metricLabel(facts.repsMetric))}" value="${esc(String(step.values[facts.repsMetric.id]))}" data-wu-fix="reps">`+
+    `<button type="button" class="text-link" data-wu-save>${esc(t("dialog.save"))}</button><button type="button" class="text-link" data-wu-cancel>${esc(t("dialog.cancel"))}</button></span>`;
+  const load=row.querySelector('[data-wu-fix="load"]'),reps=row.querySelector('[data-wu-fix="reps"]'),first=load||reps;
+  first.focus();first.select();
+  row.querySelector("[data-wu-cancel]").onclick=()=>renderExActionsSheet(exId);
+  row.querySelector("[data-wu-save]").onclick=async()=>{
+    const result=await WorkoutSession.dispatch("correctWarmupStep",{exerciseInstanceId:exId,stepId,
+      values:{...(facts.loadMetric&&load?{[facts.loadMetric.id]:canonicalMetricInput(facts.loadMetric,load.value)}:{}),
+        [facts.repsMetric.id]:canonicalMetricInput(facts.repsMetric,reps.value)}});
+    if(result.status==="domain-error"){load?.setAttribute("aria-invalid","true");reps.setAttribute("aria-invalid","true");return}
+    if(result.status!=="applied")return;
+    renderWorkout();renderExActionsSheet(exId);
+    document.querySelector(`#exActionsPreludeList [data-wu-edit="${CSS.escape(stepId)}"]`)?.focus({preventScroll:true})}}
+/* ---- Saving: what one finished session teaches ---- */
+/** The observations a finished workout adds, one per comparable lift: the first eligible occurrence with completed work. */
+function warmupObservationsForSave(draft,rows,finishedAt){
+  const out={},seen=new Set(),savedAt=Date.parse(finishedAt);
+  if(!warmupOn()||!Number.isFinite(savedAt))return null;
+  const saved=warmupSavedObservations();
+  for(const exId of draft.exerciseOrder){
+    const de=draft.exercises[exId],record=de?.warmupPrelude;
+    if(!record?.plan||de.status==="skipped")continue;
+    const liftKey=record.plan.evidence.liftKey;
+    if(!liftKey||seen.has(liftKey))continue;
+    const work=rows.filter(row=>row.exerciseId===exId&&!row.warmup&&row.origin!=="ramp").sort((a,b)=>a.set-b.set)[0];
+    if(!work)continue;
+    seen.add(liftKey);
+    if(record.steps.some(warmupPending))continue;
+    // Only what was logged as the movement now performed teaches: a swap's frozen steps belong to the other movement.
+    const logged=warmupStepsFor(record,warmupLift(de)).filter(step=>!warmupPending(step));
+    const skipped=record.skipped&&!logged.length;
+    if(record.skipped&&logged.length)continue;
+    if(!skipped&&!logged.length)continue;
+    const steps=logged.map(step=>{const facts=warmupStepFacts(step,null);
+      return{setId:JSON.stringify(["u",exId,step.completion.ordinal]),loadKg:facts.loadKg,reps:facts.reps}});
+    const lift=warmupLift(draft.exercises[exId]);
+    const resetGeneration=lift?warmupResetGeneration(lift.key):null;
+    const classified=WarmupPolicy.classifyWarmupFinish({suggestion:{reason:record.plan.reason,suggestions:record.plan.suggestions,
+      manualAllowed:record.plan.manualAllowed,evidence:record.plan.evidence},steps,skipped,sessionId:draft.draftId,
+      workingSetId:JSON.stringify(["w",exId,work.set]),savedAt,resetGeneration,observations:saved,
+      availableLoadsKg:lift?availableLoadsKg(lift.performed.libraryId||lift.id,lift.programmed.equipmentId):[]});
+    const observation=classified.observation;if(!observation)continue;
+    const performedKey=String(work.performedLibraryId||work.performedMovementId||"");
+    if(!performedKey)continue;
+    const entry={v:1,liftKey:observation.liftKey,exerciseId:exId,performedKey,workingOrdinal:work.set,
+      warmupOrdinals:logged.map(step=>step.completion.ordinal),savedAt:observation.savedAt,resetGeneration:observation.resetGeneration,
+      decision:observation.decision,workLoadKg:observation.workLoadKg,barKg:observation.barKg,earlierLift:observation.earlierLift,
+      stepGrid:observation.stepGrid};
+    if(!WorkoutDraft.validateWarmupObservations({[draft.draftId]:{v:1,observations:[entry]}},rows))continue;
+    (out[draft.draftId]??={v:1,observations:[]}).observations.push(entry)}
+  return Object.keys(out).length?out:null}
+
 /* ============================================================
    Focus mode
    One full-height card per exercise: a scrolling ledger of what has been
@@ -10415,8 +11163,12 @@ function focusCue(ex,n,r,draft,prev,editing){
   // is the engine's in-session answer, which the parity check does not compare.
   const parity=sg.src==="base"&&!sg.tempered?` data-parity-target="${esc(ex.id)}"`:"";
   return{kind:"now",move,loadText,reps,parity,
-    headHtml:esc(sentence).replace("\u0000",`<b class="fx-cue__load"${parity}>${esc(loadText)}</b>`),
+    headHtml:esc(sentence).replace("\u0000",`<b class="fx-cue__load"${parity}>${cueLoadHtml(loadText)}</b>`),
     sub:t("focus.cue.reps",{reps})}}
+
+/** The cue's figure, set in Mono: its decimal mark takes a narrow cell rather than a full Mono advance, so
+ *  "107.5" does not read as "107 . 5". The text is unchanged for copy and assistive technology. */
+function cueLoadHtml(text){return esc(text).replace(/[.,](?=\d)/,mark=>`<span class="fx-cue__dec">${mark}</span>`)}
 
 /* ---- The rest clock's readings (rest timer redesign, owner-approved mock 2026-10-23) ----
    The rest reads the one clock (rest-timer.js): there is no second clock and nothing stored.
@@ -10475,9 +11227,35 @@ function evidenceSay(key,vars){
   let html=esc(t(key,Object.fromEntries(keys.map((k,i)=>[k,marks[i]]))));
   keys.forEach((k,i)=>{html=html.replace(marks[i],vars[k])});return html}
 /** A performed set's figures ride in Mono inside the evidence line. */
-const evidenceFig=v=>`<span class="fx-cue__fig">${esc(v)}</span>`;
+const evidenceFig=v=>`<span class="fx-cue__fig">${partialMarkup(v)}</span>`;
 /** The evidence line under the hero: the set the engine anchored on and the target it aims at, the same facts as the
  *  Why sheet (`engineSetFacts`), or, with no suggestion, the honest reason. Mono carries the figures. */
+function focusPartialComparison(rec,index,current=null){
+  const inputs=rec?.progressionInputs;
+  return inputs&&rec.prescription?window.RepForgeProgression?.partialRepComparison?.(
+    rec.prescription,inputs.history,current,index,inputs.loadingContext):null}
+function currentPartialEvidence(ex,n,rec,{markup=false,marked=false}={}){
+  const draft=activeWorkoutDraft?.exercises?.[ex.id],inputs=rec.progressionInputs;
+  if(!draft||!inputs)return null;
+  const working=draft.setOrder.map(id=>draft.sets[id]).filter(set=>set.origin!=="ramp");
+  const last=working.map((set,index)=>({set,index})).filter(({set})=>set.completion!=="pending"&&set.role==="working")
+    .sort((a,b)=>String(a.set.completion.completedAt).localeCompare(String(b.set.completion.completedAt))).at(-1);
+  const current=inputs.currentSession.find(set=>set.setIndex===last?.index);
+  const evidence=(key,n,kg,full,count,extra={})=>{
+    const load=kg==null?"":`${fmtLoad(kg)} × `,vars={...extra,n:fmt(n)};
+    return markup?evidenceSay(key,{...Object.fromEntries(Object.entries(vars).map(([key,value])=>[key,esc(value)])),
+      set:`<span class="fx-cue__fig">${esc(load)}${performedRepsHtml(full,count)}</span>`})
+      :t(key,{...vars,set:load+(marked?performedRepsMarked:performedRepsText)(full,count)})};
+  if(current?.partialReps){
+    const tie=focusPartialComparison(rec,last.index,current);
+    const load=tie?.current.displayLoadKg??metricFieldValue(last.set,"load");
+    const full=last.set.programmed.metrics?metricFieldValue(last.set,"reps"):last.set.edited.reps;
+    return evidence(tie?.status==="win"?"partials.after":"partials.saved",last.set.ordinal,load,full,current.partialReps,
+      tie?.status==="win"?{more:partialOptionLabel(tie.difference)}:{})}
+  const index=working.findIndex(set=>set.ordinal===n),previous=focusPartialComparison(rec,index);
+  return previous?.partialReps&&previous.rir===0
+    ?evidence("partials.before",n,previous.displayLoadKg,previous.reps,previous.partialReps):null}
+
 function focusEvidenceText(ex,n,r,cue){
   if(cue.kind==="edit")return"";
   if(cue.kind==="ramp")return esc(t(`focus.evidence.${cue.ramp.record.basis}`));
@@ -10485,6 +11263,8 @@ function focusEvidenceText(ex,n,r,cue){
   const effort=isWordMode(),mono=evidenceFig,plain=v=>esc(v),say=evidenceSay;
   if(cue.kind==="planned")return esc(t("focus.evidence.planned"));
   if(cue.kind==="maxset")return esc(t("maxset.fail_rule"));
+  const partial=currentPartialEvidence(ex,n,r,{markup:true});
+  if(partial)return partial;
   if(cue.kind!=="now"){
     const key=focusNoSuggestionKey(ex,r,n,cue.kind);
     return say(`focus.evidence.none_${key}`,{what:esc(t(effort?"focus.evidence.what_effort":"focus.evidence.what_rir")),
@@ -10493,7 +11273,7 @@ function focusEvidenceText(ex,n,r,cue){
   if(!facts||facts.item.prescription?.setIndex!==n)return"";
   const parts=[],seen=engineAnchorSet(r,facts);
   if(seen){
-    const vars={set:plain((facts.anchor.setIndex??0)+1),load:mono(`${fmtLoad(facts.anchor.displayLoadKg)} × ${seen.reps}`),
+    const vars={set:plain((facts.anchor.setIndex??0)+1),load:mono(`${fmtLoad(facts.anchor.displayLoadKg)} × ${performedRepsMarked(seen.reps,partialCount(seen))}`),
       rir:plain(fmt(seen.rir)),effort:esc(effortLabel(effortForRir(seen.rir)))};
     const source=facts.anchor.source==="current_session"?"session":"history";
     parts.push(say(`focus.evidence.${source}${effort?"_effort":""}`,vars))}
@@ -10571,7 +11351,7 @@ function focusTargetEffort(ex){
 function focusPrevLine(x){
   if(!x)return"";
   // The last session's effort in the stage's own words: a word, reps left, or RIR.
-  const stage=effortStage(),ending=x.rir==null||x.rir===""?"norir":stage==="a"?"effort":"rir";
+  const stage=effortStage(),count=partialCount(x),ending=x.rir==null||x.rir===""?"norir":stage==="a"?"effort":count?"left":"rir";
   const left=x.rir==null||x.rir===""?"":effortLabel(repsLeftChip(x.rir));
   const projection=readLogRow(x),definitions=Array.isArray(x.metricDefinitions)?x.metricDefinitions:[];
   const hasSideLoad=definitions.some(metric=>PER_SIDE_LOAD_SEMANTICS.has(metric?.semantic));
@@ -10580,14 +11360,18 @@ function focusPrevLine(x){
   const family=hasSideLoad&&hasSideReps?"both_per_side":hasSideLoad?"per_side_load"
     :hasSideReps&&hasTotalLoad?"total_load_reps_per_side"
       :hasSideReps?"bodyweight_reps_per_side":null;
+  const full=projection.reps??x.reps,reps=count?"\u0000":full;
+  const format=(key,vars)=>{
+    const text=t(key,{...vars,reps});
+    return esc(text).replace("\u0000",performedRepsHtml(full,count))};
   if(family){
-    return t(`focus.prev_line.${family}.${ending}`,{
-      load:fmtLoad(projection.load),unit:unitLabel(),reps:projection.reps,
+    return format(`focus.prev_line.${family}.${ending}`,{
+      load:fmtLoad(projection.load),unit:unitLabel(),
       rir:fmt(x.rir),effort:effortLabel(effortForRir(x.rir)),left})}
-  const load=fmtLoad(projection.load??x.load),reps=projection.reps??x.reps;
-  if(x.rir==null||x.rir==="")return t("focus.prev_line_norir",{load,reps});
-  return ending==="effort"?t("focus.prev_line_effort",{load,reps,effort:effortLabel(effortForRir(x.rir))})
-    :ending==="left"?t("focus.prev_line_left",{load,reps,left}):t("focus.prev_line",{load,reps,rir:fmt(x.rir)})}
+  const load=fmtLoad(projection.load??x.load);
+  if(ending==="norir")return format("focus.prev_line_norir",{load});
+  return ending==="effort"?format("focus.prev_line_effort",{load,effort:effortLabel(effortForRir(x.rir))})
+    :ending==="left"?format("focus.prev_line_left",{load,left}):format("focus.prev_line",{load,rir:fmt(x.rir)})}
 
 /** What the lifter has confirmed on a set. `touched.effort` also covers RIR. */
 function shelfTouched(exId,n){
@@ -10654,19 +11438,20 @@ function focusLedgerHtml(ex,r,draft,prev,{peek=false}){
   return head+focusLedgerToggleHtml(ex,{peek})+
     `<div class="ledger__rows" id="ledger_${esc(ex.id)}">${focusLedgerRowsHtml(ex,r,draft,prev,{peek})}</div>`}
 function focusLedgerRowsHtml(ex,r,draft,prev,{peek=false}){
+  const prelude=preludeView(ex),preludeWarm=prelude?.stage==="warm"&&!(focusEdit&&focusEdit.exId===ex.id);
   const active=focusActiveSet(ex);
   const editN=focusEdit&&focusEdit.exId===ex.id?focusEdit.n:0;
   const freshN=focusIsFresh(ex,peek)?focusLogged.n:0;
   const expanded=focusLedgerExpanded(ex,peek);
-  let after=0,folded=focusLedgerFoldCount(ex,peek);
-  for(let n=active+1;n<=sessionSetCount(ex)&&!after;n++)if(!committed.has(`${ex.id}_${n}`))after=n;
+  let folded=focusLedgerFoldCount(ex,peek);
   const rows=[];
   for(let n=1;n<=sessionSetCount(ex);n++){
     const key=`${ex.id}_${n}`;
     const done=committed.has(key)&&n!==editN;
-    if(!expanded&&!done&&n!==active&&n!==after)continue;
+    // Every set still to come is listed (owner, 2026-11-22): showing only the next one left an unexplained gap above
+    // Next whenever a later set was hidden. Logged sets still fold behind the disclosure; what passes the window scrolls.
     const fold=!expanded&&done&&folded-->0;
-    const open=n===active;
+    const open=n===active&&!preludeWarm;
     const vals=focusRowVals(ex,n,r,draft,prev);
     const prevLine=focusPrevLine(prev.find(x=>x.set===n));
     const touched=open||done?shelfTouched(ex.id,n):{};
@@ -10680,9 +11465,9 @@ function focusLedgerRowsHtml(ex,r,draft,prev,{peek=false}){
       :!peek&&ledgerSetIsWarmup(ex.id,n)?`<span aria-hidden="true">${esc(t("ledger.set.warmup"))}</span><span class="visually-hidden">${esc(t("ex.actions.role_warmup"))}</span>`:n;
     const cells=`<span class="ledgerline__idx">${idx}</span>`+
       `<span class="ledgerline__vals"><span class="fx-col${open||done?soft("load"):" is-soft"}" data-lv="load">${esc(vals.load||"—")}</span>`+
-      `<span class="fx-col${open||done?soft("reps"):" is-soft"}" data-lv="reps">${esc(vals.reps)}</span>`+
+      `<span class="fx-col${open||done?soft("reps"):" is-soft"}" data-lv="reps">${performedRepsHtml(vals.reps,partialCount(draftSetAt(ex.id,n)))}</span>`+
       `<span class="fx-col${open||done?soft("rir"):" is-soft"}" data-lv="rir">${esc(rirText)}</span></span>`+
-      (prevLine?`<small class="ledgerline__prev">${esc(prevLine)}</small>`:"");
+      (prevLine?`<small class="ledgerline__prev">${prevLine}</small>`:"");
     // A max set reads as one while it is pending, and its logged row compares the guess with the reps (Plan 077).
     const maxSet=peek?null:draftSetAt(ex.id,n);
     const extra=!maxSet?.calibration?"":done?maxSetResultHtml(maxSet,r)
@@ -10692,6 +11477,7 @@ function focusLedgerRowsHtml(ex,r,draft,prev,{peek=false}){
       :` data-editex="${esc(ex.id)}" data-editn="${n}" aria-label="${esc(t("focus.edit_set_aria",{n}))}"`}>${cells}${extra}</button>`+
       (fold?"":lastRepSlowHtml(ex,n,peek)));
     else rows.push(`<div class="${cls}"${n===editN?' aria-current="true"':""} data-lrow="${n}">${cells}${extra}</div>`)}
+  if(prelude?.stage==="summary")rows.unshift(preludeSummaryRowHtml(prelude,{peek}));
   return rows.join("")}
 /** "Was the last rep slow?" (Plan 077, OD-25; owner: on the last set of each exercise only). A quiet line under that
  *  set's row while its rest runs, never on the shelf, so it can't slow logging; one tap answers, and the answer stays
@@ -10735,8 +11521,8 @@ function toggleFocusLedger(button){
   // Opening reveals the logged rows under the disclosure where the lifter is looking; closing brings the open set back.
   if(!open)settleFocusContext(moved)}
 
-/** The line under the exercise name: sets and reps, the effort window, and the
- *  name of the strategy that sets the target. Read off the program's own
+/** The line under the exercise name: sets and reps, the effort window, and, unless
+ *  the adaptive engine sets the target, the name of the strategy that does. Read off the program's own
  *  envelope; a slot with none is the range it always was. */
 /** An effort window of one value reads as that value: "1 left", never "1–1 left". */
 const singleRir=line=>String(line).replace(/(· )(\d+(?:[.,]\d+)?)–\2(?= (?:left|sobrando))/g,"$1$2");
@@ -10745,10 +11531,10 @@ function focusExMeta(ex){
   // A canonical slot is adaptive or manual; its RIR comes from its own sets.
   const facts=canonicalSlotFacts(ex);
   if(facts){
-    const name=t(facts.adaptive?"program.progression.adaptive":"program.progression.strategy.manual");
     const line=facts.rirMin==null?t("focus.exmeta.manual",{sets:+ex.sets||1,min:ex.min,max:ex.max})
       :t("focus.exmeta.range",{sets:+ex.sets||1,min:ex.min,max:ex.max,rmin:fmt(facts.rirMin),rmax:fmt(facts.rirMax)});
-    return `${singleRir(line)} · ${name}`}
+    // The adaptive engine is the default and its cue already says what to do; only a manual slot names itself.
+    return facts.adaptive?singleRir(line):`${singleRir(line)} · ${t("program.progression.strategy.manual")}`}
   const env=progressionForExercise(ex),id=env?.strategy?.id||"range",p=env?.strategy?.params||{};
   const sets=+p.workingSets||+ex.sets||1;
   const rmin=fmt(p.targetRirMin!=null?p.targetRirMin:0),rmax=fmt(p.targetRirMax!=null?p.targetRirMax:state.settings.rirHigh);
@@ -10778,6 +11564,17 @@ function defaultShelfField(key){
   return metrics?.[0]?`metric_${metrics[0].id}`:"reps"}
 const shelfFor=(key,firstField=defaultShelfField(key))=>shelfUi.key===key?shelfUi:{key,field:firstField,editing:false};
 const shelfSelect=(key,field,editing=false)=>{shelfUi={key,field,editing}};
+function partialPage(ui,set){
+  return ui.field==="rir"&&WorkoutDraft.canRecordPartials(set)&&WorkoutDraft.hasExplicitZero(set)&&
+    (ui.partialPage??partialCount(set)>0)}
+function showPartialPage(key,show,{entrance=false}={}){
+  if(shelfUi.key!==key||shelfUi.field!=="rir")return;
+  shelfUi={...shelfUi,partialPage:show,partialEntrance:entrance};
+  refreshShelf({focus:show?"partial":"zero"});
+  const effort=focusCard()?.querySelector('.ledgerline--open [data-lv="rir"]');
+  if(effort){effort.textContent=fmt(0);effort.classList.remove("is-soft")}
+  shelfUi.partialEntrance=false}
+
 /** A field's text as the lifter reads it: a number in their locale, anything else as typed. */
 const shelfText=raw=>{const v=parseDec(raw);return Number.isFinite(v)?fmt(v):String(raw??"")};
 /** The load step the pads move by, in the unit the lifter sees. */
@@ -10903,10 +11700,10 @@ const SHELF_PER_SIDE_SHORT={loadPerSideKg:"focus.metric.load_kg",repsPerSide:"fo
 const shelfShortLabel=metric=>SHELF_PER_SIDE_SHORT[metric.semantic]?t(SHELF_PER_SIDE_SHORT[metric.semantic]):metricLabel(metric);
 /** A field's face: its short label over the value, with the unit beside the value ("22.5 kg"). The field's name stays
  *  whole ("Load per side, kg 22.5"): the rest of the label is read but not shown, and the shown unit is not read twice. */
-const shelfFaceHtml=(short,label,shown,unit)=>{
+const shelfFaceHtml=(short,label,shown,unit,count=0,{effort=false}={})=>{
   const rest=label.startsWith(short)?label.slice(short.length):"";
   const lab=rest||label===short?`${esc(short)}${rest?`<span class="visually-hidden">${esc(rest)}</span>`:""}`:esc(label);
-  return `<span class="shelf__lab">${lab}</span><span class="shelf__valrow"><span class="shelf__val">${esc(shown||"—")}</span>`+
+  return `<span class="shelf__lab">${lab}</span><span class="shelf__valrow"><span class="shelf__val">${effort&&count?`${esc(shown)}<span class="partial-reps" aria-hidden="true">+${esc(fmt(count))}</span><span class="visually-hidden">, ${esc(partialOptionLabel(count))}</span>`:performedRepsHtml(shown||"—",count)}</span>`+
     `${unit?`<span class="shelf__unit" aria-hidden="true">${esc(unit)}</span>`:""}</span>`};
 
 function shelfFieldHtml(ex,n,id,vals,{ui,touched,peek}){
@@ -10928,14 +11725,16 @@ function shelfFieldHtml(ex,n,id,vals,{ui,touched,peek}){
   const soft=!(id==="load"?touched.load:id==="reps"?touched.reps:touched.effort);
   const word=effortField&&stage==="a"||id==="rir"&&vals.unsure;
   const cls=`shelf__field${sel?" is-sel":""}${soft?" is-untouched":""}${live?" is-editing":""}${word?" is-word":""}`;
-  const face=shelfFaceHtml(short,label,shown,id==="load"?unitLabel():"");
+  const count=effortField?partialCount(draftSetAt(ex.id,n)):0;
+  const face=shelfFaceHtml(short,label,shown,id==="load"?unitLabel():"",count,{effort:effortField});
   const chev=`<span class="icon-mask icon-mask--chev-down shelf__chev" aria-hidden="true"></span>`;
   if(peek)return `<div class="${cls}"><span class="shelf__fieldbtn">${face}</span>${id==="rir"?`<span class="shelf__menu">${chev}</span>`:""}</div>`;
   // Words explain themselves on a second tap; numeric chips already name the count.
   const explain=effortField&&stage==="a";
   const hooks=effortField?` data-effspin="${esc(key)}" data-e="${esc(stage==="a"?vals.effortVal:vals.numericEffort.chip||"")}" data-stage="${stage}"${explain?` aria-describedby="effpop_${esc(key)}"`:""}`:"";
   // A selected Load or Reps field's name gains the picker hint: a second tap opens the wheel (ADR 0023 choice 8).
-  const pickerHint=sel&&(id==="load"||id==="reps")?` aria-label="${esc(`${label} ${shown||"—"}, ${t("focus.field.picker_hint")}`)}"`:"";
+  const pickerHint=count?` aria-label="${esc(`${label} ${shown}, ${partialOptionLabel(count)}`)}"`
+    :sel&&(id==="load"||id==="reps")?` aria-label="${esc(`${label} ${shown||"—"}, ${t("focus.field.picker_hint")}`)}"`:"";
   const button=`<button type="button" class="shelf__fieldbtn" data-shelf-field="${id}" data-set="${esc(key)}" aria-pressed="${sel?"true":"false"}"${hooks}${pickerHint}>${face}</button>`;
   // The input is always in the document, so the draft handlers and validation
   // have one element to read and flag; it only takes the field's place on a
@@ -10990,14 +11789,23 @@ function shelfPadsHtml(ex,n,ui,vals,{peek}){
 /** The pad row: the pads for the selected field. Rest controls live in the rest sheet behind the tab. */
 function focusPadsHtml(ex,n,ui,vals,{peek}){
   const chips=ui.field==="rir";
-  return `<div class="shelf__pads${chips?" shelf__pads--chips":""}${chips&&vals.stage==="c"?" shelf__pads--numbers":""}"${chips&&!peek?` role="group" aria-label="${esc(t(vals.stage==="c"?"focus.field.left":"log.effort"))}"`:""}>`+
-    shelfPadsHtml(ex,n,ui,vals,{peek})+`</div>`}
+  const set=draftSetAt(ex.id,n),partials=!peek&&partialPage(ui,set);
+  const label=partials?"partials.group":vals.stage==="c"?"focus.field.left":"log.effort";
+  const pads=partials?Array.from({length:6},(_,count)=>`<button type="button" class="shelf__pad shelf__chip shelf__chip--num`+
+    `${count?" shelf__chip--partial":""}${peek?'"'+dead():`" data-partial-chip="${count}" data-set="${esc(vals.key)}" `+
+    `aria-label="${esc(partialOptionLabel(count))}" aria-pressed="${partialCount(set)===count}"`}>${count?"+":""}${esc(fmt(count))}</button>`).join("")
+    :shelfPadsHtml(ex,n,ui,vals,{peek});
+  return `<div class="shelf__pads${chips?" shelf__pads--chips":""}${chips&&vals.stage==="c"?" shelf__pads--numbers":""}`+
+    `${partials&&ui.partialEntrance&&!peek?" shelf__pads--past-zero":""}"${chips&&!peek?` role="group" aria-label="${esc(t(label))}"`:""}>`+
+    pads+`</div>`}
 
 /** The shelf: the fields of the active set, the pads for the selected one and
  *  the single action that commits it — or, once the exercise is complete, the
  *  step the lifter takes next. */
 function focusShelfHtml(ex,r,draft,prev,{allDone,hasNext,peek=false}){
   const n=focusActiveSet(ex);
+  const prelude=n&&!(focusEdit&&focusEdit.exId===ex.id)?preludeView(ex):null;
+  if(prelude?.stage==="warm")return preludeShelfHtml(prelude,{peek});
   if(!n){
     const done=focusDoneSets(ex).length;
     const title=allDone?t("focus.wo_done_title"):t("focus.ex_done_title");
@@ -11037,10 +11845,16 @@ function focusShelfHtml(ex,r,draft,prev,{allDone,hasNext,peek=false}){
   const fields=metricDefinitions.length
     ?group+sorted.slice(lead).map(metric=>metricHtml(metric,false)).join("")+shelfFieldHtml(ex,n,"rir",vals,{ui,touched,peek})
     :["load","reps","rir"].map(id=>shelfFieldHtml(ex,n,id,vals,{ui,touched,peek})).join("");
+  const count=partialCount(set);
+  const cta=count&&!editing?t("partials.cta",{n:fmt(n),full:vals.repsVal,partial:fmt(count)}):label,
+    ctaSpoken=count&&!editing?t("partials.cta_spoken",{n:fmt(n),spoken:partialsSpoken(vals.repsVal,count)}):label;
+  const ctaHtml=count&&!editing?esc(t("partials.cta",{n:fmt(n),full:vals.repsVal,partial:"\u0000"}))
+    .replace("+\u0000",partialSuffixHtml(count)):esc(cta);
   return `<div class="focus-shelf workshelf${editing?" is-editing":""}" role="region" aria-label="${esc(label)}">`+
     `<div class="shelf__fields">${fields}</div>`+
     focusPadsHtml(ex,n,ui,vals,{peek})+
-    `<button type="button" class="btn btn--cta btn--noarrow saveset"${peek?dead():` data-save="${esc(key)}"`}>${esc(label)}</button></div>`}
+    `<button type="button" class="btn btn--cta btn--noarrow saveset"${peek?dead():` data-save="${esc(key)}"`}`+
+    `${count&&!editing?` aria-label="${esc(ctaSpoken)}"`:""}>${count&&!editing?`<span>${ctaHtml}</span>`:ctaHtml}</button></div>`}
 
 /* ---- Wheel picker for Load and Reps (Plan 075 phase 2W, ADR 0023 choice 8) ----
  * A second tap on the selected Load or Reps field opens a wheel in a fit sheet
@@ -11173,22 +11987,23 @@ function wheelOpeningValue(target,kind,range){
   const prev=ex?last(ex):[],hit=prev.find(x=>x.set===target.ordinal)||prev.at(-1);
   const logged=hit?(kind==="load"?+hit.load:+hit.reps):NaN;
   return logged>0?(kind==="load"?parseDec(fmtLoadPlain(logged)):logged):NaN}
-function openWheelSheet(key,id,kind){
+function openWheelSheet(key,id,kind,warm=null){
   const sheet=$("#wheelSheet"),scrim=$("#wheelScrim"),col=$("#wheelCol");
   if(!sheet||!col)return;
-  const input=$(`[data-k="${CSS.escape(`${key}_${id}`)}"]`);if(!input)return;
-  const btn=$(`[data-shelf-field="${CSS.escape(id)}"][data-set="${CSS.escape(key)}"]`);
+  // A warm-up step's field brings its own input and opener (Plan 085); every other field is found by its key.
+  const input=warm?.input||$(`[data-k="${CSS.escape(`${key}_${id}`)}"]`);if(!input)return;
+  const btn=warm?.opener||$(`[data-shelf-field="${CSS.escape(id)}"][data-set="${CSS.escape(key)}"]`);
   const label=btn?.querySelector(".shelf__lab")?.textContent||"";
   const unit=kind==="load"?unitLabel():"";
   const step=kind==="load"?(parseDec(shelfLoadStep())||1):1;
   // The field already shows the typed value, the carried load (#440) or the suggestion; an empty one opens on the
   // most useful value instead (wheelOpeningValue), as the prototype's wheel opens on the aim.
-  const target=draftTargetFromKey(`${key}_${id}`);
+  const target=warm?null:draftTargetFromKey(`${key}_${id}`);
   const range=kind==="reps"?wheelRepsRange(target):null;
   const typed=parseDec(input.value);
   const current=Number.isFinite(typed)?typed:wheelOpeningValue(target,kind,range);
   // A dumbbell lift's wheel offers its ladder (owner rule, 2026-11-13); any other load steps by the lifter's jump.
-  const ladder=kind==="load"?setLoadLadderKg(`${key}_${id}`):null;
+  const ladder=kind==="load"?(warm?warm.ladder:setLoadLadderKg(`${key}_${id}`)):null;
   const values=kind==="load"?(ladder?ladderWheelValues(ladder,current):wheelLoadValues(step,current)):wheelRepsValues(current);
   const index=wheelNearestIndex(values,Number.isFinite(current)?current:values[0]);
   // An empty field's suggestion is what the wheel shows, so Done applies it; a typed value is already in the draft.
@@ -11216,8 +12031,9 @@ function openWheelSheet(key,id,kind){
     wheelCommit(live.index??0);
     const rec=activeModal&&activeModal.el===$("#wheelSheet")?activeModal:null;
     if(rec){restoreBodyInert(rec.prevInert);rec.returnFocus=null}
-    shelfSelect(live.key,live.id,true);
-    refreshShelf({focus:live.id});
+    if(warm?.onKeyboard)warm.onKeyboard();
+    else{shelfSelect(live.key,live.id,true);
+      refreshShelf({focus:live.id})}
     closeWheelSheet()};
   const doneBtn=$("#wheelDone");
   if(doneBtn)doneBtn.onclick=()=>{closeWheelSheet()};
@@ -11259,7 +12075,14 @@ function refreshShelf({focus=null}={}){
   const prevField=fieldIdentity(prevSel),prevSet=prevSel?.dataset.set;
   const fromRect=(liveRing||prevSel)?.getBoundingClientRect();
   const heldFocus=!focus&&old.contains(document.activeElement)?workoutFocusKey(document.activeElement):null;
-  old.outerHTML=focusShelfHtml(ex,recommendation(ex),draft,last(ex),{allDone,hasNext:at<fl.length-1});
+  const rec=recommendation(ex),previous=last(ex);
+  old.outerHTML=focusShelfHtml(ex,rec,draft,previous,{allDone,hasNext:at<fl.length-1});
+  const n=focusActiveSet(ex),count=partialCount(draftSetAt(ex.id,n));
+  const repsCell=card.querySelector('.ledgerline--open [data-lv="reps"]');
+  if(repsCell&&(count||repsCell.querySelector(".partial-reps"))){
+    const values=setFieldVals(ex,n,rec,draft,previous);
+    repsCell.innerHTML=performedRepsHtml(values.repsVal,count);
+  }
   bindWorkout();
   syncRestTab();
   // The ledger's open row was not rebuilt: bring it to the values still waiting for their acknowledgement.
@@ -11272,7 +12095,9 @@ function refreshShelf({focus=null}={}){
   syncFocusFloor();
   if(focus){
     const shelf=card.querySelector(".focus-shelf");
-    const el=focus.startsWith("pad:")?shelf?.querySelector(`.shelf__pad[data-dir="${focus.slice(4)}"]`)
+    const el=focus==="partial"?shelf?.querySelector('[data-partial-chip][aria-pressed="true"]')
+      :focus==="zero"?shelf?.querySelector('[data-effchip][data-e="0"]')
+      :focus.startsWith("pad:")?shelf?.querySelector(`.shelf__pad[data-dir="${focus.slice(4)}"]`)
       :shelf?.querySelector(`.shelf__field.is-editing .shelf__input[data-k$="_${focus}"]`)||shelf?.querySelector(`[data-shelf-field="${focus}"]`);
     if(el){if(el.matches("input")){try{el.focus({preventScroll:true})}catch{}el.select()}else focusWorkoutControl(el)}}
   else if(heldFocus)restoreWorkoutFocus(heldFocus);
@@ -11291,6 +12116,7 @@ function workoutFocusKey(el){
   const d=el.dataset;
   if(el.matches(".shelf__input")&&d.k)return{sel:`.focus-shelf .shelf__input[data-k="${q(d.k)}"]`,start:el.selectionStart,end:el.selectionEnd};
   if(d.shelfField&&d.set)return{sel:`.focus-shelf [data-shelf-field="${q(d.shelfField)}"][data-set="${q(d.set)}"]`};
+  if(d.partialChip!=null)return{sel:`.focus-shelf [data-partial-chip="${q(d.partialChip)}"]`};
   if(d.effchip&&d.e)return{sel:`.focus-shelf [data-effchip="${q(d.effchip)}"][data-e="${q(d.e)}"]`};
   if(d.effmenu)return{sel:`.focus-shelf [data-effmenu="${q(d.effmenu)}"]`};
   if(el.matches(".shelf__pad")&&d.dir)return{sel:`.focus-shelf .shelf__pad[data-dir="${q(d.dir)}"]`};
@@ -11363,7 +12189,8 @@ function syncShelfField(input,padDir=0){
   field.classList.remove("is-untouched");
   if(id==="rir")field.classList.remove("is-word");
   const cell=id?input.closest(".exercise")?.querySelector(`.ledgerline--open [data-lv="${id}"]`):null;
-  if(cell){cell.textContent=text||"—";cell.classList.remove("is-soft")}}
+  const count=partialCount(draftSetAt(...setKeyParts(field.dataset.set)));
+  if(cell){cell.innerHTML=id==="reps"?performedRepsHtml(text||"—",count):esc(text||"—");cell.classList.remove("is-soft")}}
 function setKeyParts(key){const text=String(key||""),at=text.lastIndexOf("_");return[text.slice(0,at),+text.slice(at+1)]}
 
 /** A field the draft flags must be seen, not just focused: bring its input into the shelf. */
@@ -11407,9 +12234,12 @@ function focusCardHtml(ex,r,draft,prev,opts){
   const note=noteVal?`<button type="button" class="fx-note"${noteAct} aria-label="${esc(t("focus.note.open_aria",{note:noteVal}))}">`+
     `<span class="icon-mask icon-mask--sm icon-mask--note" aria-hidden="true"></span><span class="fx-note__text">${esc(noteVal)}</span></button>`:"";
   const editing=!!(focusEdit&&focusEdit.exId===ex.id&&n);
-  const cue=n?focusCue(ex,n,r,draft,prev,editing):null;
+  // Suggested warm-ups (Plan 085): until they are done the cue is the warm-up, and the table shows only the work.
+  const prelude=preludeView(ex),warm=prelude?.stage==="warm"&&!editing;
+  const cue=n&&!warm?focusCue(ex,n,r,draft,prev,editing):null;
   // The cue slot holds the cue, or while a rest runs the inline rest in its place (L3 swaps the one for the other).
-  const slotHtml=cue?focusSlotHtml(ex,n,r,cue,{peek,name,draft,editing}):"";
+  const slotHtml=warm?`<div class="fx-slot">${preludeCueHtml(prelude,{peek})}</div>`:cue?focusSlotHtml(ex,n,r,cue,{peek,name,draft,editing}):"";
+  const quietRow=prelude?.stage==="suppressed"&&!editing?preludeQuietRowHtml(prelude,{peek}):"";
   const nextRow=hasNext&&nextName
     ?`<button type="button" class="fx-next"${peek?dead():" data-fnextrow"}><span>${esc(t("focus.next_row",{name:"\u0000"})).replace("\u0000",`<b>${esc(nextName)}</b>`)}</span>`+
       `<span class="icon-mask icon-mask--sm icon-mask--chev-down fx-next__chev" aria-hidden="true"></span></button>`:"";
@@ -11421,7 +12251,7 @@ function focusCardHtml(ex,r,draft,prev,opts){
     focusSkipbarHtml(peek)+
     // The header names the exercise (layout D), so its row here is the prescription line alone.
     `<div class="fx-head"><div class="fx-head__row"><p class="focus-ex__meta">${esc(focusExMeta(ex))}</p>${noteAdd}</div>${note}</div>`+
-    slotHtml+
+    slotHtml+quietRow+
     `<div class="fcard__ledger">`+
     `${focusLedgerHtml(ex,r,draft,prev,{peek})}</div>`+nextRow+`</div>`+
     focusShelfHtml(ex,r,draft,prev,{allDone,hasNext,peek})+`</article>`}
@@ -11461,6 +12291,9 @@ function renderWorkout(){
   const at=fl.length?Math.min(focusIndex,fl.length-1):0;
   const wk=$("#workout");if(!wk){focusLogged=null;return}wk.classList.add("is-focus");
   const current=fl[at] ? sessionExercise(fl[at]) : null;
+  const draftExercise=activeWorkoutDraft?.exercises?.[current?.id];
+  const correction=draftExercise?.setOrder.map(id=>draftExercise.sets[id]).find(set=>set.correction);
+  focusEdit=correction?{exId:current.id,n:correction.ordinal}:null;
   // The logged sets' disclosure belongs to the exercise it was opened on.
   if(focusLedgerOpen&&focusLedgerOpen!==current?.id)focusLedgerOpen=null;
   // L2: where the ledger's open-row outline is drawn before this render moves it.
@@ -11985,6 +12818,7 @@ function bindWorkout(){
     const key=i.dataset.k,token=holdPendingField(key,i.value),recoveryField={key,
       exerciseInstanceId:target.exerciseInstanceId,setId:target.setId,field:target.metricId?null:target.field,
       metricId:target.metricId||null};
+    const beforePartials=partialCount(activeWorkoutDraft.exercises[target.exerciseInstanceId].sets[target.setId]);
     let result;
     try{
       if(target.metricId){
@@ -12000,21 +12834,25 @@ function bindWorkout(){
     const live=liveShelfInput(key);
     if(!live)return;
     syncShelfField(live,padDir);
+    const afterPartials=partialCount(activeWorkoutDraft.exercises[target.exerciseInstanceId].sets[target.setId]);
+    if(beforePartials!==afterPartials||afterPartials&&target.field!=="load")refreshShelf();
     updateSaveMeta();await refreshAfterCommittedEdit(live.closest(".shelf__field"))};
   i.onfocus=()=>i.select()});
   $w(".term").forEach(b=>b.onclick=e=>{e.stopPropagation();glossaryPopover(b.dataset.term,b)});
   $w("[data-why]").forEach(b=>b.onclick=e=>{e.stopPropagation();openWhySheet(b.dataset.why,b)});
   $w(".saveset").forEach(b=>b.onclick=async()=>{const key=b.dataset.save,target=draftTargetFromKey(key);
-    if(!activeWorkoutDraft||!target)return;
+    const draftId=activeWorkoutDraft?.draftId;
+    if(!draftId||!target)return;
     await WorkoutSession.flush();
-    const set=activeWorkoutDraft.exercises[target.exerciseInstanceId].sets[target.setId];
+    if(activeWorkoutDraft?.draftId!==draftId)return;
+    const set=activeWorkoutDraft.exercises[target.exerciseInstanceId]?.sets[target.setId];
+    if(!set||set.completion!=="pending")return;
     const base=prog.find(target.exerciseInstanceId),shown=base?sessionExercise(base):null;
-    if(shown&&set.completion==="pending"&&!focusEdit&&await saveRampEasy(shown,target.ordinal,recommendation(shown)))return;
+    if(shown&&!focusEdit&&await saveRampEasy(shown,target.ordinal,recommendation(shown)))return;
     const editing=!!(focusEdit&&`${focusEdit.exId}_${focusEdit.n}`===key);
-    const type=set.completion==="pending"?"completeSet":"uncommitSet";
     // A set showing values carried from the set above (lastSetCarry) logs those values, not what lies under them.
     let prefill=null;
-    if(type==="completeSet"){
+    {
       const base=prog.find(target.exerciseInstanceId),ex=base?sessionExercise(base):null,r=ex?recommendation(ex):null;
       const carry=ex?lastSetCarry(target.exerciseInstanceId,target.ordinal,r):null;
       if(carry){
@@ -12034,17 +12872,25 @@ function bindWorkout(){
         const vals=setFieldVals(ex,target.ordinal,r,hydrateWorkoutDraft(),last(ex));
         const shown=field==="effort"?vals.effortVal:vals.numericEffort.prefill;
         if(shown)prefill={field,value:shown}}}
-    const refreshReservation=type==="completeSet"?reserveDraftRefresh():null;
+    const refreshReservation=reserveDraftRefresh();
     let refreshStarted=false;
     try{
-      const opening=type==="completeSet"&&shown?focusRamp(shown,target.ordinal,recommendation(shown)):null;
+      const opening=shown?focusRamp(shown,target.ordinal,recommendation(shown)):null;
       const startingLoad=opening&&(!set.startingLoad||set.startingLoad.basis==="typed")
         ?{...opening.record,basis:"typed",openingKg:Number(metricFieldValue(set,"load"))}:null;
-      const result=await WorkoutSession.dispatch(type,{exerciseInstanceId:target.exerciseInstanceId,setId:target.setId,
+      const result=await WorkoutSession.dispatch("completeSet",{exerciseInstanceId:target.exerciseInstanceId,setId:target.setId,expectedPending:true,
         ...(prefill?{prefill}:{}),...(startingLoad?{startingLoad}:{})});
       if(result.status==="domain-error"){applyDraftIssue(result.error?.issues);return}
       if(result.status!=="applied")return;
-      const nowDone=activeWorkoutDraft.exercises[target.exerciseInstanceId].sets[target.setId].completion!=="pending";
+      const loggedExercise=activeWorkoutDraft.exercises[target.exerciseInstanceId],loggedSet=loggedExercise.sets[target.setId];
+      const nowDone=loggedSet.completion!=="pending";
+      let tie=null;
+      if(nowDone&&!editing&&shown&&partialCount(loggedSet)){
+        const rec=recommendation(shown);
+        const index=loggedExercise.setOrder.filter(id=>loggedExercise.sets[id].origin!=="ramp").indexOf(target.setId);
+        const current=rec.progressionInputs?.currentSession.find(set=>set.setIndex===index);
+        if(current)tie=focusPartialComparison(rec,index,current)}
+
       // The corrected row redraws with its new figures, so the confirmation is said rather than shown (#521).
       if(editing&&nowDone){focusEdit=null;focusLedgerOpen=null;toast(t("toast.set_updated"),{quiet:true})}
       // The rest runs for the exercise just logged: its own rest in the program, else the Settings default.
@@ -12056,6 +12902,7 @@ function bindWorkout(){
       renderWorkout();
       // The action's own button is rebuilt: a corrected set returns to its row, a logged one hands on to the next set.
       if(nowDone)focusWorkoutHandoff(editing?"row":"next",{exId:target.exerciseInstanceId,n:target.ordinal});
+      if(tie?.status==="win")toast(t(tie.difference===1?"partials.tie.one":"partials.tie.many",{n:fmt(tie.difference)}),{placement:"top"});
       // A logged test set's result sits under its row: bring it into the window (Plan 077 PR 3).
       if(nowDone&&!editing)focusCard()?.querySelector(".ledgerline__result")?.scrollIntoView({block:"nearest"});
     }finally{if(refreshReservation&&!refreshStarted)refreshReservation.cancel()}});
@@ -12091,7 +12938,27 @@ function bindWorkout(){
     const target=draftTargetFromKey(key);if(!activeWorkoutDraft||!target)return;
     if(REPS_LEFT.includes(next)){
       const input=$(`[data-k="${key}_rir"]`);if(!input)return;
-      setEffortPick(key,next,dir);input.value=next;await input.oninput?.();return}
+      // Every numeric chip commits through the one effort-and-partials command, so a count can never outlive its zero.
+      const set=draftSetAt(...setKeyParts(key)),zeroPage=next==="0"&&shelfUi.key===key&&WorkoutDraft.canRecordPartials(set);
+      const count=zeroPage?partialCount(set):0,beforePartials=partialCount(set),pendingKey=`${key}_rir`;
+      setEffortPick(key,next,dir);
+      input.value=next;
+      const token=holdPendingField(pendingKey,next),recoveryField={key:pendingKey,
+        exerciseInstanceId:target.exerciseInstanceId,setId:target.setId,field:"rir",metricId:null};
+      let result;
+      try{
+        result=await WorkoutSession.dispatch("setNumericEffort",{exerciseInstanceId:target.exerciseInstanceId,setId:target.setId,
+          value:next,partialReps:count},{draftId:activeWorkoutDraft.draftId,pendingField:{key:pendingKey,token},recoveryField});
+      }finally{settlePendingField(pendingKey,token,{rejected:result?.status!=="applied"})}
+      if(result.status!=="applied")return;
+      updateSaveMeta();
+      if(zeroPage){showPartialPage(key,true,{entrance:true});return}
+      const live=liveShelfInput(pendingKey);
+      if(!live)return;
+      syncShelfField(live,0);
+      if(beforePartials)refreshShelf();
+      await refreshAfterCommittedEdit(live.closest(".shelf__field"));
+      return}
     const[exId,n]=setKeyParts(key),before=setStageOf(exId,n),wasUnsure=activeWorkoutDraft.exercises[exId]?.sets?.[target.setId]?.edited?.effort==="unsure";
     setEffortPick(key,next,dir);
     const pendingKey=`${key}_effort`,token=holdPendingField(pendingKey,next),recoveryField={key:pendingKey,
@@ -12112,8 +12979,20 @@ function bindWorkout(){
     const next=tokens[Math.min(tokens.length-1,Math.max(0,i+dir))];
     if(next===el.dataset.e&&shelfTouched(...setKeyParts(key)).effort)return;
     return pickEffort(key,next,dir)};
+  $w("[data-partial-chip]").forEach(button=>{
+    button.onclick=async()=>{
+      const key=button.dataset.set,target=draftTargetFromKey(key),count=Number(button.dataset.partialChip);
+      if(!target||!activeWorkoutDraft)return;
+      const result=await WorkoutSession.dispatch("setNumericEffort",{exerciseInstanceId:target.exerciseInstanceId,setId:target.setId,
+        value:"0",partialReps:count},{draftId:activeWorkoutDraft.draftId});
+      if(result.status==="applied")showPartialPage(key,count>0)};
+    button.onkeydown=e=>{
+      const buttons=[...button.parentElement.querySelectorAll("[data-partial-chip]")],at=buttons.indexOf(button);
+      const next=e.key==="Home"?0:e.key==="End"?5:e.key==="ArrowLeft"||e.key==="ArrowUp"?at-1
+        :e.key==="ArrowRight"||e.key==="ArrowDown"?at+1:null;
+      if(next!=null){e.preventDefault();focusWorkoutControl(buttons[Math.max(0,Math.min(5,next))])}}});
   $w("[data-effchip]").forEach(b=>b.onclick=()=>{
-    if(b.getAttribute("aria-pressed")==="true")return;
+    if(b.getAttribute("aria-pressed")==="true"&&b.dataset.e!=="0")return;
     const from=stageTokens(setStageOf(...setKeyParts(b.dataset.effchip)))||[],at=$(`[data-effspin="${b.dataset.effchip}"]`)?.dataset.e;
     pickEffort(b.dataset.effchip,b.dataset.e,Math.sign(from.indexOf(b.dataset.e)-from.indexOf(at)))});
   $w("[data-effchip]").forEach(b=>b.onkeydown=e=>{
@@ -12136,7 +13015,9 @@ function bindWorkout(){
     const effortField=!!b.dataset.effspin;
     // A second tap on the selected field opens it: the wheel for Load or Reps
     // (Plan 075 phase 2W), a typed value for anything else, or the word's explainer.
-    if(ui.field===id&&effortField){if(b.dataset.stage==="a")toggleEffortPop(key);return}
+    if(ui.field===id&&effortField){if(b.dataset.stage==="a")toggleEffortPop(key);
+      else{const set=draftSetAt(...setKeyParts(key));if(WorkoutDraft.canRecordPartials(set)&&WorkoutDraft.hasExplicitZero(set))
+        showPartialPage(key,!partialPage(ui,set),{entrance:true})}return}
     if(ui.field===id&&!ui.editing){
       const[exId,n]=setKeyParts(key),wheelKind=fieldWheelKind(exId,n,id);
       if(wheelKind){openWheelSheet(key,id,wheelKind);return}
@@ -12168,37 +13049,21 @@ function bindWorkout(){
       cancelMaxSet(key.slice(0,at),+key.slice(at+1))});
     // Tap a logged row to reopen that set in the shelf, with a way back out.
     $w("[data-editn]").forEach(b=>b.onclick=async()=>{
-      const exId=b.dataset.editex,n=+b.dataset.editn,key=`${exId}_${n}`,d=loadDraft(),target=draftTargetFromKey(key);
+      const exId=b.dataset.editex,n=+b.dataset.editn,target=draftTargetFromKey(`${exId}_${n}`);
       if(!activeWorkoutDraft||!target)return;
-      const editedSet=activeWorkoutDraft.exercises[exId].sets[target.setId];
-      focusEdit={exId,n,snap:{load:d[`${key}_load`],reps:d[`${key}_reps`],rir:d[`${key}_rir`],effort:d[`${key}_effort`],
-        metrics:draftSetMetrics(editedSet).length?cloneSnapshot(editedSet.edited?.metrics||{}):null,
-        completedAt:editedSet.completion?.completedAt}};
-      const result=await WorkoutSession.dispatch("uncommitSet",{exerciseInstanceId:exId,setId:target.setId});
-      if(result.status!=="applied"){focusEdit=null;return}
+      const result=await WorkoutSession.dispatch("uncommitSet",{exerciseInstanceId:exId,setId:target.setId,correct:true});
+      if(result.status!=="applied")return;
       renderWorkout();
       focusWorkoutHandoff("cta")});
     $w("[data-fcancel]").forEach(b=>b.onclick=async()=>{
       if(!focusEdit)return;
-      const{exId,n,snap}=focusEdit,key=`${exId}_${n}`,target=draftTargetFromKey(key);
+      const{exId,n}=focusEdit,target=draftTargetFromKey(`${exId}_${n}`);
       if(!activeWorkoutDraft||!target)return;
-      // A metric-backed set restores each metric it held; only effort lives
-      // outside the metric composition.
-      const metricBacked=!!snap.metrics;
-      if(metricBacked){
-        const current=activeWorkoutDraft.exercises[exId].sets[target.setId].edited?.metrics||{};
-        for(const [metricId,value] of Object.entries(snap.metrics)){
-          if(current[metricId]===value)continue;
-          const result=await WorkoutSession.dispatch("editMetricValue",{exerciseInstanceId:exId,setId:target.setId,metricId,value});
-          if(result.status!=="applied")return}}
-      // A field the correction left as it was is not re-entered, so a prefilled effort stays a prefill (Plan 077).
-      const held=activeWorkoutDraft.exercises[exId].sets[target.setId].edited||{};
-      for(const field of metricBacked?["rir","effort"]:["load","reps","rir","effort"]){
-        if(snap[field]==null||held[field]===snap[field])continue;const result=await WorkoutSession.dispatch("editSetField",{exerciseInstanceId:exId,
-          setId:target.setId,field,value:snap[field]});if(result.status!=="applied")return}
-      const restored=await WorkoutSession.dispatch("completeSet",{exerciseInstanceId:exId,setId:target.setId,completedAt:snap.completedAt||new Date().toISOString()});
-      if(restored.status!=="applied")return;focusEdit=null;focusLedgerOpen=null;renderWorkout();focusWorkoutHandoff("row",{exId,n})});
+      const restored=await WorkoutSession.dispatch("cancelSetCorrection",{exerciseInstanceId:exId,setId:target.setId});
+      if(restored.status!=="applied")return;
+      focusEdit=null;focusLedgerOpen=null;renderWorkout();focusWorkoutHandoff("row",{exId,n})});
     }
+  bindWarmupControls();
   updateFocusChrome();
 }
 
@@ -12239,16 +13104,17 @@ function liftPR(mine,past){
   const bestLoad=Math.max(...past.map(x=>+x.load));
   const bestReps=Math.max(0,...past.filter(x=>sameLoad(+x.load,bestLoad)).map(x=>+x.reps));
   const bestE=Math.max(...past.map(x=>e1rm(+x.load,+x.reps)));
-  const top=Math.max(...mine.map(x=>+x.load));
-  if(top>bestLoad&&!sameLoad(top,bestLoad)){
-    const row=mine.filter(x=>sameLoad(+x.load,top)).sort((a,b)=>+b.reps-+a.reps)[0];
-    return{kind:"load",load:top,reps:+row.reps,delta:top-bestLoad}}
-  if(sameLoad(top,bestLoad)){
-    const reps=Math.max(...mine.filter(x=>sameLoad(+x.load,top)).map(x=>+x.reps));
-    if(reps>bestReps)return{kind:"reps",load:top,reps,delta:reps-bestReps}}
-  const best=mine.reduce((a,b)=>e1rm(+b.load,+b.reps)>e1rm(+a.load,+a.reps)?b:a);
+  const top=Math.max(...mine.map(x=>+x.load)),topRows=mine.filter(x=>sameLoad(+x.load,top));
+  const bestAtTop=topRows.reduce((a,b)=>+b.reps>+a.reps||+b.reps===+a.reps&&savedPartialWin(a,b,{sameSession:true})?b:a);
+  const record=(kind,row,delta)=>({kind,load:+row.load,reps:+row.reps,delta,
+    ...(partialCount(row)?{partialReps:row.partialReps}:{})});
+  if(top>bestLoad&&!sameLoad(top,bestLoad))return{...record("load",bestAtTop,top-bestLoad),load:top};
+  if(sameLoad(top,bestLoad)&&+bestAtTop.reps>bestReps)return{...record("reps",bestAtTop,+bestAtTop.reps-bestReps),load:top};
+  const best=mine.reduce((a,b)=>{
+    const prior=e1rm(+a.load,+a.reps),next=e1rm(+b.load,+b.reps);
+    return next>prior||next===prior&&savedPartialWin(a,b,{sameSession:true})?b:a});
   const e=e1rm(+best.load,+best.reps);
-  if(e>bestE)return{kind:"e1rm",load:+best.load,reps:+best.reps,delta:e-bestE};
+  if(e>bestE)return record("e1rm",best,e-bestE);
   return null}
 
 /** One record line per lift that set one, strongest claim first. */
@@ -12287,6 +13153,13 @@ function sessionMuscleWork(rows){
 /** What a set of saved rows says about each lift it touched: the canonical outcome state (read from the evidence
  *  projection, never derived here), the sets performed, the record it set when `prs` carries one, and the engine's
  *  next target. The session summary and Today's finished day both read their lift groups from here. */
+function summaryReadbackSets(rows){
+  const perSet=row=>({load:+row.load,reps:+row.reps,...(partialCount(row)?{partialReps:row.partialReps}:{})});
+  const sets=[...rows].sort((a,b)=>(+a.set||0)-(+b.set||0));
+  const top=sets.reduce((a,b)=>+b.load>+a.load||
+    sameLoad(+a.load,+b.load)&&(+b.reps>+a.reps||+b.reps===+a.reps&&savedPartialWin(a,b,{sameSession:true}))?b:a);
+  return{sets:sets.map(perSet),...(sets.some(partialCount)?{bestSet:perSet(top)}:{})}}
+
 function sessionOutcomeGroups(rows,prs=[]){
   const work=performedWorkingRows(rows);
   // The session is already durable when this runs. Read the single canonical
@@ -12320,7 +13193,7 @@ function sessionOutcomeGroups(rows,prs=[]){
     // The session the lift was last logged in: the one its outcome word describes when a day holds two.
     const latest=group.rows.reduce((a,b)=>compareLogChronology(a,b)<=0?b:a);
     return{liftKey:group.liftKey,exerciseId:slot?.id??null,name:group.name,session:latest.session??null,
-      sets:[...group.rows].sort((a,b)=>(+a.set||0)-(+b.set||0)).map(row=>({load:+row.load,reps:+row.reps})),
+      ...summaryReadbackSets(group.rows),
       state:item?.kind==="outcome"?{kind:"outcome",outcome:item.outcome}:item?.kind==="baseline"?{kind:"baseline"}:{kind:"insufficient",reason:item?.reason??null},
       pr:prs.find(entry=>entry.liftKey===group.liftKey)||null,
       next:line?{glyph:rxVerdict(rec),line}:null}});
@@ -12354,11 +13227,11 @@ function summaryTiles(facts){
 /** The selected record (first by default), else the first improved lift; none otherwise. */
 function summaryLeadCard(prs,liftGroups,leadIndex=0){
   const pr=prs[leadIndex]||prs[0];
-  if(pr)return{kind:"record",name:pr.name,liftKey:pr.liftKey,load:pr.load,reps:pr.reps,pr};
+  if(pr)return{kind:"record",name:pr.name,liftKey:pr.liftKey,load:pr.load,reps:pr.reps,...(partialCount(pr)?{partialReps:pr.partialReps}:{}),pr};
   const lift=liftGroups.find(group=>group.state.kind==="outcome"&&group.state.outcome==="improved");
   if(!lift)return null;
-  const top=lift.sets.reduce((a,b)=>b.load>a.load||(sameLoad(b.load,a.load)&&b.reps>a.reps)?b:a);
-  return{kind:"improved",name:lift.name,liftKey:lift.liftKey,load:top.load,reps:top.reps,pr:null}}
+  const top=lift.bestSet||lift.sets.reduce((a,b)=>b.load>a.load||(sameLoad(b.load,a.load)&&b.reps>a.reps)?b:a);
+  return{kind:"improved",name:lift.name,liftKey:lift.liftKey,load:top.load,reps:top.reps,...(partialCount(top)?{partialReps:top.partialReps}:{}),pr:null}}
 
 function sessionFinding(rows,prevLog,date){
   const readings=findingReadings();
@@ -12397,7 +13270,7 @@ function buildSessionSummary({rows,prevLog,session,date,day:sessDay,startedAt}){
     tiles:summaryTiles({strength,records:prs.length}),
     leadIndex:0,
     lead:summaryLeadCard(prs,liftGroups),
-    sets:rows.length,
+    sets:rows.filter(isWork).length,
     volume:movedTonnage(rows),
     lifts:new Set(performedWorkingRows(rows).map(liftKey)).size,
     minutes:mins>=1&&mins<=480?mins:null,
@@ -12578,13 +13451,15 @@ async function finish(operation){
       savedDay=capturedDraft.program.dayLabel,startedAt=Date.parse(capturedDraft.session.startedAt)||0,
       prevLog=state.log.slice(),savedDraft=capturedDraft;
     const timing=sessionTimingRecord(capturedDraft.session.startedAt,operation.finishedAt);
+    // What this session teaches the warm-up suggestion: decided once here, with the rows, so a retry saves the same.
+    const warmups=warmupObservationsForSave(capturedDraft,rows,operation.finishedAt);
     // The captured rows and exact draft removal stay attached to this operation;
     // each attempt rebuilds its state proposal from the current durable snapshot.
     const effect=destructiveDraftClearEffect(capturedRaw);
     const expectedBlockId=Object.prototype.hasOwnProperty.call(savedDraft.program||{},"blockId")
       ?savedDraft.program.blockId:null;
     prepared=operation.prepared={
-      draft:savedDraft,rawDraft:capturedRaw,effect,session,rows,timing,sessionEvents,
+      draft:savedDraft,rawDraft:capturedRaw,effect,session,rows,timing,sessionEvents,warmups,
       expectedProgramId:savedDraft.program.programId,expectedBlockId,
       completed:{rows,prevLog,session,date,day:savedDay,startedAt,draftId:savedDraft.draftId}}}
   move("committing",{operation});
@@ -12592,8 +13467,12 @@ async function finish(operation){
     await window.__repforgeDraftBeforeSaveCommit({session:prepared.session,draftId:prepared.draft.draftId,
       revision:prepared.draft.revision,operationId:operation.operationId});
   const proposal=cloneSnapshot(state);
-  if(!(proposal.log||[]).some(row=>row.session===prepared.session))
+  const alreadySaved=(proposal.log||[]).some(row=>row.session===prepared.session);
+  if(!alreadySaved)
     proposal.log=(proposal.log||[]).concat(cloneSnapshot(prepared.rows));
+  // A replay of a saved session keeps the observation it has and adds no evidence (Plan 085).
+  if(!alreadySaved&&prepared.warmups&&!proposal.warmupObservations?.[prepared.session])
+    proposal.warmupObservations={...(proposal.warmupObservations||{}),...cloneSnapshot(prepared.warmups)};
   proposal.sessionEvents={...(proposal.sessionEvents||{}),[prepared.session]:cloneSnapshot(prepared.sessionEvents)};
   if(prepared.timing)proposal.sessionTiming={...(proposal.sessionTiming||{}),[prepared.session]:prepared.timing};
   const result=await commitProposedState(proposal,operation.io,
@@ -12654,7 +13533,7 @@ async function saveWorkoutV2(operation){
     render();
     clearSessionSummaryView();
     closeSessionSummary();
-    toast(t("toast.workout_forged",{n:rows.length,sets:tp(rows.length,"set")}));
+    {const worked=rows.filter(isWork).length;toast(t("toast.workout_forged",{n:worked,sets:tp(worked,"set")}))}
     maybeShowInstallBanner()};
   let summary;
   try{summary=buildSessionSummary({rows,prevLog,session,date,day:savedDay,startedAt});summary.animateProfile=true}
@@ -12721,7 +13600,7 @@ function summaryGroupHtml(lift,s,{compact=false}={}){
     (lift.next?row("summary.ledger.next",`<span class="sum-grp__next"${lift.exerciseId?` data-parity-target="${esc(lift.exerciseId)}"`:""}>`+
       `${verdictMarkHtml(lift.next.glyph)}<span>${esc(lift.next.line)}</span></span>`):"");
   return `<div class="sum-grp"><div class="sum-grp__h"><span class="sum-grp__n">${esc(liftDisplayName(lift.name,lift.liftKey))}</span></div>`+
-    (compact?"":`<p class="sum-grp__sets">${esc(rxSetsLine(lift.sets,true))}</p>`)+
+    (compact?"":`<p class="sum-grp__sets">${rxSetsLine(lift.sets,true,{markup:true})}</p>`)+
     (rows?`<dl class="sum-ledger">${rows}</dl>`:"")+`</div>`}
 
 /** A record's margin in the short form the finish screen and its cards use ("PR +2.5 kg"). */
@@ -12747,7 +13626,7 @@ function summarySubLine(s){
 function summaryLiftHtml(lift,s){
   return `<div class="sum-grp sum-lift"><div class="sum-grp__h"><span class="sum-grp__n">${esc(liftDisplayName(lift.name,lift.liftKey))}</span>`+
     (s.showBaseline?"":summaryWordHtml(lift,s.session))+`</div>`+
-    `<div class="sum-lift__r"><p class="sum-grp__sets">${esc(rxSetsLine(lift.sets,true))}</p>`+
+    `<div class="sum-lift__r"><p class="sum-grp__sets">${rxSetsLine(lift.sets,true,{markup:true})}</p>`+
     (lift.pr?`<p class="sum-lift__pr">${recordMarkHtml()}<span>${esc(sessionPRShort(lift.pr))}</span></p>`:"")+`</div>`+
     (lift.next?`<p class="sum-lift__next"><span class="sum-lift__k">${esc(t("summary.ledger.next"))}</span>`+
       `<span class="sum-grp__next"${lift.exerciseId?` data-parity-target="${esc(lift.exerciseId)}"`:""}>`+
@@ -12770,6 +13649,7 @@ function summaryProfileHtml(s){
     :stage==="calibrated"&&check?t("profile.finish.agreeing",{n:lift.checks.length,guess:check.guess,did:check.reps}):"";
   return `<section class="sum-profile" id="sumProfile" aria-labelledby="sumProfileTitle">`+
     `<h3 class="profile-heading" id="sumProfileTitle">${esc(t("profile.ring.title"))}</h3>`+
+    `<p class="profile-intro sum-profile__meaning">${esc(t("profile.title"))}</p>`+
     `<button type="button" id="sumProfileOpen" class="sum-profile__open">${profileReadingHtml(change.after,change.log)}`+
     `<span class="profile-caption">${esc(t("profile.finish.open"))}</span></button>`+
     (lift?`<h4 class="sum-profile__lift">${esc(profileLiftName(lift))} · ${esc(profileStageName(lift.stage))}</h4>`:"")+
@@ -12816,7 +13696,7 @@ function sessionSummaryHtml(s){
   if(s.prs.length)
     out.push(`<h3 class="sum-sec">${esc(t("summary.records_head"))}</h3><div class="sum-rtiles">${s.prs.map(p=>
       `<div class="sum-rtile"><p class="sum-rtile__n">${esc(liftDisplayName(p.name,p.liftKey))}</p>`+
-      `<p class="sum-rtile__v">${esc(`${fmtLoad(p.load)} ${unitLabel()} × ${p.reps}`)}</p>`+
+      `<p class="sum-rtile__v">${esc(`${fmtLoad(p.load)} ${unitLabel()} × `)}${performedRepsHtml(p.reps,partialCount(p))}</p>`+
       `<p class="sum-rtile__d">${recordMarkHtml()}<span>${esc(sessionPRShort(p))}</span></p></div>`).join("")}</div>`);
   if(s.liftGroups.length)
     out.push(`<h3 class="sum-sec">${esc(t("summary.lifts_head"))}</h3><div class="sum-grps">${s.liftGroups.map(lift=>summaryLiftHtml(lift,s)).join("")}</div>`);
@@ -12833,6 +13713,11 @@ function sessionSummaryHtml(s){
         `<p class="sum-next__meta">${esc(tOne("today.exercise_count",s.next.exercises))}</p></div>`:"")+`</div>`)}
   // The session in History, after the report it summarises.
   out.push(`<p class="sum-see"><button type="button" id="sumSee">${esc(t("summary.see_session"))}</button></p>`);
+  // A backup the lifter does not have to remember (Packet E): one quiet cue, only when a copy is due.
+  if(backupCueDue())out.push(`<div class="sum-backup" id="sumBackup">`+
+    `<p class="sum-backup__text" id="sumBackupText">${esc(t("summary.backup.body"))}</p>`+
+    `<div class="sum-backup__actions"><button type="button" class="text-link sum-backup__save" id="sumBackupSave" aria-describedby="sumBackupText">${esc(t("summary.backup.save"))}</button>`+
+    `<button type="button" class="text-link sum-backup__dismiss" id="sumBackupDismiss">${esc(t("summary.backup.dismiss"))}</button></div></div>`);
   // Share is the strong action (owner decisions, 2026-11-05) and sends the card in view; Done ends the session.
   out.push(`<div class="sum-actions"><button type="button" class="btn btn--cta btn--noarrow" id="sumShare">${esc(t("summary.share"))}</button>`+
     `<button type="button" class="btn btn--steel" id="sumDone">${esc(t("summary.done"))}</button></div>`);
@@ -12905,7 +13790,40 @@ function renderSessionSummary(s){
   const share=$("#sumShare");if(share)share.onclick=()=>openShareSheet(share);
   const see=$("#sumSee");if(see)see.onclick=()=>{
     HistoryUi.startReading(s.session);
-    closeSessionSummary({nav:"history"})}}
+    closeSessionSummary({nav:"history"})};
+  wireSummaryBackupCue()}
+
+/* The backup cue (Packet E). A saved session is the moment the record grew, so that is where the cue may appear:
+   once at least BACKUP_CUE_SESSIONS saved sessions and BACKUP_CUE_DAYS days have passed since the later of the last
+   backup (`settings.lastExport`, the time Settings shows) and the last "Not now" (`backupCueDismissedAt`, a
+   device-only UI preference). With neither, the first counted session starts the clock. It never appears on a device
+   with no saved session, so a fresh device stays eligible for the install transfer. The tap is Settings' Export
+   backup JSON: the same file, to the share sheet where files can be shared, else as a download. */
+const BACKUP_CUE_SESSIONS=3,BACKUP_CUE_DAYS=7;
+function backupCueDue(nowMs=Date.now()){
+  const anchors=[state?.settings?.lastExport,uiPrefs.backupCueDismissedAt].map(v=>typeof v==="string"?Date.parse(v):NaN).filter(Number.isFinite);
+  const anchor=anchors.length?Math.max(...anchors):null,sessions=new Map();
+  for(const row of state?.log||[]){
+    if(!isWork(row))continue;
+    const at=Date.parse(row.created||`${row.date}T12:00:00`);if(!Number.isFinite(at))continue;
+    const id=String(row.session??"");sessions.set(id,Math.min(sessions.get(id)??Infinity,at))}
+  const since=[...sessions.values()].filter(at=>anchor==null||at>anchor);
+  if(since.length<BACKUP_CUE_SESSIONS)return false;
+  return nowMs-(anchor??Math.min(...since))>=BACKUP_CUE_DAYS*86400000}
+function wireSummaryBackupCue(){
+  const cue=$("#sumBackup");if(!cue)return;
+  const save=$("#sumBackupSave"),dismiss=$("#sumBackupDismiss");
+  save.onclick=async()=>{
+    if(save.disabled)return;save.disabled=true;
+    let result;try{result=await exportJson()}catch{result=null}
+    if(!result||!(result.localOk||result.idbOk)){save.disabled=false;return}
+    const done=document.createElement("p");
+    done.className="sum-backup__done";done.setAttribute("role","status");done.tabIndex=-1;
+    done.textContent=t("settings.storage.last_backup",{lastBackup:String(state.settings.lastExport||"").slice(0,10)});
+    cue.replaceWith(done);done.focus({preventScroll:true})};
+  dismiss.onclick=()=>{
+    updateUiPrefs(prefs=>({...prefs,backupCueDismissedAt:new Date().toISOString()}));
+    cue.remove();$("#sumDone")?.focus({preventScroll:true})}}
 
 function clearSessionSummaryView(){
   clearSummaryProfileReturn();syncRouteHistory();
@@ -13015,7 +13933,9 @@ function shareProgressLine(s){
     unit:unitLabel(),from:fmtLoad(best.points[0].load),to:fmtLoad(best.points.at(-1).load),delta:`+${fmtLoad(best.gain)}`,
     span:best.fromStart?t("share.card.since_first"):t("share.card.since_date",{date:shortDate(best.points[0].date)})}}
 /** A set as the cards print it: the load and reps, or the reps alone without a load. */
-const shareSetText=(load,reps,unit)=>+load>0?`${fmtLoad(load)} ${unit} × ${fmt(reps)}`:`${fmt(reps)} ${tp(reps,"rep")}`;
+const shareSetText=(row,unit)=>{
+  const reps=performedRepsText(fmt(row.reps),partialCount(row));
+  return +row.load>0?`${fmtLoad(row.load)} ${unit} × ${reps}`:`${reps} ${tp(row.reps,"rep")}`};
 /** What the cards draw, in the lifter's language and unit. Never volume, and never a zero in a number's place. */
 function shareCardModel(s){
   const unit=unitLabel(),day=dayLabel(s.day),date=shortDate(s.date),sessions=shareSessionsThrough(s);
@@ -13029,8 +13949,8 @@ function shareCardModel(s){
     const loaded=+s.lead.load>0;
     lead={kind:s.lead.kind,kicker:t(s.lead.kind==="record"?"summary.card.new_record":"summary.card.most_improved"),
       title:liftDisplayName(s.lead.name,s.lead.liftKey),
-      figure:loaded?fmtLoad(s.lead.load):fmt(s.lead.reps),unit:loaded?unit:tp(s.lead.reps,"rep"),
-      strong:loaded?`${fmt(s.lead.reps)} ${tp(s.lead.reps,"rep")}`:"",accent:s.lead.pr?over(s.lead.pr):""}}
+      figure:loaded?fmtLoad(s.lead.load):performedRepsText(fmt(s.lead.reps),partialCount(s.lead)),unit:loaded?unit:tp(s.lead.reps,"rep"),
+      strong:loaded?`${performedRepsText(fmt(s.lead.reps),partialCount(s.lead))} ${tp(s.lead.reps,"rep")}`:"",accent:s.lead.pr?over(s.lead.pr):""}}
   else lead={kind:"milestone",kicker:t(beginner?"share.card.starting":"share.card.showing_up"),title:day,
     figure:fmt(sessions),unit:tp(sessions,"workout"),
     strong:week?t("share.card.week_line",{done:fmt(week.done),planned:fmt(week.planned)}):`${fmt(s.liftGroups.length)} ${tp(s.liftGroups.length,"exercise")}`,
@@ -13046,8 +13966,8 @@ function shareCardModel(s){
     stats:pool.slice(0,4),
     row:[...plain,...pool.filter(stat=>!plain.includes(stat))].slice(0,3),
     lifts:s.liftGroups.map(group=>{
-      const top=group.sets.reduce((a,b)=>+b.load>+a.load||(sameLoad(b.load,a.load)&&+b.reps>+a.reps)?b:a);
-      return{name:liftDisplayName(group.name,group.liftKey),best:shareSetText(top.load,top.reps,unit),record:!!group.pr}}),
+      const top=group.bestSet||group.sets.reduce((a,b)=>+b.load>+a.load||(sameLoad(b.load,a.load)&&+b.reps>+a.reps)?b:a);
+      return{name:liftDisplayName(group.name,group.liftKey),best:shareSetText(top,unit),record:!!group.pr}}),
     more:n=>t("share.card.more",{n:fmt(n)})}}
 /** The templates this session can fill, in the sheet's order. */
 const shareTemplates=model=>TauriferShareCards.TEMPLATES.filter(template=>template!=="progress"||model.progress);
@@ -13419,7 +14339,7 @@ function historyShareSummary(sid,{week=null}={}){
   const liftGroups=[...byLift.values()].map(group=>{
     const outcome=historySessionOutcome(raw.get(group.liftKey)||[])?.status;
     return{liftKey:group.liftKey,name:group.name,session:id,
-      sets:[...group.rows].sort((a,b)=>(+a.set||0)-(+b.set||0)).map(row=>({load:+row.load,reps:+row.reps})),
+      ...summaryReadbackSets(group.rows),
       state:outcome==="improved"?{kind:"outcome",outcome:"improved"}:{kind:"insufficient",reason:null},
       pr:prs.find(entry=>entry.liftKey===group.liftKey)||null,next:null}});
   const date=first.date,strength=week>=2?strengthGainedThisBlock(rows,prevLog):null;
@@ -13429,7 +14349,7 @@ function historyShareSummary(sid,{week=null}={}){
     tiles:summaryTiles({strength,records:prs.length}),
     leadIndex:0,
     lead:summaryLeadCard(prs,liftGroups),
-    sets:rows.length,volume:movedTonnage(rows),prs,liftGroups,
+    sets:rows.filter(isWork).length,volume:movedTonnage(rows),prs,liftGroups,
     minutes:mins>=1&&mins<=480?mins:null,
     meso:{current:week??null}}}
 
@@ -13442,11 +14362,12 @@ function summaries(){const m=new Map();
   for(const raw of state.log){if(!isWork(raw))continue;const x=readLogRow(raw);
     if(!x.strengthComparable||!(+x.load>0&&+x.reps>0))continue;
     const convention=x.strengthConvention||"load",k=`${x.session}|${liftKey(x)}|${convention}`;
-    if(!m.has(k))m.set(k,{session:x.session,date:x.date,created:x.created,day:x.day,liftKey:liftKey(x),name:displayName(x),loads:[],reps:[],rirs:[],sets:0,perSideLoad:x.perSideLoad,convention});
-    const o=mergeLogChronology(m.get(k),x);o.loads.push(+x.load);o.reps.push(+x.reps);o.rirs.push(+x.rir);o.sets++}
-  return [...m.values()].map(o=>{let top=0,topReps=0,vol=0,best=0;
-    o.loads.forEach((ld,i)=>{const rp=o.reps[i];vol+=ld*rp;const e=e1rm(ld,rp);if(e>best)best=e;if(ld>top){top=ld;topReps=rp}});
-    return{session:o.session,date:o.date,created:o.created,day:o.day,liftKey:o.liftKey,name:o.name,top,topReps,reps:sum(o.reps),rir:avg(o.rirs),sets:o.sets,volume:vol,e1rm:best,perSideLoad:o.perSideLoad,convention:o.convention};})
+    if(!m.has(k))m.set(k,{session:x.session,date:x.date,created:x.created,day:x.day,liftKey:liftKey(x),name:displayName(x),loads:[],reps:[],partials:[],zeros:[],rirs:[],sets:0,perSideLoad:x.perSideLoad,convention});
+    const o=mergeLogChronology(m.get(k),x);o.loads.push(+x.load);o.reps.push(+x.reps);o.partials.push(partialCount(x));o.zeros.push(x.rir!=null&&x.rir!==""&&+x.rir===0);o.rirs.push(+x.rir);o.sets++}
+  return [...m.values()].map(o=>{let top=0,topReps=0,topPartial=0,topZero=false,vol=0,best=0;
+    o.loads.forEach((ld,i)=>{const rp=o.reps[i];vol+=ld*rp;const e=e1rm(ld,rp);if(e>best)best=e;if(ld>top){top=ld;topReps=rp;topPartial=o.partials[i];topZero=o.zeros[i]}
+      else if(ld===top&&rp===topReps&&o.partials[i]>topPartial&&o.zeros[i]&&topZero)topPartial=o.partials[i]});
+    return{session:o.session,date:o.date,created:o.created,day:o.day,liftKey:o.liftKey,name:o.name,top,topReps,...(topPartial?{partialReps:topPartial}:{}),reps:sum(o.reps),rir:avg(o.rirs),sets:o.sets,volume:vol,e1rm:best,perSideLoad:o.perSideLoad,convention:o.convention};})
     .sort(compareLogChronology)}
 
 // @ci-domain progress
@@ -13457,7 +14378,7 @@ function strengthDashboard(){
   for(const [k,sess] of byLift){const latest=sess.at(-1),first=sess[0],best=Math.max(...sess.map(s=>s.e1rm));
     const ex=currentExerciseForLiftKey(k);
     const rec=ex?recommendation(ex):{label:"—"};
-    rows.push({key:k,exercise:latest.name,latestLoad:latest.top,latestReps:latest.topReps,best,blockDelta:latest.e1rm-first.e1rm,
+    rows.push({key:k,exercise:latest.name,latestLoad:latest.top,latestReps:latest.topReps,...(partialCount(latest)?{latestPartialReps:latest.partialReps}:{}),best,blockDelta:latest.e1rm-first.e1rm,
       prs:prN.get(k)||0,lastTrained:latest.date,signal:rec.label})}
   return rows.sort((a,b)=>a.exercise.localeCompare(b.exercise))}
 window.__repforgeStrengthDashboard=strengthDashboard;
@@ -13576,13 +14497,15 @@ function strengthDetailTable(k,projection=strengthProjection(strengthScope)){
     repsLabel=series?.perSideReps?t("focus.metric.reps_per_side"):t("stats.table.reps"),
     e1rmLabel=series?.perSideLoad?`${t("stats.table.e1rm_unit",{unit:u})} · ${t("focus.metric.load_per_side_kg")}`:t("stats.table.e1rm_unit",{unit:u});
   return reason+range+table(sess.map(s=>({[t("stats.table.date")]:shortDate(s.date),[topLabel]:fmtLoad(s.top),[repsLabel]:s.topReps,
-      [e1rmLabel]:fmt(Math.round(toDisplay(s.e1rm))),[t("focus.col.left")]:fmt(s.rir)}))).replace("<table>",'<table class="evtable">')}
+      [e1rmLabel]:fmt(Math.round(toDisplay(s.e1rm))),[t("focus.col.left")]:fmt(s.rir)})),(row,key,index)=>key===repsLabel
+      ?performedRepsHtml(row[key],partialCount(sess[index])):esc(row[key]))
+    .replace("<table>",'<table class="evtable">')}
 function legacyStrengthTable(el){
   const rows=strengthDashboard();
   if(!rows.length){el.innerHTML=`<div class="empty">${esc(t("stats.empty.no_lifts"))}</div>`;return}
   const u=unitLabel(),fmtDelta=d=>{const n=toDisplay(d),a=Math.abs(n);const s=n>0?"+":n<0?"-":"";return s+(a?fmt(Math.round(a)):0)};
-  el.innerHTML=table(rows.map(r=>({[t("stats.table.exercise")]:liftDisplayName(r.exercise,r.key),[t("stats.table.latest")]:`${fmtLoad(r.latestLoad)}×${r.latestReps}`,[t("stats.table.best_e1rm_unit",{unit:u})]:fmt(Math.round(toDisplay(r.best))),
-    [t("stats.table.delta_block")]:fmtDelta(r.blockDelta),[t("stats.table.prs")]:r.prs,[t("stats.table.signal")]:r.signal})))}
+  el.innerHTML=table(rows.map(r=>({[t("stats.table.exercise")]:liftDisplayName(r.exercise,r.key),[t("stats.table.latest")]:`${esc(fmtLoad(r.latestLoad))}×${performedRepsHtml(r.latestReps,r.latestPartialReps||0)}`,[t("stats.table.best_e1rm_unit",{unit:u})]:fmt(Math.round(toDisplay(r.best))),
+    [t("stats.table.delta_block")]:fmtDelta(r.blockDelta),[t("stats.table.prs")]:r.prs,[t("stats.table.signal")]:r.signal})),(row,key)=>key===t("stats.table.latest")?row[key]:esc(row[key]))}
 
 // The week reads as two totals and a line (Plan 064 R3i). Every number comes
 // from the same evidence model the lists below render, so none of them disagree.
@@ -13780,7 +14703,8 @@ function detectPRs(log,opts={}){
     const ld=+reading.load,rp=+reading.reps,em=e1rm(ld,rp),cur=best.get(comparisonKey)||{load:0,repsAtMax:0,e1rm:0};
     const event={liftKey:k,date:row.date,session:row.session,blockId:row.blockId??null,load:ld,reps:rp,rir:row.rir,
       exerciseName:displayName(row),exerciseId:row.exerciseId,strengthConvention:reading.strengthConvention,
-      loadMultiplier:reading.loadMultiplier,perSideLoad:reading.perSideLoad};
+      loadMultiplier:reading.loadMultiplier,perSideLoad:reading.perSideLoad,
+      ...(partialCount(row)?{partialReps:row.partialReps}:{})};
     if(ld>cur.load){events.push({kind:"load",...event,deltaLoad:cur.load>0?ld-cur.load:undefined});
       cur.load=ld;cur.repsAtMax=rp}
     else if(ld===cur.load&&rp>cur.repsAtMax){events.push({kind:"reps",...event,deltaReps:rp-cur.repsAtMax});
@@ -14212,7 +15136,7 @@ const repforgeProgramTransitionAdapter = {
     }));
     const preview = { source: "build", program: cloneSnapshot(program), programDefinition: cloneSnapshot(definition),
       days, customExercises: custom };
-    const name = state?.programMeta?.name || "Taurifer program";
+    const name = state?.programMeta?.name || t("untitled_program");
     const result = {
       schemaVersion: ProgramEntry.SCHEMA_VERSION,
       route: "build",
@@ -14377,7 +15301,7 @@ function recordRowBody(group,withDate){
     return `<span class="recrow__rec" data-kind="${item.kind}"${i?"":` data-first="true"`}>`+(d?`<b class="recrow__gain">${esc(d)}</b> `:"")+
       `<span class="recrow__kind">${esc(prKindLabel(item.kind))}</span></span>`}).join(`<span class="recrow__sep" aria-hidden="true"> · </span>`);
   return `<span class="recrow__body"><span class="recrow__l1"><b class="recrow__name">${esc(liftDisplayName(ev.exerciseName,ev.liftKey))}</b>`+
-    `<span class="recrow__set">${esc(`${fmtLoad(ev.load)} ${unitLabel()} × ${ev.reps}`)}</span></span>`+
+    `<span class="recrow__set">${esc(`${fmtLoad(ev.load)} ${unitLabel()} × `)}${performedRepsHtml(ev.reps,partialCount(ev))}</span></span>`+
     `<span class="recrow__l2"><span class="recrow__recs">${kinds}</span>${withDate?`<span class="recrow__date">${esc(prDateText(ev.date))}</span>`:""}</span></span>`}
 function renderPRTimeline(){const el=$("#prTimeline");if(!el)return;
   $$("#prFilterSeg button").forEach(b=>{const on=b.dataset.prf===prFilter;b.classList.toggle("active",on);b.setAttribute("aria-pressed",on?"true":"false");
@@ -14390,7 +15314,7 @@ function renderPRTimeline(){const el=$("#prTimeline");if(!el)return;
   el.innerHTML=[...days].map(([date,list])=>`<h3 class="recday">${esc(longDate(date))}</h3><div class="sumcard">`+list.map(([group,i])=>
     `<button type="button" class="recrow prtl__row" data-prrow="${i}" aria-expanded="false">${recordRowBody(group,false)}<span class="chevron is-down" aria-hidden="true"></span></button>`+
     `<div class="evrow__detail recrow__detail" data-prdetail="${i}" hidden><p class="lede">${esc(longDate(group[0].date))}</p>`+
-      group.map(item=>{const d=prDeltaText(item);return `<p class="lede">${esc(`${prKindLabel(item.kind)} · ${fmtLoad(item.load)} ${unitLabel()} × ${item.reps}`)}${d?` · ${esc(d)}`:""}</p>`}).join("")+`</div>`).join("")+`</div>`).join("");
+      group.map(item=>{const d=prDeltaText(item);return `<p class="lede">${esc(`${prKindLabel(item.kind)} · ${fmtLoad(item.load)} ${unitLabel()} × `)}${performedRepsHtml(item.reps,partialCount(item))}${d?` · ${esc(d)}`:""}</p>`}).join("")+`</div>`).join("")+`</div>`).join("");
   $$("#prTimeline [data-prrow]").forEach(b=>b.onclick=()=>{
     const detail=$(`[data-prdetail="${b.dataset.prrow}"]`);if(!detail)return;
     const open=detail.hidden;detail.hidden=!open;b.setAttribute("aria-expanded",open?"true":"false");
@@ -14484,7 +15408,7 @@ function strengthSessionKey(row){return`${String(row?.session??row?.date)}\u0000
 function strengthEvidenceRows(log=state.log){return readLogRows(log).filter(isWork).map(r=>({exerciseId:liftKey(r),session:r.session,
   sessionKey:strengthSessionKey(r),date:r.date,created:r.created??null,blockId:r.blockId??null,
   name:displayName(r),day:r.day,primary:r.primary,secondary:r.secondary,
-  load:+r.load,reps:+r.reps,rir:r.rirMeasured===false||r.rir==null||r.rir===""?null:+r.rir,work:true,
+  load:+r.load,reps:+r.reps,...(partialCount(r)?{partialReps:r.partialReps}:{}),rir:r.rirMeasured===false||r.rir==null||r.rir===""?null:+r.rir,work:true,
   strengthComparable:r.strengthComparable,strengthConvention:r.strengthConvention,perSideLoad:r.perSideLoad,perSideReps:r.perSideReps,
   loadPerSide:r.loadPerSide,repsPerSide:r.repsPerSide,tonnage:r.tonnage,repetitionsPerformed:r.repetitionsPerformed}))}
 function compareProgressStrengthSession(ex,currentRows,readerContext){
@@ -14566,10 +15490,10 @@ function strengthProjection(scope="current-block"){
     current.perSideReps=liftRows.length>0&&liftRows.every(row=>row.perSideReps===true);
     const liftSessions=current.points.map(point=>{
       const source=liftRows.filter(row=>row.sessionKey===point.sessionKey);
-      const topRow=source.slice().sort((a,b)=>b.load-a.load||b.reps-a.reps)[0]||point;
+      const topRow=source.slice().sort((a,b)=>b.load-a.load||b.reps-a.reps||bestSetTie(a,b))[0]||point;
       const top=Number(topRow.load),topReps=Number(topRow.reps),volume=source.reduce((n,row)=>n+(Number.isFinite(row.tonnage)?row.tonnage:0),0);
       return{session:point.session,date:point.date,day:source[0]?.day||"",liftKey:key,
-        name:source[0]?.name||currentExerciseForLiftKey(key)?.name||key,top,topReps,reps:source.reduce((n,row)=>n+row.reps,0),
+        name:source[0]?.name||currentExerciseForLiftKey(key)?.name||key,top,topReps,...(partialCount(topRow)?{partialReps:topRow.partialReps}:{}),reps:source.reduce((n,row)=>n+row.reps,0),
         rir:avg(source.map(row=>row.rir).filter(value=>Number.isFinite(value))),sets:source.length,volume,
         perSideReps:source.length>0&&source.every(row=>row.perSideReps===true),
         e1rm:Math.max(...source.map(row=>e1rm(row.load,row.reps))),sessionKey:point.sessionKey};
@@ -14585,7 +15509,7 @@ function strengthProjection(scope="current-block"){
       // the compatibility string only; renderers use latestLoad/latestReps
       // and the model's numeric points, so no display value re-enters math.
       dashboard.push({key,exercise:latest.name,latestLoad:latest.top,latestReps:latest.topReps,
-        latest:`${fmtLoad(latest.top)}×${latest.topReps}`,best,blockDelta:latest.e1rm-first.e1rm,
+        latest:`${fmtLoad(latest.top)}×${performedRepsText(latest.topReps,partialCount(latest))}`,best,blockDelta:latest.e1rm-first.e1rm,
         prs:scopedPrs.length,lastTrained:latest.date,signal:rec.label});
     }
     series.set(key,current)}
@@ -14596,9 +15520,9 @@ function strengthProjection(scope="current-block"){
       (row.strengthConvention??"load")===(convention??"load"));
     return current.points.map(point=>{
       const source=matching.filter(row=>row.sessionKey===point.sessionKey);
-      const top=source.slice().sort((a,b)=>b.load-a.load||b.reps-a.reps)[0]||point;
+      const top=source.slice().sort((a,b)=>b.load-a.load||b.reps-a.reps||bestSetTie(a,b))[0]||point;
       return{session:point.session,date:point.date,day:source[0]?.day||"",liftKey:key,
-        name:source[0]?.name||currentExerciseForLiftKey(key)?.name||key,top:top.load,topReps:top.reps,
+        name:source[0]?.name||currentExerciseForLiftKey(key)?.name||key,top:top.load,topReps:top.reps,...(partialCount(top)?{partialReps:top.partialReps}:{}),
         reps:source.reduce((n,row)=>n+row.reps,0),rir:avg(source.map(row=>row.rir).filter(value=>Number.isFinite(value))),sets:source.length,
         volume:source.reduce((n,row)=>n+(Number.isFinite(row.tonnage)?row.tonnage:0),0),
         perSideLoad:source.length>0&&source.every(row=>row.perSideLoad===true),
@@ -14836,7 +15760,8 @@ const HistoryUi=window.RepForgeHistoryUi.create({
   locTag, blockContext:historyBlockContext, sessionOutcome:historySessionOutcome, openModal, closeModal, reducedMotion,
   $, $$, t, esc, cloneSnapshot, currentMovementNames, mergeLogChronology,
   compareLogChronology, isWork, liftKey, buildSessionDelta, detectPRs,
-  readLogRow,
+  readLogRow, performedRepsText, performedRepsHtml, performedRepsMarked, partialMarkup, partialsSpoken, partialCount, validHistoryPartials:WorkoutDraft.validHistoryPartials,
+  pruneWarmupObservations:WorkoutDraft.pruneWarmupObservations,
   displayName, exerciseDisplayName, currentNameForRow, dayLabel, canTakeFocus, parseCalendarDate,
   parseLoadDisplay, parseRepsValue, parseRirValue, clearFieldInvalid,
   toast, formatLongDate, fmtLoad, sum, kfmt, fmt, toDisplay, unitLabel,
@@ -14952,11 +15877,11 @@ function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
   const prEvents=detectPRs(state.log).filter(ev=>ev.liftKey===key).reverse();
   const loadPr=prEvents.find(e=>e.kind==="load"),e1Pr=prEvents.find(e=>e.kind==="e1rm");
   const historyHtml=sessions.length?[...sessions].reverse().slice(0,8).map(s=>{
-    const best=[...s.rows].filter(isWork).sort((a,b)=>+b.load-+a.load||+b.reps-+a.reps)[0];
+    const best=[...s.rows].filter(isWork).sort((a,b)=>+b.load-+a.load||+b.reps-+a.reps||bestSetTie(a,b))[0];
     const cmp=exRef?compareExerciseSession(exRef,s.rows):null;
     const note=s.note?`<p class="exsess__note">${esc(s.note)}</p>`:"";
     return `<div class="exsess"><div class="exsess__head"><span class="exsess__date">${esc(shortDate(s.date))}</span>`+
-      (best?`<span class="exsess__set">${fmtLoad(best.load)} × ${best.reps}</span><span class="exsess__day">${esc(t("stats.table.rir"))} ${fmt(best.rir)}</span>`:"")+
+      (best?`<span class="exsess__set">${fmtLoad(best.load)} × ${performedRepsHtml(best.reps,partialCount(best))}</span><span class="exsess__day">${esc(t("stats.table.rir"))} ${fmt(best.rir)}</span>`:"")+
       (cmp&&cmp.status!=="not_comparable"?`<span class="exsess__delta">${esc(cmp.label)}</span>`:"")+`</div>${note}</div>`}).join("")
     :`<div class="empty">${esc(t("exercise.empty.no_sets"))}</div>`;
 
@@ -14972,7 +15897,7 @@ function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
       `<div class="chart-wrap"><canvas id="exChart" height="240" aria-label="${esc(t("exercise.chart_aria",{name}))}"></canvas></div>`
       :`<p class="lede exdet__trend-wait">${esc(t(sums.length?"exercise.chart_needs_two":"stats.chart.empty"))}</p>`)+
     `<p class="section-label">${esc(t("exercise.records"))}</p>`+
-    (loadPr?`<div class="listrow listrow--static"><div class="listrow__main"><div class="listrow__title">${esc(t("stats.pr.load"))}</div><div class="listrow__sub">${fmtLoad(loadPr.load)} ${unitLabel()} × ${loadPr.reps}</div></div><span class="listrow__meta">${esc(shortDate(loadPr.date))}</span></div>`:"")+
+    (loadPr?`<div class="listrow listrow--static"><div class="listrow__main"><div class="listrow__title">${esc(t("stats.pr.load"))}</div><div class="listrow__sub">${fmtLoad(loadPr.load)} ${unitLabel()} × ${performedRepsHtml(loadPr.reps,partialCount(loadPr))}</div></div><span class="listrow__meta">${esc(shortDate(loadPr.date))}</span></div>`:"")+
     (e1Pr?`<div class="listrow listrow--static"><div class="listrow__main"><div class="listrow__title">${esc(t("stats.pr.e1rm"))}</div><div class="listrow__sub">${fmt(Math.round(toDisplay(e1rm(e1Pr.load,e1Pr.reps))))} ${unitLabel()}</div></div><span class="listrow__meta">${esc(shortDate(e1Pr.date))}</span></div>`:"")+
     `<button type="button" class="link-row-cta" id="exSeePrs"><span>${esc(t("exercise.see_all_prs"))}</span><span class="chevron" aria-hidden="true"></span></button>`+
     `<p class="section-label">${esc(t("exercise.recent_sessions"))}</p><div class="exsessions">${historyHtml}</div>`;
@@ -14995,7 +15920,7 @@ function chartModel(key){
   const{scope,metric}=chartView;
   const projection=strengthProjection(scope);
   const current=scope==="all-history"?new Set((strengthProjection("current-block").series.get(key)?.points||[]).map(point=>point.sessionKey)):null;
-  const pts=projection.sessions.filter(x=>x.liftKey===key).map(x=>({date:x.date,top:x.top,reps:x.topReps,e1rm:x.e1rm,
+  const pts=projection.sessions.filter(x=>x.liftKey===key).map(x=>({date:x.date,top:x.top,reps:x.topReps,e1rm:x.e1rm,partialReps:x.partialReps,
     perSideLoad:x.perSideLoad===true,perSideReps:x.perSideReps===true,sessionKey:x.sessionKey,block:current?current.has(x.sessionKey):true}));
   const value=p=>metric==="top"?toDisplay(p.top):Math.round(toDisplay(p.e1rm)*10)/10;
   const vals=pts.map(value);
@@ -15069,12 +15994,12 @@ function chartReadout(model){
   const p=model.pts[model.sel],label=model.metric==="top"?t("stats.metric.top_load"):t("stats.metric.best_e1rm");
   return t("exercise.chart.readout",{date:esc(shortDate(p.date)),metric:esc(label),unit:esc(unitLabel()),
     value:`<b class="exchart__mono">${esc(chartNum(model.value(p),model.metric))}</b>`,
-    set:`<b class="exchart__mono">${esc(fmtLoad(p.top))} × ${esc(p.reps)}</b>`})}
+    set:`<b class="exchart__mono">${esc(fmtLoad(p.top))} × ${performedRepsHtml(p.reps,partialCount(p))}</b>`})}
 function chartRowHtml(model,i){
   const p=model.pts[i],prev=model.pts[i-1],v=model.value(p),pv=prev?model.value(prev):null;
   const delta=pv==null?"–":Math.abs(v-pv)<.05?"0":`${v>pv?"+":"−"}${chartNum(Math.abs(v-pv),model.metric)}`;
   return `<button type="button" class="exrow${i===model.sel?" is-sel":""}${p.block?"":" is-old"}" data-pt="${i}" aria-pressed="${i===model.sel}">`+
-    `<span>${esc(shortDate(p.date))}</span><span><span class="exchart__mono">${esc(fmtLoad(p.top))} × ${esc(p.reps)}</span></span>`+
+    `<span>${esc(shortDate(p.date))}</span><span><span class="exchart__mono">${esc(fmtLoad(p.top))} × ${performedRepsHtml(p.reps,partialCount(p))}</span></span>`+
     `<span><span class="exchart__mono">${esc(fmt(Math.round(toDisplay(p.e1rm)*10)/10))}</span></span><span class="exchart__mono exchart__soft${pv!=null&&v-pv>=.05?" is-up":""}">${esc(delta)}</span></button>`}
 /** The chart's one statement of a per-side convention (refinement audit A6): loads, reps or both, said once under the
  *  toggles rather than after every figure, column and reading. */
@@ -17331,8 +18256,8 @@ async function commitSettings(silent){const editRevision=settingsEditRevision;co
   return result}
 
 // @ci-domain global
-function table(rows){if(!rows.length)return`<div class="empty">${esc(t("stats.table.no_data"))}</div>`;const h=Object.keys(rows[0]);
-  return`<table><thead><tr>${h.map(x=>`<th>${esc(x)}</th>`).join("")}</tr></thead><tbody>${rows.map(r=>`<tr>${h.map(x=>`<td>${esc(r[x])}</td>`).join("")}</tr>`).join("")}</tbody></table>`}
+function table(rows,cellHtml=(row,key)=>esc(row[key])){if(!rows.length)return`<div class="empty">${esc(t("stats.table.no_data"))}</div>`;const h=Object.keys(rows[0]);
+  return`<table><thead><tr>${h.map(x=>`<th>${esc(x)}</th>`).join("")}</tr></thead><tbody>${rows.map((r,i)=>`<tr>${h.map(x=>`<td>${cellHtml(r,x,i)}</td>`).join("")}</tr>`).join("")}</tbody></table>`}
 
 function exportCsv(){
   const hr=+state.settings.hardRir;
@@ -17342,29 +18267,37 @@ function exportCsv(){
   const cols=[
     ["session",r=>r.session],["date",r=>r.date],["day",r=>r.day],
     ["name",r=>exerciseLabel(r)],["performed_name",r=>r.performedName||""],["exercise_id",r=>r.exerciseId||""],
-    ["set",r=>r.set],["load",r=>reading(r).totalLoad??""],["reps",r=>reading(r).totalReps??""],
+    ["set",r=>r.origin==="suggested-warmup"?`W${r.warmupOrdinal}`:r.set],["load",r=>reading(r).totalLoad??""],["reps",r=>reading(r).totalReps??""],
     ["load_per_side",r=>reading(r).loadPerSide??""],["reps_per_side",r=>reading(r).repsPerSide??""],["rir",r=>r.rir],
-    ["e1rm",r=>{const value=reading(r);return value.strengthComparable?+value.e1rm.toFixed(2):hasPerSideMetric(r)?"":+e1rm(+r.load,+r.reps).toFixed(2)}],
-    ["tonnage",r=>{const value=reading(r);return Number.isFinite(value.tonnage)?+value.tonnage.toFixed(2):hasPerSideMetric(r)?"":+((+r.load||0)*(+r.reps||0)).toFixed(2)}],
+    ["e1rm",r=>{if(!isWork(r))return "";const value=reading(r);return value.strengthComparable?+value.e1rm.toFixed(2):hasPerSideMetric(r)?"":+e1rm(+r.load,+r.reps).toFixed(2)}],
+    ["tonnage",r=>{if(!isWork(r))return "";const value=reading(r);return Number.isFinite(value.tonnage)?+value.tonnage.toFixed(2):hasPerSideMetric(r)?"":+((+r.load||0)*(+r.reps||0)).toFixed(2)}],
     ["primary",r=>rowMuscles(r).primary],["secondary",r=>rowMuscles(r).secondary],
     ["is_hard_set",r=>(+reading(r).load>0&&+reading(r).reps>0&&+r.rir<=hr&&!r.warmup)?1:0],
     ["is_warmup",r=>r.warmup?1:0],
     ["bodyweight",r=>r.bodyweight??""],
-    ["notes",r=>r.notes],["exercise_note",r=>r.exNote||""],["created",r=>r.created],
+    ["notes",r=>r.notes],["exercise_note",r=>r.exNote||""],["created",r=>r.created],["partial_reps",partialCount],
   ];
   const q=v=>`"${String(v??"").replaceAll('"','""')}"`;
   const csv=[cols.map(c=>c[0]).join(","),
     ...state.log.map(r=>cols.map(c=>q(c[1](r))).join(","))].join("\n");
   download(csv,`taurifer_log_${today()}.csv`,"text/csv");
 }
-async function exportJson(){
-  const proposal=cloneSnapshot(state);proposal.settings.lastExport=new Date().toISOString();
-  const result=await commitProposedState(proposal);
-  if(!(result.localOk||result.idbOk))return result;
-  const text=JSON.stringify(exportableState(state)),name=`taurifer_backup_${today()}.json`;
-  shareOrDownload(text,name,"application/json");
-  renderSettings();
-  return result}
+/* Settings → Export backup JSON and the finish screen's backup cue (#817). The file is built and handed to the share
+   sheet before anything is awaited, so the share stays inside the tap's user activation (iOS refuses a share that
+   comes after the durable commit's lock and IndexedDB round trip). The backup time is committed only afterwards, and
+   only when the file left the app: a completed share or a started download. A closed sheet records nothing. */
+let backupExportPending=Promise.resolve();
+function exportJson(){
+  const at=new Date().toISOString(),snapshot=cloneSnapshot(state);snapshot.settings.lastExport=at;
+  const text=JSON.stringify(exportableState(snapshot)),name=`taurifer_backup_${today()}.json`;
+  const run=shareFile(text,name,"application/json","Taurifer backup").then(async outcome=>{
+    if(outcome==="cancelled")return{outcome,cancelled:true,localOk:false,idbOk:false};
+    const proposal=cloneSnapshot(state);proposal.settings.lastExport=at;
+    const result=await commitProposedState(proposal);
+    renderSettings();
+    return{...result,outcome}});
+  backupExportPending=run.catch(()=>{});
+  return run}
 const fileSlug=s=>String(s||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,40);
 /* A program-only export carries its own custom definitions. Without them a
    template arriving on another device points at a "custom:…" id that device has
@@ -25335,7 +26268,7 @@ const landingChapterAt=time=>{const at=landingLoopTime(time);let i=0;while(i+1<L
 const landingLoopTime=time=>{const L=LANDING_DEMO.loop;return Number.isFinite(time)?((time%L)+L)%L:0};
 /** Every catalog string the proof's screen shows; test/landing-demo-copy.mjs fails when one leaves a catalog or Focus
  *  stops saying it. */
-const LANDING_DEMO_KEYS=["focus.exmeta.range","program.progression.adaptive","focus.cue.up","focus.cue.reps",
+const LANDING_DEMO_KEYS=["focus.exmeta.range","focus.cue.up","focus.cue.reps",
   "focus.evidence.history","focus.evidence.target","focus.evidence.why","log.set","log.reps","focus.col.left","focus.field.left",
   "focus.prev_line","focus.next_row","focus.metric.load_kg","focus.metric.reps","focus.shelf.pad_load","focus.shelf.log_set",
   "rest.inline.label","rest.inline.done","landing.outcomes.next_label","landing.outcomes.target","landing.outcomes.did_same",
@@ -25392,10 +26325,10 @@ function landingDemoHtml(add,testSet){
     `<g filter="url(#landingContourShadow)"><path class="restlight__shape firstrun-demo__base"/><path class="restlight__hair firstrun-demo__base"/>`+
     `<g clip-path="url(#landingAboveEdge)">${tabParts("restlight__shape")}</g><g clip-path="url(#landingAboveHair)">${tabParts("restlight__hair")}</g></g></svg>`;
   const mark=`<span class="fx-cue__mark" aria-hidden="true">${verdictMarkHtml("up")}</span>`;
-  const head1=esc(t("focus.cue.up",{load:"\u0000",unit})).replace("\u0000",`<b class="fx-cue__load">${esc(kg)}</b>`);
+  const head1=esc(t("focus.cue.up",{load:"\u0000",unit})).replace("\u0000",`<b class="fx-cue__load">${cueLoadHtml(kg)}</b>`);
   const evidence=evidenceSay("focus.evidence.history",{load:evidenceFig(`${landingNum(load0)} × ${landingNum(reps0)}`),rir:esc(landingNum(rir0))})+" "+
     evidenceSay("focus.evidence.target",{reps:esc(reps),rir:esc(landingNum(rir))})+` <span class="firstrun-demo__why">${esc(t("focus.evidence.why"))}</span>`;
-  const meta=`${singleRir(t("focus.exmeta.range",{sets:landingNum(c.sets),min:landingNum(c.repMin),max:landingNum(c.repMax),rmin:landingNum(rir),rmax:landingNum(rir)}))} · ${t("program.progression.adaptive")}`;
+  const meta=`${singleRir(t("focus.exmeta.range",{sets:landingNum(c.sets),min:landingNum(c.repMin),max:landingNum(c.repMax),rmin:landingNum(rir),rmax:landingNum(rir)}))}`;
   const nextRow=esc(t("focus.next_row",{name:"\u0000"})).replace("\u0000",`<b>${esc(landingExerciseName(LANDING_DEMO.next))}</b>`);
   // The session the target came from, as its ledger read: no "last" line under rows that are the last session.
   const lastSession=c.logged.map(([l,r,e])=>line(check,[landingNum(l),landingNum(r),landingNum(e)],false," firstrun-demo__last","")).join("");
@@ -25702,6 +26635,8 @@ function renderLandingWays(){
   fill("ways.written",esc(t("landing.ways.written.body",{weeks:landingNum(defaultProgramMeta().mesocycleLengthWeeks)})));
   fill("ways.where",landingRich("landing.ways.paste.where",{},{track:t("landing.track"),hub:t("entry.hub.title"),
     own:t("entry.hub.b.import.title"),paste:t("entry.import_source.to_freeform")}));
+  fill("hero.data",landingRich("landing.hero.data",{},{save:t("summary.backup.save")}));
+  fill("ways.today",landingRich("landing.ways.paste.today",{},{use:t("entry.preview.activate_first"),today:t("nav.log")}));
   fill("data.pointer",landingRich("landing.data.pointer",{},{settings:t("nav.settings"),privacy:t("privacy.open")}));
   fill("faq.coach.a1",landingRich("landing.faq.coach.a1",{},{control:t("program.share_setup")}));
   fill("faq.data.a2",landingRich("landing.faq.data.a2",{},{settings:t("nav.settings"),toggle:t("settings.analytics.title")}));
@@ -26601,6 +27536,8 @@ const WHY_RANGE_LEAD={top:"top",cap_top:"top",cap_top2:"top",hold:"hold",push_re
 const whyList=items=>{const a=items.map(String);
   try{return new Intl.ListFormat(I18N?.getLang?.()==="pt"?"pt-BR":"en-GB",{style:"long",type:"conjunction"}).format(a)}
   catch{return a.join(", ")}};
+/** A Why string's .one or .other form: one only for a count of exactly 1. */
+const whyCount=(key,n)=>`${key}.${Number(n)===1?"one":"other"}`;
 /** The first sentence of the first block: what was performed, and the RIR (or effort) it used. */
 function whyPerformedText(prev,u){
   const rows=prev.filter(x=>+x.load>0&&+x.reps>0);if(!rows.length)return"";
@@ -26609,9 +27546,11 @@ function whyPerformedText(prev,u){
   for(const x of rows){const run=runs.at(-1);if(run&&sameLoad(+run.load,+x.load))run.sets.push(x);else runs.push({load:x.load,sets:[x]})}
   const effort=isWordMode();
   return runs.map(run=>{
-    const reps=whyList(run.sets.map(x=>x.reps)),load=fmtLoad(run.load);
-    if(effort)return t("why.performed_effort",{reps,load,unit:u,efforts:whyList(run.sets.map(x=>effortLabel(effortForRir(x.rir))))});
-    return t("why.performed",{reps,load,unit:u,
+    const reps=whyList(run.sets.map(x=>performedRepsMarked(x.reps,partialCount(x)))),load=fmtLoad(run.load);
+    // A run of several sets lists several counts, so only a lone single rep reads in the singular.
+    const n=run.sets.length===1&&!partialCount(run.sets[0])?+run.sets[0].reps:0;
+    if(effort)return t(whyCount("why.performed_effort",n),{reps,load,unit:u,efforts:whyList(run.sets.map(x=>effortLabel(effortForRir(x.rir))))});
+    return t(whyCount("why.performed",n),{reps,load,unit:u,
       rirs:whyList(run.sets.map(x=>x.rir==null||x.rir===""?t("why.effort.missing"):fmt(x.rir)))})}).join(" ")}
 /** "102.5 kg × 8" / "137.5 kg × 5 + 117.5 kg × 8, 8": the sets the engine asks for, grouped by load. */
 function setsTargetLine(ex,rec){
@@ -26691,12 +27630,15 @@ function engineWhyRows(ex,rec,n=1){
   const cap=Number.isFinite(anchor.capacityKg)?fmtLoad(Math.round(anchor.capacityKg*2)/2):null;
   if(anchor.source==="current_session")rows.push(whyRow("anchor",{text:t("why.engine.anchor_session",
     {set:(anchor.setIndex??0)+1,load:fmtLoad(anchor.displayLoadKg),cap,unit:u})}));
-  else if(cap)rows.push(whyRow("anchor",{text:t(PER_SIDE_LOAD_SEMANTICS.has(loadMetric?.semantic)
-    ?"why.engine.anchor_history_per_side":"why.engine.anchor_history",
-    {n:(anchor.sessionIds||[]).length||1,load:fmtLoad(anchor.displayLoadKg),cap,unit:u})}));
+  else if(cap){const sessions=(anchor.sessionIds||[]).length||1;
+    const perSide=PER_SIDE_LOAD_SEMANTICS.has(loadMetric?.semantic);
+    rows.push(whyRow("anchor",{text:t(sessions===1
+      ?perSide?"why.engine.anchor_history_per_side.one":"why.engine.anchor_history.one"
+      :perSide?"why.engine.anchor_history_per_side.other":"why.engine.anchor_history.other",
+      {n:sessions,load:fmtLoad(anchor.displayLoadKg),cap,unit:u})}))}
   if(facts.fatigued)
     rows.push(whyRow("fatigue",{text:t("why.engine.fatigue",{cap:fmtLoad(Math.round(projected*2)/2),unit:u})}));
-  if(load!=null&&reps!=null)rows.push(whyRow("target",{text:t(rir!=null?"why.engine.target":"why.engine.target_norir",
+  if(load!=null&&reps!=null)rows.push(whyRow("target",{text:t(rir!=null?(reps===1?"why.engine.target.one":"why.engine.target.other"):(reps===1?"why.engine.target_norir.one":"why.engine.target_norir.other"),
     {rir:fmt(rir),reps,load:fmtLoad(load),unit:u})}));
   const loads=(assumptions.availableLoadsKg||[]).slice().sort((a,b)=>a-b);
   const steps=loads.slice(1).map((value,index)=>Math.round((value-loads[index])*1000)/1000).filter(step=>step>0);
@@ -26724,11 +27666,12 @@ function addStandingBlock(model,standing){
   const lines=standing.reasons.map(reason=>({reason,text:t(`why.standing.${reason}`,vars)}));
   if(standing.word==="solid")lines.push({text:t("why.standing.evidence",vars)});
   model.blocks.push({leadKey:"engine-standing",lead:t("why.lead.standing"),text:standingWord(standing),lines})}
-function engineWhyModel(ex,rec,model,head){
+function engineWhyModel(ex,rec,model,head,partial){
   const n=head.inSession&&head.set?head.set.n:1,rows=engineWhyRows(ex,rec,n),take=kind=>rows.find(row=>row.kind===kind);
   const prev=last(ex).filter(x=>+x.load>0),u=unitLabel(),performed=whyPerformedText(prev,u);
   const block=(leadKey,lead,text)=>{if(text)model.blocks.push({leadKey,lead,text})};
-  block("engine-anchor",t("why.lead.engine_anchor"),[performed,take("anchor")?.text,take("fatigue")?.text].filter(Boolean).join(" "));
+  block("engine-anchor",t("why.lead.engine_anchor"),[performed,partial||take("anchor")?.text,take("fatigue")?.text].filter(Boolean).join(" "));
+  if(partial)block("partials-rule",t("partials.rule_title"),t("partials.rule"));
   block("engine-target",t(n>1?"why.lead.set2":"why.lead.engine_target",{n}),take("target")?.text);
   block("engine-assumptions",t("why.lead.engine_assumptions"),
     [take("step")?.text,take("per_side")?.text,take("per_side_bodyweight")?.text,take("bodyweight")?.text].filter(Boolean).join(" "));
@@ -26741,15 +27684,23 @@ function engineWhyModel(ex,rec,model,head){
       :cal.state==="calibrated"?"why.calibration.calibrated":"why.calibration.uncalibrated";
     if(key)block("engine-calibration",t("why.lead.calibration"),t(key))}
   if(prev.length){model.calc.push({group:t("why.calc.last",{date:shortDate(prev[0].date)})});
-    prev.forEach((x,i)=>model.calc.push({k:t("why.calc.set",{n:i+1}),v:`${fmtLoad(x.load)} × ${x.reps}`,rir:effortOrRirLabel(x.rir)}));
+    prev.forEach((x,i)=>model.calc.push({k:t("why.calc.set",{n:i+1}),v:`${fmtLoad(x.load)} × ${performedRepsMarked(x.reps,partialCount(x))}`,rir:effortOrRirLabel(x.rir)}));
     model.evidence=t("why.evidence",{n:1,date:shortDate(prev[0].date)})}
   return model}
 function whySheetModel(ex,surface="focus"){
-  const rec=recommendation(ex),u=unitLabel(),rows=explainRecommendation(ex),pick=k=>rows.find(r=>r.kind===k);
+  const rec=recommendation(ex),u=unitLabel(),rows=explainRecommendation(ex,{marked:true}),pick=k=>rows.find(r=>r.kind===k);
   const head=whyHeadline(ex,rec,surface),glyph=head.glyph;
   // Once the session has moved the target, the previous session's decision is said as that, never as today's verdict.
   const model={target:head.target,
     decision:head.inSession&&rec.label?t("why.decision_before",{label:rec.label}):rec.label,glyph,blocks:[],calc:[],evidence:""};
+  const n=head.inSession&&head.set?head.set.n:1;
+  const partial=surface==="focus"?currentPartialEvidence(ex,n,rec,{marked:true}):null;
+  if(partial){
+    if(rec.status==="manual"){
+      model.blocks.push({leadKey:"partials",lead:t("why.lead.engine_anchor"),text:partial});
+      model.blocks.push({leadKey:"partials-rule",lead:t("partials.rule_title"),text:t("partials.rule")})}
+    const facts=engineSetFacts(rec,n);
+    if(facts?.reps!=null&&facts.load!=null)model.target=t("partials.target",{reps:facts.reps,load:fmtLoad(facts.load),unit:u})}
   const placed=new Set(),take=k=>{const r=pick(k);if(r)placed.add(r);return r};
   const block=(leadKey,lead,text,label)=>model.blocks.push({leadKey,lead,text,...(label?{label}:{})});
   if(rec.status==="manual"){block("manual","",t("why.manual"));addStandingBlock(model,targetStanding(rec));return model}
@@ -26763,9 +27714,9 @@ function whySheetModel(ex,surface="focus"){
     if(mode==="bilateral"||mode==="unilateral")
       block("setup","",t("why.setup.per_side",{mode:t(`why.setup.mode.${mode}`)}));
     addStandingBlock(model,targetStanding(rec));return model}
-  if(Array.isArray(rec.targetSets))return engineWhyModel(ex,rec,model,head);
+  if(Array.isArray(rec.targetSets))return engineWhyModel(ex,rec,model,head,partial);
   const draft=loadDraft(),prev=last(ex).filter(x=>+x.load>0),performed=whyPerformedText(prev,u);
-  const calc=model.calc,setRows=sets=>sets.forEach((x,i)=>calc.push({k:t("why.calc.set",{n:i+1}),v:`${fmtLoad(x.load)} × ${x.reps}`,rir:effortOrRirLabel(x.rir)}));
+  const calc=model.calc,setRows=sets=>sets.forEach((x,i)=>calc.push({k:t("why.calc.set",{n:i+1}),v:`${fmtLoad(x.load)} × ${performedRepsMarked(x.reps,partialCount(x))}`,rir:effortOrRirLabel(x.rir)}));
   const lastGroup=()=>{if(prev.length){calc.push({group:t("why.calc.last",{date:shortDate(prev[0].date)})});setRows(prev)}};
   const todayRow=()=>{const line=setsTargetLine(ex,rec);if(line)calc.push({sum:!head.inSession,k:t("nav.log"),v:line})};
   // Once the session has moved the target, the working ends on the set the headline speaks for; the base target above it stays labelled Today.
@@ -26781,13 +27732,13 @@ function whySheetModel(ex,surface="focus"){
     // In-session: the capacity the set showed comes before the prediction for the next one, never the reverse.
     const seen=session.at(-1),sg=setSuggestion(ex,nextSet,rec,draft,last(ex).find(x=>+x.set===nextSet)),note=take("session"),observed=Math.round(repsAtLoad(seen.cap,seen.load));
     block("set1",t("why.lead.set1",{n:session.length}),isWordMode()
-      ?t("why.set1_effort",{n:session.length,cap:observed,reps:seen.reps,load:fmtLoad(seen.load),unit:u,effort:effortLabel(effortForRir(seen.rir))})
-      :t("why.set1",{n:session.length,cap:observed,reps:seen.reps,load:fmtLoad(seen.load),unit:u,rir:fmt(seen.rir)}),t("why.session"));
+      ?t(whyCount("why.set1_effort",seen.reps),{n:session.length,cap:observed,reps:seen.reps,load:fmtLoad(seen.load),unit:u,effort:effortLabel(effortForRir(seen.rir))})
+      :t(whyCount("why.set1",seen.reps),{n:session.length,cap:observed,reps:seen.reps,load:fmtLoad(seen.load),unit:u,rir:fmt(seen.rir)}),t("why.session"));
     const predicted=sg.src==="session-hold"&&sg.pred!=null?t("why.set2",{pred:fmt(sg.pred),rir:fmt(sg.typ),reps:sg.reps}):"";
     block("set2",t("why.lead.set2",{n:nextSet}),[note?.text,predicted].filter(Boolean).join(" "));
     calc.push({group:t("why.session")});
-    session.forEach((x,i)=>calc.push({k:t("why.calc.set",{n:i+1}),v:`${fmtLoad(x.load)} × ${x.reps}`,rir:effortOrRirLabel(x.rir)}));
-    calc.push({k:t("why.calc.capacity"),v:t("why.calc.capacity_v",{cap:observed,load:fmtLoad(seen.load),unit:u})});
+    session.forEach((x,i)=>calc.push({k:t("why.calc.set",{n:i+1}),v:`${fmtLoad(x.load)} × ${performedRepsMarked(x.reps,partialCount(x))}`,rir:effortOrRirLabel(x.rir)}));
+    calc.push({k:t("why.calc.capacity"),v:t(whyCount("why.calc.capacity_v",observed),{cap:observed,load:fmtLoad(seen.load),unit:u})});
     if(predicted)calc.push({k:t("why.calc.rep_target"),v:whyRepTarget({capacity:sg.capacity,pred:sg.pred,rir:sg.typ,reps:sg.reps,min:ex.min,max:ex.max})});
     calc.push({sum:true,k:t("why.calc.set",{n:nextSet}),v:`${fmtLoad(sg.load)} ${u} × ${sg.reps}`});
     model.evidence=t("why.evidence",{n:1,date:shortDate(today())});
@@ -26799,11 +27750,11 @@ function whySheetModel(ex,surface="focus"){
     const n=reps?.facts?.reps??setSuggestion(ex,1,rec,{},last(ex).find(x=>+x.set===1)).reps??ex.min;
     if(rec.reenterReps&&load&&reps){
       block(sameLoad(rec.load,rec.lastLoad)?"load_hold":"load",t(sameLoad(rec.load,rec.lastLoad)?"why.lead.load_hold":"why.lead.load"),load.text);
-      block("reps",t("why.lead.reps",{n}),reps.text)}
-    else block("reps",t("why.lead.reps",{n}),[load?.text,reps?.text].filter(Boolean).join(" "));
+      block("reps",t(n===1?"why.lead.reps.one":"why.lead.reps.other",{n}),reps.text)}
+    else block("reps",t(n===1?"why.lead.reps.one":"why.lead.reps.other",{n}),[load?.text,reps?.text].filter(Boolean).join(" "));
     lastGroup();
     calc.push({group:t("why.calc.working")});
-    if(rec.cr!=null)calc.push({k:t("why.calc.capacity"),v:t("why.calc.capacity_v",{cap:Math.round(rec.cr),load:fmtLoad(rec.lastLoad),unit:u}),sub:showed?.text});
+    if(rec.cr!=null)calc.push({k:t("why.calc.capacity"),v:t(whyCount("why.calc.capacity_v",Math.round(rec.cr)),{cap:Math.round(rec.cr),load:fmtLoad(rec.lastLoad),unit:u}),sub:showed?.text});
     const params=progressionForExercise(ex)?.strategy?.params||{},max=params.repMax??ex.max,min=params.repMin??ex.min;
     if(["top","cap_top","cap_top2"].includes(rec.reason))calc.push({k:t("why.calc.rule"),v:t("why.calc.rule_top",{max})});
     else if(["hold","push_reps"].includes(rec.reason))calc.push({k:t("why.calc.rule"),v:t("why.calc.rule_hold",{min,max})});
@@ -26819,9 +27770,9 @@ function whySheetModel(ex,surface="focus"){
   return model}
 function whyCalcHtml(calc){
   return calc.map(c=>c.group?`<p class="whycalc__group">${esc(c.group)}</p>`
-    :c.text?`<p class="whycalc__text">${c.k?`<span class="whycalc__k">${esc(c.k)}</span> `:""}${esc(c.v)}</p>`
+    :c.text?`<p class="whycalc__text">${c.k?`<span class="whycalc__k">${esc(c.k)}</span> `:""}${partialMarkup(c.v)}</p>`
     :`<div class="whycalc__row${c.sum?" whycalc__row--sum":""}"><span class="whycalc__k">${esc(c.k)}</span>`+
-      `<span class="whycalc__v">${esc(c.v)}${c.rir?`<em>${esc(c.rir)}</em>`:""}</span>`+
+      `<span class="whycalc__v">${partialMarkup(c.v)}${c.rir?`<em>${esc(c.rir)}</em>`:""}</span>`+
       `${c.sub?`<small class="whycalc__sub">${esc(c.sub)}</small>`:""}</div>`).join("")}
 function renderWhySheet(model){
   const target=$("#whyTarget");if(target){target.innerHTML=model.target?`${verdictMarkHtml(model.glyph)}<span>${esc(model.target)}</span>`:"";target.classList.toggle("hidden",!model.target)}
@@ -26830,8 +27781,8 @@ function renderWhySheet(model){
   if(body){
     body.innerHTML=model.blocks.map(b=>
       `<div class="whysheet__block" data-lead="${esc(b.leadKey)}">${b.label?`<p class="whysheet__lab">${esc(b.label)}</p>`:""}`+
-      `${b.lead?`<b class="whysheet__lead">${esc(b.lead)}</b>`:""}<p class="whysheet__text">${esc(b.text)}</p>`+
-      (b.lines||[]).map(line=>`<p class="whysheet__text"${line.reason?` data-standing-reason="${esc(line.reason)}"`:""}>${esc(line.text)}</p>`).join("")+`</div>`).join("")+
+      `${b.lead?`<b class="whysheet__lead">${esc(b.lead)}</b>`:""}<p class="whysheet__text">${partialMarkup(b.text)}</p>`+
+      (b.lines||[]).map(line=>`<p class="whysheet__text"${line.reason?` data-standing-reason="${esc(line.reason)}"`:""}>${partialMarkup(line.text)}</p>`).join("")+`</div>`).join("")+
       (model.calc.length
         ?`<button type="button" class="whysheet__disc" data-why-calc aria-expanded="false" aria-controls="whyCalc"><span>${esc(t("why.calc"))}</span><span class="chevron is-down" aria-hidden="true"></span></button>`+
          `<div class="whycalc" id="whyCalc" aria-hidden="true">${whyCalcHtml(model.calc)}</div>`:"");
@@ -26851,6 +27802,7 @@ function openWhySheetFor(ex,opener,{surface=opener?.closest?.("#exDetail")?"exer
   // Focus is the only workout-logging surface; the exercise page is the other opener.
   if(measure)captureEvent("recommendation_explained",{surface});
   renderWhySheet(whySheetModel(ex,surface));
+  const whyTitle=$("#whyTitle");if(whyTitle)whyTitle.textContent=t("why.title");
   document.body.classList.add("is-sheet-open");
   openModal(sheet,{initialFocus:$("#whyClose"),returnFocus:opener,onEscape:closeWhySheet,scrim,
     delayHide:reducedMotion()?0:280});
@@ -27055,7 +28007,8 @@ function showContextualGuide(id,{returnFocus=null,persistDeferred=false,after=nu
   removeContextualGuide();
   dialog.dataset.guide=id;
   dialog.querySelector(".entry-dialog__title").textContent=t(`guide.${id}.title`);
-  dialog.querySelector(".entry-dialog__body").textContent=t(`guide.${id}.body`);
+  // On the reps-left stage the first set is where the lifter first meets the number, so its guide says what it means.
+  dialog.querySelector(".entry-dialog__body").textContent=t(id==="first-set"&&!isWordMode()?"guide.first-set.body_reps_left":`guide.${id}.body`);
   dialog.querySelector("#guideDialogOk").textContent=t("why.ok");
   const invoker=returnFocus instanceof HTMLElement||typeof returnFocus==="function"?returnFocus:null;
   // The anchor may be rebuilt while the guide is up (a running rest timer redraws the shelf), so it is found again on close.

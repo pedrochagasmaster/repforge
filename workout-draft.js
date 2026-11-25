@@ -448,6 +448,44 @@
     }
   }
 
+  function ordinaryReps(set) {
+    const metrics = set.programmed?.metrics;
+    if (!Array.isArray(metrics)) return validInteger(set.edited?.reps ?? editableText(set.programmed?.minReps), { positive: true });
+    const reps = metrics.find(metric => metric?.semantic === "reps");
+    return reps && !metrics.some(metric => metric?.semantic === "repsPerSide")
+      ? metricValue(set.edited?.metrics?.[reps.id], reps) : null;
+  }
+
+  const explicitNumericEffort = (source) => source === "rir" || source === "reps_left";
+  const validPartialCount = (count) => Number.isInteger(count) && count >= 0 && count <= 5;
+
+  function canRecordPartials(set) {
+    return !!set && set.role === "working" && !set.origin && !set.calibration && ordinaryReps(set) > 0;
+  }
+
+  function hasExplicitZero(set) {
+    return set.touched?.effort === true && set.edited?.effort == null && validDecimal(set.edited?.rir) === 0 &&
+      (set.completion === "pending" || explicitNumericEffort(set.completion?.effortSource));
+  }
+
+  function validHistoryPartials(row) {
+    return !hasOwn(row, "partialReps") || validPartialCount(row.partialReps) && (row.partialReps === 0 ||
+      !row.warmup && row.work !== false && !row.origin && !row.calibration &&
+      row.rir === 0 && explicitNumericEffort(row.effortSource) && Number.isSafeInteger(row.reps) && row.reps > 0 &&
+      (!Array.isArray(row.metricDefinitions) || row.metricDefinitions.some(metric => metric?.semantic === "reps") &&
+        !row.metricDefinitions.some(metric => metric?.semantic === "repsPerSide")));
+  }
+
+  /** A Prelude History row is a warm-up beside the sets: numbered by its own ordinal, with no effort, count or opening. */
+  function validSuggestedWarmupRow(row) {
+    const suggested = row?.origin === "suggested-warmup", numbered = hasOwn(row ?? {}, "warmupOrdinal");
+    if (!suggested && !numbered) return true;
+    return suggested && numbered && row.warmup === true && Number.isSafeInteger(row.warmupOrdinal) &&
+      row.warmupOrdinal >= 1 && row.warmupOrdinal <= PRELUDE_MAX_STEPS && row.set === 0 && row.setIndex === 0 &&
+      (row.rir === null || row.rir === undefined) &&
+      ["partialReps", "effortSource", "calibration", "startingLoad", "lastRepSlow"].every(key => !hasOwn(row, key));
+  }
+
   function validateSet(value, setId, path, issues) {
     if (!isPlainObject(value)) {
       issues.push(`${path}:object`);
@@ -481,6 +519,15 @@
       } else if (hasOwn(value.completion, "lastRepSlow") && typeof value.completion.lastRepSlow !== "boolean") {
         issues.push(`${path}.completion.lastRepSlow`);
       }
+    }
+    if (hasOwn(value, "partialReps") && (!validPartialCount(value.partialReps) ||
+      value.partialReps > 0 && (!canRecordPartials(value) || !hasExplicitZero(value)))) issues.push(`${path}.partialReps`);
+    if (hasOwn(value, "correction")) {
+      const original = value.correction;
+      if (value.completion !== "pending" || !isPlainObject(original) || !isPlainObject(original.completion) ||
+        hasOwn(original, "correction") || original.ordinal !== value.ordinal ||
+        JSON.stringify(original.programmed) !== JSON.stringify(value.programmed)) issues.push(`${path}.correction`);
+      else validateSet(original, setId, `${path}.correction`, issues);
     }
     if (hasOwn(value, "performed")) validateMovementSnapshot(value.performed, `${path}.performed`, issues);
     if (hasOwn(value, "calibration") && !validCalibration(value.calibration)) issues.push(`${path}.calibration`);
@@ -647,6 +694,217 @@
     // Keep the authored count. Earlier readers require exact coverage and route
     // this expanded aggregate to their existing recovery surface, retaining it.
     if (value.programmed?.sets + ramps !== value.setOrder.length) issues.push(`${path}.programmed.sets:coverage`);
+    if (hasOwn(value, "warmupPrelude")) validatePrelude(value.warmupPrelude, `${path}.warmupPrelude`, issues);
+  }
+
+  /* Plan 085 slice 3: Prelude. A versioned record on the exercise holds suggested warm-ups outside setOrder and sets,
+     so they never take a working ordinal, count toward completion, or reach the progression inputs. Completed steps
+     carry the movement and metric composition they were done under, so a swap cannot rewrite them. */
+  const PRELUDE_VERSION = 1;
+  const PRELUDE_MAX_STEPS = 6;
+  const PRELUDE_REASONS = Object.freeze(["baseline", "baseline-fallback", "learned", "already-warm", "suppressed", "none-with-reason"]);
+  const PRELUDE_EQUIPMENT = Object.freeze(["barbell", "machine", "dumbbell"]);
+  const PRELUDE_KEYS = Object.freeze(["v", "plan", "composition", "skipped", "nextOrdinal", "steps"]);
+  const PRELUDE_PLAN_KEYS = Object.freeze(["reason", "suggestions", "manualAllowed", "equipmentKind", "workLoadKg", "capturedAt", "evidence"]);
+  const PRELUDE_EVIDENCE_KEYS = Object.freeze(["liftKey", "workLoadKg", "barKg", "resetGeneration", "earlierLift", "sessions", "skipStreak", "unavailableReason", "lowestLighterLoadKg"]);
+  const PRELUDE_LIFT_KEYS = Object.freeze(["liftKey", "movementId", "primaryMuscle", "sessionId", "completedAt", "elapsedMs"]);
+  const PRELUDE_COMPOSITION_KEYS = Object.freeze(["metricType", "metricIds", "metrics", "metricOrigin", "sourceLibraryId", "equipmentId", "loadingConvention", "loadingModel", "loadingContext", "restSeconds"]);
+  const PRELUDE_OPTIONAL_COMPOSITION = new Set(["equipmentId", "restSeconds"]);
+  const PRELUDE_MAX_PLAN_CHARS = 8000;
+
+  const exactKeys = (value, keys) => isPlainObject(value) && Object.keys(value).every(key => keys.includes(key));
+  const finiteNumber = value => typeof value === "number" && Number.isFinite(value);
+  const positiveLoad = value => finiteNumber(value) && value > 0 && value <= 1000;
+
+  function preludeMetrics(composition) {
+    const metrics = Array.isArray(composition?.metrics) ? composition.metrics : [];
+    const load = metrics.filter(metric => LOAD_SEMANTICS.has(metric?.semantic));
+    const reps = metrics.filter(metric => metric?.semantic === "reps" || metric?.semantic === "repsPerSide");
+    if (!metrics.length || metrics.length > 2 || load.length > 1 || reps.length !== 1 || load.length + reps.length !== metrics.length) return null;
+    return { load: load[0] ?? null, reps: reps[0] };
+  }
+
+  /** The metric composition a warm-up is logged under: the exercise's first ordinary working set. */
+  function preludeComposition(exercise) {
+    const setId = exercise.setOrder.find(id => exercise.sets[id].role === "working" && !exercise.sets[id].origin);
+    const set = setId ? exercise.sets[setId] : null;
+    if (!set || !Array.isArray(set.programmed?.metrics)) return null;
+    const programmed = { ...exercise.programmed, ...set.programmed };
+    const composition = {
+      metricType: programmed.metricType, metricIds: jsonClone(programmed.metricIds), metrics: jsonClone(programmed.metrics),
+      metricOrigin: programmed.metricOrigin, sourceLibraryId: programmed.sourceLibraryId ?? exercise.libraryId ?? null,
+      loadingConvention: programmed.loadingConvention, loadingModel: jsonClone(programmed.loadingModel ?? {}),
+      loadingContext: jsonClone(programmed.loadingContext ?? {}),
+    };
+    if (programmed.equipmentId != null) composition.equipmentId = programmed.equipmentId;
+    if (Number.isSafeInteger(programmed.restSeconds)) composition.restSeconds = programmed.restSeconds;
+    return preludeMetrics(composition) ? composition : null;
+  }
+
+  function validatePreludeComposition(value, path, issues) {
+    if (!exactKeys(value, PRELUDE_COMPOSITION_KEYS)) {
+      issues.push(`${path}:object`);
+      return;
+    }
+    for (const key of PRELUDE_COMPOSITION_KEYS) {
+      if (!hasOwn(value, key) && !PRELUDE_OPTIONAL_COMPOSITION.has(key)) issues.push(`${path}.${key}`);
+    }
+    if (hasOwn(value, "equipmentId") && !isText(value.equipmentId, { max: MAX_ID })) issues.push(`${path}.equipmentId`);
+    if (hasOwn(value, "restSeconds") && (!isSafeInteger(value.restSeconds) || value.restSeconds > 86400)) issues.push(`${path}.restSeconds`);
+    if (value.metricType !== "source_metrics@1") issues.push(`${path}.metricType`);
+    const ids = validateMetricRecords(value.metrics, `${path}.metrics`, issues, { allowEmpty: false });
+    if (!Array.isArray(value.metricIds) || value.metricIds.length !== ids.length || value.metricIds.some((id, index) => id !== ids[index])) {
+      issues.push(`${path}.metricIds`);
+    }
+    if (!preludeMetrics(value)) issues.push(`${path}.metrics:unsupported-warmup-shape`);
+    metricProgramBinding({ metricOrigin: value.metricOrigin, metricIds: value.metricIds, metricDefinitions: value.metrics,
+      sourceLibraryId: value.sourceLibraryId, loadingModel: value.loadingModel, loadingConvention: value.loadingConvention,
+      loadingContext: value.loadingContext }, path, issues);
+  }
+
+  function validatePreludePlan(value, path, issues) {
+    if (!exactKeys(value, PRELUDE_PLAN_KEYS) || PRELUDE_PLAN_KEYS.some(key => !hasOwn(value, key))) {
+      issues.push(`${path}:object`);
+      return;
+    }
+    if (!PRELUDE_REASONS.includes(value.reason)) issues.push(`${path}.reason`);
+    if (typeof value.manualAllowed !== "boolean") issues.push(`${path}.manualAllowed`);
+    if (value.equipmentKind !== null && !PRELUDE_EQUIPMENT.includes(value.equipmentKind)) issues.push(`${path}.equipmentKind`);
+    if (value.workLoadKg !== null && !positiveLoad(value.workLoadKg)) issues.push(`${path}.workLoadKg`);
+    if (!isText(value.capturedAt, { max: 100 })) issues.push(`${path}.capturedAt`);
+    if (!Array.isArray(value.suggestions) || value.suggestions.length > PRELUDE_MAX_STEPS ||
+      value.suggestions.some(step => !exactKeys(step, ["loadKg", "reps", "platesPerSideKg"]) || !positiveLoad(step.loadKg) ||
+        !Number.isSafeInteger(step.reps) || step.reps < 1 || step.reps > 100 ||
+        (step.platesPerSideKg !== null && step.platesPerSideKg !== undefined &&
+          (!Array.isArray(step.platesPerSideKg) || step.platesPerSideKg.length > 24 || step.platesPerSideKg.some(plate => !positiveLoad(plate)))))) {
+      issues.push(`${path}.suggestions`);
+    }
+    const evidence = value.evidence;
+    if (!exactKeys(evidence, PRELUDE_EVIDENCE_KEYS) || PRELUDE_EVIDENCE_KEYS.some(key => !hasOwn(evidence, key))) {
+      issues.push(`${path}.evidence`);
+      return;
+    }
+    if (evidence.liftKey !== null && !isText(evidence.liftKey, { max: 1000 })) issues.push(`${path}.evidence.liftKey`);
+    for (const key of ["workLoadKg", "barKg", "lowestLighterLoadKg"]) {
+      if (evidence[key] !== null && !positiveLoad(evidence[key])) issues.push(`${path}.evidence.${key}`);
+    }
+    if (evidence.resetGeneration !== null && !isText(evidence.resetGeneration, { max: MAX_ID })) issues.push(`${path}.evidence.resetGeneration`);
+    if (evidence.unavailableReason !== null && !isText(evidence.unavailableReason, { max: 80 })) issues.push(`${path}.evidence.unavailableReason`);
+    if (!isSafeInteger(evidence.skipStreak) || evidence.skipStreak > 1000) issues.push(`${path}.evidence.skipStreak`);
+    if (!Array.isArray(evidence.sessions) || evidence.sessions.length > PRELUDE_MAX_STEPS ||
+      evidence.sessions.some(entry => !exactKeys(entry, ["sessionId", "savedAt"]) || !isText(entry.sessionId, { max: MAX_ID }) || !finiteNumber(entry.savedAt))) {
+      issues.push(`${path}.evidence.sessions`);
+    }
+    const lift = evidence.earlierLift;
+    if (lift !== null && (!exactKeys(lift, PRELUDE_LIFT_KEYS) || PRELUDE_LIFT_KEYS.some(key => !hasOwn(lift, key)) ||
+      ["liftKey", "movementId", "primaryMuscle", "sessionId"].some(key => !isText(lift[key], { max: 1000 })) ||
+      !finiteNumber(lift.completedAt) || !finiteNumber(lift.elapsedMs))) issues.push(`${path}.evidence.earlierLift`);
+    if (JSON.stringify(value).length > PRELUDE_MAX_PLAN_CHARS) issues.push(`${path}:size`);
+  }
+
+  function preludeStepValues(step, composition) {
+    const metrics = preludeMetrics(composition);
+    if (!metrics || !isPlainObject(step.values)) return null;
+    const load = metrics.load ? metricValue(step.values[metrics.load.id], metrics.load) : null;
+    const reps = metricValue(step.values[metrics.reps.id], metrics.reps);
+    return { load, reps, valid: (!metrics.load || load > 0) && reps > 0 };
+  }
+
+  function validatePreludeStep(step, record, path, issues) {
+    if (!exactKeys(step, ["stepId", "source", "values", "touched", "completion"]) ||
+      ["stepId", "source", "values", "touched", "completion"].some(key => !hasOwn(step, key))) {
+      issues.push(`${path}:object`);
+      return;
+    }
+    if (!isText(step.stepId, { max: MAX_ID })) issues.push(`${path}.stepId`);
+    if (step.source !== "suggested" && step.source !== "manual") issues.push(`${path}.source`);
+    if (typeof step.touched !== "boolean") issues.push(`${path}.touched`);
+    const pending = step.completion === "pending";
+    const composition = pending ? record.composition : step.completion?.composition;
+    if (pending && composition === null) {
+      issues.push(`${path}.completion:no-composition`);
+      return;
+    }
+    if (!pending) {
+      const completion = step.completion;
+      if (!exactKeys(completion, ["completedAt", "ordinal", "performed", "composition"]) ||
+        ["completedAt", "ordinal", "performed", "composition"].some(key => !hasOwn(completion, key)) ||
+        !isText(completion.completedAt, { max: 100 }) || !Number.isSafeInteger(completion.ordinal) ||
+        completion.ordinal < 1 || completion.ordinal > PRELUDE_MAX_STEPS) {
+        issues.push(`${path}.completion`);
+        return;
+      }
+      validateMovementSnapshot(completion.performed, `${path}.completion.performed`, issues);
+      validatePreludeComposition(completion.composition, `${path}.completion.composition`, issues);
+    }
+    const metrics = preludeMetrics(composition);
+    if (!metrics || !isPlainObject(step.values)) {
+      issues.push(`${path}.values`);
+      return;
+    }
+    const ids = composition.metrics.map(metric => metric.id);
+    validateMetricMap(step.values, ids, `${path}.values`, issues);
+    if (!pending && !preludeStepValues(step, composition)?.valid) issues.push(`${path}.values:not-loggable`);
+  }
+
+  function validatePrelude(value, path, issues) {
+    if (!exactKeys(value, PRELUDE_KEYS) || PRELUDE_KEYS.some(key => !hasOwn(value, key))) {
+      issues.push(`${path}:object`);
+      return;
+    }
+    if (value.v !== PRELUDE_VERSION) issues.push(`${path}.v`);
+    if (typeof value.skipped !== "boolean") issues.push(`${path}.skipped`);
+    if (!isSafeInteger(value.nextOrdinal, 1) || value.nextOrdinal > PRELUDE_MAX_STEPS + 1) issues.push(`${path}.nextOrdinal`);
+    if (value.plan !== null) validatePreludePlan(value.plan, `${path}.plan`, issues);
+    if (value.composition !== null) validatePreludeComposition(value.composition, `${path}.composition`, issues);
+    if ((value.plan === null) !== (value.composition === null)) issues.push(`${path}:plan-composition`);
+    if (!Array.isArray(value.steps) || value.steps.length > PRELUDE_MAX_STEPS) {
+      issues.push(`${path}.steps`);
+      return;
+    }
+    value.steps.forEach((step, index) => validatePreludeStep(step, value, `${path}.steps.${index}`, issues));
+    const ids = value.steps.map(step => step?.stepId);
+    if (new Set(ids).size !== ids.length) issues.push(`${path}.steps:identity`);
+    let seenPending = false, lastOrdinal = 0, pendingManual = 0;
+    for (const step of value.steps) {
+      if (step?.completion === "pending") {
+        seenPending = true;
+        if (step.source === "manual") pendingManual++;
+      } else if (isPlainObject(step?.completion)) {
+        if (seenPending) issues.push(`${path}.steps:order`);
+        if (!(step.completion.ordinal > lastOrdinal)) issues.push(`${path}.steps:ordinal`);
+        lastOrdinal = Math.max(lastOrdinal, step.completion.ordinal ?? 0);
+      }
+    }
+    if (value.nextOrdinal <= lastOrdinal) issues.push(`${path}.nextOrdinal:stale`);
+    if (pendingManual > 1) issues.push(`${path}.steps:manual-limit`);
+    if (value.skipped && seenPending) issues.push(`${path}.skipped:pending-steps`);
+    if (value.composition === null && (seenPending || value.skipped)) issues.push(`${path}:retired-with-pending-state`);
+  }
+
+  const preludeIsPristine = record => !record.skipped && record.nextOrdinal === 1 &&
+    record.steps.every(step => step.source === "suggested" && step.completion === "pending" && !step.touched);
+
+  function preludeText(value) {
+    return typeof value === "number" && Number.isFinite(value) ? String(Math.round(value * 1000) / 1000) : editableText(value);
+  }
+
+  /** The working sets have started: the exercise's suggestions are history, not a plan. */
+  const workHasStarted = exercise => exercise.setOrder.some(id => exercise.sets[id].role === "working" &&
+    !exercise.sets[id].origin && (exercise.sets[id].completion !== "pending" || exercise.sets[id].performed));
+
+  /** A swap changes the movement the pending steps were suggested for: drop them, keep what was logged. */
+  function retirePrelude(exercise) {
+    const record = exercise.warmupPrelude;
+    if (!record) return;
+    record.steps = record.steps.filter(step => step.completion !== "pending");
+    if (!record.steps.length) {
+      delete exercise.warmupPrelude;
+      return;
+    }
+    record.plan = null;
+    record.composition = null;
+    record.skipped = false;
   }
 
   function structuralIssues(value) {
@@ -985,7 +1243,7 @@
     value = normalizeLegacyTargetRir(value);
     const checked = validate(value);
     if (!checked.ok) return deepFreeze({ kind: "invalid", code: "invalid-schema", issues: checked.issues });
-    const draft = deepFreeze(jsonClone(value));
+    const draft = deepFreeze(serialize(value));
     const mismatch = contextMismatch(draft, currentProgramContext);
     return mismatch
       ? deepFreeze({ kind: "stale", reason: mismatch, draft })
@@ -994,7 +1252,15 @@
 
   function serialize(draft) {
     const checked = validate(draft);
-    return checked.ok ? jsonClone(draft) : error("invalid-draft", { issues: checked.issues });
+    if (!checked.ok) return error("invalid-draft", { issues: checked.issues });
+    const copy = jsonClone(draft);
+    for (const exercise of Object.values(copy.exercises)) {
+      for (const set of [...Object.values(exercise.sets), ...Object.values(exercise.substitution?.originalPendingSets || {})]) {
+        if (set.partialReps === 0) delete set.partialReps;
+        if (set.correction?.partialReps === 0) delete set.correction.partialReps;
+      }
+    }
+    return copy;
   }
 
   function logicalCloneSection(draft) {
@@ -1161,6 +1427,7 @@
         if (!isPlainObject(set)) return false;
         if (set.startingLoad || set.origin === "ramp" || set.completion !== "pending" || hasTouchedValue(set.touched)) return false;
       }
+      if (hasOwn(exercise, "warmupPrelude") && !preludeIsPristine(exercise.warmupPrelude)) return false;
     }
     return true;
   }
@@ -1175,7 +1442,8 @@
       const exercise = draft.exercises[exerciseId];
       if (exercise.status === "skipped") continue;
       for (const setId of exercise.setOrder) {
-        const set = exercise.sets[setId];
+        const stored = exercise.sets[setId];
+        const set = stored.correction || stored;
         if (!isCandidate(set)) continue;
         candidates++;
         issues.push(...setSaveIssues(draft, exercise, set));
@@ -1385,6 +1653,7 @@
           pending.edited.reps = editableText(pending.programmed.minReps);
           pending.edited.rir = null;
           pending.edited.effort = null;
+          delete pending.partialReps;
           pending.touched = { load: false, reps: false, effort: false };
           if (pending.programmed.metrics) {
             pending.edited.metrics = Object.fromEntries(pending.programmed.metrics.map(metric => [metric.id,
@@ -1395,7 +1664,30 @@
         }
         exercise.sets[command.setId] = set;
         exercise.setOrder.splice(before, 0, command.setId);
-        exercise.setOrder.forEach((id, index) => { exercise.sets[id].ordinal = index + 1; });
+        exercise.setOrder.forEach((id, index) => {
+          const set = exercise.sets[id];
+          set.ordinal = index + 1;
+          if (set.correction) set.correction.ordinal = set.ordinal;
+        });
+        break;
+      }
+      case "setNumericEffort": {
+        item = targetSet(next, command);
+        if (isDomainError(item)) return item;
+        const value = editableText(command.value);
+        // The numeric chips offer 0 to 5 reps left.
+        const rir = validDecimal(value, { max: 5 });
+        const count = command.partialReps;
+        if (rir == null || !validPartialCount(count) || item.set.completion !== "pending" ||
+          count > 0 && (rir !== 0 || !hasExplicitZero(item.set) || !canRecordPartials(item.set))) {
+          return error("invalid-partial-effort");
+        }
+        item.set.edited.rir = value;
+        item.set.edited.effort = null;
+        item.set.touched.effort = true;
+        if (count) item.set.partialReps = count;
+        else delete item.set.partialReps;
+        if (rir !== 0) delete item.set.calibration;
         break;
       }
       case "editSetField": {
@@ -1409,6 +1701,8 @@
         if (command.field === "rir") item.set.edited.effort = null;
         if (command.field === "effort") item.set.edited.rir = null;
         item.set.touched[command.field === "rir" || command.field === "effort" ? "effort" : command.field] = true;
+        if (command.field === "effort" || command.field === "rir" && validDecimal(value) !== 0 ||
+          command.field === "reps" && !canRecordPartials(item.set)) delete item.set.partialReps;
         // A max set is at 0 reps left; any other effort makes it a normal set again (Plan 077, OD-17).
         if (item.set.calibration && (command.field === "rir" || command.field === "effort") && !failureEffort(command.field, value)) {
           delete item.set.calibration;
@@ -1438,6 +1732,7 @@
             item.set.touched.load = true;
           }
         }
+        delete item.set.partialReps;
         item.set.calibration = jsonClone(command.calibration);
         break;
       }
@@ -1473,6 +1768,7 @@
         if (value === undefined) return error("invalid-metric-value", { metricId: command.metricId });
         item.set.edited.metrics[definition.id] = value;
         item.set.touched.metrics[definition.id] = true;
+        if (definition.semantic === "reps" && !canRecordPartials(item.set)) delete item.set.partialReps;
         break;
       }
       case "refreshUntouchedSuggestions": {
@@ -1563,6 +1859,7 @@
       case "completeSet": {
         item = targetSet(next, command);
         if (isDomainError(item)) return item;
+        if (command.expectedPending === true && item.set.completion !== "pending") return error("set-already-completed");
         if (hasOwn(command, "startingLoad")) {
           if (!validStartingLoad(command.startingLoad)) return error("invalid-starting-load");
           item.set.startingLoad = jsonClone(command.startingLoad);
@@ -1595,7 +1892,8 @@
           ? EFFORT_TOKEN_SOURCE[item.set.edited.effort] || "effort"
           : item.set.edited.rir === "5" ? "reps_left_5plus" : "reps_left";
         item.set.completion = { completedAt: command.completedAt, effortSource: maxSet ? "failure" : enteredEffort ? entered : "prefilled" };
-        item.set.performed = jsonClone(item.exercise.substitution?.replacement || snapshotFromExercise(item.exercise));
+        item.set.performed = jsonClone(item.set.correction?.performed || item.exercise.substitution?.replacement || snapshotFromExercise(item.exercise));
+        delete item.set.correction;
         item.set.touched = { ...item.set.touched, load: true, reps: true, effort: true,
           ...(item.set.touched.metrics ? { metrics: Object.fromEntries(Object.keys(item.set.touched.metrics).map(id => [id, true])) } : {}) };
         break;
@@ -1603,9 +1901,21 @@
       case "uncommitSet": {
         item = targetSet(next, command);
         if (isDomainError(item)) return item;
+        if (command.correct === true) {
+          if (item.set.completion === "pending" || Object.values(next.exercises).some(exercise =>
+            Object.values(exercise.sets).some(set => set.correction))) return error("set-correction-in-progress");
+          item.set.correction = jsonClone(item.set);
+        }
         // A prefilled effort goes back to untouched, so logging the set again is still a prefill.
         if (item.set.completion?.effortSource === "prefilled") item.set.touched = { ...item.set.touched, effort: false };
         item.set.completion = "pending";
+        break;
+      }
+      case "cancelSetCorrection": {
+        item = targetSet(next, command);
+        if (isDomainError(item)) return item;
+        if (!item.set.correction) return error("no-set-correction");
+        item.exercise.sets[item.set.setId] = item.set.correction;
         break;
       }
       case "markWarmup":
@@ -1613,6 +1923,125 @@
         item = targetSet(next, command);
         if (isDomainError(item)) return item;
         item.set.role = command.type === "markWarmup" ? "warmup" : "working";
+        if (item.set.role === "warmup") delete item.set.partialReps;
+        break;
+      }
+      case "initWarmupPrelude": {
+        item = targetExercise(next, command);
+        if (isDomainError(item)) return item;
+        const exercise = item.exercise;
+        if (exercise.status === "skipped") return error("exercise-skipped", { exerciseInstanceId: command.exerciseInstanceId });
+        const existing = exercise.warmupPrelude;
+        // Only a plan nothing was done with, or one a swap retired, can be replaced.
+        if (existing && !(command.replace === true && (preludeIsPristine(existing) || existing.plan === null))) return error("warmup-prelude-exists");
+        const composition = preludeComposition(exercise);
+        if (!composition) return error("warmup-unsupported-exercise");
+        if (!Array.isArray(command.steps) || (command.steps.length && workHasStarted(exercise))) return error("invalid-warmup-steps");
+        const kept = existing ? existing.steps.filter(step => step.completion !== "pending") : [];
+        if (kept.length + command.steps.length > PRELUDE_MAX_STEPS) return error("warmup-step-cap");
+        const metrics = preludeMetrics(composition);
+        const steps = [];
+        for (const input of command.steps) {
+          if (!isPlainObject(input) || !isText(input.stepId, { max: MAX_ID })) return error("invalid-warmup-steps");
+          const values = { [metrics.reps.id]: preludeText(input.reps) };
+          if (metrics.load) values[metrics.load.id] = preludeText(input.loadKg);
+          else if (input.loadKg != null) return error("invalid-warmup-steps");
+          steps.push({ stepId: input.stepId, source: "suggested", values, touched: false, completion: "pending" });
+        }
+        const record = { v: PRELUDE_VERSION, plan: jsonClone(command.plan ?? null), composition, skipped: false,
+          nextOrdinal: existing?.nextOrdinal ?? 1, steps: [...kept, ...steps] };
+        if (record.plan === null) return error("invalid-warmup-plan");
+        exercise.warmupPrelude = record;
+        break;
+      }
+      case "editWarmupStep": {
+        item = targetExercise(next, command);
+        if (isDomainError(item)) return item;
+        const record = item.exercise.warmupPrelude;
+        const step = record?.steps.find(entry => entry.stepId === command.stepId);
+        if (!step) return error("unknown-warmup-step", { stepId: command.stepId });
+        if (step.completion !== "pending") return error("warmup-step-not-pending", { stepId: command.stepId });
+        if (!record.composition.metrics.some(metric => metric.id === command.metricId)) return error("unknown-warmup-metric", { metricId: command.metricId });
+        const value = editableText(command.value);
+        if (value === undefined || !isOptionalText(value, 64)) return error("invalid-warmup-values");
+        step.values[command.metricId] = value;
+        step.touched = true;
+        break;
+      }
+      case "completeWarmupStep": {
+        item = targetExercise(next, command);
+        if (isDomainError(item)) return item;
+        const exercise = item.exercise;
+        const record = exercise.warmupPrelude;
+        const step = record?.steps.find(entry => entry.stepId === command.stepId);
+        if (!step) return error("unknown-warmup-step", { stepId: command.stepId });
+        if (step.completion !== "pending") return error("warmup-step-not-pending", { stepId: command.stepId });
+        if (record.steps.find(entry => entry.completion === "pending") !== step) return error("warmup-step-not-current", { stepId: command.stepId });
+        if (!isText(command.completedAt, { max: 100 })) return error("invalid-completed-at");
+        if (record.nextOrdinal > PRELUDE_MAX_STEPS) return error("warmup-ordinal-cap");
+        if (!preludeStepValues(step, record.composition)?.valid) return error("invalid-warmup-values", { stepId: command.stepId });
+        step.completion = { completedAt: command.completedAt, ordinal: record.nextOrdinal,
+          performed: jsonClone(exercise.substitution?.replacement || snapshotFromExercise(exercise)), composition: jsonClone(record.composition) };
+        step.touched = true;
+        record.nextOrdinal++;
+        break;
+      }
+      case "skipWarmupSteps": {
+        item = targetExercise(next, command);
+        if (isDomainError(item)) return item;
+        const record = item.exercise.warmupPrelude;
+        if (!record || record.composition === null) return error("no-warmup-prelude");
+        record.steps = record.steps.filter(step => step.completion !== "pending");
+        record.skipped = true;
+        break;
+      }
+      case "addWarmupStep": {
+        item = targetExercise(next, command);
+        if (isDomainError(item)) return item;
+        const exercise = item.exercise;
+        if (exercise.status === "skipped") return error("exercise-skipped", { exerciseInstanceId: command.exerciseInstanceId });
+        if (!isText(command.stepId, { max: MAX_ID }) || !isPlainObject(command.values)) return error("invalid-warmup-values");
+        let record = exercise.warmupPrelude;
+        if (!record || record.composition === null) {
+          const composition = preludeComposition(exercise);
+          if (!composition) return error("warmup-unsupported-exercise");
+          record = { v: PRELUDE_VERSION, plan: jsonClone(command.plan ?? null), composition, skipped: false,
+            nextOrdinal: record?.nextOrdinal ?? 1, steps: record?.steps ?? [] };
+          if (record.plan === null) return error("invalid-warmup-plan");
+          exercise.warmupPrelude = record;
+        }
+        if (record.steps.some(step => step.completion === "pending" && step.source === "manual")) return error("warmup-manual-pending");
+        if (record.steps.some(step => step.completion === "pending")) return error("warmup-step-pending");
+        if (record.steps.length >= PRELUDE_MAX_STEPS || record.nextOrdinal > PRELUDE_MAX_STEPS) return error("warmup-step-cap");
+        if (record.steps.some(step => step.stepId === command.stepId)) return error("duplicate-warmup-step");
+        const ids = record.composition.metrics.map(metric => metric.id);
+        if (Object.keys(command.values).some(id => !ids.includes(id))) return error("unknown-warmup-metric");
+        const values = Object.fromEntries(ids.map(id => [id, preludeText(command.values[id] ?? null)]));
+        record.steps.push({ stepId: command.stepId, source: "manual", values, touched: true, completion: "pending" });
+        record.skipped = false;
+        break;
+      }
+      case "correctWarmupStep":
+      case "removeWarmupStep": {
+        item = targetExercise(next, command);
+        if (isDomainError(item)) return item;
+        const exercise = item.exercise;
+        const record = exercise.warmupPrelude;
+        const step = record?.steps.find(entry => entry.stepId === command.stepId);
+        if (!step) return error("unknown-warmup-step", { stepId: command.stepId });
+        if (step.completion === "pending") return error("warmup-step-not-completed", { stepId: command.stepId });
+        if (command.type === "removeWarmupStep") {
+          record.steps = record.steps.filter(entry => entry !== step);
+          if (!record.steps.length && record.plan === null) delete exercise.warmupPrelude;
+          break;
+        }
+        if (!isPlainObject(command.values)) return error("invalid-warmup-values");
+        const ids = step.completion.composition.metrics.map(metric => metric.id);
+        if (Object.keys(command.values).some(id => !ids.includes(id))) return error("unknown-warmup-metric");
+        const candidate = { ...step, values: { ...step.values } };
+        for (const [id, value] of Object.entries(command.values)) candidate.values[id] = preludeText(value);
+        if (!preludeStepValues(candidate, step.completion.composition)?.valid) return error("invalid-warmup-values", { stepId: command.stepId });
+        step.values = candidate.values;
         break;
       }
       case "skipExercise":
@@ -1685,7 +2114,7 @@
           if (!program.ok) return error("invalid-substitution-program", { issues: program.issues });
           // Completed sets keep the composition they were performed under; only
           // untouched pending sets take the replacement's prescriptions.
-          const pendingIds = exercise.setOrder.filter(setId => exercise.sets[setId].completion === "pending");
+          const pendingIds = exercise.setOrder.filter(setId => exercise.sets[setId].completion === "pending" && !exercise.sets[setId].correction);
           const touched = pendingIds.filter(setId => {
             const set = exercise.sets[setId];
             return set.touched.load || set.touched.reps || set.touched.effort ||
@@ -1709,6 +2138,7 @@
         }
         if (movementChanged) for (const setId of exercise.setOrder) if (exercise.sets[setId].completion === "pending") clearOpening(exercise.sets[setId]);
         exercise.substitution = substitution;
+        if (movementChanged) retirePrelude(exercise);
         syncObservationSwaps(exercise);
         exercise.status = "active";
         break;
@@ -1722,10 +2152,11 @@
         const originals = movementChanged ? substitution.originalPendingSets : null;
         for (const [setId, original] of Object.entries(originals || {})) {
           const set = item.exercise.sets[setId];
-          if (set?.completion === "pending") item.exercise.sets[setId] = { ...jsonClone(original), ordinal: set.ordinal };
+          if (set?.completion === "pending" && !set.correction) item.exercise.sets[setId] = { ...jsonClone(original), ordinal: set.ordinal };
         }
         if (movementChanged) for (const setId of item.exercise.setOrder) if (item.exercise.sets[setId].completion === "pending") clearOpening(item.exercise.sets[setId]);
         item.exercise.substitution = null;
+        if (movementChanged) retirePrelude(item.exercise);
         syncObservationSwaps(item.exercise);
         break;
       }
@@ -1748,6 +2179,7 @@
             ? item.exercise.sets[set]
             : isPlainObject(set) ? set : null;
           if (!targetSet) continue;
+          delete targetSet.partialReps;
           for (const field of EDIT_FIELDS) {
             if (!hasOwn(previous, field)) continue;
             const value = editableText(previous[field]);
@@ -1875,6 +2307,145 @@
           (field === "skips" ? (!hasOwn(event,"reason") || SKIP_REASONS.includes(event.reason)) : ["pain","discomfort"].includes(event.kind) && typeof event.swapped === "boolean"))));
   }
 
+  /* Plan 085 slice 3: durable warm-up learning state. `warmupObservations` is keyed by saved session id; each record
+     names, with natural selectors (the exercise slot, the working ordinal, the warm-up ordinals and the performed
+     identity), the rows it was learned from, so no row carries an id and the rows stay the one source of load and reps.
+     `warmupPreferences` keeps one reset token per comparable lift. */
+  const WARMUP_STATE_VERSION = 1;
+  const WARMUP_DECISIONS = Object.freeze(["completed", "edited", "skipped"]);
+  const WARMUP_OBSERVATION_KEYS = Object.freeze(["v", "liftKey", "exerciseId", "performedKey", "workingOrdinal", "warmupOrdinals",
+    "savedAt", "resetGeneration", "decision", "workLoadKg", "barKg", "earlierLift", "stepGrid"]);
+  const WARMUP_MAX_OBSERVATIONS_PER_SESSION = 64;
+
+  function validWarmupObservation(value) {
+    if (!isPlainObject(value) || WARMUP_OBSERVATION_KEYS.some(key => !hasOwn(value, key)) ||
+      Object.keys(value).some(key => !WARMUP_OBSERVATION_KEYS.includes(key))) return false;
+    if (value.v !== WARMUP_STATE_VERSION || !isText(value.liftKey, { max: 1000 }) || !isText(value.exerciseId, { max: MAX_ID }) ||
+      !isText(value.performedKey, { max: MAX_ID }) || !isSafeInteger(value.workingOrdinal, 1) || !finiteNumber(value.savedAt) || value.savedAt < 0 ||
+      !WARMUP_DECISIONS.includes(value.decision) || !positiveLoad(value.workLoadKg) || (value.barKg !== null && !positiveLoad(value.barKg)) ||
+      (value.resetGeneration !== null && !isText(value.resetGeneration, { max: MAX_ID }))) return false;
+    const ordinals = value.warmupOrdinals;
+    if (!Array.isArray(ordinals) || ordinals.length > PRELUDE_MAX_STEPS || !Array.isArray(value.stepGrid) || value.stepGrid.length !== ordinals.length ||
+      ordinals.some((ordinal, index) => !Number.isSafeInteger(ordinal) || ordinal < 1 || ordinal > PRELUDE_MAX_STEPS || (index > 0 && ordinal <= ordinals[index - 1]))) return false;
+    if ((value.decision === "skipped") !== (ordinals.length === 0)) return false;
+    const lift = value.earlierLift;
+    if (lift !== null && (!exactKeys(lift, PRELUDE_LIFT_KEYS) || PRELUDE_LIFT_KEYS.some(key => !hasOwn(lift, key)) ||
+      ["liftKey", "movementId", "primaryMuscle", "sessionId"].some(key => !isText(lift[key], { max: 1000 })) ||
+      !finiteNumber(lift.completedAt) || !finiteNumber(lift.elapsedMs))) return false;
+    return value.stepGrid.every(rung => exactKeys(rung, ["rungKg", "belowKg", "aboveKg"]) && positiveLoad(rung.rungKg) &&
+      (rung.belowKg === null || (positiveLoad(rung.belowKg) && rung.rungKg - rung.belowKg > 0)) &&
+      (rung.aboveKg === null || (positiveLoad(rung.aboveKg) && rung.rungKg + rung.aboveKg <= 1000 + 1e-6)));
+  }
+
+  const performedKeyOf = row => String(row?.performedLibraryId || row?.performedMovementId || "");
+
+  /** A row's canonical load and reps, read from its metric values: the one source warm-up learning reads. */
+  function warmupRowFacts(row) {
+    const definitions = Array.isArray(row?.metricDefinitions) ? row.metricDefinitions : null;
+    if (!definitions || !Array.isArray(row.metricValues)) return null;
+    const read = predicate => {
+      const metric = definitions.find(predicate);
+      const entry = metric ? row.metricValues.find(item => item?.metricId === metric.id) : null;
+      return typeof entry?.value === "number" && Number.isFinite(entry.value) ? entry.value : null;
+    };
+    const loadKg = read(metric => LOAD_SEMANTICS.has(metric?.semantic));
+    const reps = read(metric => metric?.semantic === "reps" || metric?.semantic === "repsPerSide");
+    return loadKg > 0 && Number.isSafeInteger(reps) && reps > 0 ? { loadKg, reps } : null;
+  }
+
+  function warmupTag(kind, exerciseId, ordinal) {
+    return JSON.stringify([kind, exerciseId, ordinal]);
+  }
+
+  /** The rows one observation names, or null when any selector fails to match exactly one row. */
+  function resolveObservationRows(sessionRows, observation) {
+    const one = predicate => {
+      const found = sessionRows.filter(predicate);
+      return found.length === 1 ? found[0] : null;
+    };
+    const work = one(row => row?.exerciseId === observation.exerciseId && !row.warmup && row.origin !== "ramp" && row.set === observation.workingOrdinal);
+    if (!work || performedKeyOf(work) !== observation.performedKey) return null;
+    const steps = [];
+    for (const ordinal of observation.warmupOrdinals) {
+      const row = one(candidate => candidate?.exerciseId === observation.exerciseId && candidate.warmup === true &&
+        candidate.origin === "suggested-warmup" && candidate.warmupOrdinal === ordinal);
+      const facts = row && performedKeyOf(row) === observation.performedKey ? warmupRowFacts(row) : null;
+      if (!facts) return null;
+      steps.push({ setId: warmupTag("u", observation.exerciseId, ordinal), ...facts });
+    }
+    return { work, steps };
+  }
+
+  function groupRowsBySession(log) {
+    const bySession = new Map();
+    for (const row of Array.isArray(log) ? log : []) {
+      const id = String(row?.session ?? "");
+      if (!bySession.has(id)) bySession.set(id, []);
+      bySession.get(id).push(row);
+    }
+    return bySession;
+  }
+
+  /** Structure always; with `log`, ownership and every selector too (the transfer contract's strict form). */
+  function validateWarmupObservations(value, log = null) {
+    if (!isPlainObject(value)) return false;
+    const bySession = log === null ? null : groupRowsBySession(log);
+    if (bySession && Object.keys(value).length > bySession.size) return false;
+    return Object.entries(value).every(([sessionId, record]) => {
+      if (!isText(sessionId, { max: MAX_ID }) || !exactKeys(record, ["v", "observations"]) || record.v !== WARMUP_STATE_VERSION ||
+        !Array.isArray(record.observations) || record.observations.length === 0 || record.observations.length > WARMUP_MAX_OBSERVATIONS_PER_SESSION ||
+        !record.observations.every(validWarmupObservation) ||
+        new Set(record.observations.map(item => item.liftKey)).size !== record.observations.length) return false;
+      if (!bySession) return true;
+      const rows = bySession.get(sessionId);
+      return !!rows && record.observations.every(observation => resolveObservationRows(rows, observation) !== null);
+    });
+  }
+
+  function validateWarmupPreferences(value) {
+    return isPlainObject(value) && Object.keys(value).length <= 5000 && Object.entries(value).every(([liftKey, entry]) =>
+      isText(liftKey, { max: 1000 }) && exactKeys(entry, ["v", "resetGeneration", "resetAt"]) && entry.v === WARMUP_STATE_VERSION &&
+      isText(entry.resetGeneration, { max: MAX_ID }) && isText(entry.resetAt, { max: 100 }));
+  }
+
+  /** The saved observations the policy may read: each resolved against the live rows, the unresolvable dropped. */
+  function resolveWarmupObservations(value, log) {
+    if (!isPlainObject(value)) return [];
+    const bySession = groupRowsBySession(log);
+    const out = [];
+    for (const [sessionId, record] of Object.entries(value)) {
+      const rows = bySession.get(sessionId);
+      if (!rows || !Array.isArray(record?.observations)) continue;
+      for (const observation of record.observations) {
+        if (!validWarmupObservation(observation)) continue;
+        const resolved = resolveObservationRows(rows, observation);
+        if (!resolved) continue;
+        out.push({
+          version: observation.v, liftKey: observation.liftKey, sessionId,
+          workingSetId: warmupTag("w", observation.exerciseId, observation.workingOrdinal),
+          warmupSetIds: resolved.steps.map(step => step.setId), steps: resolved.steps, stepGrid: jsonClone(observation.stepGrid),
+          savedAt: observation.savedAt, resetGeneration: observation.resetGeneration, decision: observation.decision,
+          workLoadKg: observation.workLoadKg, barKg: observation.barKg, earlierLift: jsonClone(observation.earlierLift),
+        });
+      }
+    }
+    return out;
+  }
+
+  /** The map with every stale reference dropped; null when nothing is left. */
+  function pruneWarmupObservations(value, log) {
+    if (!isPlainObject(value)) return null;
+    const bySession = groupRowsBySession(log);
+    const out = {};
+    for (const [sessionId, record] of Object.entries(value)) {
+      const rows = bySession.get(sessionId);
+      if (!rows || !exactKeys(record, ["v", "observations"]) || !Array.isArray(record.observations)) continue;
+      const kept = record.observations.filter(observation => validWarmupObservation(observation) && resolveObservationRows(rows, observation));
+      if (kept.length) out[sessionId] = { v: WARMUP_STATE_VERSION, observations: jsonClone(kept) };
+    }
+    return Object.keys(out).length ? out : null;
+  }
+
   function sessionEventsOf(draft) {
     const events = {v:1,skips:[],pain:[]};
     for (const id of draft.exerciseOrder) {
@@ -1889,6 +2460,84 @@
     return events;
   }
 
+  /** The canonical metric attribution a history row carries, from the composition the set or warm-up was logged under. */
+  function metricRowFields(row, draft, programmed, metricDefinitions, metricValues, original, setProgrammed) {
+    row.metricIds = metricDefinitions.map(metric => metric.id);
+    row.metricDefinitions = jsonClone(metricDefinitions);
+    row.metricOrigin = programmed.metricOrigin;
+    row.sourceLibraryId = programmed.sourceLibraryId ?? original.libraryId ?? null;
+    row.metricValues = metricValues;
+    row.equipmentId = programmed.equipmentId ?? null;
+    const metricSemantics = new Set(metricDefinitions.map(metric => metric.semantic));
+    const loadingConvention = programmed.loadingConvention ||
+      (metricSemantics.has("assistanceKg") ? "assistance"
+        : metricSemantics.has("loadPerSideKg") || metricSemantics.has("persistentLoadPerSideKg") ? "per_side"
+          : metricDefinitions.length === 1 && (metricSemantics.has("reps") || metricSemantics.has("repsPerSide")) ? "bodyweight" : "external");
+    row.loadingConvention = loadingConvention;
+    if (isPlainObject(programmed.loadingModel)) row.loadingModel = jsonClone(programmed.loadingModel);
+    const capturedLoadingContext = isPlainObject(programmed.loadingContext)
+      ? jsonClone(programmed.loadingContext) : {};
+    capturedLoadingContext.loadingConvention = loadingConvention;
+    capturedLoadingContext.bodyweightKg = draft.session.bodyweight == null || draft.session.bodyweight === ""
+      ? null : Number(draft.session.bodyweight);
+
+    if (!hasOwn(capturedLoadingContext, "externalLoadMultiplier")) {
+      capturedLoadingContext.externalLoadMultiplier = loadingConvention === "per_side" ? null
+        : loadingConvention === "bodyweight" ? 0 : 1;
+    }
+    if (!hasOwn(capturedLoadingContext, "bodyweightCoefficient") &&
+      hasOwn(programmed.loadingModel || {}, "bodyweightCoefficient")) {
+      capturedLoadingContext.bodyweightCoefficient = programmed.loadingModel.bodyweightCoefficient;
+    }
+    // Whether bodyweight counted toward this set's load is a fact of the set,
+    // so progression can compare it; it needs a coefficient and a bodyweight.
+    if (typeof capturedLoadingContext.bodyweightContributionEnabled !== "boolean") {
+      capturedLoadingContext.bodyweightContributionEnabled = (capturedLoadingContext.bodyweightCoefficient ?? 0) > 0 &&
+        capturedLoadingContext.bodyweightKg > 0;
+    }
+    row.loadingContext = capturedLoadingContext;
+    row.metricType = setProgrammed.metricType;
+    row.restSeconds = Number.isSafeInteger(setProgrammed.restSeconds) ? setProgrammed.restSeconds : null;
+  }
+
+  /** A completed Prelude step as a History row: a warm-up beside the sets, numbered by its own ordinal. */
+  function preludeRow(draft, exercise, step, original, completedAt) {
+    const { composition, performed, ordinal } = step.completion;
+    const definitions = composition.metrics;
+    const metricValues = definitions.map(metric => ({ metricId: metric.id, value: metricValue(step.values[metric.id], metric), unit: metric.unit }));
+    const bySemantic = new Map(metricValues.map((metric, index) => [definitions[index].semantic, metric.value]));
+    const row = {
+      session: draft.draftId,
+      date: draft.program.scheduleDate,
+      day: draft.program.dayLabel,
+      name: original.displayName,
+      exerciseId: exercise.exerciseInstanceId,
+      set: 0,
+      setIndex: 0,
+      load: bySemantic.has("loadKg") ? bySemantic.get("loadKg") : null,
+      reps: bySemantic.has("reps") ? bySemantic.get("reps") : null,
+      rir: null,
+      notes: draft.session.notes.trim(),
+      created: completedAt,
+      ...(hasOwn(draft.program, "blockId") ? { blockId: draft.program.blockId } : {}),
+      primary: original.primary,
+      secondary: original.secondary,
+      performedName: performed.displayName,
+      performedPrimary: performed.primary,
+      performedSecondary: performed.secondary,
+    };
+    metricRowFields(row, draft, composition, definitions, metricValues, original, composition);
+    if (performed.libraryId) row.performedLibraryId = performed.libraryId;
+    else if (performed.movementId) row.performedMovementId = performed.movementId;
+    if (exercise.setupNotes.trim()) row.exNote = exercise.setupNotes.trim();
+    row.warmup = true;
+    row.origin = "suggested-warmup";
+    row.warmupOrdinal = ordinal;
+    const bodyweight = draft.session.bodyweight;
+    if (bodyweight != null && bodyweight !== "") row.bodyweight = Number(bodyweight);
+    return row;
+  }
+
   // Legacy row-only callers retain their array; the session commit requests both projections.
   function toHistoryRows(draft, completedAt, {includeSessionEvents = false} = {}) {
     const issues = validateForSave(draft);
@@ -1900,9 +2549,13 @@
       if (exercise.status === "skipped") continue;
       const original = snapshotFromExercise(exercise);
       const current = exercise.substitution?.replacement || original;
+      for (const step of exercise.warmupPrelude?.steps ?? []) {
+        if (step.completion !== "pending") rows.push(preludeRow(draft, exercise, step, original, completedAt));
+      }
       let rampCount = 0;
       for (const setId of exercise.setOrder) {
-        const set = exercise.sets[setId];
+        const stored = exercise.sets[setId];
+        const set = stored.correction || stored;
         const precedingRamps = rampCount;
         if (set.origin === "ramp") rampCount++;
         if (!isCandidate(set)) continue;
@@ -1940,6 +2593,7 @@
           notes: draft.session.notes.trim(),
           created: completedAt,
           ...effortSourceOf(set),
+          ...(set.partialReps > 0 ? { partialReps: set.partialReps, effortSource: "reps_left" } : {}),
           ...(set.completion !== "pending" && typeof set.completion?.lastRepSlow === "boolean" ? { lastRepSlow: set.completion.lastRepSlow } : {}),
           ...(set.completion !== "pending" && set.completion?.effortSource === "failure" && validCalibration(set.calibration)
             ? { calibration: jsonClone(set.calibration) } : {}),
@@ -1950,44 +2604,7 @@
           performedPrimary: performed.primary,
           performedSecondary: performed.secondary,
         };
-        if (metricDefinitions) {
-          row.metricIds = metricDefinitions.map(metric => metric.id);
-          row.metricDefinitions = jsonClone(metricDefinitions);
-          row.metricOrigin = programmed.metricOrigin;
-          row.sourceLibraryId = programmed.sourceLibraryId ?? original.libraryId ?? null;
-          row.metricValues = metricValues;
-          row.equipmentId = programmed.equipmentId ?? null;
-          const metricSemantics = new Set(metricDefinitions.map(metric => metric.semantic));
-          const loadingConvention = programmed.loadingConvention ||
-            (metricSemantics.has("assistanceKg") ? "assistance"
-              : metricSemantics.has("loadPerSideKg") || metricSemantics.has("persistentLoadPerSideKg") ? "per_side"
-                : metricDefinitions.length === 1 && (metricSemantics.has("reps") || metricSemantics.has("repsPerSide")) ? "bodyweight" : "external");
-          row.loadingConvention = loadingConvention;
-          if (isPlainObject(programmed.loadingModel)) row.loadingModel = jsonClone(programmed.loadingModel);
-          const capturedLoadingContext = isPlainObject(programmed.loadingContext)
-            ? jsonClone(programmed.loadingContext) : {};
-          capturedLoadingContext.loadingConvention = loadingConvention;
-          capturedLoadingContext.bodyweightKg = draft.session.bodyweight == null || draft.session.bodyweight === ""
-            ? null : Number(draft.session.bodyweight);
-
-          if (!hasOwn(capturedLoadingContext, "externalLoadMultiplier")) {
-            capturedLoadingContext.externalLoadMultiplier = loadingConvention === "per_side" ? null
-              : loadingConvention === "bodyweight" ? 0 : 1;
-          }
-          if (!hasOwn(capturedLoadingContext, "bodyweightCoefficient") &&
-            hasOwn(programmed.loadingModel || {}, "bodyweightCoefficient")) {
-            capturedLoadingContext.bodyweightCoefficient = programmed.loadingModel.bodyweightCoefficient;
-          }
-          // Whether bodyweight counted toward this set's load is a fact of the set,
-          // so progression can compare it; it needs a coefficient and a bodyweight.
-          if (typeof capturedLoadingContext.bodyweightContributionEnabled !== "boolean") {
-            capturedLoadingContext.bodyweightContributionEnabled = (capturedLoadingContext.bodyweightCoefficient ?? 0) > 0 &&
-              capturedLoadingContext.bodyweightKg > 0;
-          }
-          row.loadingContext = capturedLoadingContext;
-          row.metricType = set.programmed.metricType;
-          row.restSeconds = Number.isSafeInteger(set.programmed.restSeconds) ? set.programmed.restSeconds : null;
-        }
+        if (metricDefinitions) metricRowFields(row, draft, programmed, metricDefinitions, metricValues, original, set.programmed);
         if (performed.libraryId) row.performedLibraryId = performed.libraryId;
         else if (performed.movementId) row.performedMovementId = performed.movementId;
         if (exercise.setupNotes.trim()) row.exNote = exercise.setupNotes.trim();
@@ -2300,6 +2917,11 @@
     SCHEMA_VERSION,
     SKIP_REASONS,
     EFFORT_SOURCES,
+    canRecordPartials,
+    hasExplicitZero,
+    validHistoryPartials,
+    validSuggestedWarmupRow,
+    preludeIsPristine,
     validCalibration,
     validStartingLoad,
     create,
@@ -2308,6 +2930,11 @@
     reduce,
     toHistoryRows,
     validateSessionEvents,
+    validateWarmupObservations,
+    validateWarmupPreferences,
+    resolveWarmupObservations,
+    pruneWarmupObservations,
+    warmupRowFacts,
     validateLoadingContext(value) {
       const issues = [];
       validateLoadingContext(value, "loadingContext", issues);

@@ -1,7 +1,12 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { launchChromium } from "./browser.mjs";
 import { installSeedProgram } from "./fixtures/seed-program.mjs";
+import { savedWarmupSession } from "./fixtures/prelude-sessions.mjs";
+import { loadManifest } from "../tools/ui-screens/manifest.mjs";
+import { appState, installPerSideHistory, PER_SIDE_READING_EXERCISES } from "../tools/ui-screens/screens-app.mjs";
+import { dismissChrome, openPage } from "../tools/ui-screens/session.mjs";
 
 const base = process.env.REPFORGE_URL || "http://localhost:8000/";
 const stateKey = "repforge_v1";
@@ -12,12 +17,12 @@ async function waitForApp(page) {
   await page.waitForFunction(() => window.__repforgeBooted === true, null, { timeout: 15000 });
 }
 
-async function freshWorkout(browser) {
-  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: "block" });
+async function freshWorkout(browser, settings) {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: "block", warmups: "live" });
   const page = await context.newPage();
   await page.goto(base, { waitUntil: "domcontentloaded" });
   await waitForApp(page);
-  await installSeedProgram(page, { key: stateKey, waitFor: waitForApp });
+  await installSeedProgram(page, { key: stateKey, waitFor: waitForApp, settings });
   await page.locator("#startWorkout").click();
   await page.waitForSelector("#workoutShell:not(.hidden)");
   return { context, page };
@@ -336,8 +341,11 @@ async function restOverrunOffer(browser) {
   await softly("Restore: a stored, consistent rest past the cap opens the question after a reload, once", async () => {
     const { context, page } = await freshWorkout(browser);
     await logOneSet(page);
-    await plantRest(page, { kind: "running", deadlineMs: Date.now() - 4200000, lengthSec: 120, exerciseId: null, rang: false,
-      expiresAt: Date.now() - 4200000 + 3600000 });
+    // One clock reading: the app accepts a running record only when its expiry is exactly the deadline plus the cap, so two
+    // Date.now() calls a millisecond apart planted an inconsistent record that was (rightly) dropped without a question.
+    const deadlineMs = Date.now() - 4200000;
+    await plantRest(page, { kind: "running", deadlineMs, lengthSec: 120, exerciseId: null, rang: false,
+      expiresAt: deadlineMs + 3600000 });
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForApp(page);
     await page.waitForSelector("#sessionEarlyPrompt:not(.hidden)", { timeout: 5000 }).catch(() => {});
@@ -494,8 +502,640 @@ async function voiceProof(browser) {
   if (failures.length) throw new Error(`voice proofs failed: ${failures.join("; ")}`);
 }
 
+async function pastZero(browser) {
+  const { context, page } = await freshWorkout(browser, { rirMode: "numeric", effortScale: "reps" });
+  try {
+    const shelf = page.locator("#workout .exercise.is-current:not(.is-peek) .focus-shelf");
+    const setupBefore = await page.evaluate(() => buildSharedSetupPayload());
+    const [target] = await draftTargets(page);
+    await page.evaluate(async ({ target, weight, reps }) => {
+      for (const [metricId, value] of [[weight, "105"], [reps, "6"]]) {
+        await window.__repforgeWorkoutDraft.dispatch("editMetricValue", { ...target, metricId, value });
+      }
+      renderWorkout();
+      const draft = window.__repforgeWorkoutDraft.current();
+      const date = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+      const completedAt = date + "T12:00:00.000Z";
+      const command = (draft, type, fields) => {
+        const operationId = "past-zero-fixture-" + type;
+        return window.RepForgeWorkoutDraft.reduce(draft, {
+          ...target, ...fields, type, operationId, expectedRevision: draft.revision, updatedAt: completedAt,
+          writer: { ...draft.writer, operationId },
+        });
+      };
+      const entered = command(draft, "editSetField", { field: "rir", value: "0" });
+      const completed = command(entered, "completeSet", { completedAt });
+      const rows = window.RepForgeWorkoutDraft.toHistoryRows(command(completed, "beginFinish", {}), completedAt);
+      if (!Array.isArray(rows)) throw new Error(JSON.stringify({ rows, entered: entered.code, completed: completed.code }));
+      const [previous] = rows;
+      const proposal = window.__repforgeWorkoutDraft.state();
+      proposal.log = [{ ...previous, session: "past-zero-previous", date, partialReps: 2 }];
+      const result = await window.__repforgeCommitProposedState(proposal);
+      if (!result.committed) throw new Error("Could not seed the previous comparable set");
+    }, { target, weight: WEIGHT, reps: REPS });
+    await shelf.locator('[data-shelf-field="rir"]').click();
+    await shelf.getByRole("button", { name: "0", exact: true }).click();
+    const chips = shelf.getByRole("group", { name: "Partial reps after 0 reps left" });
+    await chips.waitFor();
+    assert.equal(await chips.evaluate(el => getComputedStyle(el).animationDuration), "0.24s");
+    assert.equal(await chips.locator("button:focus").getAttribute("aria-pressed"), "true");
+    await chips.getByRole("button", { name: "3 partial reps" }).click({ timeout: 3000 });
+    await shelf.locator('[data-shelf-field="rir"]').click();
+    await shelf.getByRole("group", { name: "Reps left", exact: true }).waitFor();
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await shelf.locator('[data-shelf-field="rir"]').click();
+    assert.equal(await chips.evaluate(el => getComputedStyle(el).animationName), "none");
+    assert.equal(await chips.getByRole("button", { name: "3 partial reps" }).getAttribute("aria-pressed"), "true");
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await chips.getByRole("button", { name: "Zero partial reps, back to Reps left" }).click();
+    const zero = shelf.getByRole("group", { name: "Reps left", exact: true }).getByRole("button", { name: "0", exact: true });
+    assert.equal(await zero.getAttribute("aria-pressed"), "true");
+    await zero.click();
+    await chips.getByRole("button", { name: "3 partial reps" }).click();
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    await shelf.locator('[data-shelf-field="rir"]').click();
+    assert.equal(await chips.getByRole("button", { name: "3 partial reps" }).getAttribute("aria-pressed"), "true");
+    const effortText = await shelf.locator('[data-shelf-field="rir"]').evaluate(el => el.textContent.replace(/\s+/g, " "));
+    assert.match(effortText, /0\+3/, `the effort tile reads 0+3: ${effortText}`);
+    assert.doesNotMatch(effortText, /full/, `the tile does not call reps left "full reps": ${effortText}`);
+    const log = shelf.getByRole("button", { name: "Log set 1, 6 full reps and 3 partial reps" });
+    assert.equal((await log.innerText()).replace(/\s+/g, " ").trim(), "Log set 1 · 6+3", "the visible CTA stays compact");
+    await log.click();
+    await page.getByText("+1 partial since last time. Tie broken.", { exact: true }).waitFor({ timeout: 5000 });
+    const loggedRow = page.locator("#workout .exercise.is-current [data-editn='1']");
+    await loggedRow.click();
+    await page.locator("[data-fcancel]").waitFor();
+    const effortTile = shelf.locator('[data-shelf-field="rir"]');
+    if (await effortTile.getAttribute("aria-pressed") !== "true") await effortTile.click();
+    await chips.getByRole("button", { name: "4 partial reps" }).click();
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    await page.locator("[data-fcancel]").click();
+    assert.match(await loggedRow.innerText(), /6\+3/, "cancelling after reload restores the acknowledged partials");
+    await beginEarlyFinishPrompt(page);
+    await page.locator("#sessionEarlyConfirm").click();
+    await page.locator("#sessionSummary:not(.hidden)").waitFor();
+    const saved = await page.evaluate(() => window.__repforgeWorkoutDraft.state().log.filter(row => row.session !== "past-zero-previous"));
+    assert.deepEqual(saved.map(({ load, reps, rir, partialReps }) => ({ load, reps, rir, partialReps })),
+      [{ load: 105, reps: 6, rir: 0, partialReps: 3 }]);
+    assert.deepEqual(await page.evaluate(() => buildSharedSetupPayload()), setupBefore,
+      "performed partials leave the canonical v4/v5 setup encoder input unchanged");
+    const summary = await page.evaluate(() => window.__repforgeSessionSummary.current());
+    assert.deepEqual({ reps: summary.reps, volume: summary.volume, records: summary.prs.length },
+      { reps: 6, volume: 630, records: 0 });
+    await page.evaluate(() => {
+      window.__fills = [];
+      const draw = CanvasRenderingContext2D.prototype.fillText;
+      CanvasRenderingContext2D.prototype.fillText = function (text, ...rest) {
+        window.__fills.push({ text: String(text), font: this.font, fill: String(this.fillStyle) });
+        return draw.call(this, text, ...rest);
+      };
+    });
+    await page.locator("#sumShare").click();
+    await page.waitForFunction(() => window.__repforgeShareSheet.state()?.file, undefined, { timeout: 15000 });
+    const fills = await page.evaluate(() => window.__fills);
+    const px = font => Number(/([\d.]+)px/.exec(font)?.[1]);
+    const suffix = fills.find(draw => draw.text === "+3"), base = fills.find(draw => /(^|\s)6$/.test(draw.text));
+    assert.ok(suffix && base, `a share card draws 6 and +3 as separate runs: ${JSON.stringify(fills.map(draw => draw.text).slice(0, 40))}`);
+    assert.ok(px(suffix.font) < px(base.font), "the partial count is drawn smaller than the full reps");
+    assert.notEqual(suffix.fill, base.fill, "the partial count is drawn in the accent colour");
+    await page.keyboard.press("Escape");
+    await page.locator("#sumSee").click();
+    await page.locator(".session--read").getByText("6+3", { exact: true }).waitFor();
+    await page.locator("[data-history-edit]").click();
+    const partialsField = page.locator('[data-ek="partialReps|0"]');
+    await partialsField.fill("6");
+    await page.locator("[data-edsave]").click();
+    await page.getByText("Enter a whole number of partial reps from 0 to 5.").waitFor({ timeout: 3000 });
+    assert.ok((await partialsField.evaluate(el => el.getBoundingClientRect().width)) < 120, "the partials field keeps its narrow width");
+    const partialsError = page.getByText("Enter a whole number of partial reps from 0 to 5.");
+    await page.locator('[data-ek="rir|0"]').fill("1");
+    await partialsError.waitFor({ state: "hidden", timeout: 3000 });
+    await page.locator('[data-ek="rir|0"]').fill("0");
+    assert.equal(await partialsField.inputValue(), "6", "the box still shows the pending count when it returns");
+    await page.locator("[data-edsave]").click();
+    await partialsError.waitFor({ timeout: 3000 });
+    await partialsField.fill("4");
+    await page.locator('[data-ek="rir|0"]').fill("1");
+    assert.equal(await page.locator(".history-partials-edit").isHidden(), true, "partials are offered only while reps left is 0");
+    await page.locator('[data-ek="rir|0"]').fill("0");
+    assert.equal(await page.locator(".history-partials-edit").isVisible(), true, "entering 0 reps left shows the partials field live");
+    await page.locator("[data-edsave]").click();
+    await page.locator(".session--read").getByText("6+4", { exact: true }).waitFor();
+    await page.evaluate(() => window.__repforgeShowSettings());
+    await page.locator("#dataBackupRow").click();
+    const [download] = await Promise.all([page.waitForEvent("download"), page.locator("#exportCsv").click()]);
+    const csv = (await readFile(await download.path(), "utf8")).trim().split("\n");
+    const columns = csv[0].split(",");
+    const row = [...csv.at(-1).matchAll(/"((?:[^"]|"")*)"(?:,|$)/g)].map(match => match[1]);
+    assert.deepEqual([row[columns.indexOf("load")], row[columns.indexOf("reps")], row[columns.indexOf("partial_reps")]],
+      ["105", "6", "4"], "CSV keeps the full reps and corrected count separate");
+    const merged = await page.evaluate(async () => {
+      const incoming = window.__repforgeWorkoutDraft.state();
+      const row = incoming.log.find(candidate => candidate.session !== "past-zero-previous");
+      incoming.log = [{ ...row, session: "zero-import", partialReps: 0 }];
+      await mergeLog(incoming);
+      return window.__repforgeWorkoutDraft.state().log.find(candidate => candidate.session === "zero-import");
+    });
+    assert.ok(merged && !Object.hasOwn(merged, "partialReps"), "a merged import canonicalises a printed zero to omission");
+    const counted = await page.evaluate(async () => {
+      const proposal = window.__repforgeWorkoutDraft.state();
+      const base = proposal.log.find(row => row.session !== "past-zero-previous");
+      const { partialReps, ...plain } = base;
+      proposal.log.push({ ...plain, session: "warm-count", date: base.date, set: 1, warmup: true },
+        { ...plain, session: "warm-count", date: base.date, set: 2 });
+      await window.__repforgeCommitProposedState(proposal);
+      return historyShareSummary("warm-count").sets;
+    });
+    assert.equal(counted, 1, "a shared History summary counts working sets, not warm-ups");
+    // A zero that was not typed as a number: partials are an explicit statement on a prefilled row, never on Max alone.
+    const seeded = await page.evaluate(async () => {
+      const proposal = window.__repforgeWorkoutDraft.state();
+      const base = proposal.log.find(row => row.session !== "past-zero-previous" && row.session !== "warm-count");
+      const { partialReps, ...plain } = base;
+      for (const [session, effortSource, rirMeasured] of [["edit-prefilled", "prefilled", false], ["edit-max", "effort", true]]) {
+        proposal.log.push({ ...plain, session, date: base.date, set: 1, rir: 0, effortSource, rirMeasured });
+      }
+      await window.__repforgeCommitProposedState(proposal);
+      return true;
+    });
+    assert.ok(seeded);
+    const mixedTop = await page.evaluate(async () => {
+      const proposal = window.__repforgeWorkoutDraft.state();
+      const base = proposal.log.find(row => row.session !== "past-zero-previous" && row.session !== "warm-count");
+      const { partialReps, ...plain } = base;
+      proposal.log.push({ ...plain, session: "mixed-left", date: base.date, set: 1, rir: 1, effortSource: "rir", rirMeasured: true },
+        { ...plain, session: "mixed-left", date: base.date, set: 2, rir: 0, effortSource: "rir", rirMeasured: true, partialReps: 2 });
+      await window.__repforgeCommitProposedState(proposal);
+      return summaries().find(entry => entry.session === "mixed-left");
+    });
+    const exported = await page.evaluate(() => prog.exercises.map(ex => JSON.stringify(window.__repforgeProgression.explainRecommendation(ex))).join("|"));
+    assert.ok(!/[\uE0A0\uE0A1]/.test(exported), "the exported explanation carries no private rendering marks");
+    assert.ok(mixedTop && mixedTop.partialReps === undefined, "the strength summary needs both sets at 0 reps left to apply a partial tie-break");
+    const openEdit = async session => {
+      await page.evaluate(() => {
+        document.querySelector('nav button[data-view="history"]').click();
+        document.querySelector("[data-history-back]")?.click();
+      });
+      await page.evaluate(id => document.querySelector(`#sessions [data-sess="${id}"] .session__open`).click(), session);
+      await page.evaluate(() => document.querySelector("[data-history-edit]").click());
+      await page.locator(".session--edit").waitFor({ timeout: 4000 });
+    };
+    const savedRow = session => page.evaluate(id => window.__repforgeWorkoutDraft.state().log.find(row => row.session === id), session);
+    await openEdit("edit-prefilled");
+    assert.equal(await page.locator(".history-partials-edit").isVisible(), true, "a prefilled zero offers partials");
+    await page.locator('[data-ek="partialReps|0"]').fill("2");
+    await page.locator("[data-edsave]").click();
+    await page.getByText("Session updated.").waitFor({ timeout: 5000 });
+    await page.locator(".session--edit").waitFor({ state: "detached", timeout: 5000 });
+    const prefilled = await savedRow("edit-prefilled");
+    assert.deepEqual([prefilled.partialReps, prefilled.effortSource, prefilled.rirMeasured], [2, "rir", true],
+      "entering partials on a prefilled zero is an explicit numeric statement and is kept");
+    await openEdit("edit-max");
+    assert.equal(await page.locator(".history-partials-edit").isHidden(), true, "Max alone does not offer partials");
+    await page.locator('[data-ek="rir|0"]').fill("1");
+    await page.locator('[data-ek="rir|0"]').fill("0");
+    assert.equal(await page.locator(".history-partials-edit").isVisible(), true, "choosing a numeric 0 reps left offers them");
+    await page.locator('[data-ek="partialReps|0"]').fill("3");
+    await page.locator("[data-edsave]").click();
+    await page.getByText("Session updated.").waitFor({ timeout: 5000 });
+    await page.locator(".session--edit").waitFor({ state: "detached", timeout: 5000 });
+    const max = await savedRow("edit-max");
+    assert.deepEqual([max.partialReps, max.effortSource], [3, "rir"], "a Max row keeps partials once reps left is typed as 0");
+    // A hidden field's error goes with it.
+    await openEdit("edit-prefilled");
+    await page.locator('[data-ek="partialReps|0"]').fill("9");
+    await page.locator("[data-edsave]").click();
+    await page.getByText("Enter a whole number of partial reps from 0 to 5.").waitFor({ timeout: 3000 });
+    await page.locator('[data-ek="rir|0"]').fill("1");
+    assert.equal(await page.locator("[data-histedit-error]").count(), 0, "hiding the partials field clears its error");
+    console.log("PASS: Past zero survives reload, correction, finish, History edit and CSV export");
+  } finally {
+    await context.close();
+  }
+}
+
+/* Plan 085 slice 3: suggested warm-ups. The cue is the warm-up until the sequence is done; the warm-ups sit beside the sets, not
+   in them, and they never count. Edit one, log it, reload, log the rest, work three sets and finish: one observation, work
+   numbered 1 to 3, warm-up rows numbered by their own ordinal. */
+async function prelude(browser) {
+  const { context, page } = await freshWorkout(browser, { rirMode: "numeric", effortScale: "reps" });
+  try {
+    const card = page.locator("#workout .exercise.is-current:not(.is-peek)");
+    const shelf = card.locator(".focus-shelf");
+    // The program's first lift carries part of the body's weight, which gets no suggested warm-up; the second is a plain machine lift.
+    const target = (await draftTargets(page)).find((item) => item.exerciseInstanceId === "seed-ex-2");
+    assert.equal(await page.evaluate((id) => window.__repforgeWorkoutDraft.current().exercises[id].programmed.loadingContext.bodyweightCoefficient, target.exerciseInstanceId), 0);
+    // The earlier session is built on a copy of the draft: the lifter has typed nothing into today's first set.
+    await page.evaluate(async ({ target, weight, reps }) => {
+      const draft = window.__repforgeWorkoutDraft.current();
+      const date = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+      const completedAt = date + "T12:00:00.000Z";
+      let count = 0;
+      const command = (draft, type, fields) => {
+        const operationId = "prelude-fixture-" + type + "-" + ++count;
+        return window.RepForgeWorkoutDraft.reduce(draft, {
+          ...target, ...fields, type, operationId, expectedRevision: draft.revision, updatedAt: completedAt,
+          writer: { ...draft.writer, operationId },
+        });
+      };
+      let typed = draft;
+      for (const [metricId, value] of [[weight, "105"], [reps, "6"]]) typed = command(typed, "editMetricValue", { metricId, value });
+      const entered = command(typed, "editSetField", { field: "rir", value: "0" });
+      const completed = command(entered, "completeSet", { completedAt });
+      const rows = window.RepForgeWorkoutDraft.toHistoryRows(command(completed, "beginFinish", {}), completedAt);
+      if (!Array.isArray(rows)) throw new Error(JSON.stringify({ rows }));
+      const proposal = window.__repforgeWorkoutDraft.state();
+      proposal.log = [{ ...rows[0], session: "prelude-previous", date }];
+      const result = await window.__repforgeCommitProposedState(proposal);
+      if (!result.committed) throw new Error("Could not seed the previous comparable set");
+    }, { target, weight: WEIGHT, reps: REPS });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    await reenterWorkout(page);
+    if (await card.getAttribute("data-ex") !== target.exerciseInstanceId) await page.locator('#woProgress button[data-focusgo="1"]').click();
+    await page.waitForFunction((id) => document.querySelector("#workout .exercise.is-current:not(.is-peek)")?.dataset.ex === id, target.exerciseInstanceId);
+
+    // The first warm-up is the cue: its load, its reps, the rail to the working load, and the way to skip.
+    const cue = card.locator(".fx-cue--warm");
+    await cue.waitFor({ timeout: 5000 });
+    assert.match(await cue.locator(".fx-cue__l1").innerText(), /^Warm up \d/, "the hero says what to warm up with");
+    const rail = cue.getByRole("list", { name: "Warm-up steps" });
+    const stepsBefore = await rail.locator("li").count();
+    assert.ok(stepsBefore >= 3, `the rail ends at the working load: ${stepsBefore} dots`);
+    assert.equal(await rail.locator("li.fx-rail__step--work").count(), 1, "the rail ends in one work marker");
+    assert.equal(await rail.locator('li[aria-current="step"]').count(), 1, "one step is current");
+    assert.match(await cue.locator(".fx-cue__standing").innerText(), /^Warm-up 1 of \d+, then 105 kg$/);
+    await cue.getByRole("button", { name: "Skip warm-ups" }).waitFor();
+    assert.equal(await card.locator(".ledgerline--open").count(), 0, "the table's open ring waits for the work");
+    assert.equal(await card.locator(".ledgerline--warmup").count(), 0, "no warm-up row before one is logged");
+    assert.equal(await page.evaluate(() => window.__repforgeWorkoutDraft.current().exercises["seed-ex-2"].warmupPrelude ?? null), null,
+      "opening the cue writes nothing: browsing is not input");
+    assert.equal(await shelf.getByRole("button", { name: /^Done · .* next$/ }).count(), 1, "the action names what follows");
+
+    // Edit the first warm-up to 60 × 5 and log it.
+    const first = await cue.locator(".fx-cue__load").innerText();
+    await shelf.locator('[data-wu-field="load"]').click();
+    await shelf.locator('[data-wu-field="load"]').click();
+    await page.locator("#wheelDone").click();
+    await page.locator("#wheelSheet").waitFor({ state: "hidden" });
+    const loadInput = shelf.locator('input[data-wu-kind="load"]');
+    await loadInput.evaluate((el) => { el.value = "60"; el.oninput(); });
+    const repsInput = shelf.locator('input[data-wu-kind="reps"]');
+    await repsInput.evaluate((el) => { el.value = "5"; el.oninput(); });
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    const edited = await page.evaluate(() => {
+      const record = window.__repforgeWorkoutDraft.current().exercises["seed-ex-2"].warmupPrelude;
+      return record.steps.map((step) => [step.source, step.touched, step.completion]);
+    });
+    assert.deepEqual(edited[0], ["suggested", true, "pending"], "an edit stores the plan and marks the step touched");
+    await shelf.getByRole("button", { name: /^Done · .* next$/ }).click();
+    await page.locator(".resttab__label", { hasText: "Warm-up rest" }).waitFor({ timeout: 5000 });
+    assert.match(await page.locator("#restTab").getAttribute("aria-label"), /^Warm-up rest, 0?[01]:\d\d$/, "the spoken label names the warm-up rest");
+    assert.equal(await page.evaluate(() => RepForgeRestTimer.view(restClock, Date.now()).lengthSec), 60, "a warm-up rest runs a minute");
+    assert.equal(await page.evaluate(() => { resetRest(); return RepForgeRestTimer.view(restClock, Date.now()).restKind; }), "warmup", "restarting a warm-up rest keeps it a warm-up rest");
+    const afterFirst = await page.evaluate(() => {
+      const exercise = window.__repforgeWorkoutDraft.current().exercises["seed-ex-2"];
+      return { sets: exercise.setOrder.length, done: exercise.warmupPrelude.steps.filter((step) => step.completion !== "pending").length,
+        ordinal: exercise.warmupPrelude.steps[0].completion.ordinal, values: Object.values(exercise.warmupPrelude.steps[0].values) };
+    });
+    assert.deepEqual({ sets: afterFirst.sets, done: afterFirst.done, ordinal: afterFirst.ordinal }, { sets: 2, done: 1, ordinal: 1 },
+      "the warm-up is outside the sets and takes warm-up ordinal 1");
+    assert.deepEqual(afterFirst.values.sort(), ["5", "60"], "what was logged is what was typed");
+
+    // A reload shows the acknowledged plan, with the rest still running.
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    await cue.waitFor({ timeout: 5000 });
+    assert.match(await cue.locator(".fx-cue__standing").innerText(), /^Warm-up 2 of \d+/, "after a reload the cue is the next step");
+    assert.equal(await rail.locator("li.is-done").count(), 1, "the logged step stays done on the rail");
+    assert.match(await rail.locator("li.is-done").first().innerText(), /60/, "a done step shows what was logged");
+    await page.locator(".resttab__label", { hasText: "Warm-up rest" }).waitFor({ timeout: 5000 });
+
+    // A load that cannot be logged says so on its own field and puts the lifter there; nothing is recorded.
+    const blank = shelf.locator('input[data-wu-kind="load"]');
+    const offered = await blank.inputValue();
+    await blank.evaluate((el) => { el.value = ""; el.oninput(); });
+    await shelf.getByRole("button", { name: /^Done · .* next$/ }).click();
+    await page.waitForFunction(() => document.querySelector('#workout .focus-shelf input[data-wu-kind="load"]')?.getAttribute("aria-invalid") === "true");
+    assert.equal(await page.evaluate(() => document.activeElement?.matches('input[data-wu-kind="load"]')), true, "focus goes to the field that cannot be logged");
+    assert.equal(await page.evaluate(() => window.__repforgeWorkoutDraft.current().exercises["seed-ex-2"].warmupPrelude.steps.filter((step) => step.completion !== "pending").length), 1, "an invalid load logs nothing");
+    // A load above the limit is the load's fault: it is marked, not the reps.
+    await blank.evaluate((el) => { el.value = "1500"; el.oninput(); });
+    await shelf.getByRole("button", { name: /^Done · .* next$/ }).click();
+    await page.waitForFunction(() => document.querySelector('#workout .focus-shelf input[data-wu-kind="load"]')?.getAttribute("aria-invalid") === "true");
+    assert.equal(await page.evaluate(() => document.querySelector('#workout .focus-shelf input[data-wu-kind="reps"]')?.getAttribute("aria-invalid")), null, "the reps are not blamed for a load that is too large");
+    await blank.evaluate((el, value) => { el.value = value; el.oninput(); }, offered);
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    // Log the rest. The last one hands over to set 1.
+    const loggedSteps = () => page.evaluate(() => window.__repforgeWorkoutDraft.current().exercises["seed-ex-2"].warmupPrelude.steps.filter((step) => step.completion !== "pending").length);
+    for (let guard = 0; guard < 6 && await card.locator(".fx-cue--warm").count(); guard++) {
+      const before = await loggedSteps();
+      await shelf.locator(".saveset").click();
+      await page.waitForFunction((count) => window.__repforgeWorkoutDraft.current().exercises["seed-ex-2"].warmupPrelude.steps
+        .filter((step) => step.completion !== "pending").length > count, before);
+    }
+    await page.getByText("Warmed up. Set 1 is next.", { exact: true }).waitFor({ timeout: 5000 });
+    const summary = card.locator(".ledgerline--warmup");
+    await summary.waitFor();
+    assert.match(await summary.locator(".ledgerline__vals").innerText(), /^60 · \d+(\.\d+)? kg · not counted$/, "one quiet W row lists the logged loads in order");
+    assert.match(await summary.locator(".visually-hidden").textContent(), /^Warm-ups, 60, \d+(\.\d+)? kg, not counted$/, "and it reads aloud as one line");
+    await shelf.getByRole("button", { name: "Log set 1" }).waitFor();
+
+    // Work the two sets the program prescribes.
+    for (const n of [1, 2]) {
+      // This program's lift offers no suggestion, so each set is filled the way the lifter would, then logged.
+      await page.evaluate(async ({ n, weight, reps }) => {
+        const api = window.__repforgeWorkoutDraft, exercise = api.current().exercises["seed-ex-2"], setId = exercise.setOrder[n - 1];
+        const at = { exerciseInstanceId: "seed-ex-2", setId };
+        await api.dispatch("editMetricValue", { ...at, metricId: weight, value: "105" });
+        await api.dispatch("editMetricValue", { ...at, metricId: reps, value: "6" });
+        await api.dispatch("editSetField", { ...at, field: "rir", value: "1" });
+        await api.flush();
+        renderWorkout();
+      }, { n, weight: WEIGHT, reps: REPS });
+      await shelf.getByRole("button", { name: new RegExp(`^Log set ${n}`) }).click();
+      await page.waitForFunction((count) => window.__repforgeWorkoutDraft.current().exercises["seed-ex-2"].setOrder
+        .filter((id) => window.__repforgeWorkoutDraft.current().exercises["seed-ex-2"].sets[id].completion !== "pending").length >= count, n);
+    }
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    await beginEarlyFinishPrompt(page);
+    await page.locator("#sessionEarlyConfirm").click();
+    await page.locator("#sessionSummary:not(.hidden)").waitFor();
+    const saved = await page.evaluate(() => {
+      const state = window.__repforgeWorkoutDraft.state();
+      return { rows: state.log.filter((row) => row.session !== "prelude-previous"), observations: state.warmupObservations ?? null };
+    });
+    const warmRows = saved.rows.filter((row) => row.warmup), workRows = saved.rows.filter((row) => !row.warmup);
+    assert.deepEqual(workRows.map((row) => row.set), [1, 2], "work is numbered 1, 2");
+    assert.ok(warmRows.length >= 2 && warmRows.every((row) => row.origin === "suggested-warmup" && row.set === 0 && row.rir === null),
+      "the warm-ups are projected as warm-up rows");
+    assert.deepEqual(warmRows.map((row) => row.warmupOrdinal), warmRows.map((_, index) => index + 1), "their ordinals are distinct and in order");
+    assert.deepEqual([warmRows[0].load, warmRows[0].reps], [60, 5], "the edit is what was saved");
+    const sessions = Object.keys(saved.observations || {});
+    assert.equal(sessions.length, 1, "one session entry is written with the save");
+    const [observation, ...more] = saved.observations[sessions[0]].observations;
+    assert.equal(more.length, 0, "one observation per lift");
+    assert.equal(observation.decision, "edited", "the edit is what the observation records");
+    assert.deepEqual(observation.warmupOrdinals, warmRows.map((row) => row.warmupOrdinal), "it names the warm-up rows by ordinal");
+    assert.equal(observation.workingOrdinal, 1, "and the first working set");
+    const totals = await page.evaluate(() => window.__repforgeSessionSummary.current());
+    assert.equal(totals.volume, workRows.reduce((sum, row) => sum + row.load * row.reps, 0), "volume counts work only");
+    assert.equal(totals.reps, workRows.reduce((sum, row) => sum + row.reps, 0), "reps count work only");
+    // History reads the warm-ups as preparation, named by their own ordinals, beside work numbered from 1.
+    await page.locator("#sumSee").click();
+    const labels = await page.locator(".session--read .ledgerline:not(.ledgerline__head) .ledgerline__idx").allInnerTexts();
+    assert.deepEqual(labels.map((text) => text.trim().split("\n")[0]), [...warmRows.map((row) => `W${row.warmupOrdinal}`), "1", "2"], "History names warm-ups W1, W2 and work 1, 2");
+    // History's editor has no effort to correct on a suggested warm-up: its cell is a dash, and saving keeps the row as projected.
+    await page.locator("[data-history-edit]").click();
+    const editRows = page.locator(".histedit__cols ~ .histlift__sets .edrow, .edrow");
+    assert.equal(await page.locator('.edrow [data-ek^="rir|"]').count(), workRows.length, "only working rows carry an effort field");
+    assert.equal(await page.locator(".edrow").first().locator('[data-ek^="rir|"]').count(), 0, "the first row is a warm-up with no effort field");
+    await page.locator("[data-edsave]").click();
+    await page.locator(".session--read").waitFor();
+    assert.deepEqual(await page.evaluate(() => window.__repforgeWorkoutDraft.state().log.filter((row) => row.origin === "suggested-warmup").map((row) => [row.rir, row.warmupOrdinal, Object.hasOwn(row, "effortSource")])),
+      warmRows.map((row) => [null, row.warmupOrdinal, false]), "saving the edit leaves the warm-up rows valid");
+    const csvRows = await page.evaluate(() => window.__repforgeWorkoutDraft.state().log.filter((row) => row.origin === "suggested-warmup").length);
+    assert.equal(csvRows, warmRows.length);
+    console.log("PASS: Prelude warm-ups survive reload, finish with work numbered from 1, and teach once");
+  } finally {
+    await context.close();
+  }
+}
+
+/* Prelude learning and its states. Earlier sessions are built from the real draft commands and the app's own save projection,
+   then committed; the cue, Why sheet, reset and the quiet suppressed row are read from the screen. */
+/** A draft nothing was typed into is not resumed on its own: open today's session again. */
+async function reenterWorkout(page) {
+  if (await page.locator("#workoutShell:not(.hidden)").count()) return;
+  await page.locator("#startWorkout").click();
+  await page.waitForSelector("#workoutShell:not(.hidden)");
+}
+
+async function openLegCurl(page) {
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForApp(page);
+  await reenterWorkout(page);
+  const current = await page.locator("#workout .exercise.is-current:not(.is-peek)").getAttribute("data-ex");
+  if (current !== "seed-ex-2") await page.locator('#woProgress button[data-focusgo="1"]').click();
+  await page.waitForFunction(() => document.querySelector("#workout .exercise.is-current:not(.is-peek)")?.dataset.ex === "seed-ex-2");
+}
+
+async function preludeLearning(browser) {
+  const { context, page } = await freshWorkout(browser, { rirMode: "numeric", effortScale: "reps" });
+  try {
+    const card = page.locator("#workout .exercise.is-current:not(.is-peek)");
+    const shelf = card.locator(".focus-shelf");
+    const target = (await draftTargets(page)).find((item) => item.exerciseInstanceId === "seed-ex-2");
+    // Two sessions with the same changed warm-up make it the lifter's own.
+    await savedWarmupSession(page, { exId: "seed-ex-2", id: "learn-1", daysAgo: 6, steps: [[40, 8], [80, 2]] });
+    await savedWarmupSession(page, { exId: "seed-ex-2", id: "learn-2", daysAgo: 4, steps: [[40, 8], [80, 2]] });
+    await openLegCurl(page);
+    const cue = card.locator(".fx-cue--warm");
+    await cue.waitFor({ timeout: 5000 });
+    assert.match(await cue.locator(".fx-cue__evidence").innerText(), /^Your warm-up from recent .+ sessions, adjusted to [\d.]+ kg\./, "two agreeing sessions make the learned cue");
+    const learnedFirst = await cue.locator(".fx-cue__load").innerText();
+    assert.ok(Number(learnedFirst) < 60, `the learned first step is lighter than the starting one: ${learnedFirst}`);
+    await cue.getByRole("button", { name: "Why this warm-up" }).click();
+    const sheet = page.locator("#whySheet");
+    await sheet.waitFor({ state: "visible" });
+    assert.equal((await page.locator("#whyTitle").innerText()).trim(), "Why this warm-up");
+    assert.equal((await page.locator("#whyDecision").innerText()).trim(), "Learned from your sets");
+    assert.match(await page.locator("#whyEvidence").innerText(), /^Based on 2 sessions/);
+    assert.equal(await page.evaluate(() => Object.values(window.__repforgeWorkoutDraft.current().exercises).some((exercise) => exercise.warmupPrelude)), false, "opening Why writes nothing");
+    const forget = sheet.getByRole("button", { name: /^Forget my warm-up for / });
+    await forget.click();
+    await page.getByText("Warm-up preference cleared.", { exact: true }).waitFor({ timeout: 5000 });
+    await page.waitForFunction(() => !document.querySelector("#whySheet.is-open"));
+    await cue.locator(".fx-cue__evidence", { hasText: /A starting warm-up for [\d.]+ kg\./ }).waitFor({ timeout: 5000 });
+    assert.deepEqual(Object.keys(await page.evaluate(() => window.__repforgeWorkoutDraft.state().warmupPreferences)).length, 1, "a reset keeps one token for the lift");
+
+    // Three whole skips pause the suggestion, and a later reset or a logged warm-up brings it back.
+    await savedWarmupSession(page, { exId: "seed-ex-2", id: "skip-1", daysAgo: 3, skip: true, steps: [] });
+    await savedWarmupSession(page, { exId: "seed-ex-2", id: "skip-2", daysAgo: 2, skip: true, steps: [] });
+    await savedWarmupSession(page, { exId: "seed-ex-2", id: "skip-3", daysAgo: 1, skip: true, steps: [] });
+    await openLegCurl(page);
+    const quiet = card.locator(".fx-prelude-none");
+    await quiet.waitFor({ timeout: 5000 });
+    assert.equal(await card.locator(".fx-cue--warm").count(), 0, "no warm-up is the cue once three skips pause it");
+    assert.match(await quiet.innerText(), /no warm-ups suggested/i);
+    await quiet.getByRole("button", { name: "Why this warm-up" }).click();
+    assert.equal((await page.locator("#whyDecision").innerText()).trim(), "Usually skips");
+    await page.keyboard.press("Escape");
+    await page.waitForFunction(() => !document.querySelector("#whySheet.is-open"));
+    await quiet.getByRole("button", { name: "Add one" }).click();
+    await page.getByText("Warm-up added. Log it when you're done.", { exact: true }).waitFor({ timeout: 5000 });
+    await cue.waitFor();
+    assert.equal(await page.evaluate(() => window.__repforgeWorkoutDraft.current().exercises["seed-ex-2"].warmupPrelude.steps.map((step) => step.source).join()), "manual", "Add one stores a manual step");
+    // Skipping it again is a whole skip with nothing logged; the lifter can still go to the work.
+    await cue.getByRole("button", { name: "Skip warm-ups" }).click();
+    await page.getByText("Skipped. Skip three sessions in a row to pause suggestions.", { exact: true }).waitFor({ timeout: 5000 });
+    await shelf.getByRole("button", { name: "Log set 1" }).waitFor();
+    assert.equal(await card.locator(".ledgerline--warmup").count(), 0, "nothing was logged, so there is no W row");
+    console.log("PASS: Prelude learns from two agreeing sessions, resets, pauses after three skips and offers Add one");
+  } finally {
+    await context.close();
+  }
+}
+
+/* Existing preparation and Find your weight keep their place: Prelude never takes an exercise that already has either. */
+async function preludePrecedence(browser) {
+  const { context, page } = await freshWorkout(browser, { rirMode: "numeric", effortScale: "reps" });
+  try {
+    const card = page.locator("#workout .exercise.is-current:not(.is-peek)");
+    await card.locator(".fcard__context").waitFor();
+    assert.equal(await card.locator(".fx-cue--warm, .fx-prelude-none").count(), 0, "a lift with no history is calibrating: Find your weight, not a suggested warm-up");
+    assert.equal(await page.evaluate(() => Object.values(window.__repforgeWorkoutDraft.current().exercises).some((exercise) => exercise.warmupPrelude)), false);
+    const target = (await draftTargets(page)).find((item) => item.exerciseInstanceId === "seed-ex-2");
+    await savedWarmupSession(page, { exId: "seed-ex-2", id: "precedence-1", daysAgo: 3, steps: [[40, 8]] });
+    await openLegCurl(page);
+    await card.locator(".fx-cue--warm").waitFor({ timeout: 5000 });
+    // The lifter's own switch on a programmed set makes it preparation, and that takes precedence.
+    await page.evaluate(() => window.__repforgeWorkoutDraft.dispatch("markWarmup", { exerciseInstanceId: "seed-ex-2", setId: Object.values(window.__repforgeWorkoutDraft.current().exercises["seed-ex-2"].setOrder)[0] }).then(() => renderWorkout()));
+    await page.waitForFunction(() => !document.querySelector("#workout .exercise.is-current:not(.is-peek) .fx-cue--warm"));
+    assert.equal(await card.locator(".fx-cue--warm").count(), 0, "a manual warm-up set on the exercise keeps Prelude away");
+    console.log("PASS: Prelude gives way to calibration and to the lifter's own warm-up sets");
+  } finally {
+    await context.close();
+  }
+}
+
+/* What a lift's cue may show and store: its own movement's steps, bounded so they can be stored, and a bodyweight rule on both sides. */
+async function preludeScopes(browser) {
+  const { context, page } = await freshWorkout(browser, { rirMode: "numeric", effortScale: "reps" });
+  try {
+    const card = page.locator("#workout .exercise.is-current:not(.is-peek)");
+    await savedWarmupSession(page, { exId: "seed-ex-2", id: "scope-1", daysAgo: 3, steps: [[40, 8]] });
+    await openLegCurl(page);
+    await card.locator(".fx-cue--warm").waitFor({ timeout: 5000 });
+
+    // The bodyweight rule: bodyweight and assistance conventions and a body share of 0.85 or more get no automatic suggestion.
+    const rule = await page.evaluate(() => ({ threshold: WARMUP_BODYWEIGHT_COEFFICIENT,
+      squat: warmupMaterialBodyweight("external", 0.759), hack: warmupMaterialBodyweight("external", 0.537), edge: warmupMaterialBodyweight("external", 0.85),
+      pullup: warmupMaterialBodyweight("external", 1), bw: warmupMaterialBodyweight("bodyweight", 0), assist: warmupMaterialBodyweight("assistance", 0), none: warmupMaterialBodyweight("external", null) }));
+    assert.deepEqual(rule, { threshold: 0.85, squat: false, hack: false, edge: true, pullup: true, bw: true, assist: true, none: false });
+
+    // The room a record has: the step cap and the ordinals both bound what can be offered.
+    const room = await page.evaluate(() => {
+      const done = (count) => Array.from({ length: count }, () => ({ completion: { ordinal: 1 } }));
+      return [warmupRoom(null), warmupRoom({ steps: done(5), nextOrdinal: 6 }), warmupRoom({ steps: done(6), nextOrdinal: 7 }), warmupRoom({ steps: done(2), nextOrdinal: 7 })];
+    });
+    assert.deepEqual(room, [6, 1, 0, 0], "five logged leaves one; the ordinals bound it even after removals");
+
+    // Reps-only steps draw with no load anywhere.
+    const bare = await page.evaluate(() => {
+      const view = preludeView(warmupExerciseById("seed-ex-2"));
+      const reps = { ...view, plan: { ...view.plan, workLoadKg: null }, steps: view.steps.map((step) => ({ ...step, loadMetric: null, loadKg: NaN, suggested: undefined })) };
+      return { cue: preludeCueHtml(reps, { peek: false }), shelf: preludeShelfHtml(reps, { peek: false }), row: preludeSummaryRowHtml({ ...reps, logged: [] }, { peek: false }) };
+    });
+    assert.match(bare.cue, /Warm up <b class="fx-cue__load">\d+ reps<\/b>/, "the hero is the reps");
+    assert.doesNotMatch(bare.cue + bare.shelf, /—|NaN| kg|fx-rail/, "no load, no rail, no placeholder");
+    assert.ok(bare.shelf.includes('data-wu-field="reps"') && !bare.shelf.includes('data-wu-field="load"') && bare.shelf.includes("shelf__fields--one"), "a single Reps tile");
+
+    // Plate hints look up the plan's own suggestions: not a frozen step, and not a step logged under an earlier plan.
+    const hints = await page.evaluate(() => {
+      const record = { plan: { capturedAt: "2026-08-15T10:00:00.000Z" } };
+      const earlier = { source: "suggested", completion: { completedAt: "2026-08-14T10:00:00.000Z" } };
+      const pending = (source) => ({ source, completion: "pending" });
+      const [first, second, manual] = [pending("suggested"), pending("suggested"), pending("manual")];
+      const mine = [earlier, first, second, manual];
+      return [warmupSuggestedIndex(record, mine, earlier), warmupSuggestedIndex(record, mine, first), warmupSuggestedIndex(record, mine, second), warmupSuggestedIndex(record, mine, manual)];
+    });
+    assert.deepEqual(hints, [-1, 0, 1, -1], "a pending step's hint is its own plan's suggestion");
+
+    // A swap after logging: the frozen steps stay in History and in Exercise actions, not in the new movement's cue.
+    await card.locator(".saveset").click();
+    await page.waitForFunction(() => window.__repforgeWorkoutDraft.current().exercises["seed-ex-2"].warmupPrelude?.steps.some((step) => step.completion !== "pending"));
+    const swapped = await page.evaluate(async () => {
+      const row = prog.find("seed-ex-14"), de = window.__repforgeWorkoutDraft.current().exercises["seed-ex-2"];
+      await WorkoutSession.dispatch("substituteExercise", { exerciseInstanceId: "seed-ex-2", selectedAt: new Date().toISOString(),
+        replacement: { exerciseInstanceId: "seed-ex-2", sourceExerciseId: de.sourceExerciseId, displayName: row.name, libraryId: row.libraryId, primary: row.primary, secondary: row.secondary } });
+      renderWorkout();
+      const ex = warmupExerciseById("seed-ex-2"), view = preludeView(ex), live = window.__repforgeWorkoutDraft.current().exercises["seed-ex-2"];
+      return { frozen: live.warmupPrelude.steps.length, plan: live.warmupPrelude.plan, logged: view.logged.length, stage: view.stage, mine: warmupStepsFor(live.warmupPrelude, warmupLift(live)).length };
+    });
+    assert.deepEqual({ frozen: swapped.frozen, plan: swapped.plan, logged: swapped.logged, mine: swapped.mine }, { frozen: 1, plan: null, logged: 0, mine: 0 }, "the first movement's step is frozen and not the new movement's");
+    assert.notEqual(swapped.stage, "summary", "no W row for a warm-up the new movement did not do");
+    await page.evaluate(() => openExActionsSheet("seed-ex-2"));
+    await page.locator("#exActionsPreludeList [data-wu-row]").waitFor();
+    assert.equal(await page.locator("#exActionsPreludeList [data-wu-row]").count(), 1, "Exercise actions still reviews the frozen step");
+    console.log("PASS: Prelude scopes steps to the movement performed, bounds what it offers and draws reps-only steps");
+  } finally {
+    await context.close();
+  }
+}
+
+/* A dumbbell lift with per-side history: its warm-up offers rungs of the ladder, and its pads follow the value on screen. */
+async function preludeDumbbell(browser) {
+  const capture = { flow: "workout", screen: "prelude", viewport: "phone-390", theme: "light", locale: "en", text: "normal", motion: "reduced" };
+  const { context, page } = await openPage(browser, loadManifest(), capture, appState("workout/focus-per-side", "en"), { warmups: true });
+  try {
+    await dismissChrome(page);
+    await installPerSideHistory(page, { bodyweightAssumption: true });
+    const rowId = await page.evaluate((libraryId) => JSON.parse(localStorage.getItem("repforge_v1")).program.find((entry) => entry.libraryId === libraryId).id, PER_SIDE_READING_EXERCISES.bilateral);
+    await page.evaluate((id) => window.__repforgeGoToLogExercise(id), rowId);
+    await page.waitForFunction((id) => document.querySelector("#workout .exercise.is-current")?.dataset.ex === id, rowId);
+    const card = page.locator("#workout .exercise.is-current:not(.is-peek)");
+    await card.locator(".fx-cue--warm").waitFor({ timeout: 8000 });
+    const pads = () => page.evaluate(() => [...document.querySelectorAll("#workout .exercise.is-current .focus-shelf .shelf__pad")].map((pad) => ({ text: pad.textContent.trim(), off: pad.disabled })));
+    const loadInput = () => page.evaluate(() => Number(document.querySelector('#workout .exercise.is-current .focus-shelf input[data-wu-kind="load"]').value));
+    const typeLoad = (value) => page.evaluate(async (v) => {
+      const input = document.querySelector('#workout .exercise.is-current .focus-shelf input[data-wu-kind="load"]');
+      input.value = String(v);
+      await input.oninput?.();
+    }, value);
+    const press = async (dir) => { await card.locator(`.focus-shelf .shelf__pad >> nth=${dir > 0 ? 1 : 0}`).click(); return loadInput(); };
+    const ladderFacts = await page.evaluate(() => {
+      const ex = warmupExerciseById(document.querySelector("#workout .exercise.is-current").dataset.ex), de = activeWorkoutDraft.exercises[ex.id], lift = warmupLift(de);
+      return { kind: warmupEquipment(lift).equipmentKind, ladder: warmupLadder(de)?.length, work: warmupWorkLoadKg(ex, lift), previous: WorkoutDraft.warmupRowFacts(last(ex)[0])?.loadKg };
+    });
+    assert.equal(ladderFacts.kind, "dumbbell");
+    assert.ok(ladderFacts.ladder > 30 && ladderFacts.work > 0, "the dumbbell ladder is the grid and a per-side work load is offered: " + JSON.stringify(ladderFacts));
+    assert.ok(ladderFacts.previous > 0, "the per-side previous load is read from its metric values");
+
+    // Stepping and typing keep the pads true: ±1 kg to ten, then ±2.
+    await typeLoad(9);
+    assert.deepEqual((await pads()).map((pad) => pad.text.replace(/\s/g, "")), ["−1kg", "+1kg"], "at 9 kg the pads read ±1 kg");
+    assert.equal(await press(1), 10);
+    assert.deepEqual((await pads()).map((pad) => pad.text.replace(/\s/g, "")), ["−1kg", "+2kg"], "stepping to 10 kg updates the pads: −1 and +2");
+    assert.equal(await press(1), 12);
+    assert.deepEqual((await pads()).map((pad) => pad.text.replace(/\s/g, "")), ["−2kg", "+2kg"], "at 12 kg the pads read ±2 kg");
+    await typeLoad(3);
+    assert.equal((await pads())[0].text.replace(/\s/g, ""), "−1kg", "typing a load updates the pads too");
+
+    // After the first step is logged, the second step's pads belong to the second step's load.
+    await typeLoad(6);
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    await card.locator(".saveset").click();
+    await page.waitForFunction((id) => window.__repforgeWorkoutDraft.current().exercises[id].warmupPrelude?.steps.some((step) => step.completion !== "pending"), rowId);
+    const second = await loadInput();
+    assert.ok(second > 10, "the second step sits above the ladder's 10 kg change (" + second + ")");
+    assert.deepEqual((await pads()).map((pad) => pad.text.replace(/\s/g, "")), ["−2kg", "+2kg"], "step 2's pads read from step 2's load, not step 1's");
+    console.log("PASS: Prelude on a dumbbell lift offers ladder rungs and keeps its pads true to the step on screen");
+  } finally {
+    await context.close();
+  }
+}
+
 const browser = await launchChromium();
+const pastZeroOnly = process.env.REPFORGE_PAST_ZERO_ONLY === "1";
+const preludeOnly = process.env.REPFORGE_PRELUDE_ONLY === "1";
 try {
+  if (!preludeOnly) await pastZero(browser);
+  await prelude(browser);
+  await preludeLearning(browser);
+  await preludePrecedence(browser);
+  await preludeScopes(browser);
+  await preludeDumbbell(browser);
+  if (!pastZeroOnly && !preludeOnly) await otherFinishContracts(browser);
+} finally {
+  await browser.close();
+}
+
+async function otherFinishContracts(browser) {
   for (const route of ["close button", "scrim", "Escape", "swipe"]) {
     const { context, page } = await freshWorkout(browser);
     const targets = await draftTargets(page);
@@ -1111,11 +1751,9 @@ try {
   }
   await restOverrunOffer(browser);
   await voiceProof(browser);
-} finally {
-  await browser.close();
 }
 
 if (guardFailures.length) throw new Error(`guards failed: ${guardFailures.join("; ")}`);
 console.log("PASS: workout finish boundary");
 
-await import("./session-zero-browser.mjs");
+if (!pastZeroOnly && !preludeOnly) await import("./session-zero-browser.mjs");

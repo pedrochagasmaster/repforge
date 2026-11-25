@@ -75,7 +75,8 @@ export async function profileFinishProofs(browser, assert, base) {
       if(scenario==='reduced'||scenario==='unchanged')assert(paints.every(v=>Math.abs(v-after.fill*100)<.00001),`${scenario}: first paint is the final unchanged or reduced-motion state`,paints);
       else assert(paints.some(v=>v<after.fill*100-.00001),`${scenario}: one visible forward fill connects the saved readings`,paints);
       assert((await page.locator('#sumProfile').innerText()).includes('Your profile')&&!/%/.test(await page.locator('#sumProfile').innerText()),`${scenario}: ink reading has its name without a printed percentage`);
-      if(scenario==='unchanged')assert(await page.locator('#sumProfile > p').count()===0,'unchanged: no profile change line renders when the save adds nothing');
+      assert((await page.locator('#sumProfileTitle + .sum-profile__meaning').innerText())==='What Taurifer knows about you',`${scenario}: the finish heading carries the profile's one-line meaning, as Overview does`);
+      if(scenario==='unchanged')assert(await page.locator('#sumProfile > p:not(.sum-profile__meaning)').count()===0,'unchanged: no profile change line renders when the save adds nothing');
       if(['checked','calibrated'].includes(scenario))assert((await page.locator('#sumProfile').innerText()).includes('guessed 8, did 8'),`${scenario}: evidence reason states the saved guess and result`);
       if(scenario==='calibrated')assert(await page.locator('#sumFinding[data-finding]').count()===1,'agreeing check and new finding coexist without duplicate credit');
       await page.click('#sumProfileOpen');await page.waitForSelector('#summaryProfileBack');

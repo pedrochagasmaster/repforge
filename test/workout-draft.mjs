@@ -1335,4 +1335,235 @@ for(const ramps of [0,1,2,3])for(const workingLogged of [false,true]){
 }
 
 console.log(`\n${results.passed} passed, ${results.failed} failed`);
+{
+  const at = { exerciseInstanceId: "slot-squat", setId: "squat-set-1" };
+  const current = draft => draft.exercises[at.exerciseInstanceId].sets[at.setId];
+  const select = (draft, partialReps) => apply(draft, "setNumericEffort", { ...at, value: "0", partialReps });
+  const freshDraft = fresh();
+  const beforeZero = command(freshDraft, "setNumericEffort", { ...at, value: "0", partialReps: 3 });
+  assert(beforeZero.result.code === "invalid-partial-effort", "positive partials require a separate explicit zero entry");
+  for (const value of ["6", "-1", "9"]) {
+    assert(command(freshDraft, "setNumericEffort", { ...at, value, partialReps: 0 }).result.code === "invalid-partial-effort",
+      `the numeric chips bound reps left to 0–5, so ${value} is refused`);
+  }
+  assert(current(apply(freshDraft, "setNumericEffort", { ...at, value: "5", partialReps: 0 })).edited.rir === "5", "5 reps left is accepted");
+  const zero = select(freshDraft, 0), partial = select(zero, 3);
+  assert(!Object.hasOwn(current(zero), "partialReps"), "zero is omitted");
+  assert(current(Draft.parse(Draft.serialize(partial)).draft).partialReps === 3, "pending partials survive serialization");
+  const stale = command(partial, "setNumericEffort", { ...at, expectedRevision: zero.revision, value: "0", partialReps: 1 });
+  assert(stale.result.code === "stale-revision", "a count chosen on an earlier draft revision cannot replace the current one");
+  for (const count of [-1, 1.5, 6, "2", null]) {
+    const malformed = structuredClone(partial);
+    current(malformed).partialReps = count;
+    assert(Draft.parse(malformed).kind === "invalid", `refuse malformed partial count ${JSON.stringify(count)}`);
+  }
+  const printedZero = structuredClone(partial);
+  current(printedZero).partialReps = 0;
+  assert(!Object.hasOwn(current(Draft.parse(printedZero).draft), "partialReps"), "persisted zero canonicalizes to omission");
+  for (const [type, fields] of [
+    ["setNumericEffort", { value: "2", partialReps: 0 }],
+    ["editSetField", { field: "effort", value: "max" }],
+    ["markWarmup", {}],
+  ]) {
+    assert(!Object.hasOwn(current(apply(partial, type, { ...at, ...fields })), "partialReps"), `${type} clears the partial count`);
+  }
+  const logged = apply(partial, "completeSet", { ...at, completedAt: "2026-08-15T10:05:00.000Z" });
+  assert(current(apply(logged, "setRirMode", { value: "effort" })).partialReps === 3,
+    "switching global effort mode preserves a logged numeric row");
+  const opened = apply(logged, "uncommitSet", { ...at, correct: true });
+  const recalled = Draft.parse(Draft.serialize(select(opened, 4))).draft;
+  const canceled = apply(recalled, "cancelSetCorrection", at);
+  assert(same(current(canceled), current(logged)), "cancel after reload restores the full acknowledged row");
+}
+{
+  // Plan 085 slice 3: Prelude. Suggested warm-ups live beside the exercise's sets, never in them.
+  const slot = "prelude-slot", source = "1a25c6f170d8803d8231d083fdd65458";
+  const LOAD = "2555c6f170d8805cafa6d16d3fdddbaa", REPS = "2555c6f170d88072bbf6d9ad3f16ea86";
+  const prelude = draft => draft.exercises[slot].warmupPrelude;
+  const exerciseOf = draft => draft.exercises[slot];
+  const plan = (suggestions = [[20, 8], [60, 5], [85, 2]]) => ({
+    reason: "baseline", manualAllowed: true, equipmentKind: "barbell", workLoadKg: 105, capturedAt: "2026-08-15T10:00:00.000Z",
+    suggestions: suggestions.map(([loadKg, reps]) => ({ loadKg, reps, platesPerSideKg: null })),
+    evidence: { liftKey: "lift-squat", workLoadKg: 105, barKg: 20, resetGeneration: null, earlierLift: null, sessions: [],
+      skipStreak: 0, unavailableReason: null, lowestLighterLoadKg: 2.5 },
+  });
+  const init = (draft, suggestions, extra = {}) => apply(draft, "initWarmupPrelude", {
+    exerciseInstanceId: slot, plan: plan(suggestions),
+    steps: (suggestions || [[20, 8], [60, 5], [85, 2]]).map(([loadKg, reps], index) => ({ stepId: `w${index + 1}`, loadKg, reps })), ...extra });
+  const base = () => Draft.create(metricProgramContext(source, slot), { ...sessionSelection(), draftId: "prelude-draft", selectedExerciseId: slot }, {});
+  const at = (stepId, extra = {}) => ({ exerciseInstanceId: slot, stepId, ...extra });
+  const done = (draft, stepId, minute = 1) => apply(draft, "completeWarmupStep", at(stepId, { completedAt: `2026-08-15T10:0${minute}:00.000Z` }));
+
+  const empty = base();
+  assert(!Object.hasOwn(exerciseOf(empty), "warmupPrelude"), "Prelude: a fresh draft carries no warm-up record");
+  assert(Draft.isPristine(empty), "Prelude: a fresh draft is pristine");
+
+  const started = init(empty);
+  assert(prelude(started).steps.length === 3 && exerciseOf(started).setOrder.length === 2,
+    "Prelude: initialize stores three pending steps outside setOrder and sets", JSON.stringify(prelude(started)));
+  assert(Object.keys(exerciseOf(started).sets).length === 2 && prelude(started).steps.every(step => step.completion === "pending"),
+    "Prelude: the steps are pending and the programmed sets are unchanged");
+  assert(Draft.isPristine(started), "Prelude: an untouched suggested plan is still replaceable (pristine)");
+  assert(prelude(init(started, [[20, 8], [50, 5]], { replace: true })).steps.length === 2,
+    "Prelude: a pristine plan is replaced when the caller says so");
+  assert(command(started, "initWarmupPrelude", { exerciseInstanceId: slot, plan: plan(), steps: [] }).result.code === "warmup-prelude-exists",
+    "Prelude: initializing twice without replace is refused");
+
+  const edited = apply(started, "editWarmupStep", at("w2", { metricId: LOAD, value: "62.5" }));
+  assert(prelude(edited).steps[1].values[LOAD] === "62.5" && prelude(edited).steps[1].touched === true, "Prelude: editing a pending step stores the typed value and marks it touched");
+  assert(!Draft.isPristine(edited), "Prelude: an edited plan is user input and is protected");
+  assert(command(edited, "editWarmupStep", at("w2", { metricId: "nope", value: "1" })).result.code === "unknown-warmup-metric", "Prelude: an unknown metric is refused");
+
+  const first = done(edited, "w1");
+  assert(prelude(first).steps[0].completion.ordinal === 1 && prelude(first).nextOrdinal === 2, "Prelude: completion assigns warm-up ordinal 1");
+  assert(command(first, "completeWarmupStep", at("w3", { completedAt: "2026-08-15T10:02:00.000Z" })).result.code === "warmup-step-not-current",
+    "Prelude: only the current (first pending) step completes");
+  assert(command(first, "completeWarmupStep", at("w1", { completedAt: "2026-08-15T10:02:00.000Z" })).result.code === "warmup-step-not-pending",
+    "Prelude: a completed step cannot complete again");
+  assert(first.exercises[slot].setOrder.every(id => first.exercises[slot].sets[id].completion === "pending") && Draft.validateForSave({ ...first, session: { ...first.session, status: "finishing" } }).some(issue => issue.code === "no-work"),
+    "Prelude: warm-ups alone are not work");
+
+  const second = done(first, "w2", 2);
+  const afterSkip = apply(second, "skipWarmupSteps", { exerciseInstanceId: slot });
+  assert(prelude(afterSkip).skipped === true && prelude(afterSkip).steps.length === 2 && prelude(afterSkip).steps.every(step => step.completion !== "pending"),
+    "Prelude: skip remaining keeps the logged steps and drops the rest");
+  const manual = apply(afterSkip, "addWarmupStep", at("m1", { values: { [LOAD]: "40", [REPS]: "5" } }));
+  assert(prelude(manual).skipped === false && prelude(manual).steps.at(-1).source === "manual", "Prelude: a manual step resumes the sequence");
+  assert(command(manual, "addWarmupStep", at("m2", { values: { [LOAD]: "40", [REPS]: "5" } })).result.code === "warmup-manual-pending",
+    "Prelude: one manual step at a time");
+  const manualDone = done(manual, "m1", 3);
+  assert(prelude(manualDone).steps.at(-1).completion.ordinal === 3, "Prelude: a manual step takes the next ordinal");
+
+  const removed = apply(manualDone, "removeWarmupStep", at("w1"));
+  assert(prelude(removed).steps.map(step => step.completion.ordinal).join() === "2,3" && prelude(removed).nextOrdinal === 4,
+    "Prelude: removing a completed step leaves its ordinal gap and never reuses it");
+  const corrected = apply(removed, "correctWarmupStep", at("w2", { values: { [LOAD]: "65", [REPS]: "4" } }));
+  assert(prelude(corrected).steps[0].values[LOAD] === "65" && prelude(corrected).steps[0].completion.ordinal === 2, "Prelude: a correction keeps the ordinal");
+  assert(command(started, "removeWarmupStep", at("w1")).result.code === "warmup-step-not-completed", "Prelude: only completed steps are removed");
+  assert(command(started, "correctWarmupStep", at("w1", { values: { [LOAD]: "65", [REPS]: "4" } })).result.code === "warmup-step-not-completed", "Prelude: only completed steps are corrected");
+  assert(command(corrected, "correctWarmupStep", at("w2", { values: { [LOAD]: "0", [REPS]: "4" } })).result.code === "invalid-warmup-values", "Prelude: a correction needs positive load and reps");
+
+  // Projection: warm-up rows come first, outside the working numbering.
+  const worked = (() => {
+    let draft = corrected;
+    for (const setId of exerciseOf(draft).setOrder) {
+      draft = apply(draft, "editMetricValue", { exerciseInstanceId: slot, setId, metricId: LOAD, value: "105" });
+      draft = apply(draft, "editMetricValue", { exerciseInstanceId: slot, setId, metricId: REPS, value: "6" });
+      draft = apply(draft, "editSetField", { exerciseInstanceId: slot, setId, field: "rir", value: "2" });
+      draft = apply(draft, "completeSet", { exerciseInstanceId: slot, setId, completedAt: "2026-08-15T10:10:00.000Z" });
+    }
+    return apply(draft, "beginFinish", {});
+  })();
+  const rows = Draft.toHistoryRows(worked, "2026-08-15T10:30:00.000Z");
+  assert(Array.isArray(rows) && rows.length === 4, "Prelude: two warm-up rows and two working rows", JSON.stringify(rows));
+  const warmRows = rows.filter(row => row.warmup);
+  assert(rows.slice(0, 2).every(row => row.warmup) && rows.slice(2).every(row => !row.warmup), "Prelude: warm-up rows precede the working rows");
+  assert(same(warmRows.map(row => [row.origin, row.set, row.setIndex, row.warmupOrdinal, row.rir, row.load, row.reps]),
+    [["suggested-warmup", 0, 0, 2, null, 65, 4], ["suggested-warmup", 0, 0, 3, null, 40, 5]]), "Prelude: warm-up rows carry origin, set 0, their ordinal and no effort", JSON.stringify(warmRows));
+  assert(same(rows.filter(row => !row.warmup).map(row => [row.set, row.setIndex, row.load, row.reps]), [[1, 0, 105, 6], [2, 1, 105, 6]]), "Prelude: working rows keep ordinals 1..M and their index");
+  assert(warmRows.every(row => row.metricType === "source_metrics@1" && row.metricValues.length === 2 && !Object.hasOwn(row, "partialReps") && !Object.hasOwn(row, "effortSource")),
+    "Prelude: warm-up rows keep the canonical metric attribution, with no effort or partials");
+
+  // Validation refuses malformed records.
+  const refuse = (name, mutate) => {
+    const copy = structuredClone(second);
+    mutate(prelude(copy), copy);
+    assert(Draft.parse(copy).kind === "invalid", `Prelude: refuse ${name}`);
+  };
+  refuse("a duplicate step id", record => { record.steps[2].stepId = record.steps[1].stepId; });
+  refuse("a duplicate ordinal", record => { record.steps[1].completion.ordinal = 1; });
+  refuse("a completed step after a pending one", record => { record.steps.unshift(record.steps.pop()); });
+  refuse("a stale next ordinal", record => { record.nextOrdinal = 2; });
+  refuse("an unknown member", record => { record.extra = true; });
+  refuse("a logged step with a non-numeric value", record => { record.steps[0].values[LOAD] = "heavy"; });
+  refuse("a metric the composition lacks", record => { record.steps[2].values.unknown = "1"; });
+  refuse("an unbounded step count", record => { record.steps.push(...Array.from({ length: 7 }, (_, index) => ({ ...structuredClone(record.steps[2]), stepId: `x${index}` }))); });
+  refuse("a plan with an unknown reason", record => { record.plan.reason = "psychic"; });
+  refuse("a plan with an unknown evidence member", record => { record.plan.evidence.shoeSize = 11; });
+  refuse("a skipped record that still holds a pending step", record => { record.skipped = true; });
+  refuse("an ordinal above the cap", record => { record.steps[0].completion.ordinal = 7; record.nextOrdinal = 8; });
+  assert(Draft.parse(Draft.serialize(second)).kind === "valid" && same(prelude(Draft.parse(Draft.serialize(second)).draft), prelude(second)),
+    "Prelude: the record survives serialization unchanged");
+  const stale = command(started, "editWarmupStep", at("w2", { metricId: LOAD, value: "62.5", expectedRevision: empty.revision }));
+  assert(stale.result.code === "stale-revision", "Prelude: a command on an earlier revision is stale");
+
+  // A swap retires the old pending sequence and keeps the movement each logged step was done as.
+  const replacementId = "1a25c6f170d88008a9adde9f71881c36";
+  const replacementSource = rawExercise(replacementId);
+  assert(replacementSource, "Prelude: the swap fixture exists in the catalog");
+  {
+    const swapped = apply(second, "substituteExercise", { exerciseInstanceId: slot, selectedAt: "2026-08-15T10:20:00.000Z",
+      replacement: { exerciseInstanceId: slot, sourceExerciseId: "source-prelude-slot", displayName: replacementSource.name, libraryId: replacementId, primary: "Quads", secondary: "" } });
+    assert(prelude(swapped).steps.every(step => step.completion !== "pending") && prelude(swapped).plan === null && prelude(swapped).steps[0].completion.performed.displayName === exerciseOf(second).displayName,
+      "Prelude: a swap retires pending steps and freezes logged steps under the movement they were done as", JSON.stringify(prelude(swapped)));
+  }
+}
+{
+  // Plan 085 slice 3: the two durable maps. Observations carry natural selectors, never row ids.
+  const exerciseId = "slot-1", session = "saved-1";
+  const row = (extra = {}) => ({ session, date: "2026-08-01", exerciseId, set: 1, setIndex: 0, load: 105, reps: 6, rir: 1, performedLibraryId: "lib-squat", ...extra });
+  const metrics = (load, reps) => ({ metricDefinitions: [{ id: "L", semantic: "loadKg" }, { id: "R", semantic: "reps" }],
+    metricValues: [{ metricId: "L", value: load, unit: "kg" }, { metricId: "R", value: reps, unit: "reps" }] });
+  const warm = (ordinal, load, reps, extra = {}) => row({ set: 0, setIndex: 0, load, reps, rir: null, warmup: true, origin: "suggested-warmup", warmupOrdinal: ordinal, ...metrics(load, reps), ...extra });
+  const log = [warm(1, 20, 8), warm(3, 60, 5), warm(4, 85, 2), row()];
+  const grid = [20, 60, 85].map(rung => ({ rungKg: rung, belowKg: 2.5, aboveKg: 2.5 }));
+  const observation = (extra = {}) => ({ v: 1, liftKey: "lift-a", exerciseId, performedKey: "lib-squat", workingOrdinal: 1, warmupOrdinals: [1, 3, 4],
+    savedAt: 1_800_000_000_000, resetGeneration: null, decision: "completed", workLoadKg: 105, barKg: 20, earlierLift: null, stepGrid: grid, ...extra });
+  const map = (...observations) => ({ [session]: { v: 1, observations } });
+  assert(Draft.validateWarmupObservations(map(observation())) === true, "Observations: a well-formed map is accepted");
+  assert(Draft.validateWarmupObservations(map(observation()), log) === true, "Observations: it resolves against the live rows, gaps in the ordinals included");
+  assert(Draft.validateWarmupObservations(map(observation({ warmupOrdinals: [1, 2, 4] })), log) === false, "Observations: a selector with no matching row is refused");
+  assert(Draft.validateWarmupObservations(map(observation()), [...log, warm(3, 61, 5)]) === false, "Observations: an ambiguous selector is refused");
+  assert(Draft.validateWarmupObservations(map(observation()), log.slice(0, 3)) === false, "Observations: a missing working row is refused");
+  assert(Draft.validateWarmupObservations(map(observation({ performedKey: "lib-other" })), log) === false, "Observations: a different performed identity is refused");
+  assert(Draft.validateWarmupObservations(map(observation()), log.map(item => item.warmup ? item : { ...item, performedLibraryId: "lib-other" })) === false, "Observations: the working row must be the same performed movement");
+  assert(Draft.validateWarmupObservations({ other: { v: 1, observations: [observation()] } }, log) === false, "Observations: a session with no rows owns nothing");
+  assert(Draft.validateWarmupObservations(map(observation(), observation())) === false, "Observations: one observation per lift in a session");
+  assert(Draft.validateWarmupObservations(map(observation({ decision: "skipped", warmupOrdinals: [], stepGrid: [] })), log.filter(item => !item.warmup)) === true, "Observations: a whole skip has no warm-up rows");
+  assert(Draft.validateWarmupObservations(map(observation({ decision: "skipped" }))) === false, "Observations: a skip cannot name warm-up ordinals");
+  for (const [name, mutate] of [
+    ["an unknown version", o => { o.v = 2; }], ["an extra member", o => { o.payload = "x"; }], ["seven ordinals", o => { o.warmupOrdinals = [1, 2, 3, 4, 5, 6, 7]; o.stepGrid = Array(7).fill(grid[0]); }],
+    ["a grid that does not match the ordinals", o => { o.stepGrid = grid.slice(1); }], ["descending ordinals", o => { o.warmupOrdinals = [4, 3, 1]; }],
+    ["a non-finite save time", o => { o.savedAt = Infinity; }], ["an unknown decision", o => { o.decision = "forgot"; }], ["a fractional working ordinal", o => { o.workingOrdinal = 1.5; }],
+    ["a grid rung of zero", o => { o.stepGrid = [{ rungKg: 0, belowKg: null, aboveKg: null }, grid[1], grid[2]]; }],
+  ]) {
+    const bad = observation(); mutate(bad);
+    assert(Draft.validateWarmupObservations(map(bad)) === false, `Observations: refuse ${name}`);
+  }
+  assert(Draft.validateWarmupObservations([]) === false && Draft.validateWarmupObservations({ [session]: [] }) === false && Draft.validateWarmupObservations({ [session]: { v: 2, observations: [] } }) === false,
+    "Observations: wrong containers and versions are refused");
+  assert(Draft.validateWarmupObservations({ [session]: { v: 1, observations: [], extra: 1 } }) === false, "Observations: a session record has only its version and observations");
+
+  const resolved = Draft.resolveWarmupObservations(map(observation()), log);
+  assert(resolved.length === 1 && resolved[0].sessionId === session && resolved[0].steps.length === 3 &&
+    resolved[0].steps.map(step => [step.loadKg, step.reps].join("x")).join() === "20x8,60x5,85x2",
+    "Observations: resolving reads the canonical load and reps from the rows", JSON.stringify(resolved));
+  assert(new Set([resolved[0].workingSetId, ...resolved[0].warmupSetIds]).size === 4 && resolved[0].warmupSetIds[0] !== resolved[0].warmupSetIds[1],
+    "Observations: working and warm-up identifiers are distinct, deterministic call-local strings");
+  assert(JSON.stringify(Draft.resolveWarmupObservations(map(observation()), log)) === JSON.stringify(resolved), "Observations: resolution is deterministic");
+  assert(Draft.resolveWarmupObservations(map(observation()), log.slice(0, 3)).length === 0, "Observations: an unresolvable observation resolves to nothing");
+  const pruned = Draft.pruneWarmupObservations({ ...map(observation()), gone: { v: 1, observations: [observation()] } }, log);
+  assert(Object.keys(pruned || {}).join() === session, "Observations: pruning drops sessions that no longer resolve");
+  assert(Draft.pruneWarmupObservations(map(observation()), log.slice(0, 3)) === null, "Observations: an empty result is omitted");
+
+  assert(Draft.validateWarmupPreferences({ "lift-a": { v: 1, resetGeneration: "g1", resetAt: "2026-08-01T00:00:00.000Z" } }) === true, "Preferences: a reset token per lift is accepted");
+  for (const bad of [[], { "lift-a": { v: 2, resetGeneration: "g1", resetAt: "2026-08-01T00:00:00.000Z" } }, { "lift-a": { v: 1, resetGeneration: "", resetAt: "x" } },
+    { "lift-a": { v: 1, resetGeneration: "g1", resetAt: "x", extra: 1 } }, { "": { v: 1, resetGeneration: "g1", resetAt: "x" } }]) {
+    assert(Draft.validateWarmupPreferences(bad) === false, `Preferences: refuse ${JSON.stringify(bad)}`);
+  }
+}
+{
+  // A reps-only lift (no load metric) takes a manual warm-up too: one reps value, projected with no load.
+  const repsOnly = rawExerciseCatalog.exercises.find(exercise => exercise.exerciseMetrics.length === 1 &&
+    ExerciseMetrics.definitionsForIds(exercise.exerciseMetrics).value[0].semantic === "reps");
+  const slot = "reps-only-slot";
+  const draft = Draft.create(metricProgramContext(repsOnly.id, slot), { ...sessionSelection(), draftId: "reps-only-draft", selectedExerciseId: slot }, {});
+  const repsId = ExerciseMetrics.definitionsForIds(repsOnly.exerciseMetrics).value[0].id;
+  const plan = { reason: "none-with-reason", manualAllowed: true, equipmentKind: null, workLoadKg: null, capturedAt: "2026-08-15T10:00:00.000Z", suggestions: [],
+    evidence: { liftKey: "lift-bw", workLoadKg: null, barKg: null, resetGeneration: null, earlierLift: null, sessions: [], skipStreak: 0, unavailableReason: "bodyweight", lowestLighterLoadKg: null } };
+  const added = apply(draft, "addWarmupStep", { exerciseInstanceId: slot, stepId: "bw1", plan, values: { [repsId]: "8" } });
+  const logged = apply(added, "completeWarmupStep", { exerciseInstanceId: slot, stepId: "bw1", completedAt: "2026-08-15T10:05:00.000Z" });
+  assert(Draft.parse(Draft.serialize(logged)).kind === "valid", "Prelude: a reps-only record survives serialization");
+  assert(command(draft, "addWarmupStep", { exerciseInstanceId: slot, stepId: "bw2", plan, values: { [repsId]: "8", other: "1" } }).result.code === "unknown-warmup-metric", "Prelude: a reps-only step takes only its reps");
+}
 if (results.failed) process.exitCode = 1;

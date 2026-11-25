@@ -170,7 +170,7 @@ try {
     rows: [...document.querySelectorAll('#programEditorIssues .program-editor-issues__text')].map((row) => row.textContent.trim()),
     sheetOpen: !!document.querySelector("#reviewSheet.is-open"),
   }));
-  check(issues.rows.length === 1 && issues.rows[0].includes(programRow.name) && issues.rows[0].includes("set an RIR target. Suggest loads needs one.")
+  check(issues.rows.length === 1 && issues.rows[0].includes(programRow.name) && issues.rows[0].includes("set a reps-left target. Suggest loads needs one.")
     && !issues.sheetOpen,
   "Apply refuses with a modal naming the exercise and the RIR it needs, before opening anything", issues);
   await page.locator('#programEditorIssues [data-issue-index="0"]').click();
@@ -192,7 +192,7 @@ try {
   });
   const stillOff = await durableSlot(page);
   check(refused.editorOpen && refused.invalid === "true" && refused.minusMarked === null && refused.note === "alert"
-    && refused.noteText === "Set an RIR target to use Suggest loads." && refused.focused
+    && refused.noteText === "Set a reps-left target to use Suggest loads." && refused.focused
     && stillOff.statuses.join() === "ready" && stillOff.rirs[0] === 3,
   "Go to opens the exercise with the error on the RIR value itself, and nothing is committed (durably the slot is still the earlier adaptive one)", { refused, stillOff });
   // From an empty RIR the stepper starts at 2: one step down gives 1.

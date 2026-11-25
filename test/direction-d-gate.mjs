@@ -193,16 +193,29 @@ console.log("\nComposed catalog sentences");
 }
 for (const [lang, label] of [["en", "left"], ["pt", "sobrando"]]) {
   const catalog = loadCatalog(lang);
-  const effort = value => ({ text: [{ text: `3 × 4–8 reps · ${value} ${label} · ${catalog.dictionary["program.progression.adaptive"]}`, locator: "#focusMeta" }],
+  const effort = (value, method = ` · ${catalog.dictionary["program.progression.strategy.manual"]}`) => ({ text: [{ text: `3 × 4–8 reps · ${value} ${label}${method}`, locator: "#focusMeta" }],
     requestedI18nKeys: [], timerLabels: [], data: { strings: [], dateWords: [] } });
   for (const value of ["1", "1,5", "1–2"]) {
     const failures = checkStrings(effort(value), catalog);
     check(failures.length === 0, `${lang}: approved numeric effort survives range collapse and composition (${value})`, show(failures));
+    const bare = checkStrings(effort(value, ""), catalog);
+    check(bare.length === 0, `${lang}: an adaptive line without a strategy name is approved (${value})`, show(bare));
   }
   for (const value of ["Quantum", "1 invented"]) {
     const failures = checkStrings(effort(value), catalog);
     check(has(failures, "not a catalog"), `${lang}: an effort suffix cannot approve an invented word (${value})`, show(failures));
   }
+}
+// A lifter's own day name is data even when it starts with a catalog phrase ("Dia 2", "Day 2")
+// and holds a separator: the share card prints it whole beside the catalog label and the date.
+for (const [lang, day, date] of [["pt", "Dia 2 · misto", "12 ago"], ["en", "Day 2 · heavy", "12 Aug"]]) {
+  const catalog = loadCatalog(lang);
+  const line = name => ({ text: [{ text: `${catalog.dictionary["share.tpl_stats"]}: ${name}, ${date}`, locator: "figure.sharecard" }],
+    requestedI18nKeys: [], timerLabels: [], data: { strings: [day], dateWords: [date.split(" ")[1]] } });
+  const own = checkStrings(line(day), catalog);
+  check(own.length === 0, `${lang}: a lifter's day name that starts with a catalog phrase is data`, show(own));
+  const invented = checkStrings(line(day.replace(/\S+$/u, "Quantum")), catalog);
+  check(has(invented, "not a catalog"), `${lang}: a word that is neither data nor catalog after that phrase is still rejected`, show(invented));
 }
 if (process.argv.includes("--catalog-composition-only")) {
   console.log(`\n${results.passed} passed, ${results.failed} failed`);

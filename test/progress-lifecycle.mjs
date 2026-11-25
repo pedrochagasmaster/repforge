@@ -162,6 +162,71 @@ if (BROWSER) {
     }));
   }
 
+  {
+    const { context, page } = await freshPage("en-US");
+    await seedGeneratedProgram(page, { days: 4, minutes: 90 });
+    const verdicts = await page.evaluate(() => {
+      const ex = prog.exercises.find(item => {
+        const slot = canonicalPrescriptionSlot(item)?.slot;
+        return slot?.metricDefinitions.some(metric => metric.semantic === "loadKg") &&
+          slot.metricDefinitions.some(metric => metric.semantic === "reps");
+      });
+      const slot = canonicalPrescriptionSlot(ex).slot, loading = { ...slotLoadingContext(slot), bodyweightCoefficient: slot.loadingModel?.bodyweightCoefficient ?? 0 };
+      const row = (i, partialReps) => ({
+        session: `partial-stall-${i}`, date: `2026-08-${10 + i}`, set: 1, setIndex: 0,
+        name: ex.name, exerciseId: ex.id, performedLibraryId: slot.exerciseId,
+        load: 105, reps: 6, rir: 0, effortSource: "reps_left", ...(partialReps ? { partialReps } : {}),
+        metricType: "source_metrics@1", metricIds: slot.metricIds, metricDefinitions: slot.metricDefinitions,
+        metricValues: slot.metricDefinitions.map(metric => ({
+          metricId: metric.id, value: metric.semantic === "loadKg" ? 105 : 6, unit: metric.unit,
+        })),
+        loadingContext: loading, equipmentId: loading.equipmentId, loadingConvention: loading.loadingConvention,
+      });
+      return [[1, 1, 2], [1, 2, 0]].map(partials => isStalled(sessionsForLog(ex, partials.map((count, i) => row(i, count)))));
+    });
+    assert.deepEqual(verdicts, [false, true], "only the latest pair can suppress a numeric stall");
+    await context.close();
+  }
+
+  {
+    const { context, page } = await freshPage("en-US");
+    await seedGeneratedProgram(page, { days: 5, minutes: 90 });
+    const out = await page.evaluate(() => {
+      const mk = (slot, loading, load) => (session, date, set, reps, partialReps) => ({
+        session, date, set, setIndex: set - 1, name: slot.name || "lift", exerciseId: slot.exerciseId, performedLibraryId: slot.exerciseId,
+        load, reps, rir: 0, effortSource: "reps_left", ...(partialReps ? { partialReps } : {}),
+        metricType: "source_metrics@1", metricIds: slot.metricIds, metricDefinitions: slot.metricDefinitions,
+        metricValues: slot.metricDefinitions.map(metric => ({ metricId: metric.id, value: /load/i.test(metric.semantic) ? load : reps, unit: metric.unit })),
+        loadingContext: loading, equipmentId: loading.equipmentId, loadingConvention: loading.loadingConvention,
+      });
+      const ordinary = prog.exercises.map(item => canonicalPrescriptionSlot(item)?.slot)
+        .find(slot => slot?.metricDefinitions.some(m => m.semantic === "loadKg") && slot.metricDefinitions.some(m => m.semantic === "reps"));
+      const repsDefinition = ordinary.metricDefinitions.find(m => m.semantic === "reps");
+      const perSide = prog.exercises.map(item => canonicalPrescriptionSlot(item)?.slot)
+        .find(slot => slot?.metricDefinitions.some(m => m.semantic === "loadPerSideKg"));
+      // A per-side load with ordinary reps: the mode the lifter trains in comes from the catalog, not the saved context.
+      const slot = { ...perSide, metricDefinitions: perSide.metricDefinitions.map(m => m.semantic === "repsPerSide" ? repsDefinition : m) };
+      slot.metricIds = slot.metricDefinitions.map(m => m.id);
+      const { executionMode, ...loading } = { ...slotLoadingContext(perSide), bodyweightCoefficient: perSide.loadingModel?.bodyweightCoefficient ?? 0 };
+      const side = mk(slot, loading, 30);
+      const ordinaryLoading = { ...slotLoadingContext(ordinary), bodyweightCoefficient: ordinary.loadingModel?.bodyweightCoefficient ?? 0 }, plain = mk(ordinary, ordinaryLoading, 105);
+      // The same session logged 6+1, 6+0 and 6+3 on sets 1 to 3: the displayed best set is the 6+3.
+      const same = [plain("same", "2026-08-20", 1, 6, 1), plain("same", "2026-08-20", 2, 6, 0), plain("same", "2026-08-20", 3, 6, 3)];
+      const past = [plain("older", "2026-08-10", 1, 6, 1)];
+      return {
+        perSideTie: savedPartialWin(side("a", "2026-08-10", 1, 8, 1), side("b", "2026-08-17", 1, 8, 2)),
+        perSideRows: [side("a", "2026-08-10", 1, 8, 1)].map(row => row.metricDefinitions.map(m => m.semantic).join()),
+        best: summaryReadbackSets(same).bestSet?.partialReps,
+        pr: liftPR(same, [{ ...past[0], date: "2026-08-10" }].map(row => ({ ...row, reps: 5 })))?.partialReps,
+        prSameReps: liftPR(same, past)?.partialReps ?? null,
+      };
+    });
+    assert.equal(out.perSideTie, true, `a per-side load with ordinary reps still compares partials: ${JSON.stringify(out)}`);
+    assert.equal(out.best, 3, `the same session's best set at equal load and reps is the one with the most partials: ${JSON.stringify(out)}`);
+    assert.equal(out.pr, 3, `a rep record names the best partial count: ${JSON.stringify(out)}`);
+    await context.close();
+  }
+
   // Journey D (owner, 2026-10-25): "How many days can you train?" is onboarding's day-count tiles, the program's current
   // days per week chosen to begin with; a tap sets the target the repair uses, and the proposal is built from it.
   for (const [locale, word] of [["en-US", "days"], ["pt-BR", "dias"]]) {
@@ -287,6 +352,23 @@ if (BROWSER) {
     await page.waitForFunction(() => localStorage.getItem("repforge_program_setup_draft_v1") === null);
     const cancelled = await stateOf(page);
     assert.equal(cancelled.historyLen, 0, "canceling guided repair still archives nothing");
+    await context.close();
+  }
+
+  // Journey C (Portuguese, unnamed program): the guided draft needs a program
+  // name, and one the app supplies is in the lifter's language, never English.
+  {
+    const { context, page } = await freshPage("pt-BR");
+    await seedGeneratedProgram(page, { days: 2, minutes: 90 });
+    await finishBlock(page);
+    await page.evaluate(() => { state.programMeta.name = ""; });
+    await openReview(page);
+    const step = await driveToPreview(page, { kind: "fewer_days", value: 2 });
+    assert.equal(step.staged, true, "PT: the unmeetable target stages the guided draft");
+    const draft = JSON.parse((await stateOf(page)).setupDraft || "{}");
+    const untitled = JSON.parse(fs.readFileSync(path.join(root, "i18n-pt.json"), "utf8")).untitled_program;
+    assert.equal(draft?.state?.result?.name, untitled, "PT: an unnamed program's guided draft is named in Portuguese");
+    await page.click("[data-flow-cancel]");
     await context.close();
   }
 

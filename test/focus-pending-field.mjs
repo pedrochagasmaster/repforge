@@ -328,7 +328,10 @@ async function main() {
     await page.locator(`${SHELF} [data-effchip][data-e="${Math.max(0, correctionRir0 - 1)}"]`).click();
     if (rebuild) await page.locator(field("load")).click(); // rebuild
     if (rebuild) await page.locator(field("rir")).click();
-    await page.locator(`${SHELF} [data-effchip][data-e="${Math.max(0, correctionRir0 - 2)}"]`).click();
+    const nextRir = Math.max(0, correctionRir0 - 2);
+    const nextChip = page.locator(`${SHELF} [data-effchip][data-e="${nextRir}"]`);
+    const partialBack = page.locator(`${SHELF} [data-partial-chip="0"]`);
+    await (nextRir === 0 ? nextChip.or(partialBack) : nextChip).click();
     if (rebuild) {
       await page.locator(field("reps")).click(); // rebuild
       await releaseLock(page);

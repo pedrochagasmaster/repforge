@@ -143,6 +143,10 @@ Everything else is the D spec section named.
 > exercise's logged sets behind a disclosure above them that counts them and opens the full ledger in place for
 > correction. A finished exercise keeps its full ledger.
 >
+> **Amended (owner, 2026-11-22).** The ledger lists the open set and every set still to come, not only the next
+> one: hiding later sets left an unexplained gap above Next. Logged sets still fold behind the disclosure, and rows
+> past the window scroll.
+>
 > **Amended by the Focus hero (owner, 2026-10-28; direction A of `native-feel/focus-hero.html`; #523, #518,
 > #517).** The cue is the screen's headline: its first line at 34 px (weight 650, line height 1.08, tracking
 > −0.02em) with the engine's figures in Plex Mono 600, the verdict mark inline before the words in the deep accent

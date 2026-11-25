@@ -1,11 +1,13 @@
 (function (root) {
   "use strict";
 
-  const ENGINE_VERSION = "078.2";
+  const ENGINE_VERSION = "078.4";
   const STANDING_VERSION = "standing@078.1";
   // Reps in reserve are reliable near failure and guesses far from it, so a performed set earns capacity for at most
   // this many (owner, 2026-11-05; Plan 077 OD-23b). Targets keep their own 0–6 bound.
   const RIR_CREDIT_CAP = 5;
+  // The most one session can lift the history anchor above the median of the latest three.
+  const ANCHOR_JUMP_LIMIT = 0.15;
   // Effort calibration (Plan 077, OD-18): the caller's per-lift shift, read as `rir − delta` on reported sets. Only this
   // version is understood; any other, or a delta outside [−1, 2], leaves the engine as it was (delta 0).
   const CALIBRATION_VERSION = "calibration@077.1";
@@ -74,7 +76,7 @@
     return ordered.length % 2 ? ordered[middle] : (ordered[middle - 1] + ordered[middle]) / 2;
   }
 
-  function prescriptionShape(value) {
+  function prescriptionShape(value, { performedOnly = false } = {}) {
     if (!isPlainObject(value)) return { ok: false, reasons: ["invalid_prescription"] };
     if (typeof value.id !== "string" || typeof value.slotId !== "string" || typeof value.exerciseId !== "string"
       || !Number.isInteger(value.setIndex) || value.setIndex < 1
@@ -89,6 +91,10 @@
       || semantics.includes("loadPerSideKg") || semantics.includes("persistentLoadPerSideKg");
     const repSemantic = semantics.includes("reps") ? "reps" : semantics.includes("repsPerSide") ? "repsPerSide" : null;
     if (!repSemantic) return { ok: true, supported: false, kind, semantics, reasons: ["no_repetition_target"] };
+    const coefficient = value.loadingModel?.bodyweightCoefficient;
+    const identity = { composition, kind, semantics, repSemantic, requiresExecutionMode,
+      coefficient: effectiveBodyweightCoefficient(coefficient, kind), catalogCoefficient: coefficient };
+    if (performedOnly) return { ok: true, supported: finite(coefficient) && coefficient >= 0 && coefficient <= 1, ...identity };
     const targets = METRIC_DOMAIN.validateTargets(value.metricIds, value.targets);
     if (!targets.ok || !isPlainObject(value.targets) || !hasOwn(value.targets, repSemantic)) {
       return { ok: true, supported: false, kind, semantics, repSemantic, reasons: ["target_range_required"] };
@@ -103,7 +109,6 @@
     if (!finite(value.rir) || value.rir < 0 || value.rir > 6) {
       return { ok: true, supported: false, kind, semantics, repSemantic, range, reasons: ["rir_target_required"] };
     }
-    const coefficient = value.loadingModel?.bodyweightCoefficient;
     if (!finite(coefficient) || coefficient < 0 || coefficient > 1) {
       return { ok: true, supported: false, kind, semantics, repSemantic, range, reasons: ["configuration_required"] };
     }
@@ -114,8 +119,7 @@
       return { ok: true, supported: false, kind, semantics, repSemantic, range, reasons: ["no_supported_capacity"] };
     }
     if (value.status !== "ready") return { ok: false, reasons: ["invalid_prescription"] };
-    return { ok: true, supported: true, composition, kind, semantics, repSemantic, requiresExecutionMode,
-      range, coefficient: effectiveBodyweightCoefficient(coefficient, kind), catalogCoefficient: coefficient, reasons: [] };
+    return { ok: true, supported: true, ...identity, range, reasons: [] };
   }
 
   function normalizeSettings(value) {
@@ -306,7 +310,7 @@
   }
 
   function parsePerformedSet(value, shape, prescription, config, delta = 0) {
-    if (!isPlainObject(value) || value.completed !== true || value.exerciseId !== prescription.exerciseId
+    if (!isPlainObject(value) || value.completed !== true || value.warmup === true || value.work === false || value.origin === "ramp" || value.origin === "suggested-warmup" || value.exerciseId !== prescription.exerciseId
       || !Number.isInteger(value.setIndex) || value.setIndex < 0 || !finite(value.rir) || value.rir < 0) return null;
     if (!Array.isArray(value.metricIds) || !same(value.metricIds, prescription.metricIds)) return null;
     if (value.equipmentId !== config.context.equipmentId || value.loadingConvention !== config.convention) return null;
@@ -343,6 +347,10 @@
     const capacityKg = transformed.effectiveLoadKg * (1 + (transformed.reps + Math.min(rir, RIR_CREDIT_CAP)) / 30);
     return {
       failure,
+      ordinaryReps: shape.repSemantic === "reps",
+      partialReps: Number.isInteger(value.partialReps) && value.partialReps >= 1 && value.partialReps <= 5
+        ? value.partialReps : 0,
+      executionMode: value.executionMode ?? null,
       effortSource: value.effortSource,
       warmup: value.warmup,
       date: value.date,
@@ -354,6 +362,36 @@
       setIndex: value.setIndex,
       rir: value.rir,
     };
+  }
+
+  function comparePartialEvidence(previous, current) {
+    const numericZero = set => set?.ordinaryReps && !set.failure && set.rir === 0 &&
+      (set.effortSource === "rir" || set.effortSource === "reps_left");
+    if (!numericZero(previous) || !numericZero(current) || previous.setIndex !== current.setIndex ||
+      previous.reps !== current.reps || Math.abs(previous.displayLoadKg - current.displayLoadKg) > 1e-6 ||
+      Math.abs(previous.effectiveLoadKg - current.effectiveLoadKg) > 1e-6 ||
+      previous.executionMode !== current.executionMode) return null;
+    const difference = current.partialReps - previous.partialReps;
+    return { status: difference > 0 ? "win" : difference < 0 ? "loss" : "even", difference, previous, current };
+  }
+
+  /** Match a working slot against the immediately preceding comparable session. */
+  function partialRepComparison(prescription, history, current, setIndex, loadingContext) {
+    const shape = prescriptionShape(prescription, { performedOnly: true });
+    if (!shape.ok || !shape.supported) return null;
+    const config = currentConfiguration(prescription, shape, loadingContext, true);
+    if (!config.ok) return null;
+    const latest = current ? parsePerformedSet(current, shape, prescription, config) : null;
+    if (current && (!latest || latest.ok === false)) return null;
+    for (let i = history.length - 1; i >= 0; i--) {
+      const session = parseSession(history[i], shape, prescription, config);
+      if (!session.sets.length) continue;
+      const previous = session.sets.find(set => set.setIndex === setIndex);
+      if (!current) return previous?.ordinaryReps && !previous.failure && previous.rir === 0 &&
+        ["rir", "reps_left"].includes(previous.effortSource) ? previous : null;
+      return comparePartialEvidence(previous, latest);
+    }
+    return null;
   }
 
   function parseSession(session, shape, prescription, config, delta = 0) {
@@ -417,13 +455,19 @@
     const latest = withFirst.slice(-3);
     if (!latest.length) return null;
     const mostRecent = latest.at(-1);
+    // The median steadies the estimate against one odd session, but it lags a lifter who improved: it cannot sit below
+    // the latest first set's own capacity, read as the median reads it (reps left capped, calibration applied) (owner,
+    // 2026-11-24). A latest set further above the median than ANCHOR_JUMP_LIMIT is the odd session and is ignored.
+    const medianKg = median(latest.map((entry) => entry.first.capacityKg));
+    const latestKg = mostRecent.first.capacityKg;
+    const capacityKg = latestKg > medianKg && latestKg <= medianKg * (1 + ANCHOR_JUMP_LIMIT) ? latestKg : medianKg;
     return {
       source: "history",
       sessionId: mostRecent.session.sessionId,
       sessionIds: latest.map((entry) => entry.session.sessionId),
       setIndex: 0,
       effectiveLoadKg: median(latest.map((entry) => entry.first.effectiveLoadKg)),
-      capacityKg: median(latest.map((entry) => entry.first.capacityKg)),
+      capacityKg,
       displayLoadKg: mostRecent.first.displayLoadKg,
       loadingConvention: mostRecent.first.loadingConvention,
       equipmentId: mostRecent.first.equipmentId,
@@ -682,7 +726,9 @@
     const dropped = latest.rir <= previous.rir
       && latest.effectiveLoadKg <= previous.effectiveLoadKg + 1e-9 && latest.reps <= previous.reps
       && latest.capacityKg < previous.capacityKg - 1e-9;
-    return result(dropped ? "dropped" : "steady", firsts.length);
+    const partialTie = comparePartialEvidence(previous, latest);
+    return { ...result(dropped ? "dropped" : "steady", firsts.length),
+      ...(partialTie ? { partialTie: partialTie.status } : {}) };
   }
 
   const emptyStandingEvidence = () => ({ sets: 0, sessions: 0, pairs: 0, agreement: null, gapDays: null,
@@ -793,7 +839,7 @@
     if (!config.ok) return unavailable(config.reasons);
     // The source rows retain their provenance; a warm-up or ramp is never a working observation.
     const working = history.filter(session => session?.completed === true).map(session => ({ ...session,
-      sets: (session.sets || []).filter(set => set && !set.warmup && set.origin !== "ramp" && set.work !== false &&
+      sets: (session.sets || []).filter(set => set && !set.warmup && set.origin !== "ramp" && set.origin !== "suggested-warmup" && set.work !== false &&
         (!shape.requiresExecutionMode || set.loadingContext?.executionMode === lift.context.executionMode)) }));
     const sessions = working.map(session => ({ sessionId: session.sessionId, date: session.date,
       sets: session.sets.flatMap(raw => {
@@ -842,7 +888,7 @@
   }
 
   const api = Object.freeze({ ENGINE_VERSION, STANDING_VERSION, RIR_CREDIT_CAP, CALIBRATION_VERSION, CALIBRATION_DELTA, CALIBRATION_STEPS, FORMULA_VERSION, SUPPORTED_SEMANTICS, BODYWEIGHT_MATERIAL_THRESHOLD,
-    effectiveBodyweightCoefficient, performanceTrend, recommendSets, savedLiftIdentity, readSavedLift });
+    effectiveBodyweightCoefficient, partialRepComparison, performanceTrend, recommendSets, savedLiftIdentity, readSavedLift });
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.RepForgeProgression = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

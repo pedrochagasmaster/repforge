@@ -17,8 +17,11 @@ import { instrumentBrowser } from "./browser-artifacts.mjs";
  */
 function readGuidesByDefault(browser, liveByDefault) {
   const newContext = browser.newContext.bind(browser);
-  browser.newContext = async ({ guides, effortChoice, ...options } = {}) => {
+  browser.newContext = async ({ guides, effortChoice, warmups, ...options } = {}) => {
     const context = await newContext(options);
+    // Suggested warm-ups (Plan 085) take the shelf of any lift with history. Suites that are not about them start without them;
+    // `warmups: "live"` opts in.
+    if (warmups !== "live") await context.addInitScript(() => { globalThis.__repforgePreludeOff = true; });
     if ((guides ?? (liveByDefault ? "live" : "read")) !== "live") {
       // Applied where the app brings its guide records up to date (at boot and on every transition), so the device's
       // storage is untouched until the app writes it, and a suite that writes its own preferences still meets read guides.

@@ -6,6 +6,7 @@ The only list of open, deferred and paused work. Order is top to bottom within e
 
 - Plan 059: starts once the owner's real-phone testing below is done (owner, 2026-11-15). Validate one release candidate end to end on one commit, including accessibility, privacy, telemetry, offline and update behavior.
 - Real-phone pass (owner testing over several days from 2026-11-15): install, install transfer, a full workout with the keyboard and 200% text, a setup link opened into the installed app, Android installed-app launch, program generation and Your profile, plus wheel/sheet/dock behavior; include iOS/VoiceOver and Android/TalkBack on the release candidate.
+- Backup cue (Packet E, #811, promoted from Later): a quiet "Save a backup copy" on the finish screen once three saved sessions and seven days have passed since the later of the last backup and the last "Not now"; same file as Settings' export, to the share sheet or a download; no cloud sync. Owner to approve the trigger rule, whether it also appears on Today, and the EN/PT copy.
 
 ## Waiting on owner
 
@@ -64,7 +65,6 @@ The only list of open, deferred and paused work. Order is top to bottom within e
 - General friction/reason telemetry: closed-enum adoption coverage shipped; broader reason catalogs require a product decision and free text stays outside telemetry.
 - Broader program lifecycle: revisit archiving and next-program transitions across authorship only from unmet cases beyond the shipped block lifecycle.
 - Existing-user setup links: design non-destructive archive-and-replace before a participant receives a second coach program; retain released payload compatibility.
-- Backup reminder: design an action-linked, non-nagging cue that preserves fresh-device transfer eligibility; no cloud sync shortcut.
 - Bodyweight and relative-strength trends: add only when enough logged bodyweight answers a real user question; no universal strength score.
 - #387 larger-program setup links: use refusal/file-share data to reassess demand; Build/manual programs already have Share as file, so no hosted store is authorized without evidence and a new ADR.
 - Managed-import validation: build an independently annotated, consented real-program holdout and measure completion, activation and cost before promoting prompt/configuration changes; keep source text out of telemetry.

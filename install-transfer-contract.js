@@ -1034,6 +1034,16 @@
     const metricFields = ["metricType", "metricIds", "metricDefinitions", "metricValues", "equipmentId", "loadingConvention", "loadingContext", "restSeconds"];
     const hasMetricFields = metricFields.some((field) => hasOwn(row, field));
     const isWorkSet = hasOwn(row, "exerciseId") || hasOwn(row, "set") || hasOwn(row, "setIndex");
+    if (hasOwn(row, "partialReps")) {
+      const draft = runtimeWorkoutDraft();
+      if (typeof draft?.validHistoryPartials !== "function") return ERROR_CODES.CATALOG_UNAVAILABLE;
+      if (!draft.validHistoryPartials(row)) return ERROR_CODES.INVALID_ENVELOPE;
+    }
+    if (row.origin === "suggested-warmup" || hasOwn(row, "warmupOrdinal")) {
+      const draft = runtimeWorkoutDraft();
+      if (typeof draft?.validSuggestedWarmupRow !== "function") return ERROR_CODES.CATALOG_UNAVAILABLE;
+      if (!draft.validSuggestedWarmupRow(row)) return ERROR_CODES.INVALID_ENVELOPE;
+    }
     if (!hasMetricFields) return isWorkSet ? ERROR_CODES.UNSUPPORTED_LOG_SCHEMA_VERSION : null;
     const metrics = runtimeExerciseMetrics();
     const workoutDraft = runtimeWorkoutDraft();
@@ -1205,6 +1215,14 @@
       }
       const rowError = validateCanonicalLogRow(row, catalog);
       if (rowError) return rowError;
+    }
+    // Warm-up learning (Plan 085): both maps are the lifter's own record. Observations must own live sessions and name
+    // exactly one row per selector; preferences are bounded reset tokens.
+    for (const [field, check] of [["warmupObservations", "validateWarmupObservations"], ["warmupPreferences", "validateWarmupPreferences"]]) {
+      if (!hasOwn(value, field)) continue;
+      const draft = runtimeWorkoutDraft();
+      if (typeof draft?.[check] !== "function") return ERROR_CODES.CATALOG_UNAVAILABLE;
+      if (!draft[check](value[field], ...(field === "warmupObservations" ? [value.log] : []))) return ERROR_CODES.INVALID_ENVELOPE;
     }
     return null;
   }

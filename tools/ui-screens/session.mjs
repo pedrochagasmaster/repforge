@@ -117,8 +117,11 @@ function catalogUiPrefs(capture, now) {
 export async function openPage(browser, manifest, capture, state, options = {}) {
   const viewport = manifest.viewports[capture.viewport];
   const locale = manifest.locales[capture.locale];
+  // The states about suggested warm-ups are drawn with them on; every other state starts without them (test/browser.mjs).
+  const warmups = options.warmups ? "live" : (capture.flow === "workout" && String(capture.screen).startsWith("prelude")) ? "live" : undefined;
   const context = await browser.newContext({
     effortChoice: options.effortChoice,
+    warmups,
     viewport: { width: viewport.width, height: viewport.height },
     deviceScaleFactor: manifest.deviceScaleFactor,
     locale: locale.browserLocale,
@@ -128,6 +131,11 @@ export async function openPage(browser, manifest, capture, state, options = {}) 
     serviceWorkers: "block",
     ...(options.userAgent ? { userAgent: options.userAgent } : {}),
   });
+  // A browser that did not come through launchChromium (test/dumbbell-ladder.mjs) never saw the default: every catalog state except
+  // the Prelude ones starts with suggested warm-ups off, whoever launched the browser.
+  if (warmups !== "live") {
+    await context.addInitScript(() => { globalThis.__repforgePreludeOff = true; });
+  }
   // A full run opens a couple of hundred contexts back to back. Playwright's
   // 30s default is comfortable for one capture and marginal for the last of
   // 200, so give every action real headroom rather than reading contention as
