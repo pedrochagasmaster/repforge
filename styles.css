@@ -6450,7 +6450,8 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
    stepper under it. */
 @media(max-width:899px){
   .firstrun-proof__stage{justify-items:stretch;gap:var(--space-12)}
-  .firstrun-proof__device{--proof-device-w:196px}
+  .firstrun-proof__device{--proof-device-w:196px;
+    -webkit-mask-image:linear-gradient(to bottom,var(--ink) calc(100% - var(--space-32) * 2),transparent calc(100% - var(--space-8)));mask-image:linear-gradient(to bottom,var(--ink) calc(100% - var(--space-32) * 2),transparent calc(100% - var(--space-8)))}
   .firstrun-proof .firstrun-wrap>*+*{margin-top:var(--firstrun-gap-2)}
 }
 @media(max-width:340px){.firstrun-proof__device{border-radius:var(--radius-landing-stage-compact)}}
@@ -6966,10 +6967,15 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   .firstrun-hero .firstrun-hero__title{margin-top:0}
   /* the proof: its title an h3-size line over the phone's left edge, the whole phone (inner text 11px or more) and the
      stepper beside it; the band's sentence after them */
-  .firstrun-proof>.firstrun-wrap{display:flex;flex-direction:column}
+  /* one grid: the title over the phone, the stepper beside the phone and the band's sentence under the stepper, so the
+     first screen ends with the phone */
+  .firstrun-proof>.firstrun-wrap{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-rows:auto auto 1fr;column-gap:var(--firstrun-gap-3);align-items:start}
+  .firstrun-proof>.firstrun-wrap>.firstrun-h2{grid-column:1/-1}
+  .firstrun-proof .firstrun-proof__stage{display:contents}
+  .firstrun-proof .firstrun-proof__device{grid-column:1;grid-row:2/span 2;margin-top:var(--space-12)}
+  .firstrun-proof .firstrun-chapters{grid-column:2;grid-row:2;margin-top:var(--space-12)}
+  .firstrun-proof .firstrun-wrap>.firstrun-sub{grid-column:2;grid-row:3;margin-top:var(--firstrun-gap-2);font-size:var(--font-size-body-small);color:var(--firstrun-ink-soft)}
   .firstrun-proof .firstrun-h2{font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-standard);letter-spacing:-.01em}
-  .firstrun-proof .firstrun-wrap>.firstrun-proof__stage{margin-top:var(--space-12)}
-  .firstrun-proof .firstrun-h2+.firstrun-sub{order:1;margin-top:var(--firstrun-gap-3);max-width:none;font-size:var(--font-size-body)}
   .firstrun-proof__stage{grid-template-columns:auto minmax(0,1fr);align-items:start;justify-items:stretch;column-gap:var(--firstrun-gap-3)}
   .firstrun-proof__device{--proof-device-w:clamp(260px,calc((100svh - 190px) * 390 / 844),317px);width:calc(var(--proof-device-w) * 418 / 390)}
   .firstrun-chapter__go{font-size:var(--font-size-body-small)}
@@ -6981,7 +6987,9 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   :root[data-theme="dark"] .firstrun-dock{border-bottom-color:var(--band-night-rule);--firstrun-ink:var(--band-night-ink);
     --firstrun-cta-bg:var(--band-night-cta-bg);--firstrun-cta-ink:var(--band-night-cta-ink);--firstrun-cta-mark:var(--band-night-cta-ink)}
   .firstrun-dock__brand{display:flex}
-  .firstrun-dock__brand .firstrun__logo{box-shadow:inset 0 0 0 1px var(--rule-strong)}
+  /* on the light bar the mark stands on the page itself, without its plate */
+  .firstrun-dock__brand .firstrun__logo{padding:0;background:none}
+  :root[data-theme="dark"] .firstrun-dock__brand .firstrun__logo{padding:2px;background-color:var(--brand-paper)}
   .firstrun-dock .firstrun__cta{width:auto;max-width:none;min-height:var(--control-target);margin:0;padding:var(--space-8) var(--space-18)}
   /* title beside content */
   :is(.firstrun-check,.firstrun-data,.firstrun-faq)>.firstrun-wrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);column-gap:var(--firstrun-gap-8);align-items:start}
