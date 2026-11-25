@@ -304,6 +304,24 @@ async function main() {
     const rowThumb = await page.locator(`#libList .librow:has([data-lib-preview="${CHIN_UP}"]) img.exthumb`).first().getAttribute("src");
     assert(previewPlays && rowThumb === "assets/exercise-stills/1326.webp",
       "the preview plays the animation while its list row keeps the still", JSON.stringify({ previewPlays, rowThumb }));
+    // A similar animation names what it shows differently under the picture.
+    await page.click("#previewBack");
+    await page.waitForSelector("#library.active", { timeout: 5000 });
+    await settle(page);
+    await page.fill("#libSearch", "Axle strict press");
+    await settle(page);
+    await page.locator('#libList [data-lib-preview="3a05c6f170d880acb429cc22116f4479"]').click();
+    await page.waitForSelector("#exercisePreview.active", { timeout: 5000 });
+    const shown = await page.evaluate(() => document.querySelector(".preview .exart-shown")?.textContent.trim());
+    assert(shown === "Shown with a barbell, with another grip.",
+      "a similar animation's preview names its differences under the picture", String(shown));
+    await page.click("#previewBack");
+    await page.waitForSelector("#library.active", { timeout: 5000 });
+    await settle(page);
+    await page.fill("#libSearch", "");
+    await settle(page);
+    await page.locator(`#libList [data-lib-preview="${CHIN_UP}"]`).click();
+    await page.waitForSelector("#exercisePreview.active", { timeout: 5000 });
     assert(preview.add?.includes(day), "preview offers to add to the day being built", preview.add);
     await page.click("#previewAdd");
     await page.waitForSelector("#library.active", { timeout: 5000 });

@@ -80,6 +80,16 @@
       "tier": "variant",
       "why": "The decline dumbbell press matches but does not demonstrate the prescribed pause."
     },
+    "1a05c6f170d8802a950df7b6c710ffb4": {
+      "sourceName": "Barbell floor press",
+      "datasetId": "0065",
+      "datasetName": "barbell one arm floor press",
+      "tier": "similar",
+      "differences": [
+        "one_arm"
+      ],
+      "why": "The floor press uses one arm instead of both."
+    },
     "1a05c6f170d8802ba26bf25efbec5e68": {
       "sourceName": "Standing dumbbell overhead press",
       "datasetId": "0426",
@@ -107,6 +117,16 @@
       "datasetName": "barbell seated overhead press",
       "tier": "exact",
       "why": "Shows the bilateral seated barbell overhead press."
+    },
+    "1a05c6f170d8803c872ecbe964e2f0ef": {
+      "sourceName": "High incline barbell press",
+      "datasetId": "0025",
+      "datasetName": "barbell bench press",
+      "tier": "similar",
+      "differences": [
+        "flat_bench"
+      ],
+      "why": "The barbell press uses a flat bench instead of a high incline."
     },
     "1a05c6f170d8803ca0c8e13ee1b0c37f": {
       "sourceName": "High-to-low cable fly",
@@ -136,6 +156,16 @@
       "tier": "exact",
       "why": "Matches the named movement, equipment, body position, and laterality."
     },
+    "1a05c6f170d88044b720f479bb37d97b": {
+      "sourceName": "Standing neutral grip dumbbell overhead press",
+      "datasetId": "0426",
+      "datasetName": "dumbbell standing overhead press",
+      "tier": "similar",
+      "differences": [
+        "grip"
+      ],
+      "why": "The overhead press uses a pronated rather than neutral grip."
+    },
     "1a05c6f170d88045aa23e20a3b1a6bc4": {
       "sourceName": "Bradford press",
       "datasetId": "0105",
@@ -150,12 +180,32 @@
       "tier": "exact",
       "why": "Shows the named movement with matching equipment, position and laterality."
     },
+    "1a05c6f170d88055b31ddbc6338d7074": {
+      "sourceName": "Low incline barbell press",
+      "datasetId": "0025",
+      "datasetName": "barbell bench press",
+      "tier": "similar",
+      "differences": [
+        "flat_bench"
+      ],
+      "why": "The barbell bench press is shown flat instead of on a low incline."
+    },
     "1a05c6f170d88058a3a0c07e098a9605": {
       "sourceName": "Smith machine bench press",
       "datasetId": "0748",
       "datasetName": "smith bench press",
       "tier": "exact",
       "why": "The animation matches the movement, equipment, position and laterality."
+    },
+    "1a05c6f170d88058aa3bcb8cbc9102d6": {
+      "sourceName": "Single arm horizontal cable fly",
+      "datasetId": "0188",
+      "datasetName": "cable middle fly",
+      "tier": "similar",
+      "differences": [
+        "both_arms"
+      ],
+      "why": "The horizontal cable fly uses both arms."
     },
     "1a05c6f170d8805b9dd1f99907b00278": {
       "sourceName": "45° incline single arm dumbbell press",
@@ -213,6 +263,16 @@
       "tier": "exact",
       "why": "Matches the named movement, equipment, body position, and laterality."
     },
+    "1a05c6f170d8806b87edcb2d2e547481": {
+      "sourceName": "Kettlebell bench press",
+      "datasetId": "0289",
+      "datasetName": "dumbbell bench press",
+      "tier": "similar",
+      "differences": [
+        "dumbbells"
+      ],
+      "why": "The flat bench press uses dumbbells instead of kettlebells."
+    },
     "1a05c6f170d8806b911acf558c5af4f6": {
       "sourceName": "45° incline dumbbell press",
       "datasetId": "0314",
@@ -226,6 +286,16 @@
       "datasetName": "barbell standing wide military press",
       "tier": "exact",
       "why": "Shows the named movement with matching equipment, position and laterality."
+    },
+    "1a05c6f170d88071a523c5abb44472c9": {
+      "sourceName": "Kettlebell floor press",
+      "datasetId": "1298",
+      "datasetName": "kettlebell one arm floor press",
+      "tier": "similar",
+      "differences": [
+        "one_arm"
+      ],
+      "why": "The kettlebell floor press uses one arm instead of both."
     },
     "1a05c6f170d8807590e2d79fc558e368": {
       "sourceName": "45° incline pause barbell press",
@@ -276,6 +346,16 @@
       "tier": "exact",
       "why": "Shows a bilateral push-up with knee support."
     },
+    "1a05c6f170d88086b7e3da51deb96425": {
+      "sourceName": "Single arm dumbbell floor press",
+      "datasetId": "0065",
+      "datasetName": "barbell one arm floor press",
+      "tier": "similar",
+      "differences": [
+        "barbell"
+      ],
+      "why": "The unilateral floor press uses a barbell along the same pressing path."
+    },
     "1a05c6f170d8808dba9beee24fca5e4e": {
       "sourceName": "Machine-assisted triceps dip",
       "datasetId": "0019",
@@ -296,6 +376,16 @@
       "datasetName": "triceps dip",
       "tier": "variant",
       "why": "The movement matches, but the animation does not show the prescribed pause."
+    },
+    "1a05c6f170d8809d80ecf8e7406e4601": {
+      "sourceName": "Cable chest press",
+      "datasetId": "2144",
+      "datasetName": "cable seated chest press",
+      "tier": "similar",
+      "differences": [
+        "seated"
+      ],
+      "why": "The bilateral cable chest press is shown seated."
     },
     "1a05c6f170d8809da1e7fbc50ae7575b": {
       "sourceName": "45° incline close grip press",
@@ -367,6 +457,16 @@
       "tier": "variant",
       "why": "The movement matches, but the animation does not show the prescribed pause."
     },
+    "1a05c6f170d880c4bcd7dfd978df3ac9": {
+      "sourceName": "Swiss bar bench press",
+      "datasetId": "0352",
+      "datasetName": "dumbbell neutral grip bench press",
+      "tier": "similar",
+      "differences": [
+        "dumbbells"
+      ],
+      "why": "The neutral-grip bench press uses dumbbells along the same pressing path."
+    },
     "1a05c6f170d880c5ad11c99b302b1bf9": {
       "sourceName": "Barbell overhead press",
       "datasetId": "1456",
@@ -394,6 +494,16 @@
       "datasetName": "barbell seated behind head military press",
       "tier": "exact",
       "why": "Shows the seated barbell press from behind the neck."
+    },
+    "1a05c6f170d880cfb83be785c3640967": {
+      "sourceName": "Overhand grip pec deck fly",
+      "datasetId": "0596",
+      "datasetName": "lever seated fly",
+      "tier": "similar",
+      "differences": [
+        "grip"
+      ],
+      "why": "The fly uses vertical neutral handles instead of an overhand grip."
     },
     "1a05c6f170d880d08e75f6f7c2ebde9e": {
       "sourceName": "Horizontal cable crossover",
@@ -479,6 +589,16 @@
       "tier": "exact",
       "why": "The animation shows the named movement with matching equipment, position and limb use."
     },
+    "1a05c6f170d880f8b599f462f33ccd94": {
+      "sourceName": "Seated single arm dumbbell overhead press",
+      "datasetId": "0405",
+      "datasetName": "dumbbell seated shoulder press",
+      "tier": "similar",
+      "differences": [
+        "both_arms"
+      ],
+      "why": "The seated dumbbell overhead press uses both arms instead of one."
+    },
     "1a05c6f170d880ff9314c15594dd3671": {
       "sourceName": "45° incline dumbbell fly",
       "datasetId": "0319",
@@ -500,12 +620,32 @@
       "tier": "variant",
       "why": "The lying EZ-bar triceps extension lowers behind the head rather than toward the forehead."
     },
+    "1a15c6f170d88004a245f5a0ea564b67": {
+      "sourceName": "Bent-over neutral grip T-bar row",
+      "datasetId": "0606",
+      "datasetName": "lever t bar row",
+      "tier": "similar",
+      "differences": [
+        "grip"
+      ],
+      "why": "The unsupported T-bar row uses an overhand grip."
+    },
     "1a15c6f170d880098bcbe64c93b3cf31": {
       "sourceName": "Seated barbell wrist curl",
       "datasetId": "0125",
       "datasetName": "barbell wrist curl v. 2",
       "tier": "exact",
       "why": "Shows seated bilateral palms-up barbell wrist curls."
+    },
+    "1a15c6f170d8800aa40be599172ecbfc": {
+      "sourceName": "Seated single leg plate-loaded machine calf raise",
+      "datasetId": "0594",
+      "datasetName": "lever seated calf raise",
+      "tier": "similar",
+      "differences": [
+        "both_legs"
+      ],
+      "why": "The seated plate-loaded calf raise uses both legs instead of one."
     },
     "1a15c6f170d8800abba4d3ef66a48aa6": {
       "sourceName": "Standing dumbbell shrug",
@@ -556,6 +696,17 @@
       "tier": "exact",
       "why": "Matches the named movement, equipment, body position, and laterality."
     },
+    "1a15c6f170d88014a0ccdeb82dfbc1f4": {
+      "sourceName": "Overhand grip plate-loaded machine lat pulldown",
+      "datasetId": "0579",
+      "datasetName": "lever front pulldown",
+      "tier": "similar",
+      "differences": [
+        "machine",
+        "grip"
+      ],
+      "why": "The pulldown uses a selectorized machine and underhand instead of overhand grips."
+    },
     "1a15c6f170d88014a710f8ada9a1e94a": {
       "sourceName": "Cable face pull",
       "datasetId": "0233",
@@ -598,12 +749,32 @@
       "tier": "exact",
       "why": "The animation matches the movement, equipment, position and laterality."
     },
+    "1a15c6f170d8801d8700fbf97435a960": {
+      "sourceName": "Low pulley dual cable biceps curl",
+      "datasetId": "0868",
+      "datasetName": "cable curl",
+      "tier": "similar",
+      "differences": [
+        "handle"
+      ],
+      "why": "The low cable curl uses a shared bar instead of separate handles."
+    },
     "1a15c6f170d8801d9337dba3dcb34a88": {
       "sourceName": "Cable straight bar triceps pushdown",
       "datasetId": "0201",
       "datasetName": "cable pushdown",
       "tier": "exact",
       "why": "Shows a bilateral standing straight-bar cable triceps pushdown."
+    },
+    "1a15c6f170d8801da273dbdc61789e83": {
+      "sourceName": "Seated dumbbell shrug",
+      "datasetId": "0406",
+      "datasetName": "dumbbell shrug",
+      "tier": "similar",
+      "differences": [
+        "standing"
+      ],
+      "why": "The bilateral dumbbell shrug is shown standing instead of seated."
     },
     "1a15c6f170d880208cfdca4035bdedab": {
       "sourceName": "Plate-loaded machine shoulder press",
@@ -625,6 +796,26 @@
       "datasetName": "dumbbell seated bicep curl",
       "tier": "exact",
       "why": "Shows simultaneous bilateral seated dumbbell biceps curls."
+    },
+    "1a15c6f170d88023b537e3c7985ccadd": {
+      "sourceName": "Single arm pin-loaded machine preacher curl",
+      "datasetId": "0592",
+      "datasetName": "lever preacher curl",
+      "tier": "similar",
+      "differences": [
+        "both_arms"
+      ],
+      "why": "The pin-loaded preacher curl uses both arms."
+    },
+    "1a15c6f170d8802485a1f0c743200257": {
+      "sourceName": "Standing dual dumbbell overhead triceps extension",
+      "datasetId": "2189",
+      "datasetName": "dumbbells seated triceps extension",
+      "tier": "similar",
+      "differences": [
+        "seated"
+      ],
+      "why": "The dual-dumbbell overhead triceps extension is shown seated."
     },
     "1a15c6f170d88029a037f1c1bea19636": {
       "sourceName": "Barbell skull crusher",
@@ -695,6 +886,16 @@
       "datasetName": "ez barbell curl",
       "tier": "exact",
       "why": "Matches the named movement, equipment, body position, and laterality."
+    },
+    "1a15c6f170d8803aa8bffc5a0dae7406": {
+      "sourceName": "Standing single leg machine calf raise",
+      "datasetId": "0605",
+      "datasetName": "lever standing calf raise",
+      "tier": "similar",
+      "differences": [
+        "both_legs"
+      ],
+      "why": "The standing machine calf raise uses both legs."
     },
     "1a15c6f170d8803bb4dbc83c2279dbcf": {
       "sourceName": "Chest-supported semi-neutral grip T-bar row",
@@ -780,6 +981,16 @@
       "tier": "exact",
       "why": "Shows bilateral seated dumbbell lateral raises."
     },
+    "1a15c6f170d88049b559fb117498028e": {
+      "sourceName": "Cable shoulder internal rotation with arm at side",
+      "datasetId": "0216",
+      "datasetName": "cable seated shoulder internal rotation",
+      "tier": "similar",
+      "differences": [
+        "seated"
+      ],
+      "why": "The arm-at-side internal rotation is shown seated on the floor."
+    },
     "1a15c6f170d8804bb9b4c6edc0ac59be": {
       "sourceName": "Seated plate-loaded machine calf raise",
       "datasetId": "0594",
@@ -822,12 +1033,32 @@
       "tier": "exact",
       "why": "The animation matches the movement, equipment, position and laterality."
     },
+    "1a15c6f170d88055bfbcf0b2e871a481": {
+      "sourceName": "Standing machine lateral raise",
+      "datasetId": "0584",
+      "datasetName": "lever lateral raise",
+      "tier": "similar",
+      "differences": [
+        "seated"
+      ],
+      "why": "The machine lateral raise is shown seated."
+    },
     "1a15c6f170d88057bb86d20566082394": {
       "sourceName": "Seated machine lateral raise",
       "datasetId": "0584",
       "datasetName": "lever lateral raise",
       "tier": "exact",
       "why": "Shows a seated bilateral machine lateral raise."
+    },
+    "1a15c6f170d88058affcfe5558485d48": {
+      "sourceName": "Trap bar shrug",
+      "datasetId": "0406",
+      "datasetName": "dumbbell shrug",
+      "tier": "similar",
+      "differences": [
+        "dumbbells"
+      ],
+      "why": "The shrug uses dumbbells beside the body with the same neutral grip and upward path."
     },
     "1a15c6f170d8805b8898fd86e0d99d28": {
       "sourceName": "Seated barbell finger flexion wrist curl",
@@ -891,6 +1122,16 @@
       "datasetName": "bench dip on floor",
       "tier": "exact",
       "why": "The animation shows the named movement with matching equipment, position and limb use."
+    },
+    "1a15c6f170d88070b365f07cc7128474": {
+      "sourceName": "Dual kettlebell upright row",
+      "datasetId": "0437",
+      "datasetName": "dumbbell upright row",
+      "tier": "similar",
+      "differences": [
+        "dumbbells"
+      ],
+      "why": "The bilateral upright row uses dumbbells instead of kettlebells."
     },
     "1a15c6f170d8807188c0da98a91c30c3": {
       "sourceName": "Neutral grip pin-loaded machine row",
@@ -976,12 +1217,32 @@
       "tier": "exact",
       "why": "Shows the named movement with matching equipment, position and laterality."
     },
+    "1a15c6f170d8807a9ccdd19a4a1df2f4": {
+      "sourceName": "Single arm underhand grip dumbbell row",
+      "datasetId": "0292",
+      "datasetName": "dumbbell one arm bent-over row",
+      "tier": "similar",
+      "differences": [
+        "grip"
+      ],
+      "why": "The bench-supported row uses a neutral rather than underhand grip."
+    },
     "1a15c6f170d88081bd47d7fbc3bea9c0": {
       "sourceName": "Single arm dumbbell skull crusher",
       "datasetId": "0344",
       "datasetName": "dumbbell lying one arm pronated triceps extension",
       "tier": "variant",
       "why": "Shows the same unilateral flat-bench skull crusher with a pronated grip."
+    },
+    "1a15c6f170d8808281eec44bc9b7fd67": {
+      "sourceName": "Neutral grip pull-up",
+      "datasetId": "0651",
+      "datasetName": "pull up (neutral grip)",
+      "tier": "similar",
+      "differences": [
+        "grip"
+      ],
+      "why": "The pull-up uses angled overhand bar grips instead of neutral handles."
     },
     "1a15c6f170d8808386aac1a5806962b0": {
       "sourceName": "Overhand grip plate-loaded machine row",
@@ -1003,6 +1264,16 @@
       "datasetName": "dumbbell hammer curl v. 2",
       "tier": "exact",
       "why": "The animation matches the movement, equipment, position and laterality."
+    },
+    "1a15c6f170d88086b226f5237d3b5ca4": {
+      "sourceName": "Underhand grip barbell inverted row",
+      "datasetId": "0499",
+      "datasetName": "inverted row",
+      "tier": "similar",
+      "differences": [
+        "grip"
+      ],
+      "why": "The inverted row uses an overhand rather than underhand grip."
     },
     "1a15c6f170d8808b9721ff65d549d8ba": {
       "sourceName": "Dumbbell pullover",
@@ -1045,6 +1316,16 @@
       "datasetName": "barbell jm bench press",
       "tier": "exact",
       "why": "The animation shows the named movement with matching equipment, position and limb use."
+    },
+    "1a15c6f170d8809a927ed538bf683443": {
+      "sourceName": "Standing dual kettlebell biceps curl",
+      "datasetId": "0416",
+      "datasetName": "dumbbell standing biceps curl",
+      "tier": "similar",
+      "differences": [
+        "dumbbells"
+      ],
+      "why": "The bilateral curl uses dumbbells along the same curling path."
     },
     "1a15c6f170d8809b94d8f668bf45a229": {
       "sourceName": "Neutral grip landmine T-bar row",
@@ -1158,6 +1439,16 @@
       "tier": "exact",
       "why": "Shows the named movement with matching equipment, position and laterality."
     },
+    "1a15c6f170d880b2b06cf95892f97c0b": {
+      "sourceName": "Kettlebell shrug",
+      "datasetId": "0406",
+      "datasetName": "dumbbell shrug",
+      "tier": "similar",
+      "differences": [
+        "dumbbells"
+      ],
+      "why": "The same standing shrug uses dumbbells instead of kettlebells."
+    },
     "1a15c6f170d880b49e09fcbcd061fbdb": {
       "sourceName": "Incline dumbbell biceps curl",
       "datasetId": "0315",
@@ -1221,6 +1512,16 @@
       "tier": "exact",
       "why": "Shows bilateral overhead rope triceps extensions from a high pulley."
     },
+    "1a15c6f170d880c68df7cd7ee49de492": {
+      "sourceName": "Snatch grip shrug",
+      "datasetId": "0095",
+      "datasetName": "barbell shrug",
+      "tier": "similar",
+      "differences": [
+        "grip"
+      ],
+      "why": "The same barbell movement uses a narrower grip instead of a snatch grip."
+    },
     "1a15c6f170d880c7b8d7f8060b06d9f4": {
       "sourceName": "Single arm dumbbell triceps kickback",
       "datasetId": "0354",
@@ -1270,6 +1571,17 @@
       "tier": "exact",
       "why": "Shows a bilateral inverted handstand push-up."
     },
+    "1a15c6f170d880d4a3b4c7727ede7730": {
+      "sourceName": "Single kettlebell overhead triceps extension",
+      "datasetId": "0430",
+      "datasetName": "dumbbell standing triceps extension",
+      "tier": "similar",
+      "differences": [
+        "dumbbells",
+        "grip"
+      ],
+      "why": "The two-handed overhead extension uses a dumbbell held by its end."
+    },
     "1a15c6f170d880d5bdf8fd24dec58684": {
       "sourceName": "Seated dumbbell wrist extension",
       "datasetId": "0385",
@@ -1298,6 +1610,16 @@
       "tier": "exact",
       "why": "The animation matches the movement, equipment, position and laterality."
     },
+    "1a15c6f170d880e18902d19b0f0c8b3d": {
+      "sourceName": "Seated dumbbell reverse curl",
+      "datasetId": "0429",
+      "datasetName": "dumbbell standing reverse curl",
+      "tier": "similar",
+      "differences": [
+        "standing"
+      ],
+      "why": "The bilateral dumbbell reverse curl is shown standing instead of seated."
+    },
     "1a15c6f170d880e58105e80545e3f035": {
       "sourceName": "Chest-supported neutral grip T-bar row",
       "datasetId": "1349",
@@ -1311,6 +1633,17 @@
       "datasetName": "dumbbell zottman curl",
       "tier": "exact",
       "why": "The animation matches the movement, equipment, position and laterality."
+    },
+    "1a15c6f170d880e89f71c03312fd37ba": {
+      "sourceName": "Underhand grip cable row",
+      "datasetId": "0861",
+      "datasetName": "cable seated row",
+      "tier": "similar",
+      "differences": [
+        "grip",
+        "handle"
+      ],
+      "why": "The seated cable row uses a close neutral attachment instead of an underhand bar grip."
     },
     "1a15c6f170d880e8ad58cebec203e231": {
       "sourceName": "Cable rope overhead triceps extension",
@@ -1375,12 +1708,34 @@
       "tier": "exact",
       "why": "The animation shows the named movement with matching equipment, position and limb use."
     },
+    "1a15c6f170d880f7b41ed136238884a6": {
+      "sourceName": "Dual kettlebell overhead triceps extension",
+      "datasetId": "2189",
+      "datasetName": "dumbbells seated triceps extension",
+      "tier": "similar",
+      "differences": [
+        "dumbbells",
+        "seated"
+      ],
+      "why": "The two-arm overhead extension uses dumbbells while seated."
+    },
     "1a15c6f170d880f89beacd8c81156f2d": {
       "sourceName": "Bent-over barbell row",
       "datasetId": "0027",
       "datasetName": "barbell bent over row",
       "tier": "exact",
       "why": "The animation shows the named movement with matching equipment, position and limb use."
+    },
+    "1a15c6f170d880f9a7c3de4cae380ab5": {
+      "sourceName": "Standing single arm cable row",
+      "datasetId": "0234",
+      "datasetName": "cable standing row (v-bar)",
+      "tier": "similar",
+      "differences": [
+        "both_arms",
+        "handle"
+      ],
+      "why": "The standing cable row uses both arms with a V-bar attachment."
     },
     "1a15c6f170d880fb835cddd47e531ad0": {
       "sourceName": "Pin-loaded machine pullover",
@@ -1409,6 +1764,16 @@
       "datasetName": "dumbbell standing reverse curl",
       "tier": "exact",
       "why": "The animation matches the movement, equipment, position and laterality."
+    },
+    "1a25c6f170d880038f9af19f57ca716b": {
+      "sourceName": "Kettlebell forward lunge",
+      "datasetId": "0336",
+      "datasetName": "dumbbell lunge",
+      "tier": "similar",
+      "differences": [
+        "dumbbells"
+      ],
+      "why": "The forward lunge holds dumbbells at the sides instead of kettlebells."
     },
     "1a25c6f170d880068daae293704193e0": {
       "sourceName": "Full hand clean grip front squat",
@@ -1508,6 +1873,16 @@
       "tier": "exact",
       "why": "The animation matches the movement, equipment, position and laterality."
     },
+    "1a25c6f170d8805c8b30c1b4200ca82d": {
+      "sourceName": "Kettlebell Bulgarian split squat",
+      "datasetId": "0410",
+      "datasetName": "dumbbell single leg split squat",
+      "tier": "similar",
+      "differences": [
+        "dumbbells"
+      ],
+      "why": "The rear-foot-elevated split squat holds dumbbells at the sides instead of kettlebells."
+    },
     "1a25c6f170d8806ba0efd970f13028c3": {
       "sourceName": "Single leg 45° leg press",
       "datasetId": "1425",
@@ -1536,6 +1911,16 @@
       "tier": "exact",
       "why": "The animation shows the named movement with matching equipment, position and limb use."
     },
+    "1a25c6f170d88084a663f2a93f20b180": {
+      "sourceName": "Kettlebell reverse lunge",
+      "datasetId": "0381",
+      "datasetName": "dumbbell rear lunge",
+      "tier": "similar",
+      "differences": [
+        "dumbbells"
+      ],
+      "why": "The reverse lunge keeps the weights at the sides, using dumbbells instead of kettlebells."
+    },
     "1a25c6f170d88086a350cb7e82849006": {
       "sourceName": "Barbell reverse lunge",
       "datasetId": "0078",
@@ -1563,6 +1948,17 @@
       "datasetName": "dumbbell single leg split squat",
       "tier": "exact",
       "why": "Matches the named movement, equipment, body position, and laterality."
+    },
+    "1a25c6f170d880b2a727d44db1872fd0": {
+      "sourceName": "Single leg plate-loaded leg extension",
+      "datasetId": "0585",
+      "datasetName": "lever leg extension",
+      "tier": "similar",
+      "differences": [
+        "both_legs",
+        "machine"
+      ],
+      "why": "The leg extension uses both legs on a pin-loaded machine."
     },
     "1a25c6f170d880c59f17ce7802758fc3": {
       "sourceName": "Leg extension",
@@ -1605,6 +2001,16 @@
       "datasetName": "barbell full squat",
       "tier": "variant",
       "why": "The movement matches, but the animation does not show the prescribed pause."
+    },
+    "1a25c6f170d880dcb28bc023b51f8285": {
+      "sourceName": "Single leg leg extension",
+      "datasetId": "0585",
+      "datasetName": "lever leg extension",
+      "tier": "similar",
+      "differences": [
+        "both_legs"
+      ],
+      "why": "The leg extension uses both legs."
     },
     "1a25c6f170d880e09445d806733a82a2": {
       "sourceName": "Dumbbell step-up",
@@ -1655,6 +2061,17 @@
       "tier": "exact",
       "why": "Shows floor sit-ups with hands behind the head."
     },
+    "1a35c6f170d88010a78aecec412b3fe4": {
+      "sourceName": "Standing pin-loaded hamstring curl",
+      "datasetId": "0582",
+      "datasetName": "lever kneeling leg curl",
+      "tier": "similar",
+      "differences": [
+        "kneeling",
+        "machine"
+      ],
+      "why": "The unilateral leg curl uses kneeling support on a plate-loaded machine."
+    },
     "1a35c6f170d8801b9d6af6cb4040482f": {
       "sourceName": "Weighted crunch",
       "datasetId": "0832",
@@ -1668,6 +2085,17 @@
       "datasetName": "lever seated hip abduction",
       "tier": "exact",
       "why": "Shows bilateral seated machine hip abduction."
+    },
+    "1a35c6f170d8801e93a0e605a61d2274": {
+      "sourceName": "Lying single leg plate-loaded hamstring curl",
+      "datasetId": "0586",
+      "datasetName": "lever lying leg curl",
+      "tier": "similar",
+      "differences": [
+        "both_legs",
+        "machine"
+      ],
+      "why": "The prone curl uses both legs and a selectorized machine instead of one leg and plate loading."
     },
     "1a35c6f170d8801eb2ecf5da7cc1caea": {
       "sourceName": "Seated plate-loaded hamstring curl",
@@ -1696,6 +2124,16 @@
       "datasetName": "kettlebell swing",
       "tier": "exact",
       "why": "Shows a two-handed kettlebell hip-hinge swing."
+    },
+    "1a35c6f170d88040b8dfd3164ac15d8a": {
+      "sourceName": "Lying single leg hamstring curl",
+      "datasetId": "0586",
+      "datasetName": "lever lying leg curl",
+      "tier": "similar",
+      "differences": [
+        "both_legs"
+      ],
+      "why": "The prone hamstring curl uses both legs instead of one."
     },
     "1a35c6f170d88042b608da098f0a9af6": {
       "sourceName": "Single leg bodyweight glute bridge",
@@ -1752,6 +2190,16 @@
       "datasetName": "cable pull through (with rope)",
       "tier": "exact",
       "why": "Shows a bilateral standing cable rope pull-through."
+    },
+    "1a35c6f170d88065a9ddd9ff0c4a26eb": {
+      "sourceName": "Snatch grip deadlift",
+      "datasetId": "0032",
+      "datasetName": "barbell deadlift",
+      "tier": "similar",
+      "differences": [
+        "grip"
+      ],
+      "why": "The same barbell movement uses a narrower grip instead of a snatch grip."
     },
     "1a35c6f170d8807aae84e2c6eb136395": {
       "sourceName": "Sumo deadlift",
@@ -1823,6 +2271,26 @@
       "tier": "exact",
       "why": "The animation shows the named movement with matching equipment, position and limb use."
     },
+    "1a35c6f170d880c18fc6d848bac682fd": {
+      "sourceName": "Standing plate-loaded hamstring curl",
+      "datasetId": "0582",
+      "datasetName": "lever kneeling leg curl",
+      "tier": "similar",
+      "differences": [
+        "kneeling"
+      ],
+      "why": "The plate-loaded leg curl uses a kneeling supporting leg."
+    },
+    "1a35c6f170d880c5867ce22eefbc7cb7": {
+      "sourceName": "Dumbbell glute bridge",
+      "datasetId": "1409",
+      "datasetName": "barbell glute bridge",
+      "tier": "similar",
+      "differences": [
+        "barbell"
+      ],
+      "why": "The floor bridge places a barbell across the hips instead of a dumbbell."
+    },
     "1a35c6f170d880c69859e6c12e048ba9": {
       "sourceName": "Bodyweight sit-up with hands on shoulders",
       "datasetId": "3679",
@@ -1843,6 +2311,16 @@
       "datasetName": "barbell deadlift",
       "tier": "variant",
       "why": "The movement matches, but the animation does not show the prescribed pause."
+    },
+    "1a35c6f170d880d89a3af6f1022532fd": {
+      "sourceName": "Single leg kettlebell Romanian deadlift",
+      "datasetId": "1757",
+      "datasetName": "dumbbell single leg deadlift",
+      "tier": "similar",
+      "differences": [
+        "dumbbells"
+      ],
+      "why": "The single-leg Romanian hinge uses dumbbells in the same hanging position."
     },
     "1a35c6f170d880e09409ca60499f2367": {
       "sourceName": "High handle trap bar deadlift",
@@ -1872,6 +2350,26 @@
       "tier": "exact",
       "why": "The animation shows the named movement with matching equipment, position and limb use."
     },
+    "1a35c6f170d880f3af82ce83d7aee474": {
+      "sourceName": "Dual kettlebell Romanian deadlift",
+      "datasetId": "1459",
+      "datasetName": "dumbbell romanian deadlift",
+      "tier": "similar",
+      "differences": [
+        "dumbbells"
+      ],
+      "why": "The bilateral Romanian deadlift uses dumbbells along the same load path."
+    },
+    "1a35c6f170d880f6884cda44975bf858": {
+      "sourceName": "Seated single leg hamstring curl",
+      "datasetId": "0599",
+      "datasetName": "lever seated leg curl",
+      "tier": "similar",
+      "differences": [
+        "both_legs"
+      ],
+      "why": "The seated hamstring curl uses both legs instead of one."
+    },
     "1a35c6f170d880f6bb05c7fcf46c4aa9": {
       "sourceName": "Plate-loaded machine crunch (with overhead handles)",
       "datasetId": "3760",
@@ -1885,6 +2383,17 @@
       "datasetName": "barbell deadlift",
       "tier": "exact",
       "why": "Matches the named movement, equipment, body position, and laterality."
+    },
+    "1a35c6f170d880f99a95c9f681832465": {
+      "sourceName": "Seated single leg plate-loaded hamstring curl",
+      "datasetId": "0599",
+      "datasetName": "lever seated leg curl",
+      "tier": "similar",
+      "differences": [
+        "both_legs",
+        "machine"
+      ],
+      "why": "The seated hamstring curl uses both legs and a selectorized machine instead of one leg and plate loading."
     },
     "1a45c6f170d880039ab5db29125324be": {
       "sourceName": "Bodyweight Russian twist",
@@ -1941,6 +2450,16 @@
       "datasetName": "cable twist",
       "tier": "exact",
       "why": "Shows a standing horizontal cable chop across the torso."
+    },
+    "1a45c6f170d8804ea7cffb393945466c": {
+      "sourceName": "Kettlebell side bend",
+      "datasetId": "0407",
+      "datasetName": "dumbbell side bend",
+      "tier": "similar",
+      "differences": [
+        "dumbbells"
+      ],
+      "why": "The same unilateral side bend uses a dumbbell instead of a kettlebell."
     },
     "1a45c6f170d88051b565eb1ea43255bc": {
       "sourceName": "Neutral dead bug",
@@ -2033,6 +2552,16 @@
       "tier": "exact",
       "why": "Frames show bent-knee raises while hanging from a bar."
     },
+    "1a45c6f170d880f1a98bd27d6a3de2e7": {
+      "sourceName": "Cable Pallof press",
+      "datasetId": "0979",
+      "datasetName": "band horizontal pallof press",
+      "tier": "similar",
+      "differences": [
+        "band"
+      ],
+      "why": "The standing anti-rotation press uses a band instead of a cable."
+    },
     "1a45c6f170d880f3b0ead000932b5489": {
       "sourceName": "Overhead medicine ball slam",
       "datasetId": "1354",
@@ -2053,6 +2582,16 @@
       "datasetName": "dumbbell one arm bent-over row",
       "tier": "exact",
       "why": "Shows a bench-supported single-arm dumbbell row with the elbow close to the torso."
+    },
+    "1aa5c6f170d880b9ab00ea8320731145": {
+      "sourceName": "Standing single arm cross-body dumbbell hammer curl",
+      "datasetId": "0298",
+      "datasetName": "dumbbell cross body hammer curl",
+      "tier": "similar",
+      "differences": [
+        "both_arms"
+      ],
+      "why": "The cross-body hammer curl is shown alternating both arms."
     },
     "1ac5c6f170d8803f915fec32a9820548": {
       "sourceName": "Pin-loaded leg press calf raise",
@@ -2075,6 +2614,27 @@
       "tier": "exact",
       "why": "The animation matches the movement, equipment, position and laterality."
     },
+    "1ac5c6f170d8809394bfc3c118a7c9d1": {
+      "sourceName": "Standing single leg plate-loaded machine calf raise",
+      "datasetId": "0605",
+      "datasetName": "lever standing calf raise",
+      "tier": "similar",
+      "differences": [
+        "both_legs",
+        "machine"
+      ],
+      "why": "The standing calf raise uses both legs on a pin-loaded machine."
+    },
+    "1ac5c6f170d88096a00cda012fa6cad7": {
+      "sourceName": "Single leg pin-loaded leg press calf raise",
+      "datasetId": "2335",
+      "datasetName": "lever seated calf press",
+      "tier": "similar",
+      "differences": [
+        "both_legs"
+      ],
+      "why": "The seated leg press calf raise uses both legs."
+    },
     "1ad5c6f170d8801a99f3c05e565715ef": {
       "sourceName": "Seated plate-loaded machine lateral raise",
       "datasetId": "0584",
@@ -2096,6 +2656,27 @@
       "tier": "exact",
       "why": "Shows a seated bilateral bent-arm dumbbell lateral raise."
     },
+    "1ae5c6f170d8800c86b0e19530eef337": {
+      "sourceName": "Bent-over overhand grip dumbbell rear delt fly",
+      "datasetId": "0380",
+      "datasetName": "dumbbell rear lateral raise",
+      "tier": "similar",
+      "differences": [
+        "grip"
+      ],
+      "why": "The bent-over rear delt fly uses a neutral dumbbell grip."
+    },
+    "1ae5c6f170d880cead37fc715a47205d": {
+      "sourceName": "Standing plate-loaded machine lateral raise",
+      "datasetId": "0584",
+      "datasetName": "lever lateral raise",
+      "tier": "similar",
+      "differences": [
+        "seated",
+        "machine"
+      ],
+      "why": "The lateral raise uses a seated pin-loaded machine."
+    },
     "1ae5c6f170d880da89bcf368bc01af0b": {
       "sourceName": "Seated overhand grip dumbbell rear delt fly",
       "datasetId": "0378",
@@ -2109,6 +2690,17 @@
       "datasetName": "cable standing cross-over high reverse fly",
       "tier": "exact",
       "why": "The animation matches the movement, equipment, position and laterality."
+    },
+    "1b05c6f170d880898c3ade3eb3d10e80": {
+      "sourceName": "Single arm cable face pull",
+      "datasetId": "0233",
+      "datasetName": "cable standing rear delt row (with rope)",
+      "tier": "similar",
+      "differences": [
+        "both_arms",
+        "handle"
+      ],
+      "why": "The face pull uses both arms and a rope instead of one arm and a single handle."
     },
     "1b05c6f170d880c885f6f10ea922b25b": {
       "sourceName": "Underhand grip cable straight bar triceps pushdown",
@@ -2131,6 +2723,16 @@
       "tier": "exact",
       "why": "Shows bilateral standing V-bar cable triceps pushdowns."
     },
+    "1b15c6f170d880a4b130e3fd4e382c3f": {
+      "sourceName": "Underhand grip cable triceps kickback",
+      "datasetId": "0860",
+      "datasetName": "cable kickback",
+      "tier": "similar",
+      "differences": [
+        "grip"
+      ],
+      "why": "The cable kickback uses a neutral rather than underhand grip."
+    },
     "1b15c6f170d880fa97f2f6bce5cfa350": {
       "sourceName": "Single arm underhand grip cable triceps pushdown",
       "datasetId": "0231",
@@ -2145,12 +2747,44 @@
       "tier": "variant",
       "why": "Same high-pulley overhead extension with a straight attachment rather than a V-bar."
     },
+    "1b85c6f170d88017af62c7f6947b251f": {
+      "sourceName": "Seated machine shrug",
+      "datasetId": "0604",
+      "datasetName": "lever shrug",
+      "tier": "similar",
+      "differences": [
+        "standing"
+      ],
+      "why": "The plate-loaded machine shrug is shown standing instead of seated."
+    },
+    "1b95c6f170d880609678f792d0762c00": {
+      "sourceName": "Seated pin-loaded machine shrug",
+      "datasetId": "0604",
+      "datasetName": "lever shrug",
+      "tier": "similar",
+      "differences": [
+        "standing",
+        "machine"
+      ],
+      "why": "The machine shrug is standing and plate-loaded instead of seated and selectorized."
+    },
     "1ca5c6f170d88029b5f6c3464d50ea03": {
       "sourceName": "Neutral shoulder width grip cable lat pulldown",
       "datasetId": "2616",
       "datasetName": "cable lateral pulldown with v-bar",
       "tier": "variant",
       "why": "The seated neutral-grip pulldown uses a narrower V-bar attachment."
+    },
+    "1ca5c6f170d880a3bd11ce80391ac1ef": {
+      "sourceName": "Neutral wide grip cable lat pulldown",
+      "datasetId": "0198",
+      "datasetName": "cable pulldown",
+      "tier": "similar",
+      "differences": [
+        "grip",
+        "handle"
+      ],
+      "why": "The wide pulldown uses an overhand bar instead of a neutral-grip attachment."
     },
     "1ca5c6f170d880de9d4efa853805659e": {
       "sourceName": "Underhand wide grip cable lat pulldown",
@@ -2165,6 +2799,26 @@
       "datasetName": "lever t bar row",
       "tier": "exact",
       "why": "Shows an unsupported overhand T-bar row."
+    },
+    "1cf5c6f170d880b7a988c5c82888660c": {
+      "sourceName": "Bent-over semi-neutral grip T-bar row",
+      "datasetId": "0606",
+      "datasetName": "lever t bar row",
+      "tier": "similar",
+      "differences": [
+        "grip"
+      ],
+      "why": "The unsupported T-bar row uses an overhand rather than semi-neutral grip."
+    },
+    "1d05c6f170d880048a3bffc3b3c53e52": {
+      "sourceName": "Chest-supported underhand grip T-bar row",
+      "datasetId": "1349",
+      "datasetName": "lever reverse t-bar row",
+      "tier": "similar",
+      "differences": [
+        "grip"
+      ],
+      "why": "The chest-supported T-bar row uses a different grip from the specified underhand grip."
     },
     "1d05c6f170d8805295d5c5c4637401f8": {
       "sourceName": "Overhand grip landmine T-bar row",
@@ -2201,6 +2855,16 @@
       "tier": "variant",
       "why": "Same bar inverted row with a slightly narrower grip."
     },
+    "1d45c6f170d880c89281e6901f4c3849": {
+      "sourceName": "Dumbbell seal row (elbows-out)",
+      "datasetId": "1328",
+      "datasetName": "dumbbell lying rear delt row",
+      "tier": "similar",
+      "differences": [
+        "incline_bench"
+      ],
+      "why": "The chest-supported elbows-out row uses an incline bench instead of a flat seal bench."
+    },
     "1d65c6f170d8806da486d7f5528de15f": {
       "sourceName": "Underhand grip plate-loaded machine lat pulldown",
       "datasetId": "2736",
@@ -2215,12 +2879,32 @@
       "tier": "exact",
       "why": "The animation shows the named movement with matching equipment, position and limb use."
     },
+    "1ea5c6f170d8803fad6deac6a44ac402": {
+      "sourceName": "Neutral close grip pull-up",
+      "datasetId": "0651",
+      "datasetName": "pull up (neutral grip)",
+      "tier": "similar",
+      "differences": [
+        "grip"
+      ],
+      "why": "The pull-up uses wider angled overhand grips instead of close neutral handles."
+    },
     "1ea5c6f170d88048b560ff1639535e0c": {
       "sourceName": "Wide grip chin-up",
       "datasetId": "1326",
       "datasetName": "chin-up",
       "tier": "variant",
       "why": "Same supinated chin-up with a narrower grip."
+    },
+    "1ea5c6f170d8809588bbf87798d8f746": {
+      "sourceName": "Neutral wide grip pull-up",
+      "datasetId": "0651",
+      "datasetName": "pull up (neutral grip)",
+      "tier": "similar",
+      "differences": [
+        "grip"
+      ],
+      "why": "The pull-up uses angled overhand bar grips instead of wide parallel neutral handles."
     },
     "1eb5c6f170d8801a8641c62efb545970": {
       "sourceName": "Overhand grip plate-loaded machine-assisted pull-up",
@@ -2278,6 +2962,17 @@
       "tier": "variant",
       "why": "The reverse dumbbell lunge matches but lacks the explicit glute-dominant cue."
     },
+    "2085c6f170d880959b7ef4d14f58c269": {
+      "sourceName": "Plate pullover",
+      "datasetId": "0433",
+      "datasetName": "dumbbell straight arm pullover",
+      "tier": "similar",
+      "differences": [
+        "dumbbells",
+        "grip"
+      ],
+      "why": "The pullover uses a dumbbell held beneath its end instead of a plate held at its edges."
+    },
     "20c5c6f170d8808da9d7fa79ce7f1eca": {
       "sourceName": "Dual dumbbell triceps kickback",
       "datasetId": "0420",
@@ -2320,6 +3015,16 @@
       "tier": "variant",
       "why": "The squat uses a bench as the permitted box support."
     },
+    "2185c6f170d880028f61dcfb1b8376f4": {
+      "sourceName": "Wide grip EZ bar preacher curl",
+      "datasetId": "1627",
+      "datasetName": "ez barbell close grip preacher curl",
+      "tier": "similar",
+      "differences": [
+        "grip"
+      ],
+      "why": "The EZ bar preacher curl uses a close rather than wide grip."
+    },
     "2185c6f170d880508589f149c556677f": {
       "sourceName": "Plate-loaded machine preacher curl",
       "datasetId": "0592",
@@ -2334,12 +3039,72 @@
       "tier": "exact",
       "why": "Shows bilateral close-grip EZ-bar curls on a preacher bench."
     },
+    "2185c6f170d8807192f5fde56bf665f3": {
+      "sourceName": "Single arm plate-loaded machine preacher curl",
+      "datasetId": "1614",
+      "datasetName": "lever preacher curl v. 2",
+      "tier": "similar",
+      "differences": [
+        "both_arms"
+      ],
+      "why": "The plate-loaded preacher curl uses both arms."
+    },
+    "21b5c6f170d88065b2edd2323f4e0a77": {
+      "sourceName": "Low incline dumbbell fly",
+      "datasetId": "0308",
+      "datasetName": "dumbbell fly",
+      "tier": "similar",
+      "differences": [
+        "flat_bench"
+      ],
+      "why": "The dumbbell fly is shown flat instead of on a low incline."
+    },
+    "21b5c6f170d880ae8df7c12086a855cd": {
+      "sourceName": "Single arm low-to-high cable fly",
+      "datasetId": "0179",
+      "datasetName": "cable low fly",
+      "tier": "similar",
+      "differences": [
+        "both_arms"
+      ],
+      "why": "The low-to-high cable fly uses both arms."
+    },
     "21c5c6f170d880019593eeff6244ee38": {
       "sourceName": "Single arm cable front raise",
       "datasetId": "0161",
       "datasetName": "cable forward raise",
       "tier": "exact",
       "why": "Shows a standing single-arm cable front raise."
+    },
+    "21c5c6f170d88003a39bda54ea48d199": {
+      "sourceName": "Single arm high-to-low cable fly",
+      "datasetId": "0227",
+      "datasetName": "cable standing fly",
+      "tier": "similar",
+      "differences": [
+        "both_arms"
+      ],
+      "why": "The high-to-low cable fly uses both arms."
+    },
+    "2245c6f170d880238f4ff9500137ec89": {
+      "sourceName": "Low incline dumbbell press",
+      "datasetId": "0289",
+      "datasetName": "dumbbell bench press",
+      "tier": "similar",
+      "differences": [
+        "flat_bench"
+      ],
+      "why": "The dumbbell press is shown flat instead of on a low incline."
+    },
+    "2245c6f170d8808883f9ea2d3b18530a": {
+      "sourceName": "High incline dumbbell press",
+      "datasetId": "0289",
+      "datasetName": "dumbbell bench press",
+      "tier": "similar",
+      "differences": [
+        "flat_bench"
+      ],
+      "why": "The dumbbell press uses a flat bench instead of a high incline."
     },
     "2285c6f170d880d3b0e7c4fbfb5da392": {
       "sourceName": "Touch-and-go conventional deadlift",
@@ -2453,6 +3218,26 @@
       "tier": "variant",
       "why": "The movement matches, but the animation does not show the prescribed pause."
     },
+    "2405c6f170d88013a49ec0ebed04a154": {
+      "sourceName": "Low incline Smith machine press",
+      "datasetId": "0748",
+      "datasetName": "smith bench press",
+      "tier": "similar",
+      "differences": [
+        "flat_bench"
+      ],
+      "why": "The Smith bench press is shown flat instead of on a low incline."
+    },
+    "2405c6f170d8805e8629d8445d40121a": {
+      "sourceName": "High incline Smith machine press",
+      "datasetId": "0748",
+      "datasetName": "smith bench press",
+      "tier": "similar",
+      "differences": [
+        "flat_bench"
+      ],
+      "why": "The Smith press uses a flat bench instead of a high incline."
+    },
     "2405c6f170d88066aa57f7e9c8af3988": {
       "sourceName": "Spoto press",
       "datasetId": "0025",
@@ -2502,6 +3287,16 @@
       "tier": "exact",
       "why": "Shows the named movement with matching equipment, position and laterality."
     },
+    "2535c6f170d8801bab2af2748abfe4e1": {
+      "sourceName": "Slight decline dumbbell bench press",
+      "datasetId": "0301",
+      "datasetName": "dumbbell decline bench press",
+      "tier": "similar",
+      "differences": [
+        "decline_bench"
+      ],
+      "why": "The dumbbell press uses a dedicated decline bench rather than a slightly tilted flat bench."
+    },
     "2565c6f170d88044b9e8dd1209a999a6": {
       "sourceName": "Decline crunch with hands on shoulders",
       "datasetId": "0277",
@@ -2537,6 +3332,17 @@
       "tier": "exact",
       "why": "Shows a seated bilateral machine triceps dip."
     },
+    "25d5c6f170d8801a981fed5219ddbb4e": {
+      "sourceName": "Seated single leg pin-loaded machine calf raise",
+      "datasetId": "0594",
+      "datasetName": "lever seated calf raise",
+      "tier": "similar",
+      "differences": [
+        "both_legs",
+        "machine"
+      ],
+      "why": "The seated calf raise uses both legs and plate loading instead of one leg and a weight stack."
+    },
     "25d5c6f170d880c887a2fa457044342e": {
       "sourceName": "Seated pin-loaded machine calf raise",
       "datasetId": "0594",
@@ -2550,6 +3356,38 @@
       "datasetName": "lever chest press",
       "tier": "exact",
       "why": "Shows a seated bilateral machine chest press with vertical neutral handles."
+    },
+    "2695c6f170d8800798edcc4962b408a1": {
+      "sourceName": "Lying pin-loaded machine chest press",
+      "datasetId": "0577",
+      "datasetName": "lever chest press",
+      "tier": "similar",
+      "differences": [
+        "seated",
+        "grip"
+      ],
+      "why": "The machine press is seated with vertical neutral handles instead of lying with an overhand grip."
+    },
+    "2695c6f170d8801483dcc92d594faa26": {
+      "sourceName": "Lying neutral grip plate-loaded machine chest press",
+      "datasetId": "0577",
+      "datasetName": "lever chest press",
+      "tier": "similar",
+      "differences": [
+        "seated",
+        "machine"
+      ],
+      "why": "The neutral-grip press is seated on a selectorized machine instead of lying on a plate-loaded machine."
+    },
+    "2695c6f170d880809556d02e4cf5e3da": {
+      "sourceName": "Lying plate-loaded machine chest press",
+      "datasetId": "0576",
+      "datasetName": "lever chest press",
+      "tier": "similar",
+      "differences": [
+        "seated"
+      ],
+      "why": "The plate-loaded chest press is shown seated instead of lying."
     },
     "26a5c6f170d8801f894cc7620869b673": {
       "sourceName": "Seated plate-loaded machine chest dip",
@@ -2747,6 +3585,17 @@
       "tier": "exact",
       "why": "Shows a supported kneeling unilateral machine glute kickback."
     },
+    "2925c6f170d88037b3d9c22ff48a9988": {
+      "sourceName": "Neutral grip weighted pull-up",
+      "datasetId": "0651",
+      "datasetName": "pull up (neutral grip)",
+      "tier": "similar",
+      "differences": [
+        "bodyweight",
+        "grip"
+      ],
+      "why": "The pull-up is unweighted and uses angled overhand grips instead of neutral handles."
+    },
     "2945c6f170d8800c8ffcdad2c4e5ffce": {
       "sourceName": "Machine-assisted dip",
       "datasetId": "0019",
@@ -2887,6 +3736,16 @@
       "tier": "variant",
       "why": "The movement matches, but the animation does not show the prescribed pause."
     },
+    "29d5c6f170d880409366c2590701e800": {
+      "sourceName": "Snatch grip Romanian deadlift",
+      "datasetId": "0085",
+      "datasetName": "barbell romanian deadlift",
+      "tier": "similar",
+      "differences": [
+        "grip"
+      ],
+      "why": "The same barbell movement uses a narrower grip instead of a snatch grip."
+    },
     "29d5c6f170d88047a8cfd79892e274d5": {
       "sourceName": "Single arm dumbbell preacher curl",
       "datasetId": "0372",
@@ -2914,6 +3773,16 @@
       "datasetName": "ez barbell reverse grip curl",
       "tier": "exact",
       "why": "Matches the named movement, equipment, body position, and laterality."
+    },
+    "29f5c6f170d8803988fcc71c2940623e": {
+      "sourceName": "Dumbbell preacher hammer curl",
+      "datasetId": "1646",
+      "datasetName": "dumbbell alternate hammer preacher curl",
+      "tier": "similar",
+      "differences": [
+        "one_arm"
+      ],
+      "why": "The preacher hammer curl moves one arm at a time."
     },
     "29f5c6f170d8803b9bd7da5e16e2e6cc": {
       "sourceName": "High bar box squat",
@@ -2950,6 +3819,27 @@
       "tier": "variant",
       "why": "The movement matches, but the animation does not show the prescribed pause."
     },
+    "2a05c6f170d88032be2ee6ccdc2bc2b9": {
+      "sourceName": "Half-kneeling cable Pallof press",
+      "datasetId": "0979",
+      "datasetName": "band horizontal pallof press",
+      "tier": "similar",
+      "differences": [
+        "band",
+        "standing"
+      ],
+      "why": "The anti-rotation press uses a band while standing instead of half-kneeling."
+    },
+    "2a05c6f170d88048b677f623d7693a19": {
+      "sourceName": "Smith machine Pendlay row",
+      "datasetId": "3017",
+      "datasetName": "barbell pendlay row",
+      "tier": "similar",
+      "differences": [
+        "barbell"
+      ],
+      "why": "The Pendlay row uses a free barbell along the same rowing path."
+    },
     "2a05c6f170d88068b1f8e50b33c87079": {
       "sourceName": "Cable EZ bar biceps curl",
       "datasetId": "0868",
@@ -2957,12 +3847,32 @@
       "tier": "variant",
       "why": "Same standing cable curl, using a straight attachment rather than an EZ attachment."
     },
+    "2a05c6f170d8807ca8d5d6bc4ba615c4": {
+      "sourceName": "Kneeling cable straight arm lat pulldown",
+      "datasetId": "0238",
+      "datasetName": "cable straight arm pulldown",
+      "tier": "similar",
+      "differences": [
+        "standing"
+      ],
+      "why": "The straight-arm cable pulldown is shown standing instead of kneeling."
+    },
     "2a05c6f170d880a3a7b5c523968fc01b": {
       "sourceName": "Cable hip adduction",
       "datasetId": "0168",
       "datasetName": "cable hip adduction",
       "tier": "exact",
       "why": "Shows unilateral standing cable hip adduction with an ankle cuff."
+    },
+    "2a05c6f170d880c897bbfc6bb80b7ab3": {
+      "sourceName": "Cable concentration curl",
+      "datasetId": "1642",
+      "datasetName": "cable seated one arm concentration curl",
+      "tier": "similar",
+      "differences": [
+        "seated"
+      ],
+      "why": "The thigh-braced cable concentration curl is shown seated."
     },
     "2a05c6f170d880dfa1f2d723c2a7a3a0": {
       "sourceName": "Pause plate-loaded machine-assisted dip",
@@ -3027,12 +3937,32 @@
       "tier": "variant",
       "why": "Same band-assisted pull-up with a slightly narrower grip."
     },
+    "2a25c6f170d880f4b962fed4aa60820b": {
+      "sourceName": "Standing Arnold press",
+      "datasetId": "0287",
+      "datasetName": "dumbbell arnold press v. 2",
+      "tier": "similar",
+      "differences": [
+        "seated"
+      ],
+      "why": "The Arnold press is shown seated."
+    },
     "2a35c6f170d8800c9b3de01d90acbc44": {
       "sourceName": "Machine cheat shrug",
       "datasetId": "0604",
       "datasetName": "lever shrug",
       "tier": "variant",
       "why": "Shows the same standing machine shrug without the deliberate cheat impulse."
+    },
+    "2a45c6f170d8802891cbf6897f304221": {
+      "sourceName": "Neutral grip band-assisted pull-up",
+      "datasetId": "0970",
+      "datasetName": "band assisted pull-up",
+      "tier": "similar",
+      "differences": [
+        "grip"
+      ],
+      "why": "The band-assisted pull-up uses an overhand grip instead of neutral handles."
     },
     "2a55c6f170d88077895ddf5fadda700f": {
       "sourceName": "Dumbbell Scott curl",
@@ -3054,6 +3984,46 @@
       "datasetName": "barbell deadlift",
       "tier": "variant",
       "why": "Same conventional barbell deadlift, without an explicit reset between repetitions."
+    },
+    "2a95c6f170d88030be42cfe71124d3a1": {
+      "sourceName": "Single arm fat grip dumbbell preacher hammer curl",
+      "datasetId": "1663",
+      "datasetName": "dumbbell one arm hammer preacher curl",
+      "tier": "similar",
+      "differences": [
+        "dumbbells"
+      ],
+      "why": "The same curl uses ordinary dumbbells without fat grip attachments."
+    },
+    "2a95c6f170d8805e8b27cb88e703eac7": {
+      "sourceName": "Band-assisted chin-up",
+      "datasetId": "0970",
+      "datasetName": "band assisted pull-up",
+      "tier": "similar",
+      "differences": [
+        "grip"
+      ],
+      "why": "The band-assisted vertical pull uses an overhand grip."
+    },
+    "2a95c6f170d8807b8876cbb06d90c203": {
+      "sourceName": "Standing fat grip dumbbell hammer curl",
+      "datasetId": "0312",
+      "datasetName": "dumbbell hammer curl v. 2",
+      "tier": "similar",
+      "differences": [
+        "dumbbells"
+      ],
+      "why": "The same curl uses ordinary dumbbells without fat grip attachments."
+    },
+    "2a95c6f170d880c79ad0e9ecc4f0d855": {
+      "sourceName": "Standing fat grip dumbbell biceps curl",
+      "datasetId": "0416",
+      "datasetName": "dumbbell standing biceps curl",
+      "tier": "similar",
+      "differences": [
+        "dumbbells"
+      ],
+      "why": "The same curl uses ordinary dumbbells without fat grip attachments."
     },
     "2aa5c6f170d8805eba89d16e66093142": {
       "sourceName": "Cable shoulder press",
@@ -3118,6 +4088,17 @@
       "tier": "exact",
       "why": "Shows bilateral rear-delt flyes with incline chest support."
     },
+    "2ab5c6f170d880708a30f9f8872c6084": {
+      "sourceName": "Half-kneeling single arm crucifix curl",
+      "datasetId": "1636",
+      "datasetName": "cable overhead curl",
+      "tier": "similar",
+      "differences": [
+        "both_arms",
+        "standing"
+      ],
+      "why": "The high-cable crucifix curl uses both arms while standing."
+    },
     "2ab5c6f170d88077bf41c329e79f07b9": {
       "sourceName": "Flat-back barbell bench press",
       "datasetId": "0025",
@@ -3131,6 +4112,48 @@
       "datasetName": "lever standing calf raise",
       "tier": "variant",
       "why": "The same machine calf raise omits the accentuated eccentric tempo."
+    },
+    "2ab5c6f170d880ab86d3fc93d8eaa4d3": {
+      "sourceName": "Single arm pinch grip dumbbell curl",
+      "datasetId": "1670",
+      "datasetName": "dumbbell one arm standing curl",
+      "tier": "similar",
+      "differences": [
+        "grip"
+      ],
+      "why": "The curl uses a conventional handle grip instead of pinching the dumbbell."
+    },
+    "2ab5c6f170d880c5a2b7fd382b30b40e": {
+      "sourceName": "Side-lying low incline dumbbell lateral raise",
+      "datasetId": "0323",
+      "datasetName": "dumbbell incline one arm lateral raise",
+      "tier": "similar",
+      "differences": [
+        "incline_bench"
+      ],
+      "why": "The side-lying unilateral lateral raise uses a steeper incline bench instead of a low incline."
+    },
+    "2ac5c6f170d880528867ff9573668f14": {
+      "sourceName": "Plate shrug",
+      "datasetId": "0406",
+      "datasetName": "dumbbell shrug",
+      "tier": "similar",
+      "differences": [
+        "dumbbells",
+        "grip"
+      ],
+      "why": "The shrug uses dumbbell handles instead of gripping plates at the sides."
+    },
+    "2ad5c6f170d8800794e2f44d340d181e": {
+      "sourceName": "Cable row with dynamic back extension",
+      "datasetId": "0861",
+      "datasetName": "cable seated row",
+      "tier": "similar",
+      "differences": [
+        "grip",
+        "handle"
+      ],
+      "why": "The dynamic cable row uses a neutral grip and close handle."
     },
     "2ad5c6f170d8804aa21df1e164192910": {
       "sourceName": "Wide grip weighted pull-up",
@@ -3188,6 +4211,26 @@
       "tier": "variant",
       "why": "The same step calf raise omits the accentuated eccentric tempo."
     },
+    "2ae5c6f170d8805da4e1d8dc785bc9ea": {
+      "sourceName": "Neutral grip pin-loaded machine lat pulldown",
+      "datasetId": "0579",
+      "datasetName": "lever front pulldown",
+      "tier": "similar",
+      "differences": [
+        "grip"
+      ],
+      "why": "The machine pulldown shows underhand grips instead of neutral grips."
+    },
+    "2ae5c6f170d88069bb1dc458458a3a78": {
+      "sourceName": "Overhand grip pin-loaded machine lat pulldown",
+      "datasetId": "0579",
+      "datasetName": "lever front pulldown",
+      "tier": "similar",
+      "differences": [
+        "grip"
+      ],
+      "why": "The machine pulldown shows underhand instead of overhand grips."
+    },
     "2ae5c6f170d8807da2dcd7bf23371d82": {
       "sourceName": "Cable rope straight arm lat pulldown",
       "datasetId": "0237",
@@ -3202,6 +4245,16 @@
       "tier": "exact",
       "why": "Shows the named movement with matching equipment, position and laterality."
     },
+    "2ae5c6f170d880d0b371e2747293bb3d": {
+      "sourceName": "Seated cable fly",
+      "datasetId": "0188",
+      "datasetName": "cable middle fly",
+      "tier": "similar",
+      "differences": [
+        "standing"
+      ],
+      "why": "The cable fly keeps the same horizontal arm path but is shown standing instead of seated."
+    },
     "2ae5c6f170d880d0bd81c87b1814c805": {
       "sourceName": "Wide grip pin-loaded machine row",
       "datasetId": "1350",
@@ -3215,6 +4268,16 @@
       "datasetName": "lever seated row",
       "tier": "variant",
       "why": "Shows the named movement with matching equipment, position and laterality. (verifier: The machine row shows a roughly shoulder-width overhand grip rather than the specified wide grip.)"
+    },
+    "2b25c6f170d88028809bfcde86c6e69e": {
+      "sourceName": "Seated dumbbell Zottman curl",
+      "datasetId": "0439",
+      "datasetName": "dumbbell zottman curl",
+      "tier": "similar",
+      "differences": [
+        "standing"
+      ],
+      "why": "The Zottman curl is shown standing instead of seated."
     },
     "2bf5c6f170d880a0af97cfd8c54d814c": {
       "sourceName": "Tall plank scapular protraction",
@@ -3237,6 +4300,36 @@
       "tier": "exact",
       "why": "Shows a standing unilateral cuffed cable hip extension."
     },
+    "2cc5c6f170d8800798eddcf4b873de4c": {
+      "sourceName": "Seated single arm plate-loaded machine incline press",
+      "datasetId": "1299",
+      "datasetName": "lever incline chest press",
+      "tier": "similar",
+      "differences": [
+        "both_arms"
+      ],
+      "why": "The seated plate-loaded incline press uses both arms instead of one."
+    },
+    "2cc5c6f170d88074a5e5eff1282b47f2": {
+      "sourceName": "Single arm crucifix curl",
+      "datasetId": "1636",
+      "datasetName": "cable overhead curl",
+      "tier": "similar",
+      "differences": [
+        "both_arms"
+      ],
+      "why": "The same high-cable curl uses both arms."
+    },
+    "2ce5c6f170d8809a8f3deb9e145171b0": {
+      "sourceName": "Band triceps pushdown",
+      "datasetId": "0200",
+      "datasetName": "cable pushdown (with rope attachment)",
+      "tier": "similar",
+      "differences": [
+        "cable"
+      ],
+      "why": "The bilateral pushdown uses a high cable and rope instead of a band."
+    },
     "2cf5c6f170d88030b58fd481d9951983": {
       "sourceName": "Dual kettlebell clean",
       "datasetId": "0552",
@@ -3250,6 +4343,38 @@
       "datasetName": "dumbbell lying external shoulder rotation",
       "tier": "exact",
       "why": "Shows side-lying dumbbell shoulder external rotation."
+    },
+    "2e35c6f170d88064bd1ec50647b38148": {
+      "sourceName": "Neutral grip plate-loaded machine lat pulldown",
+      "datasetId": "0579",
+      "datasetName": "lever front pulldown",
+      "tier": "similar",
+      "differences": [
+        "machine",
+        "grip"
+      ],
+      "why": "The pulldown uses a selectorized machine and underhand grips instead of plate loading and neutral grips."
+    },
+    "2e35c6f170d880ab8134d260a3fb6cf4": {
+      "sourceName": "Underhand grip barbell seal row",
+      "datasetId": "0049",
+      "datasetName": "barbell incline row",
+      "tier": "similar",
+      "differences": [
+        "incline_bench",
+        "grip"
+      ],
+      "why": "The chest-supported barbell row uses an incline bench and overhand grip."
+    },
+    "2e35c6f170d880c0b0cde92fcc3eee3d": {
+      "sourceName": "Barbell seal row",
+      "datasetId": "0049",
+      "datasetName": "barbell incline row",
+      "tier": "similar",
+      "differences": [
+        "incline_bench"
+      ],
+      "why": "The chest-supported barbell row uses an incline bench."
     },
     "2e55c6f170d880faaf6ac27b7f05bb46": {
       "sourceName": "Pause ring dip",
@@ -3356,6 +4481,38 @@
       "tier": "exact",
       "why": "The animation matches the movement, equipment, position and laterality."
     },
+    "2f45c6f170d88029be9fc43fceda1500": {
+      "sourceName": "Plate-loaded machine-assisted chin-up",
+      "datasetId": "0572",
+      "datasetName": "lever assisted chin-up",
+      "tier": "similar",
+      "differences": [
+        "machine",
+        "grip"
+      ],
+      "why": "The assisted pull uses a selectorized machine and an overhand grip instead of plate loading and an underhand grip."
+    },
+    "2f45c6f170d8806cb6fdd5f6e6186759": {
+      "sourceName": "Single leg dumbbell glute bridge",
+      "datasetId": "1409",
+      "datasetName": "barbell glute bridge",
+      "tier": "similar",
+      "differences": [
+        "both_legs",
+        "barbell"
+      ],
+      "why": "The glute bridge uses both legs with a barbell across the hips."
+    },
+    "2f45c6f170d8809595d5ce3ab6489d3d": {
+      "sourceName": "Single leg barbell glute bridge",
+      "datasetId": "1409",
+      "datasetName": "barbell glute bridge",
+      "tier": "similar",
+      "differences": [
+        "both_legs"
+      ],
+      "why": "The barbell glute bridge uses both legs."
+    },
     "2f45c6f170d880ec918afd0c11e016f9": {
       "sourceName": "Machine-assisted chin-up",
       "datasetId": "0572",
@@ -3398,12 +4555,62 @@
       "tier": "exact",
       "why": "The animation matches the movement, equipment, position and laterality."
     },
+    "2fe5c6f170d880ffb230ffceb58e711c": {
+      "sourceName": "Vertical leg press",
+      "datasetId": "0760",
+      "datasetName": "smith leg press",
+      "tier": "similar",
+      "differences": [
+        "smith_machine"
+      ],
+      "why": "The vertical leg press uses a Smith bar against the feet along the same vertical path."
+    },
+    "2ff5c6f170d8806e89c4cbbd400099a0": {
+      "sourceName": "Axle deadlift",
+      "datasetId": "0032",
+      "datasetName": "barbell deadlift",
+      "tier": "similar",
+      "differences": [
+        "barbell"
+      ],
+      "why": "The same deadlift uses a standard barbell instead of an axle."
+    },
     "2ff5c6f170d880a6a051db7051c1058b": {
       "sourceName": "Jump rope",
       "datasetId": "2612",
       "datasetName": "jump rope",
       "tier": "exact",
       "why": "Shows jumping rope with a two-foot hop."
+    },
+    "3005c6f170d8806bae7eff84cc27cbc9": {
+      "sourceName": "Buffalo bar bench press",
+      "datasetId": "0025",
+      "datasetName": "barbell bench press",
+      "tier": "similar",
+      "differences": [
+        "barbell"
+      ],
+      "why": "The flat bench press uses a straight barbell instead of a Buffalo bar."
+    },
+    "3005c6f170d880b0855ce54eabed67d6": {
+      "sourceName": "Cambered bar bench press",
+      "datasetId": "0025",
+      "datasetName": "barbell bench press",
+      "tier": "similar",
+      "differences": [
+        "barbell"
+      ],
+      "why": "The bench press uses a straight barbell instead of a cambered bar."
+    },
+    "3005c6f170d880eeb433c795c4f8cc5d": {
+      "sourceName": "Cambered bar squat",
+      "datasetId": "1436",
+      "datasetName": "barbell high bar squat",
+      "tier": "similar",
+      "differences": [
+        "barbell"
+      ],
+      "why": "The back squat uses a straight barbell instead of a cambered bar."
     },
     "3015c6f170d88085bd3eccbedfea3dc3": {
       "sourceName": "Bosu ball push-up",
@@ -3419,6 +4626,17 @@
       "tier": "variant",
       "why": "Same hanging straight-leg raise, without added weight."
     },
+    "3065c6f170d8802ba1e2d2055f8bd410": {
+      "sourceName": "Single arm cable shrug",
+      "datasetId": "0220",
+      "datasetName": "cable shrug",
+      "tier": "similar",
+      "differences": [
+        "both_arms",
+        "handle"
+      ],
+      "why": "The shrug uses both arms and a bar attachment."
+    },
     "3065c6f170d8807abd9fc6be633e0b19": {
       "sourceName": "Dumbbell deadlift",
       "datasetId": "0300",
@@ -3433,12 +4651,32 @@
       "tier": "exact",
       "why": "Frames show a weighted hanging bent-knee raise."
     },
+    "3065c6f170d880d2bc77cba9edbf8ce9": {
+      "sourceName": "Dumbbell renegade row",
+      "datasetId": "0521",
+      "datasetName": "kettlebell alternating renegade row",
+      "tier": "similar",
+      "differences": [
+        "kettlebell"
+      ],
+      "why": "The plank-supported renegade row uses kettlebells instead of dumbbells."
+    },
     "3065c6f170d880ea9e55f2c3f7a93b48": {
       "sourceName": "Captain’s chair weighted knee raise",
       "datasetId": "0826",
       "datasetName": "vertical leg raise (on parallel bars)",
       "tier": "variant",
       "why": "Same captain’s-chair knee raise, shown without added weight."
+    },
+    "3065c6f170d880eea408cc28767961ae": {
+      "sourceName": "Single arm cable rear delt fly",
+      "datasetId": "0225",
+      "datasetName": "cable standing cross-over high reverse fly",
+      "tier": "similar",
+      "differences": [
+        "both_arms"
+      ],
+      "why": "The same reverse fly is shown with both arms."
     },
     "3065c6f170d880fa8ca1fc1223bc98b8": {
       "sourceName": "Captain’s chair weighted straight leg raise",
@@ -3489,6 +4727,16 @@
       "tier": "exact",
       "why": "The animation shows the named movement with matching equipment, position and limb use."
     },
+    "30d5c6f170d880e7a00ee1e7319b720d": {
+      "sourceName": "Dual handle cable lat pulldown",
+      "datasetId": "0818",
+      "datasetName": "twin handle parallel grip lat pulldown",
+      "tier": "similar",
+      "differences": [
+        "one_arm"
+      ],
+      "why": "The dual-handle pulldown moves one arm while the other stays overhead."
+    },
     "30f5c6f170d88010a9c0dc8c3f5f33c4": {
       "sourceName": "Pin-loaded machine high row",
       "datasetId": "0581",
@@ -3531,6 +4779,37 @@
       "tier": "exact",
       "why": "The animation matches the movement, equipment, position and laterality."
     },
+    "3275c6f170d880589233d014bca079c4": {
+      "sourceName": "Single leg kettlebell glute bridge",
+      "datasetId": "1409",
+      "datasetName": "barbell glute bridge",
+      "tier": "similar",
+      "differences": [
+        "both_legs",
+        "barbell"
+      ],
+      "why": "The glute bridge uses both legs with a barbell across the hips."
+    },
+    "3275c6f170d88063b9c9d0c80fca658d": {
+      "sourceName": "Kettlebell glute bridge",
+      "datasetId": "1409",
+      "datasetName": "barbell glute bridge",
+      "tier": "similar",
+      "differences": [
+        "barbell"
+      ],
+      "why": "The floor glute bridge places a barbell across the hips instead of a kettlebell."
+    },
+    "3295c6f170d880daaee2e2962ae412dc": {
+      "sourceName": "Band chest fly",
+      "datasetId": "0188",
+      "datasetName": "cable middle fly",
+      "tier": "similar",
+      "differences": [
+        "cable"
+      ],
+      "why": "The standing chest fly uses cables along the same hand path."
+    },
     "32e5c6f170d8800b9e2ada4601772e3e": {
       "sourceName": "Seated EZ bar overhead triceps extension",
       "datasetId": "0453",
@@ -3551,6 +4830,36 @@
       "datasetName": "chin-up",
       "tier": "variant",
       "why": "Shows a full chin-up rather than emphasizing only the slow lowering phase."
+    },
+    "32e5c6f170d88091b119f0e332588c58": {
+      "sourceName": "Trap bar reverse lunge",
+      "datasetId": "0381",
+      "datasetName": "dumbbell rear lunge",
+      "tier": "similar",
+      "differences": [
+        "dumbbells"
+      ],
+      "why": "The reverse lunge uses dumbbells hanging beside the body instead of trap-bar handles."
+    },
+    "32e5c6f170d880b58649dd5bf7bb2c31": {
+      "sourceName": "Seated dumbbell shoulder external rotation",
+      "datasetId": "0864",
+      "datasetName": "dumbbell upright shoulder external rotation",
+      "tier": "similar",
+      "differences": [
+        "standing"
+      ],
+      "why": "The unilateral shoulder external rotation is shown standing instead of seated."
+    },
+    "32e5c6f170d880efad66d48095e79bdd": {
+      "sourceName": "Negative neutral grip pull-up",
+      "datasetId": "0651",
+      "datasetName": "pull up (neutral grip)",
+      "tier": "similar",
+      "differences": [
+        "grip"
+      ],
+      "why": "The pull-up uses angled overhand bar grips instead of parallel neutral handles."
     },
     "32e5c6f170d880efb190df52550f9f93": {
       "sourceName": "Weighted inverted row",
@@ -3587,6 +4896,56 @@
       "tier": "exact",
       "why": "The animation shows the named movement with matching equipment, position and limb use."
     },
+    "3315c6f170d8805189f3df9113d267f0": {
+      "sourceName": "Band biceps curl",
+      "datasetId": "3123",
+      "datasetName": "resistance band seated biceps curl",
+      "tier": "similar",
+      "differences": [
+        "seated"
+      ],
+      "why": "The bilateral band curl is shown seated."
+    },
+    "3315c6f170d8805a8e13ff6a504ddf82": {
+      "sourceName": "Band lateral raise",
+      "datasetId": "0178",
+      "datasetName": "cable lateral raise",
+      "tier": "similar",
+      "differences": [
+        "cable"
+      ],
+      "why": "The bilateral lateral raise uses low cables instead of a band."
+    },
+    "3315c6f170d8806ea037e628fead3b7c": {
+      "sourceName": "Kettlebell lateral raise",
+      "datasetId": "0334",
+      "datasetName": "dumbbell lateral raise",
+      "tier": "similar",
+      "differences": [
+        "dumbbells"
+      ],
+      "why": "The bilateral lateral raise uses dumbbells instead of kettlebells."
+    },
+    "3315c6f170d880af840afa6c72b76754": {
+      "sourceName": "Kettlebell rear delt fly",
+      "datasetId": "0380",
+      "datasetName": "dumbbell rear lateral raise",
+      "tier": "similar",
+      "differences": [
+        "dumbbells"
+      ],
+      "why": "The bent-over rear delt fly uses dumbbells instead of kettlebells."
+    },
+    "3315c6f170d880b0b8bec18a4fc536c1": {
+      "sourceName": "Band upright row",
+      "datasetId": "0246",
+      "datasetName": "cable upright row",
+      "tier": "similar",
+      "differences": [
+        "cable"
+      ],
+      "why": "The upright row uses a low cable instead of a band."
+    },
     "3315c6f170d880d296abfb90dbd5aa6b": {
       "sourceName": "Band front raise",
       "datasetId": "0978",
@@ -3601,6 +4960,56 @@
       "tier": "exact",
       "why": "The animation shows the named movement with matching equipment, position and limb use."
     },
+    "3325c6f170d880a2a9b6e4391cc8390a": {
+      "sourceName": "Single kettlebell Romanian deadlift",
+      "datasetId": "0085",
+      "datasetName": "barbell romanian deadlift",
+      "tier": "similar",
+      "differences": [
+        "barbell"
+      ],
+      "why": "The Romanian deadlift uses a barbell held in front along the same hinge path."
+    },
+    "33a5c6f170d880d99bcee5db870f9351": {
+      "sourceName": "EZ bar upright row",
+      "datasetId": "0119",
+      "datasetName": "barbell upright row v. 2",
+      "tier": "similar",
+      "differences": [
+        "barbell"
+      ],
+      "why": "The upright row uses a straight barbell instead of an EZ bar."
+    },
+    "33c5c6f170d88097a179d6e74e09af7b": {
+      "sourceName": "Seated dual handle cable row (elbows-in)",
+      "datasetId": "1323",
+      "datasetName": "cable rope seated row",
+      "tier": "similar",
+      "differences": [
+        "handle"
+      ],
+      "why": "The elbows-in cable row uses a rope attachment instead of separate handles."
+    },
+    "33e5c6f170d880e0922cc677a863e2a4": {
+      "sourceName": "Standing machine chest fly",
+      "datasetId": "0596",
+      "datasetName": "lever seated fly",
+      "tier": "similar",
+      "differences": [
+        "seated"
+      ],
+      "why": "The machine chest fly is shown seated."
+    },
+    "3445c6f170d880118464dfb97c3e8b4a": {
+      "sourceName": "Seated dual handle cable row (elbows-out)",
+      "datasetId": "0218",
+      "datasetName": "cable seated wide-grip row",
+      "tier": "similar",
+      "differences": [
+        "handle"
+      ],
+      "why": "The elbows-out cable row uses a shared wide bar instead of separate handles."
+    },
     "3565c6f170d880f09ea0dc8605d13ebe": {
       "sourceName": "Cambered bar seal row",
       "datasetId": "0248",
@@ -3614,6 +5023,16 @@
       "datasetName": "sled lying squat",
       "tier": "exact",
       "why": "Shows a lying horizontal pin-loaded hack squat matching the catalog alias."
+    },
+    "3585c6f170d88032a92edeaaaac53bf6": {
+      "sourceName": "Concentration hammer curl",
+      "datasetId": "0297",
+      "datasetName": "dumbbell concentration curl",
+      "tier": "similar",
+      "differences": [
+        "grip"
+      ],
+      "why": "The concentration curl uses a supinated grip instead of a hammer grip."
     },
     "3585c6f170d8804c9328f764225cfc6c": {
       "sourceName": "Toes-to-bar",
@@ -3643,6 +5062,68 @@
       "tier": "exact",
       "why": "The animation matches the movement, equipment, position and laterality."
     },
+    "3725c6f170d880c49ad7fd2115889c62": {
+      "sourceName": "Seated single arm plate-loaded machine finger curl",
+      "datasetId": "2288",
+      "datasetName": "lever gripper hands",
+      "tier": "similar",
+      "differences": [
+        "both_arms"
+      ],
+      "why": "The seated plate-loaded gripper uses both hands instead of one."
+    },
+    "3865c6f170d88092b9d0cd1122fa9f34": {
+      "sourceName": "Single leg bodyweight Roman chair hip hinge",
+      "datasetId": "0489",
+      "datasetName": "hyperextension",
+      "tier": "similar",
+      "differences": [
+        "both_legs"
+      ],
+      "why": "The Roman chair hip hinge uses both legs."
+    },
+    "3895c6f170d88001a6a1eaf6fcd1d32e": {
+      "sourceName": "Lying single arm plate-loaded machine chest press",
+      "datasetId": "0576",
+      "datasetName": "lever chest press",
+      "tier": "similar",
+      "differences": [
+        "seated",
+        "both_arms"
+      ],
+      "why": "The plate-loaded chest press is seated and uses both arms instead of lying and using one."
+    },
+    "3895c6f170d8800fa56ccb8180ff6c5b": {
+      "sourceName": "Seated single arm plate-loaded machine chest press",
+      "datasetId": "0576",
+      "datasetName": "lever chest press",
+      "tier": "similar",
+      "differences": [
+        "both_arms"
+      ],
+      "why": "The seated plate-loaded chest press uses both arms instead of one."
+    },
+    "3895c6f170d8802a8597f920e0b115e9": {
+      "sourceName": "Seated neutral grip single arm plate-loaded machine chest press",
+      "datasetId": "0577",
+      "datasetName": "lever chest press",
+      "tier": "similar",
+      "differences": [
+        "both_arms",
+        "machine"
+      ],
+      "why": "The neutral-grip chest press uses both arms and a selectorized machine instead of one arm and plate loading."
+    },
+    "3895c6f170d8804bb3d7ecc7cc945917": {
+      "sourceName": "Single arm plate-loaded machine decline press",
+      "datasetId": "1300",
+      "datasetName": "lever decline chest press",
+      "tier": "similar",
+      "differences": [
+        "both_arms"
+      ],
+      "why": "The plate-loaded decline press uses both arms."
+    },
     "3895c6f170d88059bc07cb2265b3866c": {
       "sourceName": "Single arm plate-loaded machine high row",
       "datasetId": "1356",
@@ -3657,12 +5138,116 @@
       "tier": "exact",
       "why": "The animation matches the movement, equipment, position and laterality."
     },
+    "3895c6f170d880a5a954eaafa2af75c8": {
+      "sourceName": "Single leg center pendulum reverse hyperextension",
+      "datasetId": "0593",
+      "datasetName": "lever reverse hyperextension",
+      "tier": "similar",
+      "differences": [
+        "both_legs",
+        "machine"
+      ],
+      "why": "The reverse hyperextension uses both legs on a side-loaded lever machine."
+    },
+    "3895c6f170d880d0ac84ef7ed54be14b": {
+      "sourceName": "Single leg side-plate-loaded reverse hyperextension",
+      "datasetId": "0593",
+      "datasetName": "lever reverse hyperextension",
+      "tier": "similar",
+      "differences": [
+        "both_legs"
+      ],
+      "why": "The side-loaded reverse hyperextension uses both legs."
+    },
+    "38f5c6f170d88040b88ffa81bdea9507": {
+      "sourceName": "EZ bar front raise",
+      "datasetId": "0041",
+      "datasetName": "barbell front raise",
+      "tier": "similar",
+      "differences": [
+        "barbell"
+      ],
+      "why": "The front raise uses a straight barbell instead of an EZ bar."
+    },
+    "3965c6f170d8807faa9de3abc977a2ac": {
+      "sourceName": "Dual cable bar bench press",
+      "datasetId": "0151",
+      "datasetName": "cable bench press",
+      "tier": "similar",
+      "differences": [
+        "handle"
+      ],
+      "why": "The cable bench press uses separate handles instead of a connecting bar."
+    },
+    "3965c6f170d8809984ecd90d865c2ad4": {
+      "sourceName": "Dual cable bar deadlift",
+      "datasetId": "0157",
+      "datasetName": "cable deadlift",
+      "tier": "similar",
+      "differences": [
+        "handle"
+      ],
+      "why": "The cable deadlift uses separate handles instead of a connecting bar."
+    },
+    "3965c6f170d880b8ae57f3b9792ad088": {
+      "sourceName": "Dual cable bar overhead press",
+      "datasetId": "0219",
+      "datasetName": "cable shoulder press",
+      "tier": "similar",
+      "differences": [
+        "standing",
+        "handle"
+      ],
+      "why": "The overhead cable press is standing with separate handles instead of a seated bar setup."
+    },
     "3985c6f170d88046ba99e34c83a17099": {
       "sourceName": "Incline chest-supported barbell row",
       "datasetId": "0049",
       "datasetName": "barbell incline row",
       "tier": "exact",
       "why": "Shows bilateral barbell rows with chest support on an incline bench."
+    },
+    "3985c6f170d880e98d27f03cd0c100ac": {
+      "sourceName": "Incline chest-supported Smith machine row",
+      "datasetId": "0049",
+      "datasetName": "barbell incline row",
+      "tier": "similar",
+      "differences": [
+        "barbell"
+      ],
+      "why": "The incline chest-supported row uses a free barbell instead of a Smith bar."
+    },
+    "39a5c6f170d8801badfafab7637ed42e": {
+      "sourceName": "Single arm plate-loaded pec deck rear delt fly",
+      "datasetId": "0602",
+      "datasetName": "lever seated reverse fly",
+      "tier": "similar",
+      "differences": [
+        "both_arms",
+        "machine"
+      ],
+      "why": "The rear delt fly uses both arms on a pin-loaded machine."
+    },
+    "39a5c6f170d88035a24bc93113f5bf0f": {
+      "sourceName": "Standing single arm machine pec fly",
+      "datasetId": "0596",
+      "datasetName": "lever seated fly",
+      "tier": "similar",
+      "differences": [
+        "both_arms",
+        "seated"
+      ],
+      "why": "The machine pec fly uses both arms while seated."
+    },
+    "39a5c6f170d880639b9ac2f6254440d7": {
+      "sourceName": "Horizontal single leg machine calf extension",
+      "datasetId": "2289",
+      "datasetName": "lever calf press",
+      "tier": "similar",
+      "differences": [
+        "both_legs"
+      ],
+      "why": "The horizontal calf extension uses both legs instead of one."
     },
     "39a5c6f170d88068a174c97856456c71": {
       "sourceName": "Chest-supported underhand grip pin-loaded machine row",
@@ -3671,12 +5256,138 @@
       "tier": "exact",
       "why": "Shows a bilateral chest-supported pin-loaded row with an underhand grip."
     },
+    "39a5c6f170d88087bf10eb9394053f4a": {
+      "sourceName": "Single arm plate-loaded machine chest fly",
+      "datasetId": "0596",
+      "datasetName": "lever seated fly",
+      "tier": "similar",
+      "differences": [
+        "both_arms",
+        "machine"
+      ],
+      "why": "The chest fly uses both arms on a pin-loaded machine."
+    },
+    "39a5c6f170d880b5a8cdfd5687ac9676": {
+      "sourceName": "Standing single arm machine lateral raise",
+      "datasetId": "0584",
+      "datasetName": "lever lateral raise",
+      "tier": "similar",
+      "differences": [
+        "both_arms",
+        "seated"
+      ],
+      "why": "The machine lateral raise uses both arms while seated."
+    },
     "39b5c6f170d880299d20c111f173f856": {
       "sourceName": "Horizontal hack squat calf raise",
       "datasetId": "2334",
       "datasetName": "sled lying calf press",
       "tier": "exact",
       "why": "Shows calf presses while lying on the horizontal hack-squat machine."
+    },
+    "39b5c6f170d880c2a771ea514f221f2c": {
+      "sourceName": "Single arm plate-loaded machine incline bench press",
+      "datasetId": "1299",
+      "datasetName": "lever incline chest press",
+      "tier": "similar",
+      "differences": [
+        "both_arms"
+      ],
+      "why": "The plate-loaded incline press uses both arms."
+    },
+    "39c5c6f170d88013ba68c2b0cb9bff45": {
+      "sourceName": "Cambered bar good morning",
+      "datasetId": "0044",
+      "datasetName": "barbell good morning",
+      "tier": "similar",
+      "differences": [
+        "barbell"
+      ],
+      "why": "The good morning uses a straight barbell across the upper back."
+    },
+    "39d5c6f170d8800a8bd9f4e2b33c56b8": {
+      "sourceName": "Buffalo bar squat",
+      "datasetId": "1436",
+      "datasetName": "barbell high bar squat",
+      "tier": "similar",
+      "differences": [
+        "barbell"
+      ],
+      "why": "The back squat uses a straight barbell instead of a Buffalo bar."
+    },
+    "39d5c6f170d880458627c817d5bf4206": {
+      "sourceName": "Reclined neutral grip pin-loaded machine incline press",
+      "datasetId": "1479",
+      "datasetName": "lever incline chest press v. 2",
+      "tier": "similar",
+      "differences": [
+        "machine",
+        "grip"
+      ],
+      "why": "The reclined incline press uses plate loading and overhand grips instead of a weight stack and neutral grips."
+    },
+    "39d5c6f170d880e2bb3ccc67aa1c3276": {
+      "sourceName": "Lying neutral grip pin-loaded machine chest press",
+      "datasetId": "0577",
+      "datasetName": "lever chest press",
+      "tier": "similar",
+      "differences": [
+        "seated"
+      ],
+      "why": "The neutral-grip machine press is shown seated instead of lying."
+    },
+    "3a05c6f170d88043a598fe2bf6ae061f": {
+      "sourceName": "Seated single arm plate-loaded machine lateral raise",
+      "datasetId": "0584",
+      "datasetName": "lever lateral raise",
+      "tier": "similar",
+      "differences": [
+        "both_arms",
+        "machine"
+      ],
+      "why": "The seated lateral raise uses both arms and a selectorized machine instead of one arm and plate loading."
+    },
+    "3a05c6f170d8805aa301e0b6da152756": {
+      "sourceName": "Axle biceps curl",
+      "datasetId": "0031",
+      "datasetName": "barbell curl",
+      "tier": "similar",
+      "differences": [
+        "barbell"
+      ],
+      "why": "The same curl uses a standard barbell instead of an axle."
+    },
+    "3a05c6f170d8805cbfe1dbb2fbf7d483": {
+      "sourceName": "Bent-over axle row",
+      "datasetId": "0027",
+      "datasetName": "barbell bent over row",
+      "tier": "similar",
+      "differences": [
+        "barbell"
+      ],
+      "why": "The bent-over row uses a standard barbell instead of an axle."
+    },
+    "3a05c6f170d880acb429cc22116f4479": {
+      "sourceName": "Axle strict press",
+      "datasetId": "1456",
+      "datasetName": "barbell standing close grip military press",
+      "tier": "similar",
+      "differences": [
+        "barbell",
+        "grip"
+      ],
+      "why": "The strict overhead press uses a standard barbell with a close grip."
+    },
+    "3a15c6f170d8802d929dc7c562ac7e2c": {
+      "sourceName": "Plate-loaded machine squatting hip abduction",
+      "datasetId": "0597",
+      "datasetName": "lever seated hip abduction",
+      "tier": "similar",
+      "differences": [
+        "seated",
+        "machine"
+      ],
+      "why": "Hip abduction is shown seated on a selectorized machine instead of squatting on a plate-loaded machine."
     },
     "3a15c6f170d88086bef0df37254b8a6d": {
       "sourceName": "Bent-over overhand grip plate-loaded machine row",
@@ -3692,12 +5403,42 @@
       "tier": "exact",
       "why": "The animation matches the movement, equipment, position and laterality."
     },
+    "3a35c6f170d880038bb5fa8cbb8f2b20": {
+      "sourceName": "Standing back-supported dumbbell biceps curl",
+      "datasetId": "1677",
+      "datasetName": "dumbbell seated bicep curl",
+      "tier": "similar",
+      "differences": [
+        "seated"
+      ],
+      "why": "The back-supported dumbbell curl is shown seated."
+    },
+    "3a65c6f170d880089793eaab0ba66e36": {
+      "sourceName": "Pin-loaded machine squatting hip abduction",
+      "datasetId": "0597",
+      "datasetName": "lever seated hip abduction",
+      "tier": "similar",
+      "differences": [
+        "seated"
+      ],
+      "why": "The machine hip abduction is shown seated instead of holding a squat."
+    },
     "3aa5c6f170d8809ba704c386e81ac68f": {
       "sourceName": "Plate-loaded machine wide chest press",
       "datasetId": "0576",
       "datasetName": "lever chest press",
       "tier": "variant",
       "why": "Same seated machine chest press, with a less explicitly wide grip."
+    },
+    "3ab5c6f170d8801d8141e1e30c29e9a4": {
+      "sourceName": "Single arm plate-loaded machine wide grip chest press",
+      "datasetId": "0576",
+      "datasetName": "lever chest press",
+      "tier": "similar",
+      "differences": [
+        "both_arms"
+      ],
+      "why": "The wide-grip plate-loaded chest press uses both arms."
     },
     "3b15c6f170d88023bf36c987ba0a7ad7": {
       "sourceName": "Landmine rotation",

@@ -34,6 +34,11 @@
       "sha256": "e65780ad5958ca1aab6e44908aafdfcf725430f51ea19ef4fc818b03fd7af9c8",
       "stillSha256": "b33a1285bf659617f651b3b7dfad25b6b011d9de04c6be2437676a2b2c605066"
     },
+    "1298": {
+      "datasetName": "kettlebell one arm floor press",
+      "sha256": "a9670ba0a80f2bdda2bd90b2faa2c931082fd24c729abaa6a407298a3aa3a410",
+      "stillSha256": "8456a15e9f4c2aab8e71087782f79aad6d14a2f2279eb01034b175658c4d5620"
+    },
     "1299": {
       "datasetName": "lever incline chest press",
       "sha256": "08bd6ef43bd65830724c1ef260dc80536a3cb45bc388c8716b4ce7fde848e4e7",
@@ -59,6 +64,11 @@
       "sha256": "198daa3776d1e27765fd29885292410a0d515360663a9ea5b024b248c30cacf3",
       "stillSha256": "4a5acf33ffc864b71593d4239d6a7a984ff31c5de55eef8743bddff8f618cd13"
     },
+    "1323": {
+      "datasetName": "cable rope seated row",
+      "sha256": "b520a09aa4e6b7bd07a7c76ec307411efc5a78f6f5f9a5eebcce3031a984a17d",
+      "stillSha256": "83b8921c0bf23d96fd187446b7b5dcd63bd1a95a77503903d2d4b9c1b330fa31"
+    },
     "1325": {
       "datasetName": "cable wide grip rear pulldown behind neck",
       "sha256": "22b33cf6d652ddb8958c08728272e411510685c11cfcdd73fedebd69f99f4555",
@@ -73,6 +83,11 @@
       "datasetName": "close grip chin-up",
       "sha256": "655acbf5074db13a0b01845ebf9c38955702fd4edaa143a16f8405bd029374e0",
       "stillSha256": "8b3f01546203440b51717b6928cdac040802455681d083a5a46518a63b6fc622"
+    },
+    "1328": {
+      "datasetName": "dumbbell lying rear delt row",
+      "sha256": "1d4120a820f68fec50090cf5a9f052be8f3e67218895af67867af6a5a7d9fa6d",
+      "stillSha256": "37a4adc41aaa113259d8558adc0767f1255874547d81df0ba74be1f4d7d9ebca"
     },
     "1345": {
       "datasetName": "kettlebell two arm row",
@@ -219,6 +234,11 @@
       "sha256": "73eac3a5b80f14c26b22324defcfeb10f1ac587768fbd90f5e8ceba22e1b83b1",
       "stillSha256": "fe910a3f932f92f0293301644e6909bbabdd70d110f17cd34ccfda7094574f3e"
     },
+    "1614": {
+      "datasetName": "lever preacher curl v. 2",
+      "sha256": "a86b081ab9e9aca6f449353bc593879960c9897d07b555055db706739f68843e",
+      "stillSha256": "fc7dd7c10c165ee910fed88da8881578d4f84dd52f24f2eaa9646efc62a4e6d7"
+    },
     "1627": {
       "datasetName": "ez barbell close grip preacher curl",
       "sha256": "c0e559cd80ae0fa5ced8f6d1bfb6eb531c71c6f25cad72731d13117a306d0f66",
@@ -229,10 +249,20 @@
       "sha256": "419ec2388971e501d32ea8fd1ca61629ba3b98712770adf708e3ddf7f24e53b5",
       "stillSha256": "f22255f350833590f2ebd35cd8d3a9846c049fd2f628a6f2bd77ad6cee4bcd19"
     },
+    "1642": {
+      "datasetName": "cable seated one arm concentration curl",
+      "sha256": "46d1a48fe8c39c3776ffe5a73e4bc446453affec489880d3aa4a5d00c10efcfe",
+      "stillSha256": "2cabe1e0c962c022708f5dc2fc7c48218d9a839fd9903167568fb6af73c9d020"
+    },
     "1643": {
       "datasetName": "cable seated overhead curl",
       "sha256": "d31bd3620e13843330ac4edd6b5a00fae792d77bd967c5fe96deac396bc399a5",
       "stillSha256": "d34a710acfcda5b39cc31731917dee8011b0919b7b9f0344ec0f24ce5da89922"
+    },
+    "1646": {
+      "datasetName": "dumbbell alternate hammer preacher curl",
+      "sha256": "ef0386c44ac95fa50225ccc48c1df3da1895628abcf4bf7f2ba29fd6da0e61d5",
+      "stillSha256": "f1db18925cfd5726b495d63685113fa641f0990743575ae5b9dbf6d949ae5b0e"
     },
     "1661": {
       "datasetName": "dumbbell lying supine biceps curl",
@@ -369,6 +399,11 @@
       "sha256": "af0b90634d19426e33226dc22451f02c4e253e665c2058bc116e6543f99328fa",
       "stillSha256": "aa3d33d54ccf5423e4ce3bb10e1bdfeab848094645ac77077ea8dde916d70607"
     },
+    "2144": {
+      "datasetName": "cable seated chest press",
+      "sha256": "a2793ac69f22ff90de6e2346cf6263e0863524c70f4cb8b6a0f66fc9ffc234ba",
+      "stillSha256": "d3ec002645a39d86c1daee1606d7f6e51aee42d2ee4772658ed96945e20ee72f"
+    },
     "2187": {
       "datasetName": "barbell reverse close-grip bench press",
       "sha256": "852276c3b4d0f0547a0d3632911c57e55f8cb3ec3376a043df5b97fa7704fd1d",
@@ -398,6 +433,11 @@
       "datasetName": "lever gripper hands",
       "sha256": "8aabb37d719065940f47a71a2d2500c38599805f2a9a27c45939f94bcd9dd7eb",
       "stillSha256": "e4f9ca4c834c2a107cab9f5aa49c21e8e36a9535d161468682fe790b997ba61c"
+    },
+    "2289": {
+      "datasetName": "lever calf press",
+      "sha256": "54ed9c16f03916d3164b7c7bedb35510f72fc89868527b874ec79a9398f42da3",
+      "stillSha256": "ed9baa38afaf513c91e7ef1c275183a75d88977abf593e5c0c15a8136d24b2d2"
     },
     "2311": {
       "datasetName": "walking on stepmill",
@@ -488,6 +528,11 @@
       "datasetName": "potty squat",
       "sha256": "7308bd4b08a7b1f2dfd49ac69a51d675591e0c5bd48770c4099b92652937a153",
       "stillSha256": "ba059b9d35519ae612c78259e6aa5b973fd445394034cbde2d1e8839d03d3811"
+    },
+    "3123": {
+      "datasetName": "resistance band seated biceps curl",
+      "sha256": "55b2bfceb212f6a925fb8ccae37232e154efc554ff984995aef0cc331c004558",
+      "stillSha256": "356fe8c91a644d3feb121679ba6031d07da84aec5f9b0a27570b272d4ea03533"
     },
     "3145": {
       "datasetName": "push-up plus",
@@ -709,6 +754,11 @@
       "sha256": "0a4c651f528d0bc1642d8a8b0be99f9c7e7b56d60402ff9f7e76893463808afc",
       "stillSha256": "8519b67186ef00756f58f54e7a2d3c4493506998e4871dbd65492f28723579e2"
     },
+    "0065": {
+      "datasetName": "barbell one arm floor press",
+      "sha256": "edc4aff6bcba635afb5ead2a86bac3b3b20e7d2f1f6bdeb2e7d899b25efc7388",
+      "stillSha256": "105e38e9820c2fcb47814e505806119c739de1700a11417139aed533dc4aa634"
+    },
     "0069": {
       "datasetName": "barbell overhead squat",
       "sha256": "eef351aaf4e51e100a13207f36b89685961b34f954d0c501f219adf4bd979dbc",
@@ -804,6 +854,11 @@
       "sha256": "dca2a4d7267663f0b49d90a2b3723e5d1b5a773d4b8d2019d38ae054bfdafad5",
       "stillSha256": "c598afebfcc6c8475b92b356605047610bed923d64d292401411b932e76e9b83"
     },
+    "0119": {
+      "datasetName": "barbell upright row v. 2",
+      "sha256": "007f44642063e0aaec5d6af235132a8990a7b96c002229c39a09d7d820139b7c",
+      "stillSha256": "96ba8da2ed101bb9456c3402c727be85eac61494152db721b02f352a738a2515"
+    },
     "0120": {
       "datasetName": "barbell upright row",
       "sha256": "79f8c5ce28903e1dae01114d93c7b0b68f0ef1ae166532f569691907f2b9734d",
@@ -823,6 +878,16 @@
       "datasetName": "bench dip (knees bent)",
       "sha256": "08a276ef39d9af5ef4a9668af79b766bb9bbc3f8e953c312c6ba007d20a40004",
       "stillSha256": "22aaa2f4105edbf7022ecdaa2d2d59f78ddbfe1a8f2e84218041241bb712c443"
+    },
+    "0151": {
+      "datasetName": "cable bench press",
+      "sha256": "ca5c6a8f1122fd4b1abc94900ffdc12ba24ff2387f705e13a8238adda6c2e7ac",
+      "stillSha256": "2a41f927dba8c44fb9bc8827e4bf0917988b785cf61abd2e2225211e8c1d1adc"
+    },
+    "0157": {
+      "datasetName": "cable deadlift",
+      "sha256": "0237ed10d5bce25469de427008b805b4b18bc9baea1910523e36cea39713e832",
+      "stillSha256": "e4ecd0cddccb0d6ab0f768fb265aaf5a5fc7dde0295f5573ccfc04a107cb17f4"
     },
     "0161": {
       "datasetName": "cable forward raise",
@@ -929,6 +994,11 @@
       "sha256": "5a3fe8e57f3b6f0cd8ca974593ec8e5ce85b504a44930eb9ccb7144e98e25bd2",
       "stillSha256": "c57b5a6ac53128ea597dfdb7de3067b92055b600624a84ba4ab885c53a8c2324"
     },
+    "0216": {
+      "datasetName": "cable seated shoulder internal rotation",
+      "sha256": "3b5d4621cdeba0f256973a0f78a1e2dc555f538f7d3b990f380aca20a60981dc",
+      "stillSha256": "13e0225219287bb6dc3d662c3aca5fafaf7835b69a12ccb8e34d281218513749"
+    },
     "0218": {
       "datasetName": "cable seated wide-grip row",
       "sha256": "b5b76a8170f57e6ba5ef3c5b45a7fc87cd5461f664b1044eda6e4ffe694213cb",
@@ -978,6 +1048,11 @@
       "datasetName": "cable standing rear delt row (with rope)",
       "sha256": "ce7ba30a10890710f2cdd4fe4b98ab099bed0b2aa47c21a450a308200bb70553",
       "stillSha256": "8e18ba2af969d43a425dd408b56252335ade7b558a1b3321b0113db1c30757a7"
+    },
+    "0234": {
+      "datasetName": "cable standing row (v-bar)",
+      "sha256": "8f5aacf81413da8e353ff1efaa7cb284a78f9d64b568965b7d4516fafc683539",
+      "stillSha256": "ad4bf5cf0bb9e3fb4f9efa7d3d1be2fb99b28d92e868325d54bb4de9713aa07b"
     },
     "0235": {
       "datasetName": "cable standing shoulder external rotation",
@@ -1069,6 +1144,11 @@
       "sha256": "cc5b3c5308d5477938472ebfd6b3533dfab0e636bbf5b99283ad759329335ec2",
       "stillSha256": "6aa56e5c33ae7a4560ad39b4dbdc9b8e51029e3da15f93711faa9bab03975ae6"
     },
+    "0287": {
+      "datasetName": "dumbbell arnold press v. 2",
+      "sha256": "1fe692be1a1892981206d7d166cb551d5cb06651e02a2907ad6f379491aca886",
+      "stillSha256": "287c58e294b8b598ad8f51d709be104a3a497b5c15ca2b211b84606f74b16523"
+    },
     "0289": {
       "datasetName": "dumbbell bench press",
       "sha256": "3ba98c47d102bab77510300ba64c9e0c28668fcae9bb5b95b37482aae9f43e8e",
@@ -1153,6 +1233,11 @@
       "datasetName": "dumbbell incline inner biceps curl",
       "sha256": "1330e9582495b06a1ca9a3f1b805aa056e644684066965b332d9e132d61620bb",
       "stillSha256": "80159becec518eb0d79a8338d04b1ae7fd6976225099db167002c1b11f847b98"
+    },
+    "0323": {
+      "datasetName": "dumbbell incline one arm lateral raise",
+      "sha256": "f1b1312555c2ac970dc8b1d3fe169a2d22c7dc91538e4e47330fcdc4f8a37210",
+      "stillSha256": "3988e0a9be748dd303fd64e2f9a3ba480b20ae5a357c3e568af1a0a7f778230e"
     },
     "0325": {
       "datasetName": "dumbbell incline raise",
@@ -1339,6 +1424,11 @@
       "sha256": "a1b6f1c3c11db9513a59a49954f66b7ef9cbb4999f5da4e74c8e074a5402587a",
       "stillSha256": "245ea63e126e4db186768df44614ba1d3e9e614e579ebf3e852f0b8343a50f4f"
     },
+    "0433": {
+      "datasetName": "dumbbell straight arm pullover",
+      "sha256": "61301b5c40acee33ed62d7a1dee6344ab53d9cf81531cba1cf6057c6796447f0",
+      "stillSha256": "3885282744a9dad0785eaaa6e7d500518d2f2354c5c7e0668f566dd281aef6c6"
+    },
     "0437": {
       "datasetName": "dumbbell upright row",
       "sha256": "773c5daf60dbc4a628adbb2323ff0d7b3cba5ac798ec0b8065d1bec12563f43f",
@@ -1423,6 +1513,11 @@
       "datasetName": "jackknife sit-up",
       "sha256": "f1aef28c89365e9258ab64d8f396a52b680f65983aab6f9d587cffb1f33153ca",
       "stillSha256": "c38a075a852feb9f12461a53ab3fc8de551e8c511f5f0edfe22a806926f9290e"
+    },
+    "0521": {
+      "datasetName": "kettlebell alternating renegade row",
+      "sha256": "696065305068ad150271493b2e93086305ead54e0c84fdfed2b062baba14baf1",
+      "stillSha256": "00ff77ef482d28589dc0b7f4e96dcf56851f3db96100d753524d165b163fc6b6"
     },
     "0533": {
       "datasetName": "kettlebell front squat",
@@ -1609,6 +1704,11 @@
       "sha256": "99f2367ac41ca7c88b391cfffb02951a74093d16a13c8eacbe399153f111cf7f",
       "stillSha256": "7a1d6b24361c98351431467a93d4a4f6f9b0f55f613dab068bbc402820a3c940"
     },
+    "0651": {
+      "datasetName": "pull up (neutral grip)",
+      "sha256": "d43b0c897b1670b375c3fc1a8854bb7eee6e1356930d8f0ee3d3669d854d7634",
+      "stillSha256": "b1c7357800b46ffd02ba638877754d47e9e4edd0bdc5f01915b22cf9c0a92485"
+    },
     "0652": {
       "datasetName": "pull-up",
       "sha256": "f03e96137aeb0e655c2028c211cc8b368c9e72e77b57c8cd1df65a27aa3b50c9",
@@ -1709,6 +1809,11 @@
       "sha256": "556eafe401fc6f5a34bfadac0ea354cd8c90dfd8c6278b2c1478d7748dbb3935",
       "stillSha256": "80962d55033bd6b2beeba96f28dec1e4d208d89da42ff8117a271b4bc7353a7d"
     },
+    "0760": {
+      "datasetName": "smith leg press",
+      "sha256": "a4cc7afcb04229f1e09171e905b4ae88fc787276daf780fa61d9fd5a400bff72",
+      "stillSha256": "369fc39fff5a537a8698a2730a1bc5b685c04abbb0cafb13c5c16e8332ffcafb"
+    },
     "0765": {
       "datasetName": "smith seated shoulder press",
       "sha256": "f06429668188b8a0bac7270dfb0c267ef65df51789b58eb2d1acdc74baa768fe",
@@ -1764,6 +1869,11 @@
       "sha256": "939437b69dbfe28ac5e8a56eaefaca3c4a8f1b766242b732c429b3e9a9b4b7dd",
       "stillSha256": "3d47527f59ae7a195d7a489c5388d76fb7afd8bcee20e3671404898e4c840779"
     },
+    "0818": {
+      "datasetName": "twin handle parallel grip lat pulldown",
+      "sha256": "dee7de41f5f9b8fc879c431bb6f83270f6e7575f293a62077d2eef6f984cae71",
+      "stillSha256": "747719dfb9b4dc35d9a8deb374a321eb268f8284195d7c914618d92e99e38507"
+    },
     "0826": {
       "datasetName": "vertical leg raise (on parallel bars)",
       "sha256": "89fca4c2fbd8775da14c4344f4560e14b4d6e09a0c80176920bf4c6681d11513",
@@ -1818,6 +1928,11 @@
       "datasetName": "dumbbell lying external shoulder rotation",
       "sha256": "02a5fe0fb2e17e922679a85f6328b64a6c526549ce78f57dc9a93f6fe1ef2902",
       "stillSha256": "4a349e622633fc98913e5f46fb3e65d6455de5f5f4654f2c9f7e2f9df599d16c"
+    },
+    "0864": {
+      "datasetName": "dumbbell upright shoulder external rotation",
+      "sha256": "5c3245214aa0c46e9aadf3baecb3e1e29fdd36bc208d6740c14e9ce165769636",
+      "stillSha256": "49ee1c8c164f59b958a05a92e344bc1fd2b256c766a9add15647c009114255b7"
     },
     "0866": {
       "datasetName": "weighted hanging leg-hip raise",
@@ -1911,6 +2026,14 @@
       "datasetId": "0301",
       "tier": "variant"
     },
+    "1a05c6f170d8802a950df7b6c710ffb4": {
+      "sourceName": "Barbell floor press",
+      "datasetId": "0065",
+      "tier": "similar",
+      "differences": [
+        "one_arm"
+      ]
+    },
     "1a05c6f170d8802ba26bf25efbec5e68": {
       "sourceName": "Standing dumbbell overhead press",
       "datasetId": "0426",
@@ -1930,6 +2053,14 @@
       "sourceName": "Seated barbell overhead press",
       "datasetId": "0091",
       "tier": "exact"
+    },
+    "1a05c6f170d8803c872ecbe964e2f0ef": {
+      "sourceName": "High incline barbell press",
+      "datasetId": "0025",
+      "tier": "similar",
+      "differences": [
+        "flat_bench"
+      ]
     },
     "1a05c6f170d8803ca0c8e13ee1b0c37f": {
       "sourceName": "High-to-low cable fly",
@@ -1951,6 +2082,14 @@
       "datasetId": "0437",
       "tier": "exact"
     },
+    "1a05c6f170d88044b720f479bb37d97b": {
+      "sourceName": "Standing neutral grip dumbbell overhead press",
+      "datasetId": "0426",
+      "tier": "similar",
+      "differences": [
+        "grip"
+      ]
+    },
     "1a05c6f170d88045aa23e20a3b1a6bc4": {
       "sourceName": "Bradford press",
       "datasetId": "0105",
@@ -1961,10 +2100,26 @@
       "datasetId": "0122",
       "tier": "exact"
     },
+    "1a05c6f170d88055b31ddbc6338d7074": {
+      "sourceName": "Low incline barbell press",
+      "datasetId": "0025",
+      "tier": "similar",
+      "differences": [
+        "flat_bench"
+      ]
+    },
     "1a05c6f170d88058a3a0c07e098a9605": {
       "sourceName": "Smith machine bench press",
       "datasetId": "0748",
       "tier": "exact"
+    },
+    "1a05c6f170d88058aa3bcb8cbc9102d6": {
+      "sourceName": "Single arm horizontal cable fly",
+      "datasetId": "0188",
+      "tier": "similar",
+      "differences": [
+        "both_arms"
+      ]
     },
     "1a05c6f170d8805b9dd1f99907b00278": {
       "sourceName": "45° incline single arm dumbbell press",
@@ -2006,6 +2161,14 @@
       "datasetId": "0308",
       "tier": "exact"
     },
+    "1a05c6f170d8806b87edcb2d2e547481": {
+      "sourceName": "Kettlebell bench press",
+      "datasetId": "0289",
+      "tier": "similar",
+      "differences": [
+        "dumbbells"
+      ]
+    },
     "1a05c6f170d8806b911acf558c5af4f6": {
       "sourceName": "45° incline dumbbell press",
       "datasetId": "0314",
@@ -2015,6 +2178,14 @@
       "sourceName": "Wide grip barbell overhead press",
       "datasetId": "1457",
       "tier": "exact"
+    },
+    "1a05c6f170d88071a523c5abb44472c9": {
+      "sourceName": "Kettlebell floor press",
+      "datasetId": "1298",
+      "tier": "similar",
+      "differences": [
+        "one_arm"
+      ]
     },
     "1a05c6f170d8807590e2d79fc558e368": {
       "sourceName": "45° incline pause barbell press",
@@ -2051,6 +2222,14 @@
       "datasetId": "3211",
       "tier": "exact"
     },
+    "1a05c6f170d88086b7e3da51deb96425": {
+      "sourceName": "Single arm dumbbell floor press",
+      "datasetId": "0065",
+      "tier": "similar",
+      "differences": [
+        "barbell"
+      ]
+    },
     "1a05c6f170d8808dba9beee24fca5e4e": {
       "sourceName": "Machine-assisted triceps dip",
       "datasetId": "0019",
@@ -2065,6 +2244,14 @@
       "sourceName": "Pause triceps dip",
       "datasetId": "0814",
       "tier": "variant"
+    },
+    "1a05c6f170d8809d80ecf8e7406e4601": {
+      "sourceName": "Cable chest press",
+      "datasetId": "2144",
+      "tier": "similar",
+      "differences": [
+        "seated"
+      ]
     },
     "1a05c6f170d8809da1e7fbc50ae7575b": {
       "sourceName": "45° incline close grip press",
@@ -2116,6 +2303,14 @@
       "datasetId": "1755",
       "tier": "variant"
     },
+    "1a05c6f170d880c4bcd7dfd978df3ac9": {
+      "sourceName": "Swiss bar bench press",
+      "datasetId": "0352",
+      "tier": "similar",
+      "differences": [
+        "dumbbells"
+      ]
+    },
     "1a05c6f170d880c5ad11c99b302b1bf9": {
       "sourceName": "Barbell overhead press",
       "datasetId": "1456",
@@ -2135,6 +2330,14 @@
       "sourceName": "Seated barbell behind-the-neck overhead press",
       "datasetId": "0086",
       "tier": "exact"
+    },
+    "1a05c6f170d880cfb83be785c3640967": {
+      "sourceName": "Overhand grip pec deck fly",
+      "datasetId": "0596",
+      "tier": "similar",
+      "differences": [
+        "grip"
+      ]
     },
     "1a05c6f170d880d08e75f6f7c2ebde9e": {
       "sourceName": "Horizontal cable crossover",
@@ -2196,6 +2399,14 @@
       "datasetId": "0045",
       "tier": "exact"
     },
+    "1a05c6f170d880f8b599f462f33ccd94": {
+      "sourceName": "Seated single arm dumbbell overhead press",
+      "datasetId": "0405",
+      "tier": "similar",
+      "differences": [
+        "both_arms"
+      ]
+    },
     "1a05c6f170d880ff9314c15594dd3671": {
       "sourceName": "45° incline dumbbell fly",
       "datasetId": "0319",
@@ -2211,10 +2422,26 @@
       "datasetId": "1748",
       "tier": "variant"
     },
+    "1a15c6f170d88004a245f5a0ea564b67": {
+      "sourceName": "Bent-over neutral grip T-bar row",
+      "datasetId": "0606",
+      "tier": "similar",
+      "differences": [
+        "grip"
+      ]
+    },
     "1a15c6f170d880098bcbe64c93b3cf31": {
       "sourceName": "Seated barbell wrist curl",
       "datasetId": "0125",
       "tier": "exact"
+    },
+    "1a15c6f170d8800aa40be599172ecbfc": {
+      "sourceName": "Seated single leg plate-loaded machine calf raise",
+      "datasetId": "0594",
+      "tier": "similar",
+      "differences": [
+        "both_legs"
+      ]
     },
     "1a15c6f170d8800abba4d3ef66a48aa6": {
       "sourceName": "Standing dumbbell shrug",
@@ -2251,6 +2478,15 @@
       "datasetId": "0304",
       "tier": "exact"
     },
+    "1a15c6f170d88014a0ccdeb82dfbc1f4": {
+      "sourceName": "Overhand grip plate-loaded machine lat pulldown",
+      "datasetId": "0579",
+      "tier": "similar",
+      "differences": [
+        "machine",
+        "grip"
+      ]
+    },
     "1a15c6f170d88014a710f8ada9a1e94a": {
       "sourceName": "Cable face pull",
       "datasetId": "0233",
@@ -2281,10 +2517,26 @@
       "datasetId": "0746",
       "tier": "exact"
     },
+    "1a15c6f170d8801d8700fbf97435a960": {
+      "sourceName": "Low pulley dual cable biceps curl",
+      "datasetId": "0868",
+      "tier": "similar",
+      "differences": [
+        "handle"
+      ]
+    },
     "1a15c6f170d8801d9337dba3dcb34a88": {
       "sourceName": "Cable straight bar triceps pushdown",
       "datasetId": "0201",
       "tier": "exact"
+    },
+    "1a15c6f170d8801da273dbdc61789e83": {
+      "sourceName": "Seated dumbbell shrug",
+      "datasetId": "0406",
+      "tier": "similar",
+      "differences": [
+        "standing"
+      ]
     },
     "1a15c6f170d880208cfdca4035bdedab": {
       "sourceName": "Plate-loaded machine shoulder press",
@@ -2300,6 +2552,22 @@
       "sourceName": "Seated dumbbell biceps curl",
       "datasetId": "1677",
       "tier": "exact"
+    },
+    "1a15c6f170d88023b537e3c7985ccadd": {
+      "sourceName": "Single arm pin-loaded machine preacher curl",
+      "datasetId": "0592",
+      "tier": "similar",
+      "differences": [
+        "both_arms"
+      ]
+    },
+    "1a15c6f170d8802485a1f0c743200257": {
+      "sourceName": "Standing dual dumbbell overhead triceps extension",
+      "datasetId": "2189",
+      "tier": "similar",
+      "differences": [
+        "seated"
+      ]
     },
     "1a15c6f170d88029a037f1c1bea19636": {
       "sourceName": "Barbell skull crusher",
@@ -2350,6 +2618,14 @@
       "sourceName": "EZ bar biceps curl",
       "datasetId": "0447",
       "tier": "exact"
+    },
+    "1a15c6f170d8803aa8bffc5a0dae7406": {
+      "sourceName": "Standing single leg machine calf raise",
+      "datasetId": "0605",
+      "tier": "similar",
+      "differences": [
+        "both_legs"
+      ]
     },
     "1a15c6f170d8803bb4dbc83c2279dbcf": {
       "sourceName": "Chest-supported semi-neutral grip T-bar row",
@@ -2411,6 +2687,14 @@
       "datasetId": "0396",
       "tier": "exact"
     },
+    "1a15c6f170d88049b559fb117498028e": {
+      "sourceName": "Cable shoulder internal rotation with arm at side",
+      "datasetId": "0216",
+      "tier": "similar",
+      "differences": [
+        "seated"
+      ]
+    },
     "1a15c6f170d8804bb9b4c6edc0ac59be": {
       "sourceName": "Seated plate-loaded machine calf raise",
       "datasetId": "0594",
@@ -2441,10 +2725,26 @@
       "datasetId": "0605",
       "tier": "exact"
     },
+    "1a15c6f170d88055bfbcf0b2e871a481": {
+      "sourceName": "Standing machine lateral raise",
+      "datasetId": "0584",
+      "tier": "similar",
+      "differences": [
+        "seated"
+      ]
+    },
     "1a15c6f170d88057bb86d20566082394": {
       "sourceName": "Seated machine lateral raise",
       "datasetId": "0584",
       "tier": "exact"
+    },
+    "1a15c6f170d88058affcfe5558485d48": {
+      "sourceName": "Trap bar shrug",
+      "datasetId": "0406",
+      "tier": "similar",
+      "differences": [
+        "dumbbells"
+      ]
     },
     "1a15c6f170d8805b8898fd86e0d99d28": {
       "sourceName": "Seated barbell finger flexion wrist curl",
@@ -2490,6 +2790,14 @@
       "sourceName": "Bench dip",
       "datasetId": "1399",
       "tier": "exact"
+    },
+    "1a15c6f170d88070b365f07cc7128474": {
+      "sourceName": "Dual kettlebell upright row",
+      "datasetId": "0437",
+      "tier": "similar",
+      "differences": [
+        "dumbbells"
+      ]
     },
     "1a15c6f170d8807188c0da98a91c30c3": {
       "sourceName": "Neutral grip pin-loaded machine row",
@@ -2551,10 +2859,26 @@
       "datasetId": "0498",
       "tier": "exact"
     },
+    "1a15c6f170d8807a9ccdd19a4a1df2f4": {
+      "sourceName": "Single arm underhand grip dumbbell row",
+      "datasetId": "0292",
+      "tier": "similar",
+      "differences": [
+        "grip"
+      ]
+    },
     "1a15c6f170d88081bd47d7fbc3bea9c0": {
       "sourceName": "Single arm dumbbell skull crusher",
       "datasetId": "0344",
       "tier": "variant"
+    },
+    "1a15c6f170d8808281eec44bc9b7fd67": {
+      "sourceName": "Neutral grip pull-up",
+      "datasetId": "0651",
+      "tier": "similar",
+      "differences": [
+        "grip"
+      ]
     },
     "1a15c6f170d8808386aac1a5806962b0": {
       "sourceName": "Overhand grip plate-loaded machine row",
@@ -2570,6 +2894,14 @@
       "sourceName": "Standing dumbbell hammer curl",
       "datasetId": "0312",
       "tier": "exact"
+    },
+    "1a15c6f170d88086b226f5237d3b5ca4": {
+      "sourceName": "Underhand grip barbell inverted row",
+      "datasetId": "0499",
+      "tier": "similar",
+      "differences": [
+        "grip"
+      ]
     },
     "1a15c6f170d8808b9721ff65d549d8ba": {
       "sourceName": "Dumbbell pullover",
@@ -2600,6 +2932,14 @@
       "sourceName": "Barbell JM press",
       "datasetId": "0052",
       "tier": "exact"
+    },
+    "1a15c6f170d8809a927ed538bf683443": {
+      "sourceName": "Standing dual kettlebell biceps curl",
+      "datasetId": "0416",
+      "tier": "similar",
+      "differences": [
+        "dumbbells"
+      ]
     },
     "1a15c6f170d8809b94d8f668bf45a229": {
       "sourceName": "Neutral grip landmine T-bar row",
@@ -2681,6 +3021,14 @@
       "datasetId": "0245",
       "tier": "exact"
     },
+    "1a15c6f170d880b2b06cf95892f97c0b": {
+      "sourceName": "Kettlebell shrug",
+      "datasetId": "0406",
+      "tier": "similar",
+      "differences": [
+        "dumbbells"
+      ]
+    },
     "1a15c6f170d880b49e09fcbcd061fbdb": {
       "sourceName": "Incline dumbbell biceps curl",
       "datasetId": "0315",
@@ -2726,6 +3074,14 @@
       "datasetId": "1724",
       "tier": "exact"
     },
+    "1a15c6f170d880c68df7cd7ee49de492": {
+      "sourceName": "Snatch grip shrug",
+      "datasetId": "0095",
+      "tier": "similar",
+      "differences": [
+        "grip"
+      ]
+    },
     "1a15c6f170d880c7b8d7f8060b06d9f4": {
       "sourceName": "Single arm dumbbell triceps kickback",
       "datasetId": "0354",
@@ -2761,6 +3117,15 @@
       "datasetId": "0471",
       "tier": "exact"
     },
+    "1a15c6f170d880d4a3b4c7727ede7730": {
+      "sourceName": "Single kettlebell overhead triceps extension",
+      "datasetId": "0430",
+      "tier": "similar",
+      "differences": [
+        "dumbbells",
+        "grip"
+      ]
+    },
     "1a15c6f170d880d5bdf8fd24dec58684": {
       "sourceName": "Seated dumbbell wrist extension",
       "datasetId": "0385",
@@ -2781,6 +3146,14 @@
       "datasetId": "0601",
       "tier": "exact"
     },
+    "1a15c6f170d880e18902d19b0f0c8b3d": {
+      "sourceName": "Seated dumbbell reverse curl",
+      "datasetId": "0429",
+      "tier": "similar",
+      "differences": [
+        "standing"
+      ]
+    },
     "1a15c6f170d880e58105e80545e3f035": {
       "sourceName": "Chest-supported neutral grip T-bar row",
       "datasetId": "1349",
@@ -2790,6 +3163,15 @@
       "sourceName": "Standing dumbbell Zottman curl",
       "datasetId": "0439",
       "tier": "exact"
+    },
+    "1a15c6f170d880e89f71c03312fd37ba": {
+      "sourceName": "Underhand grip cable row",
+      "datasetId": "0861",
+      "tier": "similar",
+      "differences": [
+        "grip",
+        "handle"
+      ]
     },
     "1a15c6f170d880e8ad58cebec203e231": {
       "sourceName": "Cable rope overhead triceps extension",
@@ -2836,10 +3218,28 @@
       "datasetId": "0298",
       "tier": "exact"
     },
+    "1a15c6f170d880f7b41ed136238884a6": {
+      "sourceName": "Dual kettlebell overhead triceps extension",
+      "datasetId": "2189",
+      "tier": "similar",
+      "differences": [
+        "dumbbells",
+        "seated"
+      ]
+    },
     "1a15c6f170d880f89beacd8c81156f2d": {
       "sourceName": "Bent-over barbell row",
       "datasetId": "0027",
       "tier": "exact"
+    },
+    "1a15c6f170d880f9a7c3de4cae380ab5": {
+      "sourceName": "Standing single arm cable row",
+      "datasetId": "0234",
+      "tier": "similar",
+      "differences": [
+        "both_arms",
+        "handle"
+      ]
     },
     "1a15c6f170d880fb835cddd47e531ad0": {
       "sourceName": "Pin-loaded machine pullover",
@@ -2860,6 +3260,14 @@
       "sourceName": "Standing dumbbell reverse curl",
       "datasetId": "0429",
       "tier": "exact"
+    },
+    "1a25c6f170d880038f9af19f57ca716b": {
+      "sourceName": "Kettlebell forward lunge",
+      "datasetId": "0336",
+      "tier": "similar",
+      "differences": [
+        "dumbbells"
+      ]
     },
     "1a25c6f170d880068daae293704193e0": {
       "sourceName": "Full hand clean grip front squat",
@@ -2931,6 +3339,14 @@
       "datasetId": "0768",
       "tier": "exact"
     },
+    "1a25c6f170d8805c8b30c1b4200ca82d": {
+      "sourceName": "Kettlebell Bulgarian split squat",
+      "datasetId": "0410",
+      "tier": "similar",
+      "differences": [
+        "dumbbells"
+      ]
+    },
     "1a25c6f170d8806ba0efd970f13028c3": {
       "sourceName": "Single leg 45° leg press",
       "datasetId": "1425",
@@ -2951,6 +3367,14 @@
       "datasetId": "0739",
       "tier": "exact"
     },
+    "1a25c6f170d88084a663f2a93f20b180": {
+      "sourceName": "Kettlebell reverse lunge",
+      "datasetId": "0381",
+      "tier": "similar",
+      "differences": [
+        "dumbbells"
+      ]
+    },
     "1a25c6f170d88086a350cb7e82849006": {
       "sourceName": "Barbell reverse lunge",
       "datasetId": "0078",
@@ -2970,6 +3394,15 @@
       "sourceName": "Dumbbell Bulgarian split squat",
       "datasetId": "0410",
       "tier": "exact"
+    },
+    "1a25c6f170d880b2a727d44db1872fd0": {
+      "sourceName": "Single leg plate-loaded leg extension",
+      "datasetId": "0585",
+      "tier": "similar",
+      "differences": [
+        "both_legs",
+        "machine"
+      ]
     },
     "1a25c6f170d880c59f17ce7802758fc3": {
       "sourceName": "Leg extension",
@@ -3000,6 +3433,14 @@
       "sourceName": "Pause back squat",
       "datasetId": "0043",
       "tier": "variant"
+    },
+    "1a25c6f170d880dcb28bc023b51f8285": {
+      "sourceName": "Single leg leg extension",
+      "datasetId": "0585",
+      "tier": "similar",
+      "differences": [
+        "both_legs"
+      ]
     },
     "1a25c6f170d880e09445d806733a82a2": {
       "sourceName": "Dumbbell step-up",
@@ -3036,6 +3477,15 @@
       "datasetId": "0735",
       "tier": "exact"
     },
+    "1a35c6f170d88010a78aecec412b3fe4": {
+      "sourceName": "Standing pin-loaded hamstring curl",
+      "datasetId": "0582",
+      "tier": "similar",
+      "differences": [
+        "kneeling",
+        "machine"
+      ]
+    },
     "1a35c6f170d8801b9d6af6cb4040482f": {
       "sourceName": "Weighted crunch",
       "datasetId": "0832",
@@ -3045,6 +3495,15 @@
       "sourceName": "Seated machine hip abduction",
       "datasetId": "0597",
       "tier": "exact"
+    },
+    "1a35c6f170d8801e93a0e605a61d2274": {
+      "sourceName": "Lying single leg plate-loaded hamstring curl",
+      "datasetId": "0586",
+      "tier": "similar",
+      "differences": [
+        "both_legs",
+        "machine"
+      ]
     },
     "1a35c6f170d8801eb2ecf5da7cc1caea": {
       "sourceName": "Seated plate-loaded hamstring curl",
@@ -3065,6 +3524,14 @@
       "sourceName": "Kettlebell swing",
       "datasetId": "0549",
       "tier": "exact"
+    },
+    "1a35c6f170d88040b8dfd3164ac15d8a": {
+      "sourceName": "Lying single leg hamstring curl",
+      "datasetId": "0586",
+      "tier": "similar",
+      "differences": [
+        "both_legs"
+      ]
     },
     "1a35c6f170d88042b608da098f0a9af6": {
       "sourceName": "Single leg bodyweight glute bridge",
@@ -3105,6 +3572,14 @@
       "sourceName": "Cable pull-through",
       "datasetId": "0196",
       "tier": "exact"
+    },
+    "1a35c6f170d88065a9ddd9ff0c4a26eb": {
+      "sourceName": "Snatch grip deadlift",
+      "datasetId": "0032",
+      "tier": "similar",
+      "differences": [
+        "grip"
+      ]
     },
     "1a35c6f170d8807aae84e2c6eb136395": {
       "sourceName": "Sumo deadlift",
@@ -3156,6 +3631,22 @@
       "datasetId": "0085",
       "tier": "exact"
     },
+    "1a35c6f170d880c18fc6d848bac682fd": {
+      "sourceName": "Standing plate-loaded hamstring curl",
+      "datasetId": "0582",
+      "tier": "similar",
+      "differences": [
+        "kneeling"
+      ]
+    },
+    "1a35c6f170d880c5867ce22eefbc7cb7": {
+      "sourceName": "Dumbbell glute bridge",
+      "datasetId": "1409",
+      "tier": "similar",
+      "differences": [
+        "barbell"
+      ]
+    },
     "1a35c6f170d880c69859e6c12e048ba9": {
       "sourceName": "Bodyweight sit-up with hands on shoulders",
       "datasetId": "3679",
@@ -3170,6 +3661,14 @@
       "sourceName": "Pause conventional deadlift",
       "datasetId": "0032",
       "tier": "variant"
+    },
+    "1a35c6f170d880d89a3af6f1022532fd": {
+      "sourceName": "Single leg kettlebell Romanian deadlift",
+      "datasetId": "1757",
+      "tier": "similar",
+      "differences": [
+        "dumbbells"
+      ]
     },
     "1a35c6f170d880e09409ca60499f2367": {
       "sourceName": "High handle trap bar deadlift",
@@ -3191,6 +3690,22 @@
       "datasetId": "0044",
       "tier": "exact"
     },
+    "1a35c6f170d880f3af82ce83d7aee474": {
+      "sourceName": "Dual kettlebell Romanian deadlift",
+      "datasetId": "1459",
+      "tier": "similar",
+      "differences": [
+        "dumbbells"
+      ]
+    },
+    "1a35c6f170d880f6884cda44975bf858": {
+      "sourceName": "Seated single leg hamstring curl",
+      "datasetId": "0599",
+      "tier": "similar",
+      "differences": [
+        "both_legs"
+      ]
+    },
     "1a35c6f170d880f6bb05c7fcf46c4aa9": {
       "sourceName": "Plate-loaded machine crunch (with overhead handles)",
       "datasetId": "3760",
@@ -3200,6 +3715,15 @@
       "sourceName": "Conventional deadlift",
       "datasetId": "0032",
       "tier": "exact"
+    },
+    "1a35c6f170d880f99a95c9f681832465": {
+      "sourceName": "Seated single leg plate-loaded hamstring curl",
+      "datasetId": "0599",
+      "tier": "similar",
+      "differences": [
+        "both_legs",
+        "machine"
+      ]
     },
     "1a45c6f170d880039ab5db29125324be": {
       "sourceName": "Bodyweight Russian twist",
@@ -3240,6 +3764,14 @@
       "sourceName": "Horizontal cable chop",
       "datasetId": "0243",
       "tier": "exact"
+    },
+    "1a45c6f170d8804ea7cffb393945466c": {
+      "sourceName": "Kettlebell side bend",
+      "datasetId": "0407",
+      "tier": "similar",
+      "differences": [
+        "dumbbells"
+      ]
     },
     "1a45c6f170d88051b565eb1ea43255bc": {
       "sourceName": "Neutral dead bug",
@@ -3306,6 +3838,14 @@
       "datasetId": "0472",
       "tier": "exact"
     },
+    "1a45c6f170d880f1a98bd27d6a3de2e7": {
+      "sourceName": "Cable Pallof press",
+      "datasetId": "0979",
+      "tier": "similar",
+      "differences": [
+        "band"
+      ]
+    },
     "1a45c6f170d880f3b0ead000932b5489": {
       "sourceName": "Overhead medicine ball slam",
       "datasetId": "1354",
@@ -3320,6 +3860,14 @@
       "sourceName": "Single arm dumbbell row (elbow-in)",
       "datasetId": "0292",
       "tier": "exact"
+    },
+    "1aa5c6f170d880b9ab00ea8320731145": {
+      "sourceName": "Standing single arm cross-body dumbbell hammer curl",
+      "datasetId": "0298",
+      "tier": "similar",
+      "differences": [
+        "both_arms"
+      ]
     },
     "1ac5c6f170d8803f915fec32a9820548": {
       "sourceName": "Pin-loaded leg press calf raise",
@@ -3336,6 +3884,23 @@
       "datasetId": "1253",
       "tier": "exact"
     },
+    "1ac5c6f170d8809394bfc3c118a7c9d1": {
+      "sourceName": "Standing single leg plate-loaded machine calf raise",
+      "datasetId": "0605",
+      "tier": "similar",
+      "differences": [
+        "both_legs",
+        "machine"
+      ]
+    },
+    "1ac5c6f170d88096a00cda012fa6cad7": {
+      "sourceName": "Single leg pin-loaded leg press calf raise",
+      "datasetId": "2335",
+      "tier": "similar",
+      "differences": [
+        "both_legs"
+      ]
+    },
     "1ad5c6f170d8801a99f3c05e565715ef": {
       "sourceName": "Seated plate-loaded machine lateral raise",
       "datasetId": "0584",
@@ -3351,6 +3916,23 @@
       "datasetId": "2317",
       "tier": "exact"
     },
+    "1ae5c6f170d8800c86b0e19530eef337": {
+      "sourceName": "Bent-over overhand grip dumbbell rear delt fly",
+      "datasetId": "0380",
+      "tier": "similar",
+      "differences": [
+        "grip"
+      ]
+    },
+    "1ae5c6f170d880cead37fc715a47205d": {
+      "sourceName": "Standing plate-loaded machine lateral raise",
+      "datasetId": "0584",
+      "tier": "similar",
+      "differences": [
+        "seated",
+        "machine"
+      ]
+    },
     "1ae5c6f170d880da89bcf368bc01af0b": {
       "sourceName": "Seated overhand grip dumbbell rear delt fly",
       "datasetId": "0378",
@@ -3360,6 +3942,15 @@
       "sourceName": "Overhand grip cable rear delt fly",
       "datasetId": "0225",
       "tier": "exact"
+    },
+    "1b05c6f170d880898c3ade3eb3d10e80": {
+      "sourceName": "Single arm cable face pull",
+      "datasetId": "0233",
+      "tier": "similar",
+      "differences": [
+        "both_arms",
+        "handle"
+      ]
     },
     "1b05c6f170d880c885f6f10ea922b25b": {
       "sourceName": "Underhand grip cable straight bar triceps pushdown",
@@ -3376,6 +3967,14 @@
       "datasetId": "0241",
       "tier": "exact"
     },
+    "1b15c6f170d880a4b130e3fd4e382c3f": {
+      "sourceName": "Underhand grip cable triceps kickback",
+      "datasetId": "0860",
+      "tier": "similar",
+      "differences": [
+        "grip"
+      ]
+    },
     "1b15c6f170d880fa97f2f6bce5cfa350": {
       "sourceName": "Single arm underhand grip cable triceps pushdown",
       "datasetId": "0231",
@@ -3386,10 +3985,36 @@
       "datasetId": "1722",
       "tier": "variant"
     },
+    "1b85c6f170d88017af62c7f6947b251f": {
+      "sourceName": "Seated machine shrug",
+      "datasetId": "0604",
+      "tier": "similar",
+      "differences": [
+        "standing"
+      ]
+    },
+    "1b95c6f170d880609678f792d0762c00": {
+      "sourceName": "Seated pin-loaded machine shrug",
+      "datasetId": "0604",
+      "tier": "similar",
+      "differences": [
+        "standing",
+        "machine"
+      ]
+    },
     "1ca5c6f170d88029b5f6c3464d50ea03": {
       "sourceName": "Neutral shoulder width grip cable lat pulldown",
       "datasetId": "2616",
       "tier": "variant"
+    },
+    "1ca5c6f170d880a3bd11ce80391ac1ef": {
+      "sourceName": "Neutral wide grip cable lat pulldown",
+      "datasetId": "0198",
+      "tier": "similar",
+      "differences": [
+        "grip",
+        "handle"
+      ]
     },
     "1ca5c6f170d880de9d4efa853805659e": {
       "sourceName": "Underhand wide grip cable lat pulldown",
@@ -3400,6 +4025,22 @@
       "sourceName": "Bent-over overhand grip T-bar row",
       "datasetId": "0606",
       "tier": "exact"
+    },
+    "1cf5c6f170d880b7a988c5c82888660c": {
+      "sourceName": "Bent-over semi-neutral grip T-bar row",
+      "datasetId": "0606",
+      "tier": "similar",
+      "differences": [
+        "grip"
+      ]
+    },
+    "1d05c6f170d880048a3bffc3b3c53e52": {
+      "sourceName": "Chest-supported underhand grip T-bar row",
+      "datasetId": "1349",
+      "tier": "similar",
+      "differences": [
+        "grip"
+      ]
     },
     "1d05c6f170d8805295d5c5c4637401f8": {
       "sourceName": "Overhand grip landmine T-bar row",
@@ -3426,6 +4067,14 @@
       "datasetId": "0499",
       "tier": "variant"
     },
+    "1d45c6f170d880c89281e6901f4c3849": {
+      "sourceName": "Dumbbell seal row (elbows-out)",
+      "datasetId": "1328",
+      "tier": "similar",
+      "differences": [
+        "incline_bench"
+      ]
+    },
     "1d65c6f170d8806da486d7f5528de15f": {
       "sourceName": "Underhand grip plate-loaded machine lat pulldown",
       "datasetId": "2736",
@@ -3436,10 +4085,26 @@
       "datasetId": "0073",
       "tier": "exact"
     },
+    "1ea5c6f170d8803fad6deac6a44ac402": {
+      "sourceName": "Neutral close grip pull-up",
+      "datasetId": "0651",
+      "tier": "similar",
+      "differences": [
+        "grip"
+      ]
+    },
     "1ea5c6f170d88048b560ff1639535e0c": {
       "sourceName": "Wide grip chin-up",
       "datasetId": "1326",
       "tier": "variant"
+    },
+    "1ea5c6f170d8809588bbf87798d8f746": {
+      "sourceName": "Neutral wide grip pull-up",
+      "datasetId": "0651",
+      "tier": "similar",
+      "differences": [
+        "grip"
+      ]
     },
     "1eb5c6f170d8801a8641c62efb545970": {
       "sourceName": "Overhand grip plate-loaded machine-assisted pull-up",
@@ -3481,6 +4146,15 @@
       "datasetId": "0381",
       "tier": "variant"
     },
+    "2085c6f170d880959b7ef4d14f58c269": {
+      "sourceName": "Plate pullover",
+      "datasetId": "0433",
+      "tier": "similar",
+      "differences": [
+        "dumbbells",
+        "grip"
+      ]
+    },
     "20c5c6f170d8808da9d7fa79ce7f1eca": {
       "sourceName": "Dual dumbbell triceps kickback",
       "datasetId": "0420",
@@ -3511,6 +4185,14 @@
       "datasetId": "0026",
       "tier": "variant"
     },
+    "2185c6f170d880028f61dcfb1b8376f4": {
+      "sourceName": "Wide grip EZ bar preacher curl",
+      "datasetId": "1627",
+      "tier": "similar",
+      "differences": [
+        "grip"
+      ]
+    },
     "2185c6f170d880508589f149c556677f": {
       "sourceName": "Plate-loaded machine preacher curl",
       "datasetId": "0592",
@@ -3521,10 +4203,58 @@
       "datasetId": "1627",
       "tier": "exact"
     },
+    "2185c6f170d8807192f5fde56bf665f3": {
+      "sourceName": "Single arm plate-loaded machine preacher curl",
+      "datasetId": "1614",
+      "tier": "similar",
+      "differences": [
+        "both_arms"
+      ]
+    },
+    "21b5c6f170d88065b2edd2323f4e0a77": {
+      "sourceName": "Low incline dumbbell fly",
+      "datasetId": "0308",
+      "tier": "similar",
+      "differences": [
+        "flat_bench"
+      ]
+    },
+    "21b5c6f170d880ae8df7c12086a855cd": {
+      "sourceName": "Single arm low-to-high cable fly",
+      "datasetId": "0179",
+      "tier": "similar",
+      "differences": [
+        "both_arms"
+      ]
+    },
     "21c5c6f170d880019593eeff6244ee38": {
       "sourceName": "Single arm cable front raise",
       "datasetId": "0161",
       "tier": "exact"
+    },
+    "21c5c6f170d88003a39bda54ea48d199": {
+      "sourceName": "Single arm high-to-low cable fly",
+      "datasetId": "0227",
+      "tier": "similar",
+      "differences": [
+        "both_arms"
+      ]
+    },
+    "2245c6f170d880238f4ff9500137ec89": {
+      "sourceName": "Low incline dumbbell press",
+      "datasetId": "0289",
+      "tier": "similar",
+      "differences": [
+        "flat_bench"
+      ]
+    },
+    "2245c6f170d8808883f9ea2d3b18530a": {
+      "sourceName": "High incline dumbbell press",
+      "datasetId": "0289",
+      "tier": "similar",
+      "differences": [
+        "flat_bench"
+      ]
     },
     "2285c6f170d880d3b0e7c4fbfb5da392": {
       "sourceName": "Touch-and-go conventional deadlift",
@@ -3606,6 +4336,22 @@
       "datasetId": "0748",
       "tier": "variant"
     },
+    "2405c6f170d88013a49ec0ebed04a154": {
+      "sourceName": "Low incline Smith machine press",
+      "datasetId": "0748",
+      "tier": "similar",
+      "differences": [
+        "flat_bench"
+      ]
+    },
+    "2405c6f170d8805e8629d8445d40121a": {
+      "sourceName": "High incline Smith machine press",
+      "datasetId": "0748",
+      "tier": "similar",
+      "differences": [
+        "flat_bench"
+      ]
+    },
     "2405c6f170d88066aa57f7e9c8af3988": {
       "sourceName": "Spoto press",
       "datasetId": "0025",
@@ -3641,6 +4387,14 @@
       "datasetId": "0788",
       "tier": "exact"
     },
+    "2535c6f170d8801bab2af2748abfe4e1": {
+      "sourceName": "Slight decline dumbbell bench press",
+      "datasetId": "0301",
+      "tier": "similar",
+      "differences": [
+        "decline_bench"
+      ]
+    },
     "2565c6f170d88044b9e8dd1209a999a6": {
       "sourceName": "Decline crunch with hands on shoulders",
       "datasetId": "0277",
@@ -3666,6 +4420,15 @@
       "datasetId": "1451",
       "tier": "exact"
     },
+    "25d5c6f170d8801a981fed5219ddbb4e": {
+      "sourceName": "Seated single leg pin-loaded machine calf raise",
+      "datasetId": "0594",
+      "tier": "similar",
+      "differences": [
+        "both_legs",
+        "machine"
+      ]
+    },
     "25d5c6f170d880c887a2fa457044342e": {
       "sourceName": "Seated pin-loaded machine calf raise",
       "datasetId": "0594",
@@ -3675,6 +4438,32 @@
       "sourceName": "Seated neutral grip plate-loaded machine chest press",
       "datasetId": "0577",
       "tier": "exact"
+    },
+    "2695c6f170d8800798edcc4962b408a1": {
+      "sourceName": "Lying pin-loaded machine chest press",
+      "datasetId": "0577",
+      "tier": "similar",
+      "differences": [
+        "seated",
+        "grip"
+      ]
+    },
+    "2695c6f170d8801483dcc92d594faa26": {
+      "sourceName": "Lying neutral grip plate-loaded machine chest press",
+      "datasetId": "0577",
+      "tier": "similar",
+      "differences": [
+        "seated",
+        "machine"
+      ]
+    },
+    "2695c6f170d880809556d02e4cf5e3da": {
+      "sourceName": "Lying plate-loaded machine chest press",
+      "datasetId": "0576",
+      "tier": "similar",
+      "differences": [
+        "seated"
+      ]
     },
     "26a5c6f170d8801f894cc7620869b673": {
       "sourceName": "Seated plate-loaded machine chest dip",
@@ -3816,6 +4605,15 @@
       "datasetId": "2286",
       "tier": "exact"
     },
+    "2925c6f170d88037b3d9c22ff48a9988": {
+      "sourceName": "Neutral grip weighted pull-up",
+      "datasetId": "0651",
+      "tier": "similar",
+      "differences": [
+        "bodyweight",
+        "grip"
+      ]
+    },
     "2945c6f170d8800c8ffcdad2c4e5ffce": {
       "sourceName": "Machine-assisted dip",
       "datasetId": "0019",
@@ -3916,6 +4714,14 @@
       "datasetId": "0085",
       "tier": "variant"
     },
+    "29d5c6f170d880409366c2590701e800": {
+      "sourceName": "Snatch grip Romanian deadlift",
+      "datasetId": "0085",
+      "tier": "similar",
+      "differences": [
+        "grip"
+      ]
+    },
     "29d5c6f170d88047a8cfd79892e274d5": {
       "sourceName": "Single arm dumbbell preacher curl",
       "datasetId": "0372",
@@ -3935,6 +4741,14 @@
       "sourceName": "EZ bar reverse curl",
       "datasetId": "0451",
       "tier": "exact"
+    },
+    "29f5c6f170d8803988fcc71c2940623e": {
+      "sourceName": "Dumbbell preacher hammer curl",
+      "datasetId": "1646",
+      "tier": "similar",
+      "differences": [
+        "one_arm"
+      ]
     },
     "29f5c6f170d8803b9bd7da5e16e2e6cc": {
       "sourceName": "High bar box squat",
@@ -3961,15 +4775,48 @@
       "datasetId": "0019",
       "tier": "variant"
     },
+    "2a05c6f170d88032be2ee6ccdc2bc2b9": {
+      "sourceName": "Half-kneeling cable Pallof press",
+      "datasetId": "0979",
+      "tier": "similar",
+      "differences": [
+        "band",
+        "standing"
+      ]
+    },
+    "2a05c6f170d88048b677f623d7693a19": {
+      "sourceName": "Smith machine Pendlay row",
+      "datasetId": "3017",
+      "tier": "similar",
+      "differences": [
+        "barbell"
+      ]
+    },
     "2a05c6f170d88068b1f8e50b33c87079": {
       "sourceName": "Cable EZ bar biceps curl",
       "datasetId": "0868",
       "tier": "variant"
     },
+    "2a05c6f170d8807ca8d5d6bc4ba615c4": {
+      "sourceName": "Kneeling cable straight arm lat pulldown",
+      "datasetId": "0238",
+      "tier": "similar",
+      "differences": [
+        "standing"
+      ]
+    },
     "2a05c6f170d880a3a7b5c523968fc01b": {
       "sourceName": "Cable hip adduction",
       "datasetId": "0168",
       "tier": "exact"
+    },
+    "2a05c6f170d880c897bbfc6bb80b7ab3": {
+      "sourceName": "Cable concentration curl",
+      "datasetId": "1642",
+      "tier": "similar",
+      "differences": [
+        "seated"
+      ]
     },
     "2a05c6f170d880dfa1f2d723c2a7a3a0": {
       "sourceName": "Pause plate-loaded machine-assisted dip",
@@ -4016,10 +4863,26 @@
       "datasetId": "0970",
       "tier": "variant"
     },
+    "2a25c6f170d880f4b962fed4aa60820b": {
+      "sourceName": "Standing Arnold press",
+      "datasetId": "0287",
+      "tier": "similar",
+      "differences": [
+        "seated"
+      ]
+    },
     "2a35c6f170d8800c9b3de01d90acbc44": {
       "sourceName": "Machine cheat shrug",
       "datasetId": "0604",
       "tier": "variant"
+    },
+    "2a45c6f170d8802891cbf6897f304221": {
+      "sourceName": "Neutral grip band-assisted pull-up",
+      "datasetId": "0970",
+      "tier": "similar",
+      "differences": [
+        "grip"
+      ]
     },
     "2a55c6f170d88077895ddf5fadda700f": {
       "sourceName": "Dumbbell Scott curl",
@@ -4035,6 +4898,38 @@
       "sourceName": "Reset conventional deadlift",
       "datasetId": "0032",
       "tier": "variant"
+    },
+    "2a95c6f170d88030be42cfe71124d3a1": {
+      "sourceName": "Single arm fat grip dumbbell preacher hammer curl",
+      "datasetId": "1663",
+      "tier": "similar",
+      "differences": [
+        "dumbbells"
+      ]
+    },
+    "2a95c6f170d8805e8b27cb88e703eac7": {
+      "sourceName": "Band-assisted chin-up",
+      "datasetId": "0970",
+      "tier": "similar",
+      "differences": [
+        "grip"
+      ]
+    },
+    "2a95c6f170d8807b8876cbb06d90c203": {
+      "sourceName": "Standing fat grip dumbbell hammer curl",
+      "datasetId": "0312",
+      "tier": "similar",
+      "differences": [
+        "dumbbells"
+      ]
+    },
+    "2a95c6f170d880c79ad0e9ecc4f0d855": {
+      "sourceName": "Standing fat grip dumbbell biceps curl",
+      "datasetId": "0416",
+      "tier": "similar",
+      "differences": [
+        "dumbbells"
+      ]
     },
     "2aa5c6f170d8805eba89d16e66093142": {
       "sourceName": "Cable shoulder press",
@@ -4081,6 +4976,15 @@
       "datasetId": "0326",
       "tier": "exact"
     },
+    "2ab5c6f170d880708a30f9f8872c6084": {
+      "sourceName": "Half-kneeling single arm crucifix curl",
+      "datasetId": "1636",
+      "tier": "similar",
+      "differences": [
+        "both_arms",
+        "standing"
+      ]
+    },
     "2ab5c6f170d88077bf41c329e79f07b9": {
       "sourceName": "Flat-back barbell bench press",
       "datasetId": "0025",
@@ -4090,6 +4994,40 @@
       "sourceName": "Standing accentuated eccentric plate-loaded machine calf raise",
       "datasetId": "0605",
       "tier": "variant"
+    },
+    "2ab5c6f170d880ab86d3fc93d8eaa4d3": {
+      "sourceName": "Single arm pinch grip dumbbell curl",
+      "datasetId": "1670",
+      "tier": "similar",
+      "differences": [
+        "grip"
+      ]
+    },
+    "2ab5c6f170d880c5a2b7fd382b30b40e": {
+      "sourceName": "Side-lying low incline dumbbell lateral raise",
+      "datasetId": "0323",
+      "tier": "similar",
+      "differences": [
+        "incline_bench"
+      ]
+    },
+    "2ac5c6f170d880528867ff9573668f14": {
+      "sourceName": "Plate shrug",
+      "datasetId": "0406",
+      "tier": "similar",
+      "differences": [
+        "dumbbells",
+        "grip"
+      ]
+    },
+    "2ad5c6f170d8800794e2f44d340d181e": {
+      "sourceName": "Cable row with dynamic back extension",
+      "datasetId": "0861",
+      "tier": "similar",
+      "differences": [
+        "grip",
+        "handle"
+      ]
     },
     "2ad5c6f170d8804aa21df1e164192910": {
       "sourceName": "Wide grip weighted pull-up",
@@ -4131,6 +5069,22 @@
       "datasetId": "1490",
       "tier": "variant"
     },
+    "2ae5c6f170d8805da4e1d8dc785bc9ea": {
+      "sourceName": "Neutral grip pin-loaded machine lat pulldown",
+      "datasetId": "0579",
+      "tier": "similar",
+      "differences": [
+        "grip"
+      ]
+    },
+    "2ae5c6f170d88069bb1dc458458a3a78": {
+      "sourceName": "Overhand grip pin-loaded machine lat pulldown",
+      "datasetId": "0579",
+      "tier": "similar",
+      "differences": [
+        "grip"
+      ]
+    },
     "2ae5c6f170d8807da2dcd7bf23371d82": {
       "sourceName": "Cable rope straight arm lat pulldown",
       "datasetId": "0237",
@@ -4141,6 +5095,14 @@
       "datasetId": "0579",
       "tier": "exact"
     },
+    "2ae5c6f170d880d0b371e2747293bb3d": {
+      "sourceName": "Seated cable fly",
+      "datasetId": "0188",
+      "tier": "similar",
+      "differences": [
+        "standing"
+      ]
+    },
     "2ae5c6f170d880d0bd81c87b1814c805": {
       "sourceName": "Wide grip pin-loaded machine row",
       "datasetId": "1350",
@@ -4150,6 +5112,14 @@
       "sourceName": "Wide grip plate-loaded machine row",
       "datasetId": "1350",
       "tier": "variant"
+    },
+    "2b25c6f170d88028809bfcde86c6e69e": {
+      "sourceName": "Seated dumbbell Zottman curl",
+      "datasetId": "0439",
+      "tier": "similar",
+      "differences": [
+        "standing"
+      ]
     },
     "2bf5c6f170d880a0af97cfd8c54d814c": {
       "sourceName": "Tall plank scapular protraction",
@@ -4166,6 +5136,30 @@
       "datasetId": "0228",
       "tier": "exact"
     },
+    "2cc5c6f170d8800798eddcf4b873de4c": {
+      "sourceName": "Seated single arm plate-loaded machine incline press",
+      "datasetId": "1299",
+      "tier": "similar",
+      "differences": [
+        "both_arms"
+      ]
+    },
+    "2cc5c6f170d88074a5e5eff1282b47f2": {
+      "sourceName": "Single arm crucifix curl",
+      "datasetId": "1636",
+      "tier": "similar",
+      "differences": [
+        "both_arms"
+      ]
+    },
+    "2ce5c6f170d8809a8f3deb9e145171b0": {
+      "sourceName": "Band triceps pushdown",
+      "datasetId": "0200",
+      "tier": "similar",
+      "differences": [
+        "cable"
+      ]
+    },
     "2cf5c6f170d88030b58fd481d9951983": {
       "sourceName": "Dual kettlebell clean",
       "datasetId": "0552",
@@ -4175,6 +5169,32 @@
       "sourceName": "Side-lying dumbbell shoulder external rotation",
       "datasetId": "0863",
       "tier": "exact"
+    },
+    "2e35c6f170d88064bd1ec50647b38148": {
+      "sourceName": "Neutral grip plate-loaded machine lat pulldown",
+      "datasetId": "0579",
+      "tier": "similar",
+      "differences": [
+        "machine",
+        "grip"
+      ]
+    },
+    "2e35c6f170d880ab8134d260a3fb6cf4": {
+      "sourceName": "Underhand grip barbell seal row",
+      "datasetId": "0049",
+      "tier": "similar",
+      "differences": [
+        "incline_bench",
+        "grip"
+      ]
+    },
+    "2e35c6f170d880c0b0cde92fcc3eee3d": {
+      "sourceName": "Barbell seal row",
+      "datasetId": "0049",
+      "tier": "similar",
+      "differences": [
+        "incline_bench"
+      ]
     },
     "2e55c6f170d880faaf6ac27b7f05bb46": {
       "sourceName": "Pause ring dip",
@@ -4251,6 +5271,32 @@
       "datasetId": "1300",
       "tier": "exact"
     },
+    "2f45c6f170d88029be9fc43fceda1500": {
+      "sourceName": "Plate-loaded machine-assisted chin-up",
+      "datasetId": "0572",
+      "tier": "similar",
+      "differences": [
+        "machine",
+        "grip"
+      ]
+    },
+    "2f45c6f170d8806cb6fdd5f6e6186759": {
+      "sourceName": "Single leg dumbbell glute bridge",
+      "datasetId": "1409",
+      "tier": "similar",
+      "differences": [
+        "both_legs",
+        "barbell"
+      ]
+    },
+    "2f45c6f170d8809595d5ce3ab6489d3d": {
+      "sourceName": "Single leg barbell glute bridge",
+      "datasetId": "1409",
+      "tier": "similar",
+      "differences": [
+        "both_legs"
+      ]
+    },
     "2f45c6f170d880ec918afd0c11e016f9": {
       "sourceName": "Machine-assisted chin-up",
       "datasetId": "0572",
@@ -4281,10 +5327,50 @@
       "datasetId": "0575",
       "tier": "exact"
     },
+    "2fe5c6f170d880ffb230ffceb58e711c": {
+      "sourceName": "Vertical leg press",
+      "datasetId": "0760",
+      "tier": "similar",
+      "differences": [
+        "smith_machine"
+      ]
+    },
+    "2ff5c6f170d8806e89c4cbbd400099a0": {
+      "sourceName": "Axle deadlift",
+      "datasetId": "0032",
+      "tier": "similar",
+      "differences": [
+        "barbell"
+      ]
+    },
     "2ff5c6f170d880a6a051db7051c1058b": {
       "sourceName": "Jump rope",
       "datasetId": "2612",
       "tier": "exact"
+    },
+    "3005c6f170d8806bae7eff84cc27cbc9": {
+      "sourceName": "Buffalo bar bench press",
+      "datasetId": "0025",
+      "tier": "similar",
+      "differences": [
+        "barbell"
+      ]
+    },
+    "3005c6f170d880b0855ce54eabed67d6": {
+      "sourceName": "Cambered bar bench press",
+      "datasetId": "0025",
+      "tier": "similar",
+      "differences": [
+        "barbell"
+      ]
+    },
+    "3005c6f170d880eeb433c795c4f8cc5d": {
+      "sourceName": "Cambered bar squat",
+      "datasetId": "1436",
+      "tier": "similar",
+      "differences": [
+        "barbell"
+      ]
     },
     "3015c6f170d88085bd3eccbedfea3dc3": {
       "sourceName": "Bosu ball push-up",
@@ -4296,6 +5382,15 @@
       "datasetId": "0475",
       "tier": "variant"
     },
+    "3065c6f170d8802ba1e2d2055f8bd410": {
+      "sourceName": "Single arm cable shrug",
+      "datasetId": "0220",
+      "tier": "similar",
+      "differences": [
+        "both_arms",
+        "handle"
+      ]
+    },
     "3065c6f170d8807abd9fc6be633e0b19": {
       "sourceName": "Dumbbell deadlift",
       "datasetId": "0300",
@@ -4306,10 +5401,26 @@
       "datasetId": "0866",
       "tier": "exact"
     },
+    "3065c6f170d880d2bc77cba9edbf8ce9": {
+      "sourceName": "Dumbbell renegade row",
+      "datasetId": "0521",
+      "tier": "similar",
+      "differences": [
+        "kettlebell"
+      ]
+    },
     "3065c6f170d880ea9e55f2c3f7a93b48": {
       "sourceName": "Captain’s chair weighted knee raise",
       "datasetId": "0826",
       "tier": "variant"
+    },
+    "3065c6f170d880eea408cc28767961ae": {
+      "sourceName": "Single arm cable rear delt fly",
+      "datasetId": "0225",
+      "tier": "similar",
+      "differences": [
+        "both_arms"
+      ]
     },
     "3065c6f170d880fa8ca1fc1223bc98b8": {
       "sourceName": "Captain’s chair weighted straight leg raise",
@@ -4346,6 +5457,14 @@
       "datasetId": "1004",
       "tier": "exact"
     },
+    "30d5c6f170d880e7a00ee1e7319b720d": {
+      "sourceName": "Dual handle cable lat pulldown",
+      "datasetId": "0818",
+      "tier": "similar",
+      "differences": [
+        "one_arm"
+      ]
+    },
     "30f5c6f170d88010a9c0dc8c3f5f33c4": {
       "sourceName": "Pin-loaded machine high row",
       "datasetId": "0581",
@@ -4376,6 +5495,31 @@
       "datasetId": "1433",
       "tier": "exact"
     },
+    "3275c6f170d880589233d014bca079c4": {
+      "sourceName": "Single leg kettlebell glute bridge",
+      "datasetId": "1409",
+      "tier": "similar",
+      "differences": [
+        "both_legs",
+        "barbell"
+      ]
+    },
+    "3275c6f170d88063b9c9d0c80fca658d": {
+      "sourceName": "Kettlebell glute bridge",
+      "datasetId": "1409",
+      "tier": "similar",
+      "differences": [
+        "barbell"
+      ]
+    },
+    "3295c6f170d880daaee2e2962ae412dc": {
+      "sourceName": "Band chest fly",
+      "datasetId": "0188",
+      "tier": "similar",
+      "differences": [
+        "cable"
+      ]
+    },
     "32e5c6f170d8800b9e2ada4601772e3e": {
       "sourceName": "Seated EZ bar overhead triceps extension",
       "datasetId": "0453",
@@ -4390,6 +5534,30 @@
       "sourceName": "Negative chin-up",
       "datasetId": "1326",
       "tier": "variant"
+    },
+    "32e5c6f170d88091b119f0e332588c58": {
+      "sourceName": "Trap bar reverse lunge",
+      "datasetId": "0381",
+      "tier": "similar",
+      "differences": [
+        "dumbbells"
+      ]
+    },
+    "32e5c6f170d880b58649dd5bf7bb2c31": {
+      "sourceName": "Seated dumbbell shoulder external rotation",
+      "datasetId": "0864",
+      "tier": "similar",
+      "differences": [
+        "standing"
+      ]
+    },
+    "32e5c6f170d880efad66d48095e79bdd": {
+      "sourceName": "Negative neutral grip pull-up",
+      "datasetId": "0651",
+      "tier": "similar",
+      "differences": [
+        "grip"
+      ]
     },
     "32e5c6f170d880efb190df52550f9f93": {
       "sourceName": "Weighted inverted row",
@@ -4416,6 +5584,46 @@
       "datasetId": "0076",
       "tier": "exact"
     },
+    "3315c6f170d8805189f3df9113d267f0": {
+      "sourceName": "Band biceps curl",
+      "datasetId": "3123",
+      "tier": "similar",
+      "differences": [
+        "seated"
+      ]
+    },
+    "3315c6f170d8805a8e13ff6a504ddf82": {
+      "sourceName": "Band lateral raise",
+      "datasetId": "0178",
+      "tier": "similar",
+      "differences": [
+        "cable"
+      ]
+    },
+    "3315c6f170d8806ea037e628fead3b7c": {
+      "sourceName": "Kettlebell lateral raise",
+      "datasetId": "0334",
+      "tier": "similar",
+      "differences": [
+        "dumbbells"
+      ]
+    },
+    "3315c6f170d880af840afa6c72b76754": {
+      "sourceName": "Kettlebell rear delt fly",
+      "datasetId": "0380",
+      "tier": "similar",
+      "differences": [
+        "dumbbells"
+      ]
+    },
+    "3315c6f170d880b0b8bec18a4fc536c1": {
+      "sourceName": "Band upright row",
+      "datasetId": "0246",
+      "tier": "similar",
+      "differences": [
+        "cable"
+      ]
+    },
     "3315c6f170d880d296abfb90dbd5aa6b": {
       "sourceName": "Band front raise",
       "datasetId": "0978",
@@ -4426,6 +5634,46 @@
       "datasetId": "1018",
       "tier": "exact"
     },
+    "3325c6f170d880a2a9b6e4391cc8390a": {
+      "sourceName": "Single kettlebell Romanian deadlift",
+      "datasetId": "0085",
+      "tier": "similar",
+      "differences": [
+        "barbell"
+      ]
+    },
+    "33a5c6f170d880d99bcee5db870f9351": {
+      "sourceName": "EZ bar upright row",
+      "datasetId": "0119",
+      "tier": "similar",
+      "differences": [
+        "barbell"
+      ]
+    },
+    "33c5c6f170d88097a179d6e74e09af7b": {
+      "sourceName": "Seated dual handle cable row (elbows-in)",
+      "datasetId": "1323",
+      "tier": "similar",
+      "differences": [
+        "handle"
+      ]
+    },
+    "33e5c6f170d880e0922cc677a863e2a4": {
+      "sourceName": "Standing machine chest fly",
+      "datasetId": "0596",
+      "tier": "similar",
+      "differences": [
+        "seated"
+      ]
+    },
+    "3445c6f170d880118464dfb97c3e8b4a": {
+      "sourceName": "Seated dual handle cable row (elbows-out)",
+      "datasetId": "0218",
+      "tier": "similar",
+      "differences": [
+        "handle"
+      ]
+    },
     "3565c6f170d880f09ea0dc8605d13ebe": {
       "sourceName": "Cambered bar seal row",
       "datasetId": "0248",
@@ -4435,6 +5683,14 @@
       "sourceName": "Horizontal hack squat",
       "datasetId": "0744",
       "tier": "exact"
+    },
+    "3585c6f170d88032a92edeaaaac53bf6": {
+      "sourceName": "Concentration hammer curl",
+      "datasetId": "0297",
+      "tier": "similar",
+      "differences": [
+        "grip"
+      ]
     },
     "3585c6f170d8804c9328f764225cfc6c": {
       "sourceName": "Toes-to-bar",
@@ -4456,6 +5712,56 @@
       "datasetId": "1385",
       "tier": "exact"
     },
+    "3725c6f170d880c49ad7fd2115889c62": {
+      "sourceName": "Seated single arm plate-loaded machine finger curl",
+      "datasetId": "2288",
+      "tier": "similar",
+      "differences": [
+        "both_arms"
+      ]
+    },
+    "3865c6f170d88092b9d0cd1122fa9f34": {
+      "sourceName": "Single leg bodyweight Roman chair hip hinge",
+      "datasetId": "0489",
+      "tier": "similar",
+      "differences": [
+        "both_legs"
+      ]
+    },
+    "3895c6f170d88001a6a1eaf6fcd1d32e": {
+      "sourceName": "Lying single arm plate-loaded machine chest press",
+      "datasetId": "0576",
+      "tier": "similar",
+      "differences": [
+        "seated",
+        "both_arms"
+      ]
+    },
+    "3895c6f170d8800fa56ccb8180ff6c5b": {
+      "sourceName": "Seated single arm plate-loaded machine chest press",
+      "datasetId": "0576",
+      "tier": "similar",
+      "differences": [
+        "both_arms"
+      ]
+    },
+    "3895c6f170d8802a8597f920e0b115e9": {
+      "sourceName": "Seated neutral grip single arm plate-loaded machine chest press",
+      "datasetId": "0577",
+      "tier": "similar",
+      "differences": [
+        "both_arms",
+        "machine"
+      ]
+    },
+    "3895c6f170d8804bb3d7ecc7cc945917": {
+      "sourceName": "Single arm plate-loaded machine decline press",
+      "datasetId": "1300",
+      "tier": "similar",
+      "differences": [
+        "both_arms"
+      ]
+    },
     "3895c6f170d88059bc07cb2265b3866c": {
       "sourceName": "Single arm plate-loaded machine high row",
       "datasetId": "1356",
@@ -4466,20 +5772,206 @@
       "datasetId": "2611",
       "tier": "exact"
     },
+    "3895c6f170d880a5a954eaafa2af75c8": {
+      "sourceName": "Single leg center pendulum reverse hyperextension",
+      "datasetId": "0593",
+      "tier": "similar",
+      "differences": [
+        "both_legs",
+        "machine"
+      ]
+    },
+    "3895c6f170d880d0ac84ef7ed54be14b": {
+      "sourceName": "Single leg side-plate-loaded reverse hyperextension",
+      "datasetId": "0593",
+      "tier": "similar",
+      "differences": [
+        "both_legs"
+      ]
+    },
+    "38f5c6f170d88040b88ffa81bdea9507": {
+      "sourceName": "EZ bar front raise",
+      "datasetId": "0041",
+      "tier": "similar",
+      "differences": [
+        "barbell"
+      ]
+    },
+    "3965c6f170d8807faa9de3abc977a2ac": {
+      "sourceName": "Dual cable bar bench press",
+      "datasetId": "0151",
+      "tier": "similar",
+      "differences": [
+        "handle"
+      ]
+    },
+    "3965c6f170d8809984ecd90d865c2ad4": {
+      "sourceName": "Dual cable bar deadlift",
+      "datasetId": "0157",
+      "tier": "similar",
+      "differences": [
+        "handle"
+      ]
+    },
+    "3965c6f170d880b8ae57f3b9792ad088": {
+      "sourceName": "Dual cable bar overhead press",
+      "datasetId": "0219",
+      "tier": "similar",
+      "differences": [
+        "standing",
+        "handle"
+      ]
+    },
     "3985c6f170d88046ba99e34c83a17099": {
       "sourceName": "Incline chest-supported barbell row",
       "datasetId": "0049",
       "tier": "exact"
+    },
+    "3985c6f170d880e98d27f03cd0c100ac": {
+      "sourceName": "Incline chest-supported Smith machine row",
+      "datasetId": "0049",
+      "tier": "similar",
+      "differences": [
+        "barbell"
+      ]
+    },
+    "39a5c6f170d8801badfafab7637ed42e": {
+      "sourceName": "Single arm plate-loaded pec deck rear delt fly",
+      "datasetId": "0602",
+      "tier": "similar",
+      "differences": [
+        "both_arms",
+        "machine"
+      ]
+    },
+    "39a5c6f170d88035a24bc93113f5bf0f": {
+      "sourceName": "Standing single arm machine pec fly",
+      "datasetId": "0596",
+      "tier": "similar",
+      "differences": [
+        "both_arms",
+        "seated"
+      ]
+    },
+    "39a5c6f170d880639b9ac2f6254440d7": {
+      "sourceName": "Horizontal single leg machine calf extension",
+      "datasetId": "2289",
+      "tier": "similar",
+      "differences": [
+        "both_legs"
+      ]
     },
     "39a5c6f170d88068a174c97856456c71": {
       "sourceName": "Chest-supported underhand grip pin-loaded machine row",
       "datasetId": "1348",
       "tier": "exact"
     },
+    "39a5c6f170d88087bf10eb9394053f4a": {
+      "sourceName": "Single arm plate-loaded machine chest fly",
+      "datasetId": "0596",
+      "tier": "similar",
+      "differences": [
+        "both_arms",
+        "machine"
+      ]
+    },
+    "39a5c6f170d880b5a8cdfd5687ac9676": {
+      "sourceName": "Standing single arm machine lateral raise",
+      "datasetId": "0584",
+      "tier": "similar",
+      "differences": [
+        "both_arms",
+        "seated"
+      ]
+    },
     "39b5c6f170d880299d20c111f173f856": {
       "sourceName": "Horizontal hack squat calf raise",
       "datasetId": "2334",
       "tier": "exact"
+    },
+    "39b5c6f170d880c2a771ea514f221f2c": {
+      "sourceName": "Single arm plate-loaded machine incline bench press",
+      "datasetId": "1299",
+      "tier": "similar",
+      "differences": [
+        "both_arms"
+      ]
+    },
+    "39c5c6f170d88013ba68c2b0cb9bff45": {
+      "sourceName": "Cambered bar good morning",
+      "datasetId": "0044",
+      "tier": "similar",
+      "differences": [
+        "barbell"
+      ]
+    },
+    "39d5c6f170d8800a8bd9f4e2b33c56b8": {
+      "sourceName": "Buffalo bar squat",
+      "datasetId": "1436",
+      "tier": "similar",
+      "differences": [
+        "barbell"
+      ]
+    },
+    "39d5c6f170d880458627c817d5bf4206": {
+      "sourceName": "Reclined neutral grip pin-loaded machine incline press",
+      "datasetId": "1479",
+      "tier": "similar",
+      "differences": [
+        "machine",
+        "grip"
+      ]
+    },
+    "39d5c6f170d880e2bb3ccc67aa1c3276": {
+      "sourceName": "Lying neutral grip pin-loaded machine chest press",
+      "datasetId": "0577",
+      "tier": "similar",
+      "differences": [
+        "seated"
+      ]
+    },
+    "3a05c6f170d88043a598fe2bf6ae061f": {
+      "sourceName": "Seated single arm plate-loaded machine lateral raise",
+      "datasetId": "0584",
+      "tier": "similar",
+      "differences": [
+        "both_arms",
+        "machine"
+      ]
+    },
+    "3a05c6f170d8805aa301e0b6da152756": {
+      "sourceName": "Axle biceps curl",
+      "datasetId": "0031",
+      "tier": "similar",
+      "differences": [
+        "barbell"
+      ]
+    },
+    "3a05c6f170d8805cbfe1dbb2fbf7d483": {
+      "sourceName": "Bent-over axle row",
+      "datasetId": "0027",
+      "tier": "similar",
+      "differences": [
+        "barbell"
+      ]
+    },
+    "3a05c6f170d880acb429cc22116f4479": {
+      "sourceName": "Axle strict press",
+      "datasetId": "1456",
+      "tier": "similar",
+      "differences": [
+        "barbell",
+        "grip"
+      ]
+    },
+    "3a15c6f170d8802d929dc7c562ac7e2c": {
+      "sourceName": "Plate-loaded machine squatting hip abduction",
+      "datasetId": "0597",
+      "tier": "similar",
+      "differences": [
+        "seated",
+        "machine"
+      ]
     },
     "3a15c6f170d88086bef0df37254b8a6d": {
       "sourceName": "Bent-over overhand grip plate-loaded machine row",
@@ -4491,10 +5983,34 @@
       "datasetId": "3758",
       "tier": "exact"
     },
+    "3a35c6f170d880038bb5fa8cbb8f2b20": {
+      "sourceName": "Standing back-supported dumbbell biceps curl",
+      "datasetId": "1677",
+      "tier": "similar",
+      "differences": [
+        "seated"
+      ]
+    },
+    "3a65c6f170d880089793eaab0ba66e36": {
+      "sourceName": "Pin-loaded machine squatting hip abduction",
+      "datasetId": "0597",
+      "tier": "similar",
+      "differences": [
+        "seated"
+      ]
+    },
     "3aa5c6f170d8809ba704c386e81ac68f": {
       "sourceName": "Plate-loaded machine wide chest press",
       "datasetId": "0576",
       "tier": "variant"
+    },
+    "3ab5c6f170d8801d8141e1e30c29e9a4": {
+      "sourceName": "Single arm plate-loaded machine wide grip chest press",
+      "datasetId": "0576",
+      "tier": "similar",
+      "differences": [
+        "both_arms"
+      ]
     },
     "3b15c6f170d88023bf36c987ba0a7ad7": {
       "sourceName": "Landmine rotation",
