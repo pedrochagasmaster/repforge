@@ -515,6 +515,33 @@ async function main() {
       check(same(imported?.definition, editedDefinition),
         "another device's Import reads the shared file back as the same program", firstDifference(editedDefinition, imported?.definition));
       await recipient.context.close();
+
+      // Share outcomes (#825): a closed share sheet (AbortError) downloads nothing; a share the browser refuses
+      // (NotAllowedError) still falls back to a download.
+      const stubShare = (mode) => edited.page.evaluate((mode) => {
+        window.__fileShareProbe = { downloads: 0, shares: 0 };
+        if (!window.__fileShareProbeInstalled) {
+          window.__fileShareProbeInstalled = true;
+          const create = URL.createObjectURL.bind(URL);
+          URL.createObjectURL = (blob) => { if (blob?.type === "application/json") window.__fileShareProbe.downloads++; return create(blob); };
+        }
+        Object.defineProperty(navigator, "canShare", { configurable: true, value: (data) => Array.isArray(data?.files) });
+        Object.defineProperty(navigator, "share", { configurable: true, value: () => {
+          window.__fileShareProbe.shares++;
+          return Promise.reject(new DOMException("stub", mode));
+        } });
+      }, mode);
+      const shareFileOnce = async () => {
+        await edited.page.locator("#shareSetupFile").click();
+        await edited.page.waitForTimeout(300);
+        return edited.page.evaluate(() => ({ ...window.__fileShareProbe }));
+      };
+      await stubShare("AbortError");
+      let fileProbe = await shareFileOnce();
+      check(fileProbe.shares === 1 && fileProbe.downloads === 0, "a closed share sheet downloads no program file", fileProbe);
+      await stubShare("NotAllowedError");
+      fileProbe = await shareFileOnce();
+      check(fileProbe.shares === 1 && fileProbe.downloads === 1, "a share the browser refuses falls back to downloading the program file", fileProbe);
     }
     await edited.context.close();
 

@@ -1594,9 +1594,8 @@ function shareFile(text,name,type,title){
   return Promise.resolve(sharing).then(()=>"shared",error=>{
     if(error?.name==="AbortError")return "cancelled";
     download(text,name,type);return "downloaded"})}
-/* Program files and text keep their earlier behaviour: a closed sheet still downloads. */
-async function shareOrDownload(text,name,type,title="Taurifer backup"){
-  if(await shareFile(text,name,type,title)==="cancelled")download(text,name,type)}
+/* Program files and text: a closed sheet downloads nothing (#825); a refused share or no file sharing downloads. */
+function shareOrDownload(text,name,type,title="Taurifer backup"){return shareFile(text,name,type,title)}
 /* Words and numeric reps left share the effort shelf. Legacy tokens remain readable. */
 const EFFORT_RIR={easy:3,hard:1,max:0,r0:0,r1:1,r2:2,r3p:3,unsure:null};
 const EFFORT_STEPS=["easy","hard","max"];
@@ -15837,10 +15836,11 @@ function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
      all; a placeholder tile would only promise something that never arrives. */
   const artEntry=exerciseRefEntry(exRef),artSrc=exerciseMedia(artEntry);
   const artBg=artSrc?exerciseMediaBg(artEntry):null;
-  const artHtml=artSrc?`<div class="exdet-art"`+
+  const artAnimated=!!exerciseAnimation(artEntry);
+  const artHtml=artSrc?`<div class="exdet-art${artAnimated?" exdet-art--animation":""}"`+
     (artBg?` style="--exercise-art-bg:${esc(artBg)}"`:"")+`><div class="exdet-art__figure">`+
-    `<img class="exdet-art__img" src="${esc(artSrc)}" alt="${esc(t("preview.art_alt",{name}))}" `+
-    `decoding="async" width="768" height="768"></div></div>`:"";
+    exerciseFigure(artEntry,{cls:"exdet-art__img",alt:t(artAnimated?"preview.animation_alt":"preview.art_alt",{name})})+
+    `</div>${exerciseShownNote(artEntry)}</div>`:"";
 
   const rec=tmpl?recommendation(tmpl,{savedHistoryOnly:true}):null;
   // With no weight to suggest (a Manual lift, one that needs setup, one with no usable history) the block says what
@@ -15902,6 +15902,7 @@ function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
     `<button type="button" class="link-row-cta" id="exSeePrs"><span>${esc(t("exercise.see_all_prs"))}</span><span class="chevron" aria-hidden="true"></span></button>`+
     `<p class="section-label">${esc(t("exercise.recent_sessions"))}</p><div class="exsessions">${historyHtml}</div>`;
   draw(sums,"#exChart");
+  playExerciseAnimations(el);
   $$("#exDetail [data-term]").forEach(b=>b.onclick=e=>{e.stopPropagation();glossaryPopover(b.dataset.term,b)});
   $$("#exDetail [data-why]").forEach(b=>b.onclick=e=>{e.stopPropagation();openWhySheetFor(tmpl,b)});
   const see=$("#exSeePrs");if(see)see.onclick=()=>{closeExerciseView();navTo("stats");setStatsSeg("prs")}}
@@ -18729,7 +18730,7 @@ function loggedExerciseRefs(){
   return{ids,names}}
 
 /* ---- Exercise artwork ----
-   Twenty-four movements have licensed illustrations; every other built-in and
+   Some movements have a licensed illustration or animation; every other built-in and
    every custom exercise renders a deliberately empty tile. The empty state is
    an element with no src, not an <img> pointing at a file that is not there:
    a broken-image request is both a wasted fetch and a visible glyph. Both
@@ -18742,6 +18743,46 @@ const exerciseMedia=e=>(e&&typeof e.media==="string"&&e.media)||null;
    generated file is still a file somebody can edit. */
 const HEX_COLOR=/^#[0-9a-f]{6}$/i;
 const exerciseMediaBg=e=>(e&&typeof e.mediaBg==="string"&&HEX_COLOR.test(e.mediaBg)&&e.mediaBg)||null;
+/* Some movements carry a Gym visual animation instead of an illustration. Their
+   `media` is the animation's first frame, which is what every list shows; the
+   animation itself sits beside it under the same dataset id and plays only
+   where the movement is the subject of the page. Both files are 180 pixels
+   square, an illustration is 768. */
+const EXERCISE_STILL=/^assets\/exercise-stills\/(\d{4})\.webp$/;
+const exerciseAnimation=e=>{const m=EXERCISE_STILL.exec(exerciseMedia(e)||"");return m?`assets/exercise-gifs/${m[1]}.gif`:null};
+const exerciseMediaSize=e=>EXERCISE_STILL.test(exerciseMedia(e)||"")?180:768;
+/* The large picture of a movement: its still first, so the box is never empty
+   and an offline device still shows the setup, then the animation over it once
+   it has loaded. Reduced motion keeps the still. */
+function exerciseFigure(e,{cls,alt}){
+  const src=exerciseMedia(e),anim=exerciseAnimation(e),px=exerciseMediaSize(e);
+  return `<img class="${esc(cls)}${anim?" is-animation":""}" src="${esc(src)}" alt="${esc(alt)}" decoding="async" `+
+    `width="${px}" height="${px}"${anim?` data-animation="${esc(anim)}"`:""}>`}
+/* A `similar` animation is the same movement shown with one or two visible
+   differences (both arms for a one-arm movement, seated for a standing one).
+   The line under it names them so the lifter is not taught the wrong setup. */
+function exerciseShownNote(e){
+  const codes=Array.isArray(e?.mediaShown)&&exerciseAnimation(e)?e.mediaShown:[];
+  if(!codes.length)return"";
+  return `<p class="exart-shown">${esc(t("media.shown",{list:codes.map(c=>t("media.shown."+c)).join(", ")}))}</p>`}
+function playExerciseAnimations(root){
+  // The screen catalog sets the flag: a frame taken mid-loop is different on every run.
+  if(reducedMotion()||window.__repforgeStillFigures===true)return;
+  for(const img of root.querySelectorAll("img[data-animation]")){
+    const src=img.dataset.animation,loader=new Image();
+    loader.onload=()=>{if(img.isConnected&&img.dataset.animation===src)img.src=src};
+    loader.src=src}}
+/* Stills and animations are not precached (there are hundreds); the worker keeps
+   each one the first time it is shown. Offline, one never shown fails to load:
+   a thumbnail then becomes the empty tile, a large figure disappears, and an
+   animation that fails leaves its still in place. */
+function exerciseMediaFailed(ev){
+  const img=ev.target;
+  if(!(img instanceof HTMLImageElement)||!EXERCISE_STILL.test(img.getAttribute("src")||""))return;
+  img.removeAttribute("src");img.alt="";img.setAttribute("aria-hidden","true");
+  if(img.classList.contains("exthumb")&&!img.classList.contains("exthumb--lg"))img.classList.add("exthumb--empty");
+  else (img.closest(".exdet-art")||img).hidden=true}
+document.addEventListener("error",exerciseMediaFailed,true);
 /* A program slot and an identity recovered from a log row both carry a library
    id rather than the artwork itself, so the illustration has to come from the
    definition they point at. A custom entry resolves too and simply has none. */
@@ -18753,8 +18794,9 @@ function exerciseThumb(e,{size="md"}={}){
   if(!src)return emptyThumb({size});
   // alt is empty on purpose: the exercise name sits next to it in every list,
   // so describing the drawing again would only repeat the row to a screen reader.
+  const px=exerciseMediaSize(e);
   return `<img class="exthumb exthumb--${esc(size)}" src="${esc(src)}" alt="" `+
-    `loading="lazy" decoding="async" width="768" height="768">`}
+    `loading="lazy" decoding="async" width="${px}" height="${px}">`}
 
 function pickerRow(e,{selected=false,checkbox=false}={}){
   const muscles=[e.primary,e.secondary].filter(Boolean).join(",").split(",").filter(Boolean);
@@ -20062,7 +20104,7 @@ function renderExercisePreview(){
     // A large illustration carries instructional content, so it is described
     // rather than hidden; the empty tile has nothing to describe.
     (exerciseMedia(e)
-      ?`<img class="exthumb exthumb--lg" src="${esc(exerciseMedia(e))}" alt="${esc(t("preview.art_alt",{name:libraryName(e)}))}" decoding="async" width="768" height="768">`
+      ?exerciseFigure(e,{cls:"exthumb exthumb--lg",alt:t(exerciseAnimation(e)?"preview.animation_alt":"preview.art_alt",{name:libraryName(e)})})+exerciseShownNote(e)
       :emptyThumb({size:"lg"}))+
     `<h3 class="preview__head">${esc(t("preview.muscles"))}</h3>`+
     `<dl class="preview__rows">`+
@@ -20073,6 +20115,7 @@ function renderExercisePreview(){
     (inLibrary
       ?`<button type="button" class="btn btn--cta" id="previewAdd">${esc(t(selected?"preview.remove":"preview.add",{day:dayLabel(libFlow.day)}))}</button>`
       :"");
+  playExerciseAnimations(el);
   const add=$("#previewAdd");
   if(add)add.onclick=()=>{toggleLibrarySelection(e.id);closeExercisePreview()}}
 
@@ -27394,6 +27437,10 @@ function createLandingController(root){
       dock.dataset.ground=under.lum<.4?"dark":"light";
       if(under.fill)dock.style.setProperty("--firstrun-dock-ground",under.fill)};
     ticks.add(sampleGround);on(root,"scroll",sampleGround);
+    /* An answer that opens moves the bands beneath the control without a scroll, so a change in the page's height
+       reads the ground again too; otherwise the control keeps the ink of a band that has moved away. */
+    const page=root.querySelector(".firstrun__inner");
+    if(page&&typeof ResizeObserver!=="undefined"){const ro=new ResizeObserver(requestTick);reg.obs.push(ro);ro.observe(page)}
     reg.nodes.push(()=>{dock.classList.remove("is-on");delete dock.dataset.ground;dock.style.removeProperty("--firstrun-dock-ground")})}
   /* ---- the status-bar band (#449) ----
      One observer whose root box is the top inset strip names the ground of the

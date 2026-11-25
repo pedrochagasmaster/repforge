@@ -376,8 +376,10 @@
   --dock-caustic:rgba(255,255,255,.22);
   --dock-blur:blur(14px) saturate(190%) brightness(1.05);
   --dock-rim-shadow:inset 0 0 0 .5px var(--dock-rim),inset 0 6px 12px -8px var(--dock-rim);
-  /* The light lens stays white: the active tab's accent icon and label measured under 3:1 and 4.5:1 on the climb's ink tint. */
-  --dock-pill:rgba(255,255,255,.82);
+  /* The light lens stays white: the active tab's accent icon and label measured under 3:1 and 4.5:1 on the climb's ink tint.
+     It is solid (issue #824, the mirror of #818): at 82% a black page under the dock greyed it to #E7E7E7 and the
+     --accent-deep label fell to 4.47:1; on solid white it holds 5.5:1 and the --accent icon 4:1 whatever is behind it. */
+  --dock-pill:#FFFFFF;
   --dock-pill-sheen:rgba(255,255,255,.82);
   /* Plan 075 phase 3: the scroll-edge bar's material, the same glass grammar
      as the dock, paper at 72%. It appears only once the large title below
@@ -568,6 +570,11 @@
 :root[data-theme="dark"] .exdet-art__figure{
   padding-block:var(--exercise-art-lead);
 }
+/* A full-width white plate on charcoal is a lamp, not a picture. In dark the
+   animation keeps its own white ground, unaltered, and nothing more: the plate
+   shrinks to the picture and takes the surface radius. */
+:root[data-theme="dark"] .exdet-art--animation{background:none}
+:root[data-theme="dark"] .exdet-art--animation .exdet-art__img{border-radius:var(--radius-surface)}
 :root[data-theme="dark"] nav{
   backdrop-filter:blur(28px) saturate(125%);
   -webkit-backdrop-filter:blur(28px) saturate(125%);
@@ -2486,6 +2493,7 @@ body.is-sheet-open{overflow:hidden}
 .exthumb--sm{width:52px;height:52px}
 .exthumb--md{width:72px;height:72px}
 .exthumb--lg{width:100%;height:auto;aspect-ratio:1;border-radius:var(--radius-surface)}
+.exthumb--lg.is-animation{width:min(100%,270px);margin-inline:auto}
 .exthumb--empty{display:grid;place-items:center;background:var(--well);color:var(--ink-faint)}
 
 /* Browsing a library is not a confirmation prompt: the picker takes the whole
@@ -4483,6 +4491,16 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
   padding:var(--exercise-art-lead) 0 var(--exercise-art-trail);
 }
 .exdet-art__img{display:block;width:min(80%,450px);height:auto}
+/* A Gym visual animation is 180 pixels square and may not be redrawn larger,
+   so it is shown at no more than one and a half times that: enough to read the
+   movement, short of the blur a 450px box would put on it. Its ground is pure
+   white, which the field already takes from the movement's own colour. */
+.exdet-art--animation .exdet-art__img{width:min(64%,270px)}
+/* What a similar animation shows differently. It sits in the field's bottom
+   band, under the picture, in the quiet caption voice. */
+.exart-shown{margin:0;padding:0 16px var(--space-12);text-align:center;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
+.exdet-art--animation:has(.exart-shown) .exdet-art__figure{padding-bottom:var(--space-12)}
+.exthumb--lg + .exart-shown{padding:var(--space-8) 0 0}
 /* Four columns of rules around a single stat cluster fight the orange
    recommendation rail for the eye. On this page whitespace does the grouping,
    so the shared band drops its frame here and only here. */

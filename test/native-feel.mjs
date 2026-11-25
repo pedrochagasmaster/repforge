@@ -661,7 +661,33 @@ async function nativeControls(browser, { appearanceOnly = false } = {}) {
     "dark: over a white page the selected tab's label holds 4.5:1 on the lens, and the lens still marks the tab", JSON.stringify({ darkLabel, darkCues }));
   await page.evaluate(() => { document.querySelector('#dockWorstGround').remove(); document.querySelector('#dockActiveLabel').removeAttribute('id');
     document.documentElement.dataset.theme = 'light'; });
-  const row = '#todayExList [data-context-row]';
+  // Issue #824, the light mirror of #818: the light dock is frosted glass and its lens is white at 82%, so a dark page
+  // under it darkens the lens. The worst cases are the darkest grounds a page can put there: a pure black block, and a
+  // dark photo-like gradient (a photo, chart or illustration).
+  const lightGrounds = { black: 'rgb(0,0,0)', photo: 'linear-gradient(115deg,#05070a 0%,#1c2430 35%,#3a2a1e 60%,#0b0b0d 100%)' };
+  const lightMeasured = {};
+  for (const [name, fill] of Object.entries(lightGrounds)) {
+    await page.evaluate((fill) => {
+      const ground = Object.assign(document.createElement('div'), { id: 'dockWorstGround' });
+      ground.style.cssText = 'position:fixed;z-index:24;left:0;right:0;bottom:0;height:120px;pointer-events:none';
+      ground.style.background = fill;
+      document.body.append(ground);
+      document.querySelector('nav button.active>[data-i18n]').id = 'dockActiveLabel';
+    }, fill);
+    await page.waitForFunction(() => { const probe = document.createElement('span'); probe.style.color = 'var(--accent-deep)'; document.body.append(probe);
+      const settled = getComputedStyle(probe).color === getComputedStyle(document.querySelector('#dockActiveLabel')).color; probe.remove(); return settled; });
+    const lightDock = await page.evaluate(measureRenderedRoles, { components: [{ selector: "nav button[data-view]", roles: { control: "quiet-navigation", boundary: "state-cues" } }],
+      pixels: (await page.screenshot()).toString("base64") });
+    const label = lightDock.filter(item => item.selector === 'text:#dockActiveLabel'), cues = lightDock.filter(item => item.kind === 'state-cues');
+    lightMeasured[name] = { label, cues };
+    await page.evaluate(() => { document.querySelector('#dockWorstGround').remove(); document.querySelector('#dockActiveLabel').removeAttribute('id'); });
+  }
+  console.log(`  light dock over dark grounds (issue #824): ${JSON.stringify(lightMeasured)}`);
+  for (const [name, { label, cues }] of Object.entries(lightMeasured)) {
+    assert(label.length === 1 && label[0].status === 'pass' && cues.length === 1 && cues[0].status === 'pass',
+      `light: over a ${name} page the selected tab's label holds 4.5:1 on the lens, and the lens still marks the tab`, JSON.stringify({ label, cues }));
+  }
+  const row ='#todayExList [data-context-row]';
   const hasRows = await page.locator(row).count();
   assert(hasRows > 0 && await page.locator('#todayExList [data-row-menu]').count() > 0, "Today rows keep an actions button for keyboard and assistive technology");
   const quiet = await page.evaluate(() => {

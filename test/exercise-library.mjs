@@ -16,6 +16,9 @@ const catalogAsset = JSON.parse(readFileSync(join(ROOT, "assets/exercise-catalog
 const curation = JSON.parse(readFileSync(join(ROOT, "tools/exercise-catalog-curation.json"), "utf8"));
 const draftNames = JSON.parse(readFileSync(join(ROOT, "tools/exercise-names-pt-draft.json"), "utf8"));
 const mediaBg = JSON.parse(readFileSync(join(ROOT, "tools/exercise-media-bg.json"), "utf8"));
+// A vendored animation replaces an illustration: `media` is then its still.
+const animations = JSON.parse(readFileSync(join(ROOT, "tools/exercise-gifs.json"), "utf8")).entries;
+const stillOf = id => (animations[id] ? `assets/exercise-stills/${animations[id].datasetId}.webp` : null);
 const sourceById = new Map(source.exercises.map(exercise => [exercise.id, exercise]));
 const indexById = new Map(EXERCISE_LIBRARY.map(exercise => [exercise.id, exercise]));
 const normalizedUnique = values => {
@@ -90,17 +93,35 @@ const wrongIndexRows = EXERCISE_LIBRARY.filter(index => {
     ...(named?.aliases || []),
     ...raw.alternativeName.map(id => source.uuidIndex[id]?.name),
   ]);
-  const expectedMedia = reviewed?.mediaId ? `assets/exercises/${reviewed.mediaId}.webp` : null;
-  const expectedBg = reviewed?.mediaId ? mediaBg[reviewed.mediaId] : null;
+  const expectedMedia = stillOf(index.id) || (reviewed?.mediaId ? `assets/exercises/${reviewed.mediaId}.webp` : null);
+  const expectedBg = stillOf(index.id) ? "#ffffff" : reviewed?.mediaId ? mediaBg[reviewed.mediaId] : null;
   return index.namePt !== expectedNamePt || !isDeepStrictEqual(index.aliases, expectedAliases) ||
     index.media !== expectedMedia || index.mediaBg !== expectedBg ||
+    !isDeepStrictEqual(index.mediaShown, animations[index.id]?.differences) ||
     !isDeepStrictEqual(Object.keys(index).sort(), [
-      "aliases", "id", "media", "mediaBg", "name", "namePt",
+      "aliases", "id", "media", "mediaBg", ...(animations[index.id]?.differences ? ["mediaShown"] : []), "name", "namePt",
       ...(Object.hasOwn(raw, "searchBoostValue") ? ["searchBoostValue"] : []),
     ]);
 });
 assert(wrongIndexRows.length === 0, "compact index identities and search/display fields match their source IDs",
   wrongIndexRows.slice(0, 6).map(row => row.id).join(", "));
+// #315: every movement Generate uses shows an owner-approved Portuguese name in
+// PT (the app's display rule reads the index row's namePt), not a draft.
+const generatorPtNames = JSON.parse(readFileSync(join(__dirname, "fixtures/generator-pt-names.json"), "utf8"));
+const unapprovedGeneratorNames = generatorPtNames.movements.filter(movement => {
+  const reviewed = curation.entries[movement.id];
+  const index = indexById.get(movement.id);
+  return !reviewed || reviewed.sourceName !== movement.name || reviewed.namePt !== movement.namePt ||
+    !isDeepStrictEqual(reviewed.aliases, movement.aliases) ||
+    Object.hasOwn(draftNames.entries, movement.id) ||
+    !index || index.name !== movement.name || index.namePt !== movement.namePt;
+});
+assert(generatorPtNames.movements.length === 128 &&
+  new Set(generatorPtNames.movements.map(movement => movement.id)).size === 128 &&
+  unapprovedGeneratorNames.length === 0,
+  "the 128 generator movements resolve to their approved Portuguese names",
+  `${unapprovedGeneratorNames.length} unapproved: ` +
+    unapprovedGeneratorNames.slice(0, 4).map(movement => `${movement.id} ${movement.name}`).join(" | "));
 assert(EXERCISE_LIBRARY.every(index => Array.isArray(index.aliases)),
   "canonical names, source alternatives, and reviewed Portuguese terms are searchable");
 assert(Object.entries(curation.entries).every(([id, reviewed]) => {
@@ -110,7 +131,8 @@ assert(Object.entries(curation.entries).every(([id, reviewed]) => {
 assert(EXERCISE_LIBRARY.every(index => !Object.hasOwn(index, "compiler") && !Object.hasOwn(index, "patterns") && !Object.hasOwn(index, "equipment")),
   "the compact index carries no duplicated or name-inferred ontology data");
 
-const mediaRows = EXERCISE_LIBRARY.filter(exercise => exercise.media);
+const animatedRows = EXERCISE_LIBRARY.filter(exercise => stillOf(exercise.id));
+const mediaRows = EXERCISE_LIBRARY.filter(exercise => exercise.media && !stillOf(exercise.id));
 const mediaFiles = readdirSync(join(ROOT, "assets/exercises")).filter(file => file.endsWith(".webp"));
 const mediaFileIds = mediaFiles.map(file => file.replace(/\.webp$/, "")).sort();
 const licensedMediaIds = Object.keys(mediaBg).sort();
@@ -123,19 +145,63 @@ const invalidMediaMappings = mediaRows.filter(exercise => {
     exercise.mediaBg !== mediaBg[mapping.mediaId] || !/^#[0-9a-f]{6}$/.test(String(exercise.mediaBg)) ||
     !existsSync(join(ROOT, exercise.media));
 });
-assert(mediaRows.length === 20 && Object.keys(curation.entries).filter(id => curation.entries[id].mediaId).length === 20,
-  "only 20 explicit exact-movement UUID mappings carry licensed artwork", `${mediaRows.length} mapped`);
+const illustrated = Object.keys(curation.entries).filter(id => curation.entries[id].mediaId);
+const animatedCount = Object.keys(animations).length;
+assert(illustrated.length === 20 && mediaRows.length === illustrated.filter(id => !animations[id]).length,
+  "20 exact-movement UUID mappings carry a licensed illustration; an animation replaces it where both exist",
+  `${mediaRows.length} illustrations shown`);
+assert(animatedRows.length === animatedCount && animatedRows.every(exercise =>
+  exercise.media === stillOf(exercise.id) && exercise.mediaBg === "#ffffff" && existsSync(join(ROOT, exercise.media))),
+  "every matched movement shows the first frame of its animation on its white ground", `${animatedRows.length} of ${animatedCount}`);
 assert(invalidMediaMappings.length === 0, "each artwork path is backed by its reviewed UUID/name/background mapping",
   invalidMediaMappings.map(exercise => exercise.id).join(", "));
-assert(EXERCISE_LIBRARY.filter(exercise => !exercise.media && exercise.mediaBg == null).length === 1325,
-  "the other 1,325 source movements retain the empty media tile");
-assert(mediaFiles.length === 96 && unreferencedFiles.length === 76,
-  "all 96 licensed files stay closed and 76 unmatched files remain unreferenced",
+assert(EXERCISE_LIBRARY.filter(exercise => !exercise.media && exercise.mediaBg == null).length === 1345 - animatedCount - mediaRows.length,
+  "every other source movement retains the empty media tile");
+assert(mediaFiles.length === 96 && unreferencedFiles.length === 96 - mediaRows.length,
+  "all 96 licensed files stay closed and unmatched or replaced files remain unreferenced",
   `${mediaFiles.length} files; ${unreferencedFiles.length} unreferenced`);
 assert(isDeepStrictEqual(mediaFileIds, licensedMediaIds),
   "the existing sampled-media allowlist still defines the complete licensed file set");
 assert(EXERCISE_LIBRARY.every(exercise => exercise.media || exercise.mediaBg == null),
   "unmapped movements carry no fallback image or field color");
+
+{
+  // Vendored Gym visual animations: reviewed matches only, pinned by hash, credited in the product.
+  const { checkVendoredGifs, ATTRIBUTION } = await import("../tools/vendor-exercise-gifs.mjs");
+  const gifProblems = checkVendoredGifs();
+  assert(gifProblems.length === 0, "vendored exercise animations match their reviewed matches and hashes",
+    gifProblems.slice(0, 6).join(" | "));
+  const gifManifest = existsSync(join(ROOT, "tools/exercise-gifs.json"))
+    ? JSON.parse(readFileSync(join(ROOT, "tools/exercise-gifs.json"), "utf8")) : { entries: {} };
+  assert(Object.keys(gifManifest.entries).length >= 500,
+    "at least 500 catalog movements carry a vendored animation", `${Object.keys(gifManifest.entries).length} mapped`);
+  assert(EXERCISE_LIBRARY.every(exercise => !/exercise-gifs|gymvisual|\.gif/i.test(JSON.stringify(exercise))),
+    "the search index names only stills; the app derives each animation's path from its still");
+  const worker = readFileSync(join(ROOT, "sw.js"), "utf8");
+  assert(!/exercise-gifs|exercise-stills/.test(worker),
+    "neither stills nor animations are precached; each is cached the first time it is shown");
+  assert(/addEventListener\("error",exerciseMediaFailed,true\)/.test(readFileSync(join(ROOT, "app.js"), "utf8")),
+    "a still or animation that cannot load (offline, never cached) falls back to the empty tile");
+  const app = readFileSync(join(ROOT, "app.js"), "utf8");
+  assert(/const EXERCISE_STILL=\/\^assets\\\/exercise-stills\\\/\(\\d\{4\}\)\\\.webp\$\//.test(app) &&
+    app.includes("`assets/exercise-gifs/${m[1]}.gif`") && /function playExerciseAnimations\(root\)\{[^}]*?if\(reducedMotion\(\)\|\|/.test(app),
+    "the app plays an animation from its still's dataset id, and not under reduced motion");
+  const shell = readFileSync(join(ROOT, "index.html"), "utf8");
+  const creditRow = shell.match(/id="settingsMediaCredit"[\s\S]*?<\/div>/)?.[0] || "";
+  assert(creditRow.includes(ATTRIBUTION) && creditRow.includes('data-i18n="settings.media_credit"'),
+    "Settings credits the animations with the Gym visual attribution verbatim");
+  assert(["en", "pt"].every(locale =>
+    typeof JSON.parse(readFileSync(join(ROOT, `i18n-${locale}.json`), "utf8"))["settings.media_credit"] === "string"),
+    "the credit label is translated in both locales");
+  const { DIFFERENCES } = await import("../tools/vendor-exercise-gifs.mjs");
+  assert(["en", "pt"].every(locale => {
+    const strings = JSON.parse(readFileSync(join(ROOT, `i18n-${locale}.json`), "utf8"));
+    return typeof strings["media.shown"] === "string" && DIFFERENCES.every(code => typeof strings[`media.shown.${code}`] === "string");
+  }), "every difference a similar animation can name has its caption in both locales");
+  const notice = readFileSync(join(ROOT, "NOTICE.md"), "utf8");
+  assert(notice.includes(ATTRIBUTION) && notice.includes("assets/exercise-gifs/"),
+    "NOTICE.md records the animations and their attribution");
+}
 
 const buildCheck = spawnSync(process.execPath, [join(ROOT, "tools/build-exercises.mjs"), "--check"], {
   cwd: ROOT, encoding: "utf8",

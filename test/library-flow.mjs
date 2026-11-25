@@ -10,6 +10,7 @@
  *
  * Run: node test/library-flow.mjs   (requires the app served over HTTP)
  */
+import { createRequire } from "module";
 import { pathToFileURL } from "url";
 import { applyInstalledEditor, openInstalledEditor } from "./fixtures/installed-editor.mjs";
 import { launchChromium } from "./browser.mjs";
@@ -29,7 +30,7 @@ const results = { passed: 0, failed: 0 };
 const CHIN_UP = "1a15c6f170d880b6adcbff83e8bb6b0f";
 const BARBELL_BENCH = "19f5c6f170d8808bb424e98de4472a7e";
 const SMITH_BENCH = "1a05c6f170d88058a3a0c07e098a9605";
-const MAPPED = 20;
+const MAPPED = createRequire(import.meta.url)("../exercises.js").EXERCISE_LIBRARY.filter(exercise => exercise.media).length;
 function assert(cond, name, detail) {
   if (cond) { results.passed++; console.log(`  ✓ ${name}`); }
   else { results.failed++; console.log(`  ✗ ${name}`); if (detail != null) console.log(`    ${detail}`); }
@@ -135,6 +136,41 @@ async function checkFocusAndExerciseArtwork(browser) {
   } finally { await opened.context.close(); }
 }
 
+async function checkExerciseAnimation(page) {
+  // An animated movement: the page starts on the still and plays the animation
+  // once it has loaded; under reduced motion it stays on the still.
+  const animated = await page.evaluate(() => {
+    const program = JSON.parse(localStorage.getItem("repforge_v1")).program;
+    for (const row of program) {
+      const media = window.__repforgeLibraryEntry(row.libraryId)?.media || "";
+      if (/^assets\/exercise-stills\//.test(media))
+        return { slot: row.id, still: media, gif: media.replace("exercise-stills", "exercise-gifs").replace(".webp", ".gif") };
+    }
+    return null;
+  });
+  if (!animated) throw new Error("Animation fixture needs a seeded program exercise with a vendored animation");
+  const art = page.locator("#exDetail .exdet-art__img");
+  await page.evaluate(id => window.openExerciseView(id, "log"), animated.slot);
+  await art.waitFor();
+  const played = await page.waitForFunction(gif => document.querySelector("#exDetail .exdet-art__img")?.getAttribute("src") === gif,
+    animated.gif, { timeout: 8000 }).then(() => true, () => false);
+  const figure = await page.evaluate(() => {
+    const img = document.querySelector("#exDetail .exdet-art__img");
+    return { src: img.getAttribute("src"), width: img.getAttribute("width"), animated: !!img.closest(".exdet-art--animation"),
+      shown: img.getBoundingClientRect().width, natural: img.naturalWidth, alt: img.getAttribute("alt") };
+  });
+  assert(played && figure.animated && figure.width === "180" && figure.natural === 180 && figure.shown <= 270 && /^Animation of /.test(figure.alt),
+    "an animated exercise page plays its 180px animation, drawn no larger than 270px", JSON.stringify(figure));
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.evaluate(() => document.querySelector("#exBack").click());
+  await page.evaluate(id => window.openExerciseView(id, "log"), animated.slot);
+  await art.waitFor();
+  await page.waitForTimeout(600);
+  assert(await art.getAttribute("src") === animated.still, "reduced motion keeps the still", String(await art.getAttribute("src")));
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.evaluate(() => document.querySelector("#exBack").click());
+}
+
 async function main() {
   const browser = await launchChromium();
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
@@ -148,7 +184,7 @@ async function main() {
     await dialog[action]();
   });
   const badRequests = [];
-  const isExerciseArtwork = (url) => new URL(url).pathname.includes("/assets/exercises/");
+  const isExerciseArtwork = (url) => /\/assets\/exercise(s|-stills|-gifs)\//.test(new URL(url).pathname);
   page.on("requestfailed", (r) => { if (isExerciseArtwork(r.url())) badRequests.push(r.url()); });
   page.on("response", (r) => {
     if (r.status() >= 400 && isExerciseArtwork(r.url())) badRequests.push(`${r.status()} ${r.url()}`);
@@ -157,6 +193,7 @@ async function main() {
     await page.goto(BASE, { waitUntil: "domcontentloaded" });
     await waitForApp(page);
     await reset(page);
+    await checkExerciseAnimation(page);
     await openEditor(page);
     const day = (await getState(page)).program[0].day;
 
@@ -261,6 +298,30 @@ async function main() {
     assert(preview.rows[0]?.split(" · ").includes("Lats"), "preview shows the definition's muscles", JSON.stringify(preview.rows));
     assert(preview.art && !!preview.alt,
       "a large illustration is described, unlike the list thumbnails", JSON.stringify([preview.art, preview.alt]));
+    const previewPlays = await page.waitForFunction(() =>
+      document.querySelector(".preview img.exthumb--lg")?.getAttribute("src") === "assets/exercise-gifs/1326.gif",
+      undefined, { timeout: 8000 }).then(() => true, () => false);
+    const rowThumb = await page.locator(`#libList .librow:has([data-lib-preview="${CHIN_UP}"]) img.exthumb`).first().getAttribute("src");
+    assert(previewPlays && rowThumb === "assets/exercise-stills/1326.webp",
+      "the preview plays the animation while its list row keeps the still", JSON.stringify({ previewPlays, rowThumb }));
+    // A similar animation names what it shows differently under the picture.
+    await page.click("#previewBack");
+    await page.waitForSelector("#library.active", { timeout: 5000 });
+    await settle(page);
+    await page.fill("#libSearch", "Axle strict press");
+    await settle(page);
+    await page.locator('#libList [data-lib-preview="3a05c6f170d880acb429cc22116f4479"]').click();
+    await page.waitForSelector("#exercisePreview.active", { timeout: 5000 });
+    const shown = await page.evaluate(() => document.querySelector(".preview .exart-shown")?.textContent.trim());
+    assert(shown === "Shown with a barbell, with another grip.",
+      "a similar animation's preview names its differences under the picture", String(shown));
+    await page.click("#previewBack");
+    await page.waitForSelector("#library.active", { timeout: 5000 });
+    await settle(page);
+    await page.fill("#libSearch", "");
+    await settle(page);
+    await page.locator(`#libList [data-lib-preview="${CHIN_UP}"]`).click();
+    await page.waitForSelector("#exercisePreview.active", { timeout: 5000 });
     assert(preview.add?.includes(day), "preview offers to add to the day being built", preview.add);
     await page.click("#previewAdd");
     await page.waitForSelector("#library.active", { timeout: 5000 });

@@ -175,6 +175,7 @@ const FOCUS_PREV_LINE_FAMILIES = Object.freeze([
 ]);
 const FOCUS_PREV_LINE_ENDINGS = Object.freeze(["rir", "norir", "effort"]);
 
+const { DIFFERENCES: GIF_DIFFERENCES } = await import("../tools/vendor-exercise-gifs.mjs");
 const DYNAMIC_FAMILIES = [
   { test: (s) => s.includes("profile.stage_name.${stage}"), keys: () => ["first", "learning", "solid", "checked", "calibrated", "bias_understood", "long_record", "established"].map((stage) => `profile.stage_name.${stage}`) },
   { test: (s) => s.includes("finding.need.${next.id}${suffix}"), keys: () => ["finding.need.weights_found", "finding.need.weights_found_one", "finding.need.first_target", "finding.need.first_check", "finding.need.effort_read", "finding.need.effort_read_one", "finding.need.effort_read_agreement", "finding.need.first_solid", "finding.need.first_solid_one", "finding.need.first_solid_sessions", "finding.need.first_solid_agreement", "finding.need.first_trend", "finding.need.month_one", "finding.need.month_one_one"] },
@@ -197,6 +198,8 @@ const DYNAMIC_FAMILIES = [
   { test: (s) => s === '"landing.features.chat."+', keys: () => ["reply", "forward", "copy"].map((key) => `landing.features.chat.${key}`) },
   { test: (s) => s === '"landing.features.home."+', keys: () => ["calendar", "clock", "notes", "maps", "reminders", "files", "stocks", "home", "fitness", "settings"].map((key) => `landing.features.home.${key}`) },
   // The landing's feature tabs name History's sessions by the generated program's day keys (owner, 2026-10-30).
+  // What a similar exercise animation shows differently: the closed DIFFERENCES list in tools/vendor-exercise-gifs.mjs.
+  { test: (s) => s === '"media.shown."+', keys: () => GIF_DIFFERENCES.map((code) => `media.shown.${code}`) },
   { test: (s) => s === '"program.day."+', keys: () => ["strength_4_d1", "strength_4_d2", "strength_4_d3", "strength_4_d4"].map((day) => `program.day.${day}`) },
   // The Focus hero's evidence line (#518): the no-suggestion reasons, and the anchor and target sentences per source.
   { test: (s) => s.includes("focus.evidence.none_${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("focus.evidence.none_")) },

@@ -8874,8 +8874,11 @@ async function main() {
   // The seed's Leg extension resolves to a movement with a licensed drawing;
   // its Hack squat resolves to one without.
   const ART_ID = "1a25c6f170d880c59f17ce7802758fc3";
-  const ART_SRC = "assets/exercises/le_mc.webp";
-  const ART_SLOT = "seed-ex-13", PLAIN_SLOT = "seed-ex-1", ART_NAME = "Leg extension";
+  // Leg extension carries a vendored animation: its page starts on the still and
+  // may already have swapped the animation in by the time it is read.
+  const ART_SRC = "assets/exercise-stills/0585.webp", ART_GIF = "assets/exercise-gifs/0585.gif";
+  const isArtSrc = (src) => src === ART_SRC || src === ART_GIF;
+  const ART_SLOT = "seed-ex-13", PLAIN_SLOT = "seed-ex-3", ART_NAME = "Leg extension";
   const artHistoryRows = (iso, session) =>
     [1, 2, 3].map((n) => ({
       date: iso, session, day: "Day 3", exerciseId: ART_SLOT, name: ART_NAME,
@@ -8925,17 +8928,17 @@ async function main() {
   await openArtDetail(page, ART_SLOT);
   const artEmpty = await readDetailArt(page);
   assert(
-    artEmpty.imgs === 1 && artEmpty.wrappers === 1 && artEmpty.srcAttr === ART_SRC && artEmpty.complete === true,
+    artEmpty.imgs === 1 && artEmpty.wrappers === 1 && isArtSrc(artEmpty.srcAttr) && artEmpty.complete === true,
     "Mapped exercise renders exactly one detail illustration from its library asset",
     JSON.stringify(artEmpty),
     "Seed program → open the Leg extension page (a movement with a licensed drawing)"
   );
   assert(
-    artEmpty.width === "768" &&
-      artEmpty.height === "768" &&
+    artEmpty.width === "180" &&
+      artEmpty.height === "180" &&
       artEmpty.decoding === "async" &&
       artEmpty.loading === null,
-    "Detail illustration reserves 768×768 before decode and is not lazy",
+    "Detail animation reserves its 180×180 before decode and is not lazy",
     JSON.stringify(artEmpty),
     "Exercise page → .exdet-art__img attributes"
   );
@@ -8968,7 +8971,7 @@ async function main() {
   const artFull = await readDetailArt(page);
   assert(
     artFull.imgs === 1 &&
-      artFull.srcAttr === ART_SRC &&
+      isArtSrc(artFull.srcAttr) &&
       artFull.afterMeta &&
       artFull.beforeRec &&
       artFull.hasRec &&
@@ -8979,6 +8982,19 @@ async function main() {
     "Seed sessions for the mapped lift → open its exercise page"
   );
 
+  // Every seed movement now carries artwork, so the plain slot is pointed at a
+  // catalog movement that has none before its page is opened.
+  const plainEntry = await page.evaluate(() => {
+    const entry = window.__repforgeExerciseLibrary.find((e) => !e.media && /press/i.test(e.name));
+    return { id: entry.id, name: entry.name };
+  });
+  const plainSeedRow = (await getState(page)).program.find((row) => row.id === PLAIN_SLOT);
+  {
+    const state = await getState(page);
+    state.program = state.program.map((row) => row.id === PLAIN_SLOT ? { ...row, libraryId: plainEntry.id, name: plainEntry.name } : row);
+    await persistState(page, state);
+    await reloadApp(page);
+  }
   const artFailures = [];
   const onArtFailed = (req) => artFailures.push(req.url());
   page.on("requestfailed", onArtFailed);
@@ -8990,7 +9006,7 @@ async function main() {
     artPlain.wrappers === 0 && artPlain.imgs === 0 && artPlain.emptyTiles === 0,
     "A movement without licensed art renders no media block and no placeholder",
     JSON.stringify(artPlain),
-    "Open the exercise page for the seed's Hack squat"
+    "Point a seed slot at a catalog movement with no artwork → open its exercise page"
   );
   assert(
     artFailures.filter((u) => u.includes("assets/exercises/")).length === 0,
@@ -8998,6 +9014,12 @@ async function main() {
     JSON.stringify(artFailures.slice(0, 5)),
     "Open art-less exercise pages → watch network failures"
   );
+  {
+    const state = await getState(page);
+    state.program = state.program.map((row) => row.id === PLAIN_SLOT ? { ...row, libraryId: plainSeedRow.libraryId, name: plainSeedRow.name } : row);
+    await persistState(page, state);
+    await reloadApp(page);
+  }
 
   /* The point of the whole treatment: the field has to be the paper the drawing
      is already on. Sampled here straight from the decoded pixels, with a wider
@@ -9037,13 +9059,13 @@ async function main() {
       worst.push({ id: e.id, delta, mediaBg: e.mediaBg });
     }
     worst.sort((a, b) => (b.delta ?? 99) - (a.delta ?? 99));
-    return { checked, worst: worst.slice(0, 5) };
+    return { checked, total: window.__repforgeExerciseLibrary.filter((x) => x.media).length, worst: worst.slice(0, 5) };
   });
   assert(
-    artPaper.checked === 20 && artPaper.worst.every((w) => w.delta <= 6),
+    artPaper.checked === artPaper.total && artPaper.total > 500 && artPaper.worst.every((w) => w.delta <= 6),
     "every illustration's field colour matches the paper it is drawn on",
     JSON.stringify(artPaper),
-    "Decode each assets/exercises/*.webp → compare its border ring to mediaBg"
+    "Decode each illustration and animation still → compare its border ring to mediaBg"
   );
 
   await openArtDetail(page, ART_SLOT);
