@@ -1115,6 +1115,7 @@
   "preview.add": "Add to {day}",
   "preview.remove": "Remove from {day}",
   "preview.art_alt": "Illustration of {name}",
+  "preview.animation_alt": "Animation of {name}",
   "toast.exercises_added": "{n} exercises added.",
   "toast.exercises_added_one": "{n} exercise added.",
   "toast.custom_needs_equipment": "Choose at least one piece of equipment.",

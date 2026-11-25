@@ -136,6 +136,9 @@ export async function openPage(browser, manifest, capture, state, options = {}) 
   if (warmups !== "live") {
     await context.addInitScript(() => { globalThis.__repforgePreludeOff = true; });
   }
+  // An exercise animation loops forever and a frame taken mid-loop differs from run to run, so the catalog draws
+  // the still the page starts on.
+  await context.addInitScript(() => { globalThis.__repforgeStillFigures = true; });
   // A full run opens a couple of hundred contexts back to back. Playwright's
   // 30s default is comfortable for one capture and marginal for the last of
   // 200, so give every action real headroom rather than reading contention as

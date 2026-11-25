@@ -51,6 +51,10 @@ and this repository grants no rights to them. The terms Taurifer follows:
 - **Attribution:** every use carries **© Gym visual — https://gymvisual.com/**.
   The product shows it in Settings.
 - **Resolution:** the files are kept at **180×180**, byte-for-byte as published.
+- **Stills:** lists show a still rather than a moving picture. Each animation's
+  first frame is kept beside it under `assets/exercise-stills/`, lossless, at the
+  same 180×180 and under the same terms and attribution. Nothing else is derived
+  from the animations.
 
 Only movements whose catalog name equals exactly one dataset name (case and
 punctuation folded, no fuzzy or alias matching) are vendored: 61 files, pinned

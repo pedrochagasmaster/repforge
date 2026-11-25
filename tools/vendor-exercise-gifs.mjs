@@ -6,9 +6,13 @@
    equals exactly one dataset name after case and punctuation are folded; there
    is no fuzzy matching and no alias matching. The result is the committed
    manifest tools/exercise-gifs.json plus one file per match under
-   assets/exercise-gifs/. Usage and licence terms: NOTICE.md.
+   assets/exercise-gifs/. Lists show a still instead of a moving picture, so
+   each animation also gets its first frame, lossless and at the same 180×180,
+   under assets/exercise-stills/ (needs ffmpeg). Usage and licence terms:
+   NOTICE.md.
 
      node tools/vendor-exercise-gifs.mjs <path-to-dataset-clone>   # regenerate
+     node tools/vendor-exercise-gifs.mjs --stills                  # re-derive the stills only
      node tools/vendor-exercise-gifs.mjs --check                   # offline verify */
 
 import { execFileSync } from "node:child_process";
@@ -22,11 +26,21 @@ const ROOT = resolve(HERE, "..");
 const SOURCE_PATH = join(ROOT, "plans/067/data/app_file.json");
 const MANIFEST_PATH = join(HERE, "exercise-gifs.json");
 const GIF_DIR = join(ROOT, "assets/exercise-gifs");
+const STILL_DIR = join(ROOT, "assets/exercise-stills");
 
 export const DATASET_REPOSITORY = "https://github.com/hasaneyldrm/exercises-dataset";
 export const DATASET_COMMIT = "7455efae41b330c265e7cd4b78dfa848e7ce5ebd";
 export const ATTRIBUTION = "© Gym visual — https://gymvisual.com/";
 export const GIF_SIZE = 180;
+/** What a still is drawn on: every source frame has a pure white ground. */
+export const STILL_BG = "#ffffff";
+export const stillPath = entry => `assets/exercise-stills/${entry.datasetId}.webp`;
+export const gifPath = entry => `assets/exercise-gifs/${entry.file}`;
+
+/** The committed manifest, or one with no entries when it is absent. */
+export function readGifManifest() {
+  return existsSync(MANIFEST_PATH) ? JSON.parse(readFileSync(MANIFEST_PATH, "utf8")) : { entries: {} };
+}
 
 /** Case and punctuation folded; nothing else. "Push-up" and "push up" are one name. */
 export function foldName(value) {
@@ -48,10 +62,11 @@ export function checkVendoredGifs() {
   const manifest = JSON.parse(readFileSync(MANIFEST_PATH, "utf8"));
   const source = JSON.parse(readFileSync(SOURCE_PATH, "utf8"));
   const names = new Map(source.exercises.map(exercise => [exercise.id, exercise.name]));
-  if (manifest.schemaVersion !== 1) problems.push("manifest schemaVersion must be 1");
+  if (manifest.schemaVersion !== 2) problems.push("manifest schemaVersion must be 2");
   if (manifest.repository !== DATASET_REPOSITORY || manifest.commit !== DATASET_COMMIT) problems.push("manifest must name the pinned dataset commit");
   if (manifest.attribution !== ATTRIBUTION) problems.push("manifest must carry the Gym visual attribution verbatim");
   const files = new Set();
+  const stills = new Set();
   for (const [id, entry] of Object.entries(manifest.entries || {})) {
     if (names.get(id) !== entry.sourceName) problems.push(`${id}: catalog name changed; re-run the vendoring tool`);
     if (foldName(entry.sourceName) !== foldName(entry.datasetName)) problems.push(`${id}: dataset name is not an exact match`);
@@ -64,10 +79,33 @@ export function checkVendoredGifs() {
     const size = gifSize(bytes);
     if (!size || size.width !== GIF_SIZE || size.height !== GIF_SIZE) problems.push(`${id}: ${entry.file} must be a ${GIF_SIZE}×${GIF_SIZE} GIF`);
     if (sha256(bytes) !== entry.sha256) problems.push(`${id}: ${entry.file} does not match its recorded hash`);
+    const still = join(STILL_DIR, `${entry.datasetId}.webp`);
+    stills.add(`${entry.datasetId}.webp`);
+    if (!existsSync(still)) problems.push(`${id}: still ${entry.datasetId}.webp is missing`);
+    else if (sha256(readFileSync(still)) !== entry.stillSha256) problems.push(`${id}: still ${entry.datasetId}.webp does not match its recorded hash`);
   }
+  for (const file of existsSync(STILL_DIR) ? readdirSync(STILL_DIR) : [])
+    if (!stills.has(file)) problems.push(`assets/exercise-stills/${file} has no manifest entry`);
   const onDisk = existsSync(GIF_DIR) ? readdirSync(GIF_DIR) : [];
   for (const file of onDisk) if (!files.has(file)) problems.push(`assets/exercise-gifs/${file} has no manifest entry`);
   return problems;
+}
+
+/** Frame 0 of every vendored animation, lossless, and its hash into the manifest. */
+function writeStills(entries) {
+  rmSync(STILL_DIR, { recursive: true, force: true });
+  mkdirSync(STILL_DIR, { recursive: true });
+  for (const entry of Object.values(entries)) {
+    const out = join(STILL_DIR, `${entry.datasetId}.webp`);
+    execFileSync("ffmpeg", ["-loglevel", "error", "-y", "-i", join(GIF_DIR, entry.file), "-frames:v", "1",
+      "-c:v", "libwebp", "-lossless", "1", "-compression_level", "6", out]);
+    entry.stillSha256 = sha256(readFileSync(out));
+  }
+}
+
+function writeManifest(entries) {
+  const manifest = { schemaVersion: 2, repository: DATASET_REPOSITORY, commit: DATASET_COMMIT, attribution: ATTRIBUTION, entries };
+  writeFileSync(MANIFEST_PATH, `${JSON.stringify(manifest, null, 2)}\n`);
 }
 
 function vendor(clone) {
@@ -99,15 +137,15 @@ function vendor(clone) {
     writeFileSync(join(GIF_DIR, file), bytes);
     entries[exercise.id] = { sourceName: exercise.name, datasetId: record.id, datasetName: record.name, file, sha256: sha256(bytes) };
   }
-  const manifest = { schemaVersion: 1, repository: DATASET_REPOSITORY, commit: DATASET_COMMIT, attribution: ATTRIBUTION, entries };
-  writeFileSync(MANIFEST_PATH, `${JSON.stringify(manifest, null, 2)}\n`);
+  writeStills(entries);
+  writeManifest(entries);
   console.log(`${Object.keys(entries).length} animations vendored; ${ambiguous.length} names skipped as ambiguous${ambiguous.length ? `: ${ambiguous.join(", ")}` : ""}`);
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const arg = process.argv[2];
   if (!arg) {
-    console.error("usage: node tools/vendor-exercise-gifs.mjs <path-to-dataset-clone> | --check");
+    console.error("usage: node tools/vendor-exercise-gifs.mjs <path-to-dataset-clone> | --stills | --check");
     process.exitCode = 1;
   } else if (arg === "--check") {
     const problems = checkVendoredGifs();
@@ -116,5 +154,10 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
       for (const problem of problems) console.error(`  ${problem}`);
       process.exitCode = 1;
     } else console.log("vendored exercise animations match their manifest");
+  } else if (arg === "--stills") {
+    const { entries } = readGifManifest();
+    writeStills(entries);
+    writeManifest(entries);
+    console.log(`${Object.keys(entries).length} stills derived`);
   } else vendor(resolve(arg));
 }

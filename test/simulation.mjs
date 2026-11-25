@@ -9040,10 +9040,10 @@ async function main() {
     return { checked, worst: worst.slice(0, 5) };
   });
   assert(
-    artPaper.checked === 20 && artPaper.worst.every((w) => w.delta <= 6),
+    artPaper.checked === 69 && artPaper.worst.every((w) => w.delta <= 6),
     "every illustration's field colour matches the paper it is drawn on",
     JSON.stringify(artPaper),
-    "Decode each assets/exercises/*.webp → compare its border ring to mediaBg"
+    "Decode each illustration and animation still → compare its border ring to mediaBg"
   );
 
   await openArtDetail(page, ART_SLOT);

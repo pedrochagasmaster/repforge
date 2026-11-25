@@ -563,6 +563,11 @@
 :root[data-theme="dark"] .exdet-art__figure{
   padding-block:var(--exercise-art-lead);
 }
+/* A full-width white plate on charcoal is a lamp, not a picture. In dark the
+   animation keeps its own white ground, unaltered, and nothing more: the plate
+   shrinks to the picture and takes the surface radius. */
+:root[data-theme="dark"] .exdet-art--animation{background:none}
+:root[data-theme="dark"] .exdet-art--animation .exdet-art__img{border-radius:var(--radius-surface)}
 :root[data-theme="dark"] nav{
   backdrop-filter:blur(28px) saturate(125%);
   -webkit-backdrop-filter:blur(28px) saturate(125%);
@@ -2481,6 +2486,7 @@ body.is-sheet-open{overflow:hidden}
 .exthumb--sm{width:52px;height:52px}
 .exthumb--md{width:72px;height:72px}
 .exthumb--lg{width:100%;height:auto;aspect-ratio:1;border-radius:var(--radius-surface)}
+.exthumb--lg.is-animation{width:min(100%,270px);margin-inline:auto}
 .exthumb--empty{display:grid;place-items:center;background:var(--well);color:var(--ink-faint)}
 
 /* Browsing a library is not a confirmation prompt: the picker takes the whole
@@ -4478,6 +4484,11 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
   padding:var(--exercise-art-lead) 0 var(--exercise-art-trail);
 }
 .exdet-art__img{display:block;width:min(80%,450px);height:auto}
+/* A Gym visual animation is 180 pixels square and may not be redrawn larger,
+   so it is shown at no more than one and a half times that: enough to read the
+   movement, short of the blur a 450px box would put on it. Its ground is pure
+   white, which the field already takes from the movement's own colour. */
+.exdet-art--animation .exdet-art__img{width:min(64%,270px)}
 /* Four columns of rules around a single stat cluster fight the orange
    recommendation rail for the eye. On this page whitespace does the grouping,
    so the shared band drops its frame here and only here. */

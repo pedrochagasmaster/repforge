@@ -174,8 +174,14 @@ name; `tools/exercise-gifs.json` pins each to its UUID, dataset id and hash, and
 `node tools/vendor-exercise-gifs.mjs <clone>` regenerates the set (`--check`
 verifies it offline). Keep the files at 180×180 and unmodified, keep the
 "© Gym visual — https://gymvisual.com/" credit in Settings, and never add an
-animation by hand or by a looser match. The app does not display them yet and
-`exercises.js` does not reference them; they are not precached.
+animation by hand or by a looser match. An animation replaces a movement's
+illustration. `exercises.js` names only its still, the lossless first frame under
+`assets/exercise-stills/` (`--stills` re-derives them, needs ffmpeg); lists show
+the still, and the exercise page and library preview play the animation over it,
+at no more than 270px, except under reduced motion. `app.js` derives the
+animation's path from the still's dataset id. Stills are precached; animations
+are fetched when first shown and cached then. The screen catalog draws the still
+(`__repforgeStillFigures`), because a frame taken mid-loop differs between runs.
 
 ## Implementation and review evidence
 

@@ -344,8 +344,14 @@ and punctuation are folded. Licence and attribution terms are in `NOTICE.md`.
 
 ```
 node tools/vendor-exercise-gifs.mjs <path-to-dataset-clone>
+node tools/vendor-exercise-gifs.mjs --stills
 node tools/vendor-exercise-gifs.mjs --check
 ```
+
+Both writing modes also derive each animation's first frame into
+`assets/exercise-stills/` with ffmpeg (lossless WebP) and record its hash;
+`--stills` does only that, from the committed animations. `build-exercises.mjs`
+reads the manifest: a movement with an animation gets its still as `media`.
 
 ## build-exercises.mjs
 

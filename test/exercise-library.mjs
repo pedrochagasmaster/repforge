@@ -16,6 +16,9 @@ const catalogAsset = JSON.parse(readFileSync(join(ROOT, "assets/exercise-catalog
 const curation = JSON.parse(readFileSync(join(ROOT, "tools/exercise-catalog-curation.json"), "utf8"));
 const draftNames = JSON.parse(readFileSync(join(ROOT, "tools/exercise-names-pt-draft.json"), "utf8"));
 const mediaBg = JSON.parse(readFileSync(join(ROOT, "tools/exercise-media-bg.json"), "utf8"));
+// A vendored animation replaces an illustration: `media` is then its still.
+const animations = JSON.parse(readFileSync(join(ROOT, "tools/exercise-gifs.json"), "utf8")).entries;
+const stillOf = id => (animations[id] ? `assets/exercise-stills/${animations[id].datasetId}.webp` : null);
 const sourceById = new Map(source.exercises.map(exercise => [exercise.id, exercise]));
 const indexById = new Map(EXERCISE_LIBRARY.map(exercise => [exercise.id, exercise]));
 const normalizedUnique = values => {
@@ -90,8 +93,8 @@ const wrongIndexRows = EXERCISE_LIBRARY.filter(index => {
     ...(named?.aliases || []),
     ...raw.alternativeName.map(id => source.uuidIndex[id]?.name),
   ]);
-  const expectedMedia = reviewed?.mediaId ? `assets/exercises/${reviewed.mediaId}.webp` : null;
-  const expectedBg = reviewed?.mediaId ? mediaBg[reviewed.mediaId] : null;
+  const expectedMedia = stillOf(index.id) || (reviewed?.mediaId ? `assets/exercises/${reviewed.mediaId}.webp` : null);
+  const expectedBg = stillOf(index.id) ? "#ffffff" : reviewed?.mediaId ? mediaBg[reviewed.mediaId] : null;
   return index.namePt !== expectedNamePt || !isDeepStrictEqual(index.aliases, expectedAliases) ||
     index.media !== expectedMedia || index.mediaBg !== expectedBg ||
     !isDeepStrictEqual(Object.keys(index).sort(), [
@@ -110,7 +113,8 @@ assert(Object.entries(curation.entries).every(([id, reviewed]) => {
 assert(EXERCISE_LIBRARY.every(index => !Object.hasOwn(index, "compiler") && !Object.hasOwn(index, "patterns") && !Object.hasOwn(index, "equipment")),
   "the compact index carries no duplicated or name-inferred ontology data");
 
-const mediaRows = EXERCISE_LIBRARY.filter(exercise => exercise.media);
+const animatedRows = EXERCISE_LIBRARY.filter(exercise => stillOf(exercise.id));
+const mediaRows = EXERCISE_LIBRARY.filter(exercise => exercise.media && !stillOf(exercise.id));
 const mediaFiles = readdirSync(join(ROOT, "assets/exercises")).filter(file => file.endsWith(".webp"));
 const mediaFileIds = mediaFiles.map(file => file.replace(/\.webp$/, "")).sort();
 const licensedMediaIds = Object.keys(mediaBg).sort();
@@ -123,14 +127,17 @@ const invalidMediaMappings = mediaRows.filter(exercise => {
     exercise.mediaBg !== mediaBg[mapping.mediaId] || !/^#[0-9a-f]{6}$/.test(String(exercise.mediaBg)) ||
     !existsSync(join(ROOT, exercise.media));
 });
-assert(mediaRows.length === 20 && Object.keys(curation.entries).filter(id => curation.entries[id].mediaId).length === 20,
-  "only 20 explicit exact-movement UUID mappings carry licensed artwork", `${mediaRows.length} mapped`);
+assert(mediaRows.length === 8 && Object.keys(curation.entries).filter(id => curation.entries[id].mediaId).length === 20,
+  "20 exact-movement UUID mappings carry a licensed illustration; 8 show it, 12 show their animation instead", `${mediaRows.length} shown`);
+assert(animatedRows.length === 61 && animatedRows.every(exercise =>
+  exercise.media === stillOf(exercise.id) && exercise.mediaBg === "#ffffff" && existsSync(join(ROOT, exercise.media))),
+  "61 movements show the first frame of their animation on its white ground", `${animatedRows.length} animated`);
 assert(invalidMediaMappings.length === 0, "each artwork path is backed by its reviewed UUID/name/background mapping",
   invalidMediaMappings.map(exercise => exercise.id).join(", "));
-assert(EXERCISE_LIBRARY.filter(exercise => !exercise.media && exercise.mediaBg == null).length === 1325,
-  "the other 1,325 source movements retain the empty media tile");
-assert(mediaFiles.length === 96 && unreferencedFiles.length === 76,
-  "all 96 licensed files stay closed and 76 unmatched files remain unreferenced",
+assert(EXERCISE_LIBRARY.filter(exercise => !exercise.media && exercise.mediaBg == null).length === 1276,
+  "the other 1,276 source movements retain the empty media tile");
+assert(mediaFiles.length === 96 && unreferencedFiles.length === 88,
+  "all 96 licensed files stay closed and 88 unmatched or replaced files remain unreferenced",
   `${mediaFiles.length} files; ${unreferencedFiles.length} unreferenced`);
 assert(isDeepStrictEqual(mediaFileIds, licensedMediaIds),
   "the existing sampled-media allowlist still defines the complete licensed file set");
@@ -148,7 +155,15 @@ assert(EXERCISE_LIBRARY.every(exercise => exercise.media || exercise.mediaBg == 
   assert(Object.keys(gifManifest.entries).length === 61,
     "61 catalog movements carry a vendored animation", `${Object.keys(gifManifest.entries).length} mapped`);
   assert(EXERCISE_LIBRARY.every(exercise => !/exercise-gifs|gymvisual|\.gif/i.test(JSON.stringify(exercise))),
-    "the search index does not reference the animations until the app displays them");
+    "the search index names only stills; the app derives each animation's path from its still");
+  const worker = readFileSync(join(ROOT, "sw.js"), "utf8");
+  assert(Object.values(gifManifest.entries).every(entry => worker.includes(`"./assets/exercise-stills/${entry.datasetId}.webp"`)) &&
+    !/exercise-gifs/.test(worker),
+    "every still is precached so lists work offline; the animations are fetched on demand");
+  const app = readFileSync(join(ROOT, "app.js"), "utf8");
+  assert(/const EXERCISE_STILL=\/\^assets\\\/exercise-stills\\\/\(\\d\{4\}\)\\\.webp\$\//.test(app) &&
+    app.includes("`assets/exercise-gifs/${m[1]}.gif`") && /function playExerciseAnimations\(root\)\{[^}]*?if\(reducedMotion\(\)\|\|/.test(app),
+    "the app plays an animation from its still's dataset id, and not under reduced motion");
   const shell = readFileSync(join(ROOT, "index.html"), "utf8");
   const creditRow = shell.match(/id="settingsMediaCredit"[\s\S]*?<\/div>/)?.[0] || "";
   assert(creditRow.includes(ATTRIBUTION) && creditRow.includes('data-i18n="settings.media_credit"'),
