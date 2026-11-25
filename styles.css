@@ -6136,7 +6136,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   padding-left:max(var(--gut),env(safe-area-inset-left));padding-right:max(var(--gut),env(safe-area-inset-right));
 }
 .firstrun-band>.firstrun-wrap>*+*{margin-top:var(--firstrun-gap-3)}
-@media(max-width:899px){.firstrun .firstrun-band:not(.firstrun-hero,.firstrun-footer){padding-block:var(--firstrun-gap-5)}}
+@media(max-width:899px){.firstrun .firstrun-band:not(.firstrun-hero,.firstrun-footer){padding-top:var(--firstrun-gap-8);padding-bottom:var(--firstrun-gap-5)}}
 .firstrun-band--night,.firstrun-band--raised{
   --firstrun-band-bg:var(--band-night-bg);
   --firstrun-ink:var(--band-night-ink);
@@ -6182,7 +6182,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 }
 :root[data-theme="dark"] .firstrun-features{--firstrun-band-bg:color-mix(in srgb,var(--band-night-ink) 11%,var(--band-night-bg))}
 :root[data-theme="dark"] .firstrun-band{--firstrun-rule:color-mix(in srgb,var(--band-night-ink) 20%,transparent)}
-:root[data-theme="dark"] .firstrun-band:not(.firstrun-hero,.firstrun-footer,.firstrun-close){padding-top:calc(var(--firstrun-gap-8) + var(--space-16))}
+:root[data-theme="dark"] .firstrun-band:not(.firstrun-hero,.firstrun-proof,.firstrun-footer,.firstrun-close){padding-top:calc(var(--firstrun-gap-8) + var(--space-16))}
 :root[data-theme="dark"] .firstrun-band--ink{
   --firstrun-band-bg:var(--band-night-bg);
   --firstrun-ink:var(--band-night-ink);
@@ -6196,14 +6196,16 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 /* The rest light and the feature panel's tints are orange washes built for paper; on the dark grounds they turn brown,
    so the dark theme draws those frames with their edges alone. */
 :root[data-theme="dark"] .firstrun-demo__light,:root[data-theme="dark"] .firstrun-feat__tints{visibility:hidden}
-:root[data-theme="dark"] .firstrun-demo{background:var(--band-night-raised)}
+:root[data-theme="dark"] .firstrun-demo{background:color-mix(in srgb,var(--band-night-ink) 8%,var(--band-night-bg))}
+:root[data-theme="dark"] .firstrun-demo__ring{background:rgba(var(--accent-rgb),.14)}
+:root[data-theme="dark"] .firstrun-feat__win{--surface:color-mix(in srgb,var(--band-night-ink) 9%,var(--band-night-bg))}
 :root[data-theme="dark"] .firstrun-proof__glass{box-shadow:inset 0 0 0 1px var(--rule-strong)}
 :root[data-theme="dark"] .firstrun-proof__glass>*{border-radius:inherit}
 :root[data-theme="dark"] .firstrun-demo :is(.ledgerline__prev,.ledgerline__head,.fx-col){color:var(--color-ink-secondary)}
-:root[data-theme="dark"] .firstrun-feat__panel{background:var(--band-night-raised)}
+:root[data-theme="dark"] .firstrun-feat__panel{background:color-mix(in srgb,var(--band-night-ink) 17%,var(--band-night-bg));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--band-night-ink) 18%,transparent)}
 :root[data-theme="dark"] .firstrun-footer{border-top:1px solid var(--rule-strong)}
-:root[data-theme="dark"] :is(.firstrun-demo,.firstrun-fx){--boundary-decorative:var(--rule-strong);--rule:var(--rule-strong)}
-:root[data-theme="dark"] :is(.firstrun-proof__device,.firstrun-feat__win){box-shadow:0 0 0 1px color-mix(in srgb,var(--band-night-ink) 14%,transparent),var(--elevation-floating-shadow)}
+:root[data-theme="dark"] :is(.firstrun-demo,.firstrun-fx){--boundary-decorative:color-mix(in srgb,var(--band-night-ink) 20%,transparent);--rule:color-mix(in srgb,var(--band-night-ink) 20%,transparent);--rule-on-surface:color-mix(in srgb,var(--band-night-ink) 20%,transparent)}
+:root[data-theme="dark"] :is(.firstrun-proof__device,.firstrun-feat__win){box-shadow:0 0 0 1px color-mix(in srgb,var(--band-night-ink) 16%,transparent),var(--elevation-floating-shadow)}
 :root[data-theme="dark"] .firstrun-feat__win{box-shadow:inset 0 0 0 1px var(--rule-strong)}
 :root[data-theme="dark"] .firstrun-fx .sumcard{box-shadow:inset 0 0 0 1px var(--rule-strong)}
 :root[data-theme="dark"] .firstrun-fx :is(.phero__cap,.liftrow__l2,.phero__eyebrow){color:var(--color-ink-secondary)}
@@ -6215,9 +6217,10 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun-check__delta{flex:0 0 2.5ch;text-align:right;font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);
   font-variant-numeric:tabular-nums;color:var(--firstrun-ink)}
 .firstrun-check__line{display:block}
-.firstrun-check__line+.firstrun-check__line{margin-top:var(--space-4)}
+.firstrun-check__line{text-wrap:pretty}
+.firstrun-check__line+.firstrun-check__line{margin-top:var(--space-8)}
 .firstrun-check__line b{font-weight:var(--weight-semibold);color:var(--firstrun-ink)}
-.firstrun-check .firstrun-sub{max-width:65ch}
+.firstrun-check .firstrun-sub{max-width:60ch}
 .firstrun-check .firstrun-sub{color:var(--firstrun-ink)}
 
 /* ---- Type ---- */
@@ -6297,9 +6300,10 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   font-size:var(--font-size-body);line-height:var(--line-standard);color:var(--firstrun-ink);
 }
 .firstrun-chips li{display:flex;align-items:center;gap:var(--space-8)}
-.firstrun-chips li::before{content:"";flex:none;width:16px;height:16px;background:var(--band-night-ink-soft);
+.firstrun-chips li::before{content:"";flex:none;width:16px;height:16px;background:var(--band-night-ink);
   -webkit-mask:var(--check) no-repeat center/contain;mask:var(--check) no-repeat center/contain}
-.firstrun-hero__data b{font-weight:var(--weight-regular);color:inherit;white-space:nowrap}
+.firstrun-hero__data b{font-weight:var(--weight-semibold);color:var(--firstrun-ink)}
+.firstrun-hero .firstrun-hero__data{padding-left:calc(16px + var(--space-8));text-wrap:pretty}
 .firstrun-hero .firstrun-hero__data{color:color-mix(in srgb,var(--band-night-ink) 25%,var(--band-night-ink-soft))}
 
 /* ---- Actions: the ink pill with its arrow, and the underlined text link ---- */
@@ -6373,7 +6377,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
    action, and takes the recipe that reads against the band beneath it. */
 .firstrun-dock{
   position:fixed;z-index:1;left:0;right:0;bottom:0;
-  padding:var(--space-12) max(var(--gut),env(safe-area-inset-right)) calc(var(--space-12) + env(safe-area-inset-bottom)) max(var(--gut),env(safe-area-inset-left));
+  padding:var(--space-8) max(var(--gut),env(safe-area-inset-right)) calc(var(--space-8) + env(safe-area-inset-bottom)) max(var(--gut),env(safe-area-inset-left));
   /* One bar from the end of the hero to the closing band: the page's paper with a hairline and the black pill in the light
      theme, the night with the cream pill in the dark one. */
   --firstrun-dock-fill:var(--bg);
@@ -6394,9 +6398,11 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .landing-touch__ring{opacity:0;border:1.5px solid rgba(var(--ink-rgb),.28)}
 .firstrun-dock .firstrun__cta{max-width:calc(var(--maxw) - var(--space-32));min-height:var(--control-target);margin-inline:auto;padding-block:var(--space-8)}
 /* Over a dark band the bar takes the night skin (the cream pill), over paper the light one: switched per band. */
-.firstrun-dock[data-ground="dark"],:root[data-theme="dark"] .firstrun-dock{--firstrun-dock-fill:var(--band-night-bg);border-color:color-mix(in srgb,var(--band-night-ink) 20%,transparent);
+:root[data-theme="dark"] .firstrun-dock{--firstrun-dock-fill:var(--band-night-bg);border-color:color-mix(in srgb,var(--band-night-ink) 20%,transparent);
   --firstrun-ink:var(--band-night-ink);--firstrun-cta-bg:var(--band-night-cta-bg);--firstrun-cta-ink:var(--band-night-cta-ink);--firstrun-cta-mark:var(--band-night-cta-ink);
   --firstrun-focus:var(--band-night-ink)}
+.firstrun-dock::before{content:"";position:absolute;left:0;right:0;bottom:calc(100% + 1px);height:var(--space-12);pointer-events:none;
+  background:linear-gradient(to bottom,transparent,var(--firstrun-dock-fill))}
 .firstrun{scroll-padding-bottom:calc(var(--control-target) + var(--space-26))}
 .firstrun-h2{scroll-margin-top:calc(var(--control-target) + var(--space-32));scroll-margin-bottom:calc(var(--control-target) + var(--space-32))}
 
@@ -6451,12 +6457,16 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 }
 .firstrun-chapter__go::before,.firstrun-feat__title::before{content:counter(step);flex:none;width:1.25em;
   font-weight:var(--weight-medium);font-variant-numeric:tabular-nums;color:var(--firstrun-ink-soft)}
-.firstrun-chapter.is-current,.firstrun-feat__tab.is-current{position:relative;background:var(--firstrun-row-open,var(--surface))}
-.firstrun-chapter.is-current::before,.firstrun-feat__tab.is-current::before{content:"";position:absolute;left:0;top:var(--space-8);bottom:var(--space-8);width:3px;
+.firstrun-chapter.is-current,.firstrun-feat__tab.is-current{position:relative;overflow:hidden;border-radius:var(--radius-surface);border-top-color:transparent;
+  background:var(--firstrun-row-open,var(--surface));box-shadow:inset 0 0 0 1px var(--firstrun-row-open-edge,var(--rule-strong))}
+.firstrun-chapter.is-current+.firstrun-chapter,.firstrun-feat__tab.is-current+.firstrun-feat__tab{border-top-color:transparent}
+.firstrun-chapter.is-current::before,.firstrun-feat__tab.is-current::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;
   border-radius:var(--radius-pill);background:var(--accent)}
 .firstrun-chapter.is-current .firstrun-chapter__go::before,.firstrun-feat__tab.is-current .firstrun-feat__title::before{color:var(--firstrun-ink)}
-.firstrun-band--night,.firstrun-band--raised,.firstrun-proof{--firstrun-row-open:color-mix(in srgb,var(--band-night-ink) 9%,var(--band-night-bg))}
-:root[data-theme="dark"] .firstrun-features{--firstrun-row-open:color-mix(in srgb,var(--band-night-ink) 9%,var(--band-night-bg))}
+.firstrun-band--night,.firstrun-band--raised,.firstrun-proof{--firstrun-row-open:color-mix(in srgb,var(--band-night-ink) 14%,var(--band-night-bg));
+  --firstrun-row-open-edge:color-mix(in srgb,var(--band-night-ink) 22%,transparent)}
+:root[data-theme="dark"] .firstrun-features{--firstrun-row-open:color-mix(in srgb,var(--band-night-ink) 20%,var(--band-night-bg));
+  --firstrun-row-open-edge:color-mix(in srgb,var(--band-night-ink) 24%,transparent)}
 .firstrun-chapter__bar{display:none}
 .firstrun-step__short{display:none}
 .firstrun-chapter__fill{position:absolute;inset:0;background:var(--band-night-accent);transform-origin:0 50%;transform:scaleX(var(--chapter-progress,0))}
@@ -6474,30 +6484,30 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   .firstrun-proof__device{--proof-crop:next;background:var(--bg)}
   .firstrun-proof .firstrun-wrap>*+*{margin-top:var(--firstrun-gap-2)}
   /* five equal numbered segments; the open step's title (kept in its button for its name) is set under them */
-  .firstrun .firstrun-chapters,.firstrun .firstrun-feat__tabs{position:relative;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:var(--space-4);border-bottom:0}
+  .firstrun .firstrun-chapters,.firstrun .firstrun-feat__tabs{position:relative;display:flex;flex-direction:row;flex-wrap:nowrap;gap:var(--space-4);border-bottom:0}
   .firstrun .firstrun-feat__tabs{padding-bottom:calc(var(--space-12) + 1.5em)}
   .firstrun .firstrun-chapter{display:contents}
   .firstrun .firstrun-chapter::before{content:none}
   .firstrun .firstrun-chapter__go{counter-increment:step}
   .firstrun .firstrun-chapter__go,.firstrun .firstrun-feat__tab{position:static;grid-row:1;flex-direction:column;justify-content:center;gap:2px;
-    min-height:calc(var(--control-target) + var(--space-12));padding:var(--space-4) 0;
+    flex:1 1 auto;width:auto;min-width:0;min-height:calc(var(--control-target) + var(--space-8));padding:var(--space-4) var(--space-8);
     border:1px solid var(--firstrun-seg-rule,var(--rule-strong));border-radius:var(--radius-control);background:none}
   .firstrun-band--night,.firstrun-proof,:root[data-theme="dark"] .firstrun{--firstrun-seg-rule:color-mix(in srgb,var(--band-night-ink) 22%,transparent)}
-  .firstrun .firstrun-step__short{display:block;font-size:var(--font-size-label);letter-spacing:-.02em;font-weight:var(--weight-medium);line-height:var(--line-tight);
-    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+  .firstrun .firstrun-step__short{display:block;font-size:var(--font-size-caption);font-weight:var(--weight-semibold);line-height:var(--line-tight);white-space:nowrap}
   .firstrun .firstrun-feat__tab{display:flex;align-items:center}
   .firstrun .firstrun-feat__title::before{content:none}
   .firstrun .firstrun-feat__tab::after{content:counter(step)}
-  .firstrun .firstrun-chapter__go::before,.firstrun .firstrun-feat__tab::after{width:auto;font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);color:inherit}
+  .firstrun .firstrun-chapter__go::before,.firstrun .firstrun-feat__tab::after{width:auto;font-size:var(--font-size-label);font-weight:var(--weight-medium);line-height:1;opacity:.72;color:inherit}
   .firstrun .firstrun-chapter.is-current .firstrun-chapter__go::before{color:inherit}
   .firstrun .firstrun-chapter.is-current .firstrun-chapter__go,.firstrun .firstrun-feat__tab.is-current{border-color:var(--firstrun-ink);color:var(--firstrun-band-bg);
-    background:linear-gradient(var(--accent),var(--accent)) center bottom var(--space-4)/40% 3px no-repeat,var(--firstrun-ink)}
+    background:linear-gradient(var(--accent),var(--accent)) center top/100% 3px no-repeat,var(--firstrun-ink)}
   .firstrun .firstrun-feat__tab::after{order:-1}
   .firstrun .firstrun-feat__tab.is-current::before{content:none}
   .firstrun .firstrun-chapter__title,.firstrun .firstrun-feat__title{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
-  .firstrun .firstrun-chapter.is-current .firstrun-chapter__title,.firstrun .firstrun-feat__tab.is-current .firstrun-feat__title{display:block;min-height:0;position:absolute;left:0;right:0;top:calc(var(--control-target) + var(--space-26));
+  .firstrun .firstrun-chapter.is-current .firstrun-chapter__title,.firstrun .firstrun-feat__tab.is-current .firstrun-feat__title{display:block;min-height:0;position:absolute;left:0;right:0;top:calc(var(--control-target) + var(--space-16));
     width:auto;height:auto;overflow:visible;clip-path:none;white-space:normal;text-align:left;font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);color:var(--firstrun-ink)}
-  .firstrun .firstrun-chapter__text{grid-row:2;grid-column:1/-1;padding:calc(var(--space-12) + 1.6em) 0 0}
+  .firstrun .firstrun-chapters{flex-wrap:wrap}
+  .firstrun .firstrun-chapter__text{order:1;flex:0 0 100%;padding:calc(var(--space-12) + 1.6em) 0 0}
   .firstrun .firstrun-feat__tab .firstrun-feat__text,.firstrun .firstrun-feat__tab.is-current .firstrun-feat__text{display:none}
   .firstrun .firstrun-feat__caps{display:grid;margin-top:var(--space-8)}
   .firstrun-feat__panel{height:400px}
@@ -6596,14 +6606,11 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
    the third is a control. */
 .firstrun-ways__list{list-style:none;display:grid;width:100%;max-width:var(--maxw);margin:var(--firstrun-gap-2) auto 0;counter-reset:way;
   padding:0 max(var(--gut),env(safe-area-inset-right)) 0 max(var(--gut),env(safe-area-inset-left))}
-.firstrun-way{counter-increment:way;display:flex;flex-direction:column;padding:var(--firstrun-gap-3) 0;border-top:2px solid var(--firstrun-ink)}
-.firstrun-way:first-child{border-top-color:var(--accent)}
-.firstrun-way:last-child{border-bottom:1px solid var(--firstrun-rule)}
+.firstrun-way{counter-increment:way;display:flex;flex-direction:column;padding:var(--firstrun-gap-3) 0;border-top:1px solid var(--firstrun-rule)}
+.firstrun-way:last-child{padding-bottom:0}
 .firstrun-way>.firstrun-wrap{flex:1;display:flex;flex-direction:column;max-width:none;padding:0}
-.firstrun-way .firstrun-disclosure{justify-content:flex-start;gap:var(--space-8);width:auto;align-self:flex-start;min-height:var(--control-target);
-  margin-top:var(--space-8);padding:0;border-top:0;font-size:var(--font-size-body)}
-.firstrun-way .firstrun-disclosure i{width:16px;height:16px}
-.firstrun-way .firstrun-disclosure i::before,.firstrun-way .firstrun-disclosure i::after{top:7px}
+.firstrun-way .firstrun-disclosure{justify-content:space-between;width:100%;min-height:56px;margin-top:var(--firstrun-gap-2);padding:var(--firstrun-gap-1) 0;
+  border-top:1px solid var(--firstrun-rule);border-bottom:1px solid var(--firstrun-rule);font-size:var(--font-size-subtitle)}
 .firstrun-way__title{margin:0;font-size:var(--font-size-metric);font-weight:var(--weight-semibold);line-height:var(--line-standard);letter-spacing:-.01em}
 .firstrun-way p{margin:var(--firstrun-gap-1) 0 0;font-size:var(--font-size-body);line-height:var(--line-reading);color:var(--firstrun-ink-soft)}
 .firstrun-disclosure{
@@ -6998,7 +7005,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
    playing on the right with its chapters beside it. The Build control is a bar across the top. Text-only bands keep
    their title in a third-wide column that holds while the content scrolls past it. */
 @media(min-width:1100px){
-  .firstrun__inner{--firstrun-container:calc(var(--maxw) * 2 + var(--space-32) * 2 + var(--space-16));--firstrun-top:calc(var(--space-32) * 2 + var(--firstrun-gap-4));
+  .firstrun__inner{--firstrun-container:calc(var(--maxw) * 2 + var(--space-32) * 5);--firstrun-top:calc(var(--space-32) * 2 + var(--firstrun-gap-4));
     position:relative;display:grid;
     grid-template-columns:[full-start] minmax(var(--gut),1fr) [content-start] minmax(0,calc(var(--firstrun-container) * .4)) [mid] minmax(0,calc(var(--firstrun-container) * .6)) [content-end] minmax(var(--gut),1fr) [full-end]}
   .firstrun__inner>*{grid-column:full}
@@ -7015,7 +7022,8 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   .firstrun-hero .firstrun-hero__title{margin-top:0}
   /* the proof: one header block (its title and its sentence, at body size) over the phone and the stepper beside it.
      The phone is 360px wide, cropped from the screen's top to its shelf's fields (app.js sizes the frame). */
-  .firstrun-proof>.firstrun-wrap{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-rows:auto auto 1fr;column-gap:var(--firstrun-gap-2);align-items:start;margin-top:var(--space-4)}
+  .firstrun-proof>.firstrun-wrap{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-rows:auto auto 1fr;column-gap:var(--firstrun-gap-3);align-items:start;margin-top:calc(var(--space-26) + var(--space-4))}
+  .firstrun-hero .firstrun-hero__title{text-wrap:balance}
   .firstrun-proof .firstrun-chapter__go{white-space:nowrap}
   .firstrun-proof>.firstrun-wrap>.firstrun-h2{grid-column:1/-1;grid-row:1;font-size:var(--font-size-section-title);font-weight:var(--weight-semibold);line-height:var(--line-tight);letter-spacing:-.015em}
   .firstrun-proof .firstrun-wrap>.firstrun-sub{grid-column:1/-1;grid-row:2;margin-top:var(--space-4);max-width:65ch;font-size:var(--font-size-body);color:var(--firstrun-ink-soft)}
@@ -7023,9 +7031,8 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   .firstrun-proof .firstrun-proof__device{grid-column:1;grid-row:3;margin-top:var(--firstrun-gap-2);--proof-crop:next;width:380px;background:var(--bg);
     box-shadow:0 0 0 1px color-mix(in srgb,var(--band-night-ink) 16%,transparent),0 0 0 var(--space-8) var(--band-night-raised),var(--elevation-floating-shadow)}
   .firstrun-proof .firstrun-chapters{grid-column:2;grid-row:3;align-self:center;margin-top:var(--firstrun-gap-2)}
+  .firstrun-proof .firstrun-chapter__text{font-size:var(--font-size-body-small)}
   /* a closed row switches the picture: a hover surface and a trailing chevron, not a disclosure's + */
-  .firstrun-chapter__go::after,.firstrun-feat__title::after{content:"\203A";margin-left:auto;font-size:var(--font-size-subtitle);font-weight:var(--weight-regular);color:var(--firstrun-ink-soft)}
-  .firstrun-chapter.is-current .firstrun-chapter__go::after,.firstrun-feat__tab.is-current .firstrun-feat__title::after{content:none}
   .firstrun-chapter:not(.is-current) .firstrun-chapter__go:hover,.firstrun-feat__tab:not(.is-current):hover{background:color-mix(in srgb,var(--firstrun-ink) 6%,transparent)}
   .firstrun-chapter__go{font-size:var(--font-size-body)}
   .firstrun-proof .firstrun-chapter__text{font-size:var(--font-size-body-small)}
@@ -7054,7 +7061,14 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   .firstrun-close>.firstrun-wrap>.firstrun-close__body{grid-column:1;grid-row:2;margin-top:var(--firstrun-gap-2)}
   .firstrun-close>.firstrun-wrap>.firstrun-close__actions{grid-column:2;grid-row:1/span 2;align-self:center;margin-top:0}
   /* a reading measure */
-  .firstrun-check .firstrun-sub,.firstrun-rows p,.firstrun-qa__a,.firstrun-way p{max-width:65ch}
+  .firstrun-rows p,.firstrun-qa__a,.firstrun-way p{max-width:65ch}
+  .firstrun-check .firstrun-sub{max-width:60ch}
+  /* the closing band: the secondary is a content-width ghost under the full-width primary */
+  .firstrun-close .firstrun__cta--peer{width:auto;justify-self:start;gap:var(--space-26)}
+  /* the top bar takes the skin of the band under it */
+  .firstrun-dock[data-ground="dark"]{--firstrun-dock-fill:var(--band-night-bg);border-color:color-mix(in srgb,var(--band-night-ink) 20%,transparent);
+    --firstrun-ink:var(--band-night-ink);--firstrun-cta-bg:var(--band-night-cta-bg);--firstrun-cta-ink:var(--band-night-cta-ink);--firstrun-cta-mark:var(--band-night-cta-ink)}
+  .firstrun-dock::before{content:none}
   .firstrun-rows{margin-top:0}
   /* the three ways side by side, each under its own hairline, their links on one line */
   .firstrun-ways__list{grid-template-columns:repeat(3,minmax(0,1fr));column-gap:var(--firstrun-gap-4);align-items:stretch}
@@ -7066,8 +7080,9 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   .firstrun-feat{align-items:start}
   .firstrun-feat__side{position:sticky;top:calc(var(--space-32) * 2 + var(--firstrun-gap-3))}
   .firstrun-feat__panel{height:min(744px,calc(100svh - var(--space-32) * 4))}
-  .firstrun-feat__side{align-self:center}
-  .firstrun-feat__tab.is-current{box-shadow:inset 0 0 0 1px var(--rule-strong)}
+  .firstrun-feat{align-items:start}
+  .firstrun-feat__side{align-self:start;margin-top:0}
+
   /* the left-column titles meet the first row's text */
   .firstrun-data .firstrun-wrap>.firstrun-h2{margin-top:var(--firstrun-gap-3)}
   .firstrun-faq .firstrun-wrap>.firstrun-h2{margin-top:var(--space-8)}

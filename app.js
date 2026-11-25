@@ -27343,8 +27343,8 @@ function createLandingController(root){
     on(window,"resize",watchBand);watchBand();
     const watch=(node,fn)=>{const io=new IntersectionObserver(fn,{root});reg.obs.push(io);io.observe(node)};
     watch(hero,entries=>{const e=entries[entries.length-1];gone=!e.isIntersecting&&e.boundingClientRect.bottom<(e.rootBounds?e.rootBounds.top:0)+1;paint()});
-    // The control steps aside as soon as the closing band (which carries the same action) enters the screen.
-    watch(close.closest("[data-landing-section]")||close,entries=>{const e=entries[entries.length-1];closing=e.isIntersecting||e.boundingClientRect.top<(e.rootBounds?e.rootBounds.top:0);paint()});
+    // The control steps aside once the closing band's own buttons come into view.
+    watch(close.closest(".firstrun__actions")||close,entries=>{const e=entries[entries.length-1];closing=e.isIntersecting||e.boundingClientRect.top<(e.rootBounds?e.rootBounds.top:0);paint()});
     /* the first painted ground beneath the control's resting place decides its ink */
     const ground=(x,y)=>{
       for(const hit of document.elementsFromPoint(x,y)){
