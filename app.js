@@ -27428,20 +27428,23 @@ function createLandingController(root){
           if(m&&(m[4]===undefined||+m[4]>.5))return{fill,lum:(.2126*m[1]+.7152*m[2]+.0722*m[3])/255}}}
       return{fill:"",lum:1}};
     // Sampled on every frame the landing plays and on every scroll, so a held (or reduced-motion) page still switches.
+    let lastFill="";
     const sampleGround=()=>{
       const box=dock.getBoundingClientRect();
       // The wide page's bar sits at the top: it takes the band just under its own foot.
       const atTop=box.height&&box.top<8;
       const y=atTop?box.bottom+4:box.height?window.innerHeight-parseFloat(getComputedStyle(dock).bottom)-box.height/2:window.innerHeight-60;
       const under=ground(window.innerWidth/2,y);
-      dock.dataset.ground=under.lum<.4?"dark":"light";
-      if(under.fill)dock.style.setProperty("--firstrun-dock-ground",under.fill)};
+      // written only when it changes: a write every frame would dirty the page's style on every frame
+      const tone=under.lum<.4?"dark":"light";
+      if(dock.dataset.ground!==tone)dock.dataset.ground=tone;
+      if(under.fill&&under.fill!==lastFill){lastFill=under.fill;dock.style.setProperty("--firstrun-dock-ground",under.fill)}};
     ticks.add(sampleGround);on(root,"scroll",sampleGround);
     /* An answer that opens moves the bands beneath the control without a scroll, so a change in the page's height
        reads the ground again too; otherwise the control keeps the ink of a band that has moved away. */
     const page=root.querySelector(".firstrun__inner");
     if(page&&typeof ResizeObserver!=="undefined"){const ro=new ResizeObserver(requestTick);reg.obs.push(ro);ro.observe(page)}
-    reg.nodes.push(()=>{dock.classList.remove("is-on");delete dock.dataset.ground;dock.style.removeProperty("--firstrun-dock-ground")})}
+    reg.nodes.push(()=>{dock.classList.remove("is-on");delete dock.dataset.ground;dock.style.removeProperty("--firstrun-dock-ground");lastFill=""})}
   /* ---- the status-bar band (#449) ----
      One observer whose root box is the top inset strip names the ground of the
      section under it; the CSS paints the band from that name. No scroll work. */
