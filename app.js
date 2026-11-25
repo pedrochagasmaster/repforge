@@ -27323,20 +27323,23 @@ function createLandingController(root){
     on(window,"resize",watchBand);watchBand();
     const watch=(node,fn)=>{const io=new IntersectionObserver(fn,{root});reg.obs.push(io);io.observe(node)};
     watch(hero,entries=>{const e=entries[entries.length-1];gone=!e.isIntersecting&&e.boundingClientRect.bottom<(e.rootBounds?e.rootBounds.top:0)+1;paint()});
-    watch(close,entries=>{const e=entries[entries.length-1];closing=e.isIntersecting||e.boundingClientRect.top<(e.rootBounds?e.rootBounds.top:0);paint()});
+    // The control steps aside as soon as the closing band (which carries the same action) enters the screen.
+    watch(close.closest("[data-landing-section]")||close,entries=>{const e=entries[entries.length-1];closing=e.isIntersecting||e.boundingClientRect.top<(e.rootBounds?e.rootBounds.top:0);paint()});
     /* the first painted ground beneath the control's resting place decides its ink */
-    const luminance=(x,y)=>{
+    const ground=(x,y)=>{
       for(const hit of document.elementsFromPoint(x,y)){
         if(dock.contains(hit))continue;
         for(let node=hit;node&&node!==document.documentElement;node=node.parentElement){
-          const m=/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?/.exec(getComputedStyle(node).backgroundColor);
-          if(m&&(m[4]===undefined||+m[4]>.5))return(.2126*m[1]+.7152*m[2]+.0722*m[3])/255}}
-      return 1};
+          const fill=getComputedStyle(node).backgroundColor,m=/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?/.exec(fill);
+          if(m&&(m[4]===undefined||+m[4]>.5))return{fill,lum:(.2126*m[1]+.7152*m[2]+.0722*m[3])/255}}}
+      return{fill:"",lum:1}};
     ticks.add(()=>{
       const box=dock.getBoundingClientRect();
       const y=box.height?window.innerHeight-parseFloat(getComputedStyle(dock).bottom)-box.height/2:window.innerHeight-60;
-      dock.dataset.ground=luminance(window.innerWidth/2,y)<.4?"dark":"light"});
-    reg.nodes.push(()=>{dock.classList.remove("is-on");delete dock.dataset.ground})}
+      const under=ground(window.innerWidth/2,y);
+      dock.dataset.ground=under.lum<.4?"dark":"light";
+      if(under.fill)dock.style.setProperty("--firstrun-dock-ground",under.fill)});
+    reg.nodes.push(()=>{dock.classList.remove("is-on");delete dock.dataset.ground;dock.style.removeProperty("--firstrun-dock-ground")})}
   /* ---- the status-bar band (#449) ----
      One observer whose root box is the top inset strip names the ground of the
      section under it; the CSS paints the band from that name. No scroll work. */

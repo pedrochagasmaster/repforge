@@ -12,9 +12,9 @@
 @font-face{font-family:"Plex Mono";src:url(fonts/plexmono-500.woff2) format("woff2");font-weight:500;font-display:swap}
 @font-face{font-family:"Plex Mono";src:url(fonts/plexmono-600.woff2) format("woff2");font-weight:600;font-display:swap}
 
-:root,.theme-light{
-  /* `.theme-light` scopes the same tokens to one element, so a surface that must stay light in either theme (the landing
-     proof's phone screen) reads the app's own light palette rather than a copy of it. */
+:root,:root:not([data-theme="dark"]) .theme-light{
+  /* `.theme-light` scopes the same tokens to one element (the landing's phone screens). In the dark theme it no longer
+     matches, so those screens inherit the dark palette from the root and read as the app does in that appearance. */
   container-type:inline-size;
   color-scheme:light;
   /* `color-scheme` is a keyword property, so the few rules that pin a native
@@ -528,21 +528,23 @@
   --select-caret:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23F2EFE9' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
 }
 
+.theme-light{container-type:inline-size}
+
 /* ---- Dark-theme hierarchy refinements ----
    A palette swap gets the colours right, but near-black compresses depth:
    controls that were obvious as white fields on cream become adjacent dark
    rectangles. These few rules restore the light theme's hierarchy without
    adding cards or glow. */
 :root[data-theme="dark"] .kg,
-:root[data-theme="dark"] .saveset:where(:not(.theme-light *)){
+:root[data-theme="dark"] .saveset{
   border-color:var(--rule-strong);
 }
-:root[data-theme="dark"] .stepbtn:where(:not(.theme-light *)){
+:root[data-theme="dark"] .stepbtn{
   background:var(--control-adjustment-bg);
   border-color:var(--control-adjustment-boundary);
   color:var(--control-adjustment-ink);
 }
-:root[data-theme="dark"] .saveset:where(:not(.theme-light *)){
+:root[data-theme="dark"] .saveset{
   color:var(--ink);
 }
 /* Small artwork retains its stronger dark-theme edge on charcoal. */
@@ -6134,6 +6136,10 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   padding-left:max(var(--gut),env(safe-area-inset-left));padding-right:max(var(--gut),env(safe-area-inset-right));
 }
 .firstrun-band>.firstrun-wrap>*+*{margin-top:var(--firstrun-gap-3)}
+.firstrun-check+.firstrun-ways{padding-top:var(--firstrun-gap-3)}
+.firstrun-check:has(+.firstrun-ways){padding-bottom:var(--firstrun-gap-3)}
+.firstrun-ways:has(+.firstrun-features){padding-bottom:var(--firstrun-gap-3)}
+.firstrun-ways+.firstrun-features{padding-top:var(--firstrun-gap-5)}
 .firstrun-band--night,.firstrun-band--raised{
   --firstrun-band-bg:var(--band-night-bg);
   --firstrun-ink:var(--band-night-ink);
@@ -6169,6 +6175,18 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   --firstrun-accent-text:var(--band-ink-ink);
 }
 .firstrun-faq{--firstrun-band-bg:var(--well)}
+/* In the dark theme the ink band's tokens invert to a cream field; the landing keeps it a raised night band instead, so
+   the page's depth runs the same way in both appearances. */
+:root[data-theme="dark"] .firstrun-band--ink{
+  --firstrun-band-bg:var(--band-night-raised);
+  --firstrun-ink:var(--band-night-ink);
+  --firstrun-ink-soft:var(--band-night-ink-soft);
+  --firstrun-ink-faint:var(--band-night-ink-faint);
+  --firstrun-rule:var(--band-night-rule);
+  --firstrun-focus:var(--band-night-ink);
+  --firstrun-accent-text:var(--band-night-accent-text);
+}
+:root[data-theme="dark"] .firstrun[data-inset-ground="ink"]::before{background:var(--band-night-raised)}
 
 /* ---- Test-set comparisons ---- */
 .firstrun-check__examples{list-style:none;padding:0;margin:0;font-size:var(--font-size-body);line-height:var(--line-reading)}
@@ -6247,7 +6265,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun__error:empty{display:none}
 .firstrun__actions{display:grid;gap:var(--firstrun-gap-1);margin-top:var(--firstrun-gap-4)}
 .firstrun-chips{
-  display:flex;flex-wrap:wrap;justify-content:center;gap:var(--space-4) var(--space-18);margin:var(--firstrun-gap-2) 0 0;padding:0;list-style:none;
+  display:flex;flex-wrap:wrap;justify-content:flex-start;gap:var(--space-4) var(--space-18);margin:var(--firstrun-gap-2) 0 0;padding:0;list-style:none;
   font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--firstrun-ink-soft);
 }
 
@@ -6274,7 +6292,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun__cta .firstrun-row__text{gap:2px}
 .firstrun__cta .firstrun-row__cap{font-weight:var(--weight-regular)}
 .firstrun-hero__data{
-  margin:var(--firstrun-gap-1) auto 0;max-width:40ch;text-align:center;text-wrap:pretty;
+  margin:var(--firstrun-gap-1) 0 0;max-width:46ch;text-align:left;text-wrap:pretty;
   font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--firstrun-ink-soft);
 }
 .firstrun-hero__data:empty{display:none}
@@ -6321,9 +6339,12 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
    It appears once the hero action has scrolled away, steps aside at the closing
    action, and takes the recipe that reads against the band beneath it. */
 .firstrun-dock{
-  position:fixed;z-index:1;left:max(var(--gut),env(safe-area-inset-left));right:max(var(--gut),env(safe-area-inset-right));
-  bottom:calc(var(--space-14) + env(safe-area-inset-bottom));max-width:calc(var(--maxw) - var(--space-32));margin-inline:auto;
-  transform:translateY(calc(100% + var(--space-32)));visibility:hidden;
+  position:fixed;z-index:1;left:0;right:0;bottom:0;
+  padding:var(--space-26) max(var(--gut),env(safe-area-inset-right)) calc(var(--space-14) + env(safe-area-inset-bottom)) max(var(--gut),env(safe-area-inset-left));
+  /* The strip takes the colour of the band beneath it (written by the landing controller), fading in over its top edge,
+     so text scrolling under the control is covered rather than crossed. */
+  background:linear-gradient(to bottom,transparent,var(--firstrun-dock-ground,var(--band-night-bg)) var(--space-26));
+  transform:translateY(100%);visibility:hidden;
   transition:transform .2s cubic-bezier(.2,.7,.2,1),visibility 0s .2s;
   /* The ring sits on the band, not on the control, so it takes the ink the band's own ring takes: the accent
      measured 2.56:1 against the ink band in the dark theme. `data-ground` is the same reading that picks the fill. */
@@ -6336,7 +6357,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .landing-touch__disc,.landing-touch__ring{position:absolute;inset:0;border-radius:var(--radius-pill);will-change:transform,opacity}
 .landing-touch__disc{background:radial-gradient(circle,rgba(var(--ink-rgb),.14),rgba(var(--ink-rgb),.24));border:1px solid rgba(var(--bg-rgb),.55)}
 .landing-touch__ring{opacity:0;border:1.5px solid rgba(var(--ink-rgb),.28)}
-.firstrun-dock .firstrun__cta{box-shadow:var(--elevation-floating-shadow)}
+.firstrun-dock .firstrun__cta{max-width:calc(var(--maxw) - var(--space-32));margin-inline:auto;box-shadow:var(--elevation-floating-shadow)}
 .firstrun-dock[data-ground="light"]{
   --firstrun-cta-bg:var(--band-orange-ink);
   --firstrun-cta-ink:var(--band-orange-cta-ink);
@@ -6383,7 +6404,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun-chapter__go::after{content:"";position:absolute;left:0;right:0;bottom:0;height:var(--space-4);border-radius:var(--radius-compact);background:var(--band-night-boundary-required)}
 .firstrun-chapter__bar{position:absolute;z-index:1;left:0;right:0;bottom:0;height:var(--space-4);overflow:hidden;border-radius:var(--radius-compact)}
 .firstrun-chapter__fill{position:absolute;inset:0;background:var(--band-night-accent);transform-origin:0 50%;transform:scaleX(var(--chapter-progress,0))}
-.firstrun-chapter.is-done .firstrun-chapter__fill{opacity:.45}
+.firstrun-chapter.is-done .firstrun-chapter__fill{background:var(--firstrun-ink-faint);opacity:.6}
 .firstrun-chapter__text{
   grid-row:2;grid-column:1/-1;margin:var(--firstrun-gap-1) 0 0;font-size:var(--font-size-body);line-height:var(--line-reading);
   color:var(--firstrun-ink-soft);text-wrap:pretty;opacity:0;visibility:hidden;transition:opacity .2s cubic-bezier(.2,.7,.2,1),visibility 0s .2s;
@@ -6391,9 +6412,10 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun-chapter.is-current .firstrun-chapter__text{opacity:1;visibility:visible;transition:opacity .2s cubic-bezier(.2,.7,.2,1)}
 .firstrun-chapter__result{display:block;margin-top:var(--space-12)}
 @container(max-width:25em){
-  .firstrun-chapters{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .firstrun-chapter__go{grid-row:auto}
-  .firstrun-chapter__text{grid-row:4;order:1}
+  .firstrun-chapters{grid-template-columns:repeat(2,minmax(0,1fr));row-gap:var(--space-12)}
+  .firstrun-chapter__go{grid-row:auto;min-height:0;padding:var(--space-4) 0 var(--space-8)}
+  .firstrun-chapter__text{grid-row:4;order:1;display:none}
+  .firstrun-chapter.is-current .firstrun-chapter__text{display:block}
 }
 @container(max-width:15em){
   .firstrun-chapters{grid-template-columns:minmax(0,1fr)}
@@ -6439,6 +6461,9 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun-demo__head > .icon-btn:first-child .icon-mask{transform:rotate(90deg)}
 /* Next is Focus's quiet navigation row: a hairline above, the name, and a chevron at its end. */
 .firstrun-demo__next{pointer-events:none;min-height:52px;margin-top:var(--space-26);border-top:1px solid var(--boundary-decorative);border-radius:var(--radius-none);background:transparent;color:var(--color-ink)}
+.firstrun-demo .fcard__ledger+.firstrun-demo__next{margin-top:0}
+.firstrun-demo__next>span:first-child{min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.firstrun-demo__shelf .shelf__fieldbtn{justify-content:flex-end}
 .firstrun-demo__shelf{position:absolute;left:0;right:0;bottom:0;padding:var(--shelf-inset) var(--shelf-inset) calc(var(--shelf-inset) + 34px)}
 .firstrun-demo__log{position:relative}
 .firstrun-demo__log1,.firstrun-demo__log2{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
@@ -6492,27 +6517,19 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun-demo__test-cue .fx-cue{margin:0}
 .firstrun-demo__test-cue .fcard__ledger{margin-top:var(--space-16)}
 
-/* ---- The three ways ---- */
-.firstrun-ways{padding-bottom:0}
-.firstrun-ways__list{list-style:none;margin:var(--firstrun-gap-4) 0 0;padding:0}
-.firstrun-way{padding-block:var(--firstrun-gap-5)}
-.firstrun-way__title{margin:0;font-size:var(--font-size-metric);font-weight:var(--weight-semibold);line-height:var(--line-standard);letter-spacing:-.015em}
-.firstrun-way p{margin:var(--firstrun-gap-1) 0 0;font-size:var(--font-size-body);line-height:var(--line-reading)}
-.firstrun-way--field{
-  background:var(--band-orange-bg);color:var(--band-orange-ink);
-  --firstrun-ink:var(--band-orange-ink);--firstrun-ink-soft:var(--band-orange-ink);--firstrun-focus:var(--band-orange-ink);
-}
-.firstrun-way--surface{
-  background:var(--surface);color:var(--color-ink);
-  --firstrun-ink:var(--color-ink);--firstrun-ink-soft:var(--color-ink-secondary);--firstrun-focus:var(--color-ink);
-}
-.firstrun-way--surface p{color:var(--color-ink-secondary)}
-.firstrun-way--ink{
-  background:var(--band-ink-bg);color:var(--band-ink-ink);
-  --firstrun-band-bg:var(--band-ink-bg);--firstrun-ink:var(--band-ink-ink);--firstrun-ink-soft:var(--band-ink-ink-soft);
-  --firstrun-rule:var(--band-ink-rule);--firstrun-focus:var(--band-ink-ink);
-}
-.firstrun-way--ink>.firstrun-wrap>p{color:var(--band-ink-ink-soft)}
+/* ---- The three ways ----
+   Three sibling cards on the page's ground. The first (Taurifer builds it) is the recommended route and carries the
+   current-item recipe: a 3px accent bar on a 5% accent tint. */
+.firstrun-ways__list{list-style:none;display:grid;gap:var(--space-12);width:100%;max-width:var(--maxw);margin:var(--firstrun-gap-3) auto 0;
+  padding:0 max(var(--gut),env(safe-area-inset-right)) 0 max(var(--gut),env(safe-area-inset-left))}
+.firstrun-way{position:relative;padding:var(--space-18);border-radius:var(--radius-surface);background:var(--surface);
+  color:var(--color-ink);box-shadow:var(--boundary-card-hairline-shadow);
+  --firstrun-ink:var(--color-ink);--firstrun-ink-soft:var(--color-ink-secondary);--firstrun-rule:var(--boundary-decorative);--firstrun-focus:var(--color-ink)}
+.firstrun-way>.firstrun-wrap{max-width:none;padding:0}
+.firstrun-way__title{margin:0;font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-standard);letter-spacing:-.01em}
+.firstrun-way p{margin:var(--firstrun-gap-1) 0 0;font-size:var(--font-size-body);line-height:var(--line-reading);color:var(--color-ink-secondary)}
+.firstrun-way--field{overflow:hidden;background:linear-gradient(rgba(var(--accent-rgb),.05),rgba(var(--accent-rgb),.05)),var(--surface)}
+.firstrun-way--field::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent)}
 .firstrun-disclosure{
   appearance:none;display:flex;align-items:center;justify-content:space-between;gap:var(--firstrun-gap-2);width:100%;min-height:48px;
   margin-top:var(--firstrun-gap-2);padding:var(--firstrun-gap-1) 0 0;border:0;border-top:1px solid var(--firstrun-rule);background:none;color:inherit;
@@ -6529,11 +6546,11 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 /* the paste hand-off, opened inside the ink stripe */
 .firstrun-hand{display:grid;gap:var(--firstrun-gap-2);padding:var(--firstrun-gap-2) 0 0}
 .firstrun-hand[hidden]{display:none}
-.firstrun-hand p{margin:0;font-size:var(--font-size-body);color:var(--band-ink-ink-soft)}
-.firstrun-hand .firstrun-seeing{font-size:var(--font-size-body-small);color:var(--band-ink-ink-soft)}
-.firstrun-hand .firstrun-ui{color:var(--band-ink-ink)}
+.firstrun-hand p{margin:0;font-size:var(--font-size-body);color:var(--firstrun-ink-soft)}
+.firstrun-hand .firstrun-seeing{font-size:var(--font-size-body-small);color:var(--firstrun-ink-soft)}
+.firstrun-hand .firstrun-ui{color:var(--firstrun-ink)}
 .firstrun-msg{
-  max-width:92%;padding:12px 14px;background:var(--surface);color:var(--color-ink);font-size:var(--font-size-body-small);
+  max-width:92%;padding:12px 14px;background:var(--well);box-shadow:var(--boundary-card-hairline-shadow);color:var(--color-ink);font-size:var(--font-size-body-small);
   border-radius:var(--radius-prominent) var(--radius-prominent) var(--radius-prominent) var(--radius-compact);
 }
 .firstrun-msg__who{display:flex;justify-content:space-between;gap:12px;margin-bottom:6px;font-size:var(--font-size-caption);color:var(--color-ink-secondary)}
@@ -6554,16 +6571,16 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun-feat__side{min-width:0}
 .firstrun-feat__tabs{display:flex;gap:0;overflow-x:auto;scrollbar-width:none;margin-inline:calc(var(--gut) * -1);padding-inline:var(--gut);
   scroll-padding-inline:var(--gut);
-  -webkit-mask-image:linear-gradient(to right,transparent,var(--ink) var(--space-12),var(--ink) calc(100% - var(--space-26)),transparent);
-  mask-image:linear-gradient(to right,transparent,var(--ink) var(--space-12),var(--ink) calc(100% - var(--space-26)),transparent)}
+  -webkit-mask-image:linear-gradient(to right,transparent,var(--ink) var(--space-12),var(--ink) calc(100% - var(--space-16) * 3),transparent);
+  mask-image:linear-gradient(to right,transparent,var(--ink) var(--space-12),var(--ink) calc(100% - var(--space-16) * 3),transparent)}
 .firstrun-feat__tabs::-webkit-scrollbar{display:none}
 .firstrun-feat__tab{
-  position:relative;flex:none;min-height:var(--control-target);margin:0 var(--space-12);padding:var(--space-8) 0 var(--space-14);border:0;
-  border-bottom:var(--space-4) solid var(--boundary-required);background:none;
-  font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);
+  position:relative;flex:none;min-height:var(--control-target);margin:0 var(--space-8);padding:var(--space-8) 0 var(--space-14);border:0;
+  border-bottom:var(--space-4) solid transparent;background:none;
+  font-family:var(--font-language);font-size:var(--font-size-body-small);font-weight:var(--weight-semibold);line-height:var(--line-standard);
   text-align:left;white-space:nowrap;color:var(--firstrun-ink-soft);cursor:pointer}
 .firstrun-feat__tab:first-child{margin-left:0}
-.firstrun-feat__tab.is-current{color:var(--firstrun-ink)}
+.firstrun-feat__tab.is-current{color:var(--firstrun-ink);border-bottom-color:var(--boundary-required)}
 .firstrun-feat__tab:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px;border-radius:var(--radius-control)}
 .firstrun-feat__title{display:block}
 .firstrun-feat__text{display:none}
@@ -6909,6 +6926,41 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun-close__actions{margin-top:var(--firstrun-gap-4)}
 .firstrun-close__actions .firstrun__actions{margin-top:0}
 .firstrun.is-shared .firstrun-close__actions{display:none}
+
+/* ---- The wide page (from 1100px) ----
+   One container and one left edge for every band. The hero and the proof share the first screen: the promise on the
+   left, the workout screen playing on the right. Text-only bands set their title in a left column beside the content. */
+@media(min-width:1100px){
+  .firstrun__inner{--firstrun-container:calc(var(--maxw) * 2);position:relative;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .firstrun__inner>*{grid-column:1/-1}
+  .firstrun .firstrun-wrap,.firstrun-proof .firstrun-wrap,.firstrun-features .firstrun-wrap{max-width:var(--firstrun-container)}
+  .firstrun-ways__list{max-width:var(--firstrun-container)}
+  /* the first screen */
+  .firstrun-hero{grid-column:1;grid-row:1;display:flex;align-items:center;padding-top:calc(var(--space-32) * 2 + var(--firstrun-gap-4))}
+  .firstrun-proof{grid-column:2;grid-row:1;--firstrun-band-bg:var(--band-night-bg);padding-top:calc(var(--space-32) * 2 + var(--firstrun-gap-4))}
+  .firstrun-hero>.firstrun-wrap{max-width:none;margin:0;padding-left:max(var(--gut),calc(100% - var(--firstrun-container) / 2));padding-right:var(--firstrun-gap-5)}
+  .firstrun-proof>.firstrun-wrap{max-width:none;margin:0;padding-left:var(--firstrun-gap-3);padding-right:max(var(--gut),calc(100% - var(--firstrun-container) / 2))}
+  .firstrun-hero .firstrun__header{position:absolute;top:0;left:max(var(--gut),calc(50% - var(--firstrun-container) / 2));right:max(var(--gut),calc(50% - var(--firstrun-container) / 2))}
+  .firstrun-hero .firstrun-hero__title{margin-top:0}
+  .firstrun-proof .firstrun-sub{max-width:none}
+  .firstrun-proof__stage{grid-template-columns:auto minmax(0,1fr);column-gap:var(--firstrun-gap-3);align-items:start}
+  .firstrun-proof__device{--proof-device-w:clamp(220px,calc((100svh - 330px) * 390 / 844),240px);width:calc(var(--proof-device-w) + var(--space-32) * 2)}
+  .firstrun-chapter{padding-left:var(--space-18)}
+  .firstrun-chapter__go{font-size:var(--font-size-control)}
+  .firstrun-proof .firstrun-chapter__text{font-size:var(--font-size-body)}
+  /* title beside content */
+  :is(.firstrun-check,.firstrun-data,.firstrun-faq,.firstrun-close)>.firstrun-wrap{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);column-gap:var(--firstrun-gap-8);align-items:start}
+  :is(.firstrun-check,.firstrun-data,.firstrun-faq,.firstrun-close)>.firstrun-wrap>*{grid-column:2}
+  :is(.firstrun-check,.firstrun-data,.firstrun-faq,.firstrun-close)>.firstrun-wrap>:first-child{grid-column:1;grid-row:1/span 6;margin-top:0}
+  :is(.firstrun-check,.firstrun-data,.firstrun-faq,.firstrun-close)>.firstrun-wrap>:nth-child(2){margin-top:0}
+  .firstrun-rows{margin-top:0}
+  /* the three ways side by side */
+  .firstrun-ways__list{grid-template-columns:repeat(3,minmax(0,1fr));align-items:start}
+  /* reading sizes for a desk distance */
+  .firstrun-sub,.firstrun-check__examples,.firstrun-way p,.firstrun-rows p,.firstrun-qa__a,.firstrun-chapter__text,
+  .firstrun-feat__tab.is-current .firstrun-feat__text{font-size:var(--font-size-subtitle)}
+  .firstrun-hero__data,.firstrun-chips,.firstrun-footer .firstrun-wrap,.firstrun-seeing{font-size:var(--font-size-body)}
+}
 
 /* @ci-domain global */
 /* ---- Install, continue and footer ---- */
