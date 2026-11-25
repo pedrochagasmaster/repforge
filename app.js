@@ -26492,7 +26492,9 @@ function layoutLandingDemo(d){
   const full={x:0,y:0,w:rigBox.w,h:rigBox.h},cue=clean(()=>Math.round(d.card.offsetTop-12),[],true);
   const foot=clean(h=>Math.round(SH-h),sheets);
   d.view=view;d.rigBox=rigBox;
-  d.shots=[{at:0,...full},{at:.45,...cue},{at:2.7,...foot},{at:LANDING_DEMO.pull,move:.4,...full}];
+  // A frame of the phone's own shape (the wide page's hero) shows the whole screen throughout: nothing to move to.
+  const whole=view.h/view.w>=rigBox.h/rigBox.w*.95;
+  d.shots=whole?[{at:0,...full}]:[{at:0,...full},{at:.45,...cue},{at:2.7,...foot},{at:LANDING_DEMO.pull,move:.4,...full}];
   d.last=new WeakMap();d.laid=true;
   return true}
 function renderLandingProof(add){
@@ -27321,8 +27323,7 @@ function createLandingController(root){
     // A stage (`data-landing-stage`: the proof's phone, the feature panel) is never under the control: one observer
     // whose root box is the band the control takes at the foot of the screen, and any stage in that band sends the
     // control away until it leaves. The band follows the screen's size, so a resize rebuilds it.
-    // A band's heading counts as a stage too: the control never sits on a title.
-    const stages=[...root.querySelectorAll("[data-landing-stage],[data-landing-section] .firstrun-h2,[data-landing-section] .firstrun-h1")],under=new Set();
+    const stages=[...root.querySelectorAll("[data-landing-stage]")],under=new Set();
     // A stage only sends the control away where it floats at the screen's foot; as the wide page's top bar it stays.
     const atTop=()=>getComputedStyle(dock).getPropertyValue("--firstrun-dock-at").trim()==="top";
     const paint=()=>dock.classList.toggle("is-on",gone&&!closing&&(!under.size||atTop()));
