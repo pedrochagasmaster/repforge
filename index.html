@@ -282,7 +282,7 @@
           <h2 class="page-title" data-i18n="history.title">History</h2>
         </div>
         <div class="pagehead__actions">
-          <button type="button" class="icon-btn icon-btn--ghost" id="historySearchBtn" data-i18n-aria="history.search_aria" aria-label="Search" aria-expanded="false" aria-controls="historySearchWrap"><span class="icon-mask icon-mask--search" aria-hidden="true"></span></button>
+          <button type="button" class="icon-btn icon-btn--ghost" id="historySearchBtn" data-i18n-aria="history.search_aria" aria-label="Search sessions" aria-expanded="false" aria-controls="historySearchWrap"><span class="icon-mask icon-mask--search" aria-hidden="true"></span></button>
           <button type="button" class="icon-btn icon-btn--ghost" id="historyCalBtn" data-i18n-aria="history.calendar" aria-label="Open the calendar" aria-haspopup="dialog" aria-expanded="false" aria-controls="historyCalSheet"><span class="icon-mask icon-mask--cal" aria-hidden="true"></span></button>
         </div>
       </div>
@@ -335,7 +335,7 @@
            a summary with zeroes in every stat. -->
       <div id="programNoProgram" class="emptystate emptystate--today hidden">
         <p class="emptystate__title" data-i18n="today.no_program.title">No program yet</p>
-        <p class="emptystate__body" data-i18n="program.no_program.body">Set one up and its training days, volume and progression settings live here.</p>
+        <p class="emptystate__body" data-i18n="program.no_program.body">Once you set up a program, its training days, volume, and progression settings appear here.</p>
         <button type="button" class="btn btn--cta" id="programSetupProgram" data-i18n="today.no_program.cta">Set up a program</button>
       </div>
       <div id="programOverview"></div>
@@ -345,7 +345,7 @@
       <div id="programBlockBanner" class="blockprompt hidden" aria-live="polite"></div>
       <div id="programEditorWrap" class="is-hidden">
         <button id="endBlock" class="btn btn--steel program__endblock" type="button" data-i18n="program.end_block">End block</button>
-        <p class="lede program-editor-lede" data-i18n="program.lede">Add days and exercises below. Separate muscles with commas. Secondary muscles count as half a set in the volume audit.</p>
+        <p class="lede program-editor-lede" data-i18n="program.lede">Add days and exercises below.</p>
         <div id="programEditor" class="peditor ph-no-capture"></div>
         <button id="addDay" class="btn btn--steel peditor__addday" type="button" data-i18n="program.add_day">+ Add day</button>
         <details class="advanced">
@@ -411,7 +411,7 @@
         </div>
         <div class="impreview">
           <h1 class="onb__q impreview__head" id="importHeading" tabindex="-1" data-i18n="import.heading">Review the exercises</h1>
-          <p class="onb__explain" data-i18n="import.lede">Link the names to the library or keep them as they are.</p>
+          <p class="onb__explain" data-i18n="import.lede">Link each name to a library movement or create it as a custom one.</p>
           <p class="impreview__file" id="importFile"></p>
           <div id="importNotImported"></div>
           <div class="impcounts" id="importCounts" role="status" aria-live="polite"></div>
@@ -438,7 +438,7 @@
         <div class="settings-identity__mark" aria-hidden="true"><img src="icons/icon-192.png" alt=""></div>
         <div>
           <div class="settings-identity__name">Taurifer</div>
-          <div class="settings-identity__cap" data-i18n="settings.local_data">Data saved on this device</div>
+          <div class="settings-identity__cap" data-i18n="settings.local_data">Workout data stays on this device</div>
           <p class="lede" id="storageNote" style="margin:6px 0 0"></p>
           <button type="button" class="text-link settings-identity__backup" id="storageBackupNow" data-i18n="settings.storage.backup_now" hidden>Back up now</button>
           <p class="settings-warn hidden" id="storageDegraded" hidden></p>
@@ -479,7 +479,7 @@
           <button type="button" class="toggle" id="slowRepToggle" aria-pressed="true" data-i18n-aria="settings.slow_rep_taps"></button>
           <input type="checkbox" id="slowRepTaps" class="visually-hidden" tabindex="-1" aria-hidden="true" checked>
         </div>
-        <p class="lede" data-i18n="settings.slow_rep_lede">After an exercise's last set, a one-tap question while you rest. Your answers help calibrate your effort estimates.</p>
+        <p class="lede" data-i18n="settings.slow_rep_lede">Shows a one-tap question while you rest after the last set of an exercise. Your answers help calibrate your effort estimates.</p>
         <button type="button" class="settings-row" id="createProgram">
           <span class="settings-row__label" data-i18n="settings.create_program">Create new program</span>
           <span class="settings-row__value"><span class="chevron" aria-hidden="true"></span></span>
@@ -499,29 +499,29 @@
             <div class="settings-row settings-row--stepper">
               <span class="settings-row__label" id="minJumpLabel" data-i18n="program.editor.load_step">Smallest load change</span>
               <button type="button" class="native-stepper__value" id="minJumpRow" aria-expanded="false" aria-controls="minJumpPanel" aria-labelledby="minJumpLabel minJumpDisplay"><span id="minJumpDisplay" aria-live="polite">2.5</span> <span class="native-stepper__unit">kg</span></button>
-              <div class="native-stepper__buttons"><button type="button" data-step-input="minJump" data-step-delta="-1" data-i18n-aria="program.editor.step_smaller" aria-label="program.editor.step_smaller"><span class="icon-mask icon-mask--minus" aria-hidden="true"></span></button><button type="button" data-step-input="minJump" data-step-delta="1" data-i18n-aria="program.editor.step_larger" aria-label="program.editor.step_larger"><span class="icon-mask icon-mask--plus" aria-hidden="true"></span></button></div>
+              <div class="native-stepper__buttons"><button type="button" data-step-input="minJump" data-step-delta="-1" data-i18n-aria="program.editor.step_smaller" aria-label="Smaller step"><span class="icon-mask icon-mask--minus" aria-hidden="true"></span></button><button type="button" data-step-input="minJump" data-step-delta="1" data-i18n-aria="program.editor.step_larger" aria-label="Larger step"><span class="icon-mask icon-mask--plus" aria-hidden="true"></span></button></div>
             </div>
             <div id="minJumpPanel" class="settings-panel">
               <label class="field"><span data-i18n="program.editor.load_step">Smallest load change</span><input id="minJump" type="text" inputmode="decimal" enterkeyhint="next" data-step-size="0.5" data-step-min="0.5" data-step-max="10"></label>
             </div>
           </div>
-          <p class="lede" data-i18n="settings.minimum_jump_lede">Minimum jump increment is always in kg regardless of display units.</p>
+          <p class="lede" data-i18n="settings.minimum_jump_lede">The smallest load change is always set in kg, regardless of your display units.</p>
           <label class="field"><span data-i18n="settings.target_rir_ceiling">Target RIR ceiling</span><input id="rirHigh" type="text" inputmode="decimal" enterkeyhint="next"></label>
           <label class="field"><span data-i18n="settings.hard_rir_ceiling">Hard-set RIR ceiling</span><input id="hardRir" type="text" inputmode="decimal" enterkeyhint="done"></label>
-          <p class="lede" data-i18n="settings.hard_rir_lede">Taurifer counts sets at or below this RIR toward completed hard-set volume. Taurifer saves changes automatically.</p>
+          <p class="lede" data-i18n="settings.hard_rir_lede">Taurifer counts sets at or below this RIR as completed hard sets. Changes are saved automatically.</p>
           <button id="saveSettings" class="btn btn--cta" data-i18n="settings.save">Save settings</button>
           </div>
         </div>
       </section>
 
       <section class="settings-group" data-settings-group="app" aria-labelledby="settingsGroupApp">
-        <h2 id="settingsGroupApp" class="settings-group__label" data-i18n="settings.group.app">App</h2>
+        <h2 id="settingsGroupApp" class="settings-group__label" data-i18n="settings.group.app">App experience</h2>
         <p class="settings-group__summary" data-i18n="settings.group.app_summary">Appearance, reminders, language, and installation.</p>
         <div class="native-stepper native-stepper--row">
           <div class="settings-row settings-row--stepper">
             <span class="settings-row__label" id="restSecLabel" data-i18n="settings.rest_timer_short">Rest timer</span>
             <button type="button" class="native-stepper__value" id="restSecRow" aria-expanded="false" aria-controls="restSecPanel" aria-labelledby="restSecLabel restSecDisplay"><span id="restSecDisplay" aria-live="polite">2:00</span></button>
-            <div class="native-stepper__buttons"><button type="button" data-step-input="restSec" data-step-delta="-1" data-i18n-aria="settings.rest_shorter" aria-label="settings.rest_shorter"><span class="icon-mask icon-mask--minus" aria-hidden="true"></span></button><button type="button" data-step-input="restSec" data-step-delta="1" data-i18n-aria="settings.rest_longer" aria-label="settings.rest_longer"><span class="icon-mask icon-mask--plus" aria-hidden="true"></span></button></div>
+            <div class="native-stepper__buttons"><button type="button" data-step-input="restSec" data-step-delta="-1" data-i18n-aria="settings.rest_shorter" aria-label="Shorter rest"><span class="icon-mask icon-mask--minus" aria-hidden="true"></span></button><button type="button" data-step-input="restSec" data-step-delta="1" data-i18n-aria="settings.rest_longer" aria-label="Longer rest"><span class="icon-mask icon-mask--plus" aria-hidden="true"></span></button></div>
           </div>
           <div id="restSecPanel" class="settings-panel">
             <label class="field"><span data-i18n="settings.rest_timer">Rest timer (seconds, 0 = off)</span><input id="restSec" type="text" inputmode="numeric" enterkeyhint="done" data-step-size="15" data-step-min="0" data-step-max="600"></label>
@@ -574,11 +574,11 @@
         <div class="settings-row" style="cursor:default">
           <span>
             <span class="settings-row__label" data-i18n="settings.analytics.title">Help improve Taurifer</span>
-            <span class="settings-row__cap" data-i18n="settings.analytics.caption">Share anonymous product usage</span>
+            <span class="settings-row__cap" data-i18n="settings.analytics.caption">Pseudonymous events and fully masked replay</span>
           </span>
-          <button type="button" class="toggle" id="telemetryToggle" aria-pressed="true" data-i18n-aria="settings.analytics.toggle_aria" aria-label="Analytics"></button>
+          <button type="button" class="toggle" id="telemetryToggle" aria-pressed="true" data-i18n-aria="settings.analytics.toggle_aria" aria-label="Share pseudonymous usage data"></button>
         </div>
-        <p class="lede" data-i18n="settings.analytics.disclosure">Taurifer sends anonymous product events, never workout values, exercise names, notes, free text, setup links, or backup data. Turn this off at any time.</p>
+        <p class="lede" data-i18n="settings.analytics.disclosure">Taurifer sends pseudonymous usage events and fully masked session recordings to PostHog. It never sends workout values, exercise names, notes, free text, setup links, or backups. You can turn this off at any time.</p>
         <button type="button" class="settings-row" id="privacyDetails">
           <span class="settings-row__label" data-i18n="privacy.open">Privacy details</span>
           <span class="settings-row__value"><span class="chevron" aria-hidden="true"></span></span>
@@ -588,7 +588,7 @@
           <span class="settings-row__value"><span class="chevron" aria-hidden="true"></span></span>
         </button>
         <div id="profilePanel" class="settings-panel">
-          <p class="lede" data-i18n="settings.profile.note">The answers you gave in setup.</p>
+          <p class="lede" data-i18n="settings.profile.note">These are the answers that you gave during setup. They stay on this device and are included in backups and install transfers that you start, never in setup links or usage statistics. Only your weight is used, as your default bodyweight until you log one in a session.</p>
           <dl id="profileList" class="settings-profile"></dl>
           <div class="btnrow"><button type="button" id="profileClear" class="btn btn--ghost btn--destructive" data-i18n="settings.profile.clear">Delete these answers</button></div>
         </div>
@@ -621,7 +621,7 @@
 
       <section class="settings-group" data-settings-group="help" aria-labelledby="settingsGroupHelp">
         <h2 id="settingsGroupHelp" class="settings-group__label" data-i18n="settings.group.help">Help</h2>
-        <p class="settings-group__summary" data-i18n="settings.group.help_summary">Replay guides and keep the app facts close.</p>
+        <p class="settings-group__summary" data-i18n="settings.group.help_summary">Replay guides and view app details.</p>
         <button type="button" class="settings-row" id="guideReplayToggle" aria-expanded="false" aria-controls="guideReplayPanel">
           <span class="settings-row__label" data-i18n="settings.guides">Contextual guides</span>
           <span class="settings-row__value"><span class="chevron" aria-hidden="true"></span></span>
@@ -763,7 +763,7 @@
       <section class="firstrun-band firstrun-band--raised firstrun-proof" id="firstRunProof" data-landing-section="proof" aria-labelledby="firstRunProofTitle">
         <div class="firstrun-wrap">
           <h2 class="firstrun-h2" id="firstRunProofTitle" data-i18n="landing.demo.title">See it in practice.</h2>
-          <p class="firstrun-sub" data-i18n="landing.anim.sub">This is the app's workout screen in a Smith machine bench press session: the target, one tap to log the set, the rest, and what changes next time.</p>
+          <p class="firstrun-sub" data-i18n="landing.anim.sub">This is the workout screen during a bench press session on the Smith machine. It shows your target, logging a set in one tap, the rest timer, a test set, and what changes next time.</p>
           <div class="firstrun-proof__stage" data-landing-stage>
             <div class="firstrun-proof__device" aria-hidden="true" inert>
               <div class="firstrun-proof__rig"><div class="firstrun-proof__glass"><div class="firstrun-proof__screen theme-light" id="firstRunDemo"></div></div></div>
@@ -796,7 +796,7 @@
 
       <section class="firstrun-band firstrun-check" data-landing-section="check" aria-labelledby="firstRunCheckTitle">
         <div class="firstrun-wrap">
-          <h2 class="firstrun-h2" id="firstRunCheckTitle" data-i18n="landing.check.title">It checks your judgement, not just your numbers.</h2>
+          <h2 class="firstrun-h2" id="firstRunCheckTitle" data-i18n="landing.check.title">Taurifer checks your judgment, not just your numbers.</h2>
           <ul class="firstrun-check__examples">
             <li data-landing-fill="check.more"></li>
             <li data-landing-fill="check.fewer"></li>
@@ -841,10 +841,10 @@ Cable fly 3x12-15
 Triceps pushdown 3x12-15</pre>
                 </div>
                 <p data-i18n="landing.ways.paste.prompt">You copy Taurifer's prompt, paste it into ChatGPT or Claude along with your program, and bring the reply back. Before anything is saved, you check every exercise.</p>
-                <p class="firstrun-seeing" data-i18n="landing.ways.paste.seeing">Below, the app screen where you check the exercises.</p>
+                <p class="firstrun-seeing" data-i18n="landing.ways.paste.seeing">Below is the screen where you review the exercises.</p>
                 <figure class="firstrun-shot-figure"><img class="firstrun-shot" data-shot="paste-review" data-landing-shot width="780" height="1242" src="assets/brand/paste-review-en-light.webp" alt="" loading="lazy" decoding="async"></figure>
                 <p data-landing-fill="ways.today"></p>
-                <p class="firstrun-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></svg><span data-i18n="entry.freeform.privacy">What you paste is held in this browser tab only for this import. It never enters history, exports or telemetry, and Taurifer drops it when the flow ends.</span></p>
+                <p class="firstrun-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></svg><span data-i18n="entry.freeform.privacy">What you paste stays in this browser tab only for this import. It never enters history, exports, or telemetry, and Taurifer clears it when you finish or leave.</span></p>
                 <p data-landing-fill="ways.where"></p>
               </div>
             </div>
@@ -859,18 +859,18 @@ Triceps pushdown 3x12-15</pre>
           <div class="firstrun-feat" data-landing-stage>
             <div class="firstrun-feat__side">
               <div class="firstrun-feat__tabs" role="tablist" aria-labelledby="firstRunFeaturesTitle">
-          <button type="button" class="firstrun-feat__tab is-current" role="tab" id="firstRunFeatTab0" data-feature="0" aria-controls="firstRunFeatPanel" aria-selected="true" tabindex="0"><span class="firstrun-feat__title" data-i18n="landing.features.progress.title">See your progress</span><span class="firstrun-feat__text" data-i18n="landing.features.progress.text">Every set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week.</span><span class="firstrun-feat__bar" aria-hidden="true"><span class="firstrun-feat__fill"></span></span></button>
-          <button type="button" class="firstrun-feat__tab" role="tab" id="firstRunFeatTab1" data-feature="1" aria-controls="firstRunFeatPanel" aria-selected="false" tabindex="-1"><span class="firstrun-feat__title" data-i18n="landing.features.program.title">Make the program yours</span><span class="firstrun-feat__text" data-i18n="landing.features.program.text">Replace any exercise with one your gym has, and train in blocks of 4 to 10 weeks.</span><span class="firstrun-feat__bar" aria-hidden="true"><span class="firstrun-feat__fill"></span></span></button>
+          <button type="button" class="firstrun-feat__tab is-current" role="tab" id="firstRunFeatTab0" data-feature="0" aria-controls="firstRunFeatPanel" aria-selected="true" tabindex="0"><span class="firstrun-feat__title" data-i18n="landing.features.progress.title">See your progress</span><span class="firstrun-feat__text" data-i18n="landing.features.progress.text">Every set that you log updates your strength trend. New records appear automatically, and Progress counts your hard sets for each muscle every week.</span><span class="firstrun-feat__bar" aria-hidden="true"><span class="firstrun-feat__fill"></span></span></button>
+          <button type="button" class="firstrun-feat__tab" role="tab" id="firstRunFeatTab1" data-feature="1" aria-controls="firstRunFeatPanel" aria-selected="false" tabindex="-1"><span class="firstrun-feat__title" data-i18n="landing.features.program.title">Make the program yours</span><span class="firstrun-feat__text" data-i18n="landing.features.program.text">Replace any exercise with one that your gym has, and train in blocks of 4 to 10 weeks.</span><span class="firstrun-feat__bar" aria-hidden="true"><span class="firstrun-feat__fill"></span></span></button>
           <button type="button" class="firstrun-feat__tab" role="tab" id="firstRunFeatTab2" data-feature="2" aria-controls="firstRunFeatPanel" aria-selected="false" tabindex="-1"><span class="firstrun-feat__title" data-feature-fill="landing.features.library.title">1,300+ exercises</span><span class="firstrun-feat__text" data-feature-fill="landing.features.library.text">Search more than 1,300 exercises by name, muscle or equipment, then narrow the list with one tap.</span><span class="firstrun-feat__bar" aria-hidden="true"><span class="firstrun-feat__fill"></span></span></button>
-          <button type="button" class="firstrun-feat__tab" role="tab" id="firstRunFeatTab3" data-feature="3" aria-controls="firstRunFeatPanel" aria-selected="false" tabindex="-1"><span class="firstrun-feat__title" data-i18n="landing.features.share.title">Share it, or bring yours</span><span class="firstrun-feat__text" data-i18n="landing.features.share.text">Send your program as a setup link, without your workout history. Or paste the program you already follow and check every exercise before it's saved.</span><span class="firstrun-feat__bar" aria-hidden="true"><span class="firstrun-feat__fill"></span></span></button>
-          <button type="button" class="firstrun-feat__tab" role="tab" id="firstRunFeatTab4" data-feature="4" aria-controls="firstRunFeatPanel" aria-selected="false" tabindex="-1"><span class="firstrun-feat__title" data-i18n="landing.features.gym.title">Made for the gym floor</span><span class="firstrun-feat__text" data-i18n="landing.features.gym.text">Opens from your Home Screen, works without a signal once it has been opened, keeps the rest timer in view while you browse, and stays readable at large text sizes.</span><span class="firstrun-feat__bar" aria-hidden="true"><span class="firstrun-feat__fill"></span></span></button>
+          <button type="button" class="firstrun-feat__tab" role="tab" id="firstRunFeatTab3" data-feature="3" aria-controls="firstRunFeatPanel" aria-selected="false" tabindex="-1"><span class="firstrun-feat__title" data-i18n="landing.features.share.title">Share it, or bring yours</span><span class="firstrun-feat__text" data-i18n="landing.features.share.text">Send your program as a setup link without sharing your workout history. You can also paste the program that you already follow and check every exercise before saving it.</span><span class="firstrun-feat__bar" aria-hidden="true"><span class="firstrun-feat__fill"></span></span></button>
+          <button type="button" class="firstrun-feat__tab" role="tab" id="firstRunFeatTab4" data-feature="4" aria-controls="firstRunFeatPanel" aria-selected="false" tabindex="-1"><span class="firstrun-feat__title" data-i18n="landing.features.gym.title">Made for the gym floor</span><span class="firstrun-feat__text" data-i18n="landing.features.gym.text">Taurifer opens from your Home Screen and works without a signal after you open it once. It keeps the rest timer in view while you browse, and it stays readable at large text sizes.</span><span class="firstrun-feat__bar" aria-hidden="true"><span class="firstrun-feat__fill"></span></span></button>
               </div>
               <div class="firstrun-feat__caps">
-          <p class="firstrun-feat__cap is-current" data-i18n="landing.features.progress.text">Every set you log draws your strength trend. Records show up as you set them, and Progress counts your hard sets for each muscle every week.</p>
-          <p class="firstrun-feat__cap" data-i18n="landing.features.program.text">Replace any exercise with one your gym has, and train in blocks of 4 to 10 weeks.</p>
+          <p class="firstrun-feat__cap is-current" data-i18n="landing.features.progress.text">Every set that you log updates your strength trend. New records appear automatically, and Progress counts your hard sets for each muscle every week.</p>
+          <p class="firstrun-feat__cap" data-i18n="landing.features.program.text">Replace any exercise with one that your gym has, and train in blocks of 4 to 10 weeks.</p>
           <p class="firstrun-feat__cap" data-feature-fill="landing.features.library.text">Search more than 1,300 exercises by name, muscle or equipment, then narrow the list with one tap.</p>
-          <p class="firstrun-feat__cap" data-i18n="landing.features.share.text">Send your program as a setup link, without your workout history. Or paste the program you already follow and check every exercise before it's saved.</p>
-          <p class="firstrun-feat__cap" data-i18n="landing.features.gym.text">Opens from your Home Screen, works without a signal once it has been opened, keeps the rest timer in view while you browse, and stays readable at large text sizes.</p>
+          <p class="firstrun-feat__cap" data-i18n="landing.features.share.text">Send your program as a setup link without sharing your workout history. You can also paste the program that you already follow and check every exercise before saving it.</p>
+          <p class="firstrun-feat__cap" data-i18n="landing.features.gym.text">Taurifer opens from your Home Screen and works without a signal after you open it once. It keeps the rest timer in view while you browse, and it stays readable at large text sizes.</p>
               </div>
             </div>
             <div class="firstrun-feat__panel" id="firstRunFeatPanel" role="tabpanel" aria-labelledby="firstRunFeatTab0">
@@ -898,8 +898,8 @@ Triceps pushdown 3x12-15</pre>
           <h2 class="firstrun-h2" id="firstRunDataTitle" data-i18n="landing.data.title">Your history stays on your phone.</h2>
           <ul class="firstrun-rows">
             <li><h3 data-i18n="landing.data.row1.title">You don't need to create an account.</h3><p data-i18n="landing.data.row1.text">Your program, sessions and settings are saved on your phone.</p></li>
-            <li><h3 data-i18n="landing.data.row2.title">A copy is yours whenever you want.</h3><p data-i18n="landing.data.row2.text">To keep a backup, or take your program and history somewhere else, export as JSON, CSV (opens in spreadsheet apps) or text.</p></li>
-            <li><h3 data-i18n="landing.data.row3.title">Works without a connection.</h3><p data-i18n="landing.data.row3.text">Once it has been opened, logging sets and seeing the next target don't need a signal.</p></li>
+            <li><h3 data-i18n="landing.data.row2.title">A copy is yours whenever you want.</h3><p data-i18n="landing.data.row2.text">Export your program and history as JSON, CSV, or plain text whenever you want a backup or want to move your data. CSV files open directly in spreadsheet apps.</p></li>
+            <li><h3 data-i18n="landing.data.row3.title">Works without a connection.</h3><p data-i18n="landing.data.row3.text">After you open Taurifer once, you can log sets and see your next target without a signal.</p></li>
           </ul>
           <p class="firstrun-seeing" data-landing-fill="data.pointer"></p>
         </div>
@@ -950,7 +950,7 @@ Triceps pushdown 3x12-15</pre>
             <details class="firstrun-qa">
               <summary><span data-i18n="landing.faq.data.q">Does Taurifer collect any data?</span><i aria-hidden="true"></i></summary>
               <div class="firstrun-qa__a">
-                <p data-i18n="landing.faq.data.a1">It collects usage data, and that option starts switched on: pseudonymous usage events and screen recordings with all content masked. Logged loads and reps, exercise names, notes, free text, setup links and backups are left out.</p>
+                <p data-i18n="landing.faq.data.a1">Taurifer collects usage data by default. It sends pseudonymous usage events and screen recordings with all content masked. It never collects your logged loads, reps, exercise names, notes, free text, setup links, or backups.</p>
                 <p data-landing-fill="faq.data.a2"></p>
               </div>
             </details>
@@ -1098,12 +1098,12 @@ Triceps pushdown 3x12-15</pre>
         </section>
         <section aria-labelledby="privacyTransferTitle">
           <h3 id="privacyTransferTitle" data-i18n="privacy.transfer.title">Temporary install transfer</h3>
-          <p data-i18n="privacy.transfer.contents">The encrypted logical clone includes your normalized program and workout state, history, archive and provenance, active workout draft, unfinished program setup, UI preferences, analytics consent, and stable telemetry identity. It excludes volatile locks, journals, transaction markers, cookies, permissions, cache state, and provider session state.</p>
+          <p data-i18n="privacy.transfer.contents">The encrypted copy includes your program and workout state, workout history, archived programs and how they were built, active workout draft, unfinished program setup, display preferences, analytics consent, and pseudonymous telemetry ID. It excludes temporary browser locks, write logs, transaction markers, cookies, browser permissions, cached files, and provider session state.</p>
           <p data-i18n="privacy.transfer.processing">The transfer needs a network connection. Cloudflare can handle the request at its global edge before a Durable Object processes and stores it in the EU. Cloudflare briefly sees plaintext while creating and claiming the record. TLS protects transit. This is server-side encryption, not end-to-end encryption.</p>
           <p data-i18n="privacy.transfer.encryption">Taurifer derives AES-256-GCM encryption from the one-time token with HKDF-SHA-256. The service never stores the token or derived key. It stores ciphertext, a keyed token digest, nonce, associated data, and random salt.</p>
-          <p data-i18n="privacy.transfer.retention">Live ciphertext is deleted after the installed app verifies the local import and commits it, or by minute 60. A payload-free tombstone can remain through minute 75. Cloudflare recovery images can retain ciphertext for up to 30 days, but the restored image alone cannot decrypt it after the token and key are gone.</p>
+          <p data-i18n="privacy.transfer.retention">The encrypted copy is deleted after the installed app verifies and saves the import, or after 60 minutes. An empty deletion record can remain for up to 75 minutes. Cloudflare recovery backups can keep encrypted bytes for up to 30 days, but they cannot be decrypted once the token and key are gone.</p>
           <p data-i18n="privacy.transfer.cookie">The handoff cookie contains only the opaque token and expiry. The static host receives it with the app's page and file requests. Transfer access logs must strip cookies, request bodies, tokens, and full URLs.</p>
-          <p data-i18n="privacy.transfer.ratelimit">Create abuse counters use HMAC-derived IP buckets. They store no raw IP, are not linked to a transfer or token, and last no more than two minutes.</p>
+          <p data-i18n="privacy.transfer.ratelimit">Rate limits on new transfers use hashed IP buckets (HMAC). They do not store your raw IP address, they are not linked to any transfer or token, and they expire within two minutes.</p>
           <p data-i18n="privacy.transfer.recovery">Safari keeps its original local data. After a completed or uncertain transfer it becomes a recovery snapshot. To resume there, you must confirm that future Safari and installed-app changes stay separate and never merge.</p>
           <p data-i18n="privacy.transfer.scope">The transfer preserves analytics consent, telemetry identity, and UI preferences. It is not an account, cloud backup, or synchronization. The intentional Safari and installed-app copies remain on their devices.</p>
         </section>
@@ -1114,7 +1114,7 @@ Triceps pushdown 3x12-15</pre>
         <section aria-labelledby="privacyControlsTitle">
           <h3 id="privacyControlsTitle" data-i18n="privacy.controls.title">Export and delete</h3>
           <p data-i18n="privacy.controls.body">Use Settings to export a JSON backup before moving or clearing this browser. Delete workout history permanently removes logs and the active draft from local storage while keeping your program and Settings. The separate delete-all action names everything it removes before you confirm.</p>
-          <p data-i18n="privacy.profile">The answers you give about yourself in setup stay on this device.</p>
+          <p data-i18n="privacy.profile">Your setup answers stay on this device: sex, birth date, height, weight, and cardio experience. They are included only in backups and install transfers that you start, never in setup links or usage statistics. You can delete them in Settings, under About you.</p>
         </section>
         <section aria-labelledby="privacyLimitationsTitle">
           <h3 id="privacyLimitationsTitle" data-i18n="privacy.limitations.title">Limitations</h3>
@@ -1135,7 +1135,7 @@ Triceps pushdown 3x12-15</pre>
       <div id="installTransferIntro" class="install-transfer__intro hidden">
         <p class="install-transfer__body" id="installTransferBody"></p>
         <div class="install-transfer__disclosure" id="installTransferDisclosure">
-          <p data-i18n="install.transfer.disclosure">Cloudflare temporarily processes and stores an encrypted copy in the EU for up to one hour. Global Cloudflare edge ingress can handle it first. A connection is required, and your original Safari data stays on this device.</p>
+          <p data-i18n="install.transfer.disclosure">Cloudflare temporarily processes and stores an encrypted copy in the EU for up to one hour. A global Cloudflare edge server may receive the request before it reaches the EU. You need an internet connection, and your original Safari data stays on this device.</p>
           <button type="button" class="textlink" id="installTransferPrivacy" data-i18n="install.transfer.privacy_action">Read full privacy details</button>
         </div>
       </div>
@@ -1207,13 +1207,13 @@ Triceps pushdown 3x12-15</pre>
       <div class="sheetbody sheetbody--maxset">
         <p class="maxset__explanation" id="maxSetInvite"></p>
         <div class="maxset__count">
-          <button type="button" class="stepbtn maxset__pad" id="maxSetLess" data-i18n-aria="maxset.fewer" aria-label="One fewer">−</button>
+          <button type="button" class="stepbtn maxset__pad" id="maxSetLess" data-i18n-aria="maxset.fewer" aria-label="One rep fewer">−</button>
           <output class="maxset__n" id="maxSetCount" aria-live="polite">10</output>
-          <button type="button" class="stepbtn maxset__pad" id="maxSetMore" data-i18n-aria="maxset.more" aria-label="One more">+</button>
+          <button type="button" class="stepbtn maxset__pad" id="maxSetMore" data-i18n-aria="maxset.more" aria-label="One rep more">+</button>
         </div>
-        <p class="maxset__rule" data-i18n="maxset.fail_rule">Failure is the rep you can't finish with good form. Stop there; that rep doesn't count.</p>
+        <p class="maxset__rule" data-i18n="maxset.fail_rule">Failure is the first rep that you can't finish with good form. Stop there, and do not count that rep.</p>
         <p class="maxset__safety" data-i18n="maxset.safety">Stop at once if anything hurts.</p>
-        <p class="maxset__safety" id="maxSetPress" data-i18n="maxset.press_line" hidden>Only to failure on presses if you can safely drop or rack the weights.</p>
+        <p class="maxset__safety" id="maxSetPress" data-i18n="maxset.press_line" hidden>Go to failure on presses only if you can safely drop or rack the weights.</p>
       </div>
     </div>
     <div class="sheetfoot sheetfoot--pair">
@@ -1265,7 +1265,7 @@ Triceps pushdown 3x12-15</pre>
         <div id="sessionEarlyPrompt" class="session-early-prompt hidden" aria-live="polite">
           <h4 class="session-early-title" data-i18n="session.sheet.early_title">Finish early?</h4>
           <p class="session-early-msg hidden" id="sessionEarlyReason" data-i18n="session.sheet.early_rest_reason">Your rest ran past an hour. Finished for today?</p>
-          <p class="session-early-msg" id="sessionEarlyMsg" data-i18n="session.sheet.early_prompt">Unlogged sets will be omitted.</p>
+          <p class="session-early-msg" id="sessionEarlyMsg" data-i18n="session.sheet.early_prompt">Unlogged sets will be omitted from history.</p>
           <ul id="sessionEarlyOmissions"></ul>
           <div class="session-early-actions">
             <button type="button" class="session-early-confirm" id="sessionEarlyConfirm" data-i18n="session.sheet.early_confirm">Confirm early finish</button>
@@ -1297,11 +1297,11 @@ Triceps pushdown 3x12-15</pre>
     </div>
     <div class="exactions-sheet__body">
       <section class="exactions__section" id="exActionsSetupSection">
-        <h3 class="sheetgroup__head" data-i18n="ex.actions.setup_notes">Programmed setup notes</h3>
+        <h3 class="sheetgroup__head" data-i18n="ex.actions.setup_notes">Setup notes</h3>
         <p class="exactions__setup-text" id="exActionsSetupText"></p>
       </section>
       <section class="exactions__section" id="exActionsRepeatSection">
-        <h3 class="sheetgroup__head" data-i18n="ex.actions.history_title">Previous session values</h3>
+        <h3 class="sheetgroup__head" data-i18n="ex.actions.history_title">Last session</h3>
         <div class="exactions__rows">
           <button type="button" class="exactions__act" id="exActionRepeatBtn"><span class="icon-mask icon-mask--history" aria-hidden="true"></span><span class="exactions__act-text"><span data-i18n="ex.actions.repeat_last">Repeat last session</span><small id="exActionRepeatHint"></small></span></button>
         </div>
@@ -1323,7 +1323,7 @@ Triceps pushdown 3x12-15</pre>
       </section>
       <section class="exactions__section">
         <button type="button" class="exactions__act" id="exActionDiscomfortBtn" data-i18n="focus.actions.discomfort">Pain or discomfort on this lift</button>
-        <p class="exactions__status hidden" id="exActionDiscomfortStatus" data-i18n="focus.actions.discomfort_marked">Discomfort recorded for this session.</p>
+        <p class="exactions__status hidden" id="exActionDiscomfortStatus" data-i18n="focus.actions.discomfort_marked">Discomfort recorded. Tap again to clear.</p>
       </section>
       <section class="exactions__section" id="exActionsSkipSection">
         <h3 class="sheetgroup__head" data-i18n="ex.actions.skip_title">Exercise status</h3>
@@ -1617,7 +1617,7 @@ Triceps pushdown 3x12-15</pre>
   <script src="posthog-init.js"></script>
   <script src="schedule.js"></script>
   <script src="notify.js"></script>
-  <script src="i18n.js?v=783"></script>
+  <script src="i18n.js?v=790"></script>
   <script src="exercises.js?v=728"></script>
   <script src="generation-identity.js?v=459"></script>
   <script src="exercise-catalog.js?v=459"></script>

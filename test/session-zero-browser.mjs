@@ -224,7 +224,7 @@ async function swapOpening(page,name,{rejected=false}={}){
   await page.locator("#woOverflowBtn").click();await page.locator('[data-workout-action="exercise"]').click();
   await page.locator("#exActionSubstBtn").click();await page.locator("#exPickSearch").fill(name);
   await page.locator(`#exPickList [data-pick="${id}"]`).click();
-  if(rejected)await waitForAsyncCondition(page,()=>document.querySelector("#toast")?.textContent.includes("Clear the values you've entered"));
+  if(rejected)await waitForAsyncCondition(page,()=>document.querySelector("#toast")?.textContent.includes("Clear the values that you entered"));
   else await page.locator('[data-pick-reason="equipment"]').click();
   await exercise(page,rejected?{substitutionId:null}:{substitutionId:id,afterRevision:before.revision});
 }
@@ -255,10 +255,10 @@ async function openingChanges(browser){
     await waitForAsyncCondition(page,({load,basis})=>{
       const card=document.querySelector("#workout .exercise.is-current");
       return card?.querySelector("[data-ramp-start]")?.textContent===`Start at ${load} kg`&&
-        card.querySelector(".fx-cue__evidence")?.textContent.includes(basis==="ratio"?"exercise you've logged":"bodyweight");
+        card.querySelector(".fx-cue__evidence")?.textContent.includes(basis==="ratio"?"exercise that you have logged":"bodyweight");
     },{load,basis});
     check(await page.locator(`${card} [data-ramp-start]`).innerText()===`Start at ${load} kg`,`${label}: destination opening is ${load} kg`);
-    check((await page.locator(`${card} .fx-cue__evidence`).innerText()).includes(basis==="ratio"?"exercise you've logged":"bodyweight"),`${label}: destination evidence matches its basis`);
+    check((await page.locator(`${card} .fx-cue__evidence`).innerText()).includes(basis==="ratio"?"exercise that you have logged":"bodyweight"),`${label}: destination evidence matches its basis`);
     check(!(await pending()).startingLoad,`${label}: the previous accepted opening is invalidated`);
   }
   await startOpening(page);await answer(page,"easy");await waitWarmups(page,1);
@@ -318,14 +318,14 @@ async function ratioJourneys(browser){
   // A mid-block new movement uses a real working observation, never the newer 400 kg ramp.
   const added=await open(browser,{historySource:"Pendulum squat"});
   check(await added.page.locator(`${card} [data-ramp-start]`).innerText()==="Start at 35 kg","mid-block new lift carries the same-row/class working anchor");
-  check((await added.page.locator(`${card} .fx-cue__evidence`).innerText()).includes("exercise you've logged"),"ratio opening uses the approved explanation");
+  check((await added.page.locator(`${card} .fx-cue__evidence`).innerText()).includes("exercise that you have logged"),"ratio opening uses the approved explanation");
   const ratioOpening=await startOpening(added.page);
   check(ratioOpening.startingLoad.basis==="ratio","ratio is opening provenance only");
   check(((await storedState(added.page)).log).length===2,"offering and accepting a ratio invents no history row");
   await added.context.close();
   const unrelated=await open(browser,{historySource:"Barbell bench press"});
   check(await unrelated.page.locator(`${card} [data-ramp-start]`).innerText()==="Start at 62.5 kg","an unrelated movement keeps the destination's plain prior");
-  check(!(await unrelated.page.locator(`${card} .fx-cue__evidence`).innerText()).includes("exercise you've logged"),"the fallback explains its own prior");
+  check(!(await unrelated.page.locator(`${card} .fx-cue__evidence`).innerText()).includes("exercise that you have logged"),"the fallback explains its own prior");
   await unrelated.context.close();
   const swapped=await open(browser,{historySource:"original"});
   const replacement=await swapped.page.evaluate(()=>window.RepForgeExerciseCatalog.snapshot().exercises.find(ex=>ex.name==="Pendulum squat").id);
