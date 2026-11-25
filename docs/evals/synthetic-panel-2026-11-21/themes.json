@@ -1,0 +1,315 @@
+{
+ "backup": {
+  "n": 189,
+  "one_change": 66,
+  "by": {
+   "br-self-directed": 10,
+   "br-tracker-app": 10,
+   "br-beginner": 10,
+   "br-coached": 10,
+   "br-evidence-based": 10,
+   "br-women-lower": 9,
+   "br-busy-pro": 10,
+   "br-older": 7,
+   "br-student": 10,
+   "br-spreadsheet": 10,
+   "br-coach": 6,
+   "br-shared-recipient": 10,
+   "intl-tracker-paid": 10,
+   "intl-evidence-paid": 10,
+   "intl-privacy": 10,
+   "intl-powerlifter": 10,
+   "intl-home-gym": 10,
+   "intl-casual": 10,
+   "mix-lapsed": 8,
+   "mix-access": 9
+  }
+ },
+ "store": {
+  "n": 188,
+  "one_change": 27,
+  "by": {
+   "br-self-directed": 10,
+   "br-tracker-app": 10,
+   "br-beginner": 10,
+   "br-coached": 10,
+   "br-evidence-based": 9,
+   "br-women-lower": 10,
+   "br-busy-pro": 10,
+   "br-older": 7,
+   "br-student": 10,
+   "br-spreadsheet": 8,
+   "br-coach": 8,
+   "br-shared-recipient": 10,
+   "intl-tracker-paid": 10,
+   "intl-evidence-paid": 10,
+   "intl-privacy": 9,
+   "intl-powerlifter": 10,
+   "intl-home-gym": 10,
+   "intl-casual": 9,
+   "mix-lapsed": 9,
+   "mix-access": 9
+  }
+ },
+ "import_history": {
+  "n": 65,
+  "one_change": 53,
+  "by": {
+   "br-tracker-app": 10,
+   "br-evidence-based": 7,
+   "br-women-lower": 2,
+   "br-student": 3,
+   "br-spreadsheet": 10,
+   "intl-tracker-paid": 9,
+   "intl-evidence-paid": 5,
+   "intl-privacy": 7,
+   "intl-powerlifter": 6,
+   "intl-home-gym": 2,
+   "mix-lapsed": 2,
+   "mix-access": 2
+  }
+ },
+ "rir_jargon": {
+  "n": 189,
+  "one_change": 23,
+  "by": {
+   "br-self-directed": 10,
+   "br-tracker-app": 10,
+   "br-beginner": 10,
+   "br-coached": 10,
+   "br-evidence-based": 9,
+   "br-women-lower": 10,
+   "br-busy-pro": 10,
+   "br-older": 10,
+   "br-student": 10,
+   "br-spreadsheet": 6,
+   "br-coach": 9,
+   "br-shared-recipient": 10,
+   "intl-tracker-paid": 6,
+   "intl-evidence-paid": 10,
+   "intl-privacy": 10,
+   "intl-powerlifter": 10,
+   "intl-home-gym": 10,
+   "intl-casual": 10,
+   "mix-lapsed": 10,
+   "mix-access": 9
+  }
+ },
+ "too_dense": {
+  "n": 42,
+  "one_change": 0,
+  "by": {
+   "br-self-directed": 4,
+   "br-tracker-app": 2,
+   "br-beginner": 2,
+   "br-coached": 4,
+   "br-evidence-based": 1,
+   "br-women-lower": 4,
+   "br-busy-pro": 4,
+   "br-older": 4,
+   "br-student": 2,
+   "br-spreadsheet": 1,
+   "br-shared-recipient": 5,
+   "intl-evidence-paid": 1,
+   "intl-privacy": 2,
+   "intl-powerlifter": 1,
+   "intl-casual": 1,
+   "mix-lapsed": 2,
+   "mix-access": 2
+  }
+ },
+ "video_illus": {
+  "n": 138,
+  "one_change": 26,
+  "by": {
+   "br-self-directed": 10,
+   "br-tracker-app": 6,
+   "br-beginner": 10,
+   "br-coached": 10,
+   "br-evidence-based": 6,
+   "br-women-lower": 10,
+   "br-busy-pro": 10,
+   "br-older": 6,
+   "br-student": 10,
+   "br-spreadsheet": 2,
+   "br-coach": 10,
+   "br-shared-recipient": 10,
+   "intl-tracker-paid": 3,
+   "intl-evidence-paid": 4,
+   "intl-privacy": 4,
+   "intl-home-gym": 5,
+   "intl-casual": 9,
+   "mix-lapsed": 8,
+   "mix-access": 5
+  }
+ },
+ "mixed_lang": {
+  "n": 76,
+  "one_change": 2,
+  "by": {
+   "br-self-directed": 7,
+   "br-tracker-app": 7,
+   "br-beginner": 6,
+   "br-coached": 6,
+   "br-evidence-based": 7,
+   "br-women-lower": 5,
+   "br-busy-pro": 6,
+   "br-older": 6,
+   "br-student": 6,
+   "br-spreadsheet": 3,
+   "br-coach": 5,
+   "br-shared-recipient": 6,
+   "mix-lapsed": 3,
+   "mix-access": 3
+  }
+ },
+ "coach_view": {
+  "n": 21,
+  "one_change": 15,
+  "by": {
+   "br-coached": 8,
+   "br-coach": 10,
+   "br-shared-recipient": 1,
+   "intl-powerlifter": 2
+  }
+ },
+ "pro_vague": {
+  "n": 20,
+  "one_change": 0,
+  "by": {
+   "br-self-directed": 2,
+   "br-busy-pro": 1,
+   "br-spreadsheet": 1,
+   "intl-tracker-paid": 1,
+   "intl-evidence-paid": 6,
+   "intl-privacy": 3,
+   "intl-powerlifter": 1,
+   "intl-home-gym": 1,
+   "intl-casual": 1,
+   "mix-lapsed": 1,
+   "mix-access": 2
+  }
+ },
+ "watch_health": {
+  "n": 19,
+  "one_change": 6,
+  "by": {
+   "br-student": 2,
+   "br-spreadsheet": 1,
+   "br-coach": 1,
+   "intl-tracker-paid": 8,
+   "intl-evidence-paid": 1,
+   "intl-home-gym": 1,
+   "intl-casual": 4,
+   "mix-access": 1
+  }
+ },
+ "motivation": {
+  "n": 55,
+  "one_change": 7,
+  "by": {
+   "br-self-directed": 3,
+   "br-tracker-app": 1,
+   "br-evidence-based": 6,
+   "br-women-lower": 1,
+   "br-busy-pro": 3,
+   "br-older": 4,
+   "br-student": 2,
+   "br-spreadsheet": 3,
+   "intl-tracker-paid": 1,
+   "intl-evidence-paid": 2,
+   "intl-privacy": 7,
+   "intl-powerlifter": 4,
+   "intl-home-gym": 2,
+   "intl-casual": 4,
+   "mix-lapsed": 7,
+   "mix-access": 5
+  }
+ },
+ "beginner_mode": {
+  "n": 24,
+  "one_change": 17,
+  "by": {
+   "br-beginner": 8,
+   "br-busy-pro": 1,
+   "br-older": 6,
+   "intl-casual": 2,
+   "mix-lapsed": 5,
+   "mix-access": 2
+  }
+ },
+ "volume_autoreg": {
+  "n": 12,
+  "one_change": 7,
+  "by": {
+   "br-evidence-based": 6,
+   "intl-evidence-paid": 6
+  }
+ },
+ "percent_pl": {
+  "n": 11,
+  "one_change": 10,
+  "by": {
+   "br-evidence-based": 1,
+   "intl-powerlifter": 10
+  }
+ },
+ "units_plates": {
+  "n": 13,
+  "one_change": 6,
+  "by": {
+   "br-spreadsheet": 1,
+   "intl-evidence-paid": 2,
+   "intl-powerlifter": 1,
+   "intl-home-gym": 6,
+   "mix-access": 3
+  }
+ },
+ "accessibility": {
+  "n": 12,
+  "one_change": 6,
+  "by": {
+   "br-busy-pro": 2,
+   "br-older": 1,
+   "br-shared-recipient": 1,
+   "intl-evidence-paid": 1,
+   "mix-access": 7
+  }
+ },
+ "paste_import_program": {
+  "n": 33,
+  "one_change": 10,
+  "by": {
+   "br-self-directed": 7,
+   "br-beginner": 1,
+   "br-coached": 3,
+   "br-evidence-based": 1,
+   "br-women-lower": 5,
+   "br-older": 4,
+   "br-student": 2,
+   "br-spreadsheet": 2,
+   "br-coach": 2,
+   "intl-tracker-paid": 2,
+   "intl-powerlifter": 4
+  }
+ },
+ "open_source": {
+  "n": 5,
+  "one_change": 4,
+  "by": {
+   "intl-evidence-paid": 2,
+   "intl-privacy": 3
+  }
+ },
+ "trust_longevity": {
+  "n": 6,
+  "one_change": 4,
+  "by": {
+   "br-coached": 1,
+   "br-coach": 1,
+   "br-shared-recipient": 1,
+   "mix-lapsed": 2,
+   "mix-access": 1
+  }
+ }
+}
