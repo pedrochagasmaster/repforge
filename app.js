@@ -26466,7 +26466,8 @@ function layoutLandingDemo(d){
   let cropShot=null;
   if(crop){
     const sc=d.root.getBoundingClientRect(),k0=sc.width/d.root.offsetWidth||1;
-    const end=d.root.querySelector(crop==="fields"?".firstrun-demo__fields":crop==="row1"?".firstrun-demo__row":".firstrun-demo__next");
+    const rowN=/^row(\d)$/.exec(crop),end=rowN?d.root.querySelectorAll(".firstrun-demo__card .fcard__ledger>:not(.ledgerline__head)")[Number(rowN[1])-1]||d.root.querySelector(".firstrun-demo__next")
+      :d.root.querySelector(crop==="fields"?".firstrun-demo__fields":".firstrun-demo__next");
     const css=getComputedStyle(d.frame),inset=parseFloat(css.getPropertyValue("--proof-crop-inset"))||0,pad=parseFloat(css.getPropertyValue("--proof-crop-pad"));
     const top=24,bottom=end?(end.getBoundingClientRect().bottom-sc.top)/k0+(Number.isFinite(pad)?pad:crop==="fields"?6:crop==="row1"?4:16):d.root.offsetHeight;
     // An inset frames the screen without its side gutters, so a phone-width frame shows the screen's text a size larger.
