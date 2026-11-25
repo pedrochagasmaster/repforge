@@ -310,7 +310,7 @@ try {
   assert(done.rir === "0" && done.source === "failure" && done.calibration === 12, "the max set logs 0 reps left as failure", done);
   await page.evaluate(() => document.querySelector("#workout .exercise.is-current [data-ledgermore][aria-expanded='false']:not([hidden])")?.click());
   const result = await page.locator(`#workout .exercise.is-current .ledgerline__result`).innerText();
-  assert(/12/.test(result) && /14/.test(result) && /2 more than you guessed/.test(result) && /Nothing changes yet: after 2 more test sets/.test(result),
+  assert(/12/.test(result) && /14/.test(result) && /2 more than you guessed/.test(result) && /Nothing changes yet\. After 2 more test sets/.test(result),
     "the row compares the guess with the reps", result);
 
   phase("Once a workout, and the Settings switch");
@@ -382,7 +382,7 @@ try {
     const box = document.createElement("div"); box.innerHTML = maxSetResultHtml(set, recommendation(ex));
     return box.textContent;
   }, exId);
-  assert(/2 more than you guessed\. Suggestions on this exercise now allow for this\./.test(line), "from the third check the result line says suggestions now allow for it", line);
+  assert(/2 more than you guessed\. Taurifer now adjusts suggestions on this exercise based on your test sets\./.test(line), "from the third check the result line says suggestions now adjust for test sets", line);
   assert(cal.why === cal.moved, "the Why sheet names the tendency exactly when the shift moved the suggestion", cal);
 
   phase("Saved pain protects the movement for the whole day");

@@ -118,6 +118,21 @@ const scrollToPanel = (page) => page.evaluate(() => {
   root.scrollTop += panel.getBoundingClientRect().top - 40;
 });
 
+/**
+ * Choose feature `to` the way a lifter on a phone does: the tabs are a stepper on wide screens; below 900px the phone
+ * shows a title line with previous/next buttons over the panel, so the step is reached by pressing next.
+ */
+async function pickFeature(page, to) {
+  if (await page.locator(`#firstRunFeatTab${to}`).isVisible()) return page.click(`#firstRunFeatTab${to}`);
+  const next = page.locator('.firstrun-feat__side .firstrun-step-head [data-step-nav="1"]');
+  for (let guard = 0; guard < 5; guard++) {
+    const at = await page.evaluate(() => [...document.querySelectorAll(".firstrun-feat__tab")].findIndex((tab) => tab.classList.contains("is-current")));
+    if (at === to) return;
+    await next.click();
+  }
+  throw new Error(`the phone's next button did not reach feature ${to}`);
+}
+
 const browser = await launchChromium();
 try {
   for (const lang of ["en", "pt"]) {
@@ -251,7 +266,7 @@ try {
     await scrollToPanel(page);
     await page.waitForTimeout(600);
     const onscreen = await page.evaluate(() => window.__repforgeLandingProof());
-    await page.click("#firstRunFeatTab3");
+    await pickFeature(page, 3);
     await page.waitForTimeout(200);
     const jumped = await page.evaluate(() => ({ live: window.__repforgeLandingProof(),
       selected: document.querySelector('[data-feature][aria-selected="true"]')?.id, panel: document.querySelector("#firstRunFeatPanel").getAttribute("aria-labelledby"),
@@ -267,7 +282,7 @@ try {
     await scrollToPanel(page);
     await page.waitForTimeout(600);
     const live = await page.evaluate(() => window.__repforgeLandingProof());
-    await page.click("#firstRunFeatTab1");
+    await pickFeature(page, 1);
     await page.waitForTimeout(300);
     const still = await page.evaluate(() => ({ live: window.__repforgeLandingProof(),
       progress: document.querySelector("#firstRunFeatTab1").style.getPropertyValue("--feature-progress"),

@@ -2040,6 +2040,9 @@ async function runP4cSiblingFreezeBoundary(browser, envelope) {
     const dialogPromise = pageA.waitForEvent("dialog", { timeout: 10000 });
     const importPromise = importInto(pageA, envelope, { retainCredentials: true });
     const dialog = await dialogPromise;
+    // localStorage reaches a sibling tab asynchronously, and a landing that is playing keeps that tab busy: the
+    // boundary under test is "while the sibling can see the freeze", so wait until it can before trying to write.
+    await pageB.waitForFunction((freezeKey) => localStorage.getItem(freezeKey) !== null, FREEZE_KEY, { timeout: 5000 }).catch(() => {});
     const observed = await pageB.evaluate(({ freezeKey, uiKey, consentKey }) => {
       const parse = (key) => {
         const raw = localStorage.getItem(key);

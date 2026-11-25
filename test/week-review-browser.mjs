@@ -242,7 +242,7 @@ async function runAdaptationCases(browser,manifest){
       await page.evaluate(()=>window.__repforgeStorage.flush());await page.reload({waitUntil:"domcontentloaded"});await waitForAppBoot(page);
       await APP_SCENARIOS["progress/review-active"](page);
       assert.equal(await page.evaluate(()=>window.__repforgeWorkoutDraft.state().programMeta.adaptations[0].evaluation.outcome),expected,"fatigue evaluation survives the production loader");
-      assert.match(await page.locator('[data-adaptation-evaluation]').innerText(),followups===2?/the pattern continued/:/no recurring pattern was detected/);
+      assert.match(await page.locator('[data-adaptation-evaluation]').innerText(),followups===2?/the pattern continued/:/the pattern did not repeat/);
     }catch(error){failures.push(error)}finally{await context.close()}
   }
   {

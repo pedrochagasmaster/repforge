@@ -219,6 +219,10 @@ Mechanics, all verifiable against the current catalogs:
 - **Name the fact or action.** Avoid metaphor labels, promotional claims,
   generic summaries, passive voice, and adverbs that hide an unmeasured claim.
   If the same sentence could describe any app, make it specific or remove it.
+- **US English and plain prose.** Spell English copy in US English (`judgment`,
+  `catalog`, `canceled`, `check`/`uncheck`). Keep one idea per sentence, prefer
+  concrete verbs over noun chains, and write explicit bridges (`that`, `who`,
+  `when`) when dropping them forces a second read.
 - **Placeholders are lowercase curly tokens** (`{n}`, `{unit}`, `{name}`).
   Translate around them; never build sentences by concatenation.
 - **Every string ships in English and Portuguese together.** Edit

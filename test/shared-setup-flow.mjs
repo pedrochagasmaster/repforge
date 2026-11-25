@@ -83,7 +83,7 @@ export const SHARED_COPY = Object.freeze({
     invalid: "This shared program link is invalid or incomplete.",
     unsupported: "This shared program was created by a newer version of Taurifer.",
     browserUnsupported: "This browser cannot open shared program links.",
-    tooLarge: "This program is too large to share as an install-safe link.",
+    tooLarge: "This program is too large to share as a setup link.",
     existing: "This setup link can only be started during initial setup.",
     commitFailed: "The program could not be started. Try again.",
     shareUnsupported: "This browser cannot create setup links.",

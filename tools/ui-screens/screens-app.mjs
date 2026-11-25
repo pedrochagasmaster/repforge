@@ -2179,7 +2179,7 @@ async function whyPerSideAssumption(page) {
   const localizedAssumption = lang.toLowerCase().startsWith("pt")
     ? "por lado × 2" : "per side × 2";
   const localizedAnchor = lang.toLowerCase().startsWith("pt")
-    ? "mais recentemente com 27,5 kg por lado" : "last at 27.5 kg per side";
+    ? "mais recentemente 27,5 kg por lado" : "most recently 27.5 kg per side";
   // The press moves 0.038 of the body, below the material threshold (owner rule, 2026-11-05): its Why explains the
   // per-side multiplier and counts no bodyweight.
   if (!text.includes(localizedAssumption) || /3[,.]04/.test(text)

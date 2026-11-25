@@ -7384,7 +7384,7 @@ async function main() {
   }));
   assert(
     /workout history/i.test(deleteCopy.label) &&
-      /draft/i.test(deleteCopy.confirm) &&
+      /draft|unfinished workout/i.test(deleteCopy.confirm) &&
       /program/i.test(deleteCopy.confirm) &&
       /settings/i.test(deleteCopy.confirm),
     "Deletion copy names workout history and retained program/Settings",

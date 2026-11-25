@@ -267,7 +267,7 @@ try {
   check(audit.engine.length === audit.muscles.length && audit.muscles.every((m) => { const e = byName.get(m.name);
     return e && e.total === m.total && e.direct === m.split[0] && e.secondarySets === m.split[1]; }),
     "every muscle's figure and parts are the engine's own (prog.volume()), not a second calculation", { engine: audit.engine, muscles: audit.muscles });
-  check(/half/.test(audit.method) && /more than the number of sets/.test(audit.method), "the sheet says how the count is made and that it is not a count of sets", audit.method);
+  check(/half|0\.5/.test(audit.method) && /(?:more|higher) than the number of sets/.test(audit.method), "the sheet says how the count is made and that it is not a count of sets", audit.method);
   await page.locator("#volumeAuditBody .volaudit__row").first().click();
   check(await page.locator("#volumeAuditBody .volaudit__muscle[open] .volaudit__from li").count() > 0, "a muscle opens to the exercises its count comes from");
   const empty = await page.evaluate(() => { const keep = prog.exercises; prog.exercises = []; try { return volumeAuditHtml(); } finally { prog.exercises = keep; } });

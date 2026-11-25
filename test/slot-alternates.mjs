@@ -181,7 +181,7 @@ async function main() {
 
     // 4. Typed values are protected -------------------------------------------
     await page.locator(`#exPickList .pickrow[data-pick="${LAT.id}"]`).click();
-    await page.waitForFunction(() => /Clear the values you.ve entered/.test(document.querySelector("#toast")?.textContent || ""), undefined, { timeout: 10000 });
+    await page.waitForFunction(() => /Clear the values that you entered/.test(document.querySelector("#toast")?.textContent || ""), undefined, { timeout: 10000 });
     await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
     const afterRefusal = await pendingSet(page);
     check(afterRefusal.substitution === null && afterRefusal.completion === "pending" &&

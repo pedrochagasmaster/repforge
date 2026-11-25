@@ -26502,6 +26502,22 @@ function layoutLandingDemo(d){
   // session's sheet are. A zoomed shot is LANDING_DEMO.zoom px of the screen's width, as tall as the frame's shape;
   // a narrower frame frames less, so the screen's 14px text stays at 13px or more, down to 366px of screen (its
   // gutters' worth: below that a shot would cut the screen's own text at the frame's edges).
+  // A cropped stage (--proof-crop on the frame: "next" on a phone, "fields" on the wide page) opens on the screen's own
+  // top and ends on a whole part of it (after the Next row, or after the shelf's fields), at the screen's full width:
+  // the frame takes the height that crop needs, so it ends on its own rounded edge rather than through a line.
+  const crop=getComputedStyle(d.frame).getPropertyValue("--proof-crop").trim();
+  let cropShot=null;
+  if(crop){
+    const sc=d.root.getBoundingClientRect(),k0=sc.width/d.root.offsetWidth||1;
+    const rowN=/^row(\d)$/.exec(crop),end=rowN?d.root.querySelectorAll(".firstrun-demo__card .fcard__ledger>:not(.ledgerline__head)")[Number(rowN[1])-1]||d.root.querySelector(".firstrun-demo__next")
+      :d.root.querySelector(crop==="fields"?".firstrun-demo__fields":".firstrun-demo__next");
+    const css=getComputedStyle(d.frame),inset=parseFloat(css.getPropertyValue("--proof-crop-inset"))||0,pad=parseFloat(css.getPropertyValue("--proof-crop-pad"));
+    const top=24,bottom=end?(end.getBoundingClientRect().bottom-sc.top)/k0+(Number.isFinite(pad)?pad:crop==="fields"?6:crop==="row1"?4:16):d.root.offsetHeight;
+    // An inset frames the screen without its side gutters, so a phone-width frame shows the screen's text a size larger.
+    const w=d.root.offsetWidth-2*inset,k=d.frame.clientWidth/w;
+    d.frame.style.height=`${Math.round((bottom-top)*k)}px`;
+    cropShot={x:d.glass.offsetLeft+d.rig.clientLeft+inset,y:d.glass.offsetTop+d.rig.clientTop+top,w,h:bottom-top}}
+  else d.frame.style.removeProperty("height");
   const view={w:d.frame.clientWidth,h:d.frame.clientHeight},glassX=d.glass.offsetLeft+d.rig.clientLeft,glassY=d.glass.offsetTop+d.rig.clientTop;
   // A frame of 400px or more (the desktop's) shows the phone's whole width, still at reading size.
   const rigBox={w:d.rig.offsetWidth,h:d.rig.offsetHeight};
@@ -26535,7 +26551,10 @@ function layoutLandingDemo(d){
   const full={x:0,y:0,w:rigBox.w,h:rigBox.h},cue=clean(()=>Math.round(d.card.offsetTop-12),[],true);
   const foot=clean(h=>Math.round(SH-h),sheets);
   d.view=view;d.rigBox=rigBox;
-  d.shots=[{at:0,...full},{at:.45,...cue},{at:2.7,...foot},{at:LANDING_DEMO.pull,move:.4,...full}];
+  // A frame of the phone's own shape (the wide page's hero) shows the whole screen throughout: nothing to move to.
+  const whole=view.h/view.w>=rigBox.h/rigBox.w*.95;
+  d.shots=cropShot?[{at:0,...cropShot},{at:2.7,...foot},{at:LANDING_DEMO.pull,move:.4,...cropShot}]
+    :whole?[{at:0,...full}]:[{at:0,...full},{at:.45,...cue},{at:2.7,...foot},{at:LANDING_DEMO.pull,move:.4,...full}];
   d.last=new WeakMap();d.laid=true;
   return true}
 function renderLandingProof(add){
@@ -26689,9 +26708,12 @@ function renderLandingWays(){
     up:landingNum(RepForgeProgression.CALIBRATION_STEPS.up),down:landingNum(RepForgeProgression.CALIBRATION_STEPS.down)};
   for(const [guess,did] of [[11,14],[10,9],[10,10]]){
     const result=calibration.result(guess,did),kind=result.error<0?"more":result.error>0?"fewer":"equal";
-    fill(`check.${kind}`,esc(t(`landing.check.${kind}`,{guess:landingNum(result.guess),did:landingNum(result.did),
-      difference:landingNum(Math.abs(result.error))})))}
-  fill("check.limits",esc(t("landing.check.limits",limits)));
+    // A signed figure leads each line (+3, −1, 0) so the three outcomes scan before they are read.
+    const delta=result.did-result.guess,sign=delta>0?"+":delta<0?"\u2212":"";
+    fill(`check.${kind}`,`<span class="firstrun-check__delta" aria-hidden="true">${sign}${esc(landingNum(Math.abs(delta)))}</span><span>`+
+      esc(t(`landing.check.${kind}`,{guess:landingNum(result.guess),did:landingNum(result.did),difference:landingNum(Math.abs(result.error))}))+`</span>`)}
+  // The limits read one sentence to a line.
+  fill("check.limits",String(t("landing.check.limits",limits)).split(/(?<=\.)\s+/).map(line=>`<span class="firstrun-check__line">${esc(line).replace(/\d+/g,"<b>$&</b>")}</span>`).join(" "));
   fill("faq.test.a",esc(t("landing.faq.test.a",limits)));
   fill("faq.failure.limits",esc(t("landing.faq.failure.limits",limits)));
   fill("faq.failure.choice",landingRich("landing.faq.failure.choice",{},
@@ -26719,7 +26741,7 @@ const LANDING_FEATURES={
        framed so the app's body text reads at its real size or close to it on a phone. A held shot is short enough that
        the window's width sets the zoom, so the edge snapping (snapLandingFeatureShots) can move its edges. */
     shots:[
-      [{at:0,x:0,y:0,w:390,h:680},{at:.35,x:0,y:0,w:390,h:560},{at:3.2,x:0,y:60,w:390,h:380}],
+      [{at:0,x:0,y:0,w:390,h:680},{at:.35,x:0,y:0,w:390,h:560},{at:3.2,x:0,y:44,w:390,h:510,pin:"top"}],
       [{at:0,x:0,y:0,w:390,h:640},{at:.35,x:0,y:52,w:390,h:400},{at:1.25,x:0,y:240,w:390,h:400},{at:2.05,x:0,y:96,w:390,h:440},{at:4.55,x:0,y:52,w:390,h:400}],
       [{at:0,x:0,y:0,w:390,h:660},{at:.3,x:0,y:0,w:390,h:340},{at:1.35,x:0,y:196,w:390,h:464}],
       [{at:0,x:0,y:0,w:390,h:640},{at:.7,x:0,y:216,w:390,h:424},{at:3.55,x:0,y:0,w:390,h:640},{at:6.3,x:0,y:10,w:390,h:480}],
@@ -27069,6 +27091,8 @@ function snapLandingFeatureShots(f){
     const place=v=>{
       const out=base.map(shot=>({...shot}));
       for(let k=1;k<out.length;k++){
+        // a shot pinned to the top (the Progress summary, from its title) is placed as written
+        if(out[k].pin==="top")continue;
         let found=false;
         // a shot that ends at the screen's bottom (the mini bar's beat) stays there: it may only move down
         const pinned=out[k].pin==="bottom";
@@ -27218,6 +27242,35 @@ function createLandingController(root){
      where it is and jump it. Under reduced motion there is no clock: each chapter is a still and the chapters switch it. */
   const glass=root.querySelector(".firstrun-proof__device"),screen=root.querySelector("#firstRunDemo");
   const chapters=[...root.querySelectorAll("[data-landing-chapter]")];
+  /* On a phone both selectors are a title line (their row lists are hidden there): the open
+     step's name, a "1 of 5" count and previous/next buttons right above the picture; and, under the phone, the open
+     caption copied from its row. Every
+     control here presses the row's own button, so the player, the panel and the telemetry see one input. */
+  [[root.querySelector(".firstrun-chapters"),".firstrun-chapter",".firstrun-chapter__title",".firstrun-chapter__text"],
+   [root.querySelector(".firstrun-feat__tabs"),".firstrun-feat__tab",".firstrun-feat__title",null]].forEach(([list,item,titleSel,textSel])=>{
+    if(!list||list.previousElementSibling?.classList.contains("firstrun-step-head"))return;
+    const items=[...list.querySelectorAll(item)],press=k=>{const el=items[k];(el?.matches("button")?el:el?.querySelector("button"))?.click()};
+    const head=document.createElement("div");head.className="firstrun-step-head";
+    head.innerHTML=`<b class="firstrun-step-head__title" aria-hidden="true"></b><span class="firstrun-step-head__count" aria-hidden="true"></span>`+
+      `<button type="button" class="firstrun-step-head__nav" data-step-nav="-1" aria-label="${esc(t("landing.steps.prev"))}"><span aria-hidden="true">\u2039</span></button>`+
+      `<button type="button" class="firstrun-step-head__nav" data-step-nav="1" aria-label="${esc(t("landing.steps.next"))}"><span aria-hidden="true">\u203A</span></button>`;
+    list.before(head);
+    // The captions sit stacked in one cell, the open one shown, so the block is as tall as the longest and nothing
+    // under it moves when the step changes.
+    let cap=null;if(textSel){cap=document.createElement("p");cap.className="firstrun-step-cap";
+      cap.innerHTML=items.map((el,k)=>`<span class="firstrun-step-cap__t" data-step-cap="${k}">${el.querySelector(textSel)?.innerHTML||""}</span>`).join("");list.after(cap)}
+    const current=()=>Math.max(0,items.findIndex(el=>el.classList.contains("is-current")));
+    // The manual arrows stop at the ends (the player's own loop still wraps).
+    on(head,"click",e=>{const nav=e.target.closest("[data-step-nav]");if(!nav||nav.getAttribute("aria-disabled")==="true")return;
+      const to=current()+Number(nav.dataset.stepNav);if(to>=0&&to<items.length)press(to)});
+    const sync=()=>{
+      const i=current();
+      head.firstChild.textContent=items[i]?.querySelector(titleSel)?.textContent||"";
+      head.children[1].textContent=t("landing.steps.count",{n:landingNum(i+1),total:landingNum(items.length)});
+      head.querySelectorAll("[data-step-nav]").forEach(nav=>{const end=Number(nav.dataset.stepNav)<0?i===0:i===items.length-1;nav.setAttribute("aria-disabled",String(end))});
+      if(cap)[...cap.children].forEach((node,k)=>{node.classList.toggle("is-current",k===i);
+        if(k===i&&node.innerHTML!==(items[k]?.querySelector(textSel)?.innerHTML||""))node.innerHTML=items[k].querySelector(textSel).innerHTML})};
+    const mo=new MutationObserver(sync);mo.observe(list,{subtree:true,attributes:true,attributeFilter:["class"],childList:true,characterData:true});reg.obs.push(mo);sync()});
   /* The clock is the demo's own: seconds summed from the frames' timestamps, each step clamped to 0–50ms and the
      first frame after a (re)start counted as 0, so it never reads another clock and never runs backwards. */
   const play={t:0,raf:0,last:null,seen:false,current:-1,held:false};
@@ -27353,7 +27406,9 @@ function createLandingController(root){
     // whose root box is the band the control takes at the foot of the screen, and any stage in that band sends the
     // control away until it leaves. The band follows the screen's size, so a resize rebuilds it.
     const stages=[...root.querySelectorAll("[data-landing-stage]")],under=new Set();
-    const paint=()=>dock.classList.toggle("is-on",gone&&!closing&&!under.size);
+    // A stage (the proof's phone, the feature panel) is never under the phone's bar; the wide page's top bar stays.
+    const atTop=()=>getComputedStyle(dock).getPropertyValue("--firstrun-dock-at").trim()==="top";
+    const paint=()=>dock.classList.toggle("is-on",gone&&!closing&&(!under.size||atTop()));
     let band=null;
     const watchBand=()=>{
       band?.disconnect();under.clear();
@@ -27366,24 +27421,35 @@ function createLandingController(root){
     on(window,"resize",watchBand);watchBand();
     const watch=(node,fn)=>{const io=new IntersectionObserver(fn,{root});reg.obs.push(io);io.observe(node)};
     watch(hero,entries=>{const e=entries[entries.length-1];gone=!e.isIntersecting&&e.boundingClientRect.bottom<(e.rootBounds?e.rootBounds.top:0)+1;paint()});
-    watch(close,entries=>{const e=entries[entries.length-1];closing=e.isIntersecting||e.boundingClientRect.top<(e.rootBounds?e.rootBounds.top:0);paint()});
+    // The control steps aside as soon as the closing band comes into view.
+    watch(close.closest("[data-landing-section]")||close,entries=>{const e=entries[entries.length-1];closing=e.isIntersecting||e.boundingClientRect.top<(e.rootBounds?e.rootBounds.top:0);paint()});
     /* the first painted ground beneath the control's resting place decides its ink */
-    const luminance=(x,y)=>{
+    const ground=(x,y)=>{
       for(const hit of document.elementsFromPoint(x,y)){
-        if(dock.contains(hit))continue;
+        // the bar reads the band, not a picture passing under it
+        if(dock.contains(hit)||hit.closest("[data-landing-stage]"))continue;
         for(let node=hit;node&&node!==document.documentElement;node=node.parentElement){
-          const m=/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?/.exec(getComputedStyle(node).backgroundColor);
-          if(m&&(m[4]===undefined||+m[4]>.5))return(.2126*m[1]+.7152*m[2]+.0722*m[3])/255}}
-      return 1};
-    ticks.add(()=>{
+          const fill=getComputedStyle(node).backgroundColor,m=/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?/.exec(fill);
+          if(m&&(m[4]===undefined||+m[4]>.5))return{fill,lum:(.2126*m[1]+.7152*m[2]+.0722*m[3])/255}}}
+      return{fill:"",lum:1}};
+    // Sampled on every frame the landing plays and on every scroll, so a held (or reduced-motion) page still switches.
+    let lastFill="";
+    const sampleGround=()=>{
       const box=dock.getBoundingClientRect();
-      const y=box.height?window.innerHeight-parseFloat(getComputedStyle(dock).bottom)-box.height/2:window.innerHeight-60;
-      dock.dataset.ground=luminance(window.innerWidth/2,y)<.4?"dark":"light"});
+      // The wide page's bar sits at the top: it takes the band just under its own foot.
+      const atTop=box.height&&box.top<8;
+      const y=atTop?box.bottom+4:box.height?window.innerHeight-parseFloat(getComputedStyle(dock).bottom)-box.height/2:window.innerHeight-60;
+      const under=ground(window.innerWidth/2,y);
+      // written only when it changes: a write every frame would dirty the page's style on every frame
+      const tone=under.lum<.4?"dark":"light";
+      if(dock.dataset.ground!==tone)dock.dataset.ground=tone;
+      if(under.fill&&under.fill!==lastFill){lastFill=under.fill;dock.style.setProperty("--firstrun-dock-ground",under.fill)}};
+    ticks.add(sampleGround);on(root,"scroll",sampleGround);
     /* An answer that opens moves the bands beneath the control without a scroll, so a change in the page's height
        reads the ground again too; otherwise the control keeps the ink of a band that has moved away. */
     const page=root.querySelector(".firstrun__inner");
     if(page&&typeof ResizeObserver!=="undefined"){const ro=new ResizeObserver(requestTick);reg.obs.push(ro);ro.observe(page)}
-    reg.nodes.push(()=>{dock.classList.remove("is-on");delete dock.dataset.ground})}
+    reg.nodes.push(()=>{dock.classList.remove("is-on");delete dock.dataset.ground;dock.style.removeProperty("--firstrun-dock-ground");lastFill=""})}
   /* ---- the status-bar band (#449) ----
      One observer whose root box is the top inset strip names the ground of the
      section under it; the CSS paints the band from that name. No scroll work. */

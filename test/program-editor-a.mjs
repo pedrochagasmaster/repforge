@@ -255,7 +255,7 @@ async function editJourney(page) {
   if (await page.locator(`${SHEET}.is-open`).count()) await closeSheet(page);
 
   const count = await page.locator(`${EDITOR} [data-role="changes-count"]`).textContent();
-  check(/\d+ changes of yours/.test(count || ""), "the changes bar counts the changes", count);
+  check(/\d+ edits made/.test(count || ""), "the changes bar counts the changes", count);
   check((await storedSlot(page))?.exerciseId !== LAT.id, "nothing is stored before Apply");
 
   // The editor's own bottom Apply is hidden in the sheet; Done is the commit action.

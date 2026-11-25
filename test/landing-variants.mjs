@@ -712,7 +712,9 @@ const chapterState = () => {
   return {
     count: items.length,
     current: items.filter((item) => item.querySelector("[data-chapter]").getAttribute("aria-current") === "step").map((item) => items.indexOf(item)),
-    captions: items.filter((item) => shown(item.querySelector(".firstrun-chapter__text"))).length,
+    // From 900px each row shows its own caption; on a phone one caption block over the phone shows the open step's.
+    captions: items.filter((item) => shown(item.querySelector(".firstrun-chapter__text"))).length
+      + [...root.querySelectorAll(".firstrun-proof .firstrun-step-cap__t")].filter(shown).length,
     withText: items.filter((item) => item.textContent.trim().length > 0).length,
     devices: root.querySelectorAll(".firstrun-proof__device").length,
     screen: !!root.querySelector("#firstRunDemo .firstrun-demo .fx-cue"),
@@ -720,6 +722,25 @@ const chapterState = () => {
     overflowX: document.documentElement.scrollWidth > innerWidth || root.scrollWidth > root.clientWidth,
   };
 };
+
+/**
+ * Choose chapter `to` as the visitor can: from 900px the chapter rows are buttons; on a phone the rows give way to a
+ * title line whose previous and next buttons press the same row buttons, so the step is reached through them.
+ */
+async function pickChapter(page, to) {
+  if (await page.locator(`[data-chapter="${to}"]`).isVisible()) return page.click(`[data-chapter="${to}"]`);
+  for (let guard = 0; guard < 6; guard++) {
+    const at = await page.evaluate(() => [...document.querySelectorAll("[data-landing-chapter]")].findIndex((item) => item.classList.contains("is-current")));
+    if (at === to) {
+      // the open step again: the pager leaves and returns, which starts the step from its opening as a row tap does
+      if (guard) return;
+      await page.click(`.firstrun-proof__stage .firstrun-step-head [data-step-nav="${to ? -1 : 1}"]`);
+      continue;
+    }
+    await page.click(`.firstrun-proof__stage .firstrun-step-head [data-step-nav="${to > at ? 1 : -1}"]`);
+  }
+  throw new Error(`the phone's pager did not reach chapter ${to}`);
+}
 
 async function scrollLanding(page, selector, block = "start") {
   await page.evaluate(({ selector, block }) => {
@@ -756,7 +777,10 @@ async function accessibleProofResult(browser) {
       tr(lang, 'maxset.status_wait', { n: calibration.ESTIMATOR.minChecks - 1 });
     const measured = await page.evaluate(() => {
       const chapters = document.querySelector('#firstRunChapters');
-      const summary = chapters.querySelector('[data-landing-fill="test-result"]');
+      // a phone shows the open chapter's caption in the title line's caption block; wider screens in the rows
+      const cap = document.querySelector('.firstrun-proof .firstrun-step-cap');
+      const captionHost = cap && cap.getBoundingClientRect().height > 0 ? cap : chapters;
+      const summary = captionHost.querySelector('.is-current [data-landing-fill="test-result"]') || captionHost.querySelector('[data-landing-fill="test-result"]');
       const buttons = [...chapters.querySelectorAll('.firstrun-chapter__go')];
       const splitWords = [];
       for (const title of chapters.querySelectorAll('.firstrun-chapter__title')) {
@@ -778,7 +802,7 @@ async function accessibleProofResult(browser) {
     assert(measured.columns <= (scale === 2 ? 1 : 2) && measured.splitWords.length === 0,
       `[${label}] chapter titles reflow without splitting words`, JSON.stringify(measured));
     assert(measured.text === expected, `[${label}] the fourth caption includes the computed guess result`, JSON.stringify(measured));
-    const tree = await page.locator('#firstRunChapters').ariaSnapshot();
+    const tree = await page.locator((await page.locator('.firstrun-proof .firstrun-step-cap').isVisible()) ? '.firstrun-proof .firstrun-step-cap' : '#firstRunChapters').ariaSnapshot();
     assert(measured.exposed && tree.includes(expected), `[${label}] the result is in the accessibility tree outside the inert phone`, tree);
     assert(measured.font === 16 * scale && measured.phoneFont === 14 && measured.whole && !measured.overflow,
       `[${label}] the readable result scales while the phone keeps its authored text`, JSON.stringify(measured));
@@ -808,7 +832,8 @@ async function finalPage(browser) {
     assert(f.steps.length === 5, `[${lang}] the proof has five chapters in the document`, `found ${f.steps.length}`);
     assert(f.steps.length > 0 && f.steps.every((step) => step.length > 0), `[${lang}] every chapter carries its title and caption`, JSON.stringify(f.steps.map((s) => s.length)));
     const calibration = require('../effort-calibration.js');
-    const checks = await page.locator('[data-landing-section="check"] li').allTextContents();
+    // Each row leads with its signed difference (+3, −1, 0); the sentence beside it is the calibration's.
+    const checks = await page.locator('[data-landing-section="check"] li > span:not(.firstrun-check__delta)').allTextContents();
     const examples = [[11, 14, "more"], [10, 9, "fewer"], [10, 10, "equal"]];
     assert(checks.length === examples.length, `[${lang}] the check band has three comparisons`, JSON.stringify(checks));
     examples.forEach(([guess, did, kind], index) => {
@@ -970,8 +995,9 @@ async function finalPage(browser) {
     const { context, page, errors } = await landingPage(browser, { lang: "en" });
     const open = await page.evaluate(proofState);
     // observers: the dock's four (the hero, the close, the stages' band and the page's height), the status-bar band's
-    // one, the player's resize and visibility watchers, and the feature tabs' two
-    assert(open?.open && open.listeners > 0 && open.observers === 9 && !open.playing && !open.featurePlaying,
+    // one, the player's resize and visibility watchers, the feature tabs' two, and the two phone title lines' (one per
+    // selector, following the open step)
+    assert(open?.open && open.listeners > 0 && open.observers === 11 && !open.playing && !open.featurePlaying,
       "opening the landing mounts the controller; the proof below the fold is not playing", JSON.stringify(open));
     const at = await page.evaluate(chapterState);
     assert(at.devices === 1 && at.screen && at.count === 5 && at.current.length === 1 && at.current[0] === 0 && at.captions === 1,
@@ -982,7 +1008,7 @@ async function finalPage(browser) {
     const playing = await page.evaluate(proofState);
     assert(playing.playing && playing.time > t0 + .5, "on screen the phone plays its timeline", JSON.stringify({ t0, playing }));
     // a chapter jumps the timeline to its start and becomes the one current chapter
-    await page.click('[data-chapter="2"]');
+    await pickChapter(page, 2);
     const jumped = await page.evaluate(() => ({ ...window.__repforgeLandingProof(), ...(() => {
       const items = [...document.querySelectorAll("[data-landing-chapter]")];
       return { current: items.map((item) => item.querySelector("[data-chapter]").getAttribute("aria-current") === "step") };
@@ -1089,7 +1115,7 @@ async function finalPage(browser) {
         `chapter ${i + 1}'s edge: the chip and the frame change together, and the frame opens on its own state`, JSON.stringify({ edge, after }));
       // A chip tapped from the end of the loop jumps the frame back to the same state.
       await page.evaluate(() => window.__repforgeLandingSeek(23));
-      await page.click(`[data-chapter="${i}"]`);
+      await pickChapter(page, i);
       const tapped = await page.evaluate(read);
       assert(inStep(tapped, i) && opens[i](tapped), `tapping chapter ${i + 1} from the loop's end shows its opening state`, JSON.stringify(tapped));
     }
@@ -1192,7 +1218,9 @@ async function finalPage(browser) {
     await scrollToDevice(page);
     const captions = await page.evaluate(() => {
       const stage = document.querySelector(".firstrun-proof__stage").getBoundingClientRect();
-      const texts = [...document.querySelectorAll(".firstrun-chapter__text")];
+      // a phone shows the chapters' captions in one stacked block over the phone; wider screens in the rows
+      const stacked = [...document.querySelectorAll(".firstrun-proof .firstrun-step-cap__t")];
+      const texts = stacked.some((node) => node.getBoundingClientRect().height > 0) ? stacked : [...document.querySelectorAll(".firstrun-chapter__text")];
       const row = Math.max(...texts.map((node) => node.getBoundingClientRect().height));
       return texts.map((node, i) => {
         const r = node.getBoundingClientRect();
@@ -1239,14 +1267,14 @@ async function finalPage(browser) {
     await page.waitForTimeout(500);
     const first = await page.evaluate(proofState);
     assert(first.open && !first.playing && first.frames === 0 && first.chapter === 0, "reduced motion: on screen, nothing plays", JSON.stringify(first));
-    await page.click('[data-chapter="2"]');
+    await pickChapter(page, 2);
     await page.waitForTimeout(300);
     const third = await page.evaluate(chapterState);
     const ctl = await page.evaluate(proofState);
     assert(ctl.chapter === 2 && !ctl.playing && third.current[0] === 2 && third.captions === 1 && third.tab === tr("pt", "rest.inline.done"),
       "reduced motion: a chapter switches the still (Rest at a glance shows the app's Descanso concluído)", JSON.stringify({ ctl, third }));
     assert(!third.overflowX, "reduced motion: no horizontal scroll", JSON.stringify(third));
-    await page.click('[data-chapter="3"]');
+    await pickChapter(page, 3);
     const testStill = await page.evaluate(() => ({
       chapter: window.__repforgeLandingProof().chapter,
       playing: window.__repforgeLandingProof().playing,
@@ -1270,7 +1298,9 @@ async function finalPage(browser) {
     await scrollToDevice(page);
     const fit = await page.evaluate(() => {
       const device = document.querySelector(".firstrun-proof__device").getBoundingClientRect();
-      const chips = [...document.querySelectorAll("[data-chapter]")].map((button) => button.getBoundingClientRect());
+      // the chapter controls the visitor sees: the rows from 900px, the title line's previous and next on a phone
+      const rows = [...document.querySelectorAll("[data-chapter]")].map((button) => button.getBoundingClientRect()).filter((b) => b.height > 0);
+      const chips = rows.length ? rows : [...document.querySelectorAll(".firstrun-proof__stage .firstrun-step-head [data-step-nav]")].map((button) => button.getBoundingClientRect());
       const dock = document.querySelector("#firstRunDock")?.getBoundingClientRect();
       return { deviceTop: Math.round(device.top), deviceBottom: Math.round(device.bottom), chipsBottom: Math.round(Math.max(...chips.map((b) => b.bottom))),
         chipMin: Math.round(Math.min(...chips.map((b) => Math.min(b.width, b.height)))), dockTop: dock && dock.height ? Math.round(dock.top) : innerHeight,
@@ -1375,7 +1405,7 @@ async function finalPage(browser) {
       assert(!gate.createVisible && !gate.importVisible, "no Build or Track is visible on the shared gate", JSON.stringify(gate));
     }
     const ctl = await page.evaluate(proofState);
-    assert(ctl?.open && ctl.observers === 5, "the shared gate watches no hero action: the dock logic is not mounted; the status-bar band, the proof's player and the feature tabs observe", JSON.stringify(ctl));
+    assert(ctl?.open && ctl.observers === 7, "the shared gate watches no hero action: the dock logic is not mounted; the status-bar band, the proof's player, the feature tabs and the two phone title lines observe", JSON.stringify(ctl));
     const close = await page.evaluate(() => ({
       actions: getComputedStyle(document.querySelector(".firstrun-close__actions")).display,
       dockDisplay: getComputedStyle(document.querySelector("#firstRunDock")).display,
@@ -1487,7 +1517,8 @@ async function dockGroundAfterAnswer(browser) {
       await new Promise((resolve) => setTimeout(resolve, 600));
       return { on: dock.classList.contains("is-on"), ground: dock.dataset.ground || null };
     });
-    assert(before.on && before.ground === "light", "the dock reads the orange closing band beneath it as a light ground", JSON.stringify(before));
+    // The closing band carries the same action, so the dock steps aside as soon as the band reaches it.
+    assert(!before.on, "with the orange closing band beneath its resting place, the dock steps aside", JSON.stringify(before));
     const after = await page.evaluate(async () => {
       const root = document.querySelector("#firstRun"), dock = document.querySelector("#firstRunDock");
       const cta = document.querySelector("#firstRunCreateDock");
@@ -1582,6 +1613,9 @@ async function heldCatalogProof(browser) {
       window.__repforgeLandingSeek(9.2);
       document.querySelector("#firstRun").scrollTop = 0;
     });
+    // With the phone centred the Build control may show below it; back at the top it leaves, and its exit is no
+    // camera state, so the second capture waits for it to finish.
+    await page.waitForFunction(() => getComputedStyle(document.querySelector("#firstRunDock")).visibility === "hidden", undefined, { timeout: 5000 });
     const after = await capture();
     if (process.env.REPFORGE_ARTIFACT_DIR) {
       const { writeFileSync } = await import("node:fs");
