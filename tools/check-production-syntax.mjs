@@ -52,6 +52,8 @@ const expected = [
   "shared-setup.js",
   "sw.js",
   "telemetry.js",
+  "trainer-relay-contract.js",
+  "trainer-relay.js",
   "unsupported-workout-grammar.js",
   "warmup-suggestions.js",
   "workout-draft.js",

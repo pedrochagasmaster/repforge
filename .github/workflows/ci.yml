@@ -170,9 +170,13 @@ jobs:
         with:
           node-version: "22"
           cache: npm
-          cache-dependency-path: services/install-transfer/package-lock.json
+          cache-dependency-path: |
+            services/install-transfer/package-lock.json
+            services/trainer-relay/package-lock.json
       - run: npm ci
         working-directory: services/install-transfer
+      - run: npm ci
+        working-directory: services/trainer-relay
       - run: node tools/run-tests.mjs service --keep-going
       - if: always()
         uses: actions/upload-artifact@v4
