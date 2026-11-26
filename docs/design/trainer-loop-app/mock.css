@@ -1,0 +1,68 @@
+/* Mock-only additions for the trainer-loop candidates. Everything else on the frame is the app's own markup and
+   styles.css. New elements use tokens only, so light, dark and text size follow the app. */
+
+/* QR codes stay dark-on-white in both themes: cameras read dark modules on a light ground. */
+.tl-qr{align-self:center;display:block;width:min(212px,64vw);aspect-ratio:1;padding:10px;border-radius:var(--radius-control);
+  background:#fff;box-shadow:inset 0 0 0 1px var(--boundary-decorative)}
+.tl-qr svg{display:block;width:100%;height:100%}
+.tl-caption{margin:0;font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);overflow-wrap:anywhere}
+.tl-caption--center{text-align:center}
+.tl-strong{margin:0;font-size:var(--font-size-body);line-height:var(--line-reading);color:var(--color-ink);overflow-wrap:anywhere}
+.tl-warn{margin:0;font-size:var(--font-size-body-small);line-height:var(--line-reading);font-weight:var(--weight-semibold);color:var(--color-warning);overflow-wrap:anywhere}
+.tl-busy{display:flex;align-items:center;gap:var(--space-12);min-height:var(--control-target)}
+.tl-busy::before{content:"";flex:none;width:18px;height:18px;border:2px solid var(--rule-strong);border-top-color:var(--ink);border-radius:50%}
+.tl-field{margin:0}
+.tl-field input,.tl-field textarea{display:block;font-weight:400;text-transform:none;letter-spacing:normal}
+.tl-field textarea{min-height:84px}
+
+/* What goes / what stays: two short lists with an ink check and a quiet dash. */
+.tl-list{list-style:none;margin:0;padding:0;display:grid;gap:var(--space-8)}
+.tl-list li{display:grid;grid-template-columns:20px minmax(0,1fr);gap:var(--space-8);align-items:start;
+  font-size:var(--font-size-body);line-height:var(--line-reading);color:var(--color-ink);overflow-wrap:anywhere}
+.tl-list li .icon-mask{width:20px;height:20px;margin-top:.15em}
+.tl-list--stays li{color:var(--color-ink-secondary)}
+.tl-label{margin:var(--space-8) 0 0}
+
+/* A message quoted from the trainer. */
+.tl-quote{margin:0;padding:0 0 0 var(--space-12);border-left:2px solid var(--rule-strong);
+  font-size:var(--font-size-body);line-height:var(--line-reading);color:var(--color-ink);overflow-wrap:anywhere}
+.tl-quote-label{margin:0 0 var(--space-4);font-size:var(--font-size-caption);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+
+/* The update's changes, one row per exercise. */
+.tl-diff{display:flex;flex-direction:column;border-block:1px solid var(--boundary-decorative)}
+.tl-diff__row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--space-4) var(--space-12);padding:var(--space-12) 0}
+.tl-diff__row+.tl-diff__row{border-top:1px solid var(--boundary-decorative)}
+.tl-diff__day{grid-column:1/-1;margin:0;font-size:var(--font-size-caption);color:var(--color-ink-secondary)}
+.tl-diff__name{margin:0;font-size:var(--font-size-body);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink);overflow-wrap:anywhere}
+.tl-diff__tag{align-self:start;font-size:var(--font-size-caption);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+.tl-diff__was{grid-column:1/-1;margin:0;font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);overflow-wrap:anywhere}
+.tl-diff__was s{text-decoration-thickness:1px}
+.tl-diff__now{grid-column:1/-1;margin:0;font-family:var(--font-training-data);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink)}
+
+/* The gate card's attribution line sits on the band's light card. */
+.tl-from{margin:var(--firstrun-gap-2) 0 0;font-size:var(--font-size-body);line-height:var(--line-standard);color:var(--band-night-cta-ink)}
+.tl-from b{font-weight:var(--weight-semibold)}
+.tl-from span{display:block;font-size:var(--font-size-body-small);opacity:.8}
+.firstrun__shared-card .tl-quote{margin-top:var(--firstrun-gap-2);border-left-color:currentColor;color:var(--band-night-cta-ink)}
+.firstrun__shared-card .tl-quote-label{margin-top:var(--firstrun-gap-2);color:var(--band-night-cta-ink);opacity:.8}
+
+/* The collapsed attribution row inside the Share sheet: the app's list row, chevron down when closed, up when open. */
+.tl-who-row{margin:0;border-block:1px solid var(--boundary-decorative)}
+.tl-who-row .chevron{transform:rotate(90deg)}
+.tl-who-row[aria-expanded="true"] .chevron{transform:rotate(-90deg)}
+
+/* Stacked sheet actions: the primary over the secondary, each full width. */
+.tl-foot-stack{flex-direction:column;align-items:stretch}
+.tl-foot-stack .btn{flex:none!important;width:100%}
+
+/* A note the lifter must read before the tap sits on the action bar, above the buttons. */
+.tl-foot-note{flex:1 1 100%;margin:0 0 var(--space-4)}
+.sheet__foot--actions:has(.tl-foot-note):not(.tl-foot-stack){flex-wrap:wrap}
+
+/* Proposed component change, for owner approval: at 200% text the sheet's band, body and actions scroll as one
+   column, so the body is never squeezed to nothing on a 320 × 568 phone. Normal text keeps the production layout. */
+.tl-large #shareSetupSheet{overflow-y:auto;overscroll-behavior:contain}
+.tl-large #shareSetupSheet .sheet__body{flex:none;overflow:visible}
+.tl-large #shareSetupSheet .sheetband,.tl-large #shareSetupSheet .sheet__foot{flex:none}
+.tl-large #shareSetupSheet .sheetband__title{font-size:var(--font-size-subtitle);overflow-wrap:break-word}
+.tl-who-row .listrow__title,.tl-who-row .listrow__sub{white-space:normal;overflow:visible;text-overflow:clip}
