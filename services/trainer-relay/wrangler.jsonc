@@ -1,8 +1,9 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  // Local definition for the tests and `wrangler dev`. There is deliberately
-  // no production environment yet: production, its route and DNS wait for the
-  // owner (Plan 086 slice 2 and ADR 0026 open item 5).
+  // Local definition for the tests and `wrangler dev`. `env.production` is
+  // prepared for the owner's approval and not deployed (ADR 0026, second
+  // amendment): relay.taurifer.com as a Workers custom domain, separate from
+  // install transfer's taurifer.com/v1/* and /_ops/*.
   "name": "taurifer-trainer-relay-local",
   "main": "src/index.js",
   "compatibility_date": "2026-11-09",
@@ -26,6 +27,32 @@
     "RELAY_KILL_SWITCH": "false"
   },
   "env": {
+    "production": {
+      "name": "taurifer-trainer-relay",
+      // A custom domain: Cloudflare creates the DNS record and certificate for
+      // relay.taurifer.com on the first deploy. No zone route on taurifer.com.
+      "routes": [{ "pattern": "relay.taurifer.com", "custom_domain": true }],
+      "workers_dev": false,
+      "preview_urls": false,
+      "observability": { "enabled": true, "logs": { "enabled": true, "invocation_logs": false } },
+      "durable_objects": {
+        "bindings": [
+          { "name": "RELAY_RECORDS", "class_name": "RelayRecordDurableObject" },
+          { "name": "RELAY_RATE", "class_name": "RelayRateDurableObject" },
+          { "name": "RELAY_METER", "class_name": "RelayMeterDurableObject" }
+        ]
+      },
+      "migrations": [
+        { "tag": "v1", "new_sqlite_classes": ["RelayRecordDurableObject", "RelayRateDurableObject", "RelayMeterDurableObject"] }
+      ],
+      // Creates stay off until slice 2 ships a client that uses them; turning
+      // them on is a one-line change the owner approves.
+      "vars": {
+        "RELAY_ALLOWED_ORIGINS": "https://taurifer.com,https://studio.taurifer.com",
+        "RELAY_CREATES_ENABLED": "false",
+        "RELAY_KILL_SWITCH": "false"
+      }
+    },
     "staging": {
       "name": "taurifer-trainer-relay-staging",
       "workers_dev": true,

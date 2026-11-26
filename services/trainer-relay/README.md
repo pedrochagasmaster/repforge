@@ -76,9 +76,11 @@ provisioned on staging.
 | `RELAY_OPS_SECRET` | secret, ≥ 32 chars | Bearer for `/_ops/health` and `/_ops/billing` |
 | `RELAY_ALERT_GITHUB_TOKEN`, `RELAY_ALERT_REPO` | secret and var, optional | Cost alert issue |
 
-`wrangler.jsonc` defines the local Worker and a `staging` environment
-(`taurifer-trainer-relay-staging` on workers.dev, no route). There is no
-production environment: production, its route and DNS wait for the owner.
+`wrangler.jsonc` defines the local Worker, a `staging` environment
+(`taurifer-trainer-relay-staging` on workers.dev, no route) and a `production`
+environment (`taurifer-trainer-relay` on the custom domain
+`relay.taurifer.com`, creates off). Production is prepared, not deployed: the
+owner approves the first deploy. `test/production-config.test.mjs` pins it.
 Invocation logs are off; request bodies and URLs are never logged.
 
 ## Commands
@@ -104,6 +106,21 @@ npx wrangler deploy --env staging                                          # the
 
 The script prints counts, lengths and outcomes, never a key, link, record id
 or payload.
+
+Production (ADR 0026, second amendment). Each step waits for the owner's
+approval; none has been run.
+
+```sh
+npm run deploy:dry:production                            # bundle check, no upload
+npx wrangler deploy --env production                     # creates relay.taurifer.com (DNS record and certificate)
+npx wrangler secret bulk <private secrets.json> --env production   # RELAY_ROUTING_KEY_B64, RELAY_RATE_PEPPER_B64, RELAY_OPS_SECRET
+curl -fsS -H "Authorization: Bearer <ops secret>" https://relay.taurifer.com/_ops/health
+```
+
+Generate production secrets fresh; never reuse staging's. Creates stay off
+(`RELAY_CREATES_ENABLED: "false"`) until slice 2 merges and the owner approves
+turning them on. The cost alert opens an issue only once
+`RELAY_ALERT_GITHUB_TOKEN` and `RELAY_ALERT_REPO` are set.
 
 ## The two documents
 
