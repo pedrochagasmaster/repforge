@@ -101,7 +101,7 @@ The update figures come from a realistic fixture, not real user logs. The curren
 
 - **Record size:** at most 256 KiB of ciphertext per record.
 - **Document size:** at most 1 MiB of JSON per document and at most 120 sessions per training update. Above 120 the encoder refuses with a code; it never drops sessions.
-- **Create rate:** 300 creates per address per hour. A gym's Wi-Fi and many mobile carriers put many people behind one address, so a low per-address limit would refuse trainers and clients for no visible reason; the size bound and the cost gate carry the abuse limit. Reads: 120 per address per minute. (#837 was built with 30 creates per hour and must change before it merges.)
+- **Create rate:** 300 creates per address per hour. A gym's Wi-Fi and many mobile carriers put many people behind one address, so a low per-address limit would refuse trainers and clients for no visible reason; the size bound and the cost gate carry the abuse limit. Reads: 120 per address per minute. (#837 was first built with 30 and changed to 300 the same day; staging refuses the 301st create.)
 - **Cost gate:** new creates are refused when the larger of two figures reaches $10 USD in a month: the service's own running estimate at list prices, and the latest billing receipt the owner posts. A missing or stale receipt does not close creates. This is deliberately looser than ADR 0013, where a stale receipt closes creates; that rule is why install-transfer staging has refused creates since September. Reads continue past the threshold.
 - **Record identity:** the record id travels only in request bodies, never in a URL.
 
