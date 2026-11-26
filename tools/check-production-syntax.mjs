@@ -45,6 +45,7 @@ const expected = [
   "program-transition.js",
   "progress-model.js",
   "progression-engine.js",
+  "qr-code.js",
   "rest-timer.js",
   "schedule.js",
   "starting-loads.js",
