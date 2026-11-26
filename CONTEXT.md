@@ -195,7 +195,7 @@ _Avoid_: Creator branding, white-label, sponsor
 
 **Trainer**:
 The in-person professional who writes a client's program, hands it over, reads the training the client chooses to send, and sends back program updates (ADR 0026). The trainer is the professional and Taurifer is their tool: copy never says Taurifer supervises, prescribes or coaches. A trainer works on the trainer site, never inside a client's app. App copy names the trainer by their display name wherever it can ("Send Rafael your sessions").
-_PT (user-facing)_: the trainer's name; when a generic word is unavoidable, personal (owner decision pending; the landing FAQ uses treinador).
+_PT (user-facing)_: the trainer's name; when a generic word is unavoidable, personal (owner, 2026-11-26). The landing FAQ's treinador is aligned in slice 2.
 _Avoid_: Coach (the human comparison, above), instructor, "your trainer" as a description of Taurifer
 
 **Client**:
@@ -221,7 +221,7 @@ _PT (user-facing)_: atualização do treino.
 _Avoid_: Sync, overwrite, new program, adjustment
 
 **Training update**:
-What a client sends a trainer, only by tapping Send: the sessions logged under the current program since the last update sent (exercises, loads, reps, effort and notes) and the current program. Never earlier history, body weight, settings, profile or device preferences.
+What a client sends a trainer, only by tapping Send: the sessions logged under the current program since the last update sent (exercises, loads, reps, effort and notes, at most 120 per send, oldest first) and the current program. Never earlier history, body weight, settings, profile or device preferences.
 _PT (user-facing)_: action copy names the sessions ("Enviar suas sessões ao Rafael"); "atualização" belongs to the program update.
 _Avoid_: Report, check-in (the coach register), sync, backup, export, summary
 

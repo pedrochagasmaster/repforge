@@ -225,12 +225,17 @@ For relay handoffs only, this changes three rules of this record:
   are kept either way, through `program-transition.js` and the existing
   transition adapter. Plain `#setup=` links keep the never-apply rule until the
   owner decides otherwise.
-- **Handoff cookie.** For a relay link, `repforge_setup_v1` carries only the
-  locator `r=<record id>.<key>` instead of an encoded proposal. Its name, path,
-  seven-day age and other attributes are unchanged, so the static host receives
-  the locator with the app's requests, as it already receives a setup proposal.
-  The locator decrypts that record until it expires, so it is as sensitive as the
-  link and is never logged.
+- **Handoff cookie.** For a relay program handoff, and never for a training
+  update, `repforge_setup_v1` carries only the locator `r=<record id>.<key>`
+  instead of an encoded proposal. Its name, path, seven-day maximum age and other
+  attributes are unchanged, so the static host receives the locator with the
+  app's requests, as it already receives a setup proposal. The installed app
+  clears it as soon as it has opened the program, and when the record is expired,
+  newer or incomplete; it keeps it only while the relay is unavailable. The
+  static host is Cloudflare Pages, in the same Cloudflare account as the relay,
+  so the Privacy page says that the provider storing the record can receive its
+  key while the cookie exists. The locator decrypts that record until it
+  expires, so it is as sensitive as the link and is never logged.
 
 Everything else here applies to a handoff as written: the decrypted document
 goes through the same strict validation (`trainer-documents.js` validates the

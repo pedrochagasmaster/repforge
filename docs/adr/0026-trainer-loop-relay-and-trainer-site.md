@@ -43,7 +43,7 @@ The training update was measured afterwards on a fixture; see the amendment belo
 
 **When the relay is unavailable.** The sender falls back to the existing setup link when the payload fits and to the program file otherwise. Receiving a link needs a connection once; after that the program works offline as today.
 
-**iOS Home Screen handoff.** The existing handoff cookie carries the encoded proposal. For a relay link it carries only the record id and key, which is far below the cookie's size limit. The cookie's name, scope and seven-day age are unchanged.
+**iOS Home Screen handoff.** The existing handoff cookie carries the encoded proposal. For a relay program handoff it carries only the record id and key, which is far below the cookie's size limit, and it is cleared as soon as the installed app has opened the program (second amendment below). The cookie's name, scope and seven-day maximum age are unchanged.
 
 **Provider.** Cloudflare Workers with EU-jurisdiction Durable Objects, the provider already selected in ADR 0013 (owner, 2026-11-26).
 
@@ -100,7 +100,7 @@ The update figures come from a realistic fixture, not real user logs. The curren
 **Settled values.**
 
 - **Record size:** at most 256 KiB of ciphertext per record.
-- **Document size:** at most 1 MiB of JSON per document and at most 120 sessions per training update. Above 120 the encoder refuses with a code; it never drops sessions.
+- **Document size:** at most 1 MiB of JSON per document and at most 120 sessions per training update. Above 120 the encoder refuses with a code and never drops sessions silently; the app sends the oldest 120 and the rest go with the next send (second amendment below).
 - **Create rate:** 300 creates per address per hour. A gym's Wi-Fi and many mobile carriers put many people behind one address, so a low per-address limit would refuse trainers and clients for no visible reason; the size bound and the cost gate carry the abuse limit. Reads: 120 per address per minute. (#837 was first built with 30 and changed to 300 the same day; staging refuses the 301st create.)
 - **Cost gate:** new creates are refused when the larger of two figures reaches $10 USD in a month: the service's own running estimate at list prices, and the latest billing receipt the owner posts. A missing or stale receipt does not close creates. This is deliberately looser than ADR 0013, where a stale receipt closes creates; that rule is why install-transfer staging has refused creates since September. Reads continue past the threshold.
 - **Record identity:** the record id travels only in request bodies, never in a URL.
@@ -113,10 +113,18 @@ The update figures come from a realistic fixture, not real user logs. The curren
 - The training update also leaves out suggested warm-up rows, calibration records, per-row starting-load records and muscle lists.
 - "Last rep slow" is left out for now. Whether trainers want it is a question for the slice 7 interviews; adding it later is a new document version.
 
+## Amendment (2026-11-26, second): owner decisions on slice 0 and the app design
+
+- **Sessions above 120.** A training update still carries at most 120 sessions, and the encoder still refuses more. When more than 120 sessions are waiting, the app sends the oldest 120 and says the rest go with the next send. Because "since the last update sent" is the completion time of the newest session sent, the next send starts where this one stopped. No session is dropped silently. This replaces "Above 120 the encoder refuses" as the user-visible behavior; the refusal stays as the encoder's guard.
+- **Handoff cookie.** The cookie carries the record id and key for program handoffs only, never for training updates, which the client's app creates and never opens. The installed app clears the cookie as soon as it has opened the program: decrypted it and either shown it at the gate or as an update. It also clears it when the record is expired, from a newer version or incomplete. It keeps it only while the relay is unavailable, so Try again can still work. The seven-day maximum age stays as the upper bound.
+- **Who receives the cookie.** `taurifer.com` is served by Cloudflare Pages, in the same Cloudflare account as the relay. So while the cookie exists, the same provider that stores the encrypted record can also receive its key with the app's page and file requests. The relay service itself never receives the key: the client omits credentials on relay requests. The Privacy page says this plainly instead of "Taurifer never receives the key".
+- **Production host.** The relay runs at `relay.taurifer.com` as a Workers custom domain (`relay.taurifer.com/*`), called cross-origin from `taurifer.com` and `studio.taurifer.com` only. It shares no route with install transfer (`taurifer.com/v1/*`, `taurifer.com/_ops/*`), and taurifer.com's host-only cookies are never sent to it. The owner approves the first production deploy.
+- **Copy.** User-facing copy says "device", never "phone". The Portuguese generic word for the trainer is "personal"; the landing FAQ's "treinador" is aligned in slice 2. "Enviar suas sessões" names the training update's action and "atualização" stays with the program update.
+
 ## Open items for the owner
 
 1. **Legal review.** A trainer who receives updates holds a client's training data and notes that may mention pain or injury. Review under LGPD before the alpha, together with the CREF-registered professional the coach-layer strategy already requires.
 2. **Guardrail wording.** `plans/README.md` says "no full coach SaaS". This ADR adds no account, payment or hosted client data, but the owner should restate that line so it is clear the trainer site is inside it.
 3. **Who pays.** The commercial model for trainers is undecided and is outside this ADR.
-4. **Relay production host and route.** `taurifer.com/v1/*` belongs to install transfer, and no production environment is defined yet. The cost-alert token is also not provisioned, so the alert is a log line only.
+4. **Relay production host and route.** Decided in the second amendment: `relay.taurifer.com`. The production environment is prepared but not deployed, and the cost-alert token is not provisioned, so the alert is a log line only until it is.
 5. **Hosting** for a second site: the repository holds no domain configuration, so the deployment path is unknown to the plan.
