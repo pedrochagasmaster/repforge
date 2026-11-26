@@ -213,6 +213,7 @@ export const FULL_SUITES = {
     s("test/session-duration-browser.mjs", [], { domains: ["workout", "history", "install", "persistence"], seconds: 34, timeoutMs: 900000 }),
     s("test/per-side-focus-cues-browser.mjs", [], { domains: ["workout", "program", "persistence"], tier: "packet", seconds: 20, timeoutMs: 900000 }),
     s("test/share-program-browser.mjs", [], { domains: ["entry", "privacy", "persistence"], seconds: 58 }),
+    s("test/trainer-handoff-browser.mjs", [], { domains: ["entry", "privacy"], seconds: 40 }),
     s("test/ui-catalog-contract.mjs", [], { seconds: 71 }),
     s("test/install-modes.mjs", [], { seconds: 179 }),
     s("test/onboarding-cancel.mjs", [], { domains: ["entry"], seconds: 18 }),

@@ -79,8 +79,9 @@ provisioned on staging.
 `wrangler.jsonc` defines the local Worker, a `staging` environment
 (`taurifer-trainer-relay-staging` on workers.dev, no route) and a `production`
 environment (`taurifer-trainer-relay` on the custom domain
-`relay.taurifer.com`, creates off). Production is prepared, not deployed: the
-owner approves the first deploy. `test/production-config.test.mjs` pins it.
+`relay.taurifer.com`). Production was first deployed on 2026-11-26 with creates
+off; slice 2 sets `RELAY_CREATES_ENABLED: "true"`, which reaches production only
+when the owner approves its deploy. `test/production-config.test.mjs` pins it.
 Invocation logs are off; request bodies and URLs are never logged.
 
 ## Commands
@@ -107,20 +108,21 @@ npx wrangler deploy --env staging                                          # the
 The script prints counts, lengths and outcomes, never a key, link, record id
 or payload.
 
-Production (ADR 0026, second amendment). Each step waits for the owner's
-approval; none has been run.
+Production (ADR 0026, second amendment). Every deploy waits for the owner's
+approval. The first deploy and the secrets were done on 2026-11-26; the ops
+secret is the only copy kept, in a private file outside the repository.
 
 ```sh
 npm run deploy:dry:production                            # bundle check, no upload
 npx wrangler deploy --env production                     # creates relay.taurifer.com (DNS record and certificate)
 npx wrangler secret bulk <private secrets.json> --env production   # RELAY_ROUTING_KEY_B64, RELAY_RATE_PEPPER_B64, RELAY_OPS_SECRET
-curl -fsS -H "Authorization: Bearer <ops secret>" https://relay.taurifer.com/_ops/health
+curl -fsS -X POST -H "Authorization: Bearer <ops secret>" https://relay.taurifer.com/_ops/health
 ```
 
-Generate production secrets fresh; never reuse staging's. Creates stay off
-(`RELAY_CREATES_ENABLED: "false"`) until slice 2 merges and the owner approves
-turning them on. The cost alert opens an issue only once
-`RELAY_ALERT_GITHUB_TOKEN` and `RELAY_ALERT_REPO` are set.
+Generate production secrets fresh; never reuse staging's. The ops health check
+is a `POST`. The cost alert opens an issue only once `RELAY_ALERT_GITHUB_TOKEN`
+(a token with Issues read and write on that repository) and `RELAY_ALERT_REPO`
+(`owner/repo`) are both set as production secrets.
 
 ## The two documents
 

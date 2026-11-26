@@ -6283,6 +6283,14 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   background:var(--band-night-cta-bg);color:var(--band-night-cta-ink);overflow-wrap:anywhere;
 }
 .firstrun__shared-card-name{margin:0;font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-standard)}
+/* A relay handoff's attribution and message on the band's light card (Plan 086 slice 2). Text only. */
+.firstrun__shared-from{margin:var(--firstrun-gap-2) 0 0;font-size:var(--font-size-body);line-height:var(--line-standard);color:var(--band-night-cta-ink);overflow-wrap:anywhere}
+.firstrun__shared-from b{font-weight:var(--weight-semibold)}
+.firstrun__shared-from span{display:block;font-size:var(--font-size-body-small);opacity:.8}
+.firstrun__shared-quote-label{margin:var(--firstrun-gap-2) 0 var(--space-4);font-size:var(--font-size-caption);line-height:var(--line-standard);color:var(--band-night-cta-ink);opacity:.8}
+.firstrun__shared-quote{margin:0;padding:0 0 0 var(--space-12);border-left:2px solid currentColor;font-size:var(--font-size-body);line-height:var(--line-reading);
+  color:var(--band-night-cta-ink);overflow-wrap:anywhere;white-space:pre-line}
+.firstrun__shared-message .firstrun__shared-quote-label.hidden+.firstrun__shared-quote{margin-top:var(--firstrun-gap-2)}
 .firstrun__shared-card-body{margin:var(--firstrun-gap-2) 0 0;font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--band-night-cta-ink)}
 .firstrun__error{
   width:100%;margin:12px 0 0;font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--firstrun-ink);
@@ -7206,6 +7214,29 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .share-setup__repair{flex:none;min-height:var(--control-target);padding-inline:14px}
 .share-setup__status{margin:0;font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);overflow-wrap:anywhere}
 .share-setup__status:empty{display:none}
+/* The relay (Plan 086 slice 2, approved mocks in docs/design/trainer-loop-app). The QR code stays dark on white in
+   both themes, because cameras read dark modules on a light ground. */
+.share-setup__qr{align-self:center;display:block;width:min(212px,64vw);aspect-ratio:1;padding:10px;border-radius:var(--radius-control);
+  background:#fff;box-shadow:inset 0 0 0 1px var(--boundary-decorative)}
+.share-setup__qr svg{display:block;width:100%;height:100%}
+.share-setup__caption{margin:0;font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);overflow-wrap:anywhere}
+.share-setup__caption--center{text-align:center}
+.share-setup__warn{margin:0;font-size:var(--font-size-body-small);line-height:var(--line-reading);font-weight:var(--weight-semibold);color:var(--color-warning);overflow-wrap:anywhere}
+.share-setup__status--busy{display:flex;align-items:center;gap:var(--space-12);min-height:var(--control-target)}
+.share-setup__status--busy::before{content:"";flex:none;width:18px;height:18px;border:2px solid var(--rule-strong);border-top-color:var(--ink);border-radius:50%;
+  animation:share-setup-spin .9s linear infinite}
+@keyframes share-setup-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.share-setup__status--busy::before{animation:none}}
+.share-setup__who{margin:0;border-block:1px solid var(--boundary-decorative)}
+.share-setup__who .listrow__main{display:flex;flex-direction:column;min-width:0}
+.share-setup__who .listrow__title,.share-setup__who .listrow__sub{white-space:normal;overflow:visible;text-overflow:clip}
+.share-setup__who .chevron{transform:rotate(90deg)}
+.share-setup__who[aria-expanded="true"] .chevron{transform:rotate(-90deg)}
+.share-setup__fields{display:flex;flex-direction:column;gap:14px}
+.share-setup__field{margin:0}
+.share-setup__field input,.share-setup__field textarea{display:block;font-weight:400;text-transform:none;letter-spacing:normal}
+.share-setup__field textarea{min-height:84px}
+.share-setup__retry{align-self:flex-start}
 .installsheet{
   display:flex;flex-direction:column;min-height:0;overflow-y:auto;overscroll-behavior:contain;
   -webkit-overflow-scrolling:touch;padding:0 22px 20px;
