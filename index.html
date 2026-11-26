@@ -1493,7 +1493,8 @@ Triceps pushdown 3x12-15</pre>
         <p class="share-setup__caption" data-i18n="relay.share.attribution_note">Shown when they open the program. Taurifer doesn't check names or registrations.</p>
       </div>
       <p id="shareSetupWarn" class="share-setup__warn hidden" role="status"></p>
-      <div id="shareSetupQr" class="share-setup__qr hidden" role="img" data-i18n-aria="relay.share.qr_aria" aria-label="QR code for the program link"></div>
+      <!-- The code repeats the link below it, so assistive technology reads the link once. -->
+      <div id="shareSetupQr" class="share-setup__qr hidden" aria-hidden="true"></div>
       <p id="shareSetupQrHint" class="share-setup__caption share-setup__caption--center hidden" data-i18n="relay.share.qr_hint">They can scan this code with their device's camera.</p>
       <p id="shareSetupExpiry" class="share-setup__caption hidden"></p>
       <p id="shareSetupLink" class="share-setup__link" tabindex="0"></p>

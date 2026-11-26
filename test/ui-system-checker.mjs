@@ -470,9 +470,11 @@ assert.ok(importReviewActionContractErrors(asymmetricImportReview).length,
 const sameSet = (left, right) => JSON.stringify([...left].sort()) === JSON.stringify([...right].sort());
 // The final landing's catalog states (Plan 064 R2): the hero, and the scrolled bands below it.
 const landingScrolled = ["proof", "proof-test", "check", "ways", "features", "data", "faq-open", "close"].map((name) => `onboarding-start/first-run-${name}`);
-const landingHero = ["onboarding-shared/invalid", "onboarding-start/first-run"];
+// The relay gate's error states (Plan 086 slice 2) are the invalid landing's hero with their own copy.
+const relayHero = ["relay-unavailable", "relay-expired", "relay-newer", "relay-incomplete"].map((name) => `onboarding-shared/${name}`);
+const landingHero = ["onboarding-shared/invalid", ...relayHero, "onboarding-start/first-run"];
 const landingStates = [...landingHero, ...landingScrolled];
-const landingEverywhere = ["onboarding-shared/gate", ...landingStates];
+const landingEverywhere = ["onboarding-shared/gate", "onboarding-shared/relay-gate", "onboarding-shared/relay-opening", ...landingStates];
 const radiusRecipe = [
   { selector: ".firstrun-proof__glass", condition: "default", token: "--radius-landing-stage" },
   { selector: ".firstrun-proof__glass", condition: "max-width:340px", token: "--radius-landing-stage-compact" },
@@ -499,12 +501,15 @@ assert.ok(radiusContractErrors(widenedRadiusOwner).length, "stage radius cannot 
 
 // Owner decision L-1 (PR #295): the ink pill with its arrow and the one floating Build control. Packet F makes Track
 // Build's outlined peer; the underlined link stays only for the shared gate's create-from-scratch action.
+// The received-program gate, from a setup link or a relay link (Plan 086 slice 2, also while it opens).
+const sharedGates = ["onboarding-shared/gate", "onboarding-shared/relay-gate", "onboarding-shared/relay-opening"];
 const landingRecipes = [
   { id: "landing-ink-primary", role: "primary", boundary: "decorative", elevation: undefined,
-    selectors: ["#firstRunCreate", "#firstRunCreateClose", "#firstRunSharedStart"], states: [...landingEverywhere],
-    stateFor: (selector) => selector === "#firstRunSharedStart" ? ["onboarding-shared/gate"] : [...landingStates] },
+    selectors: ["#firstRunCreate", "#firstRunCreateClose", "#firstRunSharedStart", "#firstRunRelayAction"], states: [...landingEverywhere],
+    stateFor: (selector) => selector === "#firstRunSharedStart" ? sharedGates
+      : selector === "#firstRunRelayAction" ? ["onboarding-shared/relay-unavailable", "onboarding-shared/relay-newer"] : [...landingStates] },
   { id: "landing-text-link", role: "quiet-navigation", boundary: undefined, elevation: undefined,
-    selectors: ["#firstRunSharedCreate"], states: ["onboarding-shared/gate"], stateFor: () => ["onboarding-shared/gate"] },
+    selectors: ["#firstRunSharedCreate"], states: sharedGates, stateFor: () => sharedGates },
   { id: "landing-ink-peer", role: "secondary", boundary: "required", elevation: undefined,
     selectors: ["#firstRunImport", "#firstRunImportClose"], states: [...landingStates], stateFor: () => [...landingStates] },
   { id: "landing-sticky-build", role: "primary", boundary: "decorative", elevation: "floating",
