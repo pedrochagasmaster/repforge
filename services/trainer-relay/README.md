@@ -46,7 +46,7 @@ holds the key. Nothing in the app calls it yet: slice 1 has no UI.
 | --- | --- | --- |
 | Ciphertext per record | 262,144 bytes (the client refuses larger before uploading) | 413 |
 | Create body | 350,000 bytes | 413 |
-| Creates per address | 30 per hour | 429 |
+| Creates per address | 300 per hour (ADR 0026 amendment, 2026-11-26) | 429 |
 | Reads per address | 120 per minute | 429 |
 | Operating cost | 1,000 cents ($10) per UTC month (owner, 2026-11-26) | 503 on create; reads continue |
 | Kill switch | `RELAY_KILL_SWITCH=true` or `RELAY_CREATES_ENABLED` not `true` | 503 on create; reads continue |

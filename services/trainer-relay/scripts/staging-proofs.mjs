@@ -175,6 +175,7 @@ async function killAfter() {
 }
 
 async function rate() {
+  assert.equal(LIMITS.createsPerAddressPerHour, 300, "ADR 0026 amendment: 300 creates per address per hour");
   let admitted = 0;
   for (let index = 0; index <= LIMITS.createsPerAddressPerHour; index += 1) {
     const created = await Client.send(`rate probe ${index}`, options());

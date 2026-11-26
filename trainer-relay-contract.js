@@ -42,7 +42,7 @@
     // JSON wrapper around base64url ciphertext: 4/3 expansion plus a small margin.
     maxCreateBodyBytes: 350_000,
     maxReadBodyBytes: 256,
-    createsPerAddressPerHour: 30,
+    createsPerAddressPerHour: 300,
     readsPerAddressPerMinute: 120,
     // Owner decision 2026-11-26: new creates fail at $10 USD per month.
     costThresholdCents: 1_000,

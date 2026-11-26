@@ -212,6 +212,8 @@ describe("trainer relay slice-1 proofs", () => {
   });
 
   test("proof 5: the per-address create rate rejects as specified", async () => {
+    // ADR 0026 amendment (2026-11-26): 300 creates per address per hour.
+    assert.equal(LIMITS.createsPerAddressPerHour, 300);
     const relay = await startRelay();
     try {
       let link;
