@@ -1,8 +1,8 @@
 # ADR 0026 — Trainer loop: a seven-day encrypted relay and a separate trainer site
 
-**Status:** Proposed. It records the owner's decisions of 2026-11-25 and the contract proposed to carry them out. It becomes Accepted when the owner merges it; until then no plan slice may ship.
+**Status:** Accepted by the owner on 2026-11-26, with the amendment of the same date below. User-visible slices still wait for the prose amendments in Plan 086 slice 0 and for an approved design and copy.
 **Scope:** Program handoff between an in-person trainer and their clients, the client's training update back to the trainer, and the trainer's own tool. Solo use of the app is unchanged.
-**Amends when accepted:** [ADR 0007](0007-shared-setup-links.md)'s "no hosted store" boundary and first-run-only rule, for this scope only; the product guardrail in `plans/README.md` that names install transfer as the only server exception; the backlog's earlier "no coach view" line. [ADR 0013](0013-temporary-install-transfer.md) is not changed and is not reused as a transport.
+**Amends:** [ADR 0007](0007-shared-setup-links.md)'s "no hosted store" boundary and first-run-only rule, for this scope only; the product guardrail in `plans/README.md` that names install transfer as the only server exception; the backlog's earlier "no coach view" line. [ADR 0013](0013-temporary-install-transfer.md) is not changed and is not reused as a transport.
 **Implementation:** [Plan 086](../../plans/086-trainer-loop.md).
 
 ## Owner decisions (2026-11-25)
@@ -25,9 +25,9 @@ Measured on `main` 6f2e18a with `shared-setup.js`:
 
 A trainer's hand-built program is the main case and it does not fit the 3,072-character link. The existing fallback is a program file, which a trainer cannot open from a chat into a website and a client must route through Import. A QR code also becomes unreliable long before 3,000 characters. The relay makes every link short and removes size as a failure.
 
-No measurement exists yet for the training update. Plan 086 measures it on real logs before fixing a size bound.
+The training update was measured afterwards on a fixture; see the amendment below.
 
-## The relay contract (proposed)
+## The relay contract
 
 **Encryption is on the device.** The sender generates a random 256-bit key, encrypts the payload with AES-256-GCM in the browser, and uploads only ciphertext. The key travels in the link's fragment and is never sent to the service. This is stronger than ADR 0013, whose encryption is server-side; a seven-day record justifies the difference. The service cannot read a payload, and a storage or recovery image holds ciphertext without a key.
 
@@ -45,7 +45,7 @@ No measurement exists yet for the training update. Plan 086 measures it on real 
 
 **iOS Home Screen handoff.** The existing handoff cookie carries the encoded proposal. For a relay link it carries only the record id and key, which is far below the cookie's size limit. The cookie's name, scope and seven-day age are unchanged.
 
-**Provider.** The proposal is the provider already selected in ADR 0013, with the same EU storage boundary. The owner confirms this before Plan 086 slice 1 starts.
+**Provider.** Cloudflare Workers with EU-jurisdiction Durable Objects, the provider already selected in ADR 0013 (owner, 2026-11-26).
 
 ## The two payloads
 
@@ -82,10 +82,41 @@ Both are versioned documents validated before anything is persisted, with the sa
 | Anonymous storage abuse | Size bound, create rate and cost threshold. |
 | The trainer's device is lost | Client data on it is as protected as the device. Stated on the trainer site. |
 
+## Amendment (2026-11-26): measured results and settled values
+
+The relay and the two documents were built and proven as Plan 086 slice 1 and the non-visual parts of slices 2–4 (#837, #838). The owner settled the values below the same day.
+
+**Measured.**
+
+| Item | Result |
+| --- | --- |
+| Link length | 90 characters for the app, 97 for the trainer site; both fit a 41×41-module QR code (version 6, medium error correction) |
+| The refused four-day, seven-week program | 119,804 bytes of JSON; round-trips byte for byte locally and on staging |
+| Training update, 3 weeks (12 sessions) | 167,721 bytes of JSON, 10,904 gzipped |
+| Training update, 30 weeks (120 sessions) | 601,125 bytes of JSON, 28,188 gzipped |
+
+The update figures come from a realistic fixture, not real user logs. The current program is most of the size; a session adds about 3.3 KB of JSON. A phone camera reading the code at arm's length is not yet tested; only a software decode is.
+
+**Settled values.**
+
+- **Record size:** at most 256 KiB of ciphertext per record.
+- **Document size:** at most 1 MiB of JSON per document and at most 120 sessions per training update. Above 120 the encoder refuses with a code; it never drops sessions.
+- **Create rate:** 300 creates per address per hour. A gym's Wi-Fi and many mobile carriers put many people behind one address, so a low per-address limit would refuse trainers and clients for no visible reason; the size bound and the cost gate carry the abuse limit. Reads: 120 per address per minute. (#837 was built with 30 creates per hour and must change before it merges.)
+- **Cost gate:** new creates are refused when the larger of two figures reaches $10 USD in a month: the service's own running estimate at list prices, and the latest billing receipt the owner posts. A missing or stale receipt does not close creates. This is deliberately looser than ADR 0013, where a stale receipt closes creates; that rule is why install-transfer staging has refused creates since September. Reads continue past the threshold.
+- **Record identity:** the record id travels only in request bodies, never in a URL.
+
+**Document details.**
+
+- "Since the last update sent" is the completion time of the newest session in the client's previous update, stored on the client's device.
+- "Current program" is the program's block id, so a new block starts a fresh update.
+- Starting loads are an opening load per training slot. Trainer attribution is a display name of at most 80 characters and optional registration text of at most 80.
+- The training update also leaves out suggested warm-up rows, calibration records, per-row starting-load records and muscle lists.
+- "Last rep slow" is left out for now. Whether trainers want it is a question for the slice 7 interviews; adding it later is a new document version.
+
 ## Open items for the owner
 
 1. **Legal review.** A trainer who receives updates holds a client's training data and notes that may mention pain or injury. Review under LGPD before the alpha, together with the CREF-registered professional the coach-layer strategy already requires.
 2. **Guardrail wording.** `plans/README.md` says "no full coach SaaS". This ADR adds no account, payment or hosted client data, but the owner should restate that line so it is clear the trainer site is inside it.
 3. **Who pays.** The commercial model for trainers is undecided and is outside this ADR.
-4. **Provider and cost threshold** for the relay.
+4. **Relay production host and route.** `taurifer.com/v1/*` belongs to install transfer, and no production environment is defined yet. The cost-alert token is also not provisioned, so the alert is a log line only.
 5. **Hosting** for a second site: the repository holds no domain configuration, so the deployment path is unknown to the plan.

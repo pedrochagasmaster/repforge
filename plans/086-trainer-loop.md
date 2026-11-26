@@ -1,6 +1,6 @@
 # Plan 086: Trainer loop
 
-Status: **draft, awaiting owner acceptance of [ADR 0026](../docs/adr/0026-trainer-loop-relay-and-trainer-site.md)**. Written against `origin/main` 6f2e18a; re-check every anchor before executing. Scheduling lives in the [backlog](../docs/backlog.md).
+Status: **approved, in implementation**. The owner accepted [ADR 0026](../docs/adr/0026-trainer-loop-relay-and-trainer-site.md) on 2026-11-26. Slice 1 is #837 and the codec and validation parts of slices 2–4 are #838, both draft with every section 4 proof passing except a real phone camera reading the QR code. Slice 0 and everything a user would see are not started. Written against `origin/main` 6f2e18a; re-check every anchor before executing. Scheduling lives in the [backlog](../docs/backlog.md).
 
 ## 1. Outcome and reference
 
@@ -25,7 +25,7 @@ Each slice is one pull request with its owning tests. Slices 3 and 4 can run in 
 
 | # | Slice | Delivers | Owning proof |
 | --- | --- | --- | --- |
-| 0 | Contracts | Owner accepts ADR 0026 and resolves its open items 2, 4 and 5. Amend ADR 0007, the `plans/README.md` guardrails, `AGENTS.md`, `CONTEXT.md` and the Privacy page text in one prose-only PR. | Owner review. |
+| 0 | Contracts | Owner resolves ADR 0026 open items 2, 4 and 5. Amend ADR 0007, the `plans/README.md` guardrails, `AGENTS.md`, `CONTEXT.md` and the Privacy page text in one prose-only PR. | Owner review. |
 | 1 | Relay | A new service under `services/`, a shared request/record contract module, and a browser client that encrypts, uploads, downloads and decrypts. No UI. | Section 4. |
 | 2 | Program handoff | The handoff document (program, settings, starting loads, message, attribution). The app's Share uses the relay; a new client receives at the first-run gate with the trainer's name shown; the iOS handoff cookie carries the record locator; fallback to link or file when the relay is down. | Codec unit and generative suites; setup-flow browser suite extended; catalog frames. |
 | 3 | Program update for an existing client | An existing client opens a handoff, sees what changed and the note, and chooses to use it or keep the current program. History and the archive are kept. | Transition suites; a browser test that history, archive and an in-progress draft survive both choices. |
@@ -55,8 +55,8 @@ If item 2 fails, stop and return to the owner before slice 2.
 
 ## 6. Owner and environment gates
 
-- Acceptance of ADR 0026 and its open items before slice 1.
-- Relay provider account, staging and production deployment, and the cost threshold.
+- The relay's production host and route, its production deployment, and the cost-alert token. Staging exists.
+- A real phone camera reading a relay QR code at arm's length (section 4, item 2).
 - DNS and hosting for `studio.taurifer.com`. The repository holds no domain configuration, so this path must be supplied.
 - EN and PT copy approval for every new surface, and an approved design per user-visible slice.
 - Legal review (ADR 0026 open item 1) before any trainer outside the three reviewers uses it.
