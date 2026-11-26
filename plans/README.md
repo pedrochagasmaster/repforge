@@ -153,15 +153,20 @@ dependencies or a platform rewrite through an implementation plan.
 
 ## Product guardrails
 
-- Core training stays local-first, owned, and exportable. Plan 053's explicit,
-  encrypted, one-hour install transfer is the only approved server exception in
-  this initiative; it is not sync or backup.
+- Core training stays local-first, owned, and exportable. There are two
+  approved server exceptions, and neither is sync or backup: Plan 053's
+  explicit, encrypted, one-hour install transfer, and ADR 0026's seven-day
+  relay, which holds only ciphertext encrypted on the sender's device for a
+  program handoff from a trainer or a training update the lifter chose to send.
 - Minimal Phase 1 measurement/commerce infrastructure must have a direct
   approved validation purpose.
 - No fake doors, future-looking in-product controls, manual timeless Pro codes,
   or payment before working Pro value.
 - No sixth navigation tab, social/gamification layer, powerlifting claim, or
-  full coach SaaS.
+  full coach SaaS. The trainer site of ADR 0026 (`studio.taurifer.com`) is
+  inside that line: it has no accounts, sync, payment, messaging or hosted client
+  data, keeps a trainer's client list on the trainer's own device, and adds no
+  tab to the app. Taurifer is the trainer's tool, never a coach.
 - Managed Taurifer AI is later, product-operated, and governed by ADR 0011;
   BYOK/browser-direct providers are not an implementation path.
 - Protect workout speed, data integrity, accessibility, and deterministic

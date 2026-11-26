@@ -1,6 +1,6 @@
 # Taurifer
 
-Taurifer (formerly RepForge; internal storage keys and globals keep the `repforge` codename) is a local-first progressive-overload tracker. Workout logs, drafts, and history stay on the device; setup links intentionally share a program and selected settings. The app helps lifters log sets, follow a program template, and see whether they are progressing. Strategic direction lives in `docs/business-product-thesis.md`; the ordered work lives only in `docs/backlog.md`; governing decisions live in ADR 0010, ADR 0011, and the product decision register.
+Taurifer (formerly RepForge; internal storage keys and globals keep the `repforge` codename) is a local-first progressive-overload tracker. Workout logs, drafts, and history stay on the device unless the lifter sends a training update to their trainer; setup links and program handoffs intentionally share a program and selected settings. The app helps lifters log sets, follow a program template, and see whether they are progressing. Strategic direction lives in `docs/business-product-thesis.md`; the ordered work lives only in `docs/backlog.md`; governing decisions live in ADR 0010, ADR 0011, and the product decision register.
 
 ## Language
 
@@ -161,7 +161,7 @@ _Avoid_: Automatic adjustment, transition, new program
 
 **Coach**:
 The human comparison only: hired coaches are a competitor and the internal yardstick for what the first month must do. Never a name for Taurifer, Taurifer AI, or any surface, and never a claim in copy; prescribing training is a regulated profession in Brazil.
-_Avoid_: "Your coach", "AI coach", "virtual trainer", treinador (as a product name), personal
+_Avoid_: "Your coach", "AI coach", "virtual trainer", and treinador or personal as a name for Taurifer or any surface. The human professional who hands a client a program is a **Trainer**.
 
 **Generated program**:
 A program created from onboarding answers; the user can edit it before saving.
@@ -185,13 +185,49 @@ The full-screen close of a finished session, opened by Finish workout. Reads bac
 _Avoid_: Score, rating, streak, badge, points, celebration screen
 
 **Shared program**:
-A program received through a setup link (`#setup=` fragment): externally authored — by a coach, creator, or friend — carried self-contained in the URL, confirmed at the first-run gate, and first-class once started: it runs on the same execution and progression engine as any other program.
+A program received through a setup link (`#setup=` fragment) or a program handoff (`#r=` relay link): externally authored — by a trainer, creator, or friend — confirmed at the first-run gate (or, for a program update, accepted by a client who already has a program), and first-class once started: it runs on the same execution and progression engine as any other program.
 _Avoid_: Imported program (that is the file-review path), template
 
 **Publisher attribution**:
 _Status: approved, unimplemented — an approved Phase 1 extension to shared programs (ADR 0010; P0 before creator pilots). Implementation must respect ADR 0007's immutable existing payload contracts: the semantic `taurifer-shared-setup` version-1 document and both released envelopes are locked, so it needs an explicit compatible versioning path, not mutation of a locked schema._
 The optional text-only provenance a shared program will carry — publisher display name, handle, and short program description — to be rendered at the handoff gate and, subordinately, at block end. Deliberately attribution, not "branding": it says who authored the program, never restyles the app, and never steers a recommendation.
 _Avoid_: Creator branding, white-label, sponsor
+
+**Trainer**:
+The in-person professional who writes a client's program, hands it over, reads the training the client chooses to send, and sends back program updates (ADR 0026). The trainer is the professional and Taurifer is their tool: copy never says Taurifer supervises, prescribes or coaches. A trainer works on the trainer site, never inside a client's app. App copy names the trainer by their display name wherever it can ("Send Rafael your sessions").
+_PT (user-facing)_: the trainer's name; when a generic word is unavoidable, personal (owner, 2026-11-26). The landing FAQ's treinador is aligned in slice 2.
+_Avoid_: Coach (the human comparison, above), instructor, "your trainer" as a description of Taurifer
+
+**Client**:
+A lifter who receives programs from a trainer. In the app the client is simply the lifter; the word appears on the trainer site.
+_PT (user-facing)_: aluno / aluna.
+_Avoid_: Athlete, customer, patient, user (on the trainer site)
+
+**Trainer site**:
+The trainer's separate static site at `studio.taurifer.com`: the client list, programs, handoffs and received training updates, all stored on the trainer's device, with backup export and import. No account and no sync. It reuses the program editor, exercise catalogue, compiler and payload codecs, and has no workout logging, Progress or History.
+_Avoid_: Coach dashboard, portal, trainer app, Taurifer Pro (Pro names the app's paid tier)
+
+**Relay link**:
+A link of the form `<origin>/#r=<record id>.<key>` to one payload in the seven-day encrypted relay. The key exists only in the fragment; anyone holding the link can open that payload until it expires. A QR code encodes the same string.
+_Avoid_: Setup link (the self-contained `#setup=` fragment), cloud link, upload, share link (unqualified)
+
+**Program handoff**:
+A program a trainer sends to one client through a relay link: the program, its settings, starting loads, an optional message and the trainer's attribution, and nothing about any other client. To a new client it is a shared program confirmed at the first-run gate; to a client who already has a program it is a program update.
+_Avoid_: Assignment, import (the file-review path), push
+
+**Program update**:
+A program handoff to a client who already has a program or history. The client sees what changed and the trainer's message and chooses to use it or keep the current program; history and the archive are kept either way. Distinct from an adjustment, which the lifter approves from a weekly review, and from an AI proposal.
+_PT (user-facing)_: atualização do treino.
+_Avoid_: Sync, overwrite, new program, adjustment
+
+**Training update**:
+What a client sends a trainer, only by tapping Send: the sessions logged under the current program since the last update sent (exercises, loads, reps, effort and notes, at most 120 per send, oldest first) and the current program. Never earlier history, body weight, settings, profile or device preferences.
+_PT (user-facing)_: action copy names the sessions ("Enviar suas sessões ao Rafael"); "atualização" belongs to the program update.
+_Avoid_: Report, check-in (the coach register), sync, backup, export, summary
+
+**Trainer attribution**:
+The text a program handoff carries about its author: a display name (at most 80 characters) and optional professional registration text (at most 80), such as a CREF number. The first implementation of publisher attribution. Shown at the gate and with the program; it never restyles the app, never steers a recommendation, and Taurifer does not verify it.
+_Avoid_: Verified trainer, badge, branding
 
 **Taurifer Free**:
 The permanent free floor of the launched product: a capable baseline program generator plus complete current-program execution — creation/import/receipt, logging, progression guidance, rest timers, substitutions, current-program history, session summaries, and the block review — with free manual export. Bound by the no-clawback rule from the commercial-launch boundary onward.
