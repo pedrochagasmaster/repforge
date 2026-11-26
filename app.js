@@ -14038,7 +14038,9 @@ function renderShareCard(st,template,edits=shareEditsFor(st,template)){
 /** The preview's size: what the sheet's stage leaves, in the format's shape. */
 function shareSlideBox(st){
   const stage=$("#shareCardSheet .sharesheet__stage"),rail=$("#shareRail");
-  const room=Math.max(120,(stage?.clientHeight||420)-88),width=(rail?.clientWidth||360)-72;
+  // The name and dots under the row keep their measured height; the rail's own 16px padding is the rest.
+  const below=($("#shareTemplateName")?.offsetHeight||22)+($("#shareDots")?.offsetHeight||16)+40;
+  const room=Math.max(120,(stage?.clientHeight||420)-below),width=(rail?.clientWidth||360)-72;
   const h=st.size==="story"?Math.min(room,width*16/9):Math.min(room,width);
   return st.size==="story"?[Math.round(h*9/16),Math.round(h)]:[Math.round(h),Math.round(h)]}
 /** Draws every card into the row, then makes the file for the one in view. */
