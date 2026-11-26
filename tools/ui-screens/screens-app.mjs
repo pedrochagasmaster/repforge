@@ -1356,6 +1356,12 @@ async function relayShareTo(page, step) {
     await page.waitForFunction((fallback) => fallback
       ? !document.querySelector("#shareSetupWarn").classList.contains("hidden")
       : document.querySelector("#shareSetupSheet").dataset.relay === "ready", step === "fallback", { timeout: 20000 });
+    // The local preview's port changes between runs: draw the link, and the code that encodes it, at the catalog origin.
+    await stabilizeShareLink(page);
+    await page.evaluate(() => {
+      const qr = document.querySelector("#shareSetupQr");
+      if (qr && qr.innerHTML) qr.innerHTML = window.RepForgeQrCode.toSvg(document.querySelector("#shareSetupLink").textContent);
+    });
   }
   await sleep(page, 300);
 }

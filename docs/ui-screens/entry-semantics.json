@@ -206756,15 +206756,15 @@
         },
         {
           "tag": "summary",
-          "name": "Can my coach send me a program?"
+          "name": "Can my trainer send me a program?"
         },
         {
           "tag": "span",
-          "text": "Can my coach send me a program?"
+          "text": "Can my trainer send me a program?"
         },
         {
           "tag": "p",
-          "text": "Yes. They build your program in Taurifer and tap . You open the link, review your program and start on your own phone."
+          "text": "Yes. They build your program in Taurifer and tap . You open the link or scan the code, review your program and start on your own device."
         },
         {
           "tag": "b",
@@ -206804,7 +206804,7 @@
         },
         {
           "tag": "p",
-          "text": "The link isn't encrypted: anyone who gets it can read your program."
+          "text": "The link is encrypted on their device and works for 7 days. Anyone who gets it in that time can open your program."
         },
         {
           "tag": "summary",
@@ -207339,15 +207339,15 @@
         },
         {
           "tag": "summary",
-          "name": "Can my coach send me a program?"
+          "name": "Can my trainer send me a program?"
         },
         {
           "tag": "span",
-          "text": "Can my coach send me a program?"
+          "text": "Can my trainer send me a program?"
         },
         {
           "tag": "p",
-          "text": "Yes. They build your program in Taurifer and tap . You open the link, review your program and start on your own phone."
+          "text": "Yes. They build your program in Taurifer and tap . You open the link or scan the code, review your program and start on your own device."
         },
         {
           "tag": "b",
@@ -207387,7 +207387,7 @@
         },
         {
           "tag": "p",
-          "text": "The link isn't encrypted: anyone who gets it can read your program."
+          "text": "The link is encrypted on their device and works for 7 days. Anyone who gets it in that time can open your program."
         },
         {
           "tag": "summary",
@@ -207922,15 +207922,15 @@
         },
         {
           "tag": "summary",
-          "name": "Meu treinador pode me mandar um treino?"
+          "name": "Meu personal pode me mandar um treino?"
         },
         {
           "tag": "span",
-          "text": "Meu treinador pode me mandar um treino?"
+          "text": "Meu personal pode me mandar um treino?"
         },
         {
           "tag": "p",
-          "text": "Pode. O treinador monta seu treino no Taurifer e toca em . Você abre o link, confere seu treino e começa no seu celular."
+          "text": "Pode. O personal monta seu treino no Taurifer e toca em . Você abre o link ou lê o código, confere seu treino e começa no seu dispositivo."
         },
         {
           "tag": "b",
@@ -207970,7 +207970,7 @@
         },
         {
           "tag": "p",
-          "text": "O link não é criptografado: quem o receber pode ler seu treino."
+          "text": "O link é criptografado no dispositivo do personal e funciona por 7 dias. Quem o receber nesse prazo pode abrir seu treino."
         },
         {
           "tag": "summary",
