@@ -1418,6 +1418,9 @@ test("affected selection is narrow when proven and fail-safe when it is not", ()
   assert.equal(app.entries.length, allCommands - SUITES.service.length, "application changes select every retained application proof");
   const service = selectAffected(["services/install-transfer/src/index.js"]);
   assert.deepEqual(lanes(service), ["service"]);
+  for (const file of ["services/trainer-relay/src/index.js", "trainer-relay.js", "trainer-relay-contract.js"]) {
+    assert.deepEqual(lanes(selectAffected([file])), ["service"], `${file} selects the relay service gate`);
+  }
   assert.equal(selectAffected(["mystery.bin"]).mode, "all");
 });
 
