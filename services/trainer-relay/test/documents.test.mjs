@@ -59,6 +59,11 @@ describe("program handoff", () => {
     assert.equal(code({ ...good, extra: true }), "invalid-schema");
     assert.equal(code({ ...good, trainer: { displayName: "Ana", email: "x@example.com" } }), "invalid-schema");
     assert.equal(code({ ...good, trainer: { displayName: " " } }), "invalid-schema");
+    // A plain share from the app may carry no trainer at all; a present trainer still needs a name.
+    const { trainer: _omitted, ...anonymous } = good;
+    assert.equal(Docs.validateProgramHandoff(anonymous, fixture.options).ok, true);
+    assert.equal(code({ ...good, trainer: {} }), "invalid-schema");
+    assert.equal(code({ ...good, trainer: null }), "invalid-schema");
     assert.equal(code({ ...good, message: "x".repeat(Docs.LIMITS.messageChars + 1) }), "invalid-schema");
     assert.equal(code({ ...good, startingLoads: [{ slotId: "no-such-slot", openingKg: 10 }] }), "invalid-schema");
     assert.equal(code({ ...good, startingLoads: [{ slotId: firstSlot, openingKg: 10 }, { slotId: firstSlot, openingKg: 12 }] }), "invalid-schema");

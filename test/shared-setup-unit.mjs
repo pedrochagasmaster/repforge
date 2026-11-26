@@ -641,6 +641,20 @@ console.log("fragment and cookie handoff helpers retain source bytes");
   const clears = writes.slice(writesBeforeClear);
   assert.ok(clears.some(expiresLegacy) && clears.some((entry) => entry.startsWith("repforge_setup_v1=;") && entry.includes("Path=/repforge/;") && entry.includes("Max-Age=0")),
     "clear expires both the scope and the legacy document path");
+
+  // A relay program handoff carries only its locator (ADR 0007 amendment 2026-11-26); nothing else of that shape.
+  const locator = "r=" + "A".repeat(22) + "." + "B".repeat(43);
+  assert.equal(Setup.isRelayHandoffValue(locator), true);
+  assert.equal(Setup.writeHandoffCookie(locator, adapters), true);
+  assert.equal(Setup.readHandoffCookie(adapters), locator, "the cookie keeps the exact locator");
+  assert.match(lastWrite, /Path=\/repforge\/;.*Max-Age=604800.*SameSite=Lax.*; Secure$/);
+  for (const bad of ["r=" + "A".repeat(21) + "." + "B".repeat(43), "r=" + "A".repeat(22) + "." + "B".repeat(42),
+    "r=" + "A".repeat(22) + "+" + "B".repeat(43), "x=" + "A".repeat(22) + "." + "B".repeat(43), locator + ";path=/"]) {
+    assert.equal(Setup.isRelayHandoffValue(bad), false, "only an exact locator is a relay handoff value");
+    assert.equal(Setup.writeHandoffCookie(bad, adapters), false);
+  }
+  assert.equal(Setup.clearHandoffCookie(adapters), true);
+  assert.equal(Setup.readHandoffCookie(adapters), null);
 }
 
 // R13: a generated program is far larger than a link can carry. An unedited one

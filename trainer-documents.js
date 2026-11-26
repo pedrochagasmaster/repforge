@@ -46,7 +46,8 @@
   });
 
   const HANDOFF_KEYS = ["kind", "version", "program", "settings", "language", "startingLoads", "message", "trainer"];
-  const HANDOFF_REQUIRED = ["kind", "version", "program", "settings", "language", "startingLoads", "trainer"];
+  // `trainer` is optional (owner, 2026-11-26): a plain share from the app may carry no name.
+  const HANDOFF_REQUIRED = ["kind", "version", "program", "settings", "language", "startingLoads"];
   const TRAINER_KEYS = ["displayName", "registration"];
   const STARTING_LOAD_KEYS = ["slotId", "openingKg"];
   const UPDATE_KEYS = ["kind", "version", "program", "sessions"];
@@ -147,7 +148,7 @@
     if (refused) return refused;
     const issues = [];
     keysIssues(value, HANDOFF_KEYS, HANDOFF_REQUIRED, "$", issues);
-    if (keysIssues(value.trainer, TRAINER_KEYS, ["displayName"], "trainer", issues)) {
+    if (own(value, "trainer") && keysIssues(value.trainer, TRAINER_KEYS, ["displayName"], "trainer", issues)) {
       if (!text(value.trainer.displayName, { min: 1, max: LIMITS.displayNameChars }) || !value.trainer.displayName.trim()) issues.push("trainer.displayName: invalid");
       if (own(value.trainer, "registration") && !text(value.trainer.registration, { min: 1, max: LIMITS.registrationChars })) issues.push("trainer.registration: invalid");
     }
@@ -184,7 +185,7 @@
       settings: input.settings,
       language: input.language,
       startingLoads: input.startingLoads ?? [],
-      trainer: input.trainer,
+      ...(input.trainer == null ? {} : { trainer: input.trainer }),
       ...(input.message == null || input.message === "" ? {} : { message: input.message }),
     };
     const checked = validateProgramHandoff(document, setupOptions);
