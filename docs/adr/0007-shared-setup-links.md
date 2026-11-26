@@ -1,6 +1,9 @@
 # Shared setup links carry a validated first-run proposal
 
-Taurifer is local-first and has no hosted program store. A coach shares a
+Taurifer is local-first and has no hosted program store for setup links; the
+seven-day encrypted relay of [ADR 0026](0026-trainer-loop-relay-and-trainer-site.md)
+is a separate exception for trainer handoffs and holds only ciphertext (see the
+2026-11-26 amendment below). A coach shares a
 complete program in a URL fragment; the recipient's browser decodes it on the
 device. The link is a bearer capability, not proof of identity and not an
 upload. The first-run gate is the consent boundary: no proposal field is
@@ -123,7 +126,9 @@ does not change durable language, settings, or program data. The recipient
 must press **Start this program** before the proposal enters the common
 editable preview. Activation remains explicit in that preview. A device with
 an onboarded program, workout logs, or archived program history is ineligible;
-opening a link there neither replaces its program nor mutates state.
+opening a link there neither replaces its program nor mutates state. This rule
+still holds for every `#setup=` link; a relay program handoff from a trainer
+follows the 2026-11-26 amendment below instead.
 
 An invalid or unsupported proposal is not partially staged. No logs, prior
 blocks, drafts, notification permission, nested notification switches,
@@ -190,5 +195,48 @@ URL, and do not claim authenticity.
 The one-hour encrypted install transfer ([ADR 0013](0013-temporary-install-transfer.md))
 is a separate approved exception for moving an existing installation. It has
 its own token and cookie and never carries, consumes, or replaces a setup
-proposal. Ordinary workout data remains local except for that explicit
-transfer and opted-in telemetry.
+proposal. Ordinary workout data remains local except for that explicit transfer, a
+training update the lifter chooses to send to their trainer through the ADR 0026
+relay, and opted-in telemetry.
+
+### Amendment (2026-11-26): relay program handoffs (ADR 0026)
+
+[ADR 0026](0026-trainer-loop-relay-and-trainer-site.md) adds a second way to
+hand over a program, for in-person trainers. A program handoff (kind
+`taurifer-program-handoff`, version 1, owned by `trainer-documents.js`) is
+encrypted on the trainer's device with a fresh AES-256-GCM key and stored as
+ciphertext for at most seven days in an EU relay (`services/trainer-relay/`). Its
+link is `https://<origin>/#r=<record id>.<key>`; the key exists only in the
+fragment and is never sent to the relay. The setup-link contract above is
+unchanged: the `taurifer-shared-setup` document, the `v4.` and `v5.` wires and the
+3,072-character limit stay locked, and a handoff never travels as a setup link.
+
+For relay handoffs only, this changes three rules of this record:
+
+- **Hosted store.** The relay is a hosted store, but only for ciphertext it
+  cannot read. It stores no name, account, device identifier or link between
+  records, and it deletes each record at its expiry. Anyone holding the link can
+  read that one payload until then, as with a setup link.
+- **First-run-only rule.** A new client still confirms at the first-run gate,
+  now with the trainer's name shown, and nothing is persisted before **Start
+  this program**. A client who already has an onboarded program, workout logs or
+  archived program history sees what changed and the trainer's message, and
+  chooses to use the update or keep the current program. History and the archive
+  are kept either way, through `program-transition.js` and the existing
+  transition adapter. Plain `#setup=` links keep the never-apply rule until the
+  owner decides otherwise.
+- **Handoff cookie.** For a relay link, `repforge_setup_v1` carries only the
+  locator `r=<record id>.<key>` instead of an encoded proposal. Its name, path,
+  seven-day age and other attributes are unchanged, so the static host receives
+  the locator with the app's requests, as it already receives a setup proposal.
+  The locator decrypts that record until it expires, so it is as sensitive as the
+  link and is never logged.
+
+Everything else here applies to a handoff as written: the decrypted document
+goes through the same strict validation (`trainer-documents.js` validates the
+program, settings and language through `shared-setup.js`) before any state
+changes; unknown kinds, newer versions and unknown fields are refused whole;
+received exercise ids must be current catalog UUIDs or custom definitions in
+the same payload; and the Share surface stays task-only. Trainer attribution
+(a display name and optional registration text) is text: it never restyles the
+app and never steers a recommendation.
