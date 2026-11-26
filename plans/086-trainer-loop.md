@@ -1,6 +1,6 @@
 # Plan 086: Trainer loop
 
-Status: **approved, in implementation**. The owner accepted [ADR 0026](../docs/adr/0026-trainer-loop-relay-and-trainer-site.md) on 2026-11-26. Slice 1 is #837 and the codec and validation parts of slices 2–4 are #838, both draft with every section 4 proof passing except a real phone camera reading the QR code. Slice 0 (prose amendments, with the Privacy text in section 7) is in owner review; nothing a user would see is built. Written against `origin/main` 6f2e18a; re-check every anchor before executing. Scheduling lives in the [backlog](../docs/backlog.md).
+Status: **approved, in implementation**. The owner accepted [ADR 0026](../docs/adr/0026-trainer-loop-relay-and-trainer-site.md) on 2026-11-26. Slice 1 (#837) and the codec and validation parts of slices 2–4 (#838) merged on 2026-11-26, with every section 4 proof passing except a real phone camera reading the QR code. Slice 0 (prose amendments, with the Privacy text in section 7) and the app-side design candidates for slices 2–4 (`docs/design/trainer-loop-app/`) are in owner review; nothing a user would see is built. Written against `origin/main` 6f2e18a; re-check every anchor before executing. Scheduling lives in the [backlog](../docs/backlog.md).
 
 ## 1. Outcome and reference
 
