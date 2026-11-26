@@ -16,6 +16,7 @@ import { catalogState, directionDState, emptyEntryState, lifterExerciseNote, loc
 import { CAPTURE_NOW, dismissChrome, LOG_DRAFT, replayGuide, seed, sleep } from "./session.mjs";
 import { definitionSlot, installGeneratedProgram, isWeightRepsSlot, metricLogRow } from "../../test/fixtures/history-metric-rows.mjs";
 import { finishEarly } from "../../test/fixtures/focus-workout.mjs";
+import { fakeRelay } from "../../test/fixtures/relay-handoff.mjs";
 import { savedAfterLeadSessions, savedWarmupSession } from "../../test/fixtures/prelude-sessions.mjs";
 import { openShelfField } from "../../test/browser.mjs";
 import { DIRECTION_D_CANONICAL_ID_BY_LEGACY_ID } from "./direction-d-canonical-fixture.generated.mjs";
@@ -1327,6 +1328,36 @@ async function openShare(page) {
   await openProgram(page);
   await page.click("#shareProgramSetup");
   await page.waitForSelector("#shareSetupSheet.is-open", { timeout: 20000 });
+}
+
+/** Plan 086 slice 2: Share through a fake relay with a fixed record id, expiry and key, so the QR code is stable. */
+async function relayShareTo(page, step) {
+  const relay = fakeRelay({ fixedId: "BwcHBwcHBwcHBwcHBwcHBw", fixedExpiresAt: "2026-09-07T12:00:00.000Z" });
+  await page.route("https://relay.taurifer.com/**", relay.handler);
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, "share", { configurable: true, value: async () => {} });
+    window.__repforgeLocalRelay = true;
+    crypto.getRandomValues = (array) => { for (let i = 0; i < array.length; i++) array[i] = (i * 37 + 11) & 255; return array; };
+  });
+  if (step === "fallback") relay.mode = "down";
+  await openShare(page);
+  await page.waitForSelector('#shareSetupSheet[data-relay="start"]', { timeout: 20000 });
+  if (step === "who") {
+    await page.click("#shareSetupWho");
+    const portuguese = await page.evaluate(() => document.documentElement.lang === "pt-BR");
+    await page.fill("#shareSetupName", "Rafael Lima");
+    await page.fill("#shareSetupMessage", portuguese
+      ? "Começa leve na semana 1. Me conta como ficou o agachamento depois da segunda sessão."
+      : "Start light in week 1. Tell me how the squat feels after the second session.");
+    await page.evaluate(() => { document.activeElement?.blur(); document.querySelector("#shareSetupSheet .sheet__body").scrollTop = 0; });
+  }
+  if (step === "ready" || step === "fallback") {
+    await page.click("#shareSetupCreate");
+    await page.waitForFunction((fallback) => fallback
+      ? !document.querySelector("#shareSetupWarn").classList.contains("hidden")
+      : document.querySelector("#shareSetupSheet").dataset.relay === "ready", step === "fallback", { timeout: 20000 });
+  }
+  await sleep(page, 300);
 }
 
 async function progressSegment(page, segment) {
@@ -3725,6 +3756,10 @@ export const APP_SCENARIOS = {
     await stabilizeShareLink(page);
     await sleep(page, 400);
   },
+  "program/share-relay": (page) => relayShareTo(page, "start"),
+  "program/share-relay-who": (page) => relayShareTo(page, "who"),
+  "program/share-relay-ready": (page) => relayShareTo(page, "ready"),
+  "program/share-relay-fallback": (page) => relayShareTo(page, "fallback"),
   "program/share-too-large": async (page) => {
     // An edited program generated before the last generator bump (073.4): its
     // recipe no longer regenerates, so neither the recipe nor recipe-plus-edits
