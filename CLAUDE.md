@@ -37,6 +37,7 @@ Use the module that owns the behavior. These are the principal production owners
 | `shared-setup.js` | Setup-link codec and validation; this module and `AGENTS.md` own the current format, compatibility, and privacy contract. |
 | `install-transfer.js`, `install-transfer-contract.js` | Browser transfer client and its shared request/envelope contract. `services/install-transfer/` owns the service. |
 | `trainer-relay.js`, `trainer-relay-contract.js` | Trainer-relay browser client (encrypts on the device) and its shared request/record/link contract (ADR 0026, Plan 086). `services/trainer-relay/` owns the service. No screen uses them yet. |
+| `trainer-documents.js` | The trainer loop's two payloads (program handoff, training update): pure encode, decode and strict validation, sent and read through the relay client. No screen uses it yet. |
 | `install-policy.js`, `guide-registry.js` | Install-prompt eligibility and versioned contextual-guide definitions/state. |
 | `motion-layer.js` | Motion vocabulary, reduced-motion decision, gesture controller, and fallback. `app.js` mounts and disposes the controller through this layer. |
 | `telemetry.js`, `posthog-init.js` | Closed event/privacy boundary, consent and identity; `posthog-init.js` adapts the optional SDK using generated deployment configuration. |

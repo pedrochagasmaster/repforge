@@ -230,7 +230,7 @@ const EXPLICIT_INPUT_RULES = [
 
 const DOMAIN_RULES = [
   { match: /^services\/install-transfer\//, lanes: ["service"], why: "install-transfer service gate" },
-  { match: /^(services\/trainer-relay\/|trainer-relay(?:-contract)?\.js$)/, lanes: ["service"], why: "trainer relay service, contract and client" },
+  { match: /^(services\/trainer-relay\/|trainer-(?:relay|relay-contract|documents)\.js$)/, lanes: ["service"], why: "trainer relay service, contract, client and documents" },
   { match: /^(telemetry\.js|posthog-(?:adapter|init)\.js|posthog-config\.js|scripts\/generate-posthog-config\.mjs)$/, lanes: ["fast", "privacy"], why: "telemetry boundary" },
   { match: /^durable-state\.js$/, lanes: ["fast", "state", "workout"], why: "durable state and persistence engine" },
   { match: /^workout-draft\.js$/, lanes: ["fast", "state", "workout"], why: "durable workout draft" },

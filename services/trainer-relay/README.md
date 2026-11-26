@@ -104,3 +104,35 @@ npx wrangler deploy --env staging                                          # the
 
 The script prints counts, lengths and outcomes, never a key, link, record id
 or payload.
+
+## The two documents
+
+[`trainer-documents.js`](../../trainer-documents.js) owns the two payloads of
+ADR 0026 (Plan 086 slices 2 and 4, no UI). Both are new versioned kinds, so the
+locked shared-setup document and its `v4.`/`v5.` envelopes are unchanged. An
+unknown kind, a newer version or an unknown field is refused whole.
+
+| | Program handoff | Training update |
+| --- | --- | --- |
+| Kind, version | `taurifer-program-handoff`, 1 | `taurifer-training-update`, 1 |
+| Carries | the program (name, canonical definition, referenced custom exercises), the eight allowlisted settings and language, starting loads (`{ slotId, openingKg }` per training slot), an optional message (≤ 1,000 chars), trainer attribution (`displayName`, optional `registration`) | the current program, and the sessions completed under it (`row.blockId === programMeta.blockId`) after the last update sent: date, day, completion time, session notes, and per set the exercise, name, load, reps, RIR, effort source, partial reps, warm-up or ramp flag, exercise note and metric values |
+| Never carries | anything about another client | earlier programs' sessions, sessions already sent, suggested warm-ups, body weight (rows' `bodyweight` and `loadingContext`), settings, profile, device preferences, calibration and starting-load records |
+| Validation | program, settings and language through `shared-setup.js`'s own validator; starting loads must name training slots | the program as for the handoff; each set's exercise must be a catalog movement or a custom exercise the update carries |
+| Bound | 1 MiB of JSON | 1 MiB of JSON and at most 120 sessions |
+
+The update is built field by field from saved log rows. It never copies a
+row, so a field missing from its allowlist cannot reach the document.
+`test/documents.test.mjs` proves this against rows carrying sentinel values in
+every excluded place, including 200 rows with random extra fields.
+
+Measured on the four-day, seven-week program with realistic logs (one session
+per training day, 37 sets a week, Portuguese session and exercise notes, body
+weight on every session):
+
+| Update | Sessions | Sets | JSON | gzip |
+| --- | --- | --- | --- | --- |
+| Program alone | — | — | 119,610 B | 7,835 B |
+| 1 week | 4 | 37 | 135,535 B | 9,398 B |
+| 3 weeks | 12 | 111 | 167,721 B | 10,904 B |
+| 7 weeks (the whole block) | 28 | 259 | 231,744 B | 13,512 B |
+| 30 weeks (the session cap) | 120 | 1,110 | 601,125 B | 28,188 B |
