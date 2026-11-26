@@ -7,6 +7,7 @@
     "dev": "wrangler dev",
     "deploy:dry": "wrangler deploy --dry-run",
     "deploy:dry:staging": "wrangler deploy --dry-run --env staging",
+    "deploy:dry:production": "wrangler deploy --dry-run --env production",
     "proofs:staging": "node scripts/staging-proofs.mjs"
   },
   "devDependencies": {
