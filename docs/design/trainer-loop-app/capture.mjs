@@ -74,6 +74,15 @@ function render(spec) {
     card.removeAttribute("id"); card.setAttribute("aria-label", "");
     card.innerHTML = spec.html;
     week.before(card);
+    card.scrollIntoView({ block: "start" });
+    window.scrollBy(0, -72);
+    return;
+  }
+  if (spec.kind === "row") {
+    const anchor = document.querySelector(spec.before);
+    anchor.insertAdjacentHTML("beforebegin", spec.html);
+    const row = anchor.previousElementSibling;
+    row.scrollIntoView({ block: "center" });
     return;
   }
   // Sheets reuse the app's Share setup sheet, so band, scroller and action bar are the production component.

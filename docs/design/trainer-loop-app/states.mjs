@@ -15,6 +15,9 @@ const linkLine = (origin) => `<p class="share-setup__link" tabindex="0">${esc(or
 const list = (items, cls, ic) => `<ul class="tl-list ${cls}">${items.map((s) => `<li>${icon(ic)}<span>${esc(s)}</span></li>`).join("")}</ul>`;
 const quote = (label, text) => `<div><p class="tl-quote-label">${esc(label)}</p><p class="tl-quote">${esc(text)}</p></div>`;
 
+// The optional attribution sits behind one collapsed row, so a plain share stays one tap on Create link.
+const whoRow = (t, open) => `<button type="button" class="listrow tl-who-row" aria-expanded="${open}"><div class="listrow__main"><div class="listrow__title">${esc(t("relay.share.who_row"))}</div><div class="listrow__sub">${esc(t("relay.share.who_row_sub"))}</div></div><span class="chevron" aria-hidden="true"></span></button>`;
+
 const firstRunCta = (title, cap = "") => `<button type="button" class="firstrun__cta"><span class="firstrun-row__text"><span class="firstrun-row__title">${esc(title)}</span>${cap ? `<span class="firstrun-row__cap">${esc(cap)}</span>` : ""}</span><span class="firstrun-row__go" aria-hidden="true"></span></button>`;
 
 function gateError(t, kind, primary) {
@@ -35,9 +38,14 @@ function updateError(t, d, kind, action) {
 
 export const STATES = [
   // ---- Slice 2: sharing through the relay -------------------------------------------------------------------
-  { id: "share-who", slice: 2, title: "Share · who it's from (optional)", build: (t, d) => ({
+  { id: "share-start", slice: 2, title: "Share · one tap, attribution collapsed", build: (t) => ({
     kind: "sheet", base: "program/share-ready", title: t("program.share_setup_title"), sub: null,
-    body: `<p class="share-setup__scope">${esc(t("relay.share.scope"))}</p>${caption(t("relay.share.who_lede"))}
+    body: `<p class="share-setup__scope">${esc(t("relay.share.scope"))}</p>${whoRow(t, false)}`,
+    foot: cta(t("relay.share.create")), stack: true,
+  }) },
+  { id: "share-who", slice: 2, title: "Share · who it's from, row opened", build: (t, d) => ({
+    kind: "sheet", base: "program/share-ready", title: t("program.share_setup_title"), sub: null,
+    body: `<p class="share-setup__scope">${esc(t("relay.share.scope"))}</p>${whoRow(t, true)}${caption(t("relay.share.who_lede"))}
       ${field(t("relay.share.name_label"), d("trainer"))}
       ${field(t("relay.share.registration_label"), "", { placeholder: t("relay.share.registration_placeholder") })}
       ${field(t("relay.share.message_label"), d("message"), { area: true })}`,
@@ -107,12 +115,16 @@ export const STATES = [
   { id: "update-newer", slice: 3, title: "Update · link from a newer version", build: (t, d) => updateError(t, d, "newer", t("relay.open.reload")) },
 
   // ---- Slice 4: send my training -------------------------------------------------------------------------------
-  { id: "send-entry", slice: 4, title: "Send · the Today card", build: (t, d) => {
+  { id: "send-entry", slice: 4, title: "Send · the Today card (after Not now, back at most once a week)", build: (t, d) => {
     const first = d("trainer").split(" ")[0];
     return { kind: "card", base: "today/ready",
-      html: `<p class="section-label">${esc(t("relay.send.card_label", { name: d("trainer") }))}</p><p>${esc(t("relay.send.card_body.other", { n: 10, name: first }))}</p>
+      html: `<p class="section-label">${esc(t("relay.send.card_label", { name: d("trainer") }))}</p><p>${esc(t("relay.send.card_body.other", { n: 10 }))}</p>
         <div class="week-card__actions"><button type="button" class="text-link">${esc(t("relay.send.card_action", { name: first }))}</button><button type="button" class="text-link">${esc(t("relay.send.card_dismiss"))}</button></div>` };
   } },
+  { id: "send-program-row", slice: 4, title: "Send · the permanent row on Program", build: (t, d) => ({
+    kind: "row", base: "program/overview", before: "#shareProgramSetup",
+    html: `<button type="button" class="listrow" data-action-role="navigation"><div class="listrow__main"><div class="listrow__title">${esc(t("relay.send.row_title", { name: d("trainer").split(" ")[0] }))}</div><div class="listrow__sub">${esc(t("relay.send.card_body.other", { n: 10 }))}</div></div><span class="chevron" aria-hidden="true"></span></button>`,
+  }) },
   { id: "send-sheet", slice: 4, title: "Send · what goes and what stays", build: (t, d, x) => {
     const first = d("trainer").split(" ")[0];
     return { kind: "sheet", base: "today/ready", title: t("relay.send.card_action", { name: first }), sub: t("relay.send.sub", { program: x.program, date: d("since") }),

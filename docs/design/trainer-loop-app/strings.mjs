@@ -2,10 +2,14 @@
 // Keys are working names; the slice that ships a string gives it its final i18n key.
 // `existing` rows are current i18n keys the mocks reuse unchanged; `demo` rows are mock data, not copy.
 // Vocabulary follows CONTEXT.md (slice 0, #840): program = treino, session = sessão, the trainer is named
-// by their display name, and Taurifer is never called a coach.
+// by their display name ("personal" when a generic word is unavoidable), copy says device, never phone,
+// and Taurifer is never called a coach. Owner approved these strings on 2026-11-26 with the Today card change;
+// the rows marked in strings.md as added in revision 2 still need approval.
 
 export const NEW = {
   // Slice 2 · sharing a program through the relay (Program › Share setup link)
+  "relay.share.who_row": ["Add your name and a message", "Adicionar seu nome e um recado"],
+  "relay.share.who_row_sub": ["Optional · shown when they open the program", "Opcional · aparece quando a pessoa abrir o treino"],
   "relay.share.who_lede": ["Add who it's from. Everything here is optional.", "Diga de quem é. Tudo aqui é opcional."],
   "relay.share.name_label": ["Your name", "Seu nome"],
   "relay.share.registration_label": ["Registration (optional)", "Registro profissional (opcional)"],
@@ -15,17 +19,17 @@ export const NEW = {
   "relay.share.create": ["Create link", "Criar link"],
   "relay.share.preparing": ["Encrypting the program and creating the link…", "Criptografando o treino e criando o link…"],
   "relay.share.scope": ["Program, settings, starting loads and app language · no workout history", "Treino, ajustes, cargas iniciais e idioma do app · sem histórico de sessões"],
-  "relay.share.qr_hint": ["They can point their phone camera at this code.", "A pessoa pode apontar a câmera do celular para este código."],
+  "relay.share.qr_hint": ["They can scan this code with their device's camera.", "A pessoa pode ler este código com a câmera do dispositivo."],
   "relay.share.qr_aria": ["QR code for the program link", "QR code do link do treino"],
-  "relay.share.expiry": ["Works for 7 days, until {date}. It's encrypted on this phone, and anyone with the link can open the program.", "Funciona por 7 dias, até {date}. Ele é criptografado neste celular, e quem tiver o link pode abrir o treino."],
+  "relay.share.expiry": ["Works for 7 days, until {date}. It's encrypted on this device, and anyone with the link can open the program.", "Funciona por 7 dias, até {date}. Ele é criptografado neste dispositivo, e quem tiver o link pode abrir o treino."],
   "relay.share.unavailable_fits": ["Couldn't create an encrypted link right now. This setup link carries the whole program instead. It isn't encrypted, and it doesn't carry your name, message or starting loads.", "Não foi possível criar um link criptografado agora. Este link de configuração leva o treino inteiro. Ele não é criptografado e não leva seu nome, recado nem cargas iniciais."],
   "relay.share.unavailable_file": ["Couldn't create an encrypted link right now, and this program is too large for a setup link. Share it as a program file; the other person opens Import and chooses the file.", "Não foi possível criar um link criptografado agora, e este treino é grande demais para um link de configuração. Compartilhe como arquivo de treino; a outra pessoa abre Importar e escolhe o arquivo."],
   "relay.retry": ["Try again", "Tentar de novo"],
 
   // Slice 2 · the first-run gate, opened from a relay link
   "relay.gate.from": ["From {name}", "De {name}"],
-  "relay.gate.body": ["This link carries a program, its settings and the starting loads {name} set. No history comes with it. Nothing changes on this phone until you start the program.", "Este link leva um treino, os ajustes e as cargas iniciais definidas por {name}. Nenhum histórico vem junto. Nada muda neste celular até você começar o treino."],
-  "relay.gate.body_anon": ["This link carries a program, its settings and starting loads. No history comes with it. Nothing changes on this phone until you start the program.", "Este link leva um treino, os ajustes e as cargas iniciais. Nenhum histórico vem junto. Nada muda neste celular até você começar o treino."],
+  "relay.gate.body": ["This link carries a program, its settings and the starting loads {name} set. No history comes with it. Nothing changes on this device until you start the program.", "Este link leva um treino, os ajustes e as cargas iniciais definidas por {name}. Nenhum histórico vem junto. Nada muda neste dispositivo até você começar o treino."],
+  "relay.gate.body_anon": ["This link carries a program, its settings and starting loads. No history comes with it. Nothing changes on this device until you start the program.", "Este link leva um treino, os ajustes e as cargas iniciais. Nenhum histórico vem junto. Nada muda neste dispositivo até você começar o treino."],
   "relay.message_from": ["Message from {name}", "Recado de {name}"],
   "relay.gate.opening": ["Opening the program…", "Abrindo o treino…"],
   "relay.gate.opening_note": ["This needs a connection once. After that, the program works offline.", "Isso precisa de internet uma vez. Depois, o treino funciona sem conexão."],
@@ -61,14 +65,18 @@ export const NEW = {
 
   // Slice 4 · "send my training"
   "relay.send.card_label": ["For {name}", "Para {name}"],
-  "relay.send.card_body.one": ["1 session {name} hasn't seen.", "1 sessão que {name} ainda não viu."],
-  "relay.send.card_body.other": ["{n} sessions {name} hasn't seen.", "{n} sessões que {name} ainda não viu."],
+  "relay.send.card_body.one": ["1 session since your last send", "1 sessão desde o último envio"],
+  "relay.send.card_body.other": ["{n} sessions since your last send", "{n} sessões desde o último envio"],
+  "relay.send.card_body_first.one": ["1 session since you started this program", "1 sessão desde que você começou este treino"],
+  "relay.send.card_body_first.other": ["{n} sessions since you started this program", "{n} sessões desde que você começou este treino"],
   "relay.send.card_action": ["Send to {name}", "Enviar para {name}"],
   "relay.send.card_dismiss": ["Not now", "Agora não"],
+  "relay.send.row_title": ["Send your sessions to {name}", "Enviar suas sessões para {name}"],
+  "relay.send.row_none": ["No new sessions since your last send", "Nenhuma sessão nova desde o último envio"],
   "relay.send.sub": ["{program} · since {date}", "{program} · desde {date}"],
   "relay.send.sub_first": ["{program} · since you started it", "{program} · desde o início"],
   "relay.send.goes": ["What goes", "O que vai"],
-  "relay.send.stays": ["What stays on this phone", "O que fica neste celular"],
+  "relay.send.stays": ["What stays on this device", "O que fica neste dispositivo"],
   "relay.send.go_sessions": ["{n} sessions since {date}: exercises, loads, reps, effort and notes", "{n} sessões desde {date}: exercícios, cargas, repetições, esforço e notas"],
   "relay.send.go_program": ["Your current program", "Seu treino atual"],
   "relay.send.stay_history": ["Everything from before this program", "Tudo de antes deste treino"],
@@ -82,10 +90,19 @@ export const NEW = {
   "relay.send.too_many": ["That's {n} sessions, and one send carries at most 120.", "São {n} sessões, e cada envio leva no máximo 120."],
   "relay.send.too_many_action": ["Send the first 120", "Enviar as primeiras 120"],
   "relay.send.too_many_rest": ["The other {m} go in your next send.", "As outras {m} vão no próximo envio."],
-  "relay.send.unavailable": ["Couldn't create the link. Nothing left this phone.", "Não foi possível criar o link. Nada saiu deste celular."],
+  "relay.send.unavailable": ["Couldn't create the link. Nothing left this device.", "Não foi possível criar o link. Nada saiu deste dispositivo."],
   "relay.send.unavailable_hint": ["Check your connection and try again.", "Confira sua conexão e tente de novo."],
   "relay.send.nothing": ["No new sessions since you last sent, on {date}.", "Nenhuma sessão nova desde o último envio, em {date}."],
   "relay.send.nothing_hint": ["Finish a session of this program, then send again.", "Termine uma sessão deste treino e envie de novo."],
+};
+
+/** Revision 2 (owner decisions, 2026-11-26). `edited` applies the owner's own wording ("device", the Today card);
+ *  `added` are new strings for the collapsed attribution row, the first-send card and the Program row: they need approval. */
+export const REV2 = {
+  edited: ["relay.share.qr_hint", "relay.share.expiry", "relay.gate.body", "relay.gate.body_anon", "relay.send.card_body.one",
+    "relay.send.card_body.other", "relay.send.stays", "relay.send.unavailable"],
+  added: ["relay.share.who_row", "relay.share.who_row_sub", "relay.send.card_body_first.one", "relay.send.card_body_first.other",
+    "relay.send.row_title", "relay.send.row_none"],
 };
 
 /** Current i18n keys the mocks reuse unchanged (values are read from i18n-*.json at capture time). */

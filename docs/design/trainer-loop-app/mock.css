@@ -46,6 +46,11 @@
 .firstrun__shared-card .tl-quote{margin-top:var(--firstrun-gap-2);border-left-color:currentColor;color:var(--band-night-cta-ink)}
 .firstrun__shared-card .tl-quote-label{margin-top:var(--firstrun-gap-2);color:var(--band-night-cta-ink);opacity:.8}
 
+/* The collapsed attribution row inside the Share sheet: the app's list row, chevron down when closed, up when open. */
+.tl-who-row{margin:0;border-block:1px solid var(--boundary-decorative)}
+.tl-who-row .chevron{transform:rotate(90deg)}
+.tl-who-row[aria-expanded="true"] .chevron{transform:rotate(-90deg)}
+
 /* Stacked sheet actions: the primary over the secondary, each full width. */
 .tl-foot-stack{flex-direction:column;align-items:stretch}
 .tl-foot-stack .btn{flex:none!important;width:100%}
@@ -60,3 +65,4 @@
 .tl-large #shareSetupSheet .sheet__body{flex:none;overflow:visible}
 .tl-large #shareSetupSheet .sheetband,.tl-large #shareSetupSheet .sheet__foot{flex:none}
 .tl-large #shareSetupSheet .sheetband__title{font-size:var(--font-size-subtitle);overflow-wrap:break-word}
+.tl-who-row .listrow__title,.tl-who-row .listrow__sub{white-space:normal;overflow:visible;text-overflow:clip}
