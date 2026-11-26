@@ -9017,8 +9017,10 @@ const SHEET_DRAG_LOCK=8;
 /** True when the gesture belongs to a scroller inside the sheet: something the
  *  lifter has already scrolled down keeps the drag, and scrolls back up. */
 function sheetScrollHeld(target,sheet){
-  for(let n=target;n instanceof Element&&n!==sheet;n=n.parentElement){
-    if(n.scrollHeight>n.clientHeight+1&&n.scrollTop>0)return true}
+  // The sheet counts too: with enlarged text a setup sheet scrolls as one column.
+  for(let n=target;n instanceof Element;n=n.parentElement){
+    if(n.scrollHeight>n.clientHeight+1&&n.scrollTop>0)return true;
+    if(n===sheet)break}
   return false}
 /* user-select is inherited by WebKit/Chromium, but other engines can report
  * auto on a child of selectable prose. Stop at a control's explicit none. */
@@ -12672,9 +12674,11 @@ function syncFocusFloor(){
   focusFloorWatched=watched}
 /** The card's large-text state follows the root size, read live: a text-size change while Focus is open restyles it
  *  on the next floor sync (the header's ResizeObserver), not only on the next full render. */
-function syncTextScale(card){
+function rootTextScaled(){
   const rootFontSize=parseFloat(getComputedStyle(document.documentElement).fontSize);
-  card?.classList.toggle("is-text-scaled",Number.isFinite(rootFontSize)&&rootFontSize>16.1)}
+  return Number.isFinite(rootFontSize)&&rootFontSize>16.1}
+function syncTextScale(card){
+  card?.classList.toggle("is-text-scaled",rootTextScaled())}
 function sizeFocusCard(card){
   if(!card)return;
   syncTextScale(card);
@@ -18601,7 +18605,8 @@ function focusShareSetupRepair(token){
   if(canTakeFocus(target)){
     try{target.focus({preventScroll:true})}catch{try{target.focus()}catch{}}
     if(target.matches("[data-share-repair]")){
-      const body=$("#shareSetupSheet .sheet__body");
+      const sheet=$("#shareSetupSheet");
+      const body=sheet?.classList.contains("is-text-scaled")?sheet:$("#shareSetupSheet .sheet__body");
       if(body){
         const maxScroll=Math.max(0,body.scrollHeight-body.clientHeight);
         body.scrollTop=maxScroll;
@@ -18644,6 +18649,8 @@ function openShareSetupSheet({repairFocus=null}={}){
   if(!sheet)return;
   if(!repairFocus)shareRepairFocusIntent=null;
   const subtitle=$("#shareSetupFor");if(subtitle)subtitle.textContent=state.programMeta?.name||t("untitled_program");
+  // With enlarged text the band, body and actions scroll as one column (Plan 086 slice 1b), so it opens at the top.
+  sheet.classList.toggle("is-text-scaled",rootTextScaled());sheet.scrollTop=0;
   shareSetupReturn=document.activeElement;
   document.body.classList.add("is-sheet-open");
   openModal(sheet,{initialFocus:repairFocus?()=>shareSetupRepairButton(repairFocus.exerciseInstanceId)||$("#shareSetupClose"):$("#shareSetupClose"),returnFocus:shareSetupReturn,

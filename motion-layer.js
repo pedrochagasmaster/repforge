@@ -766,8 +766,10 @@
     return scrims[scrims.length - 1] || null;
   }
   function sheetScrollHeld(target, sheet) {
-    for (let node = target; node instanceof Element && node !== sheet; node = node.parentElement) {
+    // The sheet counts too: with enlarged text a setup sheet scrolls as one column.
+    for (let node = target; node instanceof Element; node = node.parentElement) {
       if (node.scrollHeight > node.clientHeight + 1 && node.scrollTop > 0) return true;
+      if (node === sheet) break;
     }
     return false;
   }
