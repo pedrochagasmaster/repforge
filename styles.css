@@ -4077,7 +4077,8 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
 /* The share sheet (share templates, owner 2026-11-11): Edit in the bar's leading slot, the cards in a swiping row,
    then the format, the background and Save/Share. The editor slides up inside the sheet, always dark like a photo
    editor, so a card is judged against a neutral surround in either theme. */
-.sheet--sharecard{height:var(--sheet-max-height);max-height:var(--sheet-max-height);display:flex;flex-direction:column;overflow:hidden}
+/* The action bar carries the home-indicator inset itself, so the sheet does not add it a second time. */
+.sheet--sharecard{height:var(--sheet-max-height);max-height:var(--sheet-max-height);display:flex;flex-direction:column;overflow:hidden;padding-bottom:0}
 /* Equal side slots that keep their content (Edit, close) and a centre that shrinks first and wraps: at 200% text a
    centred title of auto width ran over Edit ("EditarCompartilhar"). */
 .sheetband.sharesheet__band{grid-template-columns:minmax(max-content,1fr) minmax(0,max-content) minmax(max-content,1fr);column-gap:var(--space-12);grid-template-areas:"handle handle handle" "lead title close";padding-bottom:var(--space-4)}
@@ -4095,7 +4096,7 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
 #shareRecordRow{flex:none}
 .sharesheet__records{display:flex;flex-wrap:nowrap;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x mandatory;scrollbar-width:none;margin-inline:calc(-1 * var(--space-16));padding-inline:var(--space-16);scroll-padding-inline:var(--space-16);mask-image:linear-gradient(to right,transparent,var(--color-ink) var(--space-12),var(--color-ink) calc(100% - var(--space-16)),transparent)}
 .sharesheet__records::-webkit-scrollbar{display:none}
-.sharesheet__records .pchip{scroll-snap-align:start;gap:var(--space-4);font-weight:var(--weight-medium)}
+.sharesheet__records .pchip{scroll-snap-align:start;gap:var(--space-4);font-size:var(--font-size-body-small);font-weight:var(--weight-medium)}
 .sharesheet__records .pchip.is-active{font-weight:var(--weight-semibold)}
 .sheet--sharecard .sharesheet{padding-bottom:0}
 .sheet--sharecard > .sharesheet__note{padding:var(--space-12) var(--space-16) var(--space-8)}
@@ -4105,7 +4106,7 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
   padding:6px calc((100% - var(--slide-w,15rem)) / 2) 10px}
 .sharesheet__rail::-webkit-scrollbar{display:none}
 .sharesheet__slide{flex:none;margin:0;width:var(--slide-w,15rem);height:var(--slide-h,26.5rem);scroll-snap-align:center;border-radius:var(--radius-surface);overflow:hidden;
-  box-shadow:none;transform:scale(.92);opacity:.55;transition:transform .28s cubic-bezier(.2,.8,.2,1),opacity .28s}
+  box-shadow:none;transform:scale(.9);opacity:.85;transition:transform .28s cubic-bezier(.2,.8,.2,1),opacity .28s}
 .sharesheet__slide.is-current{transform:none;opacity:1}
 .sharesheet__slide.is-clear{background:repeating-conic-gradient(var(--share-checker-a) 0 25%,var(--share-checker-b) 0 50%) 0 0/14px 14px}
 .sharesheet__slide canvas{display:block;width:100%;height:100%}
@@ -4113,7 +4114,7 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
 .sharesheet__dots{display:flex;justify-content:center;gap:8px;padding:8px 0 0}
 .sharesheet__dots i{width:8px;height:8px;border-radius:var(--radius-compact);background:var(--color-ink-secondary);opacity:.5;transition:width .2s,opacity .2s}
 .sharesheet__dots i.is-on{width:22px;background:var(--accent-deep);opacity:1}
-.sharesheet__segments{width:100%;flex:none}
+.sharesheet__segments{width:min(100%,18rem);align-self:center;flex:none}
 .sharesheet__shape{--corner:2px;display:inline-block;flex:none;margin-inline-end:6px;border-radius:var(--corner);background:currentColor;opacity:.6}
 .sharesheet__shape.is-story{width:8px;height:14px}
 .sharesheet__shape.is-square{width:11px;height:11px}
