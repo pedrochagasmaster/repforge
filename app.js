@@ -24003,7 +24003,7 @@ function mountEntryAdjust(){
     swallowClick:()=>swallowNextClick(),
     reducedMotion:()=>reducedMotion(),
     motion:window.RepForgeMotion||null,
-    changed:()=>syncEntryAdjustFooter(),
+    changed:()=>{syncEntryAdjustFooter();if(ONBOARDING_DIRECTION==="a"){const review=host.querySelector(".review");if(review&&!review.querySelector("[data-odir-fine=weight]"))review.insertAdjacentHTML("beforeend",`<button class="odir-fine__row odir-about" data-odir-fine="weight">${esc(t("odir.a.about"))}<span class="icon-mask icon-mask--chev-right" aria-hidden="true"></span></button>`);const title=host.querySelector(".review__titlebtn > span");if(title)title.textContent=title.textContent.replace(/(\d)-/g,"$1‑")}},
   })}
 function renderCatalogueStep(){
   const cards=entryServices()?.browseCatalogue(entryState.answers)||[];
@@ -29357,10 +29357,11 @@ function odirDecorate(){
   if(ONBOARDING_DIRECTION==="b"&&step==="weight"){next.textContent=t(Object.keys(entryBasics()).length?"entry.next":"entry.skip");$("#onbSkip").hidden=true}
   if(ONBOARDING_DIRECTION==="b"&&step==="split"){next.textContent=t("odir.skipTune");next.disabled=false;$("#onbNextReason").hidden=true}
   if(ONBOARDING_DIRECTION==="c"&&ODIR_OPTIONAL.includes(step))$("#onbSkip").hidden=true;
+  if(ONBOARDING_DIRECTION==="a")odirRefineA(body,next,step,label);
   if(odirFine){label.classList.add("hidden");bar.classList.add("hidden");next.textContent=t("odir.done");$("#onbSkip").hidden=true;return}
   if(odirSingle(step)&&!entryEditor&&ONBOARDING_DIRECTION!=="b"){
     const answerKey={desired_result:"desiredResult",background:"structuredExperience",days_per_week:"daysPerWeek",session_length:"sessionMinutes",environment:"environment",split:"splitPreference"}[step];
-    const seen=odirVisited.has(step)||!!(answerKey?entryState.answers[answerKey]:step==="sex"?entryBasics().sex:entryBasics().cardioExperience);if(!seen&&!(ONBOARDING_DIRECTION==="c"&&ODIR_OPTIONAL.includes(step))){next.classList.add("hidden");$("#onbNextReason").hidden=true}
+    const seen=(ONBOARDING_DIRECTION==="a"&&!!body.querySelector('[aria-checked="true"]'))||odirVisited.has(step)||!!(answerKey?entryState.answers[answerKey]:step==="sex"?entryBasics().sex:entryBasics().cardioExperience);if(!seen&&!(ONBOARDING_DIRECTION==="c"&&ODIR_OPTIONAL.includes(step))){next.classList.add("hidden");$("#onbNextReason").hidden=true}
     body.querySelectorAll("[data-entry-pick]").forEach(el=>{const handler=el.onclick;el.onclick=event=>{odirVisited.add(step);handler(event);odirMove()}});
   }
 }
@@ -29382,10 +29383,45 @@ function odirBPage(step){
 }
 function odirValue(step){const a=entryState.answers;
   if(step==="split")return a.splitPreference&&a.splitPreference!=="auto"?(found=>found?splitDisplayName(found):t("odir.recommended"))(entrySplitChoices().find(c=>c.id===a.splitPreference)):t("odir.recommended");
+  if(ONBOARDING_DIRECTION==="a"){
+    if(step==="muscle_priorities")return [ ["primaryMuscles","more"],["deEmphasizedMuscles","less"],["ignoredMuscles","skipped"] ].flatMap(([key,label])=>(a[key]||[]).map(m=>t("odir.a."+label,{muscle:t("entry.muscle."+m)}))).join(", ")||t("odir.a.noChanges");
+    if(step==="exercise_preferences")return (a.exerciseConstraints?.length||a.mustHaveExercises?.length)?t("odir.a.exerciseCounts",{avoided:a.exerciseConstraints?.length||0,kept:a.mustHaveExercises?.length||0}):t("odir.a.none");
+    if(step==="abilities"){const n=entryAbilityKeys().filter(key=>typeof a.competencyAnswers?.[key]==="boolean").length;return n?t("odir.a.answered",{n,total:entryAbilityKeys().length}):t("odir.a.notAnswered")}
+  }
   if(step==="muscle_priorities")return entryPriorityLabel(a);
   if(step==="exercise_preferences")return entryExercisePreferenceLabel(a);
   if(step==="deload")return t(a.deload!==false?"odir.yes":"odir.no");
   if(step==="weight")return entryBasics().weightKg?`${entryBasics().weightKg} kg`:t("odir.optionalShort");
   return t("odir.recommended")}
 let odirFineOpen=false;
-function odirFineRows(){return `<details class="odir-fine__box"${odirFineOpen?" open":""} ontoggle="odirFineOpen=this.open"><summary><span class="odir-fine__title">${esc(t("odir.fine"))}</span><span class="odir-fine__cap">${esc(t("odir.fine.cap"))}</span></summary>`+["split","muscle_priorities","exercise_preferences","deload","abilities","weight"].map(step=>`<button class="odir-fine__row" type="button" data-odir-fine="${step}"><span>${esc(t(`odir.fine.${step}`))}</span><span class="odir-fine__val">${esc(odirValue(step))}</span><span class="icon-mask icon-mask--chev-right icon-mask--sm" aria-hidden="true"></span></button>`).join("")+`</details>`}
+function odirFineRows(){return `<details class="odir-fine__box"${odirFineOpen?" open":""} ontoggle="odirFineOpen=this.open"><summary><span class="odir-fine__title">${esc(t("odir.fine"))}</span><span class="odir-fine__cap">${esc(t("odir.a.fineCap"))}</span></summary>`+["split","muscle_priorities","exercise_preferences","abilities"].map(step=>`<button class="odir-fine__row" type="button" data-odir-fine="${step}"><span>${esc(t(step==="abilities"?"odir.a.abilities":`odir.fine.${step}`))}</span><span class="odir-fine__val">${esc(odirValue(step))}</span><span class="icon-mask icon-mask--chev-right icon-mask--sm" aria-hidden="true"></span></button>`).join("")+`</details>`}
+
+let odirEquipmentOpen=false;
+function odirRefineA(body,next,step,label){
+  $("#onbCancel").classList.toggle("hidden",!!odirFine);
+  if(ODIR_REQUIRED.includes(step))label.textContent=t("odir.a.progress",{n:ODIR_REQUIRED.indexOf(step)+1,total:6});
+  if(!odirFine){
+    const heading=body.querySelector("#entryHeading");
+    if(step==="session_length"){
+      heading.textContent=t("odir.a.sessionTitle");
+      body.querySelectorAll('[data-entry-pick="sessionMinutes"]').forEach(el=>el.querySelector(".radio-card__title").textContent=t("odir.a.minutes",{n:el.dataset.entryVal}));
+    }
+    if(["desired_result","background","days_per_week"].includes(step))heading.insertAdjacentHTML("afterend",`<p class="onb__explain">${esc(t("odir.a.why."+step))}</p>`);
+    if(odirSingle(step))body.querySelectorAll(".radio-card__mark").forEach(el=>{el.className="icon-mask icon-mask--chev-right icon-mask--sm"});
+    if(step==="desired_result"){const link=body.querySelector("button.btn--ghost");link?.classList.add("odir-other")}
+    if(step==="equipment"){
+      const list=body.querySelector(".entry-b__equipment"),reset=body.querySelector("#entryEquipmentReset"),lede=body.querySelector(".onb__explain");
+      const place=entryEnvironmentKindLabel(entryState.answers.environment?.kind);
+      lede.textContent=t("odir.a.items",{n:list.querySelectorAll('[aria-checked="true"]').length,place});
+      heading.textContent=place;
+      list.hidden=!odirEquipmentOpen;reset.hidden=!odirEquipmentOpen;
+      const edit=document.createElement("button");edit.className="text-link";edit.textContent=t("odir.a.editList");edit.setAttribute("aria-expanded",String(odirEquipmentOpen));edit.onclick=()=>{odirEquipmentOpen=!odirEquipmentOpen;renderOnboarding()};lede.after(edit);
+      next.textContent=t("odir.a.seeProgram");
+    }
+  }else{
+    const heading=body.querySelector("#entryHeading");
+    if(heading){const question=heading.textContent;heading.textContent=t(step==="abilities"?"odir.a.abilities":`odir.fine.${step}`);if(step==="abilities")heading.insertAdjacentHTML("afterend",`<p class="onb__explain">${esc(t("odir.a.abilityWhy"))}</p>`);if(step==="split")heading.insertAdjacentHTML("afterend",`<p class="onb__explain">${esc(question)}</p>`);heading.insertAdjacentHTML("afterend",`<p class="onb__explain">${esc(t("odir.a.updates"))}</p>`)}
+    next.classList.add("odir-done");
+  }
+  next.classList.toggle("odir-done",!!odirFine);
+}

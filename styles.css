@@ -10104,3 +10104,30 @@ body.is-entry-editor #entryProgramName,
 }
 [data-odir] #onbBody .radio-card__body { flex: 1 1 0; width: 0; }
 [data-odir] #onbBody .radio-card__cap { max-width: 100%; overflow-wrap: anywhere; }
+
+/* Direction A exploration: required choices commit on tap. */
+[data-odir="a"] #onbStepLabel { font-size: var(--font-size-body-small); color: var(--color-ink-secondary); }
+[data-odir="a"] #onbBody .onb__num { grid-template-columns: repeat(3,minmax(0,1fr)); }
+[data-odir="a"] #onbBody .onb__num .radio-card__title { font-family: var(--font-language); font-size: var(--font-size-body); white-space: nowrap; }
+[data-odir="a"] #onbBody .onb__num .radio-card__body { width: auto; }
+[data-odir="a"] #onbBody .onb__num .icon-mask { display: none; }
+[data-odir="a"] .odir-other { display: block; margin-top: 48px; border: 0; border-radius: 0; padding-inline: 0; color: var(--color-ink-secondary); }
+[data-odir="a"] .entry-b__equipment { padding-bottom: 32px; }
+[data-odir="a"] .entry-b__equipment[hidden] { display: none; }
+[data-odir="a"] #onbNext.odir-done::after { display: none; }
+[data-odir="a"] .odir-fine { margin-block: 10px; }
+[data-odir="a"] .odir-fine__box summary { min-height: 44px; padding-block: 10px; }
+[data-odir="a"] .review__facts { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); }
+[data-odir="a"] .review__facts .entry__strip-cell { min-width: 0; }
+[data-odir="a"] .review__facts .entry__strip-value { font-size: 21px; }
+[data-odir="a"] .review__facts .entry__strip-unit { font-size: 11px; }
+[data-odir="a"] .review__tabs { mask-image: linear-gradient(to right,var(--ink) 0%,var(--ink) 90%,transparent 100%); }
+[data-odir="a"] .odir-about { margin-top: 24px; color: var(--color-ink-secondary); font-size: var(--font-size-body-small); }
+[data-odir="a"] #onbBody.entry-body .onb__opts.onb__num .radio-card__title { font-family: var(--font-language); font-size: var(--font-size-body); }
+[data-odir="a"] #onbStepLabel { text-transform: none; letter-spacing: normal; }
+[data-odir="a"] #entryEquipmentReset[hidden] { display: none; }
+[data-odir="a"] .review__facts .entry__strip-value { white-space: nowrap; }
+@media(max-width:360px) {
+  [data-odir="a"] .review__facts .entry__strip-value { font-size: 18px; }
+}
+[data-odir="a"] #onbBody.entry-body--equipment { padding-bottom: 100px; mask-image: linear-gradient(to bottom,var(--ink) 0%,var(--ink) 94%,transparent 100%); }
