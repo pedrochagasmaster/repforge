@@ -26122,6 +26122,7 @@ function renderFirstRunProgramMode(){
     const n=sharedTrainingDays(sharedSetupDraft.payload.program.definition);
     const title=$("#firstRunSharedTitle"),nameLine=$("#firstRunSharedName");
     if(title)title.textContent=t("setup.shared.view");
+    if(ONBOARDING_DIRECTION&&$("#firstRunSharedBody"))$("#firstRunSharedBody").textContent=t("odir.shared.body");
     if(nameLine)nameLine.textContent=t(n===1?"setup.shared.cap_one":"setup.shared.cap_many",{name,n});
     if(error){error.textContent="";error.classList.add("hidden")}}
   else if(invalid){
