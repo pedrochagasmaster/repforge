@@ -23965,7 +23965,7 @@ function mountEntryAdjust(){
   const host=$("#entryReview"),Review=window.RepForgeProgramReview;
   const review=ensureEntryAdjust();
   if(!host||!Review||!review)return;
-  if(ONBOARDING_DIRECTION==="a")host.addEventListener("click",event=>{const el=event.target.closest("[data-odir-fine]");if(el){odirFine=entryState;entrySetState({...entryState,step:el.dataset.odirFine},{persist:false})}});
+  if(ONBOARDING_DIRECTION==="a")host.onclick=event=>{const el=event.target.closest("[data-odir-fine]");if(el&&!odirFine){odirFine=entryState;entrySetState({...entryState,step:el.dataset.odirFine},{persist:false})}};
   entryAdjustMount=Review.mountProgramReview(host,{
     afterFacts:ONBOARDING_DIRECTION==="a"?()=>`<section class="odir-fine">${odirFineRows()}</section>`:undefined,
     view:review.view,
