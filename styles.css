@@ -10146,6 +10146,7 @@ html[data-mdir="a"] #mdirHeaderRest { width:44px; height:44px; color:var(--color
 html[data-mdir="a"] .mdir-exercise-button,
 html[data-mdir="a"] .fx-note-add { display:inline-flex; gap:4px; width:auto; min-height:44px; padding:0 8px; border-radius:var(--radius-pill); color:var(--color-ink-secondary); background:var(--control-quiet-bg); font-size:12px; }
 html[data-mdir="a"] .mdir-exercise-button .icon-mask { width:18px; height:18px; }
+html[data-mdir="a"] .mdir-exercise-button > span:last-child { font-family:var(--font-language); font-size:var(--font-size-body-small); font-weight:var(--weight-medium); }
 html[data-mdir="a"] .fx-head__row { flex-wrap:wrap; justify-content:flex-end; }
 html[data-mdir="a"] #exActionRepeatHint { display:block; }
 html[data-mdir="a"] #exActionsSheet .sheetgroup__cap { margin:16px 0 4px; }
