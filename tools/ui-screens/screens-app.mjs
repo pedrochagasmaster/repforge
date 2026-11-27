@@ -1349,7 +1349,7 @@ async function relayShareTo(page, step) {
     await page.fill("#shareSetupMessage", portuguese
       ? "Começa leve na semana 1. Me conta como ficou o agachamento depois da segunda sessão."
       : "Start light in week 1. Tell me how the squat feels after the second session.");
-    await page.evaluate(() => { document.activeElement?.blur(); document.querySelector("#shareSetupSheet .sheet__body").scrollTop = 0; });
+    await page.evaluate(() => { document.activeElement?.blur(); document.querySelector("#shareSetupSheet .sheet__body").scrollTop = 0; document.querySelector("#shareSetupSheet").scrollTop = 0; });
   }
   if (step === "ready" || step === "fallback") {
     await page.click("#shareSetupCreate");
