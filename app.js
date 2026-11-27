@@ -14972,6 +14972,20 @@ function reducedSetCounts(proposal,snapshot){
   const before=counts(snapshot?.programMeta?.programDefinition),after=counts(proposal?.successor?.programDefinition);
   return[...before].filter(([slotId,sets])=>(after.get(slotId)??0)<sets)
     .map(([slotId,sets])=>({slotId,beforeSets:sets,afterSets:after.get(slotId)??0}))}
+/* A received definition arrives with its object keys in the codec's order. A slot of a custom exercise the lifter
+   already holds then names the same metrics as the local definition in another key order, which the compiler's exact
+   comparison refuses. Same content, so the slot takes the local definition's own copy. */
+function alignCustomSlotMetrics(definition,customs){
+  if(!definition)return definition;
+  const sorted=value=>Array.isArray(value)?value.map(sorted):value&&typeof value==="object"
+    ?Object.fromEntries(Object.keys(value).sort().map(key=>[key,sorted(value[key])])):value;
+  const local=new Map(compilerCustomDefinitions(customs).map(entry=>[entry.id,entry]));
+  const next=cloneSnapshot(definition);
+  for(const day of next.days||[])for(const slot of day?.slots||[]){
+    const own=local.get(slot?.exerciseId);
+    if(own&&Array.isArray(own.metricDefinitions)&&JSON.stringify(sorted(slot.metricDefinitions))===JSON.stringify(sorted(own.metricDefinitions)))
+      slot.metricDefinitions=cloneSnapshot(own.metricDefinitions)}
+  return next}
 const repforgeProgramTransitionAdapter = {
   // Every Review change is a derived successor ProgramDefinition, previewed and
   // confirmed by its proposal hash. The domain refuses a Build program's
@@ -15016,7 +15030,8 @@ const repforgeProgramTransitionAdapter = {
     const predecessor = transitionPredecessor(state);
     if (!predecessor) return { ok: false, status: "unavailable", code: "program_definition_unavailable", unavailable: true };
     const merged = mergeImportedCustomExercises(cloneSnapshot(input.customExercises || []), [], state);
-    const definition = canonicalProgramDefinition(remapDefinitionMovements(input.programDefinition, merged.remap), merged.customExercises);
+    const definition = canonicalProgramDefinition(alignCustomSlotMetrics(remapDefinitionMovements(input.programDefinition, merged.remap),
+      merged.customExercises), merged.customExercises);
     if (!definition) return { ok: false, status: "invalid", code: "handoff_definition_invalid", invalid: true };
     const diff = Transition.diffProgramDefinitions(predecessor.programDefinition, definition);
     if (!diff.ok) return { ok: false, status: "invalid", code: diff.code, invalid: true };
@@ -29325,9 +29340,13 @@ function relayUpdateFigures(row){
   if(row.min==null)return"";
   const reps=row.min===row.max?fmt(row.min):`${fmt(row.min)}–${fmt(row.max)}`;
   return`${fmt(row.sets)} × ${reps}`}
+/* Rows in the lifter's language: the app's display name for each movement and its localized day name. */
+function relayUpdateLocalRows(definition,customs,cycle){
+  return flatProgramFromDefinition(definition,customs,cycle).map(row=>({...row,
+    day:localizedDayName({label:row.day},row.day,definition),name:exerciseDisplayName(row)}))}
 function relayUpdateRows(definition,customs,cycle){
-  const rows=flatProgramFromDefinition(definition,customs,cycle);
-  const first=cycle===1?rows:flatProgramFromDefinition(definition,customs,1);
+  const rows=relayUpdateLocalRows(definition,customs,cycle);
+  const first=cycle===1?rows:relayUpdateLocalRows(definition,customs,1);
   const bySlot=new Map(first.map(row=>[row.slotId,row]));
   for(const row of rows)bySlot.set(row.slotId,row);
   return bySlot}
@@ -29350,7 +29369,7 @@ function relayUpdateDiffHtml(update){
     return relayUpdateRowHtml({day:now?.day||"",name:now?.name||change.exerciseId,tag:t("relay.update.tag.changed"),
       was:wasFigures&&wasFigures!==nowFigures?wasFigures:"",now:nowFigures})}).join("")}
 function relayUpdateAllHtml(update){
-  const next=flatProgramFromDefinition(update.proposal.successor.programDefinition,update.handoff.customExercises,1);
+  const next=relayUpdateLocalRows(update.proposal.successor.programDefinition,update.handoff.customExercises,1);
   return next.map(row=>relayUpdateRowHtml({day:row.day,name:row.name,now:relayUpdateFigures(row)})).join("")}
 function relayUpdateSentDate(expiresAt){
   // The record says when it expires; the app's records live seven days, so it was sent seven days before.
@@ -29426,10 +29445,10 @@ function closeRelayUpdateSheet(){
   const sheet=$("#relayUpdateSheet");
   if(!sheet||sheet.hidden&&activeModal?.el!==sheet)return Promise.resolve(false);
   return closeModal(sheet)}
-function failRelayUpdate(update,code){
+function failRelayUpdate(update,code,cause=code){
   const kind=RELAY_GATE_ERRORS[code]||"incomplete";
   if(kind!=="unavailable"){clearRelayHandoff(update.locator);removeRelayFragment()}
-  relayUpdate={phase:"error",kind,source:update.source,locator:kind==="unavailable"?update.locator:null};
+  relayUpdate={phase:"error",kind,cause:String(cause||""),source:update.source,locator:kind==="unavailable"?update.locator:null};
   renderRelayUpdate()}
 async function openRelayUpdate(candidate){
   const {source,locator}=candidate;
@@ -29446,7 +29465,7 @@ async function openRelayUpdate(candidate){
   try{received=await TrainerDocuments.receive(locator,TrainerDocuments.HANDOFF_KIND,sharedSetupCodecOptions(),{serviceOrigin:RELAY_SERVICE_ORIGIN})}
   catch{received={ok:false,code:"exception"}}
   if(request!==relayUpdateRequest)return;
-  if(!received?.ok){failRelayUpdate(update,relayGateCode(received?.code));return}
+  if(!received?.ok){failRelayUpdate(update,relayGateCode(received?.code),received?.code);return}
   removeRelayFragment();
   // The installed app has opened the program: the cookie's job is done (owner, 2026-11-26).
   if(isStandalone())clearRelayHandoff(locator);
@@ -29456,7 +29475,7 @@ async function openRelayUpdate(candidate){
     customExercises:value.program.customExercises||[],name:value.program.name})}
   catch{proposed=null}
   if(request!==relayUpdateRequest)return;
-  if(!proposed?.ok){failRelayUpdate(update,"relay-incomplete");return}
+  if(!proposed?.ok){failRelayUpdate(update,"relay-incomplete",proposed?.code||"propose-failed");return}
   relayUpdate={phase:"ready",source,locator:isStandalone()?null:locator,value,expiresAt:received.expiresAt,
     proposal:proposed.proposal,diff:proposed.diff,handoff:proposed.handoff};
   renderRelayUpdate()}
@@ -29510,6 +29529,7 @@ function bindRelayUpdate(){
 window.__repforgeRelayUpdate={
   get phase(){return relayUpdate?.phase||null},
   get kind(){return relayUpdate?.kind||null},
+  get cause(){return relayUpdate?.cause||null},
   get changes(){return relayUpdate?.diff?cloneSnapshot(relayUpdate.diff.changes.map(change=>change.kind)):null}};
 let pendingRelayHandoff=null;
 async function prepareSharedSetup(candidate){

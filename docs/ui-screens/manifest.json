@@ -2990,6 +2990,41 @@
       "variants": "demandingText"
     },
     {
+      "id": "relay-update",
+      "flow": "today",
+      "label": "Today — program update from a trainer",
+      "scenario": "A trainer's update over Today: the changes (swapped, changed, removed), the trainer's message, then Use the update or Keep my current program.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "relay-update-draft",
+      "flow": "today",
+      "label": "Today — program update during a workout",
+      "scenario": "The same update with a workout in progress: the action bar says the workout stays and the update starts with the next session.",
+      "variants": "localized"
+    },
+    {
+      "id": "relay-update-unavailable",
+      "flow": "today",
+      "label": "Today — program update, relay unavailable",
+      "scenario": "The update cannot be opened: the relay is unavailable, nothing changes, and Try again stays.",
+      "variants": "localized"
+    },
+    {
+      "id": "relay-update-expired",
+      "flow": "today",
+      "label": "Today — program update, link expired",
+      "scenario": "The update link has expired: nothing changes, and the sheet only closes.",
+      "variants": "localized"
+    },
+    {
+      "id": "relay-update-newer",
+      "flow": "today",
+      "label": "Today — program update from a newer version",
+      "scenario": "The update needs a newer Taurifer: reload, then open the link again.",
+      "variants": "localized"
+    },
+    {
       "id": "skipped-actions",
       "flow": "workout",
       "label": "Skipped exercise actions",

@@ -1383,6 +1383,31 @@
       "content": "flat",
       "scenario": "Option A's live card while a session is open: one lift done, one part done, one skipped and the next one current, each with its status mark."
     },
+    "today/relay-update": {
+      "owner": "plan-086",
+      "content": "flat",
+      "scenario": "A trainer's update over Today: the changes (swapped, changed, removed), the trainer's message, then Use the update or Keep my current program."
+    },
+    "today/relay-update-unavailable": {
+      "owner": "plan-086",
+      "content": "flat",
+      "scenario": "The update cannot be opened: the relay is unavailable, nothing changes, and Try again stays."
+    },
+    "today/relay-update-expired": {
+      "owner": "plan-086",
+      "content": "flat",
+      "scenario": "The update link has expired: nothing changes, and the sheet only closes."
+    },
+    "today/relay-update-newer": {
+      "owner": "plan-086",
+      "content": "flat",
+      "scenario": "The update needs a newer Taurifer: reload, then open the link again."
+    },
+    "today/relay-update-draft": {
+      "owner": "plan-086",
+      "content": "flat",
+      "scenario": "The same update with a workout in progress: the action bar says the workout stays and the update starts with the next session."
+    },
     "progress/minibar": {
       "owner": "plan-057",
       "content": "flat",
@@ -1666,7 +1691,12 @@
         "today/ready-scrolled",
         "today/in-progress",
         "today/week-card",
-        "today/profile-first"
+        "today/profile-first",
+        "today/relay-update",
+        "today/relay-update-unavailable",
+        "today/relay-update-expired",
+        "today/relay-update-newer",
+        "today/relay-update-draft"
       ]
     },
     {
@@ -5157,7 +5187,12 @@
         "today/week-card",
         "today/profile",
         "today/profile-first",
-        "today/profile-scope"
+        "today/profile-scope",
+        "today/relay-update",
+        "today/relay-update-unavailable",
+        "today/relay-update-expired",
+        "today/relay-update-newer",
+        "today/relay-update-draft"
       ]
     },
     {
@@ -6966,6 +7001,184 @@
       ]
     },
     {
+      "id": "relayupdatesheet",
+      "selector": "#relayUpdateSheet",
+      "roles": {
+        "elevation": "modal"
+      },
+      "variant": "bottom-sheet",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "A trainer's program update blocks Today with dialog semantics until it is used, kept or closed.",
+      "owner": "plan-086",
+      "catalogStates": [
+        "today/relay-update",
+        "today/relay-update-unavailable",
+        "today/relay-update-expired",
+        "today/relay-update-newer",
+        "today/relay-update-draft"
+      ]
+    },
+    {
+      "id": "relayupdatescrim",
+      "selector": "#relayUpdateScrim",
+      "roles": {
+        "elevation": "modal"
+      },
+      "variant": "scrim",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Scrim suppresses Today behind the update sheet.",
+      "owner": "plan-086",
+      "catalogStates": [
+        "today/relay-update",
+        "today/relay-update-unavailable",
+        "today/relay-update-expired",
+        "today/relay-update-newer",
+        "today/relay-update-draft"
+      ]
+    },
+    {
+      "id": "relayupdateclose",
+      "selector": "#relayUpdateClose",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [
+        "icon-only"
+      ],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Dismisses the update sheet; nothing changes.",
+      "owner": "plan-086",
+      "catalogStates": [
+        "today/relay-update",
+        "today/relay-update-unavailable",
+        "today/relay-update-expired",
+        "today/relay-update-newer",
+        "today/relay-update-draft"
+      ]
+    },
+    {
+      "id": "relayupdateuse",
+      "selector": "#relayUpdateUse",
+      "roles": {
+        "control": "primary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Use the update: the screen commitment, replacing the program while history, archive and a workout in progress stay.",
+      "owner": "plan-086",
+      "catalogStates": [
+        "today/relay-update",
+        "today/relay-update-draft"
+      ]
+    },
+    {
+      "id": "relayupdatekeep",
+      "selector": "#relayUpdateKeep",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Keep my current program: the reversible alternative, which writes nothing.",
+      "owner": "plan-086",
+      "catalogStates": [
+        "today/relay-update",
+        "today/relay-update-draft"
+      ]
+    },
+    {
+      "id": "relayupdateseeall",
+      "selector": "#relayUpdateSeeAll",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "See the whole program opens every exercise of the received program in place.",
+      "owner": "plan-086",
+      "catalogStates": [
+        "today/relay-update",
+        "today/relay-update-draft"
+      ]
+    },
+    {
+      "id": "relayupdateaction",
+      "selector": "#relayUpdateAction",
+      "roles": {
+        "control": "primary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Try again or Reload Taurifer: the one way forward from a relay error.",
+      "owner": "plan-086",
+      "catalogStates": [
+        "today/relay-update-unavailable",
+        "today/relay-update-newer"
+      ]
+    },
+    {
+      "id": "relayupdatedismiss",
+      "selector": "#relayUpdateDismiss",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Close: an expired or incomplete update link only closes.",
+      "owner": "plan-086",
+      "catalogStates": [
+        "today/relay-update-expired"
+      ]
+    },
+    {
       "id": "startworkout",
       "selector": "#startWorkout",
       "roles": {
@@ -6995,7 +7208,11 @@
         "today/ready-scrolled",
         "today/week-card",
         "today/profile-first",
-        "today/profile"
+        "today/profile",
+        "today/relay-update",
+        "today/relay-update-unavailable",
+        "today/relay-update-expired",
+        "today/relay-update-newer"
       ]
     },
     {
@@ -7681,7 +7898,12 @@
         "today/week-card",
         "today/profile",
         "today/profile-first",
-        "today/profile-scope"
+        "today/profile-scope",
+        "today/relay-update",
+        "today/relay-update-unavailable",
+        "today/relay-update-expired",
+        "today/relay-update-newer",
+        "today/relay-update-draft"
       ],
       "progressScopes": {
         "active-program-week": "block"
@@ -7740,7 +7962,12 @@
         "today/in-progress",
         "today/week-card",
         "today/profile-first",
-        "today/profile"
+        "today/profile",
+        "today/relay-update",
+        "today/relay-update-unavailable",
+        "today/relay-update-expired",
+        "today/relay-update-newer",
+        "today/relay-update-draft"
       ],
       "progressScopes": {
         "current-week-trained-days": "week"
@@ -7809,7 +8036,12 @@
         "today/week-card",
         "today/profile",
         "today/profile-first",
-        "today/profile-scope"
+        "today/profile-scope",
+        "today/relay-update",
+        "today/relay-update-unavailable",
+        "today/relay-update-expired",
+        "today/relay-update-newer",
+        "today/relay-update-draft"
       ]
     },
     {
@@ -9878,7 +10110,12 @@
         "history/metric-overflow",
         "history/empty",
         "history/past-zero",
-        "progress/past-zero"
+        "progress/past-zero",
+        "today/relay-update",
+        "today/relay-update-unavailable",
+        "today/relay-update-expired",
+        "today/relay-update-newer",
+        "today/relay-update-draft"
       ]
     },
     {
@@ -9970,7 +10207,12 @@
         "history/metric-overflow",
         "history/empty",
         "history/past-zero",
-        "progress/past-zero"
+        "progress/past-zero",
+        "today/relay-update",
+        "today/relay-update-unavailable",
+        "today/relay-update-expired",
+        "today/relay-update-newer",
+        "today/relay-update-draft"
       ]
     },
     {
@@ -10071,7 +10313,12 @@
         "history/metric-overflow",
         "history/empty",
         "history/past-zero",
-        "progress/past-zero"
+        "progress/past-zero",
+        "today/relay-update",
+        "today/relay-update-unavailable",
+        "today/relay-update-expired",
+        "today/relay-update-newer",
+        "today/relay-update-draft"
       ]
     },
     {
@@ -10266,7 +10513,12 @@
         "session/past-zero",
         "workout/prelude-summary",
         "workout/prelude-tie",
-        "workout/prelude-suppressed"
+        "workout/prelude-suppressed",
+        "today/relay-update",
+        "today/relay-update-unavailable",
+        "today/relay-update-expired",
+        "today/relay-update-newer",
+        "today/relay-update-draft"
       ]
     },
     {
@@ -10357,7 +10609,12 @@
         "program/share-relay",
         "program/share-relay-who",
         "program/share-relay-ready",
-        "program/share-relay-fallback"
+        "program/share-relay-fallback",
+        "today/relay-update",
+        "today/relay-update-unavailable",
+        "today/relay-update-expired",
+        "today/relay-update-newer",
+        "today/relay-update-draft"
       ]
     },
     {
@@ -10500,7 +10757,12 @@
         "program/minibar-rest-done",
         "today/week-card",
         "today/profile-first",
-        "today/profile"
+        "today/profile",
+        "today/relay-update",
+        "today/relay-update-unavailable",
+        "today/relay-update-expired",
+        "today/relay-update-newer",
+        "today/relay-update-draft"
       ]
     },
     {
@@ -11870,7 +12132,8 @@
       "sourceOnlyReason": "pending: the day-change question opens from tapping a day in the day picker (and from Up next, a day tab or a deep link) when a draft holds logged sets, and the catalog state today/draft-resume is Today with the question closed. The today-day-picker, workout-day-context-discard, simulation and adversarial-draft-transactions suites exercise it open. A catalog state for the open sheet is an open question for the orchestrator.",
       "catalogStates": [
         "today/draft-resume",
-        "today/in-progress"
+        "today/in-progress",
+        "today/relay-update-draft"
       ]
     },
     {
@@ -11890,7 +12153,8 @@
       "sourceOnlyReason": "pending: the day-change question opens from tapping a day in the day picker (and from Up next, a day tab or a deep link) when a draft holds logged sets, and the catalog state today/draft-resume is Today with the question closed. The today-day-picker, workout-day-context-discard, simulation and adversarial-draft-transactions suites exercise it open. A catalog state for the open sheet is an open question for the orchestrator.",
       "catalogStates": [
         "today/draft-resume",
-        "today/in-progress"
+        "today/in-progress",
+        "today/relay-update-draft"
       ]
     },
     {
@@ -11915,7 +12179,8 @@
       "sourceOnlyReason": "pending: the day-change question opens from tapping a day in the day picker (and from Up next, a day tab or a deep link) when a draft holds logged sets, and the catalog state today/draft-resume is Today with the question closed. The today-day-picker, workout-day-context-discard, simulation and adversarial-draft-transactions suites exercise it open. A catalog state for the open sheet is an open question for the orchestrator.",
       "catalogStates": [
         "today/draft-resume",
-        "today/in-progress"
+        "today/in-progress",
+        "today/relay-update-draft"
       ]
     },
     {
@@ -11939,7 +12204,8 @@
       "sourceOnlyReason": "pending: the day-change question opens from tapping a day in the day picker (and from Up next, a day tab or a deep link) when a draft holds logged sets, and the catalog state today/draft-resume is Today with the question closed. The today-day-picker, workout-day-context-discard, simulation and adversarial-draft-transactions suites exercise it open. A catalog state for the open sheet is an open question for the orchestrator.",
       "catalogStates": [
         "today/draft-resume",
-        "today/in-progress"
+        "today/in-progress",
+        "today/relay-update-draft"
       ]
     },
     {
@@ -13321,7 +13587,12 @@
         "workout/reorder",
         "workout/session",
         "workout/rest-overrun-finish",
-        "onboarding-import/editor-empty-day"
+        "onboarding-import/editor-empty-day",
+        "today/relay-update",
+        "today/relay-update-unavailable",
+        "today/relay-update-expired",
+        "today/relay-update-newer",
+        "today/relay-update-draft"
       ],
       "neverDisabledReason": "The menu or choice stays reachable whenever its owning row is present."
     },
@@ -13864,7 +14135,8 @@
         "today/draft-resume",
         "today/in-progress",
         "today/rest-bar",
-        "today/skipped"
+        "today/skipped",
+        "today/relay-update-draft"
       ]
     },
     {
@@ -13888,7 +14160,8 @@
         "today/draft-resume",
         "today/in-progress",
         "today/rest-bar",
-        "today/skipped"
+        "today/skipped",
+        "today/relay-update-draft"
       ]
     },
     {
@@ -13912,7 +14185,8 @@
         "today/draft-resume",
         "today/in-progress",
         "today/rest-bar",
-        "today/skipped"
+        "today/skipped",
+        "today/relay-update-draft"
       ]
     },
     {
@@ -13932,7 +14206,8 @@
         "today/in-progress",
         "today/draft-resume",
         "today/rest-bar",
-        "today/skipped"
+        "today/skipped",
+        "today/relay-update-draft"
       ]
     },
     {
@@ -13952,7 +14227,8 @@
         "today/draft-resume",
         "today/in-progress",
         "today/rest-bar",
-        "today/skipped"
+        "today/skipped",
+        "today/relay-update-draft"
       ]
     },
     {
@@ -14323,7 +14599,12 @@
         "today/in-progress",
         "today/context-menu",
         "today/skipped",
-        "today/week-card"
+        "today/week-card",
+        "today/relay-update",
+        "today/relay-update-unavailable",
+        "today/relay-update-expired",
+        "today/relay-update-newer",
+        "today/relay-update-draft"
       ]
     },
     {
@@ -14355,7 +14636,12 @@
         "today/in-progress",
         "today/context-menu",
         "today/skipped",
-        "today/week-card"
+        "today/week-card",
+        "today/relay-update",
+        "today/relay-update-unavailable",
+        "today/relay-update-expired",
+        "today/relay-update-newer",
+        "today/relay-update-draft"
       ]
     },
     {
@@ -15025,7 +15311,12 @@
         "install/transfer-terminal",
         "install/transfer-interrupted",
         "install/transfer-unknown",
-        "install/transfer-claimed-expired"
+        "install/transfer-claimed-expired",
+        "today/relay-update",
+        "today/relay-update-unavailable",
+        "today/relay-update-expired",
+        "today/relay-update-newer",
+        "today/relay-update-draft"
       ],
       "neverDisabledReason": "Saved evidence navigation stays available; no training mutation is committed."
     },
@@ -15132,7 +15423,12 @@
         "session/profile-finish-checked",
         "session/profile-finish-agreeing",
         "progress/past-zero",
-        "session/past-zero"
+        "session/past-zero",
+        "today/relay-update",
+        "today/relay-update-unavailable",
+        "today/relay-update-expired",
+        "today/relay-update-newer",
+        "today/relay-update-draft"
       ]
     },
     {
@@ -15184,7 +15480,12 @@
         "install/transfer-terminal",
         "install/transfer-interrupted",
         "install/transfer-unknown",
-        "install/transfer-claimed-expired"
+        "install/transfer-claimed-expired",
+        "today/relay-update",
+        "today/relay-update-unavailable",
+        "today/relay-update-expired",
+        "today/relay-update-newer",
+        "today/relay-update-draft"
       ]
     },
     {
@@ -16152,7 +16453,12 @@
         "today/profile-scope",
         "today/estimate-info",
         "install/banner",
-        "workout/invalid-draft"
+        "workout/invalid-draft",
+        "today/relay-update",
+        "today/relay-update-unavailable",
+        "today/relay-update-expired",
+        "today/relay-update-newer",
+        "today/relay-update-draft"
       ]
     },
     {
@@ -16860,7 +17166,11 @@
         "progress/overview-profile-first",
         "session/summary-profile",
         "history/past-zero",
-        "progress/past-zero"
+        "progress/past-zero",
+        "today/relay-update",
+        "today/relay-update-unavailable",
+        "today/relay-update-expired",
+        "today/relay-update-newer"
       ]
     },
     {
@@ -17406,7 +17716,12 @@
         "program/share-relay",
         "program/share-relay-who",
         "program/share-relay-ready",
-        "program/share-relay-fallback"
+        "program/share-relay-fallback",
+        "today/relay-update",
+        "today/relay-update-unavailable",
+        "today/relay-update-expired",
+        "today/relay-update-newer",
+        "today/relay-update-draft"
       ]
     },
     {
@@ -17490,7 +17805,11 @@
         "progress/overview-profile-first",
         "session/summary-profile",
         "history/past-zero",
-        "progress/past-zero"
+        "progress/past-zero",
+        "today/relay-update",
+        "today/relay-update-unavailable",
+        "today/relay-update-expired",
+        "today/relay-update-newer"
       ]
     },
     {
@@ -17555,7 +17874,11 @@
         "progress/overview-profile-first",
         "session/summary-profile",
         "history/past-zero",
-        "progress/past-zero"
+        "progress/past-zero",
+        "today/relay-update",
+        "today/relay-update-unavailable",
+        "today/relay-update-expired",
+        "today/relay-update-newer"
       ]
     },
     {

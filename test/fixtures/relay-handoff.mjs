@@ -44,10 +44,11 @@ export function fakeRelay({ fixedId = null, fixedExpiresAt = null } = {}) {
 
 /**
  * Seal a program handoff in the page (the app's own encoder and relay client) and store its record in `relay`.
- * Returns the `#r=<id>.<key>` fragment. `document` overrides the handoff document entirely (for a newer version).
+ * Returns the `#r=<id>.<key>` fragment. `document` overrides the handoff document entirely (for a newer version);
+ * `definition` (and its `customExercises`) replaces the generated program, and `expiresAt` the record's expiry (for a fixed catalog clock).
  */
-export async function sealHandoff(page, relay, { name = "Coach block", language = "en", trainer = null, message = "", document = null } = {}) {
-  const sealed = await page.evaluate(async ({ name, language, trainer, message, document, settings }) => {
+export async function sealHandoff(page, relay, { name = "Coach block", language = "en", trainer = null, message = "", document = null, definition: given = null, customExercises = null, expiresAt = null } = {}) {
+  const sealed = await page.evaluate(async ({ name, language, trainer, message, document, settings, given, customExercises }) => {
     const catalog = window.RepForgeExerciseCatalog.snapshot();
     const Compiler = window.RepForgeProgramCompiler;
     let text = document ? JSON.stringify(document) : null;
@@ -56,10 +57,10 @@ export async function sealHandoff(page, relay, { name = "Coach block", language 
         desiredResult: "muscle_growth", structuredExperience: "6_to_24m", daysPerWeek: 4, sessionMinutes: 60,
         environment: { kind: "commercial_gym" },
       }, catalog);
-      const definition = Compiler.generateProgram(mapped.value, catalog).value;
+      const definition = given || Compiler.generateProgram(mapped.value, catalog).value;
       const sharedSettings = { ...settings, lang: language };
       const encoded = window.RepForgeTrainerDocuments.encodeProgramHandoff({
-        program: { name, definition }, settings: sharedSettings, language, startingLoads: [],
+        program: { name, definition, ...(customExercises?.length ? { customExercises } : {}) }, settings: sharedSettings, language, startingLoads: [],
         ...(trainer ? { trainer } : {}), ...(message ? { message } : {}),
       }, {
         builtInIds: new Set(catalog.exercises.map((exercise) => exercise.id)), catalogSnapshot: catalog,
@@ -71,9 +72,9 @@ export async function sealHandoff(page, relay, { name = "Coach block", language 
     }
     const result = await window.RepForgeTrainerRelay.seal(text);
     return result.ok ? { ok: true, record: result.record, key: result.key } : result;
-  }, { name, language, trainer, message, document, settings: SETUP_SETTINGS });
+  }, { name, language, trainer, message, document, settings: SETUP_SETTINGS, given, customExercises });
   if (!sealed?.ok) throw new Error(`sealHandoff failed: ${JSON.stringify(sealed)}`);
   const id = randomBytes(16).toString("base64url");
-  relay.records.set(id, { ...sealed.record, expiresAt: new Date(Date.now() + 7 * 864e5).toISOString() });
+  relay.records.set(id, { ...sealed.record, expiresAt: expiresAt || new Date(Date.now() + 7 * 864e5).toISOString() });
   return `#r=${id}.${sealed.key}`;
 }

@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 315 screens,
-1969 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 320 screens,
+1989 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -192,6 +192,16 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Today — deload week](screens/today/deload-week__phone-390-light-en.png) | 3 | The active program's deload cycle shows its recovery note. |
 | [Resume saved draft](screens/today/draft-resume__phone-390-light-en.png) | 8 | Resume saved draft through production controls: the live card under the program block, one set filled. |
 | [Workout in progress](screens/today/in-progress__phone-390-light-en.png) | 8 | Option A's live card while a session is open: one lift done, one part done, one skipped and the next one current, each with its status mark. |
+| [Today — program update from a trainer](screens/today/relay-update__phone-390-light-en.png) | 8 | A trainer's update over Today: the changes (swapped, changed, removed), the trainer's message, then Use the update or Keep my current program. |
+| [Today — program update during a workout](screens/today/relay-update-draft__phone-390-light-en.png) | 3 | The same update with a workout in progress: the action bar says the workout stays and the update starts with the next session. |
+| [Today — program update, relay unavailable](screens/today/relay-update-unavailable__phone-390-light-en.png) | 3 | The update cannot be opened: the relay is unavailable, nothing changes, and Try again stays. |
+| [Today — program update, link expired](screens/today/relay-update-expired__phone-390-light-en.png) | 3 | The update link has expired: nothing changes, and the sheet only closes. |
+| [Today — program update from a newer version](screens/today/relay-update-newer__phone-390-light-en.png) | 3 | The update needs a newer Taurifer: reload, then open the link again. |
+| [Today — program update from a trainer](screens/today/relay-update__phone-390-light-en.png) | 8 | A trainer's update over Today: the changes (swapped, changed, removed), the trainer's message, then Use the update or Keep my current program. |
+| [Today — program update during a workout](screens/today/relay-update-draft__phone-390-light-en.png) | 3 | The same update with a workout in progress: the action bar says the workout stays and the update starts with the next session. |
+| [Today — program update, relay unavailable](screens/today/relay-update-unavailable__phone-390-light-en.png) | 3 | The update cannot be opened: the relay is unavailable, nothing changes, and Try again stays. |
+| [Today — program update, link expired](screens/today/relay-update-expired__phone-390-light-en.png) | 3 | The update link has expired: nothing changes, and the sheet only closes. |
+| [Today — program update from a newer version](screens/today/relay-update-newer__phone-390-light-en.png) | 3 | The update needs a newer Taurifer: reload, then open the link again. |
 | [Today row actions](screens/today/context-menu__phone-390-light-en.png) | 8 | A Today exercise lifted above its context menu, opened through its visible actions button. |
 | [Today — skipped exercise](screens/today/skipped__phone-390-light-en.png) | 8 | A context-menu skip acknowledged on Today, stored only in the workout draft: the skip opens today's session, so the live card leads and the row reads Skipped today. |
 | [Today — last week](screens/today/week-card__phone-390-light-en.png) | 8 | Two sentences about last week with Review and Dismiss. |
