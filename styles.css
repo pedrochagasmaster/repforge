@@ -10081,15 +10081,23 @@ body.is-entry-editor #entryProgramName,
 #sessionSheet #sessionSheetBody { flex:1; min-height:0; padding-bottom:max(40px,env(safe-area-inset-bottom)); }
 #sessionEarlySection { flex:none; padding:8px 16px max(8px, env(safe-area-inset-bottom)); border-top:1px solid var(--boundary-required); max-height:48vh; overflow:visible; margin:0; position:relative; gap:12px; }
 /* An open confirmation takes the room it needs from the list above it, and scrolls only when it is taller than the sheet. */
-#sessionEarlySection:has(.session-early-prompt:not(.hidden)) { flex:0 1 auto; min-height:0; max-height:none; overflow-y:auto; overscroll-behavior:contain; }
-#sessionSheet:has(#sessionEarlySection .session-early-prompt:not(.hidden)) #sessionSheetBody { flex-shrink:1000; }
+#sessionEarlySection:has(.session-early-prompt:not(.hidden)) { flex:0 1 auto; min-height:0; max-height:none; overflow:hidden; }
+/* The question scrolls inside the footer while its two answers stay in view. */
+#sessionEarlySection .session-early-prompt { flex:0 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain; }
+#sessionEarlySection .session-early-actions { position:sticky; bottom:0; flex:none; background:var(--color-surface); }
+/* While a question is open the list above gives it all the room it needs, down to nothing. */
+#sessionSheet:has(#sessionEarlySection .session-early-prompt:not(.hidden)) #sessionSheetBody { flex-shrink:1000; padding-bottom:0; }
+/* On a short screen the question takes the sheet: a clipped sliver of the list above it reads as a fault. */
+@media (max-height:650px) {
+  #sessionSheet:has(#sessionEarlySection .session-early-prompt:not(.hidden)) #sessionSheetBody { display:none; }
+}
 #sessionEarlySection button { display:flex; align-items:center; gap:12px; min-height:44px; }
 #sessionEarlySection button.hidden { display:none; }
 #sessionEarlySection button[hidden],#exActionsSheet [hidden] { display:none; }
 .is-destructive { color:var(--danger); }
 #sessionSheetBtn { width:auto; flex:none; padding:0 8px; font-size:var(--font-size-body-small); font-weight:var(--weight-medium); min-height:44px; border:1px solid var(--rule-on-surface); border-radius:var(--radius-pill); background:var(--control-quiet-bg); color:var(--color-ink); }
 .fx-actions { display:flex; align-items:center; justify-content:center; flex:none; width:44px; height:44px; padding:0; border:0; border-radius:var(--radius-round); background:var(--control-quiet-bg); color:var(--control-quiet-ink); }
-.fx-head__row { gap:8px; flex-wrap:nowrap; justify-content:flex-end; margin-top:12px; align-items:center; }
+.fx-head__row { gap:8px; flex-wrap:nowrap; justify-content:flex-end; align-items:center; }
 #exActionsSheet .exactions__rows { border-top:0; }
 #exActionsSheet #exActionsSetupSection { padding-top:8px; }
 #exActionsSheet #exActionsSetupSection > .sheetgroup__head { display:block; margin:0 0 4px; font-size:var(--font-size-caption); color:var(--color-ink-secondary); }
@@ -10120,8 +10128,12 @@ body.is-entry-editor #entryProgramName,
   #sessionSheet .session-map__name { font-size:var(--font-size-body-small); line-height:1.25; }
 }
 #workoutRestBtn { width:44px; height:44px; color:var(--color-ink); }
+/* Each chip is a full target, but only its outline is drawn, and shorter: the target's extra height is taken back
+   from the line, so the prescription line keeps its own height and the set table keeps its room (#517). */
 .fx-actions,
-.fx-note-add { display:inline-flex; gap:4px; width:auto; min-height:36px; padding:0 12px; border-radius:var(--radius-pill); color:var(--color-ink); background:transparent; font-size:var(--font-size-caption); height:36px; flex-shrink:0; border:1px solid var(--rule-on-surface); white-space:nowrap; position:relative; }
+.fx-note-add { display:inline-flex; gap:4px; width:auto; min-height:var(--control-target); height:var(--control-target); margin-block:calc((var(--control-target) - 1lh) / -2); padding:0 12px; border:0; border-radius:var(--radius-pill); color:var(--color-ink); background:transparent; font-size:var(--font-size-caption); line-height:var(--line-reading); flex-shrink:0; white-space:nowrap; position:relative; }
+.fx-actions::before,
+.fx-note-add::before { content:""; position:absolute; inset:6px 0; border:1px solid var(--rule-on-surface); border-radius:var(--radius-pill); pointer-events:none; }
 .fx-actions .icon-mask { width:18px; height:18px; display:inline-block; margin-right:-2px; color:var(--color-ink); margin:0; }
 .fx-actions > span:last-child { font-family:var(--font-language); font-size:var(--font-size-body-small); font-weight:var(--weight-medium); }
 #exActionsSheet .sheetgroup__cap { margin:16px 0 4px; }
@@ -10175,8 +10187,6 @@ body.is-entry-editor #entryProgramName,
   #sessionMapLabel { margin-top:12px; }
 }
 #sessionSheetBtn { padding:0 16px; border:1px solid var(--control-secondary-boundary); background:var(--control-secondary-bg); color:var(--control-secondary-ink); font-weight:var(--weight-semibold); }
-.fx-actions::before,
-.fx-note-add::before { content:""; position:absolute; inset:-4px 0; }
 @media (max-width:374px) {
   .fx-actions,
   .fx-note-add { padding:0 8px; gap:2px; }
@@ -10195,7 +10205,6 @@ body.is-entry-editor #entryProgramName,
 .fx-actions > span:first-child { font-family:var(--font-language); font-size:var(--font-size-body-small); font-weight:var(--weight-medium); color:var(--color-ink); }
 .fx-actions__label { font-family:var(--font-language); font-size:var(--font-size-body-small); font-weight:var(--weight-medium); color:var(--color-ink); }
 #exActionsWarmupList { display:flex; flex-wrap:wrap; gap:6px; padding:4px 0 12px; border-top:0; border-bottom:1px solid var(--rule-on-surface); }
-.exactions__warm-chip { position:relative; display:flex; align-items:center; justify-content:center; gap:4px; flex:0 0 auto; min-width:var(--control-target); min-height:40px; padding:var(--space-4) var(--space-12); border:1px solid var(--boundary-required); border-radius:var(--radius-pill); background:transparent; color:var(--color-ink); font-size:var(--font-size-body); font-weight:var(--weight-medium); font-variant-numeric:tabular-nums; }
-.exactions__warm-chip::before { content:""; position:absolute; inset:-2px 0; }
+.exactions__warm-chip { position:relative; display:flex; align-items:center; justify-content:center; gap:4px; flex:0 0 auto; min-width:var(--control-target); min-height:var(--control-target); padding:var(--space-4) var(--space-12); border:1px solid var(--boundary-required); border-radius:var(--radius-pill); background:transparent; color:var(--color-ink); font-size:var(--font-size-body); font-weight:var(--weight-medium); font-variant-numeric:tabular-nums; }
 .exactions__warm-chip .icon-mask { width:14px; height:14px; }
 .exactions__warm-chip[aria-pressed="true"] { background:var(--ink); color:var(--bg); border-color:var(--boundary-selected-quiet); font-weight:var(--weight-semibold); }

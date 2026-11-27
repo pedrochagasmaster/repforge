@@ -43,9 +43,16 @@ export async function openEarlyFinish(page) {
   await page.waitForSelector("#sessionEarlyPrompt:not(.hidden)");
 }
 
+/** Finish from the Session sheet. With unlogged sets the app asks first and this confirms; with every set logged the
+ *  one Finish entry saves directly, and there is no question to answer. */
 export async function finishEarly(page) {
-  await openEarlyFinish(page);
-  await page.locator("#sessionEarlyConfirm").click();
+  await page.evaluate(() => { window.__repforgeLastWorkoutFinish = null; });
+  await page.locator("#sessionSheetBtn").click();
+  await page.locator("#sessionEarlyFinish").click();
+  const outcome = await page.waitForFunction(() =>
+    !document.querySelector("#sessionEarlyPrompt").classList.contains("hidden") ? "asked"
+      : window.__repforgeLastWorkoutFinish != null ? "saving" : false);
+  if (await outcome.jsonValue() === "asked") await page.locator("#sessionEarlyConfirm").click();
   await page.waitForFunction(() => window.__repforgeLastWorkoutFinish != null, undefined, { timeout: 15000 });
   const result = await page.evaluate(async () => await window.__repforgeLastWorkoutFinish);
   await page.waitForFunction(() => window.__repforgeWorkoutDraft.current() === null, undefined, { timeout: 15000 });

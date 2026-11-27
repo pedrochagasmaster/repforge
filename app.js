@@ -12249,7 +12249,7 @@ function focusCardHtml(ex,r,draft,prev,opts){
     // and it never sits over the cue. A neighbour carries the same bar, inert, so a swipe lands on what it showed.
     focusSkipbarHtml(peek)+
     // The header names the exercise (layout D), so its row here is the prescription line alone.
-    `<div class="fx-head"><div class="fx-head__row"><p class="focus-ex__meta">${esc(focusExMeta(ex))}</p>${noteAdd}${!peek?`<button type="button" class="fx-actions" data-ex-actions="${esc(ex.id)}" aria-label="${esc(t("ex.actions.title"))}" aria-haspopup="dialog" aria-controls="exActionsSheet">${exerciseActionIcon("overflow")}<span class="fx-actions__label">${esc(t("ex.actions.open"))}</span></button>`:""}</div>${note}</div>`+
+    `<div class="fx-head"><div class="fx-head__row"><p class="focus-ex__meta">${esc(focusExMeta(ex))}</p>${noteAdd}<button type="button" class="fx-actions"${peek?dead():` data-ex-actions="${esc(ex.id)}" aria-haspopup="dialog" aria-controls="exActionsSheet"`} aria-label="${esc(t("ex.actions.title"))}">${exerciseActionIcon("overflow")}<span class="fx-actions__label">${esc(t("ex.actions.open"))}</span></button></div>${note}</div>`+
     slotHtml+quietRow+
     `<div class="fcard__ledger">`+
     `${focusLedgerHtml(ex,r,draft,prev,{peek})}</div>`+nextRow+`</div>`+
@@ -28518,7 +28518,8 @@ function init(){
 
   const earlyBtn=$("#sessionEarlyFinish");if(earlyBtn)earlyBtn.onclick=async()=>{
     await WorkoutSession.flush();
-    if(activeWorkoutDraft&&normalFinishIssues(activeWorkoutDraft).length===0){await closeSessionSheet();saveWorkout(null);return}
+    if(activeWorkoutDraft&&normalFinishIssues(activeWorkoutDraft).length===0){
+      await closeSessionSheet();const finishPromise=saveWorkout(null);window.__repforgeLastWorkoutFinish=finishPromise;await finishPromise;return}
     const restReason=restOverrunReasonPending;restOverrunReasonPending=false;
     if(!activeWorkoutDraft)return;
     if(!WorkoutSession.captureEarlyFinish(activeWorkoutDraft)){

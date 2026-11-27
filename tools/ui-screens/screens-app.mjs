@@ -2735,6 +2735,7 @@ export const APP_SCENARIOS = {
       });
     }
     await page.locator("[data-ex-actions]").click();
+    await page.locator("#toast").waitFor({state:"hidden"});
     await resetSheetScroll(page,"#exActionsSheet .exactions-sheet__body");
   },
   "workout/prelude-add-disabled": async page => { await APP_SCENARIOS["workout/prelude"](page); await page.locator("#workout [data-ex-actions]").click(); await resetSheetScroll(page, "#exActionsSheet .exactions-sheet__body"); },

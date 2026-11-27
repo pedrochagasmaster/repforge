@@ -2655,7 +2655,9 @@
         "workout/skipped-actions",
         "workout/substituted-actions",
         "workout/warmup-actions",
-        "workout/discomfort-mark"
+        "workout/discomfort-mark",
+        "workout/prelude-add-disabled",
+        "workout/prelude-add-limit"
       ]
     },
     {
@@ -2702,7 +2704,9 @@
         "workout/skipped-actions",
         "workout/substituted-actions",
         "workout/warmup-actions",
-        "workout/discomfort-mark"
+        "workout/discomfort-mark",
+        "workout/prelude-add-disabled",
+        "workout/prelude-add-limit"
       ]
     },
     {
@@ -2728,7 +2732,9 @@
         "workout/skipped-actions",
         "workout/substituted-actions",
         "workout/warmup-actions",
-        "workout/discomfort-mark"
+        "workout/discomfort-mark",
+        "workout/prelude-add-disabled",
+        "workout/prelude-add-limit"
       ]
     },
     {
@@ -2755,7 +2761,9 @@
         "workout/skipped-actions",
         "workout/substituted-actions",
         "workout/warmup-actions",
-        "workout/discomfort-mark"
+        "workout/discomfort-mark",
+        "workout/prelude-add-disabled",
+        "workout/prelude-add-limit"
       ]
     },
     {
@@ -2776,7 +2784,9 @@
         "workout/skipped-actions",
         "workout/substituted-actions",
         "workout/warmup-actions",
-        "workout/discomfort-mark"
+        "workout/discomfort-mark",
+        "workout/prelude-add-disabled",
+        "workout/prelude-add-limit"
       ]
     },
     {
@@ -2797,7 +2807,9 @@
         "workout/skipped-actions",
         "workout/substituted-actions",
         "workout/warmup-actions",
-        "workout/discomfort-mark"
+        "workout/discomfort-mark",
+        "workout/prelude-add-disabled",
+        "workout/prelude-add-limit"
       ]
     },
     {
@@ -9988,7 +10000,9 @@
         "session/summary-share-line",
         "today/estimate-info",
         "workout/past-zero-why",
-        "workout/prelude-why"
+        "workout/prelude-why",
+        "workout/prelude-add-disabled",
+        "workout/prelude-add-limit"
       ]
     },
     {
@@ -12401,7 +12415,8 @@
       "id": "exactions-warmup-chip",
       "selector": ".exactions__warm-chip",
       "roles": {
-        "control": "selection"
+        "control": "selection",
+        "boundary": "state-cues"
       },
       "variant": null,
       "facets": [],
@@ -12419,7 +12434,9 @@
         "workout/warmup-actions",
         "workout/skipped-actions",
         "workout/substituted-actions",
-        "workout/discomfort-mark"
+        "workout/discomfort-mark",
+        "workout/prelude-add-disabled",
+        "workout/prelude-add-limit"
       ]
     },
     {
@@ -13897,7 +13914,9 @@
         "workout/warmup-actions",
         "workout/skipped-actions",
         "workout/exercise-actions",
-        "workout/substituted-actions"
+        "workout/substituted-actions",
+        "workout/prelude-add-disabled",
+        "workout/prelude-add-limit"
       ]
     },
     {
@@ -16129,6 +16148,27 @@
       "owner": "plan-085",
       "catalogStates": [
         "workout/prelude-suppressed"
+      ]
+    },
+    {
+      "id": "exactions-warmup-step-link",
+      "selector": ".exactions__warmup-ctl .text-link",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Edit or Remove on a warm-up the lifter logged, in the exercise sheet.",
+      "owner": "exercise-menu",
+      "catalogStates": [
+        "workout/prelude-add-limit"
       ]
     },
     {
