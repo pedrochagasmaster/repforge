@@ -105,6 +105,9 @@ try {
         "the card in view is already a PNG made on the device", s.file);
       check(/^Highlight: New record, Barbell back squat, 102\.5 kg, 7 reps$/.test(ui.slides[0]), "each card says what it shows", ui.slides[0]);
       check((await pixel(page, 8, 8)).hex === "#141310", "the dark ground", await pixel(page, 8, 8));
+      const sigMark = { bar: await pixel(page, 126, 1648), underBar: await pixel(page, 113, 1652) };
+      check(sigMark.bar.hex === "#E2DFDA" || parseInt(sigMark.bar.hex.slice(1, 3), 16) > 200, "the signature mark body stays crisp light ink", sigMark);
+      check(sigMark.underBar.hex === "#141310", "the signature mark drops its semi-transparent drop shadow with no light glow under the crossbar", sigMark);
       check(!s.stats.includes("volume") && !s.row.includes("volume"), "no card number is volume", s.stats);
 
       check(await page.locator("#shareRecords").isVisible(), "multiple records offer a picker on Highlight");
