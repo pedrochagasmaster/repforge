@@ -29438,7 +29438,7 @@ function odirRefineA(body,next,step,label){
       const question=step==="abilities"?t("odir.a.abilityQuestion"):step==="weight"?t("odir.a.aboutQuestion"):heading.textContent;
       body.querySelectorAll(".onb__explain, .entry__privacy, .entry-b__note").forEach(el=>el.remove());
       if(step!=="equipment")heading.textContent=t(step==="abilities"?"odir.a.abilities":`odir.fine.${step}`);
-      heading.insertAdjacentHTML("afterend",`<p class="onb__explain">${esc(t("odir.a.intro",{question:question.replace(/[?.]$/,"")}))}</p>`);
+      heading.insertAdjacentHTML("afterend",`<p class="onb__explain">${esc(step==="equipment"?t("odir.a.updates"):t("odir.a.intro",{question:question.replace(/[?.]$/,"")}))}</p>`);
     }
     next.classList.add("odir-done");
   }
