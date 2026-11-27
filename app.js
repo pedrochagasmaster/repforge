@@ -29242,7 +29242,8 @@ async function prepareRelayHandoff(candidate){
   const value=received.value;
   removeRelayFragment();
   // The installed app has opened the program: the cookie's job is done (owner, 2026-11-26). A browser tab keeps
-  // it, so the app added to the Home Screen afterwards can still open the link.
+  // it only while the program is an unopened proposal, so the app added to the Home Screen afterwards can still
+  // open the link; starting the program or choosing another one clears it (owner, 2026-11-27).
   const installed=isStandalone();
   if(installed)clearRelayHandoff(locator);
   const previousLang=I18N?.getLang?.()||state.settings.lang||I18N?.detectLang?.()||"en";

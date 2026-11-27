@@ -3457,11 +3457,9 @@ const EN = {
   "relay.share.attribution_note": "Shown when they open the program. Taurifer doesn't check names or registrations.",
   "relay.share.create": "Create link",
   "relay.share.preparing": "Encrypting the program and creating the link…",
-  "relay.share.scope": "Program, settings, starting loads and app language · no workout history",
   "relay.share.qr_hint": "They can scan this code with their device's camera.",
-  "relay.share.qr_aria": "QR code for the program link",
   "relay.share.expiry": "Works for 7 days, until {date}. It's encrypted on this device, and anyone with the link can open the program.",
-  "relay.share.unavailable_fits": "Couldn't create an encrypted link right now. This setup link carries the whole program instead. It isn't encrypted, and it doesn't carry your name, message or starting loads.",
+  "relay.share.unavailable_fits": "Couldn't create an encrypted link right now. This setup link carries the whole program instead. It isn't encrypted, and it doesn't carry your name or message.",
   "relay.share.unavailable_file": "Couldn't create an encrypted link right now, and this program is too large for a setup link. Share it as a program file; the other person opens Import and chooses the file.",
   "relay.retry": "Try again",
   "relay.gate.from": "From {name}",
@@ -3485,7 +3483,7 @@ const EN = {
   "relay.open.incomplete.hint": "Ask for the link again, or scan the code.",
   "privacy.trainer.title": "Trainer links",
   "privacy.trainer.handoff": "A trainer can send you a program by link or QR code. It is encrypted on the trainer's device with a key that exists only in the link. Taurifer stores the encrypted copy with Cloudflare in the EU for up to seven days and then deletes it; Cloudflare's global edge can handle the request first. The relay service never receives the key, so it cannot read the program. Anyone with the link can open it until it expires.",
-  "privacy.trainer.storage": "The service stores the encrypted copy, its size, and when it was created and expires. It keeps no name, account or device identifier and does not link one copy to another. Abuse limits use keyed hashes of IP addresses that are deleted within an hour. On iPhone and iPad, to open a trainer's program in the app you added to the Home Screen, the repforge_setup_v1 cookie carries the link's record id and key. It is sent with the app's requests to the site that serves Taurifer, which Cloudflare also hosts, and is deleted as soon as the app has opened the program, or after seven days at most. It is never used for the sessions you send.",
+  "privacy.trainer.storage": "The service stores the encrypted copy, its size, and when it was created and expires. It keeps no name, account or device identifier and does not link one copy to another. Abuse limits use keyed hashes of IP addresses that are deleted within an hour. On iPhone and iPad, to open a trainer's program in the app you added to the Home Screen, the repforge_setup_v1 cookie carries the link's record id and key. It is sent with the app's requests to the site that serves Taurifer, which Cloudflare also hosts. It is deleted as soon as the app you added to the Home Screen opens the program, or when you start the program or choose another one in the browser. It is also deleted when the link has expired, needs a newer version of Taurifer or is incomplete, and after seven days at most. It is never used for the sessions you send.",
 };
 const PT = {
   "catalog.unavailable.title": "Biblioteca de exercícios indisponível",
@@ -6944,11 +6942,9 @@ const PT = {
   "relay.share.attribution_note": "Aparece quando a pessoa abrir o treino. O Taurifer não confere nomes nem registros.",
   "relay.share.create": "Criar link",
   "relay.share.preparing": "Criptografando o treino e criando o link…",
-  "relay.share.scope": "Treino, ajustes, cargas iniciais e idioma do app · sem histórico de sessões",
   "relay.share.qr_hint": "A pessoa pode ler este código com a câmera do dispositivo.",
-  "relay.share.qr_aria": "QR code do link do treino",
   "relay.share.expiry": "Funciona por 7 dias, até {date}. Ele é criptografado neste dispositivo, e quem tiver o link pode abrir o treino.",
-  "relay.share.unavailable_fits": "Não foi possível criar um link criptografado agora. Este link de configuração leva o treino inteiro. Ele não é criptografado e não leva seu nome, recado nem cargas iniciais.",
+  "relay.share.unavailable_fits": "Não foi possível criar um link criptografado agora. Este link de configuração leva o treino inteiro. Ele não é criptografado e não leva seu nome nem recado.",
   "relay.share.unavailable_file": "Não foi possível criar um link criptografado agora, e este treino é grande demais para um link de configuração. Compartilhe como arquivo de treino; a outra pessoa abre Importar e escolhe o arquivo.",
   "relay.retry": "Tentar de novo",
   "relay.gate.from": "De {name}",
@@ -6972,7 +6968,7 @@ const PT = {
   "relay.open.incomplete.hint": "Peça o link de novo ou leia o código.",
   "privacy.trainer.title": "Links do personal",
   "privacy.trainer.handoff": "Um personal pode enviar um treino por link ou QR code. Ele é criptografado no dispositivo do personal com uma chave que só existe no link. O Taurifer guarda a cópia criptografada na Cloudflare, na UE, por até sete dias e depois a apaga; a entrada global da Cloudflare pode receber a solicitação antes. O serviço que guarda a cópia nunca recebe a chave, por isso não consegue ler o treino. Quem tiver o link pode abri-lo até ele expirar.",
-  "privacy.trainer.storage": "O serviço guarda a cópia criptografada, o tamanho e quando ela foi criada e expira. Ele não guarda nome, conta nem identificador do dispositivo e não liga uma cópia a outra. Os limites contra abuso usam resumos com chave de endereços IP, apagados em até uma hora. No iPhone e no iPad, para abrir o treino do personal no app que você adicionou à Tela de Início, o cookie repforge_setup_v1 leva o identificador e a chave do link. Ele é enviado com as solicitações do app ao site que serve o Taurifer, também hospedado na Cloudflare, e é apagado assim que o app abre o treino, ou em no máximo sete dias. Ele nunca é usado para as sessões que você envia.",
+  "privacy.trainer.storage": "O serviço guarda a cópia criptografada, o tamanho e quando ela foi criada e expira. Ele não guarda nome, conta nem identificador do dispositivo e não liga uma cópia a outra. Os limites contra abuso usam resumos com chave de endereços IP, apagados em até uma hora. No iPhone e no iPad, para abrir o treino do personal no app que você adicionou à Tela de Início, o cookie repforge_setup_v1 leva o identificador e a chave do link. Ele é enviado com as solicitações do app ao site que serve o Taurifer, também hospedado na Cloudflare. Ele é apagado assim que o app que você adicionou à Tela de Início abre o treino, ou quando você começa o treino ou escolhe outro no navegador. Também é apagado quando o link expirou, precisa de uma versão mais nova do Taurifer ou está incompleto, e em no máximo sete dias. Ele nunca é usado para as sessões que você envia.",
 };
 (function (root) {
   const STRINGS = { en: EN, pt: PT };

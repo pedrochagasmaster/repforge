@@ -191,6 +191,10 @@ async function main() {
     await client.page.locator("#firstRunSharedStart").click();
     await client.page.waitForFunction(() => document.querySelector("#onboarding")?.classList.contains("active"), undefined, { timeout: 15000 });
     check(true, "See the program opens the received program's review");
+    check(await cookieOf(client.context) === locator, "the cookie stays while the program is an unopened proposal");
+    await client.page.locator("#entryActivate").click();
+    await client.page.waitForFunction(() => !document.querySelector("#onboarding")?.classList.contains("active"), undefined, { timeout: 15000 });
+    check(await cookieOf(client.context) === null, "starting the program in the browser tab clears the cookie");
     await client.context.close();
 
     // ---- The installed app clears the cookie once it has opened the program ---------------------------------------
