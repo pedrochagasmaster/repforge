@@ -12261,7 +12261,7 @@ function focusCardHtml(ex,r,draft,prev,opts){
     // and it never sits over the cue. A neighbour carries the same bar, inert, so a swipe lands on what it showed.
     focusSkipbarHtml(peek)+
     // The header names the exercise (layout D), so its row here is the prescription line alone.
-    `<div class="fx-head"><div class="fx-head__row"><p class="focus-ex__meta">${esc(focusExMeta(ex))}</p>${noteAdd}${menuDirection==="a"&&!peek?`<button type="button" class="mdir-exercise-button" data-mdir-exercise="${esc(ex.id)}" aria-label="${esc(t("ex.actions.title"))}" aria-haspopup="dialog" aria-controls="exActionsSheet">${directionIcon("overflow")}<span>${esc(t("mdir.actions"))}</span></button>`:""}</div>${note}</div>`+
+    `<div class="fx-head"><div class="fx-head__row"><p class="focus-ex__meta">${esc(focusExMeta(ex))}</p>${noteAdd}${menuDirection==="a"&&!peek?`<button type="button" class="mdir-exercise-button" data-mdir-exercise="${esc(ex.id)}" aria-label="${esc(t("ex.actions.title"))}" aria-haspopup="dialog" aria-controls="exActionsSheet"><span>${esc(t("mdir.actions"))}</span>${directionIcon("chev-down")}</button>`:""}</div>${note}</div>`+
     slotHtml+quietRow+
     `<div class="fcard__ledger">`+
     `${focusLedgerHtml(ex,r,draft,prev,{peek})}</div>`+(menuDirection==="c"&&!peek?directionCardActions(ex):"")+nextRow+`</div>`+

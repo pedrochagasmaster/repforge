@@ -10211,3 +10211,19 @@ html[data-mdir="a"] #exActionsSheet .mdir-health-group { margin-top:12px; }
   html[data-mdir="a"] #sessionSheet .session-map__row,
   html[data-mdir="a"] #sessionSheet .session-map__jump { min-height:44px; }
 }
+
+/* Direction A, round 5: one style per scope. The session door is the header's filled secondary button;
+   the exercise chips are lighter outlined chips, and Actions carries a menu chevron. */
+html[data-mdir="a"] #sessionSheetBtn { padding:0 16px; border:1px solid var(--control-secondary-boundary); background:var(--control-secondary-bg); color:var(--control-secondary-ink); font-weight:var(--weight-semibold, 600); }
+html[data-mdir="a"] #mdirHeaderRest { color:var(--color-ink); }
+html[data-mdir="a"] .fx-head__row { margin-top:12px; align-items:center; }
+html[data-mdir="a"] .mdir-exercise-button,
+html[data-mdir="a"] .fx-note-add { position:relative; height:36px; min-height:36px; padding:0 12px; border:1px solid var(--rule-on-surface); background:transparent; color:var(--color-ink); }
+html[data-mdir="a"] .mdir-exercise-button::before,
+html[data-mdir="a"] .fx-note-add::before { content:""; position:absolute; inset:-4px 0; }
+html[data-mdir="a"] .mdir-exercise-button .icon-mask { display:inline-block; width:14px; height:14px; margin-right:-2px; color:var(--color-ink-secondary); }
+@media (max-width:374px) {
+  html[data-mdir="a"] .mdir-exercise-button,
+  html[data-mdir="a"] .fx-note-add { padding:0 8px; }
+  html[data-mdir="a"] #sessionSheetBtn { padding:0 12px; }
+}
