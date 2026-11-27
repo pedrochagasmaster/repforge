@@ -27,6 +27,7 @@ export const ALPHA_EVENT_NAMES = Object.freeze([
   "first_set_logged",
   "set_saved",
   "recommendation_explained",
+  "relay_share_outcome",
   "exercise_skipped",
   "substitution_used",
   "session_completed",
@@ -85,10 +86,13 @@ export const VALID_ALPHA_EVENTS = Object.freeze([
   ["history_session_outcome", { action: "edit_save", status: "success" }],
   ["share_setup_outcome", { action: "link_refused", program_kind: "generated_edited", form: "full", size_vs_limit: "over_2x" }],
   ["guide_replay", { guideId: "progress" }],
+  ["relay_share_outcome", { action: "link_ready" }],
 ]);
 
 export const INVALID_EVENTS = Object.freeze([
   ["unknown_event", {}],
+  ["relay_share_outcome", { action: "copied" }],
+  ["relay_share_outcome", { action: "link_ready", link: "https://taurifer.com/#r=id.key" }],
   ["workout_completed", {}],
   ["landing_action", { action: "proof_chapter", chapter: 0 }],
   ["landing_action", { action: "proof_chapter", chapter: 6 }],
@@ -182,6 +186,7 @@ export const EVENT_DUPLICATE_POLICIES = Object.freeze({
   history_session_outcome: "repeatable",
   share_setup_outcome: "repeatable",
   guide_replay: "repeatable",
+  relay_share_outcome: "repeatable",
 });
 
 /* Onboarding B's Basics (Plan 072) never reach telemetry, not even bucketed

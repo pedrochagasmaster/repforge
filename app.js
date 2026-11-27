@@ -18604,6 +18604,7 @@ async function createRelayShare(){
   if(!shareSetupProgramUnchanged(candidate.basis)){buildShareSetupLink();return false}
   if(sent?.ok){
     shareSetupLink=sent.link;shareRelayExpiresAt=sent.expiresAt;
+    captureEvent("relay_share_outcome",{action:"link_ready"});
     settleShareSetup(request,"ready","",{ready:true,relay:"ready",blockers:[]});
     return true}
   candidate.fallback=true;
