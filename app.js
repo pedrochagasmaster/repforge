@@ -12254,7 +12254,7 @@ function focusCardHtml(ex,r,draft,prev,opts){
     // and it never sits over the cue. A neighbour carries the same bar, inert, so a swipe lands on what it showed.
     focusSkipbarHtml(peek)+
     // The header names the exercise (layout D), so its row here is the prescription line alone.
-    `<div class="fx-head"><div class="fx-head__row"><p class="focus-ex__meta">${esc(focusExMeta(ex))}</p>${noteAdd}</div>${note}</div>`+
+    `<div class="fx-head"><div class="fx-head__row"><p class="focus-ex__meta">${esc(focusExMeta(ex))}</p>${noteAdd}${menuDirection==="a"&&!peek?`<button type="button" class="mdir-exercise-button" data-mdir-exercise="${esc(ex.id)}" aria-label="${esc(t("ex.actions.title"))}" aria-haspopup="dialog" aria-controls="exActionsSheet">${directionIcon("overflow")}</button>`:""}</div>${note}</div>`+
     slotHtml+quietRow+
     `<div class="fcard__ledger">`+
     `${focusLedgerHtml(ex,r,draft,prev,{peek})}</div>`+(menuDirection==="c"&&!peek?directionCardActions(ex):"")+nextRow+`</div>`+
@@ -13051,6 +13051,7 @@ function bindWorkout(){
     $w("[data-slow]").forEach(b=>b.onclick=()=>answerLastRepSlow(b.dataset.slow,b.dataset.v==="1"));
     $w("[data-slowclear]").forEach(b=>b.onclick=()=>answerLastRepSlow(b.dataset.slowclear,null));
     $w("[data-mdir-card]").forEach(b=>b.onclick=()=>directionCardAction(b));
+    $w("[data-mdir-exercise]").forEach(b=>b.onclick=()=>openExActionsSheet(b.dataset.mdirExercise));
     $w("[data-fnote]").forEach(b=>b.onclick=()=>openExNoteSheet(b.dataset.fnote));
     $w("[data-maxset-cancel]").forEach(b=>b.onclick=()=>{const key=b.dataset.maxsetCancel,at=key.lastIndexOf("_");
       cancelMaxSet(key.slice(0,at),+key.slice(at+1))});
@@ -29322,7 +29323,7 @@ function setupMenuDirection(){
   const ov=$("#woOverflowBtn"),session=$("#sessionSheetBtn");
   ov.removeAttribute("data-i18n-aria");ov.setAttribute("aria-label",t(menuDirection==="c"?"session.sheet.title":menuDirection==="b"?"mdir.menu":"ex.actions.title"));
   ov.setAttribute("aria-controls",menuDirection==="c"?"sessionSheet":"exActionsSheet");
-  if(session){session.hidden=menuDirection!=="a";session.removeAttribute("data-i18n-aria");session.setAttribute("aria-label",t("session.sheet.title"));session.innerHTML=directionIcon("clipboard")}
+  if(session){session.hidden=menuDirection!=="a";session.removeAttribute("data-i18n-aria");session.setAttribute("aria-label",t("session.sheet.title"));session.innerHTML=menuDirection==="a"?esc(t("mdir.session")):directionIcon("clipboard");if(menuDirection==="a")ov.hidden=true}
   if($("#mdirSessionRest"))return;
   const warm=$("#exActionsWarmupSection"),prelude=$("#exActionsPreludeSection");
   warm.prepend(prelude);prelude.querySelector("h3").remove();
@@ -29338,6 +29339,14 @@ function setupMenuDirection(){
   end.prepend(voice);end.prepend(rest);voice.hidden=$("#voiceBtn").classList.contains("hidden");
   for(const [id,icon,key] of [["sessionEarlyFinish","check","mdir.finish"],["sessionAbandon","stop","session.sheet.abandon"]]){
     const b=$("#"+id);b.removeAttribute("data-i18n");b.innerHTML=directionIcon(icon)+`<span>${esc(t(key))}</span>`;
+  }
+  if(menuDirection==="a"){
+    const sessionBody=$("#sessionSheetBody");sessionBody.prepend(voice);sessionBody.prepend(rest);
+    $("#sessionEarlyFinish").textContent=t("mdir.finish");
+    $("#sessionAbandon").textContent=t("session.sheet.abandon");
+    const pain=$("#exActionDiscomfortBtn").closest("section");
+    for(const section of [$("#exActionsSubstSection"),$("#exActionsSkipSection"),pain,$("#exActionsRepeatSection"),warm])body.append(section);
+    warm.querySelector('[data-i18n="ex.actions.warmup_title"]').remove();
   }
   const finish=$("#sessionEarlyFinish");
   $("#sessionSheet").append(end);
@@ -29358,6 +29367,9 @@ function renderDirectionExercise(){
   sheet.querySelector(".exactions__eyebrow").hidden=true;
   if(menuDirection==="c"&&directionSheetMode==="warm") $("#exActionsSetupSection").hidden=true;
   $("#mdirWarmToggle").setAttribute("aria-expanded",String(directionWarmExpanded));
+  if(menuDirection==="a"){
+    const add=$("#exActionAddWarmup");if(add)add.parentElement.prepend(add);
+  }
   for(const [selector,icon] of [["#exActionDiscomfortBtn","alert"],["#exActionAddWarmup","plus"],["[data-wu-edit]","pencil"],["[data-wu-remove]","minus"]])sheet.querySelectorAll(selector).forEach(b=>{if(!b.querySelector(".icon-mask"))b.insertAdjacentHTML("afterbegin",directionIcon(icon))});
 }
 function directionCardActions(ex){

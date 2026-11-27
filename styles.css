@@ -10102,3 +10102,35 @@ html[data-mdir] .is-destructive { color: var(--danger); }
 html[data-mdir="b"] #sessionEarlySection { display: none; }
 html[data-mdir="b"] #sessionEarlySection:has(.session-early-prompt:not(.hidden)) { display: block; }
 html[data-mdir="b"] #sessionSheetBtn, html[data-mdir="c"] #sessionSheetBtn { display: none; }
+
+/* Round one: direction A gives each door its scope. */
+html[data-mdir="a"] #woOverflowBtn { display:none; }
+html[data-mdir="a"] #sessionSheetBtn { width:auto; flex:none; padding:0 8px; font-size:14px; font-weight:var(--weight-medium); }
+html[data-mdir="a"] .mdir-exercise-button { display:flex; align-items:center; justify-content:center; flex:none; width:44px; height:44px; padding:0; border:0; border-radius:var(--radius-round); background:var(--control-quiet-bg); color:var(--control-quiet-ink); }
+html[data-mdir="a"] .fx-head__row { gap:4px; }
+html[data-mdir="a"] #exActionsSheet .exactions__section { margin:0; padding:0; gap:0; }
+html[data-mdir="a"] #exActionsSheet .exactions__act { min-height:48px; padding:8px 0; }
+html[data-mdir="a"] #exActionsSheet .exactions__rows { border-top:0; }
+html[data-mdir="a"] #exActionsSheet #exActionsSetupSection { padding-top:8px; }
+html[data-mdir="a"] #exActionsSheet #exActionsSetupSection > .sheetgroup__head { display:block; margin:0 0 4px; font-size:12px; color:var(--color-ink-secondary); }
+html[data-mdir="a"] #exActionsSheet #exActionsWarmupSection > .sheetgroup__head { margin:12px 0 4px; }
+html[data-mdir="a"] #exActionsWarmupList .exactions__warmup-role,
+html[data-mdir="a"] #exActionsWarmupList .exactions__warmup-cap { display:none; }
+html[data-mdir="a"] #exActionsWarmupList .exactions__warmup-row { flex-wrap:nowrap; min-height:44px; padding:0; }
+html[data-mdir="a"] #exActionsWarmupList .exactions__warmup-info { flex:1; }
+html[data-mdir="a"] #sessionEarlySection { margin:0; padding:8px 16px max(8px, env(safe-area-inset-bottom)); border-top:1px solid var(--rule-on-surface); }
+html[data-mdir="a"] #sessionEarlyFinish { justify-content:center; background:var(--control-primary-bg); color:var(--control-primary-ink); min-height:44px; }
+html[data-mdir="a"] #sessionAbandon { justify-content:center; min-height:44px; padding:4px; border:0; background:var(--control-quiet-bg); }
+html[data-mdir="a"] #sessionSheetBody > .exactions__act { min-height:44px; padding:4px 0; }
+html[data-mdir="a"] .wo-head { display:grid; grid-template-columns:44px minmax(0,1fr) auto; gap:4px; }
+html[data-mdir="a"] .wo-head__center { order:0; padding-top:8px; }
+html[data-mdir="a"] .wo-head__title { font-size:13px; }
+html[data-mdir="a"] #exActionRepeatHint { display:none; }
+html[data-mdir="a"] .mdir-exercise-button:focus-visible { outline:var(--control-focus-outline); outline-offset:2px; }
+@media (max-height:650px) {
+  html[data-mdir="a"] #sessionSheet { max-height:calc(100dvh - 8px); }
+  html[data-mdir="a"] #sessionSheet .sheetband { padding-bottom:8px; }
+  html[data-mdir="a"] #sessionSheet .session-map__row,
+  html[data-mdir="a"] #sessionSheet .session-map__jump { min-height:48px; }
+  html[data-mdir="a"] #sessionSheet .session-map__jump { padding-block:4px; }
+}
