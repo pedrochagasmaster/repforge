@@ -29376,7 +29376,7 @@ function odirBPage(step){
  if(step==="weight")return heading+odirBasics();
  return heading+ODIR_B_PAGES[step].map((id,index)=>{
  if(id==="equipment"&&!entryState.answers.environment?.kind)return "";
- const content=odirCompact(id);
+ const content=odirCompact(id).replace(id==="environment"?/<h2[^>]*>.*?<\/h2>/:/$^/,"");
  if(step==="split"||id==="equipment")return `<details class="odir-disclosure"><summary>${esc(t(id==="equipment"?"odir.equipment":`odir.fine.${id}`))} · ${esc(id==="equipment"?entryEnvironmentKindLabel(entryState.answers.environment?.kind):odirValue(id))}</summary>${content}</details>`;
  return `<section class="odir-group">${content}</section>`}).join("");
 }

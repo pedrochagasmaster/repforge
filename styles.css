@@ -10093,3 +10093,5 @@ body.is-entry-editor #entryProgramName,
 #onboarding[data-odir="c"]:has(#onbBody.entry-route--recommend) #onbNext.btn--steel {
   background: var(--control-secondary-bg); color: var(--control-secondary-ink); border: 1px solid var(--control-secondary-boundary);
 }
+[data-odir] #onbBody .radio-card__body { flex: 1 1 0; width: 0; }
+[data-odir] #onbBody .radio-card__cap { max-width: 100%; overflow-wrap: anywhere; }

@@ -3484,7 +3484,7 @@ const EN = {
   "odir.gym.commercial_gym": "Machines, cables and free weights",
   "odir.gym.warehouse_gym": "Mostly free weights, with some machines",
   "odir.gym.basic_gym": "Free weights and a cable station",
-  "odir.gym.full_home": "Rack, barbell, bench and dumbbells at home",
+  "odir.gym.full_home": "Rack, barbell, bench and dumbbells",
   "odir.gym.limited_home": "Dumbbells, bands and a pull-up bar only",
 };
 const PT = {
@@ -6971,7 +6971,7 @@ const PT = {
   "odir.gym.commercial_gym": "Máquinas, cabos e pesos livres",
   "odir.gym.warehouse_gym": "Principalmente pesos livres e algumas máquinas",
   "odir.gym.basic_gym": "Pesos livres e uma estação de cabos",
-  "odir.gym.full_home": "Rack, barra, banco e halteres em casa",
+  "odir.gym.full_home": "Rack, barra, banco e halteres",
   "odir.gym.limited_home": "Apenas halteres, elásticos e barra fixa",
 };
 (function (root) {
