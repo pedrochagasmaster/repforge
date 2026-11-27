@@ -1388,6 +1388,11 @@
       "content": "flat",
       "scenario": "A trainer's update over Today: the changes (swapped, changed, removed), the trainer's message, then Use the update or Keep my current program."
     },
+    "today/relay-update-new": {
+      "owner": "plan-086",
+      "content": "flat",
+      "scenario": "A trainer's program that shares no exercise slot with the current one: titled New program and shown whole, then Use the update or Keep my current program."
+    },
     "today/relay-update-unavailable": {
       "owner": "plan-086",
       "content": "flat",
