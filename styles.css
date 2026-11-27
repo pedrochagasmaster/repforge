@@ -10188,3 +10188,26 @@ html[data-mdir="a"] #exActionAddWarmup:disabled { display:grid; grid-template-co
 html[data-mdir="a"] #exActionAddWarmup:disabled .exactions__act-text { display:contents; }
 html[data-mdir="a"] #exActionAddWarmup:disabled .icon-mask { grid-column:2; grid-row:1; }
 html[data-mdir="a"] #exActionAddWarmup .exactions__hint { grid-column:1 / -1; font-size:11px; }
+
+/* Direction A, round 4: labels stay at every width; tighter short-screen sheets. */
+html[data-mdir="a"] .mdir-exercise-button .icon-mask { display:none; }
+html[data-mdir="a"] .mdir-exercise-button,
+html[data-mdir="a"] .fx-note-add { padding:0 12px; color:var(--color-ink); }
+html[data-mdir="a"] #sessionSheetBtn { color:var(--color-ink); }
+html[data-mdir="a"] #exActionAddWarmup:disabled .icon-mask { opacity:.35; }
+html[data-mdir="a"] #exActionsSheet .mdir-health-group { margin-top:12px; }
+@media (max-width:374px) {
+  html[data-mdir="a"] .fx-note-add__label { display:inline; }
+  html[data-mdir="a"] .fx-note-add { width:auto; padding:0 8px; }
+  html[data-mdir="a"] .mdir-exercise-button { padding:0 8px; }
+  html[data-mdir="a"] .fx-head__row { gap:4px; }
+}
+@media (max-height:650px) {
+  html[data-mdir="a"] #exActionsSheet .exactions__act { min-height:44px; padding:4px 0; }
+  html[data-mdir="a"] #exActionsSheet .mdir-health-group { margin-top:8px; }
+  html[data-mdir="a"] #exActionsSheet .sheetgroup__cap { margin:10px 0 2px; }
+  html[data-mdir="a"] #exActionsWarmupList .exactions__warmup-row { min-height:40px; }
+  html[data-mdir="a"] #sessionMapLabel { margin-top:12px; }
+  html[data-mdir="a"] #sessionSheet .session-map__row,
+  html[data-mdir="a"] #sessionSheet .session-map__jump { min-height:44px; }
+}
