@@ -14972,6 +14972,20 @@ function reducedSetCounts(proposal,snapshot){
   const before=counts(snapshot?.programMeta?.programDefinition),after=counts(proposal?.successor?.programDefinition);
   return[...before].filter(([slotId,sets])=>(after.get(slotId)??0)<sets)
     .map(([slotId,sets])=>({slotId,beforeSets:sets,afterSets:after.get(slotId)??0}))}
+/* A received definition arrives with its object keys in the codec's order. A slot of a custom exercise the lifter
+   already holds then names the same metrics as the local definition in another key order, which the compiler's exact
+   comparison refuses. Same content, so the slot takes the local definition's own copy. */
+function alignCustomSlotMetrics(definition,customs){
+  if(!definition)return definition;
+  const sorted=value=>Array.isArray(value)?value.map(sorted):value&&typeof value==="object"
+    ?Object.fromEntries(Object.keys(value).sort().map(key=>[key,sorted(value[key])])):value;
+  const local=new Map(compilerCustomDefinitions(customs).map(entry=>[entry.id,entry]));
+  const next=cloneSnapshot(definition);
+  for(const day of next.days||[])for(const slot of day?.slots||[]){
+    const own=local.get(slot?.exerciseId);
+    if(own&&Array.isArray(own.metricDefinitions)&&JSON.stringify(sorted(slot.metricDefinitions))===JSON.stringify(sorted(own.metricDefinitions)))
+      slot.metricDefinitions=cloneSnapshot(own.metricDefinitions)}
+  return next}
 const repforgeProgramTransitionAdapter = {
   // Every Review change is a derived successor ProgramDefinition, previewed and
   // confirmed by its proposal hash. The domain refuses a Build program's
@@ -15006,12 +15020,41 @@ const repforgeProgramTransitionAdapter = {
     return created?.ok && derived.value.carry ? { ...created, carry: derived.value.carry } : created;
   },
 
+  // Plan 086 slice 3: a program received from a trainer replaces the current one through the same transition as
+  // a Review change, with no derived change. Its custom exercises merge into the lifter's own first; a clash of ids
+  // gets a fresh id and the received definition follows the remap, as a program file does.
+  async proposeHandoff(input = {}) {
+    const Transition = transitionDomain();
+    if (!Transition?.createReplacementProposal) return { ok: false, status: "unavailable", code: "transition_domain_unavailable", unavailable: true };
+    if (!rawExerciseCatalog) return { ok: false, status: "unavailable", code: "catalog_unavailable", unavailable: true };
+    const predecessor = transitionPredecessor(state);
+    if (!predecessor) return { ok: false, status: "unavailable", code: "program_definition_unavailable", unavailable: true };
+    const merged = mergeImportedCustomExercises(cloneSnapshot(input.customExercises || []), [], state);
+    const definition = canonicalProgramDefinition(alignCustomSlotMetrics(remapDefinitionMovements(input.programDefinition, merged.remap),
+      merged.customExercises), merged.customExercises);
+    if (!definition) return { ok: false, status: "invalid", code: "handoff_definition_invalid", invalid: true };
+    const diff = Transition.diffProgramDefinitions(predecessor.programDefinition, definition);
+    if (!diff.ok) return { ok: false, status: "invalid", code: diff.code, invalid: true };
+    const created = await Transition.createReplacementProposal({
+      transitionId: uid(), createdAt: new Date().toISOString(), predecessor,
+      successor: { programId: uid(), programDefinition: definition,
+        customExerciseDefinitions: compilerCustomDefinitions(merged.customExercises) },
+      catalogSnapshot: rawExerciseCatalog,
+    });
+    if (!created?.ok) return created;
+    return { ...created, diff, handoff: { name: String(input.name || "").trim(), customExercises: merged.customExercises } };
+  },
+
   async confirmTransition(params = {}) {
     const Transition = transitionDomain();
     if (!Transition) {
       return { ok: false, status: "unavailable", code: "transition_domain_unavailable", committed: false, localOk: false, idbOk: false };
     }
     const { proposal, proposalHash, transitionId, successorProgramId, confirmedAt } = params;
+    const handoff = isPlainStateObject(params.handoff) && Array.isArray(params.handoff.customExercises) ? params.handoff : null;
+    if (Object.prototype.hasOwnProperty.call(params, "handoff") && (!handoff || Object.hasOwn(proposal || {}, "change"))) {
+      return { ok: false, committed: false, invalid: true, code: "handoff_invalid", localOk: false, idbOk: false, revision: readRevision(state) };
+    }
     const hasAck = Object.prototype.hasOwnProperty.call(params, "acknowledgedDraftRaw");
     const acknowledgedDraftRaw = params.acknowledgedDraftRaw;
     const invalid = (code) => ({
@@ -15117,6 +15160,16 @@ const repforgeProgramTransitionAdapter = {
       delete successorMeta.plannedVolumeHistory;
       if (Object.prototype.hasOwnProperty.call(successorMeta, "programStructure"))
         successorMeta.programStructure = successorProgramStructure(successorMeta.programStructure, definition);
+      if (handoff) {
+        // A received program is another program, not a revision of this one's generator request: it starts from a
+        // fresh meta with the received name. Nothing of the predecessor's request, loading or adaptations carries.
+        const fresh = buildProgramMeta({ name: handoff.name, answers: { mesocycleLengthWeeks: definition.cycles } });
+        for (const key of Object.keys(successorMeta)) if (!["id", "blockId", "started", "mesocycleStatus", "daysPerWeek",
+          "mesocycleLengthWeeks", "programDefinition", "transitionIn", "updated"].includes(key)) delete successorMeta[key];
+        for (const [key, value] of Object.entries(fresh)) if (!Object.prototype.hasOwnProperty.call(successorMeta, key)) successorMeta[key] = value;
+        successorMeta.programStructure = programStructureForDefinition({ schemaVersion: 1, days: [], provenance: { source: "shared" } }, definition);
+        draftProposal.customExercises = cloneSnapshot(handoff.customExercises);
+      }
       draftProposal.programMeta = successorMeta;
       draftProposal.program = durableProgramRows(definition, draftProposal.customExercises || [], successorMeta);
       return { proposal: draftProposal };
@@ -29223,9 +29276,14 @@ async function prepareRelayHandoff(candidate){
     if(!keep){clearRelayHandoff(locator);removeRelayFragment()}
     sharedSetupDraft={status:"invalid",source,encoded:null,payload:null,error:code,previousLang:null,relay:{locator:keep?locator:null}};
     return true};
+  if(relayUpdateEligible()){
+    // Slice 3: a client who already has a program sees what changed and chooses (owner, 2026-11-26).
+    sharedSetupDraft={status:"none",source:null,encoded:null,payload:null,error:null,previousLang:null};
+    if(relayUpdateBooted)void openRelayUpdate(candidate);else pendingRelayUpdate=candidate;
+    return true}
   if(!locator)return fail("relay-incomplete");
   if(!sharedSetupEligible()){
-    // Slice 2: a device with a program keeps the setup link's rule; the program update is slice 3.
+    // A device that has no active program but keeps an archive keeps the setup link's never-apply rule.
     clearRelayHandoff(locator);removeRelayFragment();
     sharedSetupDraft={status:source==="fragment"?"existing":"none",source,encoded:null,payload:null,
       error:source==="fragment"?"existing":null,previousLang:null};
@@ -29269,6 +29327,212 @@ function retryRelayHandoff(){
   sharedSetupDraft={status:"opening",source:"cookie",encoded:null,payload:null,error:null,previousLang:null,relay:{locator}};
   renderFirstRun();renderFirstRunHeroCopy();
   void openRelayHandoff({source:"cookie",relay:true,locator})}
+/* Plan 086 slice 3: a relay program handoff opened by a client who already has a program. A sheet over Today shows
+   what changed against the current program (program-transition.js diffProgramDefinitions), the trainer's message
+   and the whole received program. Use the update replaces the program through the transition adapter: the current
+   program goes to the archive, history stays, and a workout in progress is left as it is. Keep my current program
+   writes nothing. Either choice clears the handoff cookie; expired, newer and incomplete links clear it at once,
+   and an unavailable relay keeps it for Try again, as at the first-run gate. */
+let relayUpdate=null,pendingRelayUpdate=null,relayUpdateBooted=false,relayUpdateRequest=0,relayUpdateReturn=null;
+const relayUpdateEligible=()=>!sharedSetupEligible()&&hasActiveProgram()&&!!state?.programMeta?.programDefinition;
+function relayUpdateFigures(row){
+  if(!row)return"";
+  if(row.min==null)return"";
+  const reps=row.min===row.max?fmt(row.min):`${fmt(row.min)}–${fmt(row.max)}`;
+  return`${fmt(row.sets)} × ${reps}`}
+/* Rows in the lifter's language: the app's display name for each movement and its localized day name. */
+function relayUpdateLocalRows(definition,customs,cycle){
+  return flatProgramFromDefinition(definition,customs,cycle).map(row=>({...row,
+    day:localizedDayName({label:row.day},row.day,definition),name:exerciseDisplayName(row)}))}
+function relayUpdateRows(definition,customs,cycle){
+  const rows=relayUpdateLocalRows(definition,customs,cycle);
+  const first=cycle===1?rows:relayUpdateLocalRows(definition,customs,1);
+  const bySlot=new Map(first.map(row=>[row.slotId,row]));
+  for(const row of rows)bySlot.set(row.slotId,row);
+  return bySlot}
+function relayUpdateRowHtml({day,name,tag="",was="",now=""}){
+  return`<div class="relay-update__row" role="listitem"><p class="relay-update__day">${esc(day)}</p><p class="relay-update__name">${esc(name)}</p>`+
+    (tag?`<span class="relay-update__tag">${esc(tag)}</span>`:"")+
+    (was?`<p class="relay-update__was"><s>${esc(was)}</s></p>`:"")+
+    (now?`<p class="relay-update__now">${esc(now)}</p>`:"")+`</div>`}
+function relayUpdateDiffHtml(update){
+  const before=state.programMeta.programDefinition,after=update.proposal.successor.programDefinition;
+  const cycle=mesocycleLifecycle(state.programMeta)?.current||1;
+  const old=relayUpdateRows(before,customExercises(),cycle);
+  const next=relayUpdateRows(after,update.handoff.customExercises,1);
+  return update.diff.changes.map(change=>{
+    const was=old.get(change.slotId),now=next.get(change.slotId);
+    if(change.kind==="removed")return relayUpdateRowHtml({day:was?.day||"",name:was?.name||change.exerciseId,tag:t("relay.update.tag.removed")});
+    const nowFigures=relayUpdateFigures(now),wasFigures=relayUpdateFigures(was);
+    if(change.kind==="swapped")return relayUpdateRowHtml({day:now?.day||"",name:now?.name||change.exerciseId,tag:t("relay.update.tag.swapped"),was:was?.name||"",now:nowFigures});
+    if(change.kind==="added")return relayUpdateRowHtml({day:now?.day||"",name:now?.name||change.exerciseId,tag:t("relay.update.tag.added"),now:nowFigures});
+    return relayUpdateRowHtml({day:now?.day||"",name:now?.name||change.exerciseId,tag:t("relay.update.tag.changed"),
+      was:wasFigures&&wasFigures!==nowFigures?wasFigures:"",now:nowFigures})}).join("")}
+function relayUpdateAllHtml(update){
+  const next=relayUpdateLocalRows(update.proposal.successor.programDefinition,update.handoff.customExercises,1);
+  return next.map(row=>relayUpdateRowHtml({day:row.day,name:row.name,now:relayUpdateFigures(row)})).join("")}
+function relayUpdateSentDate(expiresAt){
+  // The record says when it expires; the app's records live seven days, so it was sent seven days before.
+  const at=Date.parse(expiresAt||"");
+  if(!Number.isFinite(at))return"";
+  try{return new Date(at-7*864e5).toLocaleDateString(locTag(),{day:"numeric",month:"long"})}catch{return""}}
+function renderRelayUpdate(){
+  const sheet=$("#relayUpdateSheet");
+  const update=relayUpdate;
+  if(!sheet||!update)return;
+  const show=(el,on)=>{if(el){el.classList.toggle("hidden",!on);el.hidden=!on}};
+  const ready=update.phase==="ready",error=update.phase==="error",opening=update.phase==="opening";
+  const related=ready&&update.diff.related;
+  const title=$("#relayUpdateTitle");
+  if(title)title.textContent=t(ready&&!related?"relay.update.title_new":"relay.update.title");
+  const sub=$("#relayUpdateFor");
+  if(sub){
+    const trainer=ready?update.value.trainer?.displayName?.trim():"";
+    const program=ready?update.value.program.name:"",date=ready?relayUpdateSentDate(update.expiresAt):"";
+    sub.textContent=ready?(trainer&&date?t("relay.update.sub",{name:trainer.split(/\s+/)[0],program,date}):program):"";
+    show(sub,!!sub.textContent)}
+  const status=$("#relayUpdateStatus");
+  if(status)status.textContent=opening?t("relay.gate.opening"):"";
+  show(status,opening);
+  const lead=$("#relayUpdateLead");
+  if(lead){
+    const n=ready?update.diff.changes.length:0;
+    lead.textContent=related?t(n===1?"relay.update.count.one":"relay.update.count.other",{n:fmt(n)}):error?t(`relay.open.${update.kind}.title`):"";
+    show(lead,!!lead.textContent)}
+  const errorText=$("#relayUpdateError"),hint=$("#relayUpdateHint");
+  if(errorText)errorText.textContent=error?t(`relay.open.${update.kind}.sub`):"";
+  if(hint)hint.textContent=error?t(`relay.open.${update.kind}.hint`):"";
+  show(errorText,error);show(hint,error);
+  const diff=$("#relayUpdateDiff");
+  if(diff){diff.innerHTML=related?relayUpdateDiffHtml(update):"";diff.setAttribute("role","list");show(diff,related&&update.diff.changes.length>0)}
+  const message=ready?update.value.message||"":"",first=ready?update.value.trainer?.displayName?.trim().split(/\s+/)[0]||"":"";
+  const box=$("#relayUpdateMessageBox");
+  const label=$("#relayUpdateMessageLabel");if(label){label.textContent=message&&first?t("relay.message_from",{name:first}):"";show(label,!!label.textContent)}
+  const text=$("#relayUpdateMessage");if(text)text.textContent=message;
+  show(box,!!message);
+  // A new program shows the whole program at once; an update keeps it behind See the whole program.
+  const all=$("#relayUpdateAll"),seeAll=$("#relayUpdateSeeAll");
+  const expanded=ready&&(!related||update.expanded===true);
+  if(all){all.innerHTML=expanded?relayUpdateAllHtml(update):"";all.setAttribute("role","list");show(all,expanded)}
+  if(seeAll){show(seeAll,related&&!expanded);seeAll.setAttribute("aria-expanded",String(expanded))}
+  const note=$("#relayUpdateNote");
+  if(note)note.textContent=ready?t(draftHasProgress()?"relay.update.history_draft":"relay.update.history"):"";
+  show(note,ready);
+  const use=$("#relayUpdateUse"),keep=$("#relayUpdateKeep");
+  show(use,ready);show(keep,ready);
+  if(use)use.disabled=!!update.committing;
+  if(keep)keep.disabled=!!update.committing;
+  const action=$("#relayUpdateAction"),dismiss=$("#relayUpdateDismiss");
+  const actionKey=error&&update.kind==="unavailable"?"relay.retry":error&&update.kind==="newer"?"relay.open.reload":"";
+  if(action){action.textContent=actionKey?t(actionKey):"";action.dataset.relayAction=actionKey?update.kind:""}
+  show(action,!!actionKey);
+  show(dismiss,error&&!actionKey);
+  sheet.dataset.relayUpdate=update.phase+(error?`-${update.kind}`:"")}
+function showRelayUpdateSheet(){
+  const sheet=$("#relayUpdateSheet"),scrim=$("#relayUpdateScrim");
+  if(!sheet)return false;
+  if(activeModal?.el===sheet)return true;
+  // With enlarged text the band, body and actions scroll as one column, as the share sheet does (Plan 086 slice 1b).
+  sheet.classList.toggle("is-text-scaled",rootTextScaled());sheet.scrollTop=0;
+  relayUpdateReturn=document.activeElement;
+  const opened=openModal(sheet,{initialFocus:$("#relayUpdateClose"),returnFocus:relayUpdateReturn,
+    onEscape:()=>keepRelayUpdate(),scrim,delayHide:reducedMotion()?0:280});
+  if(opened===false)return false;
+  document.body.classList.add("is-sheet-open");
+  requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim?.classList.add("is-open")});
+  return true}
+function closeRelayUpdateSheet(){
+  relayUpdateRequest++;
+  relayUpdate=null;relayUpdateReturn=null;
+  const sheet=$("#relayUpdateSheet");
+  if(!sheet||sheet.hidden&&activeModal?.el!==sheet)return Promise.resolve(false);
+  return closeModal(sheet)}
+function failRelayUpdate(update,code,cause=code){
+  const kind=RELAY_GATE_ERRORS[code]||"incomplete";
+  if(kind!=="unavailable"){clearRelayHandoff(update.locator);removeRelayFragment()}
+  relayUpdate={phase:"error",kind,cause:String(cause||""),source:update.source,locator:kind==="unavailable"?update.locator:null};
+  renderRelayUpdate()}
+async function openRelayUpdate(candidate){
+  const {source,locator}=candidate;
+  const request=++relayUpdateRequest;
+  const update={phase:"opening",source,locator};
+  relayUpdate=update;
+  if(!showRelayUpdateSheet()){relayUpdate=null;return}
+  renderRelayUpdate();
+  if(!locator){failRelayUpdate(update,"relay-incomplete");return}
+  if(!TrainerDocuments||!relayAvailableHere()){failRelayUpdate(update,"relay-unavailable");return}
+  // The Home Screen app starts without the fragment; the cookie carries the locator across, as for a new client.
+  if(source==="fragment"){try{SharedSetup.writeHandoffCookie(locator)}catch{}}
+  let received;
+  try{received=await TrainerDocuments.receive(locator,TrainerDocuments.HANDOFF_KIND,sharedSetupCodecOptions(),{serviceOrigin:RELAY_SERVICE_ORIGIN})}
+  catch{received={ok:false,code:"exception"}}
+  if(request!==relayUpdateRequest)return;
+  if(!received?.ok){failRelayUpdate(update,relayGateCode(received?.code),received?.code);return}
+  removeRelayFragment();
+  // The installed app has opened the program: the cookie's job is done (owner, 2026-11-26).
+  if(isStandalone())clearRelayHandoff(locator);
+  const value=received.value;
+  let proposed;
+  try{proposed=await repforgeProgramTransitionAdapter.proposeHandoff({programDefinition:value.program.definition,
+    customExercises:value.program.customExercises||[],name:value.program.name})}
+  catch{proposed=null}
+  if(request!==relayUpdateRequest)return;
+  if(!proposed?.ok){failRelayUpdate(update,"relay-incomplete",proposed?.code||"propose-failed");return}
+  relayUpdate={phase:"ready",source,locator:isStandalone()?null:locator,value,expiresAt:received.expiresAt,
+    proposal:proposed.proposal,diff:proposed.diff,handoff:proposed.handoff};
+  renderRelayUpdate()}
+async function useRelayUpdate(){
+  const update=relayUpdate;
+  if(update?.phase!=="ready"||update.committing)return;
+  update.committing=true;renderRelayUpdate();
+  const p=update.proposal;
+  let persisted=null;
+  try{persisted=await repforgeProgramTransitionAdapter.confirmTransition({proposal:p,proposalHash:p.proposalHash,
+    transitionId:p.transitionId,successorProgramId:p.successor.programId,confirmedAt:new Date().toISOString(),
+    acknowledgedDraftRaw:readDraftRaw(),handoff:update.handoff})}
+  catch{persisted=null}
+  if(relayUpdate!==update)return;
+  update.committing=false;
+  if(persisted?.committed===true&&persisted?.settled===true){
+    clearRelayHandoff(update.locator);removeRelayFragment();
+    await closeRelayUpdateSheet();
+    // A workout in progress keeps its day; otherwise Today opens on the new program's first day.
+    if(!draftHasProgress())day=days()[0]||"Day 1";
+    render();toast(t("toast.onboarding_saved"));
+    return}
+  if(persisted?.stale||persisted?.staleRevision||persisted?.draftConflict){
+    // Something changed under the sheet (another tab, a finished workout): propose again from the current program.
+    let again=null;
+    try{again=await repforgeProgramTransitionAdapter.proposeHandoff({programDefinition:update.value.program.definition,
+      customExercises:update.value.program.customExercises||[],name:update.value.program.name})}catch{}
+    if(relayUpdate!==update)return;
+    if(again?.ok){update.proposal=again.proposal;update.diff=again.diff;update.handoff=again.handoff}}
+  renderRelayUpdate();
+  toast(t("setup.shared.commit_failed"),{assertive:true})}
+function keepRelayUpdate(){
+  const update=relayUpdate;
+  if(update?.committing)return;
+  // Keep my current program writes nothing. The link is answered, so its cookie and fragment go.
+  if(update?.phase==="ready"){clearRelayHandoff(update.locator);removeRelayFragment()}
+  void closeRelayUpdateSheet()}
+function relayUpdateAction(){
+  const update=relayUpdate;
+  if(update?.phase!=="error")return;
+  if(update.kind==="newer"){location.reload();return}
+  if(update.kind==="unavailable"&&update.locator)void openRelayUpdate({source:"cookie",relay:true,locator:update.locator})}
+function bindRelayUpdate(){
+  const on=(id,fn)=>{const el=$(id);if(el)el.onclick=fn};
+  on("#relayUpdateUse",useRelayUpdate);
+  on("#relayUpdateKeep",keepRelayUpdate);
+  on("#relayUpdateClose",keepRelayUpdate);
+  on("#relayUpdateDismiss",keepRelayUpdate);
+  on("#relayUpdateAction",relayUpdateAction);
+  on("#relayUpdateSeeAll",()=>{if(relayUpdate?.phase==="ready"){relayUpdate.expanded=true;renderRelayUpdate();$("#relayUpdateAll")?.focus?.()}})}
+window.__repforgeRelayUpdate={
+  get phase(){return relayUpdate?.phase||null},
+  get kind(){return relayUpdate?.kind||null},
+  get cause(){return relayUpdate?.cause||null},
+  get changes(){return relayUpdate?.diff?cloneSnapshot(relayUpdate.diff.changes.map(change=>change.kind)):null}};
 let pendingRelayHandoff=null;
 async function prepareSharedSetup(candidate){
   if(!candidate||!SharedSetup)return false;
@@ -29434,6 +29698,8 @@ async function boot(){
   void resumeProgramEditFollowUp().catch(()=>{});
   init();
   if(pendingRelayHandoff){const relayCandidate=pendingRelayHandoff;pendingRelayHandoff=null;void openRelayHandoff(relayCandidate)}
+  relayUpdateBooted=true;bindRelayUpdate();
+  if(pendingRelayUpdate){const updateCandidate=pendingRelayUpdate;pendingRelayUpdate=null;void openRelayUpdate(updateCandidate)}
   restoreRest(draftBoot.status==="ready"?activeWorkoutDraft.draftId:null);
   if(transferResult.transferResult?.localOk===true){
     openIosInstallSheet(transferResult.transferResult.cleanup?.ok===true?"success":"cleanup")}

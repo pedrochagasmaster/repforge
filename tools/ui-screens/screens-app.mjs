@@ -16,7 +16,7 @@ import { catalogState, directionDState, emptyEntryState, lifterExerciseNote, loc
 import { CAPTURE_NOW, dismissChrome, LOG_DRAFT, replayGuide, seed, sleep } from "./session.mjs";
 import { definitionSlot, installGeneratedProgram, isWeightRepsSlot, metricLogRow } from "../../test/fixtures/history-metric-rows.mjs";
 import { finishEarly } from "../../test/fixtures/focus-workout.mjs";
-import { fakeRelay } from "../../test/fixtures/relay-handoff.mjs";
+import { fakeRelay, sealHandoff } from "../../test/fixtures/relay-handoff.mjs";
 import { savedAfterLeadSessions, savedWarmupSession } from "../../test/fixtures/prelude-sessions.mjs";
 import { openShelfField } from "../../test/browser.mjs";
 import { DIRECTION_D_CANONICAL_ID_BY_LEGACY_ID } from "./direction-d-canonical-fixture.generated.mjs";
@@ -324,6 +324,8 @@ const D_FIXTURE_STATES = new Set([
 const DIRECTION_D_BEFORE_SESSION = new Set([
   "today/skipped", "today/context-menu", "today/ready", "today/dock-viewer", "today/ready-scrolled", "today/day-picker", "today/rest-bar", "today/draft-resume",
   "today/in-progress", "progress/minibar", "history/minibar-rest", "program/minibar-rest-done",
+  // Plan 086 slice 3: a trainer's program update over the same Today.
+  "today/relay-update", "today/relay-update-new", "today/relay-update-draft", "today/relay-update-unavailable", "today/relay-update-expired", "today/relay-update-newer",
   "workout/why-this-weight", "workout/why-in-session",
   "workout/fatigue", // owner, 2026-11-06: the fatigue banner on the day two lifts did worse than the session before
   "workout/rest-running", "workout/rest-done", "workout/rest-sheet", "workout/rest-sheet-idle",
@@ -1331,6 +1333,57 @@ async function openShare(page) {
 }
 
 /** Plan 086 slice 2: Share through a fake relay with a fixed record id, expiry and key, so the QR code is stable. */
+/** Plan 086 slice 3: a trainer's update to this lifter's program, opened over Today. The trainer swaps the first
+ *  exercise of day 1 for one from day 2, gives the first exercise left on day 2 a new rep range, and drops the one it
+ *  moved. "unavailable", "expired" and "newer" draw the relay's errors in the same sheet. */
+async function relayUpdateTo(page, step) {
+  const relay = fakeRelay();
+  await page.route("https://relay.taurifer.com/**", relay.handler);
+  const portuguese = await page.evaluate(() => { window.__repforgeLocalRelay = true; return document.documentElement.lang === "pt-BR"; });
+  const revised = await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem("repforge_v1"));
+    const payload = window.__repforgeSharedSetup.buildPayload();
+    const next = JSON.parse(JSON.stringify(payload.program.definition));
+    const [first, second] = next.days.filter((day) => day.kind === "training");
+    const moved = second.slots.find((slot) => !first.slots.some((other) => other.exerciseId === slot.exerciseId));
+    const copy = JSON.parse(JSON.stringify(moved));
+    for (const cycle of copy.prescriptionsByCycle) for (const set of cycle.sets) set.id = `${set.id}t`;
+    first.slots[0] = { ...copy, id: first.slots[0].id, order: first.slots[0].order };
+    second.slots = second.slots.filter((slot) => slot !== moved).map((slot, index) => ({ ...slot, order: index + 1 }));
+    for (const cycle of second.slots[0].prescriptionsByCycle) for (const set of cycle.sets) set.targets.reps = { min: 10, max: 12 };
+    return { definition: next, customExercises: payload.program.customExercises || [], name: state.programMeta.name, now: Date.now() };
+  });
+  if (step === "new") {
+    // A program that shares no slot with the current one: a three-day full body the trainer generated.
+    Object.assign(revised, await page.evaluate(() => {
+      const catalog = window.RepForgeExerciseCatalog.snapshot();
+      const mapped = window.RepForgeProgramEntryAdapter.programRequestFromAnswers({
+        desiredResult: "muscle_growth", structuredExperience: "6_to_24m", daysPerWeek: 3, sessionMinutes: 60,
+        environment: { kind: "commercial_gym" },
+      }, catalog);
+      return { definition: window.RepForgeProgramCompiler.generateProgram(mapped.value, catalog).value, customExercises: [] };
+    }));
+    revised.name = (await page.evaluate(() => document.documentElement.lang === "pt-BR")) ? "Corpo inteiro" : "Full body";
+  }
+  const expiresAt = new Date(revised.now + 5 * 864e5).toISOString();
+  const hash = step === "newer"
+    ? await sealHandoff(page, relay, { document: { kind: "taurifer-program-handoff", version: 2 }, expiresAt })
+    : await sealHandoff(page, relay, { name: revised.name, definition: revised.definition, customExercises: revised.customExercises, language: portuguese ? "pt" : "en", expiresAt,
+      trainer: { displayName: "Rafael Lima", registration: "CREF 012345-G/SP" },
+      message: portuguese ? "Mudei alguns exercícios neste bloco. Me conta como foi a primeira semana."
+        : "Changed a few exercises for this block. Tell me how the first week feels." });
+  if (step === "unavailable") relay.mode = "down";
+  if (step === "expired") relay.records.clear();
+  await page.evaluate((value) => { location.hash = value; }, hash);
+  const expected = ["update", "draft", "new"].includes(step) ? "ready" : `error-${step}`;
+  await page.waitForFunction((value) => document.getElementById("relayUpdateSheet")?.dataset.relayUpdate === value, expected, { timeout: 20000 });
+  await page.waitForFunction(() => {
+    const toast = document.querySelector("#toast");
+    return !toast || toast.classList.contains("hidden");
+  }, undefined, { timeout: 10000 });
+  await sleep(page, 400);
+}
+
 async function relayShareTo(page, step) {
   const relay = fakeRelay({ fixedId: "BwcHBwcHBwcHBwcHBwcHBw", fixedExpiresAt: "2026-09-07T12:00:00.000Z" });
   await page.route("https://relay.taurifer.com/**", relay.handler);
@@ -3766,6 +3819,12 @@ export const APP_SCENARIOS = {
   "program/share-relay-who": (page) => relayShareTo(page, "who"),
   "program/share-relay-ready": (page) => relayShareTo(page, "ready"),
   "program/share-relay-fallback": (page) => relayShareTo(page, "fallback"),
+  "today/relay-update": async (page) => { await APP_SCENARIOS["today/ready"](page); await relayUpdateTo(page, "update"); },
+  "today/relay-update-new": async (page) => { await APP_SCENARIOS["today/ready"](page); await relayUpdateTo(page, "new"); },
+  "today/relay-update-draft": async (page) => { await APP_SCENARIOS["today/in-progress"](page); await relayUpdateTo(page, "draft"); },
+  "today/relay-update-unavailable": async (page) => { await APP_SCENARIOS["today/ready"](page); await relayUpdateTo(page, "unavailable"); },
+  "today/relay-update-expired": async (page) => { await APP_SCENARIOS["today/ready"](page); await relayUpdateTo(page, "expired"); },
+  "today/relay-update-newer": async (page) => { await APP_SCENARIOS["today/ready"](page); await relayUpdateTo(page, "newer"); },
   "program/share-too-large": async (page) => {
     // An edited program generated before the last generator bump (073.4): its
     // recipe no longer regenerates, so neither the recipe nor recipe-plus-edits

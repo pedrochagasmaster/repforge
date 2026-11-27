@@ -7239,6 +7239,26 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .share-setup__field input,.share-setup__field textarea{display:block;font-weight:400;text-transform:none;letter-spacing:normal}
 .share-setup__field textarea{min-height:84px}
 .share-setup__retry{align-self:flex-start}
+/* A program update from a trainer (Plan 086 slice 3, approved mocks update and update-draft): one row per changed
+   exercise, the old value struck, the new one in training figures; the history sentence sits on the action bar,
+   above the stacked Use the update and Keep my current program. */
+.relay-update__lead{margin:0;font-size:var(--font-size-body);line-height:var(--line-reading);color:var(--color-ink);overflow-wrap:anywhere}
+.relay-update__diff{display:flex;flex-direction:column;border-block:1px solid var(--boundary-decorative)}
+.relay-update__row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--space-4) var(--space-12);padding:var(--space-12) 0}
+.relay-update__row+.relay-update__row{border-top:1px solid var(--boundary-decorative)}
+.relay-update__day{grid-column:1/-1;margin:0;font-size:var(--font-size-caption);color:var(--color-ink-secondary)}
+.relay-update__name{margin:0;font-size:var(--font-size-body);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink);overflow-wrap:anywhere}
+.relay-update__tag{align-self:start;font-size:var(--font-size-caption);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+.relay-update__was{grid-column:1/-1;margin:0;font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);overflow-wrap:anywhere}
+.relay-update__was s{text-decoration-thickness:1px}
+.relay-update__now{grid-column:1/-1;margin:0;font-family:var(--font-training-data);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink)}
+.relay-update__quote-label{margin:0 0 var(--space-4);font-size:var(--font-size-caption);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+.relay-update__quote{margin:0;padding:0 0 0 var(--space-12);border-left:2px solid var(--rule-strong);white-space:pre-line;
+  font-size:var(--font-size-body);line-height:var(--line-reading);color:var(--color-ink);overflow-wrap:anywhere}
+.relay-update__see-all{align-self:flex-start}
+.sheet--setup .relay-update__foot{flex-direction:column;align-items:stretch}
+.sheet--setup .relay-update__foot .btn{flex:none;width:100%}
+.relay-update__note{margin:0 0 var(--space-4)}
 .installsheet{
   display:flex;flex-direction:column;min-height:0;overflow-y:auto;overscroll-behavior:contain;
   -webkit-overflow-scrolling:touch;padding:0 22px 20px;

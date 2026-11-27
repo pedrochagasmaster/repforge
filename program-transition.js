@@ -658,6 +658,58 @@
     });
   }
 
+  // ---- A received program against the current one (Plan 086 slice 3) -------
+  // A trainer's update keeps the slot ids of the program it revises, so slots
+  // pair by id. A pair with another movement is a swap; a pair whose
+  // prescription, rest, metrics, notes or name differ is a change. The result
+  // holds ids and kinds only: the caller names and formats them. Two programs
+  // that share no training slot are unrelated: the received one is a new
+  // program, not an update.
+  function trainingSlotEntries(definition) {
+    const entries = [];
+    (definition?.days || []).forEach((day, dayIndex) => {
+      if (day?.kind !== "training") return;
+      (day.slots || []).forEach((slot, slotIndex) => entries.push({ day, dayIndex, slot, slotIndex }));
+    });
+    return entries;
+  }
+
+  function slotContent(slot) {
+    const content = copyJson(slot, "slot");
+    delete content.order;
+    return canonicalJson(content);
+  }
+
+  function diffProgramDefinitions(before, after) {
+    if (!plainRecord(before) || !plainRecord(after) || !Array.isArray(before.days) || !Array.isArray(after.days)) {
+      return resultInvalid("definition_invalid");
+    }
+    const old = new Map(trainingSlotEntries(before).map((entry) => [entry.slot.id, entry]));
+    const next = trainingSlotEntries(after);
+    const related = next.some((entry) => old.has(entry.slot.id));
+    const changes = [];
+    for (const entry of next) {
+      const prior = old.get(entry.slot.id);
+      const base = { dayId: entry.day.id, slotId: entry.slot.id, exerciseId: entry.slot.exerciseId };
+      if (!prior) changes.push({ kind: "added", ...base });
+      else if (prior.slot.exerciseId !== entry.slot.exerciseId) changes.push({ kind: "swapped", ...base, previousExerciseId: prior.slot.exerciseId });
+      else if (slotContent(prior.slot) !== slotContent(entry.slot) || prior.day.id !== entry.day.id) changes.push({ kind: "changed", ...base });
+    }
+    const kept = new Set(next.map((entry) => entry.slot.id));
+    // A removed slot stays where it was: after the received slots of the day it left.
+    for (const entry of old.values()) {
+      if (!kept.has(entry.slot.id)) changes.push({ kind: "removed", dayId: entry.day.id, slotId: entry.slot.id, exerciseId: entry.slot.exerciseId });
+    }
+    const dayOrder = new Map();
+    for (const day of [...after.days, ...before.days]) if (day?.kind === "training" && !dayOrder.has(day.id)) dayOrder.set(day.id, dayOrder.size);
+    const position = (change) => {
+      const inAfter = next.find((entry) => entry.slot.id === change.slotId && change.kind !== "removed");
+      return inAfter ? inAfter.slotIndex : Number.MAX_SAFE_INTEGER;
+    };
+    changes.sort((a, b) => (dayOrder.get(a.dayId) - dayOrder.get(b.dayId)) || (position(a) - position(b)));
+    return { ok: true, related, changes: deepFreeze(changes) };
+  }
+
   const ADAPTATION_PATTERNS = ["recurring_skip","recurring_pain","recurring_fatigue","stall_hard"];
   const ADAPTATION_CAUSES = {
     recurring_skip:["time","equipment","pain","preference","other"],
@@ -788,6 +840,7 @@
     validateProposal,
     commitRecord,
     createTransitionOut,
+    diffProgramDefinitions,
   });
 
   if (typeof module !== "undefined" && module.exports) module.exports = api;

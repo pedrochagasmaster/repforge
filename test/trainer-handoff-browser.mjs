@@ -261,16 +261,7 @@ async function main() {
     check(/incomplete|incompleto/i.test(g.headline) && relay.requests.length === before, "a truncated link is incomplete and asks the relay nothing", g);
     await incomplete.context.close();
 
-    // ---- A device that already has a program keeps the setup link's rule until slice 3 ----------------------------
-    const existing = await fresh(browser, relay);
-    errors.push(existing.errors);
-    check(await activateProgram(existing.page), "the existing client has a program");
-    const reads = relay.requests.length;
-    await existing.page.evaluate((hash) => { location.hash = hash; }, new URL(link).hash);
-    await existing.page.waitForFunction(() => /initial setup|configuração inicial/i.test(document.querySelector("#toast")?.textContent || ""), undefined, { timeout: 10000 });
-    check(relay.requests.length === reads && await cookieOf(existing.context) === null && (await existing.page.evaluate(() => location.hash)) === "",
-      "an existing client is told so; no relay request, no cookie, and the key leaves the address bar");
-    await existing.context.close();
+    // A device that already has a program opens a relay link as a program update: test/trainer-update-browser.mjs.
 
     check(errors.flat().length === 0, "no page errors", errors.flat());
   } catch (error) {
