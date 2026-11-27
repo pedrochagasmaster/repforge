@@ -2997,6 +2997,13 @@
       "variants": "demandingText"
     },
     {
+      "id": "relay-update-new",
+      "flow": "today",
+      "label": "Today — new program from a trainer",
+      "scenario": "A trainer's program that shares no exercise slot with the current one: titled New program and shown whole, then Use the update or Keep my current program.",
+      "variants": "localized"
+    },
+    {
       "id": "relay-update-draft",
       "flow": "today",
       "label": "Today — program update during a workout",

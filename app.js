@@ -29432,6 +29432,8 @@ function showRelayUpdateSheet(){
   const sheet=$("#relayUpdateSheet"),scrim=$("#relayUpdateScrim");
   if(!sheet)return false;
   if(activeModal?.el===sheet)return true;
+  // With enlarged text the band, body and actions scroll as one column, as the share sheet does (Plan 086 slice 1b).
+  sheet.classList.toggle("is-text-scaled",rootTextScaled());sheet.scrollTop=0;
   relayUpdateReturn=document.activeElement;
   const opened=openModal(sheet,{initialFocus:$("#relayUpdateClose"),returnFocus:relayUpdateReturn,
     onEscape:()=>keepRelayUpdate(),scrim,delayHide:reducedMotion()?0:280});

@@ -236,6 +236,18 @@ async function main() {
     "Keep my current program writes nothing: program, history, archive and the workout in progress are as they were");
     check(await cookieOf(client.context) === null, "and the answered link's cookie is cleared");
 
+    // Keep is not final: the same link, opened again while it is valid, shows the update again. Closing with X is
+    // the same answer as Keep, and the link still opens after it.
+    await client.page.evaluate((hash) => { location.hash = hash; }, new URL(link).hash);
+    await waitSheet(client.page, "ready");
+    s = await sheet(client.page);
+    check(s.title === "Program update" && s.use && s.keep, "after Keep, the same link opens the update again", s);
+    await client.page.locator("#relayUpdateClose").click();
+    await waitClosed(client.page);
+    after = await durable(client.page);
+    check(after.programId === before.programId && after.definition === before.definition && after.draft === before.draft &&
+      await cookieOf(client.context) === null, "closing with X writes nothing and clears the cookie, as Keep does");
+
     // Use the update, opened by navigating to the link (the boot path).
     const reopened = await client.page.goto(link, { waitUntil: "domcontentloaded" }).then(() => waitForAppBoot(client.page, { base: BASE }));
     void reopened;

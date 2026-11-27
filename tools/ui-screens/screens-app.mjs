@@ -325,7 +325,7 @@ const DIRECTION_D_BEFORE_SESSION = new Set([
   "today/skipped", "today/context-menu", "today/ready", "today/dock-viewer", "today/ready-scrolled", "today/day-picker", "today/rest-bar", "today/draft-resume",
   "today/in-progress", "progress/minibar", "history/minibar-rest", "program/minibar-rest-done",
   // Plan 086 slice 3: a trainer's program update over the same Today.
-  "today/relay-update", "today/relay-update-draft", "today/relay-update-unavailable", "today/relay-update-expired", "today/relay-update-newer",
+  "today/relay-update", "today/relay-update-new", "today/relay-update-draft", "today/relay-update-unavailable", "today/relay-update-expired", "today/relay-update-newer",
   "workout/why-this-weight", "workout/why-in-session",
   "workout/fatigue", // owner, 2026-11-06: the fatigue banner on the day two lifts did worse than the session before
   "workout/rest-running", "workout/rest-done", "workout/rest-sheet", "workout/rest-sheet-idle",
@@ -1353,6 +1353,18 @@ async function relayUpdateTo(page, step) {
     for (const cycle of second.slots[0].prescriptionsByCycle) for (const set of cycle.sets) set.targets.reps = { min: 10, max: 12 };
     return { definition: next, customExercises: payload.program.customExercises || [], name: state.programMeta.name, now: Date.now() };
   });
+  if (step === "new") {
+    // A program that shares no slot with the current one: a three-day full body the trainer generated.
+    Object.assign(revised, await page.evaluate(() => {
+      const catalog = window.RepForgeExerciseCatalog.snapshot();
+      const mapped = window.RepForgeProgramEntryAdapter.programRequestFromAnswers({
+        desiredResult: "muscle_growth", structuredExperience: "6_to_24m", daysPerWeek: 3, sessionMinutes: 60,
+        environment: { kind: "commercial_gym" },
+      }, catalog);
+      return { definition: window.RepForgeProgramCompiler.generateProgram(mapped.value, catalog).value, customExercises: [] };
+    }));
+    revised.name = (await page.evaluate(() => document.documentElement.lang === "pt-BR")) ? "Corpo inteiro" : "Full body";
+  }
   const expiresAt = new Date(revised.now + 5 * 864e5).toISOString();
   const hash = step === "newer"
     ? await sealHandoff(page, relay, { document: { kind: "taurifer-program-handoff", version: 2 }, expiresAt })
@@ -1363,7 +1375,7 @@ async function relayUpdateTo(page, step) {
   if (step === "unavailable") relay.mode = "down";
   if (step === "expired") relay.records.clear();
   await page.evaluate((value) => { location.hash = value; }, hash);
-  const expected = step === "update" || step === "draft" ? "ready" : `error-${step}`;
+  const expected = ["update", "draft", "new"].includes(step) ? "ready" : `error-${step}`;
   await page.waitForFunction((value) => document.getElementById("relayUpdateSheet")?.dataset.relayUpdate === value, expected, { timeout: 20000 });
   await page.waitForFunction(() => {
     const toast = document.querySelector("#toast");
@@ -3808,6 +3820,7 @@ export const APP_SCENARIOS = {
   "program/share-relay-ready": (page) => relayShareTo(page, "ready"),
   "program/share-relay-fallback": (page) => relayShareTo(page, "fallback"),
   "today/relay-update": async (page) => { await APP_SCENARIOS["today/ready"](page); await relayUpdateTo(page, "update"); },
+  "today/relay-update-new": async (page) => { await APP_SCENARIOS["today/ready"](page); await relayUpdateTo(page, "new"); },
   "today/relay-update-draft": async (page) => { await APP_SCENARIOS["today/in-progress"](page); await relayUpdateTo(page, "draft"); },
   "today/relay-update-unavailable": async (page) => { await APP_SCENARIOS["today/ready"](page); await relayUpdateTo(page, "unavailable"); },
   "today/relay-update-expired": async (page) => { await APP_SCENARIOS["today/ready"](page); await relayUpdateTo(page, "expired"); },
