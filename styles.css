@@ -10134,3 +10134,7 @@ html[data-mdir="a"] .mdir-exercise-button:focus-visible { outline:var(--control-
   html[data-mdir="a"] #sessionSheet .session-map__jump { min-height:48px; }
   html[data-mdir="a"] #sessionSheet .session-map__jump { padding-block:4px; }
 }
+@media (max-height:650px) {
+  html[data-mdir="a"] #sessionSheet .session-map__name { font-size:14px; line-height:1.25; }
+  html[data-mdir="a"] #sessionSheet .session-map__jump { column-gap:8px; }
+}
