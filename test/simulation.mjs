@@ -3803,14 +3803,13 @@ async function main() {
     "Log → Focus → only current card shown"
   );
   const overflowClosed = await page.evaluate(() => ({
-    hidden: !document.querySelector("#workoutActionSheet"),
-    expanded: document.querySelector("#woOverflowBtn")?.getAttribute("aria-expanded"),
+    absent: !document.querySelector("#workoutActionSheet, #woOverflowBtn"),
   }));
   assert(
-    overflowClosed.hidden === true && (overflowClosed.expanded === "false" || overflowClosed.expanded === null),
-    "picking a log mode closes the overflow menu",
+    overflowClosed.absent === true,
+    "Focus has no retired overflow menu",
     JSON.stringify(overflowClosed),
-    "Log → ⋯ → Focus → menu collapses on its own"
+    "Log → Focus → direct exercise and session controls"
   );
   // The rest timer redesign (owner-approved mock, 2026-10-23): no rest control in the header; the rest rises as a tab
   // out of the shelf's top edge, and the sheet behind it holds every control. With no rest, the actions sheet opens it.

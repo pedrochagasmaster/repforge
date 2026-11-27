@@ -1283,7 +1283,7 @@ async function main() {
          document.getElementById(el.getAttribute("aria-labelledby") || ""));
     const controls = [
       ...card.querySelectorAll("button"),
-      ...document.querySelectorAll("#woProgress button, #restTab, #leaveWorkout, #sessionSheetBtn, #woOverflowBtn"),
+      ...document.querySelectorAll("#woProgress button, #restTab, #leaveWorkout, #sessionSheetBtn, #workoutRestBtn"),
     ].filter((el) => el.offsetParent !== null && !el.disabled && !el.closest("[inert]"));
     const small = controls
       .filter((el) => { const r = el.getBoundingClientRect(); return r.width < 44 || r.height < 44; })
