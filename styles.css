@@ -10231,7 +10231,6 @@ html[data-mdir="a"] .mdir-exercise-button .icon-mask { display:inline-block; wid
 html[data-mdir="a"] #exActionsSheet .mdir-health-group { margin-top:0; }
 html[data-mdir="a"] #exActionsSheet #exActionsRepeatSection { margin-top:12px; }
 html[data-mdir="a"] #exActionsSheet #exActionsSkipSection { margin-top:24px; }
-html[data-mdir="a"] #exActionsSheet #exActionsSkipSection .exactions__rows { border-top:1px solid var(--rule-on-surface); }
 @media (max-height:650px) {
   html[data-mdir="a"] #exActionsSheet .mdir-health-group { margin-top:0; }
   html[data-mdir="a"] #exActionsSheet #exActionsRepeatSection { margin-top:8px; }
