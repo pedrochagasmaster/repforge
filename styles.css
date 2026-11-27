@@ -10090,3 +10090,6 @@ body.is-entry-editor #entryProgramName,
 [data-odir] .odir-fine .settings-row span:last-child { color: var(--ink-soft); font-size: 13px; }
 [data-odir] .odir-fine .settings-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 [data-odir] .odir-fine .settings-row span { min-width: 0; overflow-wrap: anywhere; }
+#onboarding[data-odir="c"]:has(#onbBody.entry-route--recommend) #onbNext.btn--steel {
+  background: var(--control-secondary-bg); color: var(--control-secondary-ink); border: 1px solid var(--control-secondary-boundary);
+}
