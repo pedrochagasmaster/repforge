@@ -1,4 +1,3 @@
-const menuDirection = (value => ["a", "b", "c"].includes(value) ? value : "")(new URLSearchParams(location.search).get("mdir"));
 let fallbackGestureController=null;
 const fallbackFocusTimers=new Set();
 function fallbackFocusLater(callback,delay){
@@ -8185,7 +8184,7 @@ function setWorkoutActive(on){const was=workoutActive;workoutActive=!!on;if(was&
   document.body.classList.toggle("is-workout",workoutActive);
   if(dash)dash.classList.toggle("hidden",workoutActive);
   if(shell)shell.classList.toggle("hidden",!workoutActive);
-  if(!workoutActive){abandonVoiceOp();document.body.classList.remove("is-focus-wo");if(activeModal?.el===$("#workoutActionSheet"))closeWorkoutActions()}
+  if(!workoutActive){abandonVoiceOp();document.body.classList.remove("is-focus-wo")}
   updateFocusChrome();
   if(workoutActive!==was){
     if(settle)settle();
@@ -10157,10 +10156,10 @@ function renderExActionsSheet(exId) {
   const setupTextEl = $("#exActionsSetupText");
   const setupText = draftEx.programmed?.notes || progEx?.notes || "";
   if (setupTextEl) {
-    setupTextEl.textContent = setupText || t("ex.actions.no_setup_notes");
+    setupTextEl.textContent = setupText;
   }
 
-  if(menuDirection) $("#exActionsSetupSection").hidden=!setupText;
+  $("#exActionsSetupSection").hidden=!setupText;
 
   // Repeat last session
   const repeatBtn = $("#exActionRepeatBtn");
@@ -10184,6 +10183,8 @@ function renderExActionsSheet(exId) {
   if (substLabel) substLabel.textContent = t(isSubstituted ? "ex.actions.change_substitution" : "ex.actions.substitute");
   if (restoreOrigBtn) restoreOrigBtn.classList.toggle("hidden", !isSubstituted);
 
+  $("#exActionDiscomfortBtn .icon-mask")?.remove();
+  $("#exActionDiscomfortBtn").insertAdjacentHTML("afterbegin",exerciseActionIcon("alert"));
   renderPreludeActions(exId, sheet);
 
   // Warmup sets list
@@ -10193,23 +10194,8 @@ function renderExActionsSheet(exId) {
       const set = draftEx.sets[sid];
       if (!set) return "";
       const isWarmup = set.role === "warmup";
-      const roleLabel = t(isWarmup ? "ex.actions.role_warmup" : "ex.actions.role_working");
-      // A switch per set (the native UI kit, owner 2026-10-24): on is a warm-up set, named for the set it changes.
       const switchLabel = t("ex.actions.warmup_switch", { n: idx + 1 });
-      const load=metricFieldValue(set,"load")??set.edited?.load??set.programmed?.suggestedLoad;
-      const reps=metricFieldValue(set,"reps")??set.edited?.reps;
-      const target=menuDirection==="a"&&load!=null&&load!==""&&reps!=null&&reps!==""?` · ${fmtLoad(+load)} ${unitLabel()} × ${reps}`:"";
-      const warmLabel=menuDirection==="a"&&isWarmup?` · ${t("ex.actions.warmup_caption")}`:"";
-      // Direction A, round 6: one row of set-number chips, so the group stays one line tall at any set count.
-      if(menuDirection==="a")return `<button type="button" class="mdir-warm-chip" aria-pressed="${isWarmup}" aria-label="${esc(switchLabel)}" data-warm-toggle-set="${esc(sid)}">${isWarmup?directionIcon("check"):""}<span>${idx + 1}</span></button>`;
-      return `<div class="exactions__warmup-row">` +
-        `<div class="exactions__warmup-info">` +
-        `<span class="exactions__warmup-num">${esc(t("log.set"))} ${idx + 1}${esc(target)}${esc(warmLabel)}</span>` +
-        `<span class="exactions__warmup-role ${isWarmup ? "is-warmup" : ""}">${esc(roleLabel)}</span>` +
-        `</div>` +
-        `<span class="exactions__warmup-ctl"><span class="exactions__warmup-cap" aria-hidden="true">${esc(t("ex.actions.warmup_caption"))}</span>` +
-        `<button type="button" class="toggle exactions__warmup-switch" role="switch" aria-checked="${isWarmup}" aria-label="${esc(switchLabel)}" data-warm-toggle-set="${esc(sid)}"></button></span>` +
-        `</div>`;
+      return `<button type="button" class="exactions__warm-chip" aria-pressed="${isWarmup}" aria-label="${esc(switchLabel)}" data-warm-toggle-set="${esc(sid)}">${isWarmup?exerciseActionIcon("check"):""}<span>${esc(t("log.set"))} ${idx + 1}</span></button>`;
     }).filter(Boolean);
     warmupList.innerHTML = rows.join("");
     $$("#exActionsWarmupList [data-warm-toggle-set]").forEach(btn => {
@@ -10232,7 +10218,7 @@ function renderExActionsSheet(exId) {
     });
   }
 
-  if(menuDirection) renderDirectionExercise();
+
 
   // Skip / restore exercise
   const skipLabel = $("#exActionSkipLabel");
@@ -10937,9 +10923,9 @@ function renderPreludeActions(exId,sheet){
   if(!warmupOn()){section.classList.add("hidden");return}
   const ex=warmupExerciseById(exId),de=activeWorkoutDraft?.exercises?.[exId];
   const record=de?.warmupPrelude,logged=record?record.steps.filter(step=>!warmupPending(step)):[];
-  const suggestedPending=menuDirection==="a"&&preludeView(ex)?.stage==="warm";
+  const suggestedPending=preludeView(ex)?.stage==="warm";
   const lift=de?warmupLift(de):null,canAdd=!!lift&&!suggestedPending&&!record?.steps.some(warmupPending)&&(record?record.steps.length<6&&record.nextOrdinal<=6:true);
-  const showUnavailable=menuDirection==="a"&&!!lift&&!canAdd;
+  const showUnavailable=!!lift&&!canAdd;
   section.classList.toggle("hidden",!logged.length&&!canAdd&&!showUnavailable);
   const unit=unitLabel();
   const rows=logged.map(step=>{
@@ -10947,10 +10933,10 @@ function renderPreludeActions(exId,sheet){
     const figure=facts.loadMetric?`${warmupLoadText(facts.loadKg)} ${unit} × ${fmt(facts.reps)}`:t(facts.reps===1?"prelude.reps.one":"prelude.reps.many",{n:fmt(facts.reps)});
     return `<div class="exactions__warmup-row" data-wu-row="${esc(step.stepId)}"><div class="exactions__warmup-info"><span class="exactions__warmup-num">${esc(t("ledger.set.warmup"))}${n}</span>`+
       `<span class="exactions__warmup-role">${esc(figure)}</span></div>`+
-      `<span class="exactions__warmup-ctl"><button type="button" class="text-link" data-wu-edit="${esc(step.stepId)}">${esc(t("prelude.manage.edit"))}</button>`+
-      `<button type="button" class="text-link" data-wu-remove="${esc(step.stepId)}">${esc(t("prelude.manage.remove"))}</button></span></div>`}).join("");
-  const unavailable=showUnavailable?`<button type="button" class="exactions__act" id="exActionAddWarmup" disabled aria-disabled="true"><span class="exactions__act-text"><span>${esc(t("prelude.manage.add"))}</span><span class="exactions__hint">${esc(t(suggestedPending||record?.steps.some(warmupPending)?"mdir.add_warmup_pending":"mdir.add_warmup_limit"))}</span></span></button>`:"";
-  list.innerHTML=unavailable+rows+(canAdd?`<button type="button" class="exactions__act" id="exActionAddWarmup"><span class="exactions__act-text"><span>${esc(t("prelude.manage.add"))}</span></span></button>`:"");
+      `<span class="exactions__warmup-ctl"><button type="button" class="text-link" data-wu-edit="${esc(step.stepId)}">${exerciseActionIcon("pencil")}${esc(t("prelude.manage.edit"))}</button>`+
+      `<button type="button" class="text-link" data-wu-remove="${esc(step.stepId)}">${exerciseActionIcon("minus")}${esc(t("prelude.manage.remove"))}</button></span></div>`}).join("");
+  const unavailable=showUnavailable?`<button type="button" class="exactions__act" id="exActionAddWarmup" disabled aria-disabled="true">${exerciseActionIcon("plus")}<span class="exactions__act-text"><span>${esc(t("prelude.manage.add"))}</span><span class="exactions__hint">${esc(t(suggestedPending||record?.steps.some(warmupPending)?"prelude.manage.pending":"prelude.manage.limit"))}</span></span></button>`:"";
+  list.innerHTML=rows+unavailable+(canAdd?`<button type="button" class="exactions__act" id="exActionAddWarmup">${exerciseActionIcon("plus")}<span class="exactions__act-text"><span>${esc(t("prelude.manage.add"))}</span></span></button>`:"");
   list.querySelectorAll("[data-wu-remove]").forEach(button=>button.onclick=async()=>{
     const result=await WorkoutSession.dispatch("removeWarmupStep",{exerciseInstanceId:exId,stepId:button.dataset.wuRemove});
     if(result.status!=="applied")return;
@@ -12263,10 +12249,10 @@ function focusCardHtml(ex,r,draft,prev,opts){
     // and it never sits over the cue. A neighbour carries the same bar, inert, so a swipe lands on what it showed.
     focusSkipbarHtml(peek)+
     // The header names the exercise (layout D), so its row here is the prescription line alone.
-    `<div class="fx-head"><div class="fx-head__row"><p class="focus-ex__meta">${esc(focusExMeta(ex))}</p>${noteAdd}${menuDirection==="a"&&!peek?`<button type="button" class="mdir-exercise-button" data-mdir-exercise="${esc(ex.id)}" aria-label="${esc(t("ex.actions.title"))}" aria-haspopup="dialog" aria-controls="exActionsSheet">${directionIcon("overflow")}<span class="mdir-exercise-button__label">${esc(t("mdir.actions"))}</span></button>`:""}</div>${note}</div>`+
+    `<div class="fx-head"><div class="fx-head__row"><p class="focus-ex__meta">${esc(focusExMeta(ex))}</p>${noteAdd}${!peek?`<button type="button" class="fx-actions" data-ex-actions="${esc(ex.id)}" aria-label="${esc(t("ex.actions.title"))}" aria-haspopup="dialog" aria-controls="exActionsSheet">${exerciseActionIcon("overflow")}<span class="fx-actions__label">${esc(t("ex.actions.open"))}</span></button>`:""}</div>${note}</div>`+
     slotHtml+quietRow+
     `<div class="fcard__ledger">`+
-    `${focusLedgerHtml(ex,r,draft,prev,{peek})}</div>`+(menuDirection==="c"&&!peek?directionCardActions(ex):"")+nextRow+`</div>`+
+    `${focusLedgerHtml(ex,r,draft,prev,{peek})}</div>`+nextRow+`</div>`+
     focusShelfHtml(ex,r,draft,prev,{allDone,hasNext,peek})+`</article>`}
 
 /** The deck: the live card plus an inert copy of each neighbour, parked off
@@ -12351,51 +12337,8 @@ function updateWorkoutHeader(fl,at){
     title.firstChild.onclick=()=>openExerciseView(ex.id,"log")}
   else if(title){title.removeAttribute("aria-label");title.textContent=dayLabel(day)}
   renderFocusDeloadLine();
-  syncWorkoutMore()}
+}
 // @ci-domain global
-/** Session actions share one modal, including the optional voice command. */
-function syncWorkoutMore(){
-  if(menuDirection){setupMenuDirection();const button=$("#woOverflowBtn");button?.setAttribute("aria-haspopup","dialog");button?.setAttribute("aria-expanded",String(!$(menuDirection==="c"?"#sessionSheet":"#exActionsSheet")?.hidden));return}
-  const button=$("#woOverflowBtn");if(!button)return;
-  button.setAttribute("aria-haspopup","dialog");button.setAttribute("aria-controls","workoutActionSheet");
-  button.setAttribute("aria-expanded",String(!$("#workoutActionSheet")?.hidden));
-}
-function openWorkoutMore(){
-  if(menuDirection){if(menuDirection==="c")openSessionSheet();else openDirectionExercise("all");return}
-  if(!activeWorkoutDraft)return;
-  const sheet=$("#workoutActionSheet"),scrim=$("#workoutActionScrim");
-  const voice=sheet.querySelector('[data-workout-action="voice"]');
-  voice.hidden=voice.classList.contains("hidden");
-  document.body.classList.add("is-sheet-open");
-  if(!openModal(sheet,{scrim,onEscape:closeWorkoutActions,delayHide:280,initialFocus:sheet.querySelector("button")}))return;
-  requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim.classList.add("is-open");window.RepForgeMotion?.animateActionSheet?.(sheet,true)});syncWorkoutMore();
-}
-let workoutActionsClosing=null;
-function closeWorkoutActions(){
-  if(workoutActionsClosing)return workoutActionsClosing;
-  workoutActionsClosing=(async()=>{
-    const sheet=$("#workoutActionSheet");
-    const animated=await window.RepForgeMotion?.animateActionSheet?.(sheet,false);
-    if(animated&&activeModal?.el===sheet)activeModal.delayHide=0;
-    await closeModal(sheet);sheet.style.removeProperty("transform");syncWorkoutMore();
-  })().finally(()=>{workoutActionsClosing=null});
-  return workoutActionsClosing;
-}
-async function performWorkoutAction(action){
-  await closeWorkoutActions();
-  if(!activeWorkoutDraft)return;
-  if(action==="finish"){saveWorkout(null);return}
-  if(action==="reorder"){openSessionSheet();return}
-  if(action==="abandon"){await WorkoutSession.flush();openSessionSheet();openAbandonPrompt({from:"actions"});return}
-  if(action==="voice"){startVoiceInput();return}
-  // With no rest running there is no tab; the sheet opens from here (rest timer redesign).
-  if(action==="rest"){openRestSheet();return}
-  const card=focusCard();if(!card)return;
-  // The exercise note is one tap from the menu (owner, 2026-11-05), beside the exercise's other actions.
-  if(action==="note"){openExNoteSheet(card.dataset.ex);return}
-  openExActionsSheet(card.dataset.ex);
-}
-
 /* A native dialog permits a context menu over an editor sheet without tearing
    down that sheet's modal lifetime. The dialog's own top layer owns inertness.
    motion-layer.js owns the long press, slide-to-select and the menu's motion;
@@ -12509,7 +12452,7 @@ function openSkipReasonSheet(exerciseInstanceId){
     if(result.status==="applied"){
       if(workoutActive)renderWorkout();else renderToday();
       if(skipReasonTarget===target)await closeSkipReasonSheet();
-      else if(!activeModal)quietFocus(workoutActive?$("#woOverflowBtn"):$("#startWorkout"));
+      else if(!activeModal)quietFocus(workoutActive?$("#sessionSheetBtn"):$("#startWorkout"));
     }else if(skipReasonTarget===target)choices.querySelectorAll("button").forEach(control=>control.disabled=false);
   });
   openModal(sheet,{initialFocus:sheet,returnFocus:document.activeElement,onEscape:closeSkipReasonSheet,scrim});
@@ -13059,8 +13002,7 @@ function bindWorkout(){
     $w("[data-ledgermore]").forEach(b=>b.onclick=()=>toggleFocusLedger(b));
     $w("[data-slow]").forEach(b=>b.onclick=()=>answerLastRepSlow(b.dataset.slow,b.dataset.v==="1"));
     $w("[data-slowclear]").forEach(b=>b.onclick=()=>answerLastRepSlow(b.dataset.slowclear,null));
-    $w("[data-mdir-card]").forEach(b=>b.onclick=()=>directionCardAction(b));
-    $w("[data-mdir-exercise]").forEach(b=>b.onclick=()=>openExActionsSheet(b.dataset.mdirExercise));
+    $w("[data-ex-actions]").forEach(b=>b.onclick=()=>openExActionsSheet(b.dataset.exActions));
     $w("[data-fnote]").forEach(b=>b.onclick=()=>openExNoteSheet(b.dataset.fnote));
     $w("[data-maxset-cancel]").forEach(b=>b.onclick=()=>{const key=b.dataset.maxsetCancel,at=key.lastIndexOf("_");
       cancelMaxSet(key.slice(0,at),+key.slice(at+1))});
@@ -15257,7 +15199,7 @@ async function applyCommandText(text,{current=()=>true}={}){
   toast(t("toast.command_applied",{load:fmt(parsed.load),reps:parsed.reps,rir:rirBit}));
   return true}
 window.__repforgeApplyCommandText=applyCommandText;
-function updateVoiceBtn(){const b=$("#voiceBtn");if(!b)return;b.classList.toggle("hidden",!(SR&&state.settings.voiceInputEnabled));syncWorkoutMore()}
+function updateVoiceBtn(){const b=$("#voiceBtn");if(!b)return;b.classList.toggle("hidden",!(SR&&state.settings.voiceInputEnabled))}
 /* One voice command at a time. Idle is no operation; listening and resolving are
    its two phases. The operation keeps the recognizer and the draft it was started
    for, so a transcript that arrives after the lifter has left that workout, or
@@ -28517,7 +28459,7 @@ function init(){
   // opens the day that follows the one already done rather than repeating it.
   const another=$("#logAnotherSession");if(another)another.onclick=()=>enterWorkout({day:dayAfterTrainedToday()||day});
   const leaveWo=$("#leaveWorkout");if(leaveWo)leaveWo.onclick=leaveWorkout;
-  const woOv=$("#woOverflowBtn");if(woOv)woOv.onclick=e=>{e.stopPropagation();openWorkoutMore()};
+  $("#workoutRestBtn").onclick=()=>openRestSheet();
   document.addEventListener("keydown",e=>{if(e.key==="Escape")closeEffortPop()});
   // The effort explainer dismisses like any popover: a tap anywhere off it, or
   // a swipe of the card underneath. Capture, so a card drag never outlives it.
@@ -28535,9 +28477,7 @@ function init(){
     if(el&&el.closest("button,a,input,select,textarea,[contenteditable],[role=spinbutton]"))return;
     if(e.key==="ArrowRight")focusAnimateTo(1);
     else if(e.key==="ArrowLeft")focusAnimateTo(-1)});
-  $("#workoutActionCancel").onclick=closeWorkoutActions;
-  $("#workoutActionScrim").onclick=closeWorkoutActions;
-  $$("[data-workout-action]").forEach(button=>button.onclick=()=>performWorkoutAction(button.dataset.workoutAction));
+  $("#voiceBtn").onclick=async()=>{await closeSessionSheet();startVoiceInput()};
   document.addEventListener("rowcontext",event=>{
     const row=event.target.closest?.("#todayExList [data-context-row]");
     if(row)todayRowContext(row,event.target);
@@ -28562,6 +28502,12 @@ function init(){
   });
 
   // The sheet's head takes its hairline once content is under it (UI kit §4).
+  for(const [body,edge] of [[$("#sessionSheetBody"),$("#sessionEarlySection")],[$("#exActionsSheet .exactions-sheet__body"),$("#exActionsSheet .exactions-sheet__body")]]){
+    const update=()=>edge.classList.toggle("has-more",body.scrollTop+body.clientHeight<body.scrollHeight-1);
+    body.addEventListener("scroll",update,{passive:true});
+    new ResizeObserver(update).observe(body);
+    new MutationObserver(update).observe(body,{childList:true,subtree:true});
+  }
   const sessBody=$("#sessionSheetBody");if(sessBody)sessBody.addEventListener("scroll",()=>{
     sessBody.closest(".sheet")?.querySelector(".sheetband")?.classList.toggle("is-scrolled",sessBody.scrollTop>0)},{passive:true});
 
@@ -28572,7 +28518,7 @@ function init(){
 
   const earlyBtn=$("#sessionEarlyFinish");if(earlyBtn)earlyBtn.onclick=async()=>{
     await WorkoutSession.flush();
-    if(menuDirection&&activeWorkoutDraft&&normalFinishIssues(activeWorkoutDraft).length===0){await closeSessionSheet();saveWorkout(null);return}
+    if(activeWorkoutDraft&&normalFinishIssues(activeWorkoutDraft).length===0){await closeSessionSheet();saveWorkout(null);return}
     const restReason=restOverrunReasonPending;restOverrunReasonPending=false;
     if(!activeWorkoutDraft)return;
     if(!WorkoutSession.captureEarlyFinish(activeWorkoutDraft)){
@@ -29321,93 +29267,4 @@ async function runBoot(){
   catch(error){showBootFailure("boot-error");throw error}}
 runBoot();
 
-let directionSheetMode="all",directionWarmExpanded=false;
-function directionIcon(name){return `<span class="icon-mask icon-mask--${name}" aria-hidden="true"></span>`}
-function directionRow(id,key,icon,action){
-  const b=document.createElement("button");b.type="button";b.id=id;b.className="exactions__act";
-  b.innerHTML=directionIcon(icon)+`<span>${esc(t(key))}</span>`;b.onclick=action;return b;
-}
-function setupMenuDirection(){
-  document.documentElement.dataset.mdir=menuDirection;
-  const ov=$("#woOverflowBtn"),session=$("#sessionSheetBtn");
-  ov.removeAttribute("data-i18n-aria");ov.setAttribute("aria-label",t(menuDirection==="c"?"session.sheet.title":menuDirection==="b"?"mdir.menu":"ex.actions.title"));
-  ov.setAttribute("aria-controls",menuDirection==="c"?"sessionSheet":"exActionsSheet");
-  if(session){session.hidden=menuDirection!=="a";session.removeAttribute("data-i18n-aria");session.setAttribute("aria-label",t("session.sheet.title"));session.innerHTML=menuDirection==="a"?esc(t("mdir.session")):directionIcon("clipboard");if(menuDirection==="a")ov.hidden=true}
-  if($("#mdirSessionRest")||$("#mdirHeaderRest"))return;
-  const warm=$("#exActionsWarmupSection"),prelude=$("#exActionsPreludeSection");
-  warm.prepend(prelude);prelude.querySelector("h3").remove();
-  const head=document.createElement("h3");head.className=menuDirection==="a"?"sheetgroup__cap":"sheetgroup__head";head.textContent=t("mdir.warmup");warm.prepend(head);
-  const body=$("#exActionsSheet .exactions-sheet__body");
-  body.prepend($("#exActionsSubstSection"));body.insertBefore(warm,$("#exActionsRepeatSection"));
-  $("#exActionsSheet .sheetband").append($("#exActionsSetupSection"));
-  const toggle=directionRow("mdirWarmToggle","mdir.warmup","plus",()=>{directionWarmExpanded=!directionWarmExpanded;renderDirectionExercise()});
-  body.insertBefore(toggle,warm);
-  const end=$("#sessionEarlySection");
-  const rest=directionRow("mdirSessionRest","rest.sheet.title","timer",async()=>{await closeSessionSheet();openRestSheet()});
-  const voice=directionRow("mdirSessionVoice","log.command.voice","keyboard",async()=>{await closeSessionSheet();startVoiceInput()});
-  end.prepend(voice);end.prepend(rest);voice.hidden=$("#voiceBtn").classList.contains("hidden");
-  for(const [id,icon,key] of [["sessionEarlyFinish","check","mdir.finish"],["sessionAbandon","stop","session.sheet.abandon"]]){
-    const b=$("#"+id);b.removeAttribute("data-i18n");b.innerHTML=directionIcon(icon)+`<span>${esc(t(key))}</span>`;
-  }
-  if(menuDirection==="a"){
-    const sessionTitle=$("#sessionSheetTitle");sessionTitle.dataset.i18n="mdir.session";sessionTitle.textContent=t("mdir.session");
-    session.setAttribute("aria-label",t("mdir.session"));
-    const sessionBody=$("#sessionSheetBody");sessionBody.append(voice);
-    voice.querySelector(".icon-mask").remove();
-    rest.remove();
-    if(!$("#mdirHeaderRest")){
-      const timer=directionRow("mdirHeaderRest","rest.sheet.title","timer",()=>openRestSheet());
-      timer.className="icon-btn icon-btn--ghost";timer.setAttribute("aria-label",t("rest.sheet.title"));timer.querySelector("span:last-child").remove();
-      session.before(timer);
-    }
-    const scrollEdge=()=>end.classList.toggle("has-more",sessionBody.scrollTop+sessionBody.clientHeight<sessionBody.scrollHeight-1);
-    sessionBody.addEventListener("scroll",scrollEdge,{passive:true});
-    new ResizeObserver(scrollEdge).observe(sessionBody);
-    new MutationObserver(scrollEdge).observe(sessionBody,{childList:true,subtree:true,attributes:true});
-    $("#sessionEarlyFinish").textContent=t("mdir.finish");
-    $("#sessionAbandon").textContent=t("session.sheet.abandon");
-    const exerciseEdge=()=>body.classList.toggle("has-more",body.scrollTop+body.clientHeight<body.scrollHeight-1);
-    body.addEventListener("scroll",exerciseEdge,{passive:true});
-    new ResizeObserver(exerciseEdge).observe(body);
-    new MutationObserver(exerciseEdge).observe(body,{childList:true,subtree:true});
-    const pain=$("#exActionDiscomfortBtn").closest("section");pain.classList.add("mdir-health-group");
-    for(const section of [$("#exActionsSubstSection"),warm,$("#exActionsRepeatSection"),pain,$("#exActionsSkipSection"),$("#exActionsSetupSection")])body.append(section);
-    warm.querySelector('[data-i18n="ex.actions.warmup_title"]').remove();
-    const label=document.createElement("p");label.className="mdir-warmup-label";label.textContent=t("mdir.mark_warmup");
-    warm.insertBefore(label,$("#exActionsWarmupList"));
-  }
-  const finish=$("#sessionEarlyFinish");
-  $("#sessionSheet").append(end);
-  if(menuDirection==="b"){
-    const group=document.createElement("section");group.id="mdirSessionGroup";group.innerHTML=`<h3 class="sheetgroup__head">${esc(t("mdir.session"))}</h3>`;
-    const go=async action=>{await closeExActionsSheet();if(action==="details")openSessionSheet();if(action==="rest")openRestSheet();if(action==="voice")startVoiceInput();if(action==="finish"){openSessionSheet();finish.click()}if(action==="abandon"){openSessionSheet();$("#sessionAbandon").click()}};
-    for(const [id,key,icon] of [["details","mdir.details","clipboard"],["rest","rest.sheet.title","timer"],["voice","log.command.voice","keyboard"],["finish","mdir.finish","check"],["abandon","session.sheet.abandon","stop"]]){const b=directionRow("mdir-"+id,key,icon,()=>go(id));if(id==="voice")b.hidden=voice.hidden;if(id==="abandon")b.classList.add("is-destructive");group.append(b)}
-    body.append(group);rest.hidden=true;voice.hidden=true;finish.hidden=true;$("#sessionAbandon").hidden=true;
-  }
-}
-function openDirectionExercise(mode){directionSheetMode=mode;directionWarmExpanded=false;const id=focusCard()?.dataset.ex;if(id)openExActionsSheet(id)}
-function renderDirectionExercise(){
-  const sheet=$("#exActionsSheet");sheet.dataset.mode=directionSheetMode;
-  $("#mdirWarmToggle").hidden=menuDirection!=="b";
-  $("#exActionsWarmupSection").hidden=menuDirection==="b"&&!directionWarmExpanded||menuDirection==="c"&&directionSheetMode!=="warm";
-  for(const id of ["exActionsSubstSection","exActionsRepeatSection","exActionsSkipSection"]){$("#"+id).hidden=menuDirection==="c"&&(directionSheetMode==="warm"||id==="exActionsSubstSection")}
-  $("#exActionDiscomfortBtn").closest("section").hidden=menuDirection==="c";
-  sheet.querySelector(".exactions__eyebrow").hidden=true;
-  if(menuDirection==="c"&&directionSheetMode==="warm") $("#exActionsSetupSection").hidden=true;
-  $("#mdirWarmToggle").setAttribute("aria-expanded",String(directionWarmExpanded));
-  if(menuDirection==="a"){
-    const add=$("#exActionAddWarmup");if(add)add.parentElement.prepend(add);
-  }
-  for(const [selector,icon] of [["#exActionDiscomfortBtn","alert"],["#exActionAddWarmup","plus"],["[data-wu-edit]","pencil"],["[data-wu-remove]","minus"]])sheet.querySelectorAll(selector).forEach(b=>{if(!b.querySelector(".icon-mask"))b.insertAdjacentHTML("afterbegin",directionIcon(icon))});
-}
-function directionCardActions(ex){
-  const de=activeWorkoutDraft?.exercises[ex.id],movement=de?.substitution?.replacement||de;
-  const marked=(de?.discomfort||[]).some(m=>m.exerciseId===(movement?.libraryId||movement?.movementId||movement?.programmed?.movementId||movement?.sourceExerciseId));
-  return `<div class="mdir-card-actions">${[["swap","reset"],["warm","plus"],["pain",marked?"check":"alert"],["more","overflow"]].map(([action,icon])=>`<button type="button" data-mdir-card="${action}"${action==="pain"?` aria-pressed="${marked}"`:""}>${directionIcon(icon)}<span>${esc(t("mdir."+action))}</span></button>`).join("")}</div>`;
-}
-function directionCardAction(button){
-  const id=focusCard()?.dataset.ex;if(!id)return;
-  if(button.dataset.mdirCard==="swap"){openSubstitutePicker(id);return}
-  if(button.dataset.mdirCard==="pain"){renderExActionsSheet(id);$("#exActionDiscomfortBtn").click();return}
-  openDirectionExercise(button.dataset.mdirCard);
-}
+function exerciseActionIcon(name){return `<span class="icon-mask icon-mask--${name}" aria-hidden="true"></span>`}

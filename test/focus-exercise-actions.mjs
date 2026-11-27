@@ -18,6 +18,9 @@
 import { launchChromium } from "./browser.mjs";
 import { installSeedProgram } from "./fixtures/seed-program.mjs";
 import { measureRenderedRoles } from "../tools/ui-system-rendered.mjs";
+import { loadManifest } from "../tools/ui-screens/manifest.mjs";
+import { APP_SCENARIOS, appState } from "../tools/ui-screens/screens-app.mjs";
+import { openPage, setCaptureBase } from "../tools/ui-screens/session.mjs";
 import { settle } from "../tools/ui-screens/session.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
@@ -107,14 +110,27 @@ async function main() {
     });
     await page.waitForSelector("#workoutShell:not(.hidden) #workout.is-focus", { timeout: 5000 });
 
+    await page.locator("#workoutRestBtn").click();
+    await page.waitForSelector("#restSheet.is-open");
+    await page.locator("#restSheetClose").click();
+    await page.waitForSelector("#restSheet", {state:"hidden"});
+    await page.locator("#sessionSheetBtn").click();
+    await page.waitForSelector("#sessionSheet.is-open");
+    await page.locator("#sessionEarlyFinish").click();
+    await page.waitForSelector("#sessionEarlyPrompt:not(.hidden)");
+    assert(await page.locator("#sessionEarlyPrompt").isVisible(), "Finish asks before omitting unlogged sets");
+    await page.locator("#sessionEarlyCancel").click();
+    await page.locator("#sessionSheetClose").click();
+    await page.waitForSelector("#sessionSheet", {state:"hidden"});
+
     /* ======================================================================
      * 1. Sheet trigger on current Focus card
      * ====================================================================== */
     console.log("\nExercise actions: visible control on Focus card");
-    const actionsTrigger = page.locator("#woOverflowBtn");
+    const actionsTrigger = page.locator("#workout [data-ex-actions]");
+    assert(await page.locator("#woOverflowBtn, #workoutActionSheet").count() === 0, "retired overflow menu is absent");
     assert(await actionsTrigger.count() > 0, "the live Focus card provides an Exercise actions trigger");
     await actionsTrigger.click();
-    await page.locator('[data-workout-action="exercise"]').click();
 
     await page.waitForSelector("#exActionsSheet.is-open", { timeout: 5000 });
     assert(await page.locator("#exActionsSheet").isVisible(), "tapping the trigger opens the Exercise actions sheet");
@@ -140,15 +156,14 @@ async function main() {
     const redraw = await page.evaluate(() => {
       const t = (key) => window.RepForgeI18n.t(key);
       const sheet = document.querySelector("#exActionsSheet");
-      const heads = [...sheet.querySelectorAll(".sheetgroup__head")].filter((el) => el.offsetParent !== null);
+      const heads = [...sheet.querySelectorAll(".sheetgroup__head, .sheetgroup__cap")].filter((el) => el.offsetParent !== null);
       const close = sheet.querySelector("#exActionsClose");
       const sessionOnly = [...sheet.querySelectorAll("[data-session-drag], [data-session-row-menu], #sessionEarlyFinish")];
       const earlyLabel = t("session.sheet.early_finish");
       const labelled = [...sheet.querySelectorAll("button")].filter((el) => el.textContent.includes(earlyLabel));
       return {
         heads: heads.map((el) => el.textContent.trim()),
-        expected: ["ex.actions.setup_notes", "ex.actions.history_title", "ex.actions.subst_title", "ex.actions.warmup_title",
-          "ex.actions.skip_title"].map(t),
+        expected: [t("ex.actions.warmup_group")],
         transforms: heads.map((el) => getComputedStyle(el).textTransform),
         sessionOnly: sessionOnly.length + labelled.length,
         closeInBand: !!close?.closest(".sheetband"),
@@ -157,8 +172,8 @@ async function main() {
       };
     });
     assert(redraw.heads.join("|") === redraw.expected.join("|"),
-      "the sheet shows its six groups in order: setup notes, previous values, substitution, warm-up sets, status, notes", JSON.stringify(redraw));
-    assert(redraw.transforms.every((value) => value === "none"), "the group heads are sentence case, not upper case", JSON.stringify(redraw.transforms));
+      "empty setup notes and redundant group headings are hidden", JSON.stringify(redraw));
+    assert(redraw.transforms.every((value) => value === "uppercase"), "Warm-up uses the shared group caption treatment", JSON.stringify(redraw.transforms));
     assert(redraw.sessionOnly === 0, "reorder and finish early are on the session sheet only, not on the exercise actions", JSON.stringify(redraw));
     assert(redraw.closeInBand && redraw.closeIsIcon && redraw.closeName.length > 0, "Close is the X in the sheet band, with a name for assistive technology", JSON.stringify(redraw));
 
@@ -166,6 +181,7 @@ async function main() {
      * 2. Programmed setup notes
      * ====================================================================== */
     console.log("\nSetup notes: visible and read-only without session notes conflation");
+    assert(!await page.locator("#exActionsSetupSection").isVisible(), "empty setup notes are hidden");
     const setupTextEl = page.locator("#exActionsSetupText");
     assert(await setupTextEl.count() > 0, "setup notes container exists in Exercise actions sheet");
 
@@ -207,7 +223,7 @@ async function main() {
     await page.waitForTimeout(300);
 
     // Open Exercise actions for seed-ex-2
-    await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
+    await page.locator("#workout [data-ex-actions]").click();
     await page.waitForSelector("#exActionsSheet.is-open", { timeout: 5000 });
 
     console.log("\nRepeat-last: honest no-history handling");
@@ -229,10 +245,10 @@ async function main() {
       const sw = document.querySelector("#exActionsWarmupList [data-warm-toggle-set]");
       const subst = document.querySelector("#exActionSubstBtn");
       const icon = subst.querySelector(".icon-mask").getBoundingClientRect(), text = subst.querySelector(".exactions__act-text").getBoundingClientRect();
-      return { role: sw.getAttribute("role"), checked: sw.getAttribute("aria-checked"), name: sw.getAttribute("aria-label"),
+      return { role: sw.getAttribute("role"), checked: sw.getAttribute("aria-pressed"), name: sw.getAttribute("aria-label"),
         swap: subst.querySelector(".exactions__act-text > span").textContent.trim(), trails: icon.left >= text.right };
     });
-    assert(kit.role === "switch" && kit.checked === "false" && kit.name === "Set 1 warm-up", "set 1's warm-up control is an off switch named \"Set 1 warm-up\"", JSON.stringify(kit));
+    assert(kit.role === null && kit.checked === "false" && kit.name === "Set 1 warm-up", "set 1's warm-up control is an off switch named \"Set 1 warm-up\"", JSON.stringify(kit));
     assert(kit.swap === "Swap exercise", "the substitution action reads \"Swap exercise\"", kit.swap);
     assert(kit.trails, "the action's glyph trails its label", JSON.stringify(kit));
 
@@ -249,7 +265,7 @@ async function main() {
       return ex.sets[ex.setOrder[0]].role;
     });
     assert(roleAfterWarmup === "warmup", "set 1 role changed to warmup in DraftV2", roleAfterWarmup);
-    assert(await page.locator("#exActionsWarmupList [data-warm-toggle-set]").first().getAttribute("aria-checked") === "true", "the switch is on once set 1 is a warm-up");
+    assert(await page.locator("#exActionsWarmupList [data-warm-toggle-set]").first().getAttribute("aria-pressed") === "true", "the chip is pressed once set 1 is a warm-up");
 
     // Re-click to mark back as working
     await warmupToggleSet1.click();
@@ -390,7 +406,7 @@ async function main() {
       "substitution record is applied to the active exercise in DraftV2", JSON.stringify(subCheck));
 
     // Open Exercise actions again to verify "Restore original" option appears
-    await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
+    await page.locator("#workout [data-ex-actions]").click();
     await page.waitForSelector("#exActionsSheet.is-open", { timeout: 5000 });
 
     const restoreOrigBtn = page.locator("#exActionRestoreOrigBtn");
@@ -413,7 +429,7 @@ async function main() {
      * 6. Skip and restore exercise
      * ====================================================================== */
     console.log("\nSkip/restore: single-exercise status control");
-    await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
+    await page.locator("#workout [data-ex-actions]").click();
     await page.waitForSelector("#exActionsSheet.is-open", { timeout: 5000 });
 
     const skipBtn = page.locator("#exActionSkipBtn");
@@ -448,7 +464,7 @@ async function main() {
       window.RepForgeI18n.setLang("pt");
       syncLang();
     });
-    await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
+    await page.locator("#workout [data-ex-actions]").click();
     await page.waitForSelector("#exActionsSheet.is-open", { timeout: 5000 });
     const ptSub = (await page.locator("#exActionsSub").innerText()).replace(/\s+/g, " ").trim();
     assert(/\b\d+ séries\b/.test(ptSub) && !/\bsets?\b/i.test(ptSub),
@@ -460,10 +476,65 @@ async function main() {
       window.RepForgeI18n.setLang("en");
       syncLang();
     });
-    await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
+    await page.locator("#workout [data-ex-actions]").click();
     await page.waitForSelector("#exActionsSheet.is-open", { timeout: 5000 });
     const enSub = (await page.locator("#exActionsSub").innerText()).replace(/\s+/g, " ").trim();
     assert(/\b\d+ sets\b/.test(enSub) && !/séries/.test(enSub), "EN: the actions subtitle still counts sets", enSub);
+
+    setCaptureBase(BASE);
+    const manifest=loadManifest();
+    const fixture=await openPage(browser,manifest,{flow:"workout",screen:"prelude",viewport:"phone-390",theme:"light",locale:"en",text:"normal",motion:"normal"},appState("workout/prelude",manifest.locales.en.lang),{catalog:true});
+    try {
+      const p=fixture.page;
+      await APP_SCENARIOS["workout/prelude"](p);
+      await p.locator("[data-ex-actions]").click();
+      await p.waitForSelector("#exActionsSheet.is-open");
+      assert(await p.locator("#exActionAddWarmup").isDisabled(), "suggested warm-ups block Add warm-up");
+      assert((await p.locator("#exActionAddWarmup").innerText()).includes("Finish or skip the suggested warm-ups first"), "pending warm-ups have the approved reason");
+      await p.locator("#exActionsClose").click();
+      await p.waitForSelector("#exActionsSheet",{state:"hidden"});
+      await p.locator("[data-wu-skip]").click();
+      await p.locator("[data-ex-actions]").click();
+      for(let n=0;n<6;n++){
+        await p.locator("#exActionAddWarmup").click();
+        await p.waitForSelector("#exActionsSheet",{state:"hidden"});
+        await p.waitForFunction(()=>Object.values(window.__repforgeWorkoutDraft.current().exercises).some(ex=>ex.warmupPrelude?.steps.some(step=>step.completion==="pending")));
+        await p.evaluate(async()=>{
+          const hook=window.__repforgeWorkoutDraft,draft=hook.current();
+          const id=draft.exerciseOrder.find(id=>draft.exercises[id].warmupPrelude?.steps.some(step=>step.completion==="pending"));
+          const step=draft.exercises[id].warmupPrelude.steps.find(step=>step.completion==="pending");
+          const result=await hook.dispatch("completeWarmupStep",{exerciseInstanceId:id,stepId:step.stepId,completedAt:new Date().toISOString()});
+          if(result.status!=="applied")throw Error("warm-up completion failed");
+          renderWorkout();
+        });
+        await p.locator("[data-ex-actions]").click();
+        await p.waitForSelector("#exActionsSheet.is-open");
+      }
+      assert(await p.locator("#exActionAddWarmup").isDisabled(), "six warm-ups block another addition");
+      assert((await p.locator("#exActionAddWarmup").innerText()).includes("Up to six warm-ups per exercise"), "six warm-ups have the approved limit reason");
+      await p.locator("#exActionsClose").click();
+      await p.waitForSelector("#exActionsSheet",{state:"hidden"});
+      await p.evaluate(async()=>{
+        const hook=window.__repforgeWorkoutDraft,draft=hook.current();
+        for(const exerciseInstanceId of draft.exerciseOrder){
+          const ex=draft.exercises[exerciseInstanceId];
+          for(const setId of ex.setOrder){
+            for(const metric of ex.sets[setId].programmed.metrics){
+              await hook.dispatch("editMetricValue",{exerciseInstanceId,setId,metricId:metric.id,value:metric.semantic==="reps"?"6":"105"});
+            }
+            await hook.dispatch("editSetField",{exerciseInstanceId,setId,field:"rir",value:"1"});
+            const result=await hook.dispatch("completeSet",{exerciseInstanceId,setId,completedAt:new Date().toISOString()});
+            if(result.status!=="applied")throw Error("working set completion failed");
+          }
+        }
+        renderWorkout();
+      });
+      await p.locator("#sessionSheetBtn").click();
+      await p.waitForSelector("#sessionSheet.is-open");
+      await p.locator("#sessionEarlyFinish").click();
+      await p.waitForFunction(()=>!window.__repforgeWorkoutDraft.current());
+      assert(!await p.locator("#sessionEarlyPrompt").isVisible(), "Finish saves directly when all sets are logged");
+    } finally {await fixture.context.close()}
 
     assert(pageErrors.length === 0, "exercise actions journey emits no errors", pageErrors.join("\n"));
     console.log("\nAll Exercise-actions assertions passed successfully!");

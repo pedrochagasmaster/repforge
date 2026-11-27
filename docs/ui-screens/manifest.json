@@ -2983,13 +2983,6 @@
       "variants": "demandingText"
     },
     {
-      "id": "actions",
-      "flow": "workout",
-      "label": "Workout actions",
-      "scenario": "Focus session actions with a separate Cancel, before any action commits.",
-      "variants": "demandingText"
-    },
-    {
       "id": "editor-context-menu",
       "flow": "program",
       "label": "Program row actions",
@@ -3205,6 +3198,20 @@
       "label": "Today estimate explanation",
       "scenario": "The estimate info control opens the existing sheet pattern with affected lifts and their evidence reason.",
       "variants": "todayEstimateEstimateinfo"
+    },
+    {
+      "id": "prelude-add-disabled",
+      "flow": "workout",
+      "label": "Suggested warm-ups pending",
+      "scenario": "workout/prelude-add-disabled",
+      "variants": "demandingText"
+    },
+    {
+      "id": "prelude-add-limit",
+      "flow": "workout",
+      "label": "Warm-up limit reached",
+      "scenario": "workout/prelude-add-limit",
+      "variants": "demandingText"
     }
   ]
 }

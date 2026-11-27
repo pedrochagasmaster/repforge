@@ -752,13 +752,13 @@ async function main() {
   const noNote = await page.evaluate(() => {
     const card = document.querySelector("#workout .exercise.is-current"), add = card.querySelector(".fx-note-add"), r = add?.getBoundingClientRect();
     return { add: !!add && add.getClientRects().length > 0, name: add?.getAttribute("aria-label"), w: r?.width, h: r?.height,
-      line: !!card.querySelector(".fx-note"), menu: !!document.querySelector('#workoutActionSheet [data-workout-action="note"]'),
+      line: !!card.querySelector(".fx-note"), menu: !!card.querySelector("[data-fnote]"),
       nested: !!document.querySelector("#exActionNotesBtn") };
   });
   assert(noNote.add && noNote.name === "Add an exercise note" && noNote.w >= 44 && noNote.h >= 44 && !noNote.line && noNote.menu && !noNote.nested,
     "with no note, a quiet note icon (a full, named target) invites one; the ⋯ menu has Exercise note, and Exercise actions no longer nests it",
     JSON.stringify(noNote));
-  await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="note"]').click();
+  await page.locator("#workout .is-current [data-fnote]").click();
   await page.waitForSelector("#exNoteSheet:not(.hidden)");
   await page.waitForTimeout(280);
   const sheet = await page.evaluate(() => {
@@ -833,7 +833,7 @@ async function main() {
   assert(Object.values(noteSaved.draft).includes("Seat 4, feet high.") && noteSaved.closed,
     "saving the sheet writes the note into the session draft", JSON.stringify(noteSaved));
   assert(noteSaved.marked, "the card's note line shows the exercise now has one");
-  assert(await page.evaluate(() => document.activeElement?.id === "woOverflowBtn" && document.activeElement.isConnected),
+  assert(await page.evaluate(() => document.activeElement?.matches("[data-fnote]") && document.activeElement.isConnected),
     "saving the sheet returns focus to the header's actions button");
   const withNote = await page.evaluate(() => {
     const card = document.querySelector("#workout .exercise.is-current"), line = card.querySelector(".fx-note"), text = line?.querySelector(".fx-note__text");
@@ -851,7 +851,7 @@ async function main() {
   await page.waitForFunction(() => document.querySelector("#exNoteSheet").hidden, undefined, { timeout: 2000 });
   const noteUpdated = await page.evaluate(() => document.querySelector("#workout .exercise.is-current .fx-note__text")?.textContent);
   assert(noteUpdated === "Seat 4, feet high, wide grip.", "saving from the line updates it", noteUpdated);
-  await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="note"]').click();
+  await page.locator("#workout .is-current [data-fnote]").click();
   await page.waitForSelector("#exNoteSheet:not(.hidden)");
   await page.waitForTimeout(250);
   await page.keyboard.press("Escape");
@@ -861,7 +861,7 @@ async function main() {
   }, { timeout: 2000 });
   assert(await page.evaluate(() => document.querySelector("#exNoteSheet").hidden),
     "Escape closes the note sheet");
-  assert(await page.evaluate(() => document.activeElement?.id === "woOverflowBtn"),
+  assert(await page.evaluate(() => document.activeElement?.matches("[data-fnote]")),
     "Escape returns focus to the header's actions button");
 
   // ---- 04 — effort mode -------------------------------------------------------

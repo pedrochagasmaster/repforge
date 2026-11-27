@@ -255,7 +255,7 @@ async function restOverrunOffer(browser) {
   await softly("Another modal open: the rest ends, the question does not open over it", async () => {
     const { context, page } = await freshWorkout(browser);
     await logOneSet(page);
-    await page.locator("#woOverflowBtn").click();
+    await page.locator("#sessionSheetBtn").click();
     await page.waitForFunction(() => !!activeModal, null, { timeout: 3000 });
     await page.evaluate(() => startRest(120));
     await page.evaluate(() => window.__repforgeRest.setLeft(-3599 * 1000));
@@ -378,9 +378,9 @@ async function voiceWorkout(browser) {
 }
 
 async function tapVoice(page) {
-  await page.locator("#woOverflowBtn").click();
-  await page.locator('#workoutActionSheet [data-workout-action="voice"]').click();
-  await page.waitForSelector("#workoutActionSheet", { state: "hidden" });
+  await page.locator("#sessionSheetBtn").click();
+  await page.locator('#voiceBtn').click();
+  await page.waitForSelector("#sessionSheet", { state: "hidden" });
 }
 
 const recognizerCount = (page) => page.evaluate(() => window.__recognizers.length);

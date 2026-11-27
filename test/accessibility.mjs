@@ -729,8 +729,8 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
   await page.click("#startWorkout");
   await page.waitForSelector("#workoutShell:not(.hidden)");
   // The note opens from the header's three-dot menu (owner, 2026-11-05: one tap, beside the exercise actions).
-  const noteId = "woOverflowBtn";
-  await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="note"]').click();
+  const noteId = await page.locator("#workout .is-current [data-fnote]").getAttribute("data-fnote");
+  await page.locator("#workout .is-current [data-fnote]").click();
   await page.waitForFunction(() => {
     const s = document.querySelector("#exNoteSheet");
     return s && !s.hidden && !s.classList.contains("hidden");
@@ -747,22 +747,22 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
   const after = await page.evaluate(() => ({
     hidden: document.querySelector("#exNoteSheet")?.hidden || document.querySelector("#exNoteSheet")?.classList.contains("hidden"),
     leaked: [...document.body.children].filter((c) => c.inert && !c.matches('#legacyWorkoutShell[hidden][aria-hidden="true"]')).map((c) => c.id || c.tagName),
-    focusNote: document.activeElement?.id,
+    focusNote: document.activeElement?.getAttribute("data-fnote"),
   }));
   assert(after.hidden, "Exercise Note: Escape is Cancel and hides the sheet", JSON.stringify(after));
   assert(after.leaked.length === 0, "Exercise Note: close restores inertness", JSON.stringify(after.leaked));
   assert(after.focusNote === noteId, "Exercise Note: Cancel returns focus to the exact note trigger", JSON.stringify({ noteId, after }));
 
-  await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="note"]').click();
+  await page.locator("#workout .is-current [data-fnote]").click();
   await page.waitForSelector("#exNoteSheet:not([hidden])", { timeout: 8000 });
   await page.locator("#exNoteText").fill("Saved focus note");
   await page.locator("#exNoteSave").click();
   await page.waitForFunction((id) => {
     const sheet = document.querySelector("#exNoteSheet");
-    return !!(sheet?.hidden && document.activeElement?.id === id);
+    return !!(sheet?.hidden && document.activeElement?.getAttribute("data-fnote") === id);
   }, noteId, { timeout: 8000 });
   const saved = await page.evaluate(() => ({
-    focusNote: document.activeElement?.id,
+    focusNote: document.activeElement?.getAttribute("data-fnote"),
     leaked: [...document.body.children].filter((c) => c.inert && !c.matches('#legacyWorkoutShell[hidden][aria-hidden="true"]')).map((c) => c.id || c.tagName),
   }));
   assert(saved.focusNote === noteId, "Exercise Note: Save returns focus after the rerender", JSON.stringify({ noteId, saved }));
@@ -2074,7 +2074,7 @@ async function runDimmedStateAccessibility(browser) {
     await page.click("#startWorkout");
     await page.waitForSelector("#workoutShell:not(.hidden)");
 
-    await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
+    await page.locator("#workout [data-ex-actions]").click();
     await page.locator("#exActionsWarmupList [data-warm-toggle-set]").first().click();
     await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
     await page.locator("#exActionsClose").click();
@@ -2097,7 +2097,7 @@ async function runDimmedStateAccessibility(browser) {
     );
 
     const skippedId=await page.locator("#workout .exercise.is-current").getAttribute("data-ex");
-    await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
+    await page.locator("#workout [data-ex-actions]").click();
     await page.locator("#exActionSkipBtn").click();
     await page.locator('[data-skip-reason="other"]').click();
     await page.locator("#skipReasonSheet").waitFor({state:"hidden"});
@@ -2126,7 +2126,7 @@ async function runDimmedStateAccessibility(browser) {
     await page.locator("#sessionSheetBtn").click();
     await page.locator(`[data-session-map-jump="${skippedId}"]`).click();
     await page.locator("#sessionSheet").waitFor({state:"hidden"});
-    await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
+    await page.locator("#workout [data-ex-actions]").click();
     await page.locator("#exActionsSheet.is-open").waitFor();
     const skip=lang==="pt"?"Pular exercício":"Skip exercise";
     assert(await page.getByRole("button",{name:skip,exact:true}).count()===1,

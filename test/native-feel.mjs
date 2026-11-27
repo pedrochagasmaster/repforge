@@ -831,31 +831,31 @@ async function nativeControls(browser, { appearanceOnly = false } = {}) {
   // The skip above opened today's draft, so Today may be resuming it from the live card rather than offering Start.
   await page.locator('#todayLiveResume, #startWorkout:not(.hidden)').first().click();
   await page.waitForFunction(() => document.querySelector('#workout').classList.contains('is-focus'));
-  await page.click('#woOverflowBtn');
-  const hasAction = await page.locator('#workoutActionSheet:not([hidden])').count();
+  await page.click('#sessionSheetBtn');
+  const hasAction = await page.locator('#sessionSheet:not([hidden])').count();
   assert(hasAction === 1, "Focus more opens the action sheet");
   if (hasAction) {
-    await page.click('#workoutActionCancel');
-    await page.waitForSelector('#workoutActionSheet', { state: 'hidden' });
+    await page.click('#sessionSheetClose');
+    await page.waitForSelector('#sessionSheet', { state: 'hidden' });
     assert(await page.evaluate(() => !!localStorage.getItem('repforge_draft_v1')), "Cancel keeps the draft");
-    await page.click('#woOverflowBtn');
+    await page.click('#sessionSheetBtn');
     const reopened = await page.waitForFunction(() => {
-      const sheet = document.querySelector('#workoutActionSheet'), button = sheet.querySelector('[data-workout-action="abandon"]');
+      const sheet = document.querySelector('#sessionSheet'), button = sheet.querySelector('#sessionAbandon');
       const r = button.getBoundingClientRect();
       return sheet.classList.contains('is-open') && r.top >= 0 && r.bottom <= innerHeight;
     }, undefined, { timeout: 4000 }).then(() => true, () => false);
-    assert(reopened, 'the Focus action sheet reopens with its actions inside the viewport', await page.locator('#workoutActionSheet').evaluate(sheet => JSON.stringify({
+    assert(reopened, 'the Focus action sheet reopens with its actions inside the viewport', await page.locator('#sessionSheet').evaluate(sheet => JSON.stringify({
       style: sheet.getAttribute('style'), computed: getComputedStyle(sheet).transform, rect: sheet.getBoundingClientRect().toJSON(),
       animations: sheet.getAnimations().map(run => ({ playState: run.playState, currentTime: run.currentTime, frames: run.effect.getKeyframes() }))
     })));
-    await page.click('[data-workout-action="abandon"]');
+    await page.click('#sessionAbandon');
     await page.waitForSelector('#sessionAbandonPrompt:not(.hidden)');
     assert(await page.evaluate(() => !!localStorage.getItem('repforge_draft_v1')), "End without saving first asks for confirmation");
     await page.click('#sessionAbandonCancel');
     assert(await page.evaluate(() => !!localStorage.getItem('repforge_draft_v1')), "Keep training keeps the draft");
     await page.waitForSelector('#sessionSheet', { state: 'hidden' });
     assert(await page.locator('#workoutShell').isVisible(), 'Keep training returns directly to Focus');
-    await page.click('#woOverflowBtn'); await page.click('[data-workout-action="abandon"]');
+    await page.locator("#sessionSheetBtn").click(); await page.locator("#sessionAbandon").click();
     await page.waitForSelector('#sessionAbandonPrompt:not(.hidden)');
     await page.keyboard.press('Escape'); await page.waitForSelector('#sessionSheet', { state: 'hidden' });
     await page.click('#sessionSheetBtn'); await page.waitForSelector('#sessionSheet.is-open');
@@ -900,7 +900,7 @@ async function nativeControls(browser, { appearanceOnly = false } = {}) {
     await page.evaluate(() => { delete visualViewport.height; visualViewport.dispatchEvent(new Event('resize')); });
     assert(seat.bottom === seat.viewport, "the sheet's bottom is the viewport's bottom: a stale keyboard band moves no sheet while nothing is being typed", JSON.stringify(seat));
     await page.click('#sessionSheetClose'); await page.waitForSelector('#sessionSheet', { state: 'hidden' });
-    await page.click('#woOverflowBtn'); await page.click('[data-workout-action="abandon"]');
+    await page.locator("#sessionSheetBtn").click(); await page.locator("#sessionAbandon").click();
     await page.click('#sessionAbandonConfirm');
     await page.waitForFunction(() => !localStorage.getItem('repforge_draft_v1'));
     await page.waitForSelector("#todayDash:not(.hidden)");
@@ -908,7 +908,7 @@ async function nativeControls(browser, { appearanceOnly = false } = {}) {
     await page.click('#startWorkout');
     await page.waitForFunction(() => document.querySelector('#workout').classList.contains('is-focus'));
     await page.evaluate(() => { document.querySelector('#toast').textContent = ''; });
-    await page.click('#woOverflowBtn'); await page.click('[data-workout-action="finish"]');
+    await page.locator("#sessionSheetBtn").click(); await page.locator("#sessionEarlyFinish").click();
     const refusals = await page.evaluate(() => ['toast.enter_weight_before_save', 'toast.finish_incomplete'].map(key => window.RepForgeI18n.t(key)));
     const refused = await page.waitForFunction(texts => texts.includes(document.querySelector('#toast').textContent.trim()), refusals, { timeout: 4000 }).then(() => true, () => false);
     assert(refused && await page.evaluate(() => !!window.__repforgeWorkoutDraft.current()), 'Finish runs the save path itself: an untouched session gets its refusal and keeps the draft',
