@@ -543,6 +543,13 @@ async function main() {
         await p.setViewportSize(viewport);
         await APP_SCENARIOS["workout/focus"](p);
         await p.locator("#sessionSheetBtn").click();
+        await p.locator("#sessionAbandon").click();
+        const promptFits = await p.locator("#sessionAbandonPrompt").evaluate(el => {
+          const r=el.getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight;
+        });
+        assert(promptFits, `abandon prompt fits at ${viewport.width}x${viewport.height}`);
+        await p.locator("#sessionAbandonCancel").click();
+        assert(await p.locator("#sessionSheet").isVisible(), "Keep training leaves Session open");
         await p.locator("#sessionEarlyFinish").click();
         await p.locator("#sessionEarlyConfirm").click({timeout:3000});
         await p.waitForSelector("#sessionSheet",{state:"hidden"});

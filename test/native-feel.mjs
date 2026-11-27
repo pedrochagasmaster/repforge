@@ -909,10 +909,11 @@ async function nativeControls(browser, { appearanceOnly = false } = {}) {
     await page.waitForFunction(() => document.querySelector('#workout').classList.contains('is-focus'));
     await page.evaluate(() => { document.querySelector('#toast').textContent = ''; });
     await page.locator("#sessionSheetBtn").click(); await page.locator("#sessionEarlyFinish").click();
-    const refusals = await page.evaluate(() => ['toast.enter_weight_before_save', 'toast.finish_incomplete'].map(key => window.RepForgeI18n.t(key)));
-    const refused = await page.waitForFunction(texts => texts.includes(document.querySelector('#toast').textContent.trim()), refusals, { timeout: 4000 }).then(() => true, () => false);
-    assert(refused && await page.evaluate(() => !!window.__repforgeWorkoutDraft.current()), 'Finish runs the save path itself: an untouched session gets its refusal and keeps the draft',
-      await page.locator('#toast').textContent());
+    // The header menu's Finish, which ran the save path and refused an untouched session with a toast, is gone. The one
+    // Finish entry asks the early-finish question for unlogged sets, and asking keeps the draft.
+    await page.waitForSelector('#sessionEarlyPrompt:not(.hidden)');
+    assert(await page.locator('#sessionEarlyConfirm').isVisible() && await page.evaluate(() => !!window.__repforgeWorkoutDraft.current()),
+      'Finish on an untouched session asks the early-finish question and keeps the draft');
   }
   await context.close();
 }
