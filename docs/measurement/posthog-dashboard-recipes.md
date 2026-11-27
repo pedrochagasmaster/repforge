@@ -260,6 +260,13 @@ only way that pair occurs (`generated_edited` with `form=full` is the full form)
 The reopen thresholds are in the backlog item; do not lower them after
 looking at the data.
 
+**Trainer program updates** (Plan 086 slice 3): `relay_update_outcome` with
+`action` `used` or `kept`, one event per answer. Keep my current program, the
+sheet's X and Escape all report `kept`; a link the lifter never answers
+reports nothing. Trends, breakdown `action`, unique installations; weekly. The
+event carries only the answer, never the program, its changes, the link,
+record id, key, trainer name or message.
+
 ## Dashboard: Privacy and automatic-product availability
 
 1. **Opt-out rate**: operational denominator from installs observed in the

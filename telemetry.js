@@ -210,6 +210,9 @@
       form: values("recipe", "full"),
       size_vs_limit: values("under_half", "under_limit", "over_limit", "over_2x", "over_4x"),
     }, "Setup link outcome: ready or refused for size, then shared, copied or sent as a file", "repeatable"),
+    // A client answered a trainer's program update (Plan 086 slice 3, owner 2026-11-27): used it or kept the current
+    // program. Only the answer: never the program, the changes, the link, record id, key, trainer name or message.
+    relay_update_outcome: event({ action: values("used", "kept") }, "Program update from a trainer: used or kept", "repeatable"),
     guide_replay: event({ guideId: values("entry", "first-set", "focus-utilities", "progress", "block-transition", "backup", "install", "privacy") }, "Contextual guide replayed", "repeatable"),
     late_install_transfer: Object.freeze({
       phase: "install_transfer",

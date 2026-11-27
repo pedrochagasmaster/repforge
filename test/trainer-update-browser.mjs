@@ -57,8 +57,32 @@ function fakeRelay() {
   return relay;
 }
 
-async function fresh(browser, relay, { standalone = false, url = BASE, context = null } = {}) {
+/** Records what app.js emits through the real telemetry boundary, with consent on. */
+const RECORDER = () => {
+  window.__captured = [];
+  let installed;
+  Object.defineProperty(window, "RepForgeTelemetry", {
+    configurable: true,
+    get: () => installed,
+    set(next) {
+      installed = next;
+      try {
+        next.boot({
+          adapter: { capture: (name, properties) => window.__captured.push([name, { ...properties }]), setEnabled() {} },
+          appVersion: "test", crypto: window.crypto, location: window.location, now: () => new Date(),
+          releaseChannel: "preview", storage: window.localStorage,
+        });
+      } catch (error) { window.__telemetryBootError = String(error); }
+    },
+  });
+};
+
+async function fresh(browser, relay, { standalone = false, url = BASE, context = null, telemetry = false } = {}) {
   context ||= await browser.newContext({ viewport: { width: 390, height: 844 } });
+  if (telemetry) {
+    await context.addInitScript(RECORDER);
+    await context.addInitScript(() => window.localStorage.setItem("repforge_telemetry_enabled_v1", "true"));
+  }
   if (!context.__relay) { await relay.install(context); context.__relay = true; }
   await context.addInitScript(() => { window.__repforgeLocalRelay = true; });
   if (standalone) await context.addInitScript(() => Object.defineProperty(navigator, "standalone", { configurable: true, get: () => true }));
@@ -178,7 +202,7 @@ async function main() {
   const errors = [];
   try {
     // ---- The client: an archived program, history and a workout in progress ---------------------------------
-    const client = await fresh(browser, relay);
+    const client = await fresh(browser, relay, { telemetry: true });
     errors.push(client.errors);
     check(await activate(client.page, { name: "First block" }), "the client's first program");
     check(await activate(client.page, { name: "Upper/Lower block" }), "the client's current program, with the first archived");
@@ -248,6 +272,13 @@ async function main() {
     check(after.programId === before.programId && after.definition === before.definition && after.draft === before.draft &&
       await cookieOf(client.context) === null, "closing with X writes nothing and clears the cookie, as Keep does");
 
+    const kept = await client.page.evaluate(() => (window.__captured || []).filter(([name]) => name === "relay_update_outcome").map(([, p]) => p));
+    check(kept.length === 2 && kept.every((p) => p.action === "kept"),
+      "Keep and X each send one relay_update_outcome kept event, with nothing else", kept);
+    const everything = JSON.stringify(await client.page.evaluate(() => window.__captured || []));
+    const secrets = ["Rafael", "Bench goes", "Upper/Lower block v2", new URL(link).hash.slice(3).split(".")[0], link.split(".").pop()];
+    check(secrets.every((secret) => !everything.includes(secret)), "no event carries the trainer, message, program name, record id or key");
+
     // Use the update, opened again from the link (only the fragment changes; the installed-app case below boots).
     const reopened = await client.page.goto(link, { waitUntil: "domcontentloaded" }).then(() => waitForAppBoot(client.page, { base: BASE }));
     void reopened;
@@ -266,6 +297,10 @@ async function main() {
       "the archive keeps the first program and adds the one it replaced", after.archive);
     check(after.draft === before.draft, "the workout in progress is left exactly as it was");
     check(await cookieOf(client.context) === null, "no cookie is left behind");
+    // Each answer is told once, and only as used or kept (owner, 2026-11-27). Opening the link changed only the
+    // fragment, so the same page holds the earlier Keep and X answers too.
+    const told = await client.page.evaluate(() => (window.__captured || []).filter(([name]) => name === "relay_update_outcome").map(([, p]) => p.action));
+    check(JSON.stringify(told) === JSON.stringify(["kept", "kept", "used"]), "Use the update sends one relay_update_outcome used event", told);
     const toast = await client.page.evaluate(() => document.querySelector("#toast")?.textContent || "");
     check(/Program saved/.test(toast), "a toast confirms it", toast);
     await client.context.close();
