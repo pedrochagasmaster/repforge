@@ -110,7 +110,8 @@
     const [r, gg, b] = color.match(/\w\w/g).map((h) => parseInt(h, 16));
     for (let i = 0; i < px.length; i += 4) {
       const lum = (px[i] * 0.3 + px[i + 1] * 0.59 + px[i + 2] * 0.11) / 255;
-      const a = Math.max(0, Math.min(1, (0.82 - lum) / 0.35)) * (px[i + 3] / 255);
+      const solid = Math.max(0, Math.min(1, (px[i + 3] / 255 - 0.52) / 0.36));
+      const a = Math.max(0, Math.min(1, (0.82 - lum) / 0.35)) * solid;
       px[i] = r; px[i + 1] = gg; px[i + 2] = b; px[i + 3] = Math.round(a * 255);
     }
     g.putImageData(d, 0, 0);

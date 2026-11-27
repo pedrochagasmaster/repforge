@@ -311,9 +311,10 @@ The app icon is a charcoal monogram: a letter T whose crossbar sweeps up into
 bull horns, cut with a burnt-orange edge, resting on the warm paper ground.
 It is the one place the name's origin is allowed to show.
 
-- `icons/icon.svg` is **generated output, not source** — 9,233 vector paths.
-  Never hand-edit it and never run optimizers (SVGO etc.) on it; a new mark
-  replaces the file wholesale.
+- `icons/icon.svg` is the **vector source of truth** at a 1254×1254 view box
+  (clean symmetric geometry, true-alpha drop shadow, and a single full-bleed
+  `#EFE5DF` ground path). Never run lossy optimizers (SVGO etc.) on it; a new
+  mark replaces the file wholesale.
 - The raster assets (favicon, 192/512/1024, maskable, Apple touch, splash
   screens) are **compositions, not resizes** — the maskable variant keeps the
   full mark inside the safe circle, and splash screens place the isolated mark
@@ -327,10 +328,9 @@ It is the one place the name's origin is allowed to show.
   and rasterises the rest — so it is generated output twice over. Re-run it
   when a new mark lands; never hand-edit or hand-crop it, and never use the app
   icon in that row: its ground reads as a plate against the app's paper. That
-  reasoning is about cream. The rendering keeps a pale edge where its ground was
-  taken away, so on charcoal the gate paints the paper back under it as a plate
-  rather than leaving a smudge on the dark page — the same answer dark gives
-  the exercise artwork.
+  reasoning is about cream. On charcoal the gate still paints the paper back
+  under it as a plate so the dark graphite mark keeps contrast on the dark page
+  — the same answer dark gives the exercise artwork.
 - The mark carries **no themed text**: no caption, tooltip, or alt text about
   bulls or bearing. The Settings identity mark ships `alt=""`.
 
