@@ -10078,3 +10078,13 @@ body.is-entry-editor #entryProgramName,
 .exactions__warmup-input{width:4.5em;min-height:var(--control-target);text-align:right}
 .shelf__fields--one{grid-template-columns:minmax(0,1fr)}
 .fx-cue__skip,.fx-prelude-none .text-link,.exactions__warmup-ctl .text-link{min-height:var(--control-target);display:inline-flex;align-items:center}
+
+/* Round-zero onboarding exploration, enabled only for the session's direction. */
+[data-odir] .odir-disclosure { border-bottom: 1px solid var(--line); padding: 16px 0; }
+[data-odir] .odir-disclosure summary { cursor: pointer; font-weight: 600; }
+[data-odir] .odir-group + .odir-group { margin-top: 28px; }
+[data-odir] .odir-group .onb__q { font-size: 20px; }
+[data-odir] .odir-basics input, [data-odir] .odir-basics select { max-width: 55%; min-width: 0; color: var(--ink); background: var(--surface); border: 1px solid var(--line); padding: 10px; border-radius: 8px; }
+[data-odir] .odir-fine { margin-block: 20px; }
+[data-odir] .odir-fine .settings-row { width: 100%; text-align: left; gap: 16px; }
+[data-odir] .odir-fine .settings-row span:last-child { color: var(--muted); font-size: 13px; }
