@@ -9,7 +9,7 @@ const ODIR_B_ORDER=["desired_result","days_per_week","environment","split","weig
 const ODIR_B_PAGES={desired_result:["desired_result","background"],days_per_week:["days_per_week","session_length"],environment:["environment","equipment"],split:["split","muscle_priorities","exercise_preferences","deload","abilities"],weight:["weight","sex","birth_date","height","cardio_experience"]};
 function odirDefaults(){for(const step of [...ODIR_REQUIRED,...ODIR_OPTIONAL])entryApplyShownDefaults(step)}
 function odirMove(build=false){
-  entryCommitPicker(entryState.step);entryApplyShownDefaults(entryState.step);
+  if(!(ONBOARDING_DIRECTION==="b"&&entryState.step==="weight"))entryCommitPicker(entryState.step);entryApplyShownDefaults(entryState.step);
   const steps=odirSteps(),index=steps.indexOf(entryState.step);
   if(ONBOARDING_DIRECTION==="b")for(const id of ODIR_B_PAGES[entryState.step]||[])entryApplyShownDefaults(id);
   const step=build?"building":ONBOARDING_DIRECTION==="b"?ODIR_B_ORDER[ODIR_B_ORDER.indexOf(entryState.step)+1]:steps[index+1];
@@ -25276,7 +25276,7 @@ function entryAdvance(){
   if(!ProgramEntry||!entryState||entryGeneration.status===ENTRY_GENERATION_STATUS.GENERATING_RESULT)return;
   if(entryHubMode()){entryChooseHubRoute();return}
   if(ONBOARDING_DIRECTION&&entryIsB()&&!entryEditor){
-    if(odirFine){entryCommitPicker(entryState.step);entryApplyShownDefaults(entryState.step);const answers=entryState.answers;entryState=odirFine;odirFine=null;applyEntryAnswerEdit(answers);return}
+    if(odirFine){if(entryState.step!=="weight")entryCommitPicker(entryState.step);entryApplyShownDefaults(entryState.step);const answers=entryState.answers;entryState=odirFine;odirFine=null;applyEntryAnswerEdit(answers);return}
     odirMove();return}
   entryGoalOpen=false;
   if(entryState.step==="split")stopEntrySplitEstimates();
@@ -29338,7 +29338,7 @@ runBoot();
 
 function odirDecorate(){
   const hub=entryHubMode(),body=$("#onbBody"),next=$("#onbNext"),nav=$("#onboarding .onb__nav"),step=entryState.step;
-  $("#onboarding").dataset.odir=ONBOARDING_DIRECTION;
+  $("#onboarding").dataset.odir=ONBOARDING_DIRECTION;next?.classList.remove("btn--steel");next?.classList.add("btn--cta");
   $("#onbEyebrow")?.classList.add("hidden");
   if(hub){next?.classList.add("hidden");nav?.classList.add("hidden");body.querySelectorAll("[data-entry-hub]").forEach(el=>{el.removeAttribute("role");el.removeAttribute("aria-checked");el.querySelector(".radio-card__mark")?.remove()});return}
   if(!entryIsB())return;
@@ -29349,7 +29349,7 @@ function odirDecorate(){
   if(ONBOARDING_DIRECTION==="c"&&ODIR_OPTIONAL.includes(step)){
     const build=document.createElement("button");build.dataset.odirBuild="true";build.className="btn btn--cta";build.textContent=t("odir.build");build.onclick=()=>odirMove(true);nav.prepend(build);
     if(step==="split"){const note=document.createElement("p");note.className="onb__explain";note.textContent=t("odir.optional");body.prepend(note)}
-    label.textContent=`${t("odir.optionalShort")} ${ODIR_OPTIONAL.indexOf(step)+1} / ${ODIR_OPTIONAL.length}`;
+    label.textContent=`${t("odir.optionalShort")} ${ODIR_OPTIONAL.indexOf(step)+1} / ${ODIR_OPTIONAL.length}`;bar.firstElementChild.style.flexBasis=`${(ODIR_OPTIONAL.indexOf(step)+1)/ODIR_OPTIONAL.length*100}%`;next.classList.remove("btn--cta");next.classList.add("btn--steel");
   }else if(ONBOARDING_DIRECTION==="c"&&index>=0)label.textContent=`${index+1} / 6`;
   if(ONBOARDING_DIRECTION==="b"&&step==="weight"){next.textContent=t("entry.skip");$("#onbSkip").hidden=true}
   if(ONBOARDING_DIRECTION==="b"&&step==="split"){next.textContent=t("odir.skipTune");next.disabled=false;$("#onbNextReason").hidden=true}
