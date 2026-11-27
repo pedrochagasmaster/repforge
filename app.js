@@ -29353,9 +29353,9 @@ function odirDecorate(){
   }else if(ONBOARDING_DIRECTION==="c"&&index>=0)label.textContent=`${index+1} / 6`;
   if(ONBOARDING_DIRECTION==="b"&&step==="weight")next.textContent=t("entry.skip");
   if(ONBOARDING_DIRECTION==="b"&&step==="split"){next.textContent=t("odir.skipTune");next.disabled=false;$("#onbNextReason").hidden=true}
-  if(odirFine){next.textContent=t("odir.done");$("#onbSkip").hidden=true;return}
+  if(odirFine){label.classList.add("hidden");bar.classList.add("hidden");next.textContent=t("odir.done");$("#onbSkip").hidden=true;return}
   if(odirSingle(step)&&!entryEditor&&ONBOARDING_DIRECTION!=="b"){
-    const seen=odirVisited.has(step);if(!seen){next.classList.add("hidden");$("#onbNextReason").hidden=true}
+    const seen=odirVisited.has(step);if(!seen&&!(ONBOARDING_DIRECTION==="c"&&ODIR_OPTIONAL.includes(step))){next.classList.add("hidden");$("#onbNextReason").hidden=true}
     body.querySelectorAll("[data-entry-pick]").forEach(el=>{const handler=el.onclick;el.onclick=event=>{odirVisited.add(step);handler(event);odirMove()}});
   }
 }
@@ -29370,7 +29370,14 @@ function odirBPage(step){
  if(step==="weight")return heading+odirBasics();
  return heading+ODIR_B_PAGES[step].map((id,index)=>{
  const content=odirCompact(id);
- if(step==="split"||id==="equipment")return `<details class="odir-disclosure"><summary>${esc(t(id==="equipment"?"odir.equipment":`odir.fine.${id}`))}</summary>${content}</details>`;
+ if(step==="split"||id==="equipment")return `<details class="odir-disclosure"><summary>${esc(t(id==="equipment"?"odir.equipment":`odir.fine.${id}`))} · ${esc(id==="equipment"?entryEnvironmentKindLabel(entryState.answers.environment?.kind):odirValue(id))}</summary>${content}</details>`;
  return `<section class="odir-group">${content}</section>`}).join("");
 }
-function odirFineRows(){return `<h2 class="entry__section-head">${esc(t("odir.fine"))}</h2>`+["split","muscle_priorities","exercise_preferences","deload","abilities","weight"].map(step=>`<button class="settings-row" type="button" data-odir-fine="${step}"><span>${esc(t(`odir.fine.${step}`))}</span><span>${esc(step==="split"?entryState.answers.splitPreference||t("odir.recommended"):step==="deload"?t(entryState.answers.deload?"odir.yes":"odir.no"):t("odir.adjust"))} ›</span></button>`).join("")}
+function odirValue(step){const a=entryState.answers;
+  if(step==="split")return a.splitPreference&&a.splitPreference!=="auto"?splitDisplayName(entrySplitChoices().find(c=>c.id===a.splitPreference)||{id:a.splitPreference}):t("odir.recommended");
+  if(step==="muscle_priorities")return entryPriorityLabel(a);
+  if(step==="exercise_preferences")return entryExercisePreferenceLabel(a);
+  if(step==="deload")return t(a.deload!==false?"odir.yes":"odir.no");
+  if(step==="weight")return entryBasics().weightKg?`${entryBasics().weightKg} kg`:t("odir.optionalShort");
+  return t("odir.recommended")}
+function odirFineRows(){return `<h2 class="entry__section-head">${esc(t("odir.fine"))}</h2>`+["split","muscle_priorities","exercise_preferences","deload","abilities","weight"].map(step=>`<button class="settings-row" type="button" data-odir-fine="${step}"><span>${esc(t(`odir.fine.${step}`))}</span><span>${esc(odirValue(step))} ›</span></button>`).join("")}
