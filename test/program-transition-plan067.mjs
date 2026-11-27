@@ -463,3 +463,6 @@ assert.deepEqual(unidentified.value.programDefinition, threeDays);
 }
 
 console.log("PASS Plan 067 canonical program transition contract");
+
+// Plan 086 slice 3: the received program's slot diff, in the same transition lane.
+await import("./program-handoff-diff.mjs");
