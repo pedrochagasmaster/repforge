@@ -10138,3 +10138,26 @@ html[data-mdir="a"] .mdir-exercise-button:focus-visible { outline:var(--control-
   html[data-mdir="a"] #sessionSheet .session-map__name { font-size:14px; line-height:1.25; }
   html[data-mdir="a"] #sessionSheet .session-map__jump { column-gap:8px; }
 }
+
+/* Direction A, round 2. */
+html[data-mdir="a"] #sessionSheetBtn { min-height:44px; border:1px solid var(--rule-on-surface); border-radius:var(--radius-pill); background:var(--control-quiet-bg); color:var(--color-ink-secondary); }
+html[data-mdir="a"] .wo-head { grid-template-columns:44px minmax(0,1fr) auto; }
+html[data-mdir="a"] #mdirHeaderRest { width:44px; height:44px; color:var(--color-ink-secondary); }
+html[data-mdir="a"] .mdir-exercise-button,
+html[data-mdir="a"] .fx-note-add { display:inline-flex; gap:4px; width:auto; min-height:44px; padding:0 8px; border-radius:var(--radius-pill); color:var(--color-ink-secondary); background:var(--control-quiet-bg); font-size:12px; }
+html[data-mdir="a"] .mdir-exercise-button .icon-mask { width:18px; height:18px; }
+html[data-mdir="a"] .fx-head__row { flex-wrap:wrap; justify-content:flex-end; }
+html[data-mdir="a"] #exActionRepeatHint { display:block; }
+html[data-mdir="a"] #exActionsSheet .sheetgroup__cap { margin:16px 0 4px; }
+html[data-mdir="a"] .mdir-warmup-label { margin:8px 0 4px; color:var(--color-ink-secondary); font-size:12px; }
+html[data-mdir="a"] #exActionsWarmupList .exactions__warmup-num { font-size:13px; }
+html[data-mdir="a"] #exActionsWarmupList .toggle[aria-checked="false"]::before { box-shadow:inset 0 0 0 1.5px var(--boundary-required); }
+html[data-mdir="a"] #exActionsSheet .exactions-sheet__body { padding-bottom:max(20px,env(safe-area-inset-bottom)); }
+html[data-mdir="a"] #sessionMapLabel { margin-top:var(--space-26); }
+html[data-mdir="a"] #sessionEarlySection { position:relative; border-top:1px solid var(--boundary-required); }
+html[data-mdir="a"] #sessionEarlySection.has-more::before { content:""; position:absolute; pointer-events:none; height:18px; top:-19px; left:0; right:0; background:linear-gradient(to bottom,transparent,var(--surface)); }
+html[data-mdir="a"] #sessionAbandon { color:var(--control-destructive-ink); }
+@media (max-width:359px) {
+  html[data-mdir="a"] .fx-head__row .focus-ex__meta { flex-basis:100%; }
+  html[data-mdir="a"] #exActionsSheet { max-height:calc(100dvh - 8px); }
+}

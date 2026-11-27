@@ -10196,9 +10196,13 @@ function renderExActionsSheet(exId) {
       const roleLabel = t(isWarmup ? "ex.actions.role_warmup" : "ex.actions.role_working");
       // A switch per set (the native UI kit, owner 2026-10-24): on is a warm-up set, named for the set it changes.
       const switchLabel = t("ex.actions.warmup_switch", { n: idx + 1 });
+      const load=metricFieldValue(set,"load")??set.edited?.load??set.programmed?.suggestedLoad;
+      const reps=metricFieldValue(set,"reps")??set.edited?.reps;
+      const target=menuDirection==="a"&&load!=null&&load!==""&&reps!=null&&reps!==""?` · ${fmtLoad(+load)} ${unitLabel()} × ${reps}`:"";
+      const warmLabel=menuDirection==="a"&&isWarmup?` · ${t("ex.actions.warmup_caption")}`:"";
       return `<div class="exactions__warmup-row">` +
         `<div class="exactions__warmup-info">` +
-        `<span class="exactions__warmup-num">${esc(t("log.set"))} ${idx + 1}</span>` +
+        `<span class="exactions__warmup-num">${esc(t("log.set"))} ${idx + 1}${esc(target)}${esc(warmLabel)}</span>` +
         `<span class="exactions__warmup-role ${isWarmup ? "is-warmup" : ""}">${esc(roleLabel)}</span>` +
         `</div>` +
         `<span class="exactions__warmup-ctl"><span class="exactions__warmup-cap" aria-hidden="true">${esc(t("ex.actions.warmup_caption"))}</span>` +
@@ -12254,7 +12258,7 @@ function focusCardHtml(ex,r,draft,prev,opts){
     // and it never sits over the cue. A neighbour carries the same bar, inert, so a swipe lands on what it showed.
     focusSkipbarHtml(peek)+
     // The header names the exercise (layout D), so its row here is the prescription line alone.
-    `<div class="fx-head"><div class="fx-head__row"><p class="focus-ex__meta">${esc(focusExMeta(ex))}</p>${noteAdd}${menuDirection==="a"&&!peek?`<button type="button" class="mdir-exercise-button" data-mdir-exercise="${esc(ex.id)}" aria-label="${esc(t("ex.actions.title"))}" aria-haspopup="dialog" aria-controls="exActionsSheet">${directionIcon("overflow")}</button>`:""}</div>${note}</div>`+
+    `<div class="fx-head"><div class="fx-head__row"><p class="focus-ex__meta">${esc(focusExMeta(ex))}</p>${noteAdd}${menuDirection==="a"&&!peek?`<button type="button" class="mdir-exercise-button" data-mdir-exercise="${esc(ex.id)}" aria-label="${esc(t("ex.actions.title"))}" aria-haspopup="dialog" aria-controls="exActionsSheet">${directionIcon("overflow")}<span>${esc(t("mdir.actions"))}</span></button>`:""}</div>${note}</div>`+
     slotHtml+quietRow+
     `<div class="fcard__ledger">`+
     `${focusLedgerHtml(ex,r,draft,prev,{peek})}</div>`+(menuDirection==="c"&&!peek?directionCardActions(ex):"")+nextRow+`</div>`+
@@ -29324,10 +29328,10 @@ function setupMenuDirection(){
   ov.removeAttribute("data-i18n-aria");ov.setAttribute("aria-label",t(menuDirection==="c"?"session.sheet.title":menuDirection==="b"?"mdir.menu":"ex.actions.title"));
   ov.setAttribute("aria-controls",menuDirection==="c"?"sessionSheet":"exActionsSheet");
   if(session){session.hidden=menuDirection!=="a";session.removeAttribute("data-i18n-aria");session.setAttribute("aria-label",t("session.sheet.title"));session.innerHTML=menuDirection==="a"?esc(t("mdir.session")):directionIcon("clipboard");if(menuDirection==="a")ov.hidden=true}
-  if($("#mdirSessionRest"))return;
+  if($("#mdirSessionRest")||$("#mdirHeaderRest"))return;
   const warm=$("#exActionsWarmupSection"),prelude=$("#exActionsPreludeSection");
   warm.prepend(prelude);prelude.querySelector("h3").remove();
-  const head=document.createElement("h3");head.className="sheetgroup__head";head.textContent=t("mdir.warmup");warm.prepend(head);
+  const head=document.createElement("h3");head.className=menuDirection==="a"?"sheetgroup__cap":"sheetgroup__head";head.textContent=t("mdir.warmup");warm.prepend(head);
   const body=$("#exActionsSheet .exactions-sheet__body");
   body.prepend($("#exActionsSubstSection"));body.insertBefore(warm,$("#exActionsRepeatSection"));
   $("#exActionsSheet .sheetband").append($("#exActionsSetupSection"));
@@ -29341,12 +29345,25 @@ function setupMenuDirection(){
     const b=$("#"+id);b.removeAttribute("data-i18n");b.innerHTML=directionIcon(icon)+`<span>${esc(t(key))}</span>`;
   }
   if(menuDirection==="a"){
-    const sessionBody=$("#sessionSheetBody");sessionBody.prepend(voice);sessionBody.prepend(rest);
+    const sessionBody=$("#sessionSheetBody");sessionBody.append(voice);
+    voice.querySelector(".icon-mask").remove();
+    rest.remove();
+    if(!$("#mdirHeaderRest")){
+      const timer=directionRow("mdirHeaderRest","rest.sheet.title","timer",()=>openRestSheet());
+      timer.className="icon-btn icon-btn--ghost";timer.setAttribute("aria-label",t("rest.sheet.title"));timer.querySelector("span:last-child").remove();
+      session.before(timer);
+    }
+    const scrollEdge=()=>end.classList.toggle("has-more",sessionBody.scrollTop+sessionBody.clientHeight<sessionBody.scrollHeight-1);
+    sessionBody.addEventListener("scroll",scrollEdge,{passive:true});
+    new ResizeObserver(scrollEdge).observe(sessionBody);
+    new MutationObserver(scrollEdge).observe(sessionBody,{childList:true,subtree:true,attributes:true});
     $("#sessionEarlyFinish").textContent=t("mdir.finish");
     $("#sessionAbandon").textContent=t("session.sheet.abandon");
     const pain=$("#exActionDiscomfortBtn").closest("section");
-    for(const section of [$("#exActionsSubstSection"),$("#exActionsSkipSection"),pain,$("#exActionsRepeatSection"),warm])body.append(section);
+    for(const section of [$("#exActionsSubstSection"),$("#exActionsRepeatSection"),pain,$("#exActionsSkipSection"),warm,$("#exActionsSetupSection")])body.append(section);
     warm.querySelector('[data-i18n="ex.actions.warmup_title"]').remove();
+    const label=document.createElement("p");label.className="mdir-warmup-label";label.textContent=t("mdir.mark_warmup");
+    warm.insertBefore(label,$("#exActionsWarmupList"));
   }
   const finish=$("#sessionEarlyFinish");
   $("#sessionSheet").append(end);

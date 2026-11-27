@@ -3448,6 +3448,8 @@
   "mdir.menu": "Exercise and session actions",
   "mdir.warmup": "Warm-up",
   "mdir.finish": "Finish session",
+  "mdir.actions": "Actions",
+  "mdir.mark_warmup": "Mark a set as warm-up",
   "mdir.session": "Session",
   "mdir.details": "Exercises and details",
   "mdir.swap": "Swap",
