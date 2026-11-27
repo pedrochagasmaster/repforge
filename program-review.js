@@ -576,7 +576,7 @@
       const value = range(set);
       if (!value) return "";
       const key = set.targets.repsPerSide ? "entry.review.reps_side" : "entry.review.reps";
-      return t(key, { min: value.min, max: value.max });
+      return adapter.explorationA&&set.targets.repsPerSide&&host.clientWidth<=320?t("odir.a.repsSide",{min:value.min,max:value.max}):t(key, { min: value.min, max: value.max });
     };
     const roleLabel = (role) => {
       if (role === "manual") return t("entry.review.role.manual");
@@ -681,8 +681,8 @@
         `<div class="review__rowbody"><h3 class="review__name">${esc(name)}</h3>` +
         (mark ? `<span class="review__mark" data-review-mark><span class="review__dot" aria-hidden="true"></span>${esc(mark)}</span>` : "") +
         (modeNeeded ? `<p class="review__hint" data-review-execution-cue>${esc(t("entry.review.execution_mode.cue"))}</p>` : "") +
-        `<ol class="review__sets">${sets.map((set, index) => `<li><span class="review__setn num">${index + 1}</span><span class="review__reps">${nums(repsText(set))}</span>` +
-          (Number.isFinite(set.rir) ? `<span class="review__rir">${nums(t("entry.review.rir", { n: set.rir }))}</span>` : "") + `</li>`).join("")}</ol>` +
+        (adapter.explorationA?`<div class="odir-sethead"><span>${esc(t("entry.review.sheet.reps_col"))}</span><span>${esc(t("odir.a.repsLeft"))}</span></div>`:"") + `<ol class="review__sets">${sets.map((set, index) => `<li><span class="review__setn num">${index + 1}</span><span class="review__reps">${nums(repsText(set))}</span>` +
+          (Number.isFinite(set.rir) ? `<span class="review__rir">${nums(adapter.explorationA?String(set.rir):t("entry.review.rir", { n: set.rir }))}</span>` : "") + `</li>`).join("")}</ol>` +
         chips(slot) + `</div>${icon("chev-right")}</article>`;
       if (confirmed) return row + `<div class="review__offer review__offer--confirmed" data-review-confirmed="${esc(slot.exerciseId)}">` +
         `<button type="button" class="text-link" data-review-confirmation-undo="${esc(slot.exerciseId)}">${esc(t("entry.review.undo"))}</button></div>`;
@@ -738,8 +738,10 @@
         `<p class="entry__eyebrow review__kicker">${esc(t("entry.review.source"))}</p>` +
         `<h2 class="onb__q review__title" id="entryHeading" tabindex="-1"><button type="button" class="review__titlebtn" data-review-title aria-label="${esc(t("entry.review.rename_program_aria", { name }))}">` +
         `<span>${esc(name)}</span>${icon("pencil")}</button></h2>` +
-        factsHtml(definition) + (adapter.afterFacts?.() || "") + blockHtml(definition) + changesHtml(count) + tabsHtml(definition) +
-        `<div class="review__panel" id="reviewPanel" role="tabpanel" aria-labelledby="reviewTab${view.tab}" data-review-panel>${dayHtml(definition, marks)}</div></div>`;
+        factsHtml(definition) + (adapter.afterFacts?.() || "") + (adapter.explorationA?"":blockHtml(definition)) + (adapter.explorationA&&!count?"":changesHtml(count)) + tabsHtml(definition) +
+        `<div class="review__panel" id="reviewPanel" role="tabpanel" aria-labelledby="reviewTab${view.tab}" data-review-panel>${dayHtml(definition, marks)}</div>${adapter.afterPanel?.()||""}</div>`;
+      if(adapter.explorationA){const fine=host.querySelector("#odirFineTune");const holder=document.createElement("div");holder.className="odir-block";holder.innerHTML=`<p>${esc(t("odir.a.block"))}</p>`+blockHtml(definition);fine.insertBefore(holder,fine.querySelector('[data-odir-fine="weight"]'));}
+      if(adapter.explorationA){const button=host.querySelector(".review__titlebtn"),text=button.querySelector("span");const words=text.textContent.split(" ");const last=words.pop();text.textContent=words.join(" ")+" ";const tail=document.createElement("span");tail.style.whiteSpace="nowrap";tail.textContent=last;tail.append(button.querySelector(".icon-mask"));button.append(tail);}
       placeIndicator(false);
       if (before) adapter.motion?.animateExerciseReorder?.([...host.querySelectorAll("[data-id]")], before);
       const target = focus && host.querySelector(focus);

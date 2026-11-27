@@ -1,13 +1,13 @@
 const ONBOARDING_DIRECTION=(()=>{try{const value=new URLSearchParams(location.search).get("odir");if(["a","b","c"].includes(value)){sessionStorage.setItem("repforge_odir",value);return value}return sessionStorage.getItem("repforge_odir")||null}catch{return null}})();
 const ODIR_REQUIRED=["desired_result","background","days_per_week","session_length","environment","equipment"];
 const ODIR_OPTIONAL=["split","muscle_priorities","exercise_preferences","deload","abilities","weight","sex","birth_date","height","cardio_experience"];
-const odirSteps=()=>ONBOARDING_DIRECTION==="a"?[...ODIR_REQUIRED,"building","result"]:[...ODIR_REQUIRED,...ODIR_OPTIONAL,"building","result"];
+const odirSteps=()=>ONBOARDING_DIRECTION==="a"?[...ODIR_REQUIRED.filter(step=>step!=="equipment"),"building","result"]:[...ODIR_REQUIRED,...ODIR_OPTIONAL,"building","result"];
 const odirSingle=step=>["desired_result","background","days_per_week","session_length","environment","split","sex","cardio_experience"].includes(step);
 const odirVisited=new Set();
 let odirFine=null;
 const ODIR_B_ORDER=["desired_result","days_per_week","environment","split","weight","building","result"];
 const ODIR_B_PAGES={desired_result:["desired_result","background"],days_per_week:["days_per_week","session_length"],environment:["environment","equipment"],split:["split","muscle_priorities","exercise_preferences","deload","abilities"],weight:["weight","sex","birth_date","height","cardio_experience"]};
-function odirDefaults(){for(const step of [...ODIR_REQUIRED,...ODIR_OPTIONAL])entryApplyShownDefaults(step)}
+function odirDefaults(){if(ONBOARDING_DIRECTION==="a"&&entryState.answers.sessionMinutes==null)entryState=ProgramEntry.setAnswers(entryState,{sessionMinutes:60});for(const step of [...ODIR_REQUIRED,...ODIR_OPTIONAL])entryApplyShownDefaults(step)}
 function odirMove(build=false){
   if(!(ONBOARDING_DIRECTION==="b"&&entryState.step==="weight"))entryCommitPicker(entryState.step);entryApplyShownDefaults(entryState.step);
   const steps=odirSteps(),index=steps.indexOf(entryState.step);
@@ -22166,7 +22166,7 @@ function renderSplitStep(){
     entryBGroup(choices.map(choice=>entryBChoice("splitPreference",choice.id,splitDisplayName(choice),
       entrySplitEstimateText(choice,run),current===choice.id,{tag:choice.default?t("aria.recommended"):"",cap:true})).join(""))}
 function renderSessionLengthStep(){
-  const current=entryState.answers.sessionMinutes??60;
+  const current=entryState.answers.sessionMinutes??(ONBOARDING_DIRECTION==="a"?null:60);
   return entryHeading(t("entry.session_length.title"))+`<p class="onb__explain">${esc(t("entry.session_length.lede"))}</p>`+
     entryBGroup([20,40,60,90,120,150].map(n=>entryBChoice("sessionMinutes",n,t("entry.session_length.value",{n}),"",current===n)).join(""),{compact:true})}
 const ENTRY_DESIRED_ICONS={muscle_growth:"flex",balanced:"scale",strength:"dumbbell"};
@@ -22484,7 +22484,7 @@ function entryNeedsChoice(stepId){
 /* Steps whose screen shows a default the lifter may accept with Continue. */
 function entryApplyShownDefaults(stepId){
   if(stepId==="split"){const split=entrySplitFor(entryState.answers);if(split&&split!==entryState.answers.splitPreference)entryState=ProgramEntry.setAnswers(entryState,{splitPreference:split})}
-  if(stepId==="session_length"&&entryState.answers.sessionMinutes==null)entryState=ProgramEntry.setAnswers(entryState,{sessionMinutes:60});
+  if(stepId==="session_length"&&ONBOARDING_DIRECTION!=="a"&&entryState.answers.sessionMinutes==null)entryState=ProgramEntry.setAnswers(entryState,{sessionMinutes:60});
   if(stepId==="deload"&&entryState.answers.deload==null)entryState=ProgramEntry.setAnswers(entryState,{deload:true})}
 
 /* Each question's controls are a body of their own, so the step screen and the
@@ -23757,6 +23757,7 @@ function renderResultStep(){
   /* Plan 070: the program is onboarding B's review editor, mounted into
      #entryReview after this render (mountEntryAdjust). What the program was
      built from stays below it until B's question screens replace these. */
+  if(ONBOARDING_DIRECTION==="a")return `<section id="entryCandidateReview" class="entry__review"><div id="entryReview" class="entry__adjust ph-no-capture"></div>${entryEditor?"":renderEntryPinned({progressionIssue,configurationIssue:entryNeedsMetricConfiguration(),reviewIssue:entryAdjustIssue()})}</section>`;
   return `<section id="entryCandidateReview" class="entry__review" aria-labelledby="entryHeading">`+
     `<div id="entryReview" class="entry__adjust ph-no-capture"></div>`+
     renderEntryChangeStatement(entryChange)+
@@ -23965,9 +23966,11 @@ function mountEntryAdjust(){
   const host=$("#entryReview"),Review=window.RepForgeProgramReview;
   const review=ensureEntryAdjust();
   if(!host||!Review||!review)return;
-  if(ONBOARDING_DIRECTION==="a")host.onclick=event=>{const el=event.target.closest("[data-odir-fine]");if(el&&!odirFine){odirFine=entryState;entrySetState({...entryState,step:el.dataset.odirFine},{persist:false})}};
+  if(ONBOARDING_DIRECTION==="a")host.onclick=event=>{const el=event.target.closest("[data-odir-fine]");if(event.target.closest("[data-odir-scroll]")){host.querySelector("#odirFineTune")?.scrollIntoView({behavior:"smooth"});return}if(el&&!odirFine){odirFine=entryState;entrySetState({...entryState,step:el.dataset.odirFine},{persist:false})}};
   entryAdjustMount=Review.mountProgramReview(host,{
-    afterFacts:ONBOARDING_DIRECTION==="a"?()=>`<section class="odir-fine">${odirFineRows()}</section>`:undefined,
+    explorationA:ONBOARDING_DIRECTION==="a",
+    afterFacts:ONBOARDING_DIRECTION==="a"?odirWhy:undefined,
+    afterPanel:ONBOARDING_DIRECTION==="a"?odirFineRows:undefined,
     view:review.view,
     queueKey:()=>review,
     candidate:()=>entryState?.result&&!entryAnswerRebuildPending()&&
@@ -24003,7 +24006,7 @@ function mountEntryAdjust(){
     swallowClick:()=>swallowNextClick(),
     reducedMotion:()=>reducedMotion(),
     motion:window.RepForgeMotion||null,
-    changed:()=>{syncEntryAdjustFooter();if(ONBOARDING_DIRECTION==="a"){const review=host.querySelector(".review");if(review&&!review.querySelector("[data-odir-fine=weight]"))review.insertAdjacentHTML("beforeend",`<button class="odir-fine__row odir-about" data-odir-fine="weight">${esc(t("odir.a.about"))}<span class="icon-mask icon-mask--chev-right" aria-hidden="true"></span></button>`);const title=host.querySelector(".review__titlebtn > span");if(title)title.textContent=title.textContent.replace(/(\d)-/g,"$1‑")}},
+    changed:()=>{syncEntryAdjustFooter();if(ONBOARDING_DIRECTION==="a"){const title=host.querySelector(".review__titlebtn > span");if(title)title.textContent=title.textContent.replace(/(\d)-/g,"$1‑")}},
   })}
 function renderCatalogueStep(){
   const cards=entryServices()?.browseCatalogue(entryState.answers)||[];
@@ -29384,28 +29387,39 @@ function odirBPage(step){
 function odirValue(step){const a=entryState.answers;
   if(step==="split")return a.splitPreference&&a.splitPreference!=="auto"?(found=>found?splitDisplayName(found):t("odir.recommended"))(entrySplitChoices().find(c=>c.id===a.splitPreference)):t("odir.recommended");
   if(ONBOARDING_DIRECTION==="a"){
-    if(step==="muscle_priorities")return [ ["primaryMuscles","more"],["deEmphasizedMuscles","less"],["ignoredMuscles","skipped"] ].flatMap(([key,label])=>(a[key]||[]).map(m=>t("odir.a."+label,{muscle:t("entry.muscle."+m)}))).join(", ")||t("odir.a.noChanges");
-    if(step==="exercise_preferences")return (a.exerciseConstraints?.length||a.mustHaveExercises?.length)?t("odir.a.exerciseCounts",{avoided:a.exerciseConstraints?.length||0,kept:a.mustHaveExercises?.length||0}):t("odir.a.none");
-    if(step==="abilities"){const n=entryAbilityKeys().filter(key=>typeof a.competencyAnswers?.[key]==="boolean").length;return n?t("odir.a.answered",{n,total:entryAbilityKeys().length}):t("odir.a.notAnswered")}
+    if(step==="muscle_priorities")return [ ["primaryMuscles","more"],["deEmphasizedMuscles","less"],["ignoredMuscles","skipped"] ].flatMap(([key,label])=>(a[key]||[]).map(m=>t("odir.a."+label,{muscle:t("entry.muscle."+m)}))).join(", ")||t("odir.a.balanced");
+    if(step==="exercise_preferences")return (a.exerciseConstraints?.length||a.mustHaveExercises?.length)?t("odir.a.exerciseCounts",{avoided:a.exerciseConstraints?.length||0,kept:a.mustHaveExercises?.length||0}):t("odir.a.noExclusions");
+    if(step==="abilities"){const n=entryAbilityKeys().filter(key=>typeof a.competencyAnswers?.[key]==="boolean").length;return n?t("odir.a.answered",{n,total:entryAbilityKeys().length}):t("odir.optionalShort")}
   }
   if(step==="muscle_priorities")return entryPriorityLabel(a);
   if(step==="exercise_preferences")return entryExercisePreferenceLabel(a);
   if(step==="deload")return t(a.deload!==false?"odir.yes":"odir.no");
   if(step==="weight")return entryBasics().weightKg?`${entryBasics().weightKg} kg`:t("odir.optionalShort");
   return t("odir.recommended")}
-let odirFineOpen=false;
-function odirFineRows(){return `<details class="odir-fine__box"${odirFineOpen?" open":""} ontoggle="odirFineOpen=this.open"><summary><span class="odir-fine__title">${esc(t("odir.fine"))}</span><span class="odir-fine__cap">${esc(t("odir.a.fineCap"))}</span></summary>`+["split","muscle_priorities","exercise_preferences","abilities"].map(step=>`<button class="odir-fine__row" type="button" data-odir-fine="${step}"><span>${esc(t(step==="abilities"?"odir.a.abilities":`odir.fine.${step}`))}</span><span class="odir-fine__val">${esc(odirValue(step))}</span><span class="icon-mask icon-mask--chev-right icon-mask--sm" aria-hidden="true"></span></button>`).join("")+`</details>`}
+function odirWhy(){
+ const a=entryState.answers;
+ const rows=[t("entry.result.why_goal",{goal:t("entry.goal."+a.desiredResult)}),t("entry.result.why_schedule",{days:a.daysPerWeek,minutes:a.sessionMinutes}),t("entry.result.why_environment."+a.environment.kind),entryProgressionSentence(entryState.result.preview)];
+ return `<section class="odir-why"><h3>${esc(t("entry.result.why"))}</h3><ul>${rows.map(text=>`<li>${esc(text)}</li>`).join("")}</ul><button class="text-link" data-odir-scroll>${esc(t("odir.a.jump"))}</button></section>`;
+}
+function odirFineRows(){
+ const a=entryState.answers,env=a.environment,adjust=env.adjust||{},preset=entryPresetGroups(env.kind),count=preset.filter(k=>!adjust.remove?.includes(k)).length+(adjust.add||[]).filter(k=>!preset.includes(k)).length;
+ const equipment=t("odir.a.equipmentValue",{place:entryEnvironmentKindLabel(env.kind),n:count})+((adjust.add?.length||adjust.remove?.length)?t("odir.a.edited"):"");
+ return `<section class="odir-fine" id="odirFineTune"><h3>${esc(t("odir.fine"))}</h3><p class="odir-fine__cap">${esc(t("odir.a.tuneCap"))}</p>`+["split","muscle_priorities","exercise_preferences","abilities","equipment","weight"].map(step=>`<button class="odir-fine__row" type="button" data-odir-fine="${step}"><span>${esc(t(step==="abilities"?"odir.a.abilities":step==="equipment"?"odir.a.equipment":`odir.fine.${step}`))}${step==="weight"?`<small>${esc(t("odir.a.weightWhy"))}</small>`:""}</span><span class="odir-fine__val">${esc(step==="equipment"?equipment:step==="weight"?t("odir.optionalShort"):odirValue(step))}</span><span class="icon-mask icon-mask--chev-right icon-mask--sm" aria-hidden="true"></span></button>`).join("")+`</section>`;
+}
 
 let odirEquipmentOpen=false;
 function odirRefineA(body,next,step,label){
-  $("#onbCancel").classList.toggle("hidden",!!odirFine);
-  if(ODIR_REQUIRED.includes(step))label.textContent=t("odir.a.progress",{n:ODIR_REQUIRED.indexOf(step)+1,total:6});
+  $("#onbCancel").classList.toggle("hidden",!!odirFine||step==="desired_result");
+  if(ODIR_REQUIRED.includes(step))label.textContent=t("odir.a.progress",{n:ODIR_REQUIRED.indexOf(step)+1,total:5});
+  if(odirFine){const back=$("#onbBack");back.textContent=t("entry.cancel");back.setAttribute("aria-label",t("entry.cancel"))}
   if(!odirFine){
     const heading=body.querySelector("#entryHeading");
     if(step==="session_length"){
       heading.textContent=t("odir.a.sessionTitle");
       body.querySelectorAll('[data-entry-pick="sessionMinutes"]').forEach(el=>el.querySelector(".radio-card__title").textContent=t("odir.a.minutes",{n:el.dataset.entryVal}));
     }
+    if(step==="environment")body.querySelector(".onb__explain").textContent=t("odir.a.environmentWhy");
+    if(step==="session_length"){const tile=body.querySelector('[data-entry-val="60"] .radio-card__body');tile.insertAdjacentHTML("beforeend",`<span class="entry-b__tag">${esc(t("odir.recommended"))}</span>`)}
     if(["desired_result","background","days_per_week"].includes(step))heading.insertAdjacentHTML("afterend",`<p class="onb__explain">${esc(t("odir.a.why."+step))}</p>`);
     if(odirSingle(step))body.querySelectorAll(".radio-card__mark").forEach(el=>{el.className="icon-mask icon-mask--chev-right icon-mask--sm"});
     if(step==="desired_result"){const link=body.querySelector("button.btn--ghost");link?.classList.add("odir-other")}
@@ -29420,7 +29434,12 @@ function odirRefineA(body,next,step,label){
     }
   }else{
     const heading=body.querySelector("#entryHeading");
-    if(heading){const question=heading.textContent;heading.textContent=t(step==="abilities"?"odir.a.abilities":`odir.fine.${step}`);if(step==="abilities")heading.insertAdjacentHTML("afterend",`<p class="onb__explain">${esc(t("odir.a.abilityWhy"))}</p>`);if(step==="split")heading.insertAdjacentHTML("afterend",`<p class="onb__explain">${esc(question)}</p>`);heading.insertAdjacentHTML("afterend",`<p class="onb__explain">${esc(t("odir.a.updates"))}</p>`)}
+    if(heading){
+      const question=step==="abilities"?t("odir.a.abilityQuestion"):step==="weight"?t("odir.a.aboutQuestion"):heading.textContent;
+      body.querySelectorAll(".onb__explain, .entry__privacy, .entry-b__note").forEach(el=>el.remove());
+      if(step!=="equipment")heading.textContent=t(step==="abilities"?"odir.a.abilities":`odir.fine.${step}`);
+      heading.insertAdjacentHTML("afterend",`<p class="onb__explain">${esc(t("odir.a.intro",{question:question.replace(/[?.]$/,"")}))}</p>`);
+    }
     next.classList.add("odir-done");
   }
   next.classList.toggle("odir-done",!!odirFine);

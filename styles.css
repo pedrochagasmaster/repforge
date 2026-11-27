@@ -10131,3 +10131,28 @@ body.is-entry-editor #entryProgramName,
   [data-odir="a"] .review__facts .entry__strip-value { font-size: 18px; }
 }
 [data-odir="a"] #onbBody.entry-body--equipment { padding-bottom: 100px; mask-image: linear-gradient(to bottom,var(--ink) 0%,var(--ink) 94%,transparent 100%); }
+/* Direction A, round two structural exploration. */
+[data-odir="a"] #onbStepLabel { font-size: 13px !important; color: var(--ink-soft); }
+[data-odir="a"] .odir-other { text-decoration: underline; }
+[data-odir="a"] .odir-other::after { content: " ›"; }
+[data-odir="a"] .odir-why { margin-block: 14px; font-size: 13px; color: var(--ink-soft); }
+[data-odir="a"] .odir-why h3, [data-odir="a"] .odir-fine h3 { font-size: 15px; color: var(--ink); margin: 0 0 6px; }
+[data-odir="a"] .odir-why ul { list-style: none; padding: 0; margin: 0 0 10px; }
+[data-odir="a"] .odir-why li { margin-block: 4px; }
+[data-odir="a"] .odir-fine { margin-top: 28px; scroll-margin-top: 16px; }
+[data-odir="a"] .odir-fine__row small { display: block; color: var(--ink-soft); font-size: 12px; font-weight: normal; margin-top: 4px; }
+[data-odir="a"] .odir-block { border-top: 1px solid var(--rule); padding-top: 10px; }
+[data-odir="a"] .odir-block > p { margin: 0; }
+[data-odir="a"] .review__titlebtn { display: inline; }
+[data-odir="a"] .review__titlebtn .icon-mask { display: inline-block; margin-left: 6px; vertical-align: baseline; }
+[data-odir="a"] .review__tabs { mask-image: linear-gradient(to right,var(--ink) 0%,var(--ink) 80%,transparent 100%); }
+[data-odir="a"] .odir-sethead { display: flex; justify-content: space-between; gap: 8px; padding-left: 20px; font-size: 10px; color: var(--ink-soft); }
+[data-odir="a"] .review__reps { white-space: nowrap; }
+[data-odir="a"] .onb__num .entry-b__tag { display: block; font-size: 9px; }
+@media(max-width:360px) {
+ [data-odir="a"] .odir-fine__row { flex-wrap: wrap; gap: 4px 10px; position: relative; padding-right: 24px; }
+ [data-odir="a"] .odir-fine__row > span:first-child { flex-basis: 100%; }
+ [data-odir="a"] .odir-fine__val { flex-basis: 100%; text-align: left; }
+ [data-odir="a"] .odir-fine__row > .icon-mask { position: absolute; right: 0; top: 18px; }
+ [data-odir="a"] .review__reps { font-size: 11px; }
+}
