@@ -208,6 +208,7 @@
   --color-focus:var(--accent);
   --color-disabled-reason:var(--ink-soft);
   --boundary-required:var(--ink-soft);
+  --profile-mark-plate:transparent;
   --boundary-decorative:var(--rule);
   --color-surface:var(--surface);
   --color-ink:var(--ink);
@@ -444,6 +445,7 @@
   --row-pressed-bg:rgba(255,255,255,.07);
   color-scheme:dark;
   --scheme:dark;
+  --profile-mark-plate:#F4F2EF;
   --bg:#141310;
   --surface:#1E1C18;
   --ink:#F2EFE9;
@@ -5548,7 +5550,10 @@ body.is-focus-wo .toast:not(.toast--top){bottom:calc(var(--toast-clear,0px) + va
 .profile-ring-link>span{max-width:5em;font-size:var(--font-size-caption);line-height:var(--line-standard);overflow-wrap:anywhere}
 .profile-ring{display:block;width:60px;height:60px;overflow:visible;flex:none}
 .profile-ring--large{width:86px;height:86px}
-.profile-ring circle{fill:none;stroke:var(--boundary-required);stroke-width:3;stroke-dasharray:23 2}
+/* The yoke stands in the ring's centre. The track is a hairline so the ink arc reads at a low fill; it keeps the
+   required-boundary ink. On charcoal the mark gets its paper back as a plate (docs/brand-guide.md, The mark). */
+.profile-ring circle{fill:none;stroke:var(--boundary-required);stroke-width:2}
+.profile-ring .profile-ring__plate{fill:var(--profile-mark-plate);stroke:none}
 .profile-ring .profile-ring__fill{stroke:var(--ink);stroke-width:5;stroke-linecap:round;transform:rotate(-90deg);transform-origin:center}
 .profile-ring__fill.is-empty{visibility:hidden}
 .profile-next-evidence{border-bottom:1px solid var(--rule);margin:0 0 var(--space-18);padding:var(--space-12) 0;font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--ink-soft)}
