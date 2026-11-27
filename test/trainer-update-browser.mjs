@@ -248,7 +248,7 @@ async function main() {
     check(after.programId === before.programId && after.definition === before.definition && after.draft === before.draft &&
       await cookieOf(client.context) === null, "closing with X writes nothing and clears the cookie, as Keep does");
 
-    // Use the update, opened by navigating to the link (the boot path).
+    // Use the update, opened again from the link (only the fragment changes; the installed-app case below boots).
     const reopened = await client.page.goto(link, { waitUntil: "domcontentloaded" }).then(() => waitForAppBoot(client.page, { base: BASE }));
     void reopened;
     await waitSheet(client.page, "ready");
