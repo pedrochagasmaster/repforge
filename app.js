@@ -25278,7 +25278,7 @@ function entryAdvance(){
   if(!ProgramEntry||!entryState||entryGeneration.status===ENTRY_GENERATION_STATUS.GENERATING_RESULT)return;
   if(entryHubMode()){entryChooseHubRoute();return}
   if(ONBOARDING_DIRECTION&&entryIsB()&&!entryEditor){
-    if(odirFine){if(entryState.step!=="weight")entryCommitPicker(entryState.step);entryApplyShownDefaults(entryState.step);const answers=entryState.answers;entryState=odirFine;odirFine=null;applyEntryAnswerEdit(answers);return}
+    if(odirFine){if(entryState.step!=="weight")entryCommitPicker(entryState.step);entryApplyShownDefaults(entryState.step);const answers=entryState.answers,committed=odirFine;entryState=committed;odirFine=null;const patch={};for(const key of Object.keys(answers))if(entryCanon(answers[key])!==entryCanon(committed.answers[key]))patch[key]=answers[key];if(Object.keys(patch).length)applyEntryAnswerEdit(patch);else entrySetState(committed,{persist:false});return}
     odirMove();return}
   entryGoalOpen=false;
   if(entryState.step==="split")stopEntrySplitEstimates();
