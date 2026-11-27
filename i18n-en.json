@@ -3448,6 +3448,8 @@
   "mdir.menu": "Exercise and session actions",
   "mdir.warmup": "Warm-up",
   "mdir.finish": "Finish session",
+  "mdir.add_warmup_pending": "Finish or skip the suggested warm-ups first",
+  "mdir.add_warmup_limit": "Up to six warm-ups per exercise",
   "mdir.actions": "Actions",
   "mdir.mark_warmup": "Mark a set as warm-up",
   "mdir.session": "Session",

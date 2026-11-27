@@ -10162,3 +10162,29 @@ html[data-mdir="a"] #sessionAbandon { color:var(--control-destructive-ink); }
   html[data-mdir="a"] .fx-head__row .focus-ex__meta { flex-basis:100%; }
   html[data-mdir="a"] #exActionsSheet { max-height:calc(100dvh - 8px); }
 }
+
+/* Direction A, round 3: compact chips and explicit scroll edges. */
+html[data-mdir="a"] .fx-head__row { flex-wrap:nowrap; gap:8px; }
+html[data-mdir="a"] .fx-head__row .focus-ex__meta { flex-basis:auto; }
+html[data-mdir="a"] .mdir-exercise-button,
+html[data-mdir="a"] .fx-note-add { height:44px; flex-shrink:0; border:1px solid var(--rule-on-surface); background:var(--color-surface); white-space:nowrap; }
+html[data-mdir="a"] #exActionsSheet .mdir-health-group { margin-top:20px; }
+html[data-mdir="a"] .mdir-warmup-label { font-size:var(--font-size-body-small); color:var(--color-ink-secondary); }
+html[data-mdir="a"] #exActionsWarmupList .toggle[aria-checked="false"]::before { border:1.5px solid var(--boundary-required); box-sizing:border-box; }
+html[data-mdir="a"] #exActionsSheet .exactions-sheet__body { overflow-y:auto; padding-bottom:max(32px,env(safe-area-inset-bottom)); }
+html[data-mdir="a"] #exActionsSheet .exactions-sheet__body > * { flex-shrink:0; }
+html[data-mdir="a"] #exActionsSheet .exactions-sheet__body.has-more { mask-image:linear-gradient(to bottom, var(--ink) calc(100% - 32px), transparent); }
+html[data-mdir="a"] #exActionAddWarmup:disabled { color:var(--color-ink-secondary); cursor:default; }
+html[data-mdir="a"] #exActionAddWarmup .exactions__hint { font-size:var(--font-size-body-small); font-weight:var(--weight-regular); color:var(--color-ink-secondary); }
+html[data-mdir="a"] #sessionSheetBody { padding-bottom:max(40px,env(safe-area-inset-bottom)); }
+html[data-mdir="a"] #sessionEarlySection { overflow:visible; gap:12px; }
+html[data-mdir="a"] #sessionEarlySection.has-more::before { height:36px; top:-37px; background:linear-gradient(to bottom,transparent,var(--color-surface)); }
+@media (max-width:374px) {
+  html[data-mdir="a"] .fx-note-add__label { display:none; }
+  html[data-mdir="a"] .fx-note-add { width:44px; padding:0; }
+  html[data-mdir="a"] .fx-head__row .focus-ex__meta { font-size:11px; white-space:nowrap; }
+}
+html[data-mdir="a"] #exActionAddWarmup:disabled { display:grid; grid-template-columns:minmax(0,1fr) 20px; column-gap:12px; row-gap:2px; }
+html[data-mdir="a"] #exActionAddWarmup:disabled .exactions__act-text { display:contents; }
+html[data-mdir="a"] #exActionAddWarmup:disabled .icon-mask { grid-column:2; grid-row:1; }
+html[data-mdir="a"] #exActionAddWarmup .exactions__hint { grid-column:1 / -1; font-size:11px; }

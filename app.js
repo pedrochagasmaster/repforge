@@ -10935,8 +10935,10 @@ function renderPreludeActions(exId,sheet){
   if(!warmupOn()){section.classList.add("hidden");return}
   const ex=warmupExerciseById(exId),de=activeWorkoutDraft?.exercises?.[exId];
   const record=de?.warmupPrelude,logged=record?record.steps.filter(step=>!warmupPending(step)):[];
-  const lift=de?warmupLift(de):null,canAdd=!!lift&&!record?.steps.some(warmupPending)&&(record?record.steps.length<6&&record.nextOrdinal<=6:true);
-  section.classList.toggle("hidden",!logged.length&&!canAdd);
+  const suggestedPending=menuDirection==="a"&&preludeView(ex)?.stage==="warm";
+  const lift=de?warmupLift(de):null,canAdd=!!lift&&!suggestedPending&&!record?.steps.some(warmupPending)&&(record?record.steps.length<6&&record.nextOrdinal<=6:true);
+  const showUnavailable=menuDirection==="a"&&!!lift&&!canAdd;
+  section.classList.toggle("hidden",!logged.length&&!canAdd&&!showUnavailable);
   const unit=unitLabel();
   const rows=logged.map(step=>{
     const facts=warmupStepFacts(step,null),n=step.completion.ordinal;
@@ -10945,7 +10947,8 @@ function renderPreludeActions(exId,sheet){
       `<span class="exactions__warmup-role">${esc(figure)}</span></div>`+
       `<span class="exactions__warmup-ctl"><button type="button" class="text-link" data-wu-edit="${esc(step.stepId)}">${esc(t("prelude.manage.edit"))}</button>`+
       `<button type="button" class="text-link" data-wu-remove="${esc(step.stepId)}">${esc(t("prelude.manage.remove"))}</button></span></div>`}).join("");
-  list.innerHTML=rows+(canAdd?`<button type="button" class="exactions__act" id="exActionAddWarmup"><span class="exactions__act-text"><span>${esc(t("prelude.manage.add"))}</span></span></button>`:"");
+  const unavailable=showUnavailable?`<button type="button" class="exactions__act" id="exActionAddWarmup" disabled aria-disabled="true"><span class="exactions__act-text"><span>${esc(t("prelude.manage.add"))}</span><span class="exactions__hint">${esc(t(suggestedPending||record?.steps.some(warmupPending)?"mdir.add_warmup_pending":"mdir.add_warmup_limit"))}</span></span></button>`:"";
+  list.innerHTML=unavailable+rows+(canAdd?`<button type="button" class="exactions__act" id="exActionAddWarmup"><span class="exactions__act-text"><span>${esc(t("prelude.manage.add"))}</span></span></button>`:"");
   list.querySelectorAll("[data-wu-remove]").forEach(button=>button.onclick=async()=>{
     const result=await WorkoutSession.dispatch("removeWarmupStep",{exerciseInstanceId:exId,stepId:button.dataset.wuRemove});
     if(result.status!=="applied")return;
@@ -29345,6 +29348,8 @@ function setupMenuDirection(){
     const b=$("#"+id);b.removeAttribute("data-i18n");b.innerHTML=directionIcon(icon)+`<span>${esc(t(key))}</span>`;
   }
   if(menuDirection==="a"){
+    const sessionTitle=$("#sessionSheetTitle");sessionTitle.dataset.i18n="mdir.session";sessionTitle.textContent=t("mdir.session");
+    session.setAttribute("aria-label",t("mdir.session"));
     const sessionBody=$("#sessionSheetBody");sessionBody.append(voice);
     voice.querySelector(".icon-mask").remove();
     rest.remove();
@@ -29359,7 +29364,11 @@ function setupMenuDirection(){
     new MutationObserver(scrollEdge).observe(sessionBody,{childList:true,subtree:true,attributes:true});
     $("#sessionEarlyFinish").textContent=t("mdir.finish");
     $("#sessionAbandon").textContent=t("session.sheet.abandon");
-    const pain=$("#exActionDiscomfortBtn").closest("section");
+    const exerciseEdge=()=>body.classList.toggle("has-more",body.scrollTop+body.clientHeight<body.scrollHeight-1);
+    body.addEventListener("scroll",exerciseEdge,{passive:true});
+    new ResizeObserver(exerciseEdge).observe(body);
+    new MutationObserver(exerciseEdge).observe(body,{childList:true,subtree:true});
+    const pain=$("#exActionDiscomfortBtn").closest("section");pain.classList.add("mdir-health-group");
     for(const section of [$("#exActionsSubstSection"),$("#exActionsRepeatSection"),pain,$("#exActionsSkipSection"),warm,$("#exActionsSetupSection")])body.append(section);
     warm.querySelector('[data-i18n="ex.actions.warmup_title"]').remove();
     const label=document.createElement("p");label.className="mdir-warmup-label";label.textContent=t("mdir.mark_warmup");
