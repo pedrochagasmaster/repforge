@@ -1,6 +1,6 @@
 # Taurifer icon assets
 
-`icon.svg` is the high-fidelity source of truth for Taurifer's app identity. It contains 9,233 genuine vector paths at a 1254×1254 view box and no embedded raster image.
+`icon.svg` is the high-fidelity source of truth for Taurifer's app identity. It is a clean symmetric vector drawing at a 1254×1254 view box with a true-alpha drop shadow, a single `#EFE5DF` full-bleed ground path, and no embedded raster image.
 
 - `favicon-32.png` is the browser fallback favicon.
 - `icon-192.png`, `icon-512.png`, and `icon-1024.png` are install and notification assets.
