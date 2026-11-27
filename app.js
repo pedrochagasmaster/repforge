@@ -8428,7 +8428,8 @@ function observeProfileScope(profile){
     added:profile.scope.filter(key=>!record.scope.includes(key)),removed:record.scope.filter(key=>!profile.scope.includes(key))}}
 function profileRingHtml(fill,large=false){
   return `<svg class="profile-ring${large?" profile-ring--large":""}" viewBox="0 0 64 64" aria-hidden="true" data-profile-fill="${fill}">`+
-    `<circle cx="32" cy="32" r="27" pathLength="100"/><circle class="profile-ring__fill${fill?"":" is-empty"}" cx="32" cy="32" r="27" pathLength="100" style="stroke-dasharray:${fill*100} 100"/></svg>`}
+    `<circle cx="32" cy="32" r="27" pathLength="100"/><circle class="profile-ring__fill${fill?"":" is-empty"}" cx="32" cy="32" r="27" pathLength="100" style="stroke-dasharray:${fill*100} 100"/>`+
+    `<circle class="profile-ring__plate" cx="32" cy="32" r="22"/><image class="profile-ring__mark" href="assets/brand/mark.png" x="12" y="13" width="40" height="40"/></svg>`}
 function profileTotals(profile){return profile.lifts.reduce((sum,lift)=>({observations:sum.observations+lift.depthDates.length,
   stages:sum.stages+lift.transitions.length}),{observations:0,stages:0})}
 function profileReadingHtml(profile,log=state.log){
