@@ -1043,6 +1043,11 @@
       "content": "flat",
       "scenario": "Session details and map through production controls."
     },
+    "workout/session-voice": {
+      "owner": "exercise-menu",
+      "content": "flat",
+      "scenario": "The Session sheet with voice input turned on: the Voice input row shows under Details."
+    },
     "workout/early-finish": {
       "owner": "plan-055",
       "content": "flat",
@@ -2567,6 +2572,7 @@
         "workout/why-manual",
         "workout/why-setup",
         "workout/session",
+        "workout/session-voice",
         "workout/early-finish",
         "workout/abandon",
         "workout/exercise-actions",
@@ -6125,6 +6131,7 @@
         "workout/early-finish",
         "workout/reorder",
         "workout/session",
+        "workout/session-voice",
         "workout/rest-overrun-finish"
       ]
     },
@@ -6151,6 +6158,7 @@
         "workout/early-finish",
         "workout/reorder",
         "workout/session",
+        "workout/session-voice",
         "workout/rest-overrun-finish"
       ]
     },
@@ -6219,7 +6227,8 @@
       "owner": "plan-058",
       "catalogStates": [
         "workout/reorder",
-        "workout/session"
+        "workout/session",
+        "workout/session-voice"
       ]
     },
     {
@@ -6241,7 +6250,8 @@
       "owner": "plan-071",
       "catalogStates": [
         "workout/reorder",
-        "workout/session"
+        "workout/session",
+        "workout/session-voice"
       ]
     },
     {
@@ -6309,6 +6319,7 @@
         "workout/early-finish",
         "workout/reorder",
         "workout/session",
+        "workout/session-voice",
         "workout/rest-overrun-finish"
       ]
     },
@@ -6330,6 +6341,7 @@
         "workout/early-finish",
         "workout/reorder",
         "workout/session",
+        "workout/session-voice",
         "workout/rest-overrun-finish"
       ]
     },
@@ -6419,6 +6431,7 @@
         "workout/early-finish",
         "workout/reorder",
         "workout/session",
+        "workout/session-voice",
         "workout/rest-overrun-finish"
       ]
     },
@@ -6440,6 +6453,7 @@
         "workout/early-finish",
         "workout/reorder",
         "workout/session",
+        "workout/session-voice",
         "workout/rest-overrun-finish"
       ]
     },
@@ -7700,6 +7714,7 @@
         "workout/persist-retry",
         "workout/reorder",
         "workout/session",
+        "workout/session-voice",
         "workout/skipped-actions",
         "workout/stale-draft",
         "workout/substituted-actions",
@@ -8975,6 +8990,7 @@
         "workout/early-finish",
         "workout/reorder",
         "workout/session",
+        "workout/session-voice",
         "workout/rest-overrun-finish"
       ]
     },
@@ -9001,6 +9017,7 @@
         "workout/early-finish",
         "workout/reorder",
         "workout/session",
+        "workout/session-voice",
         "workout/rest-overrun-finish"
       ]
     },
@@ -9847,6 +9864,7 @@
         "workout/focus-per-side",
         "workout/focus-glossary",
         "workout/session",
+        "workout/session-voice",
         "workout/early-finish",
         "workout/exercise-actions",
         "workout/skipped-actions",
@@ -9963,6 +9981,7 @@
         "workout/exercise-note",
         "workout/reorder",
         "workout/session",
+        "workout/session-voice",
         "workout/skipped-actions",
         "workout/substituted-actions",
         "workout/swap-alternates",
@@ -12968,6 +12987,7 @@
         "workout/invalid-draft",
         "workout/reorder",
         "workout/session",
+        "workout/session-voice",
         "workout/rest-overrun-finish",
         "onboarding-import/editor-empty-day"
       ],
@@ -16331,7 +16351,7 @@
       "rationale": "Starts the existing voice input from Session.",
       "owner": "exercise-menu",
       "catalogStates": [
-        "workout/session"
+        "workout/session-voice"
       ]
     }
   ],

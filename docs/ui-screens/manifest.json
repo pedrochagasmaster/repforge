@@ -3200,6 +3200,13 @@
       "variants": "todayEstimateEstimateinfo"
     },
     {
+      "id": "session-voice",
+      "flow": "workout",
+      "label": "Session with voice input",
+      "scenario": "workout/session-voice",
+      "variants": "demandingText"
+    },
+    {
       "id": "prelude-add-disabled",
       "flow": "workout",
       "label": "Suggested warm-ups pending",

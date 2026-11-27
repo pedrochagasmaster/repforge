@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 306 screens,
-1927 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 307 screens,
+1935 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -268,6 +268,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Workout — Why, standing](screens/workout/why-standing__phone-390-light-en.png) | 3 | The standing block for a learning lift after a 50-day break, with few sets and few sessions. |
 | [Workout — test-set re-check](screens/workout/max-set-recheck__phone-390-light-en.png) | 8 | A solid calibrated lift, its last check 60 days ago with regular sessions since. The invite explains that it has been a while since the last check. |
 | [Workout: immediate pain swap](screens/workout/pain-swap__phone-390-light-en.png) | 3 | Second marked session on the same movement and slot opens the dismissible swap picker, with different equipment classes first. |
+| [Session with voice input](screens/workout/session-voice__phone-390-light-en.png) | 8 | workout/session-voice |
 | [Suggested warm-ups pending](screens/workout/prelude-add-disabled__phone-390-light-en.png) | 8 | workout/prelude-add-disabled |
 | [Warm-up limit reached](screens/workout/prelude-add-limit__phone-390-light-en.png) | 8 | workout/prelude-add-limit |
 

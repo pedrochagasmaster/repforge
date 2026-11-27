@@ -2738,6 +2738,15 @@ export const APP_SCENARIOS = {
     await page.locator("#toast").waitFor({state:"hidden"});
     await resetSheetScroll(page,"#exActionsSheet .exactions-sheet__body");
   },
+  // The Voice input row shows only with the setting on, in a browser that has speech recognition.
+  "workout/session-voice": async page => {
+    await focusMode(page);
+    await page.evaluate(() => { state.settings.voiceInputEnabled = true; updateVoiceBtn(); });
+    await page.click("#sessionSheetBtn");
+    await page.locator("#voiceBtn").waitFor();
+    // The row sits under Details, below the first screenful: the frame shows the end of the list.
+    await page.evaluate(() => { const body = document.querySelector(".session-sheet__body"); body.scrollTop = body.scrollHeight; });
+  },
   "workout/prelude-add-disabled": async page => { await APP_SCENARIOS["workout/prelude"](page); await page.locator("#workout [data-ex-actions]").click(); await resetSheetScroll(page, "#exActionsSheet .exactions-sheet__body"); },
   "workout/warmup-actions": async page => { await focusMode(page); await page.locator("#workout [data-ex-actions]").click(); await page.locator("#exActionsWarmupList [data-warm-toggle-set]").first().click(); await page.evaluate(() => window.__repforgeWorkoutDraft.flush()); await resetSheetScroll(page, "#exActionsSheet .exactions-sheet__body"); },
   // The session map reorders as the editor does: the row's menu (long-press, or its button for the keyboard) moves it.
