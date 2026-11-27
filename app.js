@@ -10200,6 +10200,8 @@ function renderExActionsSheet(exId) {
       const reps=metricFieldValue(set,"reps")??set.edited?.reps;
       const target=menuDirection==="a"&&load!=null&&load!==""&&reps!=null&&reps!==""?` · ${fmtLoad(+load)} ${unitLabel()} × ${reps}`:"";
       const warmLabel=menuDirection==="a"&&isWarmup?` · ${t("ex.actions.warmup_caption")}`:"";
+      // Direction A, round 6: one row of set-number chips, so the group stays one line tall at any set count.
+      if(menuDirection==="a")return `<button type="button" class="mdir-warm-chip" aria-pressed="${isWarmup}" aria-label="${esc(switchLabel)}" data-warm-toggle-set="${esc(sid)}">${isWarmup?directionIcon("check"):""}<span>${idx + 1}</span></button>`;
       return `<div class="exactions__warmup-row">` +
         `<div class="exactions__warmup-info">` +
         `<span class="exactions__warmup-num">${esc(t("log.set"))} ${idx + 1}${esc(target)}${esc(warmLabel)}</span>` +
