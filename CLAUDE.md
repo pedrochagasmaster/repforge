@@ -25,7 +25,7 @@ Use the module that owns the behavior. These are the principal production owners
 | `index.html`, `app.js` | Script loading and shell; pre-paint theme setup; boot and UI coordination. `app.js` owns the production transition adapter and commit/recovery orchestration, the `WorkoutSession` lifecycle interface, and setup-link routing/confirmation, file and free-form import review, activation, and backup flows while delegating domain contracts to their modules. |
 | `durable-state.js` | Durable localStorage/IndexedDB writes, lock and journal coordination, replica recovery, and DraftV2 storage/checkpoint protocol. |
 | `workout-draft.js` | Pure DraftV2 aggregate, validation, commands, projection, and serialization. |
-| `program-transition.js` | Validated block-transition proposals, identity mapping, recovery eligibility, and recovery projections. `app.js` owns the production adapter and transition commit/recovery workflows. |
+| `program-transition.js` | Validated block-transition proposals, identity mapping, recovery eligibility, recovery projections, and the slot diff of a received program against the current one. `app.js` owns the production adapter and transition commit/recovery workflows. |
 | `progression-engine.js` | Deterministic set-level progression recommendations, calculations, and strategy evaluation. |
 | `progress-model.js` | Pure Progress/history evidence and view-model projections. It consumes outcomes and recommendations from its caller. |
 | `program-entry.js`, `program-entry-adapter.js` | Entry state and shared entry vocabulary; production compiler/catalog integration and entry choices. |
