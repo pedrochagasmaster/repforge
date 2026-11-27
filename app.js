@@ -24720,6 +24720,7 @@ function renderOnboarding({pageTransition=null}={}){
   const onboarding=$("#onboarding");
   const screenKey=entryScreenKey();
   const sameScreen=screenKey===entryVisibleScreenKey;
+  const odirOpenRows=ONBOARDING_DIRECTION==="b"&&sameScreen?[...body.querySelectorAll("details.odir-disclosure")].map((el,i)=>el.open?i:-1).filter(i=>i>=0):[];
   const environmentCorrectionOpen=sameScreen&&body.querySelector(".entry__correct")?.open===true;
   if(onboarding&&!sameScreen){
     onboarding.scrollTo?.({top:0,left:0,behavior:"auto"});
@@ -24830,6 +24831,7 @@ function renderOnboarding({pageTransition=null}={}){
     if(anchor&&anchor.parentNode)anchor.parentNode.insertBefore(validation,anchor.nextSibling);
   }
   wireEntryDom();
+  if(ONBOARDING_DIRECTION==="b")body.querySelectorAll("details.odir-disclosure").forEach((el,i)=>{el.open=odirOpenRows.includes(i)});
   if(isEditor){
     mountOnboardingProgramEditor();
     updateOnboardingEditorActions();
