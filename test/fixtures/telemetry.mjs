@@ -39,6 +39,7 @@ export const ALPHA_EVENT_NAMES = Object.freeze([
   "settings_changed",
   "history_session_outcome",
   "share_setup_outcome",
+  "relay_update_outcome",
   "guide_replay",
 ]);
 
@@ -84,11 +85,14 @@ export const VALID_ALPHA_EVENTS = Object.freeze([
 
   ["history_session_outcome", { action: "edit_save", status: "success" }],
   ["share_setup_outcome", { action: "link_refused", program_kind: "generated_edited", form: "full", size_vs_limit: "over_2x" }],
+  ["relay_update_outcome", { action: "used" }],
   ["guide_replay", { guideId: "progress" }],
 ]);
 
 export const INVALID_EVENTS = Object.freeze([
   ["unknown_event", {}],
+  ["relay_update_outcome", { action: "closed" }],
+  ["relay_update_outcome", { action: "used", changes: 3 }],
   ["workout_completed", {}],
   ["landing_action", { action: "proof_chapter", chapter: 0 }],
   ["landing_action", { action: "proof_chapter", chapter: 6 }],
@@ -181,6 +185,7 @@ export const EVENT_DUPLICATE_POLICIES = Object.freeze({
 
   history_session_outcome: "repeatable",
   share_setup_outcome: "repeatable",
+  relay_update_outcome: "repeatable",
   guide_replay: "repeatable",
 });
 

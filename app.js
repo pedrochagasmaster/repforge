@@ -29495,6 +29495,7 @@ async function useRelayUpdate(){
   update.committing=false;
   if(persisted?.committed===true&&persisted?.settled===true){
     clearRelayHandoff(update.locator);removeRelayFragment();
+    captureEvent("relay_update_outcome",{action:"used"});
     await closeRelayUpdateSheet();
     // A workout in progress keeps its day; otherwise Today opens on the new program's first day.
     if(!draftHasProgress())day=days()[0]||"Day 1";
@@ -29513,7 +29514,7 @@ function keepRelayUpdate(){
   const update=relayUpdate;
   if(update?.committing)return;
   // Keep my current program writes nothing. The link is answered, so its cookie and fragment go.
-  if(update?.phase==="ready"){clearRelayHandoff(update.locator);removeRelayFragment()}
+  if(update?.phase==="ready"){clearRelayHandoff(update.locator);removeRelayFragment();captureEvent("relay_update_outcome",{action:"kept"})}
   void closeRelayUpdateSheet()}
 function relayUpdateAction(){
   const update=relayUpdate;
