@@ -1,6 +1,6 @@
 # Plan 086: Trainer loop
 
-Status: **approved, in implementation**. The owner accepted [ADR 0026](../docs/adr/0026-trainer-loop-relay-and-trainer-site.md) on 2026-11-26. Slice 1 (#837) and the codec and validation parts of slices 2–4 (#838) merged on 2026-11-26, with every section 4 proof passing except a real phone camera reading the QR code. Slice 0, the app-side designs (`docs/design/trainer-loop-app/`) and the production relay environment merged on 2026-11-26; production was deployed with creates off. Slice 1b and slice 2 are draft PRs in owner review; slice 2 turns creates on in the production config, and deploying that waits for the owner. Written against `origin/main` 6f2e18a; re-check every anchor before executing. Scheduling lives in the [backlog](../docs/backlog.md).
+Status: **approved, in implementation**. The owner accepted [ADR 0026](../docs/adr/0026-trainer-loop-relay-and-trainer-site.md) on 2026-11-26. Slice 1 (#837) and the codec and validation parts of slices 2–4 (#838) merged on 2026-11-26, with every section 4 proof passing except a real phone camera reading the QR code; the owner closed that proof on 2026-11-27 (section 4, item 2). Slice 0, the app-side designs (`docs/design/trainer-loop-app/`) and the production relay environment merged on 2026-11-26; production was deployed with creates off. Slice 1b and slice 2 are draft PRs in owner review; slice 2 turns creates on in the production config, and deploying that waits for the owner. Written against `origin/main` 6f2e18a; re-check every anchor before executing. Scheduling lives in the [backlog](../docs/backlog.md).
 
 ## 1. Outcome and reference
 
@@ -40,7 +40,7 @@ Each slice is one pull request with its owning tests. Slices 3 and 4 can run in 
 The plan depends on one claim: a hand-built program that the link refuses today travels through the relay as a short link, and the service never sees plaintext. Slice 1 is done only when all of these hold:
 
 1. The four-day, seven-week program that `test/shared-setup-unit.mjs` generates, encoded in full, round-trips byte for byte through a local relay.
-2. The resulting link is short enough to print as a QR code that a phone camera reads at arm's length; record the measured length.
+2. The resulting link is short enough to print as a QR code that a phone camera reads at arm's length; record the measured length. **Closed 2026-11-27.** The owner's iPhone Camera read a relay QR code from #845 at arm's length, against the staging relay; an Android phone scanned and started the program. The tested link was 108 characters, because the preview origin is 18 characters longer than `https://taurifer.com/`, so it printed as a version 7 code (45×45 modules, medium error correction). A production link is 90 characters, a version 6 code (41×41), which is easier to read. The same test passed the Home Screen handoff, relay-down recovery with Try again, and the incomplete-link screen.
 3. A test inspects everything the service received and stored and finds neither the key nor any plaintext field.
 4. A record is unreadable after its expiry and a wrong key fails closed without partial output.
 5. The size bound, create rate and cost threshold reject as specified, and the kill switch stops creates while reads continue.
@@ -57,7 +57,7 @@ If item 2 fails, stop and return to the owner before slice 2.
 ## 6. Owner and environment gates
 
 - The relay's production host and route, its production deployment, and the cost-alert token. Staging exists.
-- A real phone camera reading a relay QR code at arm's length (section 4, item 2).
+- ~~A real phone camera reading a relay QR code at arm's length (section 4, item 2).~~ Done by the owner on 2026-11-27.
 - DNS and hosting for `studio.taurifer.com`. The repository holds no domain configuration, so this path must be supplied.
 - EN and PT copy approval for every new surface, and an approved design per user-visible slice.
 - Legal review (ADR 0026 open item 1) before any trainer outside the three reviewers uses it.

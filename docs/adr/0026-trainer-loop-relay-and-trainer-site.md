@@ -95,7 +95,7 @@ The relay and the two documents were built and proven as Plan 086 slice 1 and th
 | Training update, 3 weeks (12 sessions) | 167,721 bytes of JSON, 10,904 gzipped |
 | Training update, 30 weeks (120 sessions) | 601,125 bytes of JSON, 28,188 gzipped |
 
-The update figures come from a realistic fixture, not real user logs. The current program is most of the size; a session adds about 3.3 KB of JSON. A phone camera reading the code at arm's length is not yet tested; only a software decode is.
+The update figures come from a realistic fixture, not real user logs. The current program is most of the size; a session adds about 3.3 KB of JSON. On 2026-11-27 the owner's iPhone Camera read a relay QR code at arm's length, and an Android phone scanned one and started the program, against the staging relay (Plan 086, section 4, item 2). That code was a 108-character preview link at version 7, denser than the 90-character production code.
 
 **Settled values.**
 
