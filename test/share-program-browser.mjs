@@ -12,6 +12,7 @@
 import { readFileSync } from "node:fs";
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
 import { installSeedProgram } from "./fixtures/seed-program.mjs";
+import { openCatalogState } from "./fixtures/catalog-state.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const failures = [];
@@ -238,6 +239,68 @@ async function startAndActivate(page) {
   await page.waitForFunction(() => window.__repforgeWorkoutDraft.state()?.programMeta?.onboarded === true, undefined, { timeout: 20000 });
   await page.evaluate(() => window.__repforgeStorage?.flush?.());
   return cap;
+}
+
+/* Plan 086 slice 1b: with enlarged text the Share setup sheet scrolls as one column. Pinned, the band and the action
+   bar took the whole height of a 320 × 568 phone at 200% and the body got none. */
+async function largeTextSheetProof(browser, errors) {
+  const measure = (page) => page.evaluate(() => {
+    const sheet = document.querySelector("#shareSetupSheet");
+    const body = sheet.querySelector(".sheet__body"), scope = sheet.querySelector("#shareSetupBody");
+    const share = sheet.querySelector("#shareSetupShare"), foot = sheet.querySelector(".sheet__foot");
+    const box = (el) => { const r = el.getBoundingClientRect(); return { top: Math.round(r.top), bottom: Math.round(r.bottom), height: Math.round(r.height) }; };
+    const out = { scaled: sheet.classList.contains("is-text-scaled"), sheetScrolls: sheet.scrollHeight > sheet.clientHeight + 1,
+      bodyWhole: body.scrollHeight <= body.clientHeight + 1, scopeHeight: box(scope).height, vh: innerHeight,
+      footBottom: box(foot).bottom, sheetBottom: box(sheet).bottom };
+    sheet.scrollTop = sheet.scrollHeight;
+    out.shareAtEnd = box(share);
+    out.scrolledTo = sheet.scrollTop;
+    return out;
+  });
+  for (const [width, lang, text] of [[320, "pt", "text200"], [390, "en", "text200"], [320, "pt", "normal"], [390, "en", "normal"]]) {
+    const label = `share sheet ${width}px ${lang} ${text === "text200" ? "200%" : "100%"}`;
+    const opened = await openCatalogState(browser, "program/share-ready", width, lang, text);
+    const { page } = opened;
+    const pageErrors = [];
+    page.on("pageerror", (error) => pageErrors.push(String(error?.stack || error)));
+    try {
+      const m = await measure(page);
+      if (text === "text200") {
+        check(m.scaled, `${label}: the sheet takes the one-column layout`, m);
+        check(m.bodyWhole && m.scopeHeight > 0, `${label}: the body is never squeezed; it shows all of its text`, m);
+        check(m.shareAtEnd.top >= 0 && m.shareAtEnd.bottom <= m.vh, `${label}: scrolled to the end, Share link is whole on screen`, m);
+      } else {
+        check(!m.scaled && !m.sheetScrolls, `${label}: normal text keeps the pinned layout`, m);
+        check(m.footBottom <= m.vh && m.footBottom <= m.sheetBottom, `${label}: the action bar stays pinned at the bottom`, m);
+      }
+      if (width === 320 && text === "text200") {
+        // Scrolled down, a downward drag in the body scrolls the sheet back instead of dismissing it.
+        const point = await page.evaluate(() => {
+          const sheet = document.querySelector("#shareSetupSheet");
+          sheet.scrollTop = 80;
+          const r = sheet.getBoundingClientRect();
+          const x = Math.round(r.left + r.width / 2), y = Math.round((Math.max(r.top, 0) + Math.min(r.bottom, innerHeight)) / 2);
+          return { top: sheet.scrollTop, x, y, onBody: !!document.elementFromPoint(x, y)?.closest("#shareSetupSheet .sheet__body") };
+        });
+        check(point.top > 0 && point.onBody, `${label}: the sheet itself scrolls, and the drag starts in its body`, point);
+        // A thumb, not a mouse: a mouse on prose is selecting text and never drags a sheet.
+        await page.evaluate(async ({ x, y }) => {
+          const target = document.elementFromPoint(x, y);
+          const fire = (type, dy) => target.dispatchEvent(new PointerEvent(type, { pointerId: 41, pointerType: "touch", isPrimary: true,
+            clientX: x, clientY: y + dy, bubbles: true, cancelable: true, composed: true }));
+          fire("pointerdown", 0);
+          for (let step = 1; step <= 10; step++) { fire("pointermove", step * 30); await new Promise((r) => setTimeout(r, 16)); }
+          fire("pointerup", 300);
+        }, point);
+        await page.waitForTimeout(450);
+        const held = await page.evaluate(() => { const s = document.querySelector("#shareSetupSheet"); return { open: s.classList.contains("is-open") && !s.hidden }; });
+        check(held.open, `${label}: a drag in the scrolled sheet does not dismiss it`, held);
+      }
+    } finally {
+      errors.push(pageErrors);
+      await opened.context.close();
+    }
+  }
 }
 
 async function main() {
@@ -560,6 +623,7 @@ async function main() {
     await legacy.context.close();
 
     await shareRaceProof(browser, errors);
+    await largeTextSheetProof(browser, errors);
 
     check(errors.flat().length === 0, "no page errors while sharing", errors.flat());
   } catch (error) {

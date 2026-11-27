@@ -7162,6 +7162,14 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .sheet--setup .sheet__foot--actions{flex-wrap:wrap}
 /* The side-by-side actions grow into separate rows with the user's text scale. */
 .sheet--setup .sheet__foot--actions .btn{flex:1 1 8.75em}
+/* Enlarged text (Plan 086 slice 1b, owner 2026-11-26): pinned, the band and the action bar take the whole height
+   on a short phone and the body gets none, as the Portuguese title already does at 320 × 568 and 200%. The band,
+   body and actions then scroll as one column, and the title steps down one size. app.js sets .is-text-scaled on
+   open from the root text size; normal text keeps the pinned layout. */
+.sheet--setup.is-text-scaled{overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+.sheet--setup.is-text-scaled > .sheetband,.sheet--setup.is-text-scaled > .sheet__body,.sheet--setup.is-text-scaled > .sheet__foot{flex:none}
+.sheet--setup.is-text-scaled > .sheet__body{overflow:visible}
+.sheet--setup.is-text-scaled .sheetband__title{font-size:var(--font-size-subtitle);overflow-wrap:break-word}
 .share-setup{
   flex-direction:column;gap:14px;overflow:auto;overscroll-behavior:contain;
   -webkit-overflow-scrolling:touch;padding-bottom:8px;
