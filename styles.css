@@ -10236,3 +10236,4 @@ html[data-mdir="a"] #exActionsSheet #exActionsSkipSection { margin-top:24px; }
   html[data-mdir="a"] #exActionsSheet #exActionsRepeatSection { margin-top:8px; }
   html[data-mdir="a"] #exActionsSheet #exActionsSkipSection { margin-top:16px; }
 }
+html[data-mdir="a"] .mdir-exercise-button > span:first-child { font-family:var(--font-language); font-size:var(--font-size-body-small); font-weight:var(--weight-medium); color:var(--color-ink); }
