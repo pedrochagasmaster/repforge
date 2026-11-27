@@ -29369,7 +29369,7 @@ function setupMenuDirection(){
     new ResizeObserver(exerciseEdge).observe(body);
     new MutationObserver(exerciseEdge).observe(body,{childList:true,subtree:true});
     const pain=$("#exActionDiscomfortBtn").closest("section");pain.classList.add("mdir-health-group");
-    for(const section of [$("#exActionsSubstSection"),$("#exActionsRepeatSection"),pain,$("#exActionsSkipSection"),warm,$("#exActionsSetupSection")])body.append(section);
+    for(const section of [$("#exActionsSubstSection"),warm,$("#exActionsRepeatSection"),pain,$("#exActionsSkipSection"),$("#exActionsSetupSection")])body.append(section);
     warm.querySelector('[data-i18n="ex.actions.warmup_title"]').remove();
     const label=document.createElement("p");label.className="mdir-warmup-label";label.textContent=t("mdir.mark_warmup");
     warm.insertBefore(label,$("#exActionsWarmupList"));
