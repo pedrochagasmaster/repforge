@@ -29358,7 +29358,8 @@ function odirDecorate(){
   if(ONBOARDING_DIRECTION==="c"&&ODIR_OPTIONAL.includes(step))$("#onbSkip").hidden=true;
   if(odirFine){label.classList.add("hidden");bar.classList.add("hidden");next.textContent=t("odir.done");$("#onbSkip").hidden=true;return}
   if(odirSingle(step)&&!entryEditor&&ONBOARDING_DIRECTION!=="b"){
-    const seen=odirVisited.has(step);if(!seen&&!(ONBOARDING_DIRECTION==="c"&&ODIR_OPTIONAL.includes(step))){next.classList.add("hidden");$("#onbNextReason").hidden=true}
+    const answerKey={desired_result:"desiredResult",background:"structuredExperience",days_per_week:"daysPerWeek",session_length:"sessionMinutes",environment:"environment",split:"splitPreference"}[step];
+    const seen=odirVisited.has(step)||!!(answerKey?entryState.answers[answerKey]:step==="sex"?entryBasics().sex:entryBasics().cardioExperience);if(!seen&&!(ONBOARDING_DIRECTION==="c"&&ODIR_OPTIONAL.includes(step))){next.classList.add("hidden");$("#onbNextReason").hidden=true}
     body.querySelectorAll("[data-entry-pick]").forEach(el=>{const handler=el.onclick;el.onclick=event=>{odirVisited.add(step);handler(event);odirMove()}});
   }
 }
