@@ -3477,6 +3477,15 @@ const EN = {
   "odir.basic.heightCm": "Height (cm)",
   "odir.basic.weightKg": "Weight (kg)",
   "odir.basic.cardioExperience": "Cardio experience",
+  "odir.question.split": "How should your training week be structured?",
+  "odir.question.exercises": "Which exercises would you avoid or keep?",
+  "odir.shared.body": "Start this program to use the program and settings in this link. No history comes with it.",
+  "odir.gym.everything": "All equipment, with no limits",
+  "odir.gym.commercial_gym": "Machines, cables and free weights",
+  "odir.gym.warehouse_gym": "Mostly free weights, with some machines",
+  "odir.gym.basic_gym": "Free weights and a cable station",
+  "odir.gym.full_home": "Rack, barbell, bench and dumbbells at home",
+  "odir.gym.limited_home": "Dumbbells, bands and a pull-up bar only",
 };
 const PT = {
   "catalog.unavailable.title": "Biblioteca de exercícios indisponível",
@@ -6955,6 +6964,15 @@ const PT = {
   "odir.basic.heightCm": "Altura (cm)",
   "odir.basic.weightKg": "Peso (kg)",
   "odir.basic.cardioExperience": "Experiência com cardio",
+  "odir.question.split": "Como você quer organizar sua semana de treino?",
+  "odir.question.exercises": "Quais exercícios você quer evitar ou manter?",
+  "odir.shared.body": "Comece este treino para usar o treino e as configurações deste link. Ele não inclui histórico.",
+  "odir.gym.everything": "Todos os equipamentos, sem limites",
+  "odir.gym.commercial_gym": "Máquinas, cabos e pesos livres",
+  "odir.gym.warehouse_gym": "Principalmente pesos livres e algumas máquinas",
+  "odir.gym.basic_gym": "Pesos livres e uma estação de cabos",
+  "odir.gym.full_home": "Rack, barra, banco e halteres em casa",
+  "odir.gym.limited_home": "Apenas halteres, elásticos e barra fixa",
 };
 (function (root) {
   const STRINGS = { en: EN, pt: PT };

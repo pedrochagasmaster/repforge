@@ -3474,5 +3474,14 @@
   "odir.basic.birthDate": "Data de nascimento",
   "odir.basic.heightCm": "Altura (cm)",
   "odir.basic.weightKg": "Peso (kg)",
-  "odir.basic.cardioExperience": "Experiência com cardio"
+  "odir.basic.cardioExperience": "Experiência com cardio",
+  "odir.question.split": "Como você quer organizar sua semana de treino?",
+  "odir.question.exercises": "Quais exercícios você quer evitar ou manter?",
+  "odir.shared.body": "Comece este treino para usar o treino e as configurações deste link. Ele não inclui histórico.",
+  "odir.gym.everything": "Todos os equipamentos, sem limites",
+  "odir.gym.commercial_gym": "Máquinas, cabos e pesos livres",
+  "odir.gym.warehouse_gym": "Principalmente pesos livres e algumas máquinas",
+  "odir.gym.basic_gym": "Pesos livres e uma estação de cabos",
+  "odir.gym.full_home": "Rack, barra, banco e halteres em casa",
+  "odir.gym.limited_home": "Apenas halteres, elásticos e barra fixa"
 }

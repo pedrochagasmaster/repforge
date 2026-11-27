@@ -11,6 +11,7 @@ function odirDefaults(){for(const step of [...ODIR_REQUIRED,...ODIR_OPTIONAL])en
 function odirMove(build=false){
   entryCommitPicker(entryState.step);entryApplyShownDefaults(entryState.step);
   const steps=odirSteps(),index=steps.indexOf(entryState.step);
+  if(ONBOARDING_DIRECTION==="b")for(const id of ODIR_B_PAGES[entryState.step]||[])entryApplyShownDefaults(id);
   const step=build?"building":ONBOARDING_DIRECTION==="b"?ODIR_B_ORDER[ODIR_B_ORDER.indexOf(entryState.step)+1]:steps[index+1];
   if(step==="building")odirDefaults();
   entrySetState({...entryState,step});
@@ -21987,6 +21988,7 @@ function entryOpt(key,val,label,sub,{multi=false,selected=null,disabled=false,ro
 function entryGroupLab(text,_icon,attrs=""){
   return `<p class="entry__group-lab entry__question"${attrs}><span>${esc(text)}</span></p>`}
 function entryHeading(title){
+  if(ONBOARDING_DIRECTION){if(title===t("entry.custom_shape.title"))title=t("odir.question.split");if(title===t("entry.exercise_preferences.title"))title=t("odir.question.exercises")}
   return `<h2 class="onb__q" id="entryHeading" tabindex="-1">${esc(title)}</h2>`}
 function entryLegacyBanner(){
   if(!entryState?.legacyHints||!Object.keys(entryState.legacyHints).length)return"";
@@ -22088,7 +22090,7 @@ function entryCardioSub(value){return value==="none"?"":t(`entry.cardio.${value}
 function renderGymStep(){
   const current=entryState.answers.environment?.kind;
   return entryHeading(t("entry.gym.title"))+`<p class="onb__explain">${esc(t("entry.gym.lede"))}</p>`+
-    entryBGroup(ENTRY_ENVIRONMENTS.map(value=>entryBChoice("environment",value,t(`entry.gym.${value}`),t(`entry.gym.${value}.sub`),
+    entryBGroup(ENTRY_ENVIRONMENTS.map(value=>entryBChoice("environment",value,t(`entry.gym.${value}`),t(ONBOARDING_DIRECTION?`odir.gym.${value}`:`entry.gym.${value}.sub`),
       current===value,{icon:ENTRY_ENV_ICONS[value]||"dumbbell"})).join(""))}
 function renderGoalStep(){
   const current=entryState.answers.desiredResult;
@@ -24782,7 +24784,7 @@ function renderOnboarding({pageTransition=null}={}){
   let html=`<span id="entryChoiceDisabledNote" class="visually-hidden">${esc(t("entry.choice.disabled"))}</span>`+
     (entryValidationNotice?`<div id="entryValidation" class="entry__notice entry__notice--error" role="alert" aria-live="assertive" tabindex="-1"><strong>${esc(t("entry.validation.title"))}</strong><p>${esc(t("entry.validation.body"))}</p></div>`:"")+renderEntryNotice();
   const rail=!hub&&!isEditor?renderEntryRail():"";
-  const bStep=entryIsB()&&(ONBOARDING_DIRECTION==="b"&&ODIR_B_PAGES[stepId]?()=>odirBPage(stepId):ENTRY_B_RENDERERS[stepId]);
+  const bStep=entryIsB()&&(odirFine&&stepId==="weight"?()=>entryHeading(t("odir.fine.weight"))+odirBasics():ONBOARDING_DIRECTION==="b"&&ODIR_B_PAGES[stepId]?()=>odirBPage(stepId):ENTRY_B_RENDERERS[stepId]);
   if(hub)html+=renderEntryHub();
   else if(bStep)html+=bStep();
   else if(stepId==="desired_result")html+=entryRailAfterTitle(renderDesiredResultStep(),rail);
@@ -26214,7 +26216,7 @@ function renderFirstRunHeroCopy(){
   const shared=sharedSetupReady(),invalid=sharedSetupInvalid();
   const headline=$("#firstRunHeadline"),lede=$("#firstRunLede");
   if(headline)headline.textContent=t(shared?"setup.shared.title":invalid?"landing.shared.invalid_headline":"landing.headline");
-  if(lede)lede.textContent=t(shared?"landing.shared.body":invalid?"landing.shared.invalid_body":"landing.hero.sub");
+  if(lede)lede.textContent=t(shared?(ONBOARDING_DIRECTION?"odir.shared.body":"landing.shared.body"):invalid?"landing.shared.invalid_body":"landing.hero.sub");
 }
 /** Chrome accepted the install, or the app reports itself installed. Either way
  *  there is nothing left to install: the section goes, the choices stay. */
