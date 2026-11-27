@@ -29371,9 +29371,10 @@ function odirBasics(){return `<div class="odir-basics">`+["sex","birthDate","hei
  const options=key==="sex"?["female","male","undisclosed"]:key==="cardioExperience"?["none","under_1y","1_to_4y","over_4y"]:null;
  return `<label class="entry__row"><span>${esc(label)}</span>`+(options?`<select data-odir-basic="${key}"><option value="">—</option>`+options.map(v=>`<option value="${v}"${value===v?" selected":""}>${esc(t(key==="sex"?`entry.sex.${v}`:`entry.cardio.${v}`))}</option>`).join("")+`</select>`:`<input data-odir-basic="${key}" type="${key==="birthDate"?"date":"number"}" value="${esc(String(value))}" step="any">`)+`</label>`}).join("")+`</div>`+entryBNote(true)}
 function odirBPage(step){
- const heading=entryHeading(t(`odir.b.${step}`));
+ const heading=entryHeading(t(`odir.b.${step}`))+(["split","weight"].includes(step)?`<p class="onb__explain">${esc(t("odir.optionalShort"))}</p>`:"");
  if(step==="weight")return heading+odirBasics();
  return heading+ODIR_B_PAGES[step].map((id,index)=>{
+ if(id==="equipment"&&!entryState.answers.environment?.kind)return "";
  const content=odirCompact(id);
  if(step==="split"||id==="equipment")return `<details class="odir-disclosure"><summary>${esc(t(id==="equipment"?"odir.equipment":`odir.fine.${id}`))} · ${esc(id==="equipment"?entryEnvironmentKindLabel(entryState.answers.environment?.kind):odirValue(id))}</summary>${content}</details>`;
  return `<section class="odir-group">${content}</section>`}).join("");
