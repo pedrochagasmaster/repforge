@@ -22091,7 +22091,7 @@ function entryCardioSub(value){return value==="none"?"":t(`entry.cardio.${value}
 function renderGymStep(){
   const current=entryState.answers.environment?.kind;
   return entryHeading(t("entry.gym.title"))+`<p class="onb__explain">${esc(t("entry.gym.lede"))}</p>`+
-    entryBGroup(ENTRY_ENVIRONMENTS.map(value=>entryBChoice("environment",value,t(`entry.gym.${value}`),t(ONBOARDING_DIRECTION?`odir.gym.${value}`:`entry.gym.${value}.sub`),
+    entryBGroup(ENTRY_ENVIRONMENTS.map(value=>entryBChoice("environment",value,t(`entry.gym.${value}`),t(ONBOARDING_DIRECTION==="a"&&["everything","commercial_gym"].includes(value)?`odir.a.gym.${value}`:ONBOARDING_DIRECTION?`odir.gym.${value}`:`entry.gym.${value}.sub`),
       current===value,{icon:ENTRY_ENV_ICONS[value]||"dumbbell"})).join(""))}
 function renderGoalStep(){
   const current=entryState.answers.desiredResult;
@@ -23990,7 +23990,7 @@ function mountEntryAdjust(){
       if(outcome===false)return{ok:false,cancelled:true};
       return outcome?.ok?outcome:{...outcome,message:entryFailureText(outcome?.failure)||t("entry.issue.compile")}}:undefined,
     observe:report=>{if(entryGeneratorReviewRoute())captureEvent("program_review_action",report)},
-    t:(key,vars)=>key==="entry.review.source"&&entryState?.route==="shared"?t("entry.route.shared"):t(key,vars),esc,
+    t:(key,vars)=>key==="entry.review.source"&&ONBOARDING_DIRECTION==="a"?t("odir.a.review"):key==="entry.review.source"&&entryState?.route==="shared"?t("entry.route.shared"):t(key,vars),esc,
     exerciseName:id=>libraryName(libraryEntry(id))||id,
     tile:(id,size)=>exerciseThumb(libraryEntry(id),{size}),
     // The Settings rest length, which a slot with no stored rest inherits (owner, 2026-10-25: option A).
@@ -29361,7 +29361,7 @@ function odirDecorate(){
   if(ONBOARDING_DIRECTION==="b"&&step==="split"){next.textContent=t("odir.skipTune");next.disabled=false;$("#onbNextReason").hidden=true}
   if(ONBOARDING_DIRECTION==="c"&&ODIR_OPTIONAL.includes(step))$("#onbSkip").hidden=true;
   if(ONBOARDING_DIRECTION==="a")odirRefineA(body,next,step,label);
-  if(odirFine){label.classList.add("hidden");bar.classList.add("hidden");next.textContent=t("odir.done");$("#onbSkip").hidden=true;return}
+  if(odirFine){label.classList.add("hidden");bar.classList.add("hidden");next.textContent=t(ONBOARDING_DIRECTION==="a"?"odir.a.update":"odir.done");$("#onbSkip").hidden=true;return}
   if(odirSingle(step)&&!entryEditor&&ONBOARDING_DIRECTION!=="b"){
     const answerKey={desired_result:"desiredResult",background:"structuredExperience",days_per_week:"daysPerWeek",session_length:"sessionMinutes",environment:"environment",split:"splitPreference"}[step];
     const seen=(ONBOARDING_DIRECTION==="a"&&!!body.querySelector('[aria-checked="true"]'))||odirVisited.has(step)||!!(answerKey?entryState.answers[answerKey]:step==="sex"?entryBasics().sex:entryBasics().cardioExperience);if(!seen&&!(ONBOARDING_DIRECTION==="c"&&ODIR_OPTIONAL.includes(step))){next.classList.add("hidden");$("#onbNextReason").hidden=true}
@@ -29388,8 +29388,8 @@ function odirValue(step){const a=entryState.answers;
   if(step==="split")return a.splitPreference&&a.splitPreference!=="auto"?(found=>found?splitDisplayName(found):t("odir.recommended"))(entrySplitChoices().find(c=>c.id===a.splitPreference)):t("odir.recommended");
   if(ONBOARDING_DIRECTION==="a"){
     if(step==="muscle_priorities")return [ ["primaryMuscles","more"],["deEmphasizedMuscles","less"],["ignoredMuscles","skipped"] ].flatMap(([key,label])=>(a[key]||[]).map(m=>t("odir.a."+label,{muscle:t("entry.muscle."+m)}))).join(", ")||t("odir.a.balanced");
-    if(step==="exercise_preferences")return (a.exerciseConstraints?.length||a.mustHaveExercises?.length)?t("odir.a.exerciseCounts",{avoided:a.exerciseConstraints?.length||0,kept:a.mustHaveExercises?.length||0}):t("odir.a.noExclusions");
-    if(step==="abilities"){const n=entryAbilityKeys().filter(key=>typeof a.competencyAnswers?.[key]==="boolean").length;return n?t("odir.a.answered",{n,total:entryAbilityKeys().length}):t("odir.optionalShort")}
+    if(step==="exercise_preferences")return (a.exerciseConstraints?.length||a.mustHaveExercises?.length)?t("odir.a.exerciseCounts",{avoided:a.exerciseConstraints?.length||0,kept:a.mustHaveExercises?.length||0}):t("odir.a.noChanges");
+    if(step==="abilities"){const n=entryAbilityKeys().filter(key=>typeof a.competencyAnswers?.[key]==="boolean").length;return n?t("odir.a.answered",{n,total:entryAbilityKeys().length}):t("odir.a.notSet")}
   }
   if(step==="muscle_priorities")return entryPriorityLabel(a);
   if(step==="exercise_preferences")return entryExercisePreferenceLabel(a);
@@ -29398,27 +29398,28 @@ function odirValue(step){const a=entryState.answers;
   return t("odir.recommended")}
 function odirWhy(){
  const a=entryState.answers;
- const rows=[t("entry.result.why_goal",{goal:t("entry.goal."+a.desiredResult)}),t("entry.result.why_schedule",{days:a.daysPerWeek,minutes:a.sessionMinutes}),t("entry.result.why_environment."+a.environment.kind),entryProgressionSentence(entryState.result.preview)];
- return `<section class="odir-why"><h3>${esc(t("entry.result.why"))}</h3><ul>${rows.map(text=>`<li>${esc(text)}</li>`).join("")}</ul><button class="text-link" data-odir-scroll>${esc(t("odir.a.jump"))}</button></section>`;
+ const rows=[t("odir.a.effect."+a.desiredResult),t("odir.a.experience."+a.structuredExperience),t("odir.a.time",{n:a.sessionMinutes}),t("odir.a.equipmentEffect")];
+ return `<section class="odir-why"><h3>${esc(t("entry.result.why"))}</h3><ul>${rows.map(text=>`<li>${esc(text)}</li>`).join("")}</ul><button class="text-link" data-odir-scroll>${esc(t("odir.a.jump"))}<span class="icon-mask icon-mask--chev-down icon-mask--sm" aria-hidden="true"></span></button></section>`;
 }
 function odirFineRows(){
  const a=entryState.answers,env=a.environment,adjust=env.adjust||{},preset=entryPresetGroups(env.kind),count=preset.filter(k=>!adjust.remove?.includes(k)).length+(adjust.add||[]).filter(k=>!preset.includes(k)).length;
  const equipment=t("odir.a.equipmentValue",{place:entryEnvironmentKindLabel(env.kind),n:count})+((adjust.add?.length||adjust.remove?.length)?t("odir.a.edited"):"");
- return `<section class="odir-fine" id="odirFineTune"><h3>${esc(t("odir.fine"))}</h3><p class="odir-fine__cap">${esc(t("odir.a.tuneCap"))}</p>`+["split","muscle_priorities","exercise_preferences","abilities","equipment","weight"].map(step=>`<button class="odir-fine__row" type="button" data-odir-fine="${step}"><span>${esc(t(step==="abilities"?"odir.a.abilities":step==="equipment"?"odir.a.equipment":`odir.fine.${step}`))}${step==="weight"?`<small>${esc(t("odir.a.weightWhy"))}</small>`:""}</span><span class="odir-fine__val">${esc(step==="equipment"?equipment:step==="weight"?t("odir.optionalShort"):odirValue(step))}</span><span class="icon-mask icon-mask--chev-right icon-mask--sm" aria-hidden="true"></span></button>`).join("")+`</section>`;
+ return `<section class="odir-fine" id="odirFineTune"><h3>${esc(t("odir.fine"))}</h3><p class="odir-fine__cap">${esc(t("odir.a.tuneCap"))}</p>`+["equipment","split","muscle_priorities","exercise_preferences","abilities"].map(step=>`<button class="odir-fine__row" type="button" data-odir-fine="${step}"><span>${esc(t(step==="abilities"?"odir.a.abilities":step==="equipment"?"odir.a.equipment":`odir.fine.${step}`))}${step==="abilities"?`<small>${esc(t("odir.a.abilityCap"))}</small>`:""}</span><span class="odir-fine__val">${esc(step==="equipment"?equipment:odirValue(step))}</span><span class="icon-mask icon-mask--chev-right icon-mask--sm" aria-hidden="true"></span></button>`).join("")+`</section><section class="odir-about"><h3>${esc(t("odir.fine.weight"))}</h3><button class="odir-fine__row" type="button" data-odir-fine="weight"><span>${esc(t("odir.a.details"))}<small>${esc(t("odir.a.weightWhy"))}</small></span><span class="odir-fine__val">${esc(entryBasics().weightKg?entryBasics().weightKg+" kg":Object.values(entryBasics()).some(v=>v!=null&&v!=="")?t("odir.a.detailsSet"):t("odir.a.notSet"))}</span><span class="icon-mask icon-mask--chev-right icon-mask--sm" aria-hidden="true"></span></button></section>`;
 }
 
 let odirEquipmentOpen=false;
 function odirRefineA(body,next,step,label){
-  $("#onbCancel").classList.toggle("hidden",!!odirFine||step==="desired_result");
-  if(ODIR_REQUIRED.includes(step))label.textContent=t("odir.a.progress",{n:ODIR_REQUIRED.indexOf(step)+1,total:5});
-  if(odirFine){const back=$("#onbBack");back.textContent=t("entry.cancel");back.setAttribute("aria-label",t("entry.cancel"))}
+  $("#onbCancel").classList.toggle("hidden",!!odirFine);
+  if(ODIR_REQUIRED.includes(step)){const i=ODIR_REQUIRED.indexOf(step);label.textContent=t("odir.a.progress",{n:i+1,total:5});$("#onbSegbar").firstElementChild.style.flexBasis=`${i/5*100}%`;}
+  $("#onboarding").classList.toggle("odir-editing",!!odirFine);
+  if(odirFine){const back=$("#onbBack");back.textContent=t("entry.back");back.setAttribute("aria-label",t("entry.back"))}
   if(!odirFine){
     const heading=body.querySelector("#entryHeading");
     if(step==="session_length"){
       heading.textContent=t("odir.a.sessionTitle");
       body.querySelectorAll('[data-entry-pick="sessionMinutes"]').forEach(el=>el.querySelector(".radio-card__title").textContent=t("odir.a.minutes",{n:el.dataset.entryVal}));
     }
-    if(step==="environment")body.querySelector(".onb__explain").textContent=t("odir.a.environmentWhy");
+    if(step==="environment"){body.querySelector(".onb__explain").textContent=t("odir.a.environmentWhy");body.querySelectorAll(".radio-card__icon").forEach(el=>el.remove());body.querySelectorAll(".radio-card").forEach(el=>{const icon=el.querySelector(".icon-mask");if(icon&&!icon.classList.contains("icon-mask--chev-right"))icon.remove()});}
     if(step==="session_length"){const tile=body.querySelector('[data-entry-val="60"] .radio-card__body');tile.insertAdjacentHTML("beforeend",`<span class="entry-b__tag">${esc(t("odir.recommended"))}</span>`)}
     if(["desired_result","background","days_per_week"].includes(step))heading.insertAdjacentHTML("afterend",`<p class="onb__explain">${esc(t("odir.a.why."+step))}</p>`);
     if(odirSingle(step))body.querySelectorAll(".radio-card__mark").forEach(el=>{el.className="icon-mask icon-mask--chev-right icon-mask--sm"});
@@ -29437,8 +29438,8 @@ function odirRefineA(body,next,step,label){
     if(heading){
       const question=step==="abilities"?t("odir.a.abilityQuestion"):step==="weight"?t("odir.a.aboutQuestion"):heading.textContent;
       body.querySelectorAll(".onb__explain, .entry__privacy, .entry-b__note").forEach(el=>el.remove());
-      if(step!=="equipment")heading.textContent=t(step==="abilities"?"odir.a.abilities":`odir.fine.${step}`);
-      heading.insertAdjacentHTML("afterend",`<p class="onb__explain">${esc(step==="equipment"?t("odir.a.updates"):t("odir.a.intro",{question:question.replace(/[?.]$/,"")}))}</p>`);
+      heading.textContent=t(step==="abilities"?"odir.a.abilities":step==="equipment"?"odir.a.equipment":step==="weight"?"odir.a.details":`odir.fine.${step}`);
+      heading.insertAdjacentHTML("afterend",`<p class="onb__explain">${esc(t("odir.a.intro",{question:question.replace(/[?.]$/,"")}))}</p>`);
     }
     next.classList.add("odir-done");
   }

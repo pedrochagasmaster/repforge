@@ -657,7 +657,7 @@
         const on = index === view.tab;
         const empty = day.kind === "training" && !(day.slots || []).length;
         const label = day.kind === "training" ? dayName(definition, day) : t("entry.review.rest_tab");
-        return `<button type="button" role="tab" id="reviewTab${index}" class="review__tab${on ? " is-on" : ""}" data-review-tab="${index}" aria-selected="${on}" aria-controls="reviewPanel" tabindex="${on ? 0 : -1}">` +
+        return `<button type="button" role="tab" id="reviewTab${index}" class="review__tab${adapter.explorationA&&day.kind!=="training"?" odir-rest":""}${on ? " is-on" : ""}" data-review-tab="${index}" aria-selected="${on}" aria-controls="reviewPanel" tabindex="${on ? 0 : -1}">` +
           `${esc(label)}${empty ? `<span class="review__pip" aria-label="${esc(t("entry.review.empty_pip"))}"></span>` : ""}</button>`;
       }).join("")}</div>`;
     }
@@ -722,7 +722,7 @@
           }).join("") + `</ol><button type="button" class="btn btn--cta btn--noarrow review__reorder-done" data-review-reorder-done>${esc(t("entry.review.reorder_done"))}</button>`;
       }
       const empty = slots.length ? "" : `<p class="review__empty" data-review-empty role="alert">${icon("alert")}<span>${esc(t("entry.review.empty_day"))}</span></p>`;
-      return head + empty + slots.map((slot) => rowHtml(definition, slot, marks)).join("") +
+      return head + (adapter.explorationA&&slots.length?`<p class="odir-effort-note">${esc(t("odir.a.effortNote"))}</p>`:"") + empty + slots.map((slot) => rowHtml(definition, slot, marks)).join("") +
         `<button type="button" class="review__add" data-review-add>${icon("plus")}<span>${esc(t("entry.review.add"))}</span></button>`;
     }
 
@@ -740,7 +740,7 @@
         `<span>${esc(name)}</span>${icon("pencil")}</button></h2>` +
         factsHtml(definition) + (adapter.afterFacts?.() || "") + (adapter.explorationA?"":blockHtml(definition)) + (adapter.explorationA&&!count?"":changesHtml(count)) + tabsHtml(definition) +
         `<div class="review__panel" id="reviewPanel" role="tabpanel" aria-labelledby="reviewTab${view.tab}" data-review-panel>${dayHtml(definition, marks)}</div>${adapter.afterPanel?.()||""}</div>`;
-      if(adapter.explorationA){const fine=host.querySelector("#odirFineTune");const holder=document.createElement("div");holder.className="odir-block";holder.innerHTML=`<p>${esc(t("odir.a.block"))}</p>`+blockHtml(definition);fine.insertBefore(holder,fine.querySelector('[data-odir-fine="weight"]'));}
+      if(adapter.explorationA){const fine=host.querySelector("#odirFineTune"),lighter=(definition.deloadCycles||[]).length;fine.insertAdjacentHTML("beforeend",`<button type="button" class="odir-fine__row" data-review-block-edit><span>${esc(t("odir.a.block"))}</span><span class="odir-fine__val">${esc(t(lighter?"odir.a.weeksLighter":"odir.a.weeks",{n:regularCycles(definition),lighter}))}</span>${icon("chev-right")}</button>`);}
       if(adapter.explorationA){const button=host.querySelector(".review__titlebtn"),text=button.querySelector("span");const words=text.textContent.split(" ");const last=words.pop();text.textContent=words.join(" ")+" ";const tail=document.createElement("span");tail.style.whiteSpace="nowrap";tail.textContent=last;tail.append(button.querySelector(".icon-mask"));button.append(tail);}
       placeIndicator(false);
       if (before) adapter.motion?.animateExerciseReorder?.([...host.querySelectorAll("[data-id]")], before);
