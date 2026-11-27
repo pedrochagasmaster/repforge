@@ -14,6 +14,7 @@ function odirMove(build=false){
   if(ONBOARDING_DIRECTION==="b")for(const id of ODIR_B_PAGES[entryState.step]||[])entryApplyShownDefaults(id);
   const step=build?"building":ONBOARDING_DIRECTION==="b"?ODIR_B_ORDER[ODIR_B_ORDER.indexOf(entryState.step)+1]:steps[index+1];
   if(step==="building")odirDefaults();
+  if(step==="split")entryApplyShownDefaults("split");
   entrySetState({...entryState,step});
 }
 let fallbackGestureController=null;
@@ -21950,7 +21951,7 @@ function entryPatchAnswers(patch){
   // An open answer editor edits its own copy: nothing is persisted or rendered until Update program.
   if(entryEditorSwap){entryState=ProgramEntry.setAnswers(entryState,patch);entryEditorRerender=true;return}
   entryPinnedVersionsExecutable=false;
-  entrySetState(ProgramEntry.setAnswers(entryState,patch))}
+  entrySetState(ProgramEntry.setAnswers(entryState,patch),{persist:!odirFine})}
 /* The questionnaire's sections, as the lifter counts them. Goal and background
    share one section (Q627): the semantic steps stay separate, and a UI adapter
    may group closely related questions on one screen. Browse's list is the
@@ -23964,7 +23965,9 @@ function mountEntryAdjust(){
   const host=$("#entryReview"),Review=window.RepForgeProgramReview;
   const review=ensureEntryAdjust();
   if(!host||!Review||!review)return;
+  if(ONBOARDING_DIRECTION==="a")host.addEventListener("click",event=>{const el=event.target.closest("[data-odir-fine]");if(el){odirFine=entryState;entrySetState({...entryState,step:el.dataset.odirFine},{persist:false})}});
   entryAdjustMount=Review.mountProgramReview(host,{
+    afterFacts:ONBOARDING_DIRECTION==="a"?()=>`<section class="odir-fine">${odirFineRows()}</section>`:undefined,
     view:review.view,
     queueKey:()=>review,
     candidate:()=>entryState?.result&&!entryAnswerRebuildPending()&&
@@ -24825,11 +24828,6 @@ function renderOnboarding({pageTransition=null}={}){
     const lede=body.querySelector(".onb__explain"),heading=body.querySelector(".onb__q");
     const anchor=lede||heading;
     if(anchor&&anchor.parentNode)anchor.parentNode.insertBefore(validation,anchor.nextSibling);
-  }
-  if(ONBOARDING_DIRECTION==="a"&&stepId==="result"){
-    const review=body.querySelector("#entryReview .review"),facts=review?.querySelector(".review__facts");
-    const group=document.createElement("section");group.className="odir-fine";group.innerHTML=odirFineRows();
-    if(facts)facts.after(group);else if(review)review.prepend(group);
   }
   wireEntryDom();
   if(isEditor){
@@ -29354,7 +29352,7 @@ function odirDecorate(){
     label.textContent=`${t("odir.optionalShort")} ${ODIR_OPTIONAL.indexOf(step)+1} / ${ODIR_OPTIONAL.length}`;
   }else if(ONBOARDING_DIRECTION==="c"&&index>=0)label.textContent=`${index+1} / 6`;
   if(ONBOARDING_DIRECTION==="b"&&step==="weight")next.textContent=t("entry.skip");
-  if(ONBOARDING_DIRECTION==="b"&&step==="split")next.textContent=t("odir.skipTune");
+  if(ONBOARDING_DIRECTION==="b"&&step==="split"){next.textContent=t("odir.skipTune");next.disabled=false;$("#onbNextReason").hidden=true}
   if(odirFine){next.textContent=t("odir.done");$("#onbSkip").hidden=true;return}
   if(odirSingle(step)&&!entryEditor&&ONBOARDING_DIRECTION!=="b"){
     const seen=odirVisited.has(step);if(!seen){next.classList.add("hidden");$("#onbNextReason").hidden=true}

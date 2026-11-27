@@ -738,7 +738,7 @@
         `<p class="entry__eyebrow review__kicker">${esc(t("entry.review.source"))}</p>` +
         `<h2 class="onb__q review__title" id="entryHeading" tabindex="-1"><button type="button" class="review__titlebtn" data-review-title aria-label="${esc(t("entry.review.rename_program_aria", { name }))}">` +
         `<span>${esc(name)}</span>${icon("pencil")}</button></h2>` +
-        factsHtml(definition) + blockHtml(definition) + changesHtml(count) + tabsHtml(definition) +
+        factsHtml(definition) + (adapter.afterFacts?.() || "") + blockHtml(definition) + changesHtml(count) + tabsHtml(definition) +
         `<div class="review__panel" id="reviewPanel" role="tabpanel" aria-labelledby="reviewTab${view.tab}" data-review-panel>${dayHtml(definition, marks)}</div></div>`;
       placeIndicator(false);
       if (before) adapter.motion?.animateExerciseReorder?.([...host.querySelectorAll("[data-id]")], before);
