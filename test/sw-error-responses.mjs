@@ -31,7 +31,7 @@ const statSafe = (file) => { try { return statSync(file); } catch { return null;
 const mimeType = (extension) => ({
   ".html": "text/html", ".css": "text/css", ".js": "text/javascript", ".json": "application/json",
   ".webmanifest": "application/manifest+json", ".svg": "image/svg+xml", ".png": "image/png", ".webp": "image/webp",
-  ".woff2": "font/woff2",
+  ".gif": "image/gif", ".woff2": "font/woff2",
 }[extension] || "application/octet-stream");
 const server = createServer((request, response) => {
   const pathname = decodeURIComponent((request.url || "/").split("?", 1)[0]);
@@ -153,6 +153,15 @@ try {
     faults.delete(`/${path}`);
     assert.equal(result.status, status, `uncached asset network ${status} reaches the page unchanged`);
     assert.equal(result.cached, null, `uncached asset network ${status} is not stored`);
+  }
+  // The production host answers a file it does not have with the app shell (200 text/html); an exercise
+  // animation missing from a deploy once stuck on devices that way.
+  {
+    const path = "__synthetic__/shell-fallback.gif";
+    faults.set(`/${path}`, { status: 200, type: "text/html" });
+    const result = await probe(path);
+    faults.delete(`/${path}`);
+    assert.equal(result.cached, null, "an HTML fallback for an uncached asset is not stored");
   }
   assert.equal((await probe("does-not-exist.png")).cached, null, "a plain missing file is not stored");
   const healthy = await probe("__synthetic__/healthy.png");

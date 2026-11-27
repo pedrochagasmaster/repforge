@@ -19,7 +19,7 @@ import vm from "node:vm";
 
 const ROOT = resolve(import.meta.dirname, "..");
 const OUT = join(ROOT, "dist");
-const allowedExtension = /\.(?:js|json|css|html|webmanifest|svg|png|webp|woff2)$/i;
+const allowedExtension = /\.(?:js|json|css|html|webmanifest|svg|png|webp|gif|woff2)$/i;
 const read = (file) => readFileSync(join(ROOT, file), "utf8");
 
 function localPath(url) {
@@ -48,6 +48,9 @@ const media = [
   ...JSON.parse(read("manifest.webmanifest")).icons.map(icon => icon.src),
   ...["styles.css", "motion-polish.css"].flatMap(file => [...read(file).matchAll(/url\(\s*["']?([^"')]+)/g)].map(m => m[1])),
   ...[...read("exercises.js").matchAll(/"media":"([^"]+)"/g)].map(m => m[1]),
+  // A still's animation is never written out: app.js (exerciseAnimation) derives it
+  // from the still's dataset id, so publish it from the same rule.
+  ...[...read("exercises.js").matchAll(/"media":"assets\/exercise-stills\/(\d{4})\.webp"/g)].map(m => `assets/exercise-gifs/${m[1]}.gif`),
 ];
 for (const url of media) {
   const path = localPath(url);
