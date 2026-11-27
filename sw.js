@@ -1,4 +1,4 @@
-const CACHE = "repforge-v799";
+const CACHE = "repforge-v802";
 const ASSETS = [
   "./", "./index.html", "./styles.css", "./styles.css?v=799", "./motion-polish.css", "./motion-polish.css?v=643", "./manifest.webmanifest",
   { url: "./vendor/motion/motion.js", owner: "RepForgeMotion", required: false, immutable: true },
@@ -218,7 +218,10 @@ self.addEventListener("fetch", event => {
     if (cached) return cached;
     try {
       const response = await fetch(event.request);
-      if (response.ok) await cache.put(event.request, response.clone());
+      // The host answers a file it does not have with the app shell (200 text/html). Stored under an image's URL
+      // that fallback would outlive the deploy that adds the file, so a document is never kept for a non-shell path.
+      const isDocument = /^text\/html\b/i.test(response.headers.get("content-type") || "");
+      if (response.ok && !isDocument) await cache.put(event.request, response.clone());
       return response;
     } catch {
       return new Response("Asset unavailable", { status: 503, headers: { "content-type": "text/plain; charset=utf-8" } });

@@ -40,6 +40,8 @@ function referencedPaths(root) {
     ...JSON.parse(read("manifest.webmanifest")).icons.map((icon) => icon.src),
     ...["styles.css", "motion-polish.css"].flatMap((file) => [...read(file).matchAll(/url\(\s*["']?([^"')]+)/g)].map((m) => m[1])),
     ...[...read("exercises.js").matchAll(/"media":"([^"]+)"/g)].map((m) => m[1]),
+    // app.js plays assets/exercise-gifs/<id>.gif over assets/exercise-stills/<id>.webp.
+    ...[...read("exercises.js").matchAll(/"media":"assets\/exercise-stills\/(\d{4})\.webp"/g)].map((m) => `assets/exercise-gifs/${m[1]}.gif`),
   ];
   return [...new Set(urls.map(localPath).filter(Boolean))].sort();
 }
@@ -58,7 +60,7 @@ test("dist/ holds every URL the app precaches or references", () => {
   try {
     build();
     const paths = referencedPaths(ROOT);
-    for (const required of ["index.html", "sw.js", "app.js", "program-engine.js", "program-review.js", "assets/exercise-catalog.json"]) {
+    for (const required of ["index.html", "sw.js", "app.js", "program-engine.js", "program-review.js", "assets/exercise-catalog.json", "assets/exercise-gifs/0002.gif"]) {
       assert.ok(paths.includes(required), `the reference scan misses ${required}`);
     }
     const missing = paths.filter((path) => !GENERATED.has(path) && !KNOWN_MISSING.has(path) && !existsSync(join(DIST, path)));
