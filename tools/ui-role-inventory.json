@@ -17279,21 +17279,6 @@
           "value": "var(--weight-focus-cue)"
         }
       ]
-    },
-    {
-      "selector": ".share-setup__qr",
-      "role": "machine-readable code plate",
-      "rationale": "A QR code is read by a phone camera, which needs dark modules on a light ground: the plate stays white in both themes (Plan 086 slice 2, approved mocks).",
-      "owner": "plan-086",
-      "catalogStates": [
-        "program/share-relay-ready"
-      ],
-      "cssLiterals": [
-        {
-          "property": "background",
-          "value": "#fff"
-        }
-      ]
     }
   ],
   "rootRecipeOwners": [
