@@ -8184,7 +8184,7 @@ function setWorkoutActive(on){const was=workoutActive;workoutActive=!!on;if(was&
   document.body.classList.toggle("is-workout",workoutActive);
   if(dash)dash.classList.toggle("hidden",workoutActive);
   if(shell)shell.classList.toggle("hidden",!workoutActive);
-  if(!workoutActive){abandonVoiceOp();document.body.classList.remove("is-focus-wo");if(activeModal?.el===$("#workoutActionSheet"))closeWorkoutActions()}
+  if(!workoutActive){abandonVoiceOp();document.body.classList.remove("is-focus-wo")}
   updateFocusChrome();
   if(workoutActive!==was){
     if(settle)settle();
@@ -10158,8 +10158,10 @@ function renderExActionsSheet(exId) {
   const setupTextEl = $("#exActionsSetupText");
   const setupText = draftEx.programmed?.notes || progEx?.notes || "";
   if (setupTextEl) {
-    setupTextEl.textContent = setupText || t("ex.actions.no_setup_notes");
+    setupTextEl.textContent = setupText;
   }
+
+  $("#exActionsSetupSection").hidden=!setupText;
 
   // Repeat last session
   const repeatBtn = $("#exActionRepeatBtn");
@@ -10183,6 +10185,8 @@ function renderExActionsSheet(exId) {
   if (substLabel) substLabel.textContent = t(isSubstituted ? "ex.actions.change_substitution" : "ex.actions.substitute");
   if (restoreOrigBtn) restoreOrigBtn.classList.toggle("hidden", !isSubstituted);
 
+  $("#exActionDiscomfortBtn .icon-mask")?.remove();
+  $("#exActionDiscomfortBtn").insertAdjacentHTML("afterbegin",exerciseActionIcon("alert"));
   renderPreludeActions(exId, sheet);
 
   // Warmup sets list
@@ -10192,17 +10196,8 @@ function renderExActionsSheet(exId) {
       const set = draftEx.sets[sid];
       if (!set) return "";
       const isWarmup = set.role === "warmup";
-      const roleLabel = t(isWarmup ? "ex.actions.role_warmup" : "ex.actions.role_working");
-      // A switch per set (the native UI kit, owner 2026-10-24): on is a warm-up set, named for the set it changes.
       const switchLabel = t("ex.actions.warmup_switch", { n: idx + 1 });
-      return `<div class="exactions__warmup-row">` +
-        `<div class="exactions__warmup-info">` +
-        `<span class="exactions__warmup-num">${esc(t("log.set"))} ${idx + 1}</span>` +
-        `<span class="exactions__warmup-role ${isWarmup ? "is-warmup" : ""}">${esc(roleLabel)}</span>` +
-        `</div>` +
-        `<span class="exactions__warmup-ctl"><span class="exactions__warmup-cap" aria-hidden="true">${esc(t("ex.actions.warmup_caption"))}</span>` +
-        `<button type="button" class="toggle exactions__warmup-switch" role="switch" aria-checked="${isWarmup}" aria-label="${esc(switchLabel)}" data-warm-toggle-set="${esc(sid)}"></button></span>` +
-        `</div>`;
+      return `<button type="button" class="exactions__warm-chip" aria-pressed="${isWarmup}" aria-label="${esc(switchLabel)}" data-warm-toggle-set="${esc(sid)}">${isWarmup?exerciseActionIcon("check"):""}<span>${esc(t("log.set"))} ${idx + 1}</span></button>`;
     }).filter(Boolean);
     warmupList.innerHTML = rows.join("");
     $$("#exActionsWarmupList [data-warm-toggle-set]").forEach(btn => {
@@ -10224,6 +10219,8 @@ function renderExActionsSheet(exId) {
       };
     });
   }
+
+
 
   // Skip / restore exercise
   const skipLabel = $("#exActionSkipLabel");
@@ -10928,17 +10925,20 @@ function renderPreludeActions(exId,sheet){
   if(!warmupOn()){section.classList.add("hidden");return}
   const ex=warmupExerciseById(exId),de=activeWorkoutDraft?.exercises?.[exId];
   const record=de?.warmupPrelude,logged=record?record.steps.filter(step=>!warmupPending(step)):[];
-  const lift=de?warmupLift(de):null,canAdd=!!lift&&!record?.steps.some(warmupPending)&&(record?record.steps.length<6&&record.nextOrdinal<=6:true);
-  section.classList.toggle("hidden",!logged.length&&!canAdd);
+  const suggestedPending=preludeView(ex)?.stage==="warm";
+  const lift=de?warmupLift(de):null,canAdd=!!lift&&!suggestedPending&&!record?.steps.some(warmupPending)&&(record?record.steps.length<6&&record.nextOrdinal<=6:true);
+  const showUnavailable=!!lift&&!canAdd;
+  section.classList.toggle("hidden",!logged.length&&!canAdd&&!showUnavailable);
   const unit=unitLabel();
   const rows=logged.map(step=>{
     const facts=warmupStepFacts(step,null),n=step.completion.ordinal;
     const figure=facts.loadMetric?`${warmupLoadText(facts.loadKg)} ${unit} × ${fmt(facts.reps)}`:t(facts.reps===1?"prelude.reps.one":"prelude.reps.many",{n:fmt(facts.reps)});
     return `<div class="exactions__warmup-row" data-wu-row="${esc(step.stepId)}"><div class="exactions__warmup-info"><span class="exactions__warmup-num">${esc(t("ledger.set.warmup"))}${n}</span>`+
       `<span class="exactions__warmup-role">${esc(figure)}</span></div>`+
-      `<span class="exactions__warmup-ctl"><button type="button" class="text-link" data-wu-edit="${esc(step.stepId)}">${esc(t("prelude.manage.edit"))}</button>`+
-      `<button type="button" class="text-link" data-wu-remove="${esc(step.stepId)}">${esc(t("prelude.manage.remove"))}</button></span></div>`}).join("");
-  list.innerHTML=rows+(canAdd?`<button type="button" class="exactions__act" id="exActionAddWarmup"><span class="exactions__act-text"><span>${esc(t("prelude.manage.add"))}</span></span></button>`:"");
+      `<span class="exactions__warmup-ctl"><button type="button" class="text-link" data-wu-edit="${esc(step.stepId)}">${exerciseActionIcon("pencil")}${esc(t("prelude.manage.edit"))}</button>`+
+      `<button type="button" class="text-link" data-wu-remove="${esc(step.stepId)}">${exerciseActionIcon("minus")}${esc(t("prelude.manage.remove"))}</button></span></div>`}).join("");
+  const unavailable=showUnavailable?`<button type="button" class="exactions__act" id="exActionAddWarmup" disabled aria-disabled="true">${exerciseActionIcon("plus")}<span class="exactions__act-text"><span>${esc(t("prelude.manage.add"))}</span><span class="exactions__hint">${esc(t(suggestedPending||record?.steps.some(warmupPending)?"prelude.manage.pending":"prelude.manage.limit"))}</span></span></button>`:"";
+  list.innerHTML=rows+unavailable+(canAdd?`<button type="button" class="exactions__act" id="exActionAddWarmup">${exerciseActionIcon("plus")}<span class="exactions__act-text"><span>${esc(t("prelude.manage.add"))}</span></span></button>`:"");
   list.querySelectorAll("[data-wu-remove]").forEach(button=>button.onclick=async()=>{
     const result=await WorkoutSession.dispatch("removeWarmupStep",{exerciseInstanceId:exId,stepId:button.dataset.wuRemove});
     if(result.status!=="applied")return;
@@ -12251,7 +12251,7 @@ function focusCardHtml(ex,r,draft,prev,opts){
     // and it never sits over the cue. A neighbour carries the same bar, inert, so a swipe lands on what it showed.
     focusSkipbarHtml(peek)+
     // The header names the exercise (layout D), so its row here is the prescription line alone.
-    `<div class="fx-head"><div class="fx-head__row"><p class="focus-ex__meta">${esc(focusExMeta(ex))}</p>${noteAdd}</div>${note}</div>`+
+    `<div class="fx-head"><div class="fx-head__row"><p class="focus-ex__meta">${esc(focusExMeta(ex))}</p>${noteAdd}<button type="button" class="fx-actions"${peek?dead():` data-ex-actions="${esc(ex.id)}" aria-haspopup="dialog" aria-controls="exActionsSheet"`} aria-label="${esc(t("ex.actions.title"))}">${exerciseActionIcon("overflow")}<span class="fx-actions__label">${esc(t("ex.actions.open"))}</span></button></div>${note}</div>`+
     slotHtml+quietRow+
     `<div class="fcard__ledger">`+
     `${focusLedgerHtml(ex,r,draft,prev,{peek})}</div>`+nextRow+`</div>`+
@@ -12339,49 +12339,8 @@ function updateWorkoutHeader(fl,at){
     title.firstChild.onclick=()=>openExerciseView(ex.id,"log")}
   else if(title){title.removeAttribute("aria-label");title.textContent=dayLabel(day)}
   renderFocusDeloadLine();
-  syncWorkoutMore()}
+}
 // @ci-domain global
-/** Session actions share one modal, including the optional voice command. */
-function syncWorkoutMore(){
-  const button=$("#woOverflowBtn");if(!button)return;
-  button.setAttribute("aria-haspopup","dialog");button.setAttribute("aria-controls","workoutActionSheet");
-  button.setAttribute("aria-expanded",String(!$("#workoutActionSheet")?.hidden));
-}
-function openWorkoutMore(){
-  if(!activeWorkoutDraft)return;
-  const sheet=$("#workoutActionSheet"),scrim=$("#workoutActionScrim");
-  const voice=sheet.querySelector('[data-workout-action="voice"]');
-  voice.hidden=voice.classList.contains("hidden");
-  document.body.classList.add("is-sheet-open");
-  if(!openModal(sheet,{scrim,onEscape:closeWorkoutActions,delayHide:280,initialFocus:sheet.querySelector("button")}))return;
-  requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim.classList.add("is-open");window.RepForgeMotion?.animateActionSheet?.(sheet,true)});syncWorkoutMore();
-}
-let workoutActionsClosing=null;
-function closeWorkoutActions(){
-  if(workoutActionsClosing)return workoutActionsClosing;
-  workoutActionsClosing=(async()=>{
-    const sheet=$("#workoutActionSheet");
-    const animated=await window.RepForgeMotion?.animateActionSheet?.(sheet,false);
-    if(animated&&activeModal?.el===sheet)activeModal.delayHide=0;
-    await closeModal(sheet);sheet.style.removeProperty("transform");syncWorkoutMore();
-  })().finally(()=>{workoutActionsClosing=null});
-  return workoutActionsClosing;
-}
-async function performWorkoutAction(action){
-  await closeWorkoutActions();
-  if(!activeWorkoutDraft)return;
-  if(action==="finish"){saveWorkout(null);return}
-  if(action==="reorder"){openSessionSheet();return}
-  if(action==="abandon"){await WorkoutSession.flush();openSessionSheet();openAbandonPrompt({from:"actions"});return}
-  if(action==="voice"){startVoiceInput();return}
-  // With no rest running there is no tab; the sheet opens from here (rest timer redesign).
-  if(action==="rest"){openRestSheet();return}
-  const card=focusCard();if(!card)return;
-  // The exercise note is one tap from the menu (owner, 2026-11-05), beside the exercise's other actions.
-  if(action==="note"){openExNoteSheet(card.dataset.ex);return}
-  openExActionsSheet(card.dataset.ex);
-}
-
 /* A native dialog permits a context menu over an editor sheet without tearing
    down that sheet's modal lifetime. The dialog's own top layer owns inertness.
    motion-layer.js owns the long press, slide-to-select and the menu's motion;
@@ -12495,7 +12454,7 @@ function openSkipReasonSheet(exerciseInstanceId){
     if(result.status==="applied"){
       if(workoutActive)renderWorkout();else renderToday();
       if(skipReasonTarget===target)await closeSkipReasonSheet();
-      else if(!activeModal)quietFocus(workoutActive?$("#woOverflowBtn"):$("#startWorkout"));
+      else if(!activeModal)quietFocus(workoutActive?$("#sessionSheetBtn"):$("#startWorkout"));
     }else if(skipReasonTarget===target)choices.querySelectorAll("button").forEach(control=>control.disabled=false);
   });
   openModal(sheet,{initialFocus:sheet,returnFocus:document.activeElement,onEscape:closeSkipReasonSheet,scrim});
@@ -13047,6 +13006,7 @@ function bindWorkout(){
     $w("[data-ledgermore]").forEach(b=>b.onclick=()=>toggleFocusLedger(b));
     $w("[data-slow]").forEach(b=>b.onclick=()=>answerLastRepSlow(b.dataset.slow,b.dataset.v==="1"));
     $w("[data-slowclear]").forEach(b=>b.onclick=()=>answerLastRepSlow(b.dataset.slowclear,null));
+    $w("[data-ex-actions]").forEach(b=>b.onclick=()=>openExActionsSheet(b.dataset.exActions));
     $w("[data-fnote]").forEach(b=>b.onclick=()=>openExNoteSheet(b.dataset.fnote));
     $w("[data-maxset-cancel]").forEach(b=>b.onclick=()=>{const key=b.dataset.maxsetCancel,at=key.lastIndexOf("_");
       cancelMaxSet(key.slice(0,at),+key.slice(at+1))});
@@ -15243,7 +15203,7 @@ async function applyCommandText(text,{current=()=>true}={}){
   toast(t("toast.command_applied",{load:fmt(parsed.load),reps:parsed.reps,rir:rirBit}));
   return true}
 window.__repforgeApplyCommandText=applyCommandText;
-function updateVoiceBtn(){const b=$("#voiceBtn");if(!b)return;b.classList.toggle("hidden",!(SR&&state.settings.voiceInputEnabled));syncWorkoutMore()}
+function updateVoiceBtn(){const b=$("#voiceBtn");if(!b)return;b.classList.toggle("hidden",!(SR&&state.settings.voiceInputEnabled))}
 /* One voice command at a time. Idle is no operation; listening and resolving are
    its two phases. The operation keeps the recognizer and the draft it was started
    for, so a transcript that arrives after the lifter has left that workout, or
@@ -28506,7 +28466,7 @@ function init(){
   // opens the day that follows the one already done rather than repeating it.
   const another=$("#logAnotherSession");if(another)another.onclick=()=>enterWorkout({day:dayAfterTrainedToday()||day});
   const leaveWo=$("#leaveWorkout");if(leaveWo)leaveWo.onclick=leaveWorkout;
-  const woOv=$("#woOverflowBtn");if(woOv)woOv.onclick=e=>{e.stopPropagation();openWorkoutMore()};
+  $("#workoutRestBtn").onclick=()=>openRestSheet();
   document.addEventListener("keydown",e=>{if(e.key==="Escape")closeEffortPop()});
   // The effort explainer dismisses like any popover: a tap anywhere off it, or
   // a swipe of the card underneath. Capture, so a card drag never outlives it.
@@ -28524,9 +28484,7 @@ function init(){
     if(el&&el.closest("button,a,input,select,textarea,[contenteditable],[role=spinbutton]"))return;
     if(e.key==="ArrowRight")focusAnimateTo(1);
     else if(e.key==="ArrowLeft")focusAnimateTo(-1)});
-  $("#workoutActionCancel").onclick=closeWorkoutActions;
-  $("#workoutActionScrim").onclick=closeWorkoutActions;
-  $$("[data-workout-action]").forEach(button=>button.onclick=()=>performWorkoutAction(button.dataset.workoutAction));
+  $("#voiceBtn").onclick=async()=>{await closeSessionSheet();startVoiceInput()};
   document.addEventListener("rowcontext",event=>{
     const row=event.target.closest?.("#todayExList [data-context-row]");
     if(row)todayRowContext(row,event.target);
@@ -28551,6 +28509,12 @@ function init(){
   });
 
   // The sheet's head takes its hairline once content is under it (UI kit §4).
+  for(const [body,edge] of [[$("#sessionSheetBody"),$("#sessionEarlySection")],[$("#exActionsSheet .exactions-sheet__body"),$("#exActionsSheet .exactions-sheet__body")]]){
+    const update=()=>edge.classList.toggle("has-more",body.scrollTop+body.clientHeight<body.scrollHeight-1);
+    body.addEventListener("scroll",update,{passive:true});
+    new ResizeObserver(update).observe(body);
+    new MutationObserver(update).observe(body,{childList:true,subtree:true});
+  }
   const sessBody=$("#sessionSheetBody");if(sessBody)sessBody.addEventListener("scroll",()=>{
     sessBody.closest(".sheet")?.querySelector(".sheetband")?.classList.toggle("is-scrolled",sessBody.scrollTop>0)},{passive:true});
 
@@ -28561,6 +28525,8 @@ function init(){
 
   const earlyBtn=$("#sessionEarlyFinish");if(earlyBtn)earlyBtn.onclick=async()=>{
     await WorkoutSession.flush();
+    if(activeWorkoutDraft&&normalFinishIssues(activeWorkoutDraft).length===0){
+      await closeSessionSheet();const finishPromise=saveWorkout(null);window.__repforgeLastWorkoutFinish=finishPromise;await finishPromise;return}
     const restReason=restOverrunReasonPending;restOverrunReasonPending=false;
     if(!activeWorkoutDraft)return;
     if(!WorkoutSession.captureEarlyFinish(activeWorkoutDraft)){
@@ -29308,3 +29274,5 @@ async function runBoot(){
   try{return await boot()}
   catch(error){showBootFailure("boot-error");throw error}}
 runBoot();
+
+function exerciseActionIcon(name){return `<span class="icon-mask icon-mask--${name}" aria-hidden="true"></span>`}

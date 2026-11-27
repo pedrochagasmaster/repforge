@@ -142,11 +142,12 @@ async function earlyFinishFitsLargeText(browser) {
  * #522 (owner direction A, 2026-10-28): the sheet as a session hub. At 390 EN, 320 PT, 320 EN at double-size text and
  * 430 EN: the head says where the session stands; every row's state is a mark and (for the current and a skipped lift)
  * a word, not colour alone; rows are whole 44px+ jump targets inside the column; date, bodyweight and notes are value
- * rows inside the column; nothing is pinned under the body, the two endings close the scroll and, once scrolled to,
- * are whole and tappable; and End without saving is quiet text that never looks like Finish early.
+ * rows inside the column; the two endings sit in a footer pinned under the body (owner, 2026-11-27, replacing the
+ * endings at the end of the scroll), whole and tappable without scrolling; and End without saving is quiet text that
+ * never looks like Finish.
  */
 async function sessionHubChecks(browser) {
-  phase("Session details as a hub (#522): head, marks, value rows, endings at the end of the scroll");
+  phase("Session as a hub (#522): head, marks, value rows, endings pinned under the scroll");
   for (const [width, lang, text] of [[390, "en", "normal"], [320, "pt", "normal"], [320, "en", "text200"], [320, "pt", "text200"], [430, "en", "normal"]]) {
     const opened = await openCatalogState(browser, "workout/session", width, lang, text, { height: width === 430 ? 932 : width === 320 ? 568 : 844 });
     const label = `${width}px ${lang} ${text === "text200" ? "200%" : "100%"}`;
@@ -173,7 +174,7 @@ async function sessionHubChecks(browser) {
         const fields = ["#sessionDate", "#sessionBodyweight", "#sessionNotes"].map((id) => { const r = document.querySelector(id).getBoundingClientRect(); return { id, inside: r.left >= col.left - 0.5 && r.right <= col.right + 0.5, height: r.height }; });
         return { summary: document.querySelector("#sessionSheetSub").textContent, sets, total, mono: getComputedStyle(document.querySelector(".session-sheet__sets")).fontFamily,
           rows, fields, kids: [...sheet.children].map((c) => c.id || c.className),
-          endingsInBody: body.contains(document.querySelector("#sessionEarlyFinish")) && body.contains(document.querySelector("#sessionAbandon")),
+          endingsPinned: ["#sessionEarlyFinish", "#sessionAbandon"].every((id) => { const el = document.querySelector(id); return !body.contains(el) && el.closest("#sessionEarlySection")?.parentElement === sheet; }),
           note: document.querySelector("#sessionBodyweightNote").classList.contains("hidden") ? "" : document.querySelector("#sessionBodyweightNote").textContent };
       });
       assert(m.summary.includes(`${m.sets}/${m.total}`) && /Mono/i.test(m.mono), `${label}: the head says the sets logged of the sets planned, in Mono`, JSON.stringify({ summary: m.summary, sets: m.sets, total: m.total }));
@@ -199,12 +200,12 @@ async function sessionHubChecks(browser) {
           top = b.top; }
         return out; }));
       assert(broken.length === 0, `${label}: exercise names wrap between words, or hyphenate only inside a long word`, JSON.stringify(broken));
-      assert(m.kids.length === 2 && m.endingsInBody, `${label}: nothing is pinned under the body; both endings close its scroll`, JSON.stringify(m.kids));
+      assert(m.kids.length === 3 && m.endingsPinned, `${label}: the head, the scrolling body and one pinned footer holding both endings`, JSON.stringify(m.kids));
       assert(/Pull-up/.test(m.note), `${label}: a lift that counts bodyweight is named beside the bodyweight field`, m.note);
       await page.locator("#sessionSheetBody").evaluate((b) => { b.scrollTop = b.scrollHeight; });
       await page.waitForTimeout(150);
       const end = await page.evaluate(() => {
-        const col = document.querySelector("#sessionSheetBody").getBoundingClientRect();
+        const col = { top: document.querySelector("#sessionSheetBody").getBoundingClientRect().bottom, bottom: innerHeight };
         const look = (id) => { const el = document.querySelector(id), r = el.getBoundingClientRect(), cs = getComputedStyle(el);
           const hit = document.elementFromPoint((r.left + r.right) / 2, (r.top + r.bottom) / 2);
           return { whole: r.top >= col.top - 0.5 && r.bottom <= col.bottom + 0.5, tapped: !!hit?.closest(id), border: parseFloat(cs.borderTopWidth) || 0,
@@ -212,7 +213,7 @@ async function sessionHubChecks(browser) {
         return { early: look("#sessionEarlyFinish"), abandon: look("#sessionAbandon"), scrolled: document.querySelector("#sessionSheet .sheetband").classList.contains("is-scrolled") };
       });
       assert(end.early.whole && end.abandon.whole && end.early.tapped && end.abandon.tapped && end.abandon.height >= 44,
-        `${label}: scrolled to the end, Finish early and End without saving are whole and take their taps`, JSON.stringify(end));
+        `${label}: under the body, Finish and End without saving are whole in the viewport and take their taps`, JSON.stringify(end));
       assert(end.early.border > 0 && end.abandon.border === 0 && end.abandon.bg === "rgba(0, 0, 0, 0)" && end.abandon.color !== end.early.color,
         `${label}: End without saving is quiet red text, never the bordered control Finish early is`, JSON.stringify(end));
       assert(end.scrolled, `${label}: the head takes its hairline once content is under it`);

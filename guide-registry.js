@@ -18,7 +18,7 @@
     // the old landing-anchored cue sees it once more at its new anchor.
     Object.freeze({ id: "entry", version: 2, anchorSelector: "[data-entry-hub=\"recommend\"]", coveredByOldTour: false, wired: true }),
     Object.freeze({ id: "first-set", version: 1, anchorSelector: ".saveset", coveredByOldTour: true, wired: true }),
-    Object.freeze({ id: "focus-utilities", version: 1, anchorSelector: "#woOverflowBtn", coveredByOldTour: true, wired: true }),
+    Object.freeze({ id: "focus-utilities", version: 1, anchorSelector: "#sessionSheetBtn", coveredByOldTour: true, wired: true }),
     Object.freeze({ id: "progress", version: 2, anchorSelector: "#stats[data-page=\"summary\"] #statsTitle", coveredByOldTour: true, wired: true }),
     Object.freeze({ id: "block-transition", version: 2, anchorSelector: "#stats[data-page=\"review\"] #statsTitle", coveredByOldTour: true, wired: true }),
     Object.freeze({ id: "backup", version: 1, anchorSelector: "#exportJson", coveredByOldTour: true, wired: true }),

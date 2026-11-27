@@ -1043,6 +1043,11 @@
       "content": "flat",
       "scenario": "Session details and map through production controls."
     },
+    "workout/session-voice": {
+      "owner": "exercise-menu",
+      "content": "flat",
+      "scenario": "The Session sheet with voice input turned on: the Voice input row shows under Details."
+    },
     "workout/early-finish": {
       "owner": "plan-055",
       "content": "flat",
@@ -1288,11 +1293,6 @@
       "content": "flat",
       "scenario": "A Today exercise lifted above its context menu, opened through its visible actions button."
     },
-    "workout/actions": {
-      "owner": "plan-075-phase-4",
-      "content": "flat",
-      "scenario": "Focus session actions with a separate Cancel, before any action commits."
-    },
     "program/editor-context-menu": {
       "owner": "plan-075-phase-4",
       "content": "flat",
@@ -1532,6 +1532,16 @@
       "owner": "phone-pass-front-a",
       "scenario": "Estimate explanation opened explicitly from Today.",
       "content": "flat"
+    },
+    "workout/prelude-add-disabled": {
+      "owner": "exercise-menu",
+      "content": "flat",
+      "scenario": "Suggested warm-ups prevent adding another warm-up, with a visible reason."
+    },
+    "workout/prelude-add-limit": {
+      "owner": "exercise-menu",
+      "content": "flat",
+      "scenario": "Six logged warm-ups disable Add warm-up with its reason."
     }
   },
   "components": [
@@ -2562,6 +2572,7 @@
         "workout/why-manual",
         "workout/why-setup",
         "workout/session",
+        "workout/session-voice",
         "workout/early-finish",
         "workout/abandon",
         "workout/exercise-actions",
@@ -2574,7 +2585,6 @@
         "workout/substituted-actions",
         "workout/swap-alternates",
         "workout/swap-reason",
-        "workout/actions",
         "workout/max-set-prompt",
         "workout/max-set-recheck",
         "workout/max-set-guess",
@@ -2651,7 +2661,9 @@
         "workout/skipped-actions",
         "workout/substituted-actions",
         "workout/warmup-actions",
-        "workout/discomfort-mark"
+        "workout/discomfort-mark",
+        "workout/prelude-add-disabled",
+        "workout/prelude-add-limit"
       ]
     },
     {
@@ -2698,7 +2710,9 @@
         "workout/skipped-actions",
         "workout/substituted-actions",
         "workout/warmup-actions",
-        "workout/discomfort-mark"
+        "workout/discomfort-mark",
+        "workout/prelude-add-disabled",
+        "workout/prelude-add-limit"
       ]
     },
     {
@@ -2724,7 +2738,9 @@
         "workout/skipped-actions",
         "workout/substituted-actions",
         "workout/warmup-actions",
-        "workout/discomfort-mark"
+        "workout/discomfort-mark",
+        "workout/prelude-add-disabled",
+        "workout/prelude-add-limit"
       ]
     },
     {
@@ -2751,7 +2767,9 @@
         "workout/skipped-actions",
         "workout/substituted-actions",
         "workout/warmup-actions",
-        "workout/discomfort-mark"
+        "workout/discomfort-mark",
+        "workout/prelude-add-disabled",
+        "workout/prelude-add-limit"
       ]
     },
     {
@@ -2772,7 +2790,9 @@
         "workout/skipped-actions",
         "workout/substituted-actions",
         "workout/warmup-actions",
-        "workout/discomfort-mark"
+        "workout/discomfort-mark",
+        "workout/prelude-add-disabled",
+        "workout/prelude-add-limit"
       ]
     },
     {
@@ -2793,7 +2813,9 @@
         "workout/skipped-actions",
         "workout/substituted-actions",
         "workout/warmup-actions",
-        "workout/discomfort-mark"
+        "workout/discomfort-mark",
+        "workout/prelude-add-disabled",
+        "workout/prelude-add-limit"
       ]
     },
     {
@@ -6109,6 +6131,7 @@
         "workout/early-finish",
         "workout/reorder",
         "workout/session",
+        "workout/session-voice",
         "workout/rest-overrun-finish"
       ]
     },
@@ -6135,6 +6158,7 @@
         "workout/early-finish",
         "workout/reorder",
         "workout/session",
+        "workout/session-voice",
         "workout/rest-overrun-finish"
       ]
     },
@@ -6187,7 +6211,7 @@
       "id": "sessionearlyfinish",
       "selector": "#sessionEarlyFinish",
       "roles": {
-        "control": "secondary"
+        "control": "primary"
       },
       "variant": null,
       "facets": [],
@@ -6199,11 +6223,12 @@
         "disabled",
         "loading"
       ],
-      "rationale": "Performs a reversible supporting action without becoming the screen commitment.",
+      "rationale": "Finishes the session, confirming omissions when sets remain unlogged.",
       "owner": "plan-058",
       "catalogStates": [
         "workout/reorder",
-        "workout/session"
+        "workout/session",
+        "workout/session-voice"
       ]
     },
     {
@@ -6225,7 +6250,8 @@
       "owner": "plan-071",
       "catalogStates": [
         "workout/reorder",
-        "workout/session"
+        "workout/session",
+        "workout/session-voice"
       ]
     },
     {
@@ -6293,6 +6319,7 @@
         "workout/early-finish",
         "workout/reorder",
         "workout/session",
+        "workout/session-voice",
         "workout/rest-overrun-finish"
       ]
     },
@@ -6314,6 +6341,7 @@
         "workout/early-finish",
         "workout/reorder",
         "workout/session",
+        "workout/session-voice",
         "workout/rest-overrun-finish"
       ]
     },
@@ -6321,12 +6349,10 @@
       "id": "sessionsheetbtn",
       "selector": "#sessionSheetBtn",
       "roles": {
-        "control": "quiet-navigation"
+        "control": "secondary"
       },
       "variant": null,
-      "facets": [
-        "icon-only"
-      ],
+      "facets": [],
       "states": [
         "default",
         "hover",
@@ -6405,6 +6431,7 @@
         "workout/early-finish",
         "workout/reorder",
         "workout/session",
+        "workout/session-voice",
         "workout/rest-overrun-finish"
       ]
     },
@@ -6426,6 +6453,7 @@
         "workout/early-finish",
         "workout/reorder",
         "workout/session",
+        "workout/session-voice",
         "workout/rest-overrun-finish"
       ]
     },
@@ -7659,70 +7687,6 @@
       ]
     },
     {
-      "id": "wooverflowbtn",
-      "selector": "#woOverflowBtn",
-      "roles": {
-        "control": "quiet-navigation"
-      },
-      "variant": null,
-      "facets": [
-        "icon-only"
-      ],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled"
-      ],
-      "rationale": "Opens the Focus session action sheet; each session or exercise action stays in its existing owner.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "workout/correction",
-        "workout/logged-sets",
-        "workout/focus",
-        "workout/focus-per-side",
-        "workout/focus-glossary",
-        "workout/persist-retry",
-        "workout/stale-draft",
-        "workout/rest-running",
-        "workout/rest-done",
-        "workout/swap-alternates",
-        "workout/swap-reason",
-        "workout/deload-week",
-        "workout/fatigue",
-        "workout/logged-sets-folded",
-        "workout/exercise-note-line",
-        "workout/max-set-prompt",
-        "workout/max-set-recheck",
-        "workout/max-set-guess",
-        "workout/max-set-active",
-        "workout/max-set-result",
-        "workout/effort-stage-a",
-        "workout/effort-stage-b",
-        "workout/stage-tip",
-        "workout/last-rep-slow",
-        "workout/focus-ramp",
-        "workout/focus-ramp-ratio",
-        "workout/focus-ramp-substitution",
-        "workout/focus-ramp-changed-movement",
-        "workout/focus-ramp-easy",
-        "workout/focus-ramp-floor",
-        "workout/pain-swap",
-        "workout/past-zero",
-        "workout/past-zero-selected",
-        "workout/past-zero-ledger",
-        "workout/past-zero-why",
-        "workout/prelude",
-        "workout/prelude-learned",
-        "workout/prelude-rest",
-        "workout/prelude-summary",
-        "workout/prelude-suppressed",
-        "workout/prelude-warm",
-        "workout/prelude-tie"
-      ]
-    },
-    {
       "id": "woprogress-segbar-ex",
       "selector": "#woProgress .segbar--ex",
       "roles": {
@@ -7750,6 +7714,7 @@
         "workout/persist-retry",
         "workout/reorder",
         "workout/session",
+        "workout/session-voice",
         "workout/skipped-actions",
         "workout/stale-draft",
         "workout/substituted-actions",
@@ -9025,6 +8990,7 @@
         "workout/early-finish",
         "workout/reorder",
         "workout/session",
+        "workout/session-voice",
         "workout/rest-overrun-finish"
       ]
     },
@@ -9051,6 +9017,7 @@
         "workout/early-finish",
         "workout/reorder",
         "workout/session",
+        "workout/session-voice",
         "workout/rest-overrun-finish"
       ]
     },
@@ -9897,6 +9864,7 @@
         "workout/focus-per-side",
         "workout/focus-glossary",
         "workout/session",
+        "workout/session-voice",
         "workout/early-finish",
         "workout/exercise-actions",
         "workout/skipped-actions",
@@ -10013,6 +9981,7 @@
         "workout/exercise-note",
         "workout/reorder",
         "workout/session",
+        "workout/session-voice",
         "workout/skipped-actions",
         "workout/substituted-actions",
         "workout/swap-alternates",
@@ -10050,7 +10019,9 @@
         "session/summary-share-line",
         "today/estimate-info",
         "workout/past-zero-why",
-        "workout/prelude-why"
+        "workout/prelude-why",
+        "workout/prelude-add-disabled",
+        "workout/prelude-add-limit"
       ]
     },
     {
@@ -12460,10 +12431,11 @@
       ]
     },
     {
-      "id": "exactions-warmup-switch",
-      "selector": ".exactions__warmup-switch",
+      "id": "exactions-warmup-chip",
+      "selector": ".exactions__warm-chip",
       "roles": {
-        "control": "selection"
+        "control": "selection",
+        "boundary": "state-cues"
       },
       "variant": null,
       "facets": [],
@@ -12473,7 +12445,7 @@
         "focus-visible",
         "selected"
       ],
-      "rationale": "Marks one set as a warm-up (UI kit batch 3, owner 2026-10-24): a switch named \"Set n warm-up\" beside its visible Warm-up caption; on is ink, as Settings' switches are, so Focus keeps its orange budget.",
+      "rationale": "Set-labelled pressed chips mark and unmark each programmed set as warm-up.",
       "owner": "kit-c",
       "neverDisabledReason": "Every set can be marked a warm-up or a working set while the exercise is open.",
       "catalogStates": [
@@ -12481,7 +12453,9 @@
         "workout/warmup-actions",
         "workout/skipped-actions",
         "workout/substituted-actions",
-        "workout/discomfort-mark"
+        "workout/discomfort-mark",
+        "workout/prelude-add-disabled",
+        "workout/prelude-add-limit"
       ]
     },
     {
@@ -13013,6 +12987,7 @@
         "workout/invalid-draft",
         "workout/reorder",
         "workout/session",
+        "workout/session-voice",
         "workout/rest-overrun-finish",
         "onboarding-import/editor-empty-day"
       ],
@@ -13195,104 +13170,6 @@
       "neverDisabledReason": "The menu or choice stays reachable whenever its owning row is present."
     },
     {
-      "id": "workout-action-sheet",
-      "selector": "#workoutActionSheet",
-      "roles": {
-        "elevation": "modal"
-      },
-      "variant": "bottom-sheet",
-      "facets": [],
-      "states": [
-        "default"
-      ],
-      "rationale": "Grouped session actions with a separate Cancel; keeps underlying Focus inert.",
-      "owner": "plan-075-phase-4",
-      "catalogStates": [
-        "workout/actions"
-      ]
-    },
-    {
-      "id": "workout-action-group",
-      "selector": ".native-actions__group",
-      "roles": {
-        "elevation": "modal"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default"
-      ],
-      "rationale": "The solid action group carries the modal depth; its buttons do not create further raised cards.",
-      "owner": "plan-075-phase-4",
-      "catalogStates": [
-        "workout/actions"
-      ]
-    },
-    {
-      "id": "workout-actions",
-      "selector": "#workoutActionSheet [data-workout-action]:not(.is-destructive)",
-      "roles": {
-        "control": "secondary"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible"
-      ],
-      "rationale": "Opens the existing Finish, Reorder, Exercise actions or opted-in Voice input flow.",
-      "owner": "plan-075-phase-4",
-      "catalogStates": [
-        "workout/actions"
-      ],
-      "neverDisabledReason": "The menu or choice stays reachable whenever its owning row is present."
-    },
-    {
-      "id": "workout-action-abandon",
-      "selector": "#workoutActionSheet [data-workout-action=\"abandon\"]",
-      "roles": {
-        "control": "destructive"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible"
-      ],
-      "rationale": "Opens the existing End without saving confirmation; the first tap discards nothing.",
-      "owner": "plan-075-phase-4",
-      "catalogStates": [
-        "workout/actions"
-      ],
-      "neverDisabledReason": "The menu or choice stays reachable whenever its owning row is present."
-    },
-    {
-      "id": "workout-action-cancel",
-      "selector": "#workoutActionCancel",
-      "roles": {
-        "control": "quiet-navigation",
-        "elevation": "floating"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible"
-      ],
-      "rationale": "Dismisses the action sheet and restores its opener.",
-      "owner": "plan-075-phase-4",
-      "catalogStates": [
-        "workout/actions"
-      ],
-      "neverDisabledReason": "The menu or choice stays reachable whenever its owning row is present."
-    },
-    {
       "id": "native-segment-group",
       "selector": ".native-segments",
       "roles": {
@@ -13355,23 +13232,6 @@
         "history/session-share",
         "session/summary-share-edit",
         "session/summary-share-line"
-      ]
-    },
-    {
-      "id": "workout-action-scrim",
-      "selector": "#workoutActionScrim",
-      "roles": {
-        "elevation": "modal"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default"
-      ],
-      "rationale": "The action-sheet scrim blocks the workout until the menu is dismissed.",
-      "owner": "plan-075-phase-4",
-      "catalogStates": [
-        "workout/actions"
       ]
     },
     {
@@ -14074,7 +13934,9 @@
         "workout/warmup-actions",
         "workout/skipped-actions",
         "workout/exercise-actions",
-        "workout/substituted-actions"
+        "workout/substituted-actions",
+        "workout/prelude-add-disabled",
+        "workout/prelude-add-limit"
       ]
     },
     {
@@ -16306,6 +16168,190 @@
       "owner": "plan-085",
       "catalogStates": [
         "workout/prelude-suppressed"
+      ]
+    },
+    {
+      "id": "exactions-warmup-step-link",
+      "selector": ".exactions__warmup-ctl .text-link",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Edit or Remove on a warm-up the lifter logged, in the exercise sheet.",
+      "owner": "exercise-menu",
+      "catalogStates": [
+        "workout/prelude-add-limit"
+      ]
+    },
+    {
+      "id": "focus-exercise-actions",
+      "selector": "#workout [data-ex-actions]",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "focus-visible",
+        "pressed"
+      ],
+      "rationale": "Exercise and session actions in their owning sheet.",
+      "owner": "exercise-menu",
+      "catalogStates": [
+        "workout/correction",
+        "workout/logged-sets",
+        "workout/focus",
+        "workout/focus-per-side",
+        "workout/focus-glossary",
+        "workout/persist-retry",
+        "workout/stale-draft",
+        "workout/rest-running",
+        "workout/rest-done",
+        "workout/swap-alternates",
+        "workout/swap-reason",
+        "workout/deload-week",
+        "workout/fatigue",
+        "workout/logged-sets-folded",
+        "workout/exercise-note-line",
+        "workout/max-set-prompt",
+        "workout/max-set-recheck",
+        "workout/max-set-guess",
+        "workout/max-set-active",
+        "workout/max-set-result",
+        "workout/effort-stage-a",
+        "workout/effort-stage-b",
+        "workout/stage-tip",
+        "workout/last-rep-slow",
+        "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor",
+        "workout/pain-swap",
+        "workout/past-zero",
+        "workout/past-zero-selected",
+        "workout/past-zero-ledger",
+        "workout/past-zero-why",
+        "workout/prelude",
+        "workout/prelude-learned",
+        "workout/prelude-rest",
+        "workout/prelude-summary",
+        "workout/prelude-suppressed",
+        "workout/prelude-warm",
+        "workout/prelude-tie"
+      ],
+      "neverDisabledReason": "Available throughout an active workout to open its owning sheet."
+    },
+    {
+      "id": "focus-rest",
+      "selector": "#workoutRestBtn",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "focus-visible",
+        "pressed"
+      ],
+      "rationale": "Exercise and session actions in their owning sheet.",
+      "owner": "exercise-menu",
+      "catalogStates": [
+        "workout/correction",
+        "workout/logged-sets",
+        "workout/focus",
+        "workout/focus-per-side",
+        "workout/focus-glossary",
+        "workout/persist-retry",
+        "workout/stale-draft",
+        "workout/rest-running",
+        "workout/rest-done",
+        "workout/swap-alternates",
+        "workout/swap-reason",
+        "workout/deload-week",
+        "workout/fatigue",
+        "workout/logged-sets-folded",
+        "workout/exercise-note-line",
+        "workout/max-set-prompt",
+        "workout/max-set-recheck",
+        "workout/max-set-guess",
+        "workout/max-set-active",
+        "workout/max-set-result",
+        "workout/effort-stage-a",
+        "workout/effort-stage-b",
+        "workout/stage-tip",
+        "workout/last-rep-slow",
+        "workout/focus-ramp",
+        "workout/focus-ramp-ratio",
+        "workout/focus-ramp-substitution",
+        "workout/focus-ramp-changed-movement",
+        "workout/focus-ramp-easy",
+        "workout/focus-ramp-floor",
+        "workout/pain-swap",
+        "workout/past-zero",
+        "workout/past-zero-selected",
+        "workout/past-zero-ledger",
+        "workout/past-zero-why",
+        "workout/prelude",
+        "workout/prelude-learned",
+        "workout/prelude-rest",
+        "workout/prelude-summary",
+        "workout/prelude-suppressed",
+        "workout/prelude-warm",
+        "workout/prelude-tie"
+      ],
+      "neverDisabledReason": "Available throughout an active workout to open its owning sheet."
+    },
+    {
+      "id": "warmup-add-disabled",
+      "selector": "#exActionAddWarmup",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "focus-visible",
+        "pressed",
+        "disabled"
+      ],
+      "rationale": "Exercise and session actions in their owning sheet.",
+      "owner": "exercise-menu",
+      "catalogStates": [
+        "workout/prelude-add-disabled",
+        "workout/prelude-add-limit"
+      ]
+    },
+    {
+      "id": "session-voice-input",
+      "selector": "#voiceBtn",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "pressed",
+        "focus-visible"
+      ],
+      "neverDisabledReason": "Shown when voice input is supported and enabled.",
+      "rationale": "Starts the existing voice input from Session.",
+      "owner": "exercise-menu",
+      "catalogStates": [
+        "workout/session-voice"
       ]
     }
   ],

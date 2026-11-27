@@ -371,8 +371,7 @@ try {
       "Hack squat baseline has its own three checks, opening load and four history rows",baseline);
     await swapPage.evaluate(id=>window.__repforgeGoToLogExercise(id),target.id);
     const replacementId=await swapPage.evaluate(()=>window.RepForgeExerciseCatalog.snapshot().exercises.find(ex=>ex.name==="Pendulum squat").id);
-    await swapPage.locator("#woOverflowBtn").click();
-    await swapPage.locator('[data-workout-action="exercise"]').click();
+    await swapPage.locator("#workout [data-ex-actions]").click();
     await swapPage.locator("#exActionSubstBtn").click();
     await swapPage.locator("#exPickSearch").fill("Pendulum squat");
     await swapPage.locator(`#exPickList [data-pick="${replacementId}"]`).click();
@@ -405,8 +404,7 @@ try {
       assert(readingDetail===detail,`${label}: Program detail retains Hack's own profile`,readingDetail);
     }
     await swapPage.evaluate(id=>window.__repforgeGoToLogExercise(id),target.id);
-    await swapPage.locator("#woOverflowBtn").click();
-    await swapPage.locator('[data-workout-action="exercise"]').click();
+    await swapPage.locator("#workout [data-ex-actions]").click();
     await swapPage.locator("#exActionRestoreOrigBtn").click();
     await swapPage.evaluate(()=>window.__repforgeWorkoutDraft.flush());
     await swapPage.locator("#leaveWorkout").click();

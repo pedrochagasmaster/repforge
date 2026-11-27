@@ -214,8 +214,7 @@ try {
     assert(!ended.restEnd && !ended.tab, "End rest ends it and closes the sheet; the tab is gone", ended);
 
     phase("With no rest, the actions sheet opens the timer on Start");
-    await page.locator("#woOverflowBtn").click();
-    await page.locator('[data-workout-action="rest"]').click();
+    await page.locator("#workoutRestBtn").click();
     await page.waitForSelector("#restSheet.is-open", { timeout: 5000 });
     const idleSheet = await read(page);
     assert(idleSheet.hold === "start" && idleSheet.dialTime === "3:00", "the idle sheet offers Start, the dial at the length set", idleSheet);

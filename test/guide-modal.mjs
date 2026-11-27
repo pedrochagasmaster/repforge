@@ -260,7 +260,7 @@ async function arriveInFocus(page) {
   await expectGuideDialog(page, "focus-utilities", "Focus utilities");
   await page.keyboard.press("Escape");
   await expectClosed(page, "Focus utilities");
-  ok(await page.evaluate(() => document.activeElement === document.querySelector("#woOverflowBtn")), "Focus utilities: focus returns to its anchor");
+  ok(await page.evaluate(() => document.activeElement === document.querySelector("#sessionSheetBtn")), "Focus utilities: focus returns to its anchor");
   await context.close();
 }
 

@@ -234,7 +234,7 @@ async function nonRampParity(browser){
 async function swapOpening(page,name,{rejected=false}={}){
   const before=await waitForDraft(page);
   const id=await page.evaluate(name=>window.RepForgeExerciseCatalog.snapshot().exercises.find(ex=>ex.name===name).id,name);
-  await page.locator("#woOverflowBtn").click();await page.locator('[data-workout-action="exercise"]').click();
+  await page.locator("#workout [data-ex-actions]").click();
   await page.locator("#exActionSubstBtn").click();await page.locator("#exPickSearch").fill(name);
   await page.locator(`#exPickList [data-pick="${id}"]`).click();
   if(rejected)await waitForAsyncCondition(page,()=>document.querySelector("#toast")?.textContent.includes("Clear the values that you entered"));
@@ -245,7 +245,7 @@ async function openingNoops(browser){
   const session=await open(browser),page=session.page;
   await startOpening(page);await field(page,"loadKg",72.5);
   const before=await exercise(page);
-  await page.locator("#woOverflowBtn").click();await page.locator('[data-workout-action="exercise"]').click();
+  await page.locator("#workout [data-ex-actions]").click();
   await page.locator("#exActionSubstBtn").click();await page.locator("#exPickSearch").fill("Hack squat");
   await page.locator("#exPickList .pickrow__name").filter({hasText:/^Hack squat$/}).click();
   await page.locator("#exPickSheet").waitFor({state:"hidden"});await waitForDraft(page);
@@ -283,7 +283,7 @@ async function openingChanges(browser){
   await startOpening(page);await answer(page,"easy");await waitWarmups(page,2);
   check((await waitForOpening(page)).startingLoad.ramps===1,"the new movement counts its own ramp trial");
   await swapOpening(page,"Barbell bench press");await offer(22.5,"prior","per-hand load back to total load");
-  await page.locator("#woOverflowBtn").click();await page.locator('[data-workout-action="exercise"]').click();
+  await page.locator("#workout [data-ex-actions]").click();
   await page.locator("#exActionRestoreOrigBtn").click();await exercise(page,{substitutionId:null});
   await offer(35,"ratio","restore recomputes the original movement opening");
   await page.reload();await waitForAppBoot(page,{base:BASE});await offer(35,"ratio","restored movement after reload");
@@ -343,7 +343,7 @@ async function ratioJourneys(browser){
   const swapped=await open(browser,{historySource:"original"});
   const replacement=await swapped.page.evaluate(()=>window.RepForgeExerciseCatalog.snapshot().exercises.find(ex=>ex.name==="Pendulum squat").id);
   check(await swapped.page.locator(`${card} [data-ramp-start]`).count()===0,"a movement with its own working history does not borrow another opening");
-  await swapped.page.locator("#woOverflowBtn").click();await swapped.page.locator('[data-workout-action="exercise"]').click();
+  await swapped.page.locator("#workout [data-ex-actions]").click();
   await swapped.page.locator("#exActionSubstBtn").click();
   await swapped.page.locator("#exPickSearch").fill("Pendulum squat");
   await swapped.page.locator(`#exPickList [data-pick="${replacement}"]`).click();
@@ -365,7 +365,7 @@ async function ratioJourneys(browser){
   await finishEarly(dp);await dp.reload();await waitForAppBoot(dp,{base:BASE});
   await dp.evaluate(id=>window.__repforgeGoToLogExercise(id),dumbbells.target.id);
   const incline=await dp.evaluate(()=>window.RepForgeExerciseCatalog.snapshot().exercises.find(ex=>ex.name==="Low incline dumbbell press").id);
-  await dp.locator("#woOverflowBtn").click();await dp.locator('[data-workout-action="exercise"]').click();await dp.locator("#exActionSubstBtn").click();
+  await dp.locator("#workout [data-ex-actions]").click();await dp.locator("#exActionSubstBtn").click();
   await dp.locator("#exPickSearch").fill("Low incline dumbbell press");await dp.locator(`#exPickList [data-pick="${incline}"]`).click();
   await dp.locator('[data-pick-reason="equipment"]').click();
   check(await dp.locator(`${card} [data-ramp-start]`).innerText()==="Start at 20 kg","per-hand substitution carries a per-hand working anchor");
