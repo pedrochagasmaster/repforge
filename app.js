@@ -26213,7 +26213,7 @@ function setFirstRunOffer(offer){
 function renderFirstRunHeroCopy(){
   const shared=sharedSetupReady(),invalid=sharedSetupInvalid();
   const headline=$("#firstRunHeadline"),lede=$("#firstRunLede");
-  if(headline)headline.textContent=t(shared?"setup.shared.title":invalid?"landing.shared.invalid_headline":"landing.headline");
+  if(headline)headline.textContent=t(shared?(ONBOARDING_DIRECTION?"setup.shared.view":"setup.shared.title"):invalid?"landing.shared.invalid_headline":"landing.headline");
   if(lede)lede.textContent=t(shared?(ONBOARDING_DIRECTION?"odir.shared.body":"landing.shared.body"):invalid?"landing.shared.invalid_body":"landing.hero.sub");
 }
 /** Chrome accepted the install, or the app reports itself installed. Either way

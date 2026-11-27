@@ -3477,7 +3477,7 @@
   "odir.basic.cardioExperience": "Experiência com cardio",
   "odir.question.split": "Como você quer organizar sua semana de treino?",
   "odir.question.exercises": "Quais exercícios você quer evitar ou manter?",
-  "odir.shared.body": "Comece este treino para usar o treino e as configurações deste link. Ele não inclui histórico.",
+  "odir.shared.body": "Veja o treino e as configurações deste link. Ele não inclui histórico. Nada muda até você tocar em Usar este treino.",
   "odir.gym.everything": "Todos os equipamentos, sem limites",
   "odir.gym.commercial_gym": "Máquinas, cabos e pesos livres",
   "odir.gym.warehouse_gym": "Principalmente pesos livres e algumas máquinas",
