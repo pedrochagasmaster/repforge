@@ -295,7 +295,7 @@ device-pixel sampling negatives).
 
 Full lane: the two exhaustive catalog sweeps are split into shard commands.
 
-- `tools/check-ui-system.mjs --shard k/12` renders one stripe of the
+- `tools/check-ui-system.mjs --shard k/13` renders one stripe of the
   screen × theme × locale matrix and writes `ui-system-shard.json` beside its
   evidence. `test/ci.mjs` keeps each stripe's renders × `UI_SYSTEM_STATE_SECONDS`
   (the slowest measured per-state cost) under 85% of its timeout; when the
