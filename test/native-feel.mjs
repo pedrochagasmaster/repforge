@@ -853,9 +853,9 @@ async function nativeControls(browser, { appearanceOnly = false } = {}) {
     assert(await page.evaluate(() => !!localStorage.getItem('repforge_draft_v1')), "End without saving first asks for confirmation");
     await page.click('#sessionAbandonCancel');
     assert(await page.evaluate(() => !!localStorage.getItem('repforge_draft_v1')), "Keep training keeps the draft");
-    await page.waitForSelector('#sessionSheet', { state: 'hidden' });
-    assert(await page.locator('#workoutShell').isVisible(), 'Keep training returns directly to Focus');
-    await page.locator("#sessionSheetBtn").click(); await page.locator("#sessionAbandon").click();
+    await page.waitForSelector('#sessionAbandonPrompt', { state: 'hidden' });
+    assert(await page.locator('#sessionSheet').isVisible(), 'Keep training leaves the Session sheet open');
+    assert(await page.locator('#sessionEarlyFinish').isVisible() && await page.locator('#sessionAbandon').isVisible(), 'Keep training restores footer buttons'); await page.locator("#sessionAbandon").click();
     await page.waitForSelector('#sessionAbandonPrompt:not(.hidden)');
     await page.keyboard.press('Escape'); await page.waitForSelector('#sessionSheet', { state: 'hidden' });
     await page.click('#sessionSheetBtn'); await page.waitForSelector('#sessionSheet.is-open');

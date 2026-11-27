@@ -536,6 +536,19 @@ async function main() {
       assert(!await p.locator("#sessionEarlyPrompt").isVisible(), "Finish saves directly when all sets are logged");
     } finally {await fixture.context.close()}
 
+    for (const viewport of [{width:1280,height:720},{width:390,height:844},{width:320,height:568}]) {
+      const fixture=await openPage(browser,manifest,{flow:"workout",screen:"focus",viewport:"phone-390",theme:"light",locale:"en",text:"normal",motion:"normal"},appState("workout/focus",manifest.locales.en.lang),{catalog:true});
+      try {
+        const p=fixture.page;
+        await p.setViewportSize(viewport);
+        await APP_SCENARIOS["workout/focus"](p);
+        await p.locator("#sessionSheetBtn").click();
+        await p.locator("#sessionEarlyFinish").click();
+        await p.locator("#sessionEarlyConfirm").click({timeout:3000});
+        await p.waitForSelector("#sessionSheet",{state:"hidden"});
+      } finally { await fixture.context.close(); }
+    }
+
     assert(pageErrors.length === 0, "exercise actions journey emits no errors", pageErrors.join("\n"));
     console.log("\nAll Exercise-actions assertions passed successfully!");
   } finally {
