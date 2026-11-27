@@ -1,3 +1,4 @@
+const menuDirection = (value => ["a", "b", "c"].includes(value) ? value : "")(new URLSearchParams(location.search).get("mdir"));
 let fallbackGestureController=null;
 const fallbackFocusTimers=new Set();
 function fallbackFocusLater(callback,delay){
@@ -10159,6 +10160,8 @@ function renderExActionsSheet(exId) {
     setupTextEl.textContent = setupText || t("ex.actions.no_setup_notes");
   }
 
+  if(menuDirection) $("#exActionsSetupSection").hidden=!setupText;
+
   // Repeat last session
   const repeatBtn = $("#exActionRepeatBtn");
   const repeatHint = $("#exActionRepeatHint");
@@ -10222,6 +10225,8 @@ function renderExActionsSheet(exId) {
       };
     });
   }
+
+  if(menuDirection) renderDirectionExercise();
 
   // Skip / restore exercise
   const skipLabel = $("#exActionSkipLabel");
@@ -12252,7 +12257,7 @@ function focusCardHtml(ex,r,draft,prev,opts){
     `<div class="fx-head"><div class="fx-head__row"><p class="focus-ex__meta">${esc(focusExMeta(ex))}</p>${noteAdd}</div>${note}</div>`+
     slotHtml+quietRow+
     `<div class="fcard__ledger">`+
-    `${focusLedgerHtml(ex,r,draft,prev,{peek})}</div>`+nextRow+`</div>`+
+    `${focusLedgerHtml(ex,r,draft,prev,{peek})}</div>`+(menuDirection==="c"&&!peek?directionCardActions(ex):"")+nextRow+`</div>`+
     focusShelfHtml(ex,r,draft,prev,{allDone,hasNext,peek})+`</article>`}
 
 /** The deck: the live card plus an inert copy of each neighbour, parked off
@@ -12341,11 +12346,13 @@ function updateWorkoutHeader(fl,at){
 // @ci-domain global
 /** Session actions share one modal, including the optional voice command. */
 function syncWorkoutMore(){
+  if(menuDirection){setupMenuDirection();const button=$("#woOverflowBtn");button?.setAttribute("aria-haspopup","dialog");button?.setAttribute("aria-expanded",String(!$(menuDirection==="c"?"#sessionSheet":"#exActionsSheet")?.hidden));return}
   const button=$("#woOverflowBtn");if(!button)return;
   button.setAttribute("aria-haspopup","dialog");button.setAttribute("aria-controls","workoutActionSheet");
   button.setAttribute("aria-expanded",String(!$("#workoutActionSheet")?.hidden));
 }
 function openWorkoutMore(){
+  if(menuDirection){if(menuDirection==="c")openSessionSheet();else openDirectionExercise("all");return}
   if(!activeWorkoutDraft)return;
   const sheet=$("#workoutActionSheet"),scrim=$("#workoutActionScrim");
   const voice=sheet.querySelector('[data-workout-action="voice"]');
@@ -13043,6 +13050,7 @@ function bindWorkout(){
     $w("[data-ledgermore]").forEach(b=>b.onclick=()=>toggleFocusLedger(b));
     $w("[data-slow]").forEach(b=>b.onclick=()=>answerLastRepSlow(b.dataset.slow,b.dataset.v==="1"));
     $w("[data-slowclear]").forEach(b=>b.onclick=()=>answerLastRepSlow(b.dataset.slowclear,null));
+    $w("[data-mdir-card]").forEach(b=>b.onclick=()=>directionCardAction(b));
     $w("[data-fnote]").forEach(b=>b.onclick=()=>openExNoteSheet(b.dataset.fnote));
     $w("[data-maxset-cancel]").forEach(b=>b.onclick=()=>{const key=b.dataset.maxsetCancel,at=key.lastIndexOf("_");
       cancelMaxSet(key.slice(0,at),+key.slice(at+1))});
@@ -28554,6 +28562,7 @@ function init(){
 
   const earlyBtn=$("#sessionEarlyFinish");if(earlyBtn)earlyBtn.onclick=async()=>{
     await WorkoutSession.flush();
+    if(menuDirection&&activeWorkoutDraft&&normalFinishIssues(activeWorkoutDraft).length===0){await closeSessionSheet();saveWorkout(null);return}
     const restReason=restOverrunReasonPending;restOverrunReasonPending=false;
     if(!activeWorkoutDraft)return;
     if(!WorkoutSession.captureEarlyFinish(activeWorkoutDraft)){
@@ -29301,3 +29310,64 @@ async function runBoot(){
   try{return await boot()}
   catch(error){showBootFailure("boot-error");throw error}}
 runBoot();
+
+let directionSheetMode="all",directionWarmExpanded=false;
+function directionIcon(name){return `<span class="icon-mask icon-mask--${name}" aria-hidden="true"></span>`}
+function directionRow(id,key,icon,action){
+  const b=document.createElement("button");b.type="button";b.id=id;b.className="exactions__act";
+  b.innerHTML=directionIcon(icon)+`<span>${esc(t(key))}</span>`;b.onclick=action;return b;
+}
+function setupMenuDirection(){
+  document.documentElement.dataset.mdir=menuDirection;
+  const ov=$("#woOverflowBtn"),session=$("#sessionSheetBtn");
+  ov.removeAttribute("data-i18n-aria");ov.setAttribute("aria-label",t(menuDirection==="c"?"session.sheet.title":menuDirection==="b"?"mdir.menu":"ex.actions.title"));
+  ov.setAttribute("aria-controls",menuDirection==="c"?"sessionSheet":"exActionsSheet");
+  if(session){session.hidden=menuDirection!=="a";session.removeAttribute("data-i18n-aria");session.setAttribute("aria-label",t("session.sheet.title"));session.innerHTML=directionIcon("clipboard")}
+  if($("#mdirSessionRest"))return;
+  const warm=$("#exActionsWarmupSection"),prelude=$("#exActionsPreludeSection");
+  warm.prepend(prelude);prelude.querySelector("h3").remove();
+  const head=document.createElement("h3");head.className="sheetgroup__head";head.textContent=t("mdir.warmup");warm.prepend(head);
+  const body=$("#exActionsSheet .exactions-sheet__body");
+  body.prepend($("#exActionsSubstSection"));body.insertBefore(warm,$("#exActionsRepeatSection"));
+  $("#exActionsSheet .sheetband").append($("#exActionsSetupSection"));
+  const toggle=directionRow("mdirWarmToggle","mdir.warmup","plus",()=>{directionWarmExpanded=!directionWarmExpanded;renderDirectionExercise()});
+  body.insertBefore(toggle,warm);
+  const end=$("#sessionEarlySection");
+  const rest=directionRow("mdirSessionRest","rest.sheet.title","timer",async()=>{await closeSessionSheet();openRestSheet()});
+  const voice=directionRow("mdirSessionVoice","log.command.voice","keyboard",async()=>{await closeSessionSheet();startVoiceInput()});
+  end.prepend(voice);end.prepend(rest);voice.hidden=$("#voiceBtn").classList.contains("hidden");
+  for(const [id,icon,key] of [["sessionEarlyFinish","check","mdir.finish"],["sessionAbandon","stop","session.sheet.abandon"]]){
+    const b=$("#"+id);b.removeAttribute("data-i18n");b.innerHTML=directionIcon(icon)+`<span>${esc(t(key))}</span>`;
+  }
+  const finish=$("#sessionEarlyFinish");
+  $("#sessionSheet").append(end);
+  if(menuDirection==="b"){
+    const group=document.createElement("section");group.id="mdirSessionGroup";group.innerHTML=`<h3 class="sheetgroup__head">${esc(t("mdir.session"))}</h3>`;
+    const go=async action=>{await closeExActionsSheet();if(action==="details")openSessionSheet();if(action==="rest")openRestSheet();if(action==="voice")startVoiceInput();if(action==="finish"){openSessionSheet();finish.click()}if(action==="abandon"){openSessionSheet();$("#sessionAbandon").click()}};
+    for(const [id,key,icon] of [["details","mdir.details","clipboard"],["rest","rest.sheet.title","timer"],["voice","log.command.voice","keyboard"],["finish","mdir.finish","check"],["abandon","session.sheet.abandon","stop"]]){const b=directionRow("mdir-"+id,key,icon,()=>go(id));if(id==="voice")b.hidden=voice.hidden;if(id==="abandon")b.classList.add("is-destructive");group.append(b)}
+    body.append(group);rest.hidden=true;voice.hidden=true;finish.hidden=true;$("#sessionAbandon").hidden=true;
+  }
+}
+function openDirectionExercise(mode){directionSheetMode=mode;directionWarmExpanded=false;const id=focusCard()?.dataset.ex;if(id)openExActionsSheet(id)}
+function renderDirectionExercise(){
+  const sheet=$("#exActionsSheet");sheet.dataset.mode=directionSheetMode;
+  $("#mdirWarmToggle").hidden=menuDirection!=="b";
+  $("#exActionsWarmupSection").hidden=menuDirection==="b"&&!directionWarmExpanded||menuDirection==="c"&&directionSheetMode!=="warm";
+  for(const id of ["exActionsSubstSection","exActionsRepeatSection","exActionsSkipSection"]){$("#"+id).hidden=menuDirection==="c"&&(directionSheetMode==="warm"||id==="exActionsSubstSection")}
+  $("#exActionDiscomfortBtn").closest("section").hidden=menuDirection==="c";
+  sheet.querySelector(".exactions__eyebrow").hidden=true;
+  if(menuDirection==="c"&&directionSheetMode==="warm") $("#exActionsSetupSection").hidden=true;
+  $("#mdirWarmToggle").setAttribute("aria-expanded",String(directionWarmExpanded));
+  for(const [selector,icon] of [["#exActionDiscomfortBtn","alert"],["#exActionAddWarmup","plus"],["[data-wu-edit]","pencil"],["[data-wu-remove]","minus"]])sheet.querySelectorAll(selector).forEach(b=>{if(!b.querySelector(".icon-mask"))b.insertAdjacentHTML("afterbegin",directionIcon(icon))});
+}
+function directionCardActions(ex){
+  const de=activeWorkoutDraft?.exercises[ex.id],movement=de?.substitution?.replacement||de;
+  const marked=(de?.discomfort||[]).some(m=>m.exerciseId===(movement?.libraryId||movement?.movementId||movement?.programmed?.movementId||movement?.sourceExerciseId));
+  return `<div class="mdir-card-actions">${[["swap","reset"],["warm","plus"],["pain",marked?"check":"alert"],["more","overflow"]].map(([action,icon])=>`<button type="button" data-mdir-card="${action}"${action==="pain"?` aria-pressed="${marked}"`:""}>${directionIcon(icon)}<span>${esc(t("mdir."+action))}</span></button>`).join("")}</div>`;
+}
+function directionCardAction(button){
+  const id=focusCard()?.dataset.ex;if(!id)return;
+  if(button.dataset.mdirCard==="swap"){openSubstitutePicker(id);return}
+  if(button.dataset.mdirCard==="pain"){renderExActionsSheet(id);$("#exActionDiscomfortBtn").click();return}
+  openDirectionExercise(button.dataset.mdirCard);
+}

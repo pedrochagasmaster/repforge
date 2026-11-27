@@ -10078,3 +10078,27 @@ body.is-entry-editor #entryProgramName,
 .exactions__warmup-input{width:4.5em;min-height:var(--control-target);text-align:right}
 .shelf__fields--one{grid-template-columns:minmax(0,1fr)}
 .fx-cue__skip,.fx-prelude-none .text-link,.exactions__warmup-ctl .text-link{min-height:var(--control-target);display:inline-flex;align-items:center}
+
+/* Exercise-menu exploration, enabled only by the URL direction. */
+html[data-mdir] #exActionsSheet .exactions__section { margin: 0; padding: 8px 0; }
+html[data-mdir] #exActionsSheet .sheetgroup__head { margin: 4px 0; }
+html[data-mdir] #exActionsSheet .exactions__section > .sheetgroup__head { display: none; }
+html[data-mdir] #exActionsSheet #exActionsWarmupSection > .sheetgroup__head { display: block; }
+html[data-mdir] #exActionsSheet #exActionsWarmupSection > .sheetgroup__head ~ .sheetgroup__head { font-size: 11px; color: var(--ink-soft); }
+html[data-mdir] #exActionsSheet .exactions__act { min-height: 44px; padding-block: 8px; gap: 12px; }
+html[data-mdir] #exActionsSheet .exactions__warmup-row { min-height: 40px; padding-block: 4px; }
+html[data-mdir] #exActionsSheet .exactions__warmup-role { font-size: 12px; }
+html[data-mdir] #sessionSheet { display: flex; flex-direction: column; }
+html[data-mdir] #sessionSheet[hidden] { display: none; }
+html[data-mdir] #sessionSheetBody { flex: 1; min-height: 0; }
+html[data-mdir] #sessionEarlySection { flex: none; padding: 8px 20px max(16px, env(safe-area-inset-bottom)); border-top: 1px solid var(--rule); max-height: 48vh; overflow: auto; }
+html[data-mdir] #sessionEarlySection button { display: flex; align-items: center; gap: 12px; min-height: 44px; }
+html[data-mdir] #sessionEarlySection button.hidden { display: none; }
+html[data-mdir] #sessionEarlySection button[hidden],html[data-mdir] #exActionsSheet [hidden] { display: none; }
+html[data-mdir] .is-destructive { color: var(--danger); }
+.mdir-card-actions { display: flex; border-top: 1px solid var(--rule); padding: 4px 0; }
+.mdir-card-actions button { flex: 1; min-width: 0; min-height: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 11px; color: var(--ink-soft); background: none; border: 0; }
+.mdir-card-actions button[aria-pressed="true"] { color: var(--ink); font-weight: 700; }
+html[data-mdir="b"] #sessionEarlySection { display: none; }
+html[data-mdir="b"] #sessionEarlySection:has(.session-early-prompt:not(.hidden)) { display: block; }
+html[data-mdir="b"] #sessionSheetBtn, html[data-mdir="c"] #sessionSheetBtn { display: none; }

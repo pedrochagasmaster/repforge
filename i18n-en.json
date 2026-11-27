@@ -3444,5 +3444,14 @@
   "prelude.standing_plain": "Warm-up {step} of {total}",
   "prelude.cta.next_reps": "Done · {reps} next",
   "prelude.row.vals_reps": "{reps} reps · not counted",
-  "prelude.row.spoken_reps": "Warm-ups, {reps} reps, not counted"
+  "prelude.row.spoken_reps": "Warm-ups, {reps} reps, not counted",
+  "mdir.menu": "Exercise and session actions",
+  "mdir.warmup": "Warm-up",
+  "mdir.finish": "Finish session",
+  "mdir.session": "Session",
+  "mdir.details": "Exercises and details",
+  "mdir.swap": "Swap",
+  "mdir.warm": "Warm-up",
+  "mdir.pain": "Pain",
+  "mdir.more": "More"
 }

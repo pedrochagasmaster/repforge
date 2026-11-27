@@ -3444,5 +3444,14 @@
   "prelude.standing_plain": "Aquecimento {step} de {total}",
   "prelude.cta.next_reps": "Feito · agora {reps}",
   "prelude.row.vals_reps": "{reps} repetições · não conta",
-  "prelude.row.spoken_reps": "Aquecimentos, {reps} repetições, não conta"
+  "prelude.row.spoken_reps": "Aquecimentos, {reps} repetições, não conta",
+  "mdir.menu": "Ações do exercício e da sessão",
+  "mdir.warmup": "Aquecimento",
+  "mdir.finish": "Finalizar sessão",
+  "mdir.session": "Sessão",
+  "mdir.details": "Exercícios e detalhes",
+  "mdir.swap": "Trocar",
+  "mdir.warm": "Aquecer",
+  "mdir.pain": "Dor",
+  "mdir.more": "Mais"
 }

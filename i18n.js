@@ -3447,6 +3447,15 @@ const EN = {
   "prelude.cta.next_reps": "Done · {reps} next",
   "prelude.row.vals_reps": "{reps} reps · not counted",
   "prelude.row.spoken_reps": "Warm-ups, {reps} reps, not counted",
+  "mdir.menu": "Exercise and session actions",
+  "mdir.warmup": "Warm-up",
+  "mdir.finish": "Finish session",
+  "mdir.session": "Session",
+  "mdir.details": "Exercises and details",
+  "mdir.swap": "Swap",
+  "mdir.warm": "Warm-up",
+  "mdir.pain": "Pain",
+  "mdir.more": "More",
 };
 const PT = {
   "catalog.unavailable.title": "Biblioteca de exercícios indisponível",
@@ -6895,6 +6904,15 @@ const PT = {
   "prelude.cta.next_reps": "Feito · agora {reps}",
   "prelude.row.vals_reps": "{reps} repetições · não conta",
   "prelude.row.spoken_reps": "Aquecimentos, {reps} repetições, não conta",
+  "mdir.menu": "Ações do exercício e da sessão",
+  "mdir.warmup": "Aquecimento",
+  "mdir.finish": "Finalizar sessão",
+  "mdir.session": "Sessão",
+  "mdir.details": "Exercícios e detalhes",
+  "mdir.swap": "Trocar",
+  "mdir.warm": "Aquecer",
+  "mdir.pain": "Dor",
+  "mdir.more": "Mais",
 };
 (function (root) {
   const STRINGS = { en: EN, pt: PT };
