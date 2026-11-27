@@ -10083,11 +10083,20 @@ body.is-entry-editor #entryProgramName,
 [data-odir] .odir-disclosure { border-bottom: 1px solid var(--rule); padding: 16px 0; }
 [data-odir] .odir-disclosure summary { cursor: pointer; font-weight: 600; }
 [data-odir] .odir-group + .odir-group { margin-top: 28px; }
-[data-odir] .odir-group .onb__q { font-size: 20px; }
+[data-odir] .odir-group .onb__q { font-size: 17px; line-height: 1.3; }
 [data-odir] .odir-basics input, [data-odir] .odir-basics select { max-width: 55%; min-width: 0; color: var(--ink); background: var(--surface); border: 1px solid var(--rule); padding: 10px; border-radius: 8px; }
 [data-odir] .odir-fine { margin-block: 20px; }
-[data-odir] .odir-fine .settings-row { width: 100%; text-align: left; gap: 16px; }
-[data-odir] .odir-fine .settings-row span:last-child { color: var(--ink-soft); font-size: 13px; }
+[data-odir] .odir-fine__box { border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+[data-odir] .odir-fine__box summary { display: flex; flex-direction: column; gap: 2px; padding: 14px 28px 14px 0; cursor: pointer; list-style: none; position: relative; }
+[data-odir] .odir-fine__box summary::-webkit-details-marker { display: none; }
+[data-odir] .odir-fine__box summary::after { content: ""; position: absolute; right: 6px; top: 50%; width: 8px; height: 8px; border-right: 2px solid var(--ink); border-bottom: 2px solid var(--ink); transform: translateY(-70%) rotate(45deg); }
+[data-odir] .odir-fine__box[open] summary::after { transform: translateY(-30%) rotate(-135deg); }
+[data-odir] .odir-fine__title { font-weight: 600; color: var(--ink); }
+[data-odir] .odir-fine__cap { color: var(--ink-soft); font-size: 13px; }
+[data-odir] .odir-fine__row { display: flex; align-items: center; gap: 12px; width: 100%; min-height: var(--control-target); padding: 10px 0; border: 0; border-top: 1px solid var(--rule); background: transparent; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+[data-odir] .odir-fine__row > span:first-child { flex: 1 1 auto; min-width: 0; }
+[data-odir] .odir-fine__val { flex: 0 1 46%; text-align: right; color: var(--ink-soft); font-size: 13px; }
+[data-odir="c"] .onb__nav #onbNext.btn--steel { background: var(--surface); color: var(--ink); border: 1px solid var(--rule-strong); }
 [data-odir] .odir-fine .settings-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 [data-odir] .odir-fine .settings-row span { min-width: 0; overflow-wrap: anywhere; }
 #onboarding[data-odir="c"]:has(#onbBody.entry-route--recommend) #onbNext.btn--steel {

@@ -24889,7 +24889,6 @@ function wireEntryDom(){
      from reaching a handler that would overwrite the draft. */
   const doorsWait=()=>entryUiNotice==="resume";
   wireEntryImportControls($("#onbBody"));
-  $$('[data-odir-fine]').forEach(el=>el.onclick=()=>{odirFine=entryState;entrySetState({...entryState,step:el.dataset.odirFine},{persist:false})});
   $$('[data-odir-basic]').forEach(el=>el.onchange=()=>{const key=el.dataset.odirBasic;entryPatchBasics({[key]:el.type==="number"?(el.value?+el.value:null):el.value||null})});
   $$("[data-entry-hub]").forEach(btn=>btn.onclick=()=>{
     if(doorsWait())return;
@@ -29376,15 +29375,17 @@ function odirBPage(step){
  if(step==="weight")return heading+odirBasics();
  return heading+ODIR_B_PAGES[step].map((id,index)=>{
  if(id==="equipment"&&!entryState.answers.environment?.kind)return "";
- const content=odirCompact(id).replace(id==="environment"?/<h2[^>]*>.*?<\/h2>/:/$^/,"");
+ if(id==="equipment"&&!entryState.answers.environment?.kind)return "";
+ const content=odirCompact(id).replace(id==="environment"?/<h2[^>]*>[\s\S]*?<\/h2>/:/$^/,"");
  if(step==="split"||id==="equipment")return `<details class="odir-disclosure"><summary>${esc(t(id==="equipment"?"odir.equipment":`odir.fine.${id}`))} · ${esc(id==="equipment"?entryEnvironmentKindLabel(entryState.answers.environment?.kind):odirValue(id))}</summary>${content}</details>`;
  return `<section class="odir-group">${content}</section>`}).join("");
 }
 function odirValue(step){const a=entryState.answers;
-  if(step==="split")return a.splitPreference&&a.splitPreference!=="auto"?splitDisplayName(entrySplitChoices().find(c=>c.id===a.splitPreference)||{id:a.splitPreference}):t("odir.recommended");
+  if(step==="split")return a.splitPreference&&a.splitPreference!=="auto"?(found=>found?splitDisplayName(found):t("odir.recommended"))(entrySplitChoices().find(c=>c.id===a.splitPreference)):t("odir.recommended");
   if(step==="muscle_priorities")return entryPriorityLabel(a);
   if(step==="exercise_preferences")return entryExercisePreferenceLabel(a);
   if(step==="deload")return t(a.deload!==false?"odir.yes":"odir.no");
   if(step==="weight")return entryBasics().weightKg?`${entryBasics().weightKg} kg`:t("odir.optionalShort");
   return t("odir.recommended")}
-function odirFineRows(){return `<h2 class="entry__section-head">${esc(t("odir.fine"))}</h2>`+["split","muscle_priorities","exercise_preferences","deload","abilities","weight"].map(step=>`<button class="settings-row" type="button" data-odir-fine="${step}"><span>${esc(t(`odir.fine.${step}`))}</span><span>${esc(odirValue(step))} ›</span></button>`).join("")}
+let odirFineOpen=false;
+function odirFineRows(){return `<details class="odir-fine__box"${odirFineOpen?" open":""} ontoggle="odirFineOpen=this.open"><summary><span class="odir-fine__title">${esc(t("odir.fine"))}</span><span class="odir-fine__cap">${esc(t("odir.fine.cap"))}</span></summary>`+["split","muscle_priorities","exercise_preferences","deload","abilities","weight"].map(step=>`<button class="odir-fine__row" type="button" data-odir-fine="${step}"><span>${esc(t(`odir.fine.${step}`))}</span><span class="odir-fine__val">${esc(odirValue(step))}</span><span class="icon-mask icon-mask--chev-right icon-mask--sm" aria-hidden="true"></span></button>`).join("")+`</details>`}
