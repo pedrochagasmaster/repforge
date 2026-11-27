@@ -29353,6 +29353,7 @@ function odirDecorate(){
     if(step==="split"){const note=document.createElement("p");note.className="onb__explain";note.textContent=t("odir.optional");body.prepend(note)}
     label.textContent=`${t("odir.optionalShort")} ${ODIR_OPTIONAL.indexOf(step)+1} / ${ODIR_OPTIONAL.length}`;bar.firstElementChild.style.flexBasis=`${(ODIR_OPTIONAL.indexOf(step)+1)/ODIR_OPTIONAL.length*100}%`;next.classList.remove("btn--cta");next.classList.add("btn--steel");
   }else if(ONBOARDING_DIRECTION==="c"&&index>=0)label.textContent=`${index+1} / 6`;
+  if(ONBOARDING_DIRECTION==="b"&&step==="desired_result"&&!entryState.answers.structuredExperience)next.disabled=true;
   if(ONBOARDING_DIRECTION==="b"&&step==="weight"){next.textContent=t("entry.skip");$("#onbSkip").hidden=true}
   if(ONBOARDING_DIRECTION==="b"&&step==="split"){next.textContent=t("odir.skipTune");next.disabled=false;$("#onbNextReason").hidden=true}
   if(ONBOARDING_DIRECTION==="c"&&ODIR_OPTIONAL.includes(step))$("#onbSkip").hidden=true;
