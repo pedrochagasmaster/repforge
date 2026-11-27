@@ -1,3 +1,22 @@
+const ONBOARDING_DIRECTION=(()=>{try{const value=new URLSearchParams(location.search).get("odir");if(["a","b","c"].includes(value)){sessionStorage.setItem("repforge_odir",value);return value}return sessionStorage.getItem("repforge_odir")||null}catch{return null}})();
+const ODIR_REQUIRED=["desired_result","background","days_per_week","session_length","environment","equipment"];
+const ODIR_OPTIONAL=["split","muscle_priorities","exercise_preferences","deload","abilities","weight","sex","birth_date","height","cardio_experience"];
+const odirSteps=()=>ONBOARDING_DIRECTION==="a"?[...ODIR_REQUIRED.filter(step=>step!=="equipment"),"building","result"]:[...ODIR_REQUIRED,...ODIR_OPTIONAL,"building","result"];
+const odirSingle=step=>["desired_result","background","days_per_week","session_length","environment","split","sex","cardio_experience"].includes(step);
+const odirVisited=new Set();
+let odirFine=null;
+const ODIR_B_ORDER=["desired_result","days_per_week","environment","split","weight","building","result"];
+const ODIR_B_PAGES={desired_result:["desired_result","background"],days_per_week:["days_per_week","session_length"],environment:["environment","equipment"],split:["split","muscle_priorities","exercise_preferences","deload","abilities"],weight:["weight","sex","birth_date","height","cardio_experience"]};
+function odirDefaults(){if(ONBOARDING_DIRECTION==="a"&&entryState.answers.sessionMinutes==null)entryState=ProgramEntry.setAnswers(entryState,{sessionMinutes:60});for(const step of [...ODIR_REQUIRED,...ODIR_OPTIONAL])entryApplyShownDefaults(step)}
+function odirMove(build=false){
+  if(!(ONBOARDING_DIRECTION==="b"&&entryState.step==="weight"))entryCommitPicker(entryState.step);entryApplyShownDefaults(entryState.step);
+  const steps=odirSteps(),index=steps.indexOf(entryState.step);
+  if(ONBOARDING_DIRECTION==="b")for(const id of ODIR_B_PAGES[entryState.step]||[])entryApplyShownDefaults(id);
+  const step=build?"building":ONBOARDING_DIRECTION==="b"?ODIR_B_ORDER[ODIR_B_ORDER.indexOf(entryState.step)+1]:steps[index+1];
+  if(step==="building")odirDefaults();
+  if(step==="split")entryApplyShownDefaults("split");
+  entrySetState({...entryState,step});
+}
 let fallbackGestureController=null;
 const fallbackFocusTimers=new Set();
 function fallbackFocusLater(callback,delay){
@@ -21922,6 +21941,7 @@ function entrySelectRoute(route,{goal=null}={}){
     const answered=ProgramEntry.setAnswers(selected,{desiredResult:goal});
     const advanced=ProgramEntry.advance(answered);
     selected=advanced.ok?advanced.state:answered}
+  if(ONBOARDING_DIRECTION&&route==="recommend")selected={...selected,step:ODIR_REQUIRED[0]};
   entrySetState(selected);
   // Back from the first screen after a goal tap returns to the hub the goal was
   // asked on, not to a second goal screen.
@@ -21931,7 +21951,7 @@ function entryPatchAnswers(patch){
   // An open answer editor edits its own copy: nothing is persisted or rendered until Update program.
   if(entryEditorSwap){entryState=ProgramEntry.setAnswers(entryState,patch);entryEditorRerender=true;return}
   entryPinnedVersionsExecutable=false;
-  entrySetState(ProgramEntry.setAnswers(entryState,patch))}
+  entrySetState(ProgramEntry.setAnswers(entryState,patch),{persist:!odirFine})}
 /* The questionnaire's sections, as the lifter counts them. Goal and background
    share one section (Q627): the semantic steps stay separate, and a UI adapter
    may group closely related questions on one screen. Browse's list is the
@@ -21969,6 +21989,7 @@ function entryOpt(key,val,label,sub,{multi=false,selected=null,disabled=false,ro
 function entryGroupLab(text,_icon,attrs=""){
   return `<p class="entry__group-lab entry__question"${attrs}><span>${esc(text)}</span></p>`}
 function entryHeading(title){
+  if(ONBOARDING_DIRECTION){if(title===t("entry.custom_shape.title"))title=t("odir.question.split");if(title===t("entry.exercise_preferences.title"))title=t("odir.question.exercises")}
   return `<h2 class="onb__q" id="entryHeading" tabindex="-1">${esc(title)}</h2>`}
 function entryLegacyBanner(){
   if(!entryState?.legacyHints||!Object.keys(entryState.legacyHints).length)return"";
@@ -22070,7 +22091,7 @@ function entryCardioSub(value){return value==="none"?"":t(`entry.cardio.${value}
 function renderGymStep(){
   const current=entryState.answers.environment?.kind;
   return entryHeading(t("entry.gym.title"))+`<p class="onb__explain">${esc(t("entry.gym.lede"))}</p>`+
-    entryBGroup(ENTRY_ENVIRONMENTS.map(value=>entryBChoice("environment",value,t(`entry.gym.${value}`),t(`entry.gym.${value}.sub`),
+    entryBGroup(ENTRY_ENVIRONMENTS.map(value=>entryBChoice("environment",value,t(`entry.gym.${value}`),t(ONBOARDING_DIRECTION==="a"&&["everything","commercial_gym"].includes(value)?`odir.a.gym.${value}`:ONBOARDING_DIRECTION?`odir.gym.${value}`:`entry.gym.${value}.sub`),
       current===value,{icon:ENTRY_ENV_ICONS[value]||"dumbbell"})).join(""))}
 function renderGoalStep(){
   const current=entryState.answers.desiredResult;
@@ -22145,7 +22166,7 @@ function renderSplitStep(){
     entryBGroup(choices.map(choice=>entryBChoice("splitPreference",choice.id,splitDisplayName(choice),
       entrySplitEstimateText(choice,run),current===choice.id,{tag:choice.default?t("aria.recommended"):"",cap:true})).join(""))}
 function renderSessionLengthStep(){
-  const current=entryState.answers.sessionMinutes??60;
+  const current=entryState.answers.sessionMinutes??(ONBOARDING_DIRECTION==="a"?null:60);
   return entryHeading(t("entry.session_length.title"))+`<p class="onb__explain">${esc(t("entry.session_length.lede"))}</p>`+
     entryBGroup([20,40,60,90,120,150].map(n=>entryBChoice("sessionMinutes",n,t("entry.session_length.value",{n}),"",current===n)).join(""),{compact:true})}
 const ENTRY_DESIRED_ICONS={muscle_growth:"flex",balanced:"scale",strength:"dumbbell"};
@@ -22436,6 +22457,7 @@ const ENTRY_SKIP_CLEARS=Object.freeze({sex:["sex"],birth_date:["birthDate"],heig
 function entrySkippable(stepId){
   return entryIsB()&&(Object.prototype.hasOwnProperty.call(ENTRY_SKIP_CLEARS,stepId)||stepId==="muscle_priorities"||stepId==="abilities"||stepId==="exercise_preferences")}
 function entrySkip(){
+  if(ONBOARDING_DIRECTION&&entryIsB()){odirMove();return}
   const stepId=entryState?.step;
   if(!entrySkippable(stepId))return;
   entryPickerDraft={};entryPriorityLimitShown=false;
@@ -22462,7 +22484,7 @@ function entryNeedsChoice(stepId){
 /* Steps whose screen shows a default the lifter may accept with Continue. */
 function entryApplyShownDefaults(stepId){
   if(stepId==="split"){const split=entrySplitFor(entryState.answers);if(split&&split!==entryState.answers.splitPreference)entryState=ProgramEntry.setAnswers(entryState,{splitPreference:split})}
-  if(stepId==="session_length"&&entryState.answers.sessionMinutes==null)entryState=ProgramEntry.setAnswers(entryState,{sessionMinutes:60});
+  if(stepId==="session_length"&&ONBOARDING_DIRECTION!=="a"&&entryState.answers.sessionMinutes==null)entryState=ProgramEntry.setAnswers(entryState,{sessionMinutes:60});
   if(stepId==="deload"&&entryState.answers.deload==null)entryState=ProgramEntry.setAnswers(entryState,{deload:true})}
 
 /* Each question's controls are a body of their own, so the step screen and the
@@ -23491,6 +23513,7 @@ function renderEntryEditor(){
     `<div class="entry-editor__acts"><button type="button" class="btn btn--cta btn--noarrow" id="entryChipApply"${pending?` disabled aria-describedby="entryPendingAvoidNote"`:""}>${esc(t("entry.chip.apply"))}</button>`+
     `<button type="button" class="btn btn--steel" id="entryChipKeep">${esc(t("entry.chip.keep"))}</button></div></section>`}
 function renderEntryChips(){
+  if(ONBOARDING_DIRECTION==="a")return "";
   const open=entryEditor?.chip||null;
   return `<section class="entry__answers" aria-labelledby="entryChipsLabel"><h2 class="entry__section-head" id="entryChipsLabel">${esc(t("entry.chips.title"))}</h2>`+
     `<p class="entry__hint">${esc(t("entry.chips.hint"))}</p><div class="entry-chips">`+
@@ -23734,6 +23757,7 @@ function renderResultStep(){
   /* Plan 070: the program is onboarding B's review editor, mounted into
      #entryReview after this render (mountEntryAdjust). What the program was
      built from stays below it until B's question screens replace these. */
+  if(ONBOARDING_DIRECTION==="a")return `<section id="entryCandidateReview" class="entry__review"><div id="entryReview" class="entry__adjust ph-no-capture"></div>${entryEditor?"":renderEntryPinned({progressionIssue,configurationIssue:entryNeedsMetricConfiguration(),reviewIssue:entryAdjustIssue()})}</section>`;
   return `<section id="entryCandidateReview" class="entry__review" aria-labelledby="entryHeading">`+
     `<div id="entryReview" class="entry__adjust ph-no-capture"></div>`+
     renderEntryChangeStatement(entryChange)+
@@ -23942,7 +23966,11 @@ function mountEntryAdjust(){
   const host=$("#entryReview"),Review=window.RepForgeProgramReview;
   const review=ensureEntryAdjust();
   if(!host||!Review||!review)return;
+  if(ONBOARDING_DIRECTION==="a")host.onclick=event=>{const el=event.target.closest("[data-odir-fine]");if(event.target.closest("[data-odir-scroll]")){host.querySelector("#odirFineTune")?.scrollIntoView({behavior:"smooth"});return}if(el&&!odirFine){odirFine=entryState;entrySetState({...entryState,step:el.dataset.odirFine},{persist:false})}};
   entryAdjustMount=Review.mountProgramReview(host,{
+    explorationA:ONBOARDING_DIRECTION==="a",
+    afterFacts:ONBOARDING_DIRECTION==="a"?odirWhy:undefined,
+    afterPanel:ONBOARDING_DIRECTION==="a"?odirFineRows:undefined,
     view:review.view,
     queueKey:()=>review,
     candidate:()=>entryState?.result&&!entryAnswerRebuildPending()&&
@@ -23962,7 +23990,7 @@ function mountEntryAdjust(){
       if(outcome===false)return{ok:false,cancelled:true};
       return outcome?.ok?outcome:{...outcome,message:entryFailureText(outcome?.failure)||t("entry.issue.compile")}}:undefined,
     observe:report=>{if(entryGeneratorReviewRoute())captureEvent("program_review_action",report)},
-    t:(key,vars)=>key==="entry.review.source"&&entryState?.route==="shared"?t("entry.route.shared"):t(key,vars),esc,
+    t:(key,vars)=>key==="entry.review.source"&&ONBOARDING_DIRECTION==="a"?t("odir.a.review"):key==="entry.review.source"&&entryState?.route==="shared"?t("entry.route.shared"):t(key,vars),esc,
     exerciseName:id=>libraryName(libraryEntry(id))||id,
     tile:(id,size)=>exerciseThumb(libraryEntry(id),{size}),
     // The Settings rest length, which a slot with no stored rest inherits (owner, 2026-10-25: option A).
@@ -23978,7 +24006,7 @@ function mountEntryAdjust(){
     swallowClick:()=>swallowNextClick(),
     reducedMotion:()=>reducedMotion(),
     motion:window.RepForgeMotion||null,
-    changed:()=>syncEntryAdjustFooter(),
+    changed:()=>{syncEntryAdjustFooter();if(ONBOARDING_DIRECTION==="a"){const title=host.querySelector(".review__titlebtn > span");if(title)title.textContent=title.textContent.replace(/(\d)-/g,"$1‑")}},
   })}
 function renderCatalogueStep(){
   const cards=entryServices()?.browseCatalogue(entryState.answers)||[];
@@ -24187,7 +24215,7 @@ function renderFreeformSourceStep(){
       `<button type="button" class="btn btn--ghost btn--destructive" id="entryFreeformStartOver">${esc(t("entry.freeform.start_over"))}</button></div>`;
   }
 
-  return entryHeading(t("entry.freeform.title"))+`<p class="onb__explain" id="entryManagedLede">${esc(t(entryFreeformStage===1&&managedImportState==="ready"?"entry.freeform.managed_lede":"entry.freeform.lede"))}</p>`+
+  return entryHeading(t("entry.freeform.title"))+(ONBOARDING_DIRECTION?`<p class="onb__explain">${esc(t("odir.paste"))}</p><details class="odir-disclosure"><summary>${esc(t("odir.how"))}</summary><p>${esc(t("entry.freeform.lede"))}</p></details>`:"")+`<p class="onb__explain" id="entryManagedLede"${ONBOARDING_DIRECTION?" hidden":""}>${esc(t(entryFreeformStage===1&&managedImportState==="ready"?"entry.freeform.managed_lede":"entry.freeform.lede"))}</p>`+
     (hasActiveProgram()?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+
     summaryHtml+
     `<div class="entry__freeform ph-no-capture">${bodyHtml}</div>`+
@@ -24512,7 +24540,7 @@ function setupEntryRovingFocus(){
       const next=event.key==="Home"?0:event.key==="End"?options.length-1:(index+delta+options.length)%options.length;
       options.forEach(option=>option.tabIndex=-1);
       options[next].tabIndex=0;options[next].focus({preventScroll:true});
-      options[next].click();
+      if(!ONBOARDING_DIRECTION)options[next].click();
     });
   }
 }
@@ -24688,12 +24716,14 @@ function renderOnboarding({pageTransition=null}={}){
   if(!pageTransition)clearEntryMotion();
   const body=$("#onbBody"),title=$("#onbTitle"),step=$("#onbStepLabel"),back=$("#onbBack"),next=$("#onbNext");
   if(!body||!ProgramEntry||!entryState)return;
+  if(ONBOARDING_DIRECTION)$$("[data-odir-build]").forEach(el=>el.remove());
   collapseSingleCustomShape();
   const focusToken=entryFocusToken();
   const headerFocus=document.activeElement?.closest?.(".onb__bar")?document.activeElement.id:"";
   const onboarding=$("#onboarding");
   const screenKey=entryScreenKey();
   const sameScreen=screenKey===entryVisibleScreenKey;
+  const odirOpenRows=ONBOARDING_DIRECTION==="b"&&sameScreen?[...body.querySelectorAll("details.odir-disclosure")].map((el,i)=>el.open?i:-1).filter(i=>i>=0):[];
   const environmentCorrectionOpen=sameScreen&&body.querySelector(".entry__correct")?.open===true;
   if(onboarding&&!sameScreen){
     onboarding.scrollTo?.({top:0,left:0,behavior:"auto"});
@@ -24761,7 +24791,7 @@ function renderOnboarding({pageTransition=null}={}){
   let html=`<span id="entryChoiceDisabledNote" class="visually-hidden">${esc(t("entry.choice.disabled"))}</span>`+
     (entryValidationNotice?`<div id="entryValidation" class="entry__notice entry__notice--error" role="alert" aria-live="assertive" tabindex="-1"><strong>${esc(t("entry.validation.title"))}</strong><p>${esc(t("entry.validation.body"))}</p></div>`:"")+renderEntryNotice();
   const rail=!hub&&!isEditor?renderEntryRail():"";
-  const bStep=entryIsB()&&ENTRY_B_RENDERERS[stepId];
+  const bStep=entryIsB()&&(odirFine&&stepId==="weight"?()=>entryHeading(t("odir.fine.weight"))+odirBasics():ONBOARDING_DIRECTION==="b"&&ODIR_B_PAGES[stepId]?()=>odirBPage(stepId):ENTRY_B_RENDERERS[stepId]);
   if(hub)html+=renderEntryHub();
   else if(bStep)html+=bStep();
   else if(stepId==="desired_result")html+=entryRailAfterTitle(renderDesiredResultStep(),rail);
@@ -24804,6 +24834,7 @@ function renderOnboarding({pageTransition=null}={}){
     if(anchor&&anchor.parentNode)anchor.parentNode.insertBefore(validation,anchor.nextSibling);
   }
   wireEntryDom();
+  if(ONBOARDING_DIRECTION==="b")body.querySelectorAll("details.odir-disclosure").forEach((el,i)=>{el.open=odirOpenRows.includes(i)});
   if(isEditor){
     mountOnboardingProgramEditor();
     updateOnboardingEditorActions();
@@ -24823,9 +24854,10 @@ function renderOnboarding({pageTransition=null}={}){
     if(entryValidationNotice){const alert=$("#entryValidation");if(alert)try{alert.focus({preventScroll:true})}catch{}}}
   // The "entry" guide explains the five-job chooser, so it shows here rather
   // than on the landing that opens it. Not while a saved draft is asking first.
-  if(hub&&!resuming)queueMicrotask(()=>maybeShowContextualGuides(["entry"]));
+  if(!ONBOARDING_DIRECTION&&hub&&!resuming)queueMicrotask(()=>maybeShowContextualGuides(["entry"]));
   syncEntryDialog();
-  if(pageTransition)startEntryPageTransition(pageTransition);else startEntryEdgeSwipeSync()}
+  if(ONBOARDING_DIRECTION)odirDecorate();
+  if(pageTransition&&!ONBOARDING_DIRECTION)startEntryPageTransition(pageTransition);else if(!ONBOARDING_DIRECTION)startEntryEdgeSwipeSync()}
 /** O3: draw the generated program in reading order, one block every 55ms
  *  (`.motion-build > .motion-build-item`, `--build-i` counting from zero): the
  *  name, where it came from, the four facts, what just changed, the week's
@@ -24860,9 +24892,10 @@ function wireEntryDom(){
      from reaching a handler that would overwrite the draft. */
   const doorsWait=()=>entryUiNotice==="resume";
   wireEntryImportControls($("#onbBody"));
+  $$('[data-odir-basic]').forEach(el=>el.onchange=()=>{const key=el.dataset.odirBasic;entryPatchBasics({[key]:el.type==="number"?(el.value?+el.value:null):el.value||null})});
   $$("[data-entry-hub]").forEach(btn=>btn.onclick=()=>{
     if(doorsWait())return;
-    entryHubChoice=btn.dataset.entryHub;renderOnboarding()});
+    entryHubChoice=btn.dataset.entryHub;if(ONBOARDING_DIRECTION)entryChooseHubRoute();else renderOnboarding()});
   const equipmentReset=$("#entryEquipmentReset");
   if(equipmentReset)equipmentReset.onclick=()=>{const env=entryState.answers.environment;if(env?.kind)entryPatchAnswers({environment:{kind:env.kind}})};
   const deloadSwitch=$("#entryDeloadSwitch");
@@ -25246,6 +25279,9 @@ async function surfaceEntryDurableConflict(){
 function entryAdvance(){
   if(!ProgramEntry||!entryState||entryGeneration.status===ENTRY_GENERATION_STATUS.GENERATING_RESULT)return;
   if(entryHubMode()){entryChooseHubRoute();return}
+  if(ONBOARDING_DIRECTION&&entryIsB()&&!entryEditor){
+    if(odirFine){if(entryState.step!=="weight")entryCommitPicker(entryState.step);entryApplyShownDefaults(entryState.step);const answers=entryState.answers,committed=odirFine;entryState=committed;odirFine=null;const patch={};for(const key of Object.keys(answers))if(entryCanon(answers[key])!==entryCanon(committed.answers[key]))patch[key]=answers[key];if(Object.keys(patch).length)applyEntryAnswerEdit(patch);else entrySetState(committed,{persist:false});return}
+    odirMove();return}
   entryGoalOpen=false;
   if(entryState.step==="split")stopEntrySplitEstimates();
   if(entryIsB()){entryCommitPicker(entryState.step);entryApplyShownDefaults(entryState.step);entryPriorityLimitShown=false}
@@ -25295,6 +25331,8 @@ function entryAdvance(){
   if(nextState.step==="building"){guardEntryRebuild(()=>entrySetState(nextState));return}
   entrySetState(nextState)}
 function entryBack(){
+  if(odirFine){entryState=odirFine;odirFine=null;renderOnboarding();return}
+  if(ONBOARDING_DIRECTION&&entryIsB()&&!entryEditor){const steps=ONBOARDING_DIRECTION==="b"?ODIR_B_ORDER:odirSteps(),i=steps.indexOf(entryState.step);if(i===0){closeOnboarding();openFirstRun();return}if(i>0){entrySetState({...entryState,step:steps[i-1]==="building"?steps[i-2]:steps[i-1]});return}}
   if(!ProgramEntry||!entryState)return;
   if(entryDialog||entryUiNotice==="cancel"){dismissEntryDialog();return}
   if(setupEditorOpen){requestEntryCancel();return}
@@ -25514,7 +25552,7 @@ async function activateEntryPreview({destination="log",manualBuild=false,skipRep
   const activationRevision=readRevision(state);
   const needsEffortChoice=!state.log.length&&loadUiPrefs().effortChosen!==true;
   let chosenEffort=null;
-  if(needsEffortChoice){
+  if(needsEffortChoice&&!ONBOARDING_DIRECTION){
     const candidate=entryState;
     chosenEffort=await chooseActivationEffort(route==="shared"?baseProposal.settings.rirMode:"effort");
     if(chosenEffort===null||entryState!==candidate||entryDraftHandle!==activationDraftHandle)return{cancelled:true};
@@ -25662,7 +25700,7 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
     $$(".view").forEach(v=>v.classList.toggle("active",v.id==="program"));
     document.body.classList.remove("is-settings","is-workout","is-exercise","is-onboarding","is-library","is-preview","is-import");
     render();toast(t("toast.tweak_program"));focusRoute(routeHeading("program"));return result}
-  render();toast(t("toast.onboarding_saved"));
+  render();if(!ONBOARDING_DIRECTION)toast(t("toast.onboarding_saved"));
   focusRoute(routeHeading("log"));
   maybeShowInstallBanner();
   return result}
@@ -26086,6 +26124,7 @@ function renderFirstRunProgramMode(){
     const n=sharedTrainingDays(sharedSetupDraft.payload.program.definition);
     const title=$("#firstRunSharedTitle"),nameLine=$("#firstRunSharedName");
     if(title)title.textContent=t("setup.shared.view");
+    if(ONBOARDING_DIRECTION&&$("#firstRunSharedBody"))$("#firstRunSharedBody").textContent=t("odir.shared.body");
     if(nameLine)nameLine.textContent=t(n===1?"setup.shared.cap_one":"setup.shared.cap_many",{name,n});
     if(error){error.textContent="";error.classList.add("hidden")}}
   else if(invalid){
@@ -26179,8 +26218,8 @@ function setFirstRunOffer(offer){
 function renderFirstRunHeroCopy(){
   const shared=sharedSetupReady(),invalid=sharedSetupInvalid();
   const headline=$("#firstRunHeadline"),lede=$("#firstRunLede");
-  if(headline)headline.textContent=t(shared?"setup.shared.title":invalid?"landing.shared.invalid_headline":"landing.headline");
-  if(lede)lede.textContent=t(shared?"landing.shared.body":invalid?"landing.shared.invalid_body":"landing.hero.sub");
+  if(headline)headline.textContent=t(shared?(ONBOARDING_DIRECTION?"setup.shared.view":"setup.shared.title"):invalid?"landing.shared.invalid_headline":"landing.headline");
+  if(lede)lede.textContent=t(shared?(ONBOARDING_DIRECTION?"odir.shared.body":"landing.shared.body"):invalid?"landing.shared.invalid_body":"landing.hero.sub");
 }
 /** Chrome accepted the install, or the app reports itself installed. Either way
  *  there is nothing left to install: the section goes, the choices stay. */
@@ -28331,7 +28370,7 @@ function init(){
   $("#installBannerAction").onclick=triggerInstall;
   $("#firstRunInstallLink").onclick=event=>{reportLandingAction("install");return triggerInstall(event)};
   $("#firstRunPrivacy").onclick=()=>{reportLandingAction("privacy");openPrivacySheet()};
-  const openFirstRunCreate=()=>{reportLandingAction("create");closeFirstRun();startOnboarding("first-run")};
+  const openFirstRunCreate=()=>{reportLandingAction("create");closeFirstRun();startOnboarding("first-run");if(ONBOARDING_DIRECTION&&entryUiNotice!=="resume")entrySelectRoute("recommend")};
   // Resume setup opens the same chooser and goes on from the saved step. Telemetry is frozen: it counts as create.
   $("#firstRunResumeSetup").onclick=()=>{
     reportLandingAction("create");closeFirstRun();startOnboarding("first-run");
@@ -29301,3 +29340,108 @@ async function runBoot(){
   try{return await boot()}
   catch(error){showBootFailure("boot-error");throw error}}
 runBoot();
+
+function odirDecorate(){
+  const hub=entryHubMode(),body=$("#onbBody"),next=$("#onbNext"),nav=$("#onboarding .onb__nav"),step=entryState.step;
+  $("#onboarding").dataset.odir=ONBOARDING_DIRECTION;next?.classList.remove("btn--steel");next?.classList.add("btn--cta");
+  $("#onbEyebrow")?.classList.add("hidden");
+  if(hub){next?.classList.add("hidden");nav?.classList.add("hidden");body.querySelectorAll("[data-entry-hub]").forEach(el=>{el.removeAttribute("role");el.removeAttribute("aria-checked");el.querySelector(".radio-card__mark")?.remove()});return}
+  if(!entryIsB())return;
+  const steps=(ONBOARDING_DIRECTION==="b"?ODIR_B_ORDER:odirSteps()).filter(s=>!["building","result"].includes(s));
+  const index=steps.indexOf(step),label=$("#onbStepLabel"),bar=$("#onbSegbar");
+  if(index>=0){label.textContent=`${index+1} / ${steps.length}`;label.classList.remove("hidden");bar.innerHTML=`<span class="segbar__seg is-current" style="flex:0 0 ${(index+1)/steps.length*100}%"></span>`;bar.classList.remove("hidden")}
+  if(step===ODIR_REQUIRED[0]&&!odirFine){const link=document.createElement("button");link.className="btn btn--ghost";link.textContent=t("odir.other");link.onclick=()=>entrySetState({...entryState,step:"entry"});body.append(link)}
+  if(ONBOARDING_DIRECTION==="c"&&ODIR_OPTIONAL.includes(step)){
+    const build=document.createElement("button");build.dataset.odirBuild="true";build.className="btn btn--cta";build.textContent=t("odir.build");build.onclick=()=>odirMove(true);nav.prepend(build);
+    if(step==="split"){const note=document.createElement("p");note.className="onb__explain";note.textContent=t("odir.optional");body.prepend(note)}
+    label.textContent=`${t("odir.optionalShort")} ${ODIR_OPTIONAL.indexOf(step)+1} / ${ODIR_OPTIONAL.length}`;bar.firstElementChild.style.flexBasis=`${(ODIR_OPTIONAL.indexOf(step)+1)/ODIR_OPTIONAL.length*100}%`;next.classList.remove("btn--cta");next.classList.add("btn--steel");
+  }else if(ONBOARDING_DIRECTION==="c"&&index>=0)label.textContent=`${index+1} / 6`;
+  if(ONBOARDING_DIRECTION==="b"&&step==="desired_result"&&!entryState.answers.structuredExperience)next.disabled=true;
+  if(ONBOARDING_DIRECTION==="b"&&step==="weight"){next.textContent=t(Object.keys(entryBasics()).length?"entry.next":"entry.skip");$("#onbSkip").hidden=true}
+  if(ONBOARDING_DIRECTION==="b"&&step==="split"){next.textContent=t("odir.skipTune");next.disabled=false;$("#onbNextReason").hidden=true}
+  if(ONBOARDING_DIRECTION==="c"&&ODIR_OPTIONAL.includes(step))$("#onbSkip").hidden=true;
+  if(ONBOARDING_DIRECTION==="a")odirRefineA(body,next,step,label);
+  if(odirFine){label.classList.add("hidden");bar.classList.add("hidden");next.textContent=t(ONBOARDING_DIRECTION==="a"?"odir.a.update":"odir.done");$("#onbSkip").hidden=true;return}
+  if(odirSingle(step)&&!entryEditor&&ONBOARDING_DIRECTION!=="b"){
+    const answerKey={desired_result:"desiredResult",background:"structuredExperience",days_per_week:"daysPerWeek",session_length:"sessionMinutes",environment:"environment",split:"splitPreference"}[step];
+    const seen=(ONBOARDING_DIRECTION==="a"&&!!body.querySelector('[aria-checked="true"]'))||odirVisited.has(step)||!!(answerKey?entryState.answers[answerKey]:step==="sex"?entryBasics().sex:entryBasics().cardioExperience);if(!seen&&!(ONBOARDING_DIRECTION==="c"&&ODIR_OPTIONAL.includes(step))){next.classList.add("hidden");$("#onbNextReason").hidden=true}
+    body.querySelectorAll("[data-entry-pick]").forEach(el=>{const handler=el.onclick;el.onclick=event=>{odirVisited.add(step);handler(event);odirMove()}});
+  }
+}
+
+function odirCompact(step){return ENTRY_B_RENDERERS[step]().replace(/id="entryHeading"/g,`id="odir-${step}"`).replace(/aria-labelledby="entryHeading"/g,`aria-labelledby="odir-${step}"`)}
+function odirBasics(){return `<div class="odir-basics">`+["sex","birthDate","heightCm","weightKg","cardioExperience"].map(key=>{
+ const value=entryBasics()[key]||"",label=t(`odir.basic.${key}`);
+ const options=key==="sex"?["female","male","undisclosed"]:key==="cardioExperience"?["none","under_1y","1_to_4y","over_4y"]:null;
+ return `<label class="entry__row"><span>${esc(label)}</span>`+(options?`<select data-odir-basic="${key}"><option value="">—</option>`+options.map(v=>`<option value="${v}"${value===v?" selected":""}>${esc(t(key==="sex"?`entry.sex.${v}`:`entry.cardio.${v}`))}</option>`).join("")+`</select>`:`<input data-odir-basic="${key}" type="${key==="birthDate"?"date":"number"}" value="${esc(String(value))}" step="any">`)+`</label>`}).join("")+`</div>`+entryBNote(true)}
+function odirBPage(step){
+ const heading=entryHeading(t(`odir.b.${step}`))+(["split","weight"].includes(step)?`<p class="onb__explain">${esc(t("odir.optionalShort"))}</p>`:"");
+ if(step==="weight")return heading+odirBasics();
+ return heading+ODIR_B_PAGES[step].map((id,index)=>{
+ if(id==="equipment"&&!entryState.answers.environment?.kind)return "";
+ if(id==="equipment"&&!entryState.answers.environment?.kind)return "";
+ const content=odirCompact(id).replace(id==="environment"?/<h2[^>]*>[\s\S]*?<\/h2>/:/$^/,"");
+ if(step==="split"||id==="equipment")return `<details class="odir-disclosure"><summary>${esc(t(id==="equipment"?"odir.equipment":`odir.fine.${id}`))} · ${esc(id==="equipment"?entryEnvironmentKindLabel(entryState.answers.environment?.kind):odirValue(id))}</summary>${content}</details>`;
+ return `<section class="odir-group">${content}</section>`}).join("");
+}
+function odirValue(step){const a=entryState.answers;
+  if(step==="split")return a.splitPreference&&a.splitPreference!=="auto"?(found=>found?splitDisplayName(found):t("odir.recommended"))(entrySplitChoices().find(c=>c.id===a.splitPreference)):t("odir.recommended");
+  if(ONBOARDING_DIRECTION==="a"){
+    if(step==="muscle_priorities")return [ ["primaryMuscles","more"],["deEmphasizedMuscles","less"],["ignoredMuscles","skipped"] ].flatMap(([key,label])=>(a[key]||[]).map(m=>t("odir.a."+label,{muscle:t("entry.muscle."+m)}))).join(", ")||t("odir.a.balanced");
+    if(step==="exercise_preferences")return (a.exerciseConstraints?.length||a.mustHaveExercises?.length)?t("odir.a.exerciseCounts",{avoided:a.exerciseConstraints?.length||0,kept:a.mustHaveExercises?.length||0}):t("odir.a.noChanges");
+    if(step==="abilities"){const n=entryAbilityKeys().filter(key=>typeof a.competencyAnswers?.[key]==="boolean").length;return n?t("odir.a.answered",{n,total:entryAbilityKeys().length}):t("odir.a.notSet")}
+  }
+  if(step==="muscle_priorities")return entryPriorityLabel(a);
+  if(step==="exercise_preferences")return entryExercisePreferenceLabel(a);
+  if(step==="deload")return t(a.deload!==false?"odir.yes":"odir.no");
+  if(step==="weight")return entryBasics().weightKg?`${entryBasics().weightKg} kg`:t("odir.optionalShort");
+  return t("odir.recommended")}
+function odirWhy(){
+ const a=entryState.answers;
+ const rows=[t("odir.a.effect."+a.desiredResult),t("odir.a.experience."+a.structuredExperience),t("odir.a.time",{n:a.sessionMinutes}),t("odir.a.equipmentEffect")];
+ return `<section class="odir-why"><h3>${esc(t("entry.result.why"))}</h3><ul>${rows.map(text=>`<li>${esc(text)}</li>`).join("")}</ul><button class="text-link" data-odir-scroll>${esc(t("odir.a.jump"))}<span class="icon-mask icon-mask--chev-down icon-mask--sm" aria-hidden="true"></span></button></section>`;
+}
+function odirFineRows(){
+ const a=entryState.answers,env=a.environment,adjust=env.adjust||{},preset=entryPresetGroups(env.kind),count=preset.filter(k=>!adjust.remove?.includes(k)).length+(adjust.add||[]).filter(k=>!preset.includes(k)).length;
+ const equipment=t("odir.a.equipmentValue",{place:entryEnvironmentKindLabel(env.kind),n:count})+((adjust.add?.length||adjust.remove?.length)?t("odir.a.edited"):"");
+ return `<section class="odir-fine" id="odirFineTune"><h3>${esc(t("odir.fine"))}</h3><p class="odir-fine__cap">${esc(t("odir.a.tuneCap"))}</p>`+["equipment","split","muscle_priorities","exercise_preferences","abilities"].map(step=>`<button class="odir-fine__row" type="button" data-odir-fine="${step}"><span>${esc(t(step==="abilities"?"odir.a.abilities":step==="equipment"?"odir.a.equipment":`odir.fine.${step}`))}${step==="abilities"?`<small>${esc(t("odir.a.abilityCap"))}</small>`:""}</span><span class="odir-fine__val">${esc(step==="equipment"?equipment:odirValue(step))}</span><span class="icon-mask icon-mask--chev-right icon-mask--sm" aria-hidden="true"></span></button>`).join("")+`</section><section class="odir-about"><h3>${esc(t("odir.fine.weight"))}</h3><button class="odir-fine__row" type="button" data-odir-fine="weight"><span>${esc(t("odir.a.details"))}<small>${esc(t("odir.a.weightWhy"))}</small></span><span class="odir-fine__val">${esc(entryBasics().weightKg?entryBasics().weightKg+" kg":Object.values(entryBasics()).some(v=>v!=null&&v!=="")?t("odir.a.detailsSet"):t("odir.a.notSet"))}</span><span class="icon-mask icon-mask--chev-right icon-mask--sm" aria-hidden="true"></span></button></section>`;
+}
+
+let odirEquipmentOpen=false;
+function odirRefineA(body,next,step,label){
+  $("#onbCancel").classList.toggle("hidden",!!odirFine);
+  if(ODIR_REQUIRED.includes(step)){const i=ODIR_REQUIRED.indexOf(step);label.textContent=t("odir.a.progress",{n:i+1,total:5});$("#onbSegbar").firstElementChild.style.flexBasis=`${i/5*100}%`;}
+  $("#onboarding").classList.toggle("odir-editing",!!odirFine);
+  if(odirFine){const back=$("#onbBack");back.textContent=t("entry.back");back.setAttribute("aria-label",t("entry.back"))}
+  if(!odirFine){
+    const heading=body.querySelector("#entryHeading");
+    if(step==="session_length"){
+      heading.textContent=t("odir.a.sessionTitle");
+      body.querySelectorAll('[data-entry-pick="sessionMinutes"]').forEach(el=>el.querySelector(".radio-card__title").textContent=t("odir.a.minutes",{n:el.dataset.entryVal}));
+    }
+    if(step==="environment"){body.querySelector(".onb__explain").textContent=t("odir.a.environmentWhy");body.querySelectorAll(".radio-card__icon").forEach(el=>el.remove());body.querySelectorAll(".radio-card").forEach(el=>{const icon=el.querySelector(".icon-mask");if(icon&&!icon.classList.contains("icon-mask--chev-right"))icon.remove()});}
+    if(step==="session_length"){const tile=body.querySelector('[data-entry-val="60"] .radio-card__body');tile.insertAdjacentHTML("beforeend",`<span class="entry-b__tag">${esc(t("odir.recommended"))}</span>`)}
+    if(["desired_result","background","days_per_week"].includes(step))heading.insertAdjacentHTML("afterend",`<p class="onb__explain">${esc(t("odir.a.why."+step))}</p>`);
+    if(odirSingle(step))body.querySelectorAll(".radio-card__mark").forEach(el=>{el.className="icon-mask icon-mask--chev-right icon-mask--sm"});
+    if(step==="desired_result"){const link=body.querySelector("button.btn--ghost");link?.classList.add("odir-other")}
+    if(step==="equipment"){
+      const list=body.querySelector(".entry-b__equipment"),reset=body.querySelector("#entryEquipmentReset"),lede=body.querySelector(".onb__explain");
+      const place=entryEnvironmentKindLabel(entryState.answers.environment?.kind);
+      lede.textContent=t("odir.a.items",{n:list.querySelectorAll('[aria-checked="true"]').length,place});
+      heading.textContent=place;
+      list.hidden=!odirEquipmentOpen;reset.hidden=!odirEquipmentOpen;
+      const edit=document.createElement("button");edit.className="text-link";edit.textContent=t("odir.a.editList");edit.setAttribute("aria-expanded",String(odirEquipmentOpen));edit.onclick=()=>{odirEquipmentOpen=!odirEquipmentOpen;renderOnboarding()};lede.after(edit);
+      next.textContent=t("odir.a.seeProgram");
+    }
+  }else{
+    const heading=body.querySelector("#entryHeading");
+    if(heading){
+      const question=step==="abilities"?t("odir.a.abilityQuestion"):step==="weight"?t("odir.a.aboutQuestion"):heading.textContent;
+      body.querySelectorAll(".onb__explain, .entry__privacy, .entry-b__note").forEach(el=>el.remove());
+      heading.textContent=t(step==="abilities"?"odir.a.abilities":step==="equipment"?"odir.a.equipment":step==="weight"?"odir.a.details":`odir.fine.${step}`);
+      heading.insertAdjacentHTML("afterend",`<p class="onb__explain">${esc(t("odir.a.intro",{question:question.replace(/[?.]$/,"")}))}</p>`);
+    }
+    next.classList.add("odir-done");
+  }
+  next.classList.toggle("odir-done",!!odirFine);
+}

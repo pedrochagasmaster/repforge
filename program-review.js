@@ -576,7 +576,7 @@
       const value = range(set);
       if (!value) return "";
       const key = set.targets.repsPerSide ? "entry.review.reps_side" : "entry.review.reps";
-      return t(key, { min: value.min, max: value.max });
+      return adapter.explorationA&&set.targets.repsPerSide&&host.clientWidth<=320?t("odir.a.repsSide",{min:value.min,max:value.max}):t(key, { min: value.min, max: value.max });
     };
     const roleLabel = (role) => {
       if (role === "manual") return t("entry.review.role.manual");
@@ -657,7 +657,7 @@
         const on = index === view.tab;
         const empty = day.kind === "training" && !(day.slots || []).length;
         const label = day.kind === "training" ? dayName(definition, day) : t("entry.review.rest_tab");
-        return `<button type="button" role="tab" id="reviewTab${index}" class="review__tab${on ? " is-on" : ""}" data-review-tab="${index}" aria-selected="${on}" aria-controls="reviewPanel" tabindex="${on ? 0 : -1}">` +
+        return `<button type="button" role="tab" id="reviewTab${index}" class="review__tab${adapter.explorationA&&day.kind!=="training"?" odir-rest":""}${on ? " is-on" : ""}" data-review-tab="${index}" aria-selected="${on}" aria-controls="reviewPanel" tabindex="${on ? 0 : -1}">` +
           `${esc(label)}${empty ? `<span class="review__pip" aria-label="${esc(t("entry.review.empty_pip"))}"></span>` : ""}</button>`;
       }).join("")}</div>`;
     }
@@ -681,8 +681,8 @@
         `<div class="review__rowbody"><h3 class="review__name">${esc(name)}</h3>` +
         (mark ? `<span class="review__mark" data-review-mark><span class="review__dot" aria-hidden="true"></span>${esc(mark)}</span>` : "") +
         (modeNeeded ? `<p class="review__hint" data-review-execution-cue>${esc(t("entry.review.execution_mode.cue"))}</p>` : "") +
-        `<ol class="review__sets">${sets.map((set, index) => `<li><span class="review__setn num">${index + 1}</span><span class="review__reps">${nums(repsText(set))}</span>` +
-          (Number.isFinite(set.rir) ? `<span class="review__rir">${nums(t("entry.review.rir", { n: set.rir }))}</span>` : "") + `</li>`).join("")}</ol>` +
+        (adapter.explorationA?`<div class="odir-sethead"><span>${esc(t("entry.review.sheet.reps_col"))}</span><span>${esc(t("odir.a.repsLeft"))}</span></div>`:"") + `<ol class="review__sets">${sets.map((set, index) => `<li><span class="review__setn num">${index + 1}</span><span class="review__reps">${nums(repsText(set))}</span>` +
+          (Number.isFinite(set.rir) ? `<span class="review__rir">${nums(adapter.explorationA?String(set.rir):t("entry.review.rir", { n: set.rir }))}</span>` : "") + `</li>`).join("")}</ol>` +
         chips(slot) + `</div>${icon("chev-right")}</article>`;
       if (confirmed) return row + `<div class="review__offer review__offer--confirmed" data-review-confirmed="${esc(slot.exerciseId)}">` +
         `<button type="button" class="text-link" data-review-confirmation-undo="${esc(slot.exerciseId)}">${esc(t("entry.review.undo"))}</button></div>`;
@@ -722,7 +722,7 @@
           }).join("") + `</ol><button type="button" class="btn btn--cta btn--noarrow review__reorder-done" data-review-reorder-done>${esc(t("entry.review.reorder_done"))}</button>`;
       }
       const empty = slots.length ? "" : `<p class="review__empty" data-review-empty role="alert">${icon("alert")}<span>${esc(t("entry.review.empty_day"))}</span></p>`;
-      return head + empty + slots.map((slot) => rowHtml(definition, slot, marks)).join("") +
+      return head + (adapter.explorationA&&slots.length?`<p class="odir-effort-note">${esc(t("odir.a.effortNote"))}</p>`:"") + empty + slots.map((slot) => rowHtml(definition, slot, marks)).join("") +
         `<button type="button" class="review__add" data-review-add>${icon("plus")}<span>${esc(t("entry.review.add"))}</span></button>`;
     }
 
@@ -738,8 +738,10 @@
         `<p class="entry__eyebrow review__kicker">${esc(t("entry.review.source"))}</p>` +
         `<h2 class="onb__q review__title" id="entryHeading" tabindex="-1"><button type="button" class="review__titlebtn" data-review-title aria-label="${esc(t("entry.review.rename_program_aria", { name }))}">` +
         `<span>${esc(name)}</span>${icon("pencil")}</button></h2>` +
-        factsHtml(definition) + blockHtml(definition) + changesHtml(count) + tabsHtml(definition) +
-        `<div class="review__panel" id="reviewPanel" role="tabpanel" aria-labelledby="reviewTab${view.tab}" data-review-panel>${dayHtml(definition, marks)}</div></div>`;
+        factsHtml(definition) + (adapter.afterFacts?.() || "") + (adapter.explorationA?"":blockHtml(definition)) + (adapter.explorationA&&!count?"":changesHtml(count)) + tabsHtml(definition) +
+        `<div class="review__panel" id="reviewPanel" role="tabpanel" aria-labelledby="reviewTab${view.tab}" data-review-panel>${dayHtml(definition, marks)}</div>${adapter.afterPanel?.()||""}</div>`;
+      if(adapter.explorationA){const fine=host.querySelector("#odirFineTune"),lighter=(definition.deloadCycles||[]).length;fine.insertAdjacentHTML("beforeend",`<button type="button" class="odir-fine__row" data-review-block-edit><span>${esc(t("odir.a.block"))}</span><span class="odir-fine__val">${esc(t(lighter?"odir.a.weeksLighter":"odir.a.weeks",{n:regularCycles(definition),lighter}))}</span>${icon("chev-right")}</button>`);}
+      if(adapter.explorationA){const button=host.querySelector(".review__titlebtn"),text=button.querySelector("span");const words=text.textContent.split(" ");const last=words.pop();text.textContent=words.join(" ")+" ";const tail=document.createElement("span");tail.style.whiteSpace="nowrap";tail.textContent=last;tail.append(button.querySelector(".icon-mask"));button.append(tail);}
       placeIndicator(false);
       if (before) adapter.motion?.animateExerciseReorder?.([...host.querySelectorAll("[data-id]")], before);
       const target = focus && host.querySelector(focus);
