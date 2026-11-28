@@ -13,6 +13,8 @@
  */
 import assert from "node:assert/strict";
 import { encodeSetupLink } from "../../test/fixtures/setup-link-v4.mjs";
+import { randomBytes } from "node:crypto";
+import { fakeRelay, sealHandoff } from "../../test/fixtures/relay-handoff.mjs";
 import { answerRecommend, waitForAsyncCondition } from "../../test/browser.mjs";
 import { activeEntryState, emptyEntryState } from "./fixtures.mjs";
 import { BASE, SETUP_DRAFT, KEY, replayGuide, sleep, waitForApp } from "./session.mjs";
@@ -880,6 +882,33 @@ async function sharedTo(page, step) {
   await page.waitForSelector("#onboarding.active #entryActivate", { timeout: 25000 });
 }
 
+/** Plan 086 slice 2: a relay link at the first-run gate, against a fake relay (no request leaves the machine). */
+const RELAY_SENDER = {
+  en: { name: "Upper/Lower", trainer: { displayName: "Rafael Lima", registration: "CREF 012345-G/SP" },
+    message: "Start light in week 1. Tell me how the squat feels after the second session." },
+  pt: { name: "Superior/Inferior", trainer: { displayName: "Rafael Lima", registration: "CREF 012345-G/SP" },
+    message: "Começa leve na semana 1. Me conta como ficou o agachamento depois da segunda sessão." },
+};
+async function relayGateTo(page, kind) {
+  const portuguese = await page.evaluate(() => document.documentElement.lang === "pt-BR");
+  const sender = RELAY_SENDER[portuguese ? "pt" : "en"];
+  const relay = fakeRelay();
+  await relay.install(page);
+  await page.evaluate(() => { window.__repforgeLocalRelay = true; });
+  let hash;
+  if (kind === "incomplete") hash = `#r=${"A".repeat(22)}.${"B".repeat(30)}`;
+  else if (kind === "expired") hash = `#r=${randomBytes(16).toString("base64url")}.${randomBytes(32).toString("base64url")}`;
+  else if (kind === "newer") hash = await sealHandoff(page, relay, { document: { kind: "taurifer-program-handoff", version: 2 } });
+  else hash = await sealHandoff(page, relay, { name: sender.name, language: portuguese ? "pt" : "en", trainer: sender.trainer, message: sender.message });
+  if (kind === "unavailable") relay.mode = "down";
+  if (kind === "opening") relay.mode = "hold";
+  await page.goto(`${BASE.replace(/\/?$/, "/")}index.html${hash}`, { waitUntil: "domcontentloaded" });
+  await waitForApp(page);
+  const want = kind === "gate" ? "ready" : kind === "opening" ? "opening" : "invalid";
+  await page.waitForFunction((status) => window.__repforgeSharedSetup?.status === status, want, { timeout: 25000 });
+  await page.waitForSelector("#firstRun:not(.hidden)", { timeout: 25000 });
+}
+
 async function sharedInvalidTo(page) {
   await page.goto(`${BASE.replace(/\/?$/, "/")}index.html#setup=v1.not+base64`, { waitUntil: "domcontentloaded" });
   await waitForApp(page);
@@ -1439,6 +1468,12 @@ export const ONBOARDING_SCENARIOS = {
   },
   "onboarding-shared/gate": (page) => sharedTo(page, "gate"),
   "onboarding-shared/invalid": sharedInvalidTo,
+  "onboarding-shared/relay-gate": (page) => relayGateTo(page, "gate"),
+  "onboarding-shared/relay-opening": (page) => relayGateTo(page, "opening"),
+  "onboarding-shared/relay-unavailable": (page) => relayGateTo(page, "unavailable"),
+  "onboarding-shared/relay-expired": (page) => relayGateTo(page, "expired"),
+  "onboarding-shared/relay-newer": (page) => relayGateTo(page, "newer"),
+  "onboarding-shared/relay-incomplete": (page) => relayGateTo(page, "incomplete"),
   "onboarding-shared/preview": (page) => sharedTo(page, "preview"),
 
   "onboarding-recovery/resume": resume,

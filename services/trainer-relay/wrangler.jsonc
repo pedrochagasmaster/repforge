@@ -45,11 +45,11 @@
       "migrations": [
         { "tag": "v1", "new_sqlite_classes": ["RelayRecordDurableObject", "RelayRateDurableObject", "RelayMeterDurableObject"] }
       ],
-      // Creates stay off until slice 2 ships a client that uses them; turning
-      // them on is a one-line change the owner approves.
+      // Creates turn on with slice 2, the first client that uses them (owner,
+      // 2026-11-26). Deploying this is a separate step the owner approves.
       "vars": {
         "RELAY_ALLOWED_ORIGINS": "https://taurifer.com,https://studio.taurifer.com",
-        "RELAY_CREATES_ENABLED": "false",
+        "RELAY_CREATES_ENABLED": "true",
         "RELAY_KILL_SWITCH": "false"
       }
     },

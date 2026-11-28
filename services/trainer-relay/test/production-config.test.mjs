@@ -25,10 +25,10 @@ test("production is its own Worker on relay.taurifer.com", () => {
   for (const { pattern } of production.routes) assert.doesNotMatch(pattern, /^taurifer\.com\//u, "no route on install transfer's host");
 });
 
-test("production vars are exact, and creates start off", () => {
+test("production vars are exact, with creates on for slice 2", () => {
   assert.deepEqual(production.vars, {
     RELAY_ALLOWED_ORIGINS: "https://taurifer.com,https://studio.taurifer.com",
-    RELAY_CREATES_ENABLED: "false",
+    RELAY_CREATES_ENABLED: "true",
     RELAY_KILL_SWITCH: "false",
   }, "no secret, no local EU adapter, no shortened lifetime");
 });

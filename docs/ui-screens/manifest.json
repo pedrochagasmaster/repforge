@@ -1653,6 +1653,48 @@
       "variants": "localized"
     },
     {
+      "id": "relay-gate",
+      "flow": "onboarding-shared",
+      "label": "Relay link — gate with the trainer's name",
+      "scenario": "A program handoff from a trainer at the first-run gate: the program and days, who it is from with their registration, their message, and the no-history/no-change disclosure.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "relay-opening",
+      "flow": "onboarding-shared",
+      "label": "Relay link — opening",
+      "scenario": "The record is downloading and decrypting; the gate says a connection is needed once.",
+      "variants": "localized"
+    },
+    {
+      "id": "relay-unavailable",
+      "flow": "onboarding-shared",
+      "label": "Relay link — relay unavailable",
+      "scenario": "The relay cannot be reached: nothing was saved, Try again comes first, then Build and Track.",
+      "variants": "localized"
+    },
+    {
+      "id": "relay-expired",
+      "flow": "onboarding-shared",
+      "label": "Relay link — expired",
+      "scenario": "The link's seven days are over: nothing was saved; ask the person who sent it for a new link.",
+      "variants": "localized"
+    },
+    {
+      "id": "relay-newer",
+      "flow": "onboarding-shared",
+      "label": "Relay link — newer version",
+      "scenario": "The program was sent from a newer version: Reload Taurifer, then open the link again.",
+      "variants": "localized"
+    },
+    {
+      "id": "relay-incomplete",
+      "flow": "onboarding-shared",
+      "label": "Relay link — incomplete",
+      "scenario": "Part of the link is missing: nothing was saved and the relay is never asked.",
+      "variants": "localized"
+    },
+    {
       "id": "preview",
       "flow": "onboarding-shared",
       "label": "Shared setup — review",
@@ -2645,6 +2687,34 @@
       "label": "Program — share as file",
       "scenario": "An edited generated program is too large for a setup link; the sheet offers sharing it as a program file.",
       "variants": "demandingText"
+    },
+    {
+      "id": "share-relay",
+      "flow": "program",
+      "label": "Program — share through the relay",
+      "scenario": "Plan 086 slice 2: one tap on Create link shares the program; who it's from waits behind one collapsed row.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "share-relay-who",
+      "flow": "program",
+      "label": "Program — share, who it's from",
+      "scenario": "The collapsed row opened: an optional name, registration and message, encrypted into the handoff.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "share-relay-ready",
+      "flow": "program",
+      "label": "Program — relay link ready",
+      "scenario": "The encrypted relay link as a QR code, with the camera hint, its 7-day expiry and Copy and Share.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "share-relay-fallback",
+      "flow": "program",
+      "label": "Program — relay down, setup link",
+      "scenario": "The relay is unavailable: the sheet falls back to the setup link, says what it loses, and offers Try again.",
+      "variants": "localized"
     },
     {
       "id": "text-export",

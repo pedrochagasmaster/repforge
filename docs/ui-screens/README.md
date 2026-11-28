@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 307 screens,
-1935 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 317 screens,
+1985 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -161,6 +161,12 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | --- | --- | --- |
 | [Shared setup — adaptive landing](screens/onboarding-shared/gate__phone-390-light-en.png) | 8 | The received-program gate names its program and training days, shows the no-history/no-change disclosure, and offers See the program plus Create a program from scratch. |
 | [Shared setup — invalid landing](screens/onboarding-shared/invalid__phone-390-light-en.png) | 3 | An invalid setup link explains that nothing was saved and keeps safe Build and Track actions available. |
+| [Relay link — gate with the trainer's name](screens/onboarding-shared/relay-gate__phone-390-light-en.png) | 8 | A program handoff from a trainer at the first-run gate: the program and days, who it is from with their registration, their message, and the no-history/no-change disclosure. |
+| [Relay link — opening](screens/onboarding-shared/relay-opening__phone-390-light-en.png) | 3 | The record is downloading and decrypting; the gate says a connection is needed once. |
+| [Relay link — relay unavailable](screens/onboarding-shared/relay-unavailable__phone-390-light-en.png) | 3 | The relay cannot be reached: nothing was saved, Try again comes first, then Build and Track. |
+| [Relay link — expired](screens/onboarding-shared/relay-expired__phone-390-light-en.png) | 3 | The link's seven days are over: nothing was saved; ask the person who sent it for a new link. |
+| [Relay link — newer version](screens/onboarding-shared/relay-newer__phone-390-light-en.png) | 3 | The program was sent from a newer version: Reload Taurifer, then open the link again. |
+| [Relay link — incomplete](screens/onboarding-shared/relay-incomplete__phone-390-light-en.png) | 3 | Part of the link is missing: nothing was saved and the relay is never asked. |
 | [Shared setup — review](screens/onboarding-shared/preview__phone-390-light-en.png) | 7 | The received program in B's review with the Shared program source, Restore, and its block as received (no Change), before explicit activation. |
 
 ### Onboarding — resume and rule drift
@@ -388,6 +394,10 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Program — share setup link](screens/program/share-setup__phone-390-light-en.png) | 8 | The setup-link share sheet. |
 | [Program — share link ready](screens/program/share-ready__phone-390-light-en.png) | 8 | A valid setup link is ready for copy or system sharing. |
 | [Program — share as file](screens/program/share-too-large__phone-390-light-en.png) | 8 | An edited generated program is too large for a setup link; the sheet offers sharing it as a program file. |
+| [Program — share through the relay](screens/program/share-relay__phone-390-light-en.png) | 8 | Plan 086 slice 2: one tap on Create link shares the program; who it's from waits behind one collapsed row. |
+| [Program — share, who it's from](screens/program/share-relay-who__phone-390-light-en.png) | 8 | The collapsed row opened: an optional name, registration and message, encrypted into the handoff. |
+| [Program — relay link ready](screens/program/share-relay-ready__phone-390-light-en.png) | 8 | The encrypted relay link as a QR code, with the camera hint, its 7-day expiry and Copy and Share. |
+| [Program — relay down, setup link](screens/program/share-relay-fallback__phone-390-light-en.png) | 3 | The relay is unavailable: the sheet falls back to the setup link, says what it loses, and offers Try again. |
 | [Program — text export](screens/program/text-export__phone-390-light-en.png) | 3 | The plain-text program export sheet. |
 | [Program — planned weekly volume](screens/program/volume-audit__phone-390-light-en.png) | 3 | See audit opens the read-only planned weekly volume sheet, its first muscle open. |
 | [Program row actions](screens/program/editor-context-menu__phone-390-light-en.png) | 8 | An installed editor exercise lifted above Move, Day and Remove actions. |

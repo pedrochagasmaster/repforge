@@ -1118,6 +1118,13 @@
     return true;
   }
 
+  // A relay program handoff (ADR 0026, ADR 0007 amendment 2026-11-26) carries only its locator,
+  // `r=<record id>.<key>`, never a training update and never a proposal.
+  const RELAY_LOCATOR_RE = /^r=[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]{43}$/;
+  function isRelayHandoffValue(value) {
+    return typeof value === "string" && RELAY_LOCATOR_RE.test(value);
+  }
+
   function adapterDocument(adapters) {
     return adapters?.document || root.document || null;
   }
@@ -1129,7 +1136,7 @@
   function writeHandoffCookie(value, adapters) {
     const documentLike = adapterDocument(adapters);
     const locationLike = adapterLocation(adapters);
-    if (!documentLike || !locationLike || !isSafeHandoffEnvelope(value)) return false;
+    if (!documentLike || !locationLike || !(isSafeHandoffEnvelope(value) || isRelayHandoffValue(value))) return false;
     const path = handoffCookiePath(locationLike);
     documentLike.cookie = COOKIE_NAME + "=; Path=" + legacyHandoffCookiePath(locationLike) + "; Max-Age=0; SameSite=Lax"
       + cookieSecureSuffix(locationLike);
@@ -1162,6 +1169,7 @@
   }
 
   const api = Object.freeze({
+    isRelayHandoffValue,
     KIND,
     VERSION,
     ENCODING_VERSION,

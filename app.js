@@ -2474,6 +2474,23 @@ const LEGACY_LIBRARY_IDS=LIBRARY_SOURCE.legacyIds||{};
 const LIBRARY_BY_ID=new Map(EXERCISE_LIBRARY.map(e=>[e.id,e]));
 const SHARED_BUILT_IN_IDS=new Set(EXERCISE_LIBRARY.map(e=>e.id));
 const SharedSetup=typeof window!=="undefined"?window.RepForgeSharedSetup:null;
+/* The trainer relay (ADR 0026, Plan 086 slice 2). The app encrypts on this device and calls the relay
+   cross-origin at its own host (second amendment); relay links open the app at taurifer.com. */
+const TrainerDocuments=typeof window!=="undefined"?window.RepForgeTrainerDocuments:null;
+const TrainerRelay=typeof window!=="undefined"?window.RepForgeTrainerRelay:null;
+const QrCode=typeof window!=="undefined"?window.RepForgeQrCode:null;
+const RELAY_SERVICE_ORIGIN="https://relay.taurifer.com";
+const RELAY_APP_ORIGIN="https://taurifer.com";
+const RELAY_ATTRIBUTION_KEY="repforge_share_attribution_v1";
+const relayLocalHost=()=>/^(localhost|127(?:\.\d{1,3}){3}|\[::1\])$/i.test(location.hostname);
+/** The relay answers only taurifer.com and the trainer site; anywhere else the Share keeps the setup link. A local
+ *  page uses it only when a test or a developer sets window.__repforgeLocalRelay and answers the relay's requests. */
+function relayAvailableHere(){
+  return !!(TrainerDocuments&&TrainerRelay&&QrCode&&globalThis.crypto?.subtle&&typeof CompressionStream==="function"&&
+    typeof DecompressionStream==="function"&&(location.origin===RELAY_APP_ORIGIN||(relayLocalHost()&&window.__repforgeLocalRelay===true)))}
+function relayLinkBase(){
+  if(relayLocalHost()){const url=new URL(location.href);url.hash="";url.search="";return url.href}
+  return RELAY_APP_ORIGIN+"/"}
 const ProgramCompiler=typeof window!=="undefined"?window.RepForgeProgramCompiler:null;
 /* #353: generation and Review regeneration run in the program engine's worker,
    which loads exactly the compiler, transition and catalog scripts this page
@@ -18461,7 +18478,7 @@ function renderShareSetupBlockers(){
   }).join("");
   $$("#shareSetupBlockers [data-share-repair]").forEach(button=>button.onclick=()=>beginShareRepair(button.dataset.shareRepair));
 }
-function setShareSetupState(message,{ready=false,blockers=null,fileFallback=false}={}){
+function setShareSetupState(message,{ready=false,blockers=null,fileFallback=false,relay=null,warn="",retry=false}={}){
   if(blockers!==null)shareSetupBlockers=Array.isArray(blockers)?blockers:[];
   renderShareSetupBlockers();
   const blocked=shareSetupBlockers.length>0;
@@ -18474,7 +18491,84 @@ function setShareSetupState(message,{ready=false,blockers=null,fileFallback=fals
   if(out){if("value" in out)out.value=ready?shareSetupLink:"";else out.textContent=ready?shareSetupLink:""}
   if(share){share.disabled=!ready||typeof navigator.share!=="function";share.classList.toggle("hidden",!ready||typeof navigator.share!=="function")}
   if(copy){copy.disabled=!ready;copy.classList.toggle("hidden",!ready)}
+  renderShareRelay(relay,{warn,retry,ready})
 }
+/* The relay's parts of the sheet. start: one tap on Create link, who it's from behind one row. creating: the
+   status line while Copy and Share wait. ready: the QR code, the camera hint and the expiry above the link. */
+let shareRelayCandidate=null,shareRelayExpiresAt=null;
+function renderShareRelay(mode,{warn="",retry=false,ready=false}={}){
+  const who=$("#shareSetupWho"),fields=$("#shareSetupWhoFields"),create=$("#shareSetupCreate");
+  const qr=$("#shareSetupQr"),hint=$("#shareSetupQrHint"),expiry=$("#shareSetupExpiry"),warnEl=$("#shareSetupWarn");
+  const status=$("#shareSetupStatus"),retryEl=$("#shareSetupRetry");
+  const start=mode==="start",creating=mode==="creating",relayReady=mode==="ready"&&ready;
+  who?.classList.toggle("hidden",!start);
+  if(fields)fields.classList.toggle("hidden",!start||who?.getAttribute("aria-expanded")!=="true");
+  if(create){create.classList.toggle("hidden",!start);create.disabled=!start}
+  status?.classList.toggle("share-setup__status--busy",creating);
+  if(creating){
+    const copy=$("#shareSetupCopy"),share=$("#shareSetupShare");
+    if(copy){copy.disabled=true;copy.classList.remove("hidden")}
+    if(share&&typeof navigator.share==="function"){share.disabled=true;share.classList.remove("hidden")}}
+  if(qr){
+    if(relayReady&&QrCode){try{qr.innerHTML=QrCode.toSvg(shareSetupLink)}catch{qr.innerHTML=""}}
+    else qr.innerHTML="";
+    qr.classList.toggle("hidden",!relayReady||!qr.innerHTML)}
+  hint?.classList.toggle("hidden",!relayReady);
+  if(expiry){
+    let date="";
+    if(relayReady&&shareRelayExpiresAt){try{date=new Date(shareRelayExpiresAt).toLocaleDateString(locTag(),{day:"numeric",month:"long"})}catch{}}
+    expiry.textContent=date?t("relay.share.expiry",{date}):"";
+    expiry.classList.toggle("hidden",!date)}
+  if(warnEl){warnEl.textContent=warn||"";warnEl.classList.toggle("hidden",!warn)}
+  if(warn){$("#shareSetupBody")?.classList.add("hidden")}
+  retryEl?.classList.toggle("hidden",!retry);
+  $("#shareSetupSheet")?.setAttribute("data-relay",mode||"")}
+function readShareAttribution(){
+  try{const saved=JSON.parse(localStorage.getItem(RELAY_ATTRIBUTION_KEY)||"null");
+    return{name:typeof saved?.name==="string"?saved.name.slice(0,80):"",registration:typeof saved?.registration==="string"?saved.registration.slice(0,80):""}}
+  catch{return{name:"",registration:""}}}
+/** Only the sender's own name and registration are remembered on this device; the message never is. */
+function rememberShareAttribution(name,registration){
+  try{if(name||registration)localStorage.setItem(RELAY_ATTRIBUTION_KEY,JSON.stringify({name,registration}));
+    else localStorage.removeItem(RELAY_ATTRIBUTION_KEY)}catch{}}
+function resetShareAttribution(){
+  const saved=readShareAttribution();
+  const name=$("#shareSetupName"),registration=$("#shareSetupRegistration"),message=$("#shareSetupMessage"),who=$("#shareSetupWho");
+  if(name)name.value=saved.name;if(registration)registration.value=saved.registration;if(message)message.value="";
+  who?.setAttribute("aria-expanded","false")}
+function toggleShareAttribution(){
+  const who=$("#shareSetupWho");if(!who)return;
+  const open=who.getAttribute("aria-expanded")!=="true";
+  who.setAttribute("aria-expanded",String(open));
+  $("#shareSetupWhoFields")?.classList.toggle("hidden",!open);
+  if(open)$("#shareSetupName")?.focus()}
+const singleLine=value=>String(value||"").replace(/\s+/g," ").trim();
+async function createRelayShare(){
+  const candidate=shareRelayCandidate;
+  if(!candidate||!TrainerDocuments||(shareSetupPhase!=="start"&&!candidate.fallback))return false;
+  const request=++shareSetupRequest;
+  shareSetupLink="";shareSetupOutcome=null;shareRelayExpiresAt=null;shareSetupPhase="creating";
+  setShareSetupState(t("relay.share.preparing"),{relay:"creating",blockers:[]});
+  const name=singleLine($("#shareSetupName")?.value).slice(0,80),registration=singleLine($("#shareSetupRegistration")?.value).slice(0,80);
+  const message=String($("#shareSetupMessage")?.value||"").trim().slice(0,1000);
+  rememberShareAttribution(name,registration);
+  const value=candidate.checked;
+  const input={program:value.program,settings:value.settings,language:value.language,startingLoads:[],
+    ...(name?{trainer:{displayName:name,...(registration?{registration}:{})}}:{}),...(message?{message}:{})};
+  let sent;
+  try{
+    const encoded=TrainerDocuments.encodeProgramHandoff(input,sharedSetupCodecOptions());
+    sent=encoded.ok?await TrainerDocuments.send(encoded,{serviceOrigin:RELAY_SERVICE_ORIGIN,linkBase:relayLinkBase()}):encoded}
+  catch{sent={ok:false,code:"exception"}}
+  if(request!==shareSetupRequest)return false;
+  if(!shareSetupProgramUnchanged(candidate.basis)){buildShareSetupLink();return false}
+  if(sent?.ok){
+    shareSetupLink=sent.link;shareRelayExpiresAt=sent.expiresAt;
+    settleShareSetup(request,"ready","",{ready:true,relay:"ready",blockers:[]});
+    return true}
+  candidate.fallback=true;
+  await finishSetupLink(request,value,candidate.basis,{relayFailed:true});
+  return false}
 /* Plan 076 (owner option A): an unedited program generated before the 073.5
    bump would still be a short recipe link, but a link now regenerates under the
    current version, so it travels as a file until the next block, which this
@@ -18518,7 +18612,7 @@ function settleShareSetup(request,phase,message,options){
 }
 async function buildShareSetupLink(){
   const request=++shareSetupRequest;
-  shareSetupLink="";shareSetupOutcome=null;shareSetupPhase="building";
+  shareSetupLink="";shareSetupOutcome=null;shareSetupPhase="building";shareRelayCandidate=null;shareRelayExpiresAt=null;
   setShareSetupState(t("program.share_setup_building"),{blockers:[]});
   if(!SharedSetup){settleShareSetup(request,"error",t("program.share_setup_unsupported"));return}
   let built;
@@ -18528,6 +18622,13 @@ async function buildShareSetupLink(){
   if(!checked.ok){
     const blockers=checked.blockers||[];
     settleShareSetup(request,blockers.length?"blocked":"error",sharedSetupErrorMessage(checked),{blockers});return}
+  if(relayAvailableHere()){
+    shareRelayCandidate={checked:checked.value,basis,fallback:false};
+    settleShareSetup(request,"start","",{relay:"start",blockers:[]});return}
+  return finishSetupLink(request,checked.value,basis)}
+/** The setup link: the whole path without the relay, and the fallback when the relay is down. */
+async function finishSetupLink(request,value,basis,{relayFailed=false}={}){
+  const checked={value};
   let encoded;
   try{encoded=await SharedSetup.encode(checked.value,sharedSetupCodecOptions())}
   catch{settleShareSetup(request,"error",t("program.share_setup_unsupported"));return}
@@ -18537,14 +18638,15 @@ async function buildShareSetupLink(){
   if(!encoded.ok){
     const tooLarge=encoded.code==="encoded-too-large";
     if(tooLarge)captureEvent("share_setup_outcome",{action:"link_refused",...shareSetupOutcome});
-    settleShareSetup(request,"error",sharedSetupErrorMessage(encoded,checked.value.program.definition),{fileFallback:tooLarge});return}
+    if(relayFailed&&tooLarge){settleShareSetup(request,"error","",{fileFallback:true,warn:t("relay.share.unavailable_file"),retry:true});return}
+    settleShareSetup(request,"error",sharedSetupErrorMessage(encoded,checked.value.program.definition),{fileFallback:tooLarge,retry:relayFailed});return}
   captureEvent("share_setup_outcome",{action:"link_ready",...shareSetupOutcome});
   const local=/^(localhost|127(?:\.\d{1,3}){3}|\[::1\])$/i.test(location.hostname);
   const url=new URL("index.html",local?location.href:"https://pedrochagasmaster.github.io/repforge/index.html");
   url.search="";
   url.hash=`setup=${encoded.value}`;
   shareSetupLink=url.href;
-  settleShareSetup(request,"ready","",{ready:true,blockers:[]})}
+  settleShareSetup(request,"ready","",relayFailed?{ready:true,blockers:[],warn:t("relay.share.unavailable_fits"),retry:true}:{ready:true,blockers:[]})}
 function shareSetupProgramUnchanged(basis){
   try{return JSON.stringify(buildSharedSetupValidation().payload)===basis}
   catch{return false}
@@ -18611,6 +18713,7 @@ function openShareSetupSheet({repairFocus=null}={}){
   const subtitle=$("#shareSetupFor");if(subtitle)subtitle.textContent=state.programMeta?.name||t("untitled_program");
   // With enlarged text the band, body and actions scroll as one column (Plan 086 slice 1b), so it opens at the top.
   sheet.classList.toggle("is-text-scaled",rootTextScaled());sheet.scrollTop=0;
+  resetShareAttribution();
   shareSetupReturn=document.activeElement;
   document.body.classList.add("is-sheet-open");
   openModal(sheet,{initialFocus:repairFocus?()=>shareSetupRepairButton(repairFocus.exerciseInstanceId)||$("#shareSetupClose"):$("#shareSetupClose"),returnFocus:shareSetupReturn,
@@ -26032,6 +26135,10 @@ const firstRunOpen=()=>!!$("#firstRun")&&!$("#firstRun").classList.contains("hid
 const sharedSetupReady=()=>sharedSetupDraft.status==="ready"&&!!sharedSetupDraft.payload;
 const sharedTrainingDays=definition=>(definition?.days||[]).filter(day=>day.kind==="training").length;
 const sharedSetupInvalid=()=>sharedSetupDraft.status==="invalid"||sharedSetupDraft.status==="unsupported";
+/** A relay link while its record downloads and decrypts: the gate shows it opening (needs a connection once). */
+const sharedSetupOpening=()=>sharedSetupDraft.status==="opening";
+const RELAY_GATE_ERRORS={"relay-unavailable":"unavailable","relay-expired":"expired","relay-newer":"newer","relay-incomplete":"incomplete"};
+const relayGateError=()=>sharedSetupInvalid()?RELAY_GATE_ERRORS[sharedSetupDraft.error]||null:null;
 const sharedSetupEligible=()=>firstRunPending()&&!(state.programHistory?.length);
 function sharedSetupErrorKey(code,version=null){
   // Only a link from a later envelope is "newer". Retired envelopes and links
@@ -26042,22 +26149,52 @@ function sharedSetupErrorKey(code,version=null){
   return"setup.shared.invalid"}
 function renderFirstRunProgramMode(){
   const standard=$("#firstRunStandardProgram"),shared=$("#firstRunSharedProgram"),card=$("#firstRunSharedCard"),error=$("#firstRunSharedError");
-  const ready=sharedSetupReady();
+  const opening=sharedSetupOpening();
+  const ready=sharedSetupReady()||opening;
   const invalid=sharedSetupInvalid();
+  const relay=sharedSetupDraft.relay||null,relayError=relayGateError();
   standard?.classList.toggle("hidden",ready);
   shared?.classList.toggle("hidden",!ready);
   card?.classList.toggle("hidden",!ready);
   $("#firstRun")?.classList.toggle("is-shared",ready);
-  if(ready){
+  const from=$("#firstRunSharedFrom"),messageBox=$("#firstRunSharedMessageBox"),body=$("#firstRunSharedBody");
+  const trainer=!opening&&ready?relay?.trainer||null:null,message=!opening&&ready?relay?.message||"":"";
+  if(from){
+    from.innerHTML=trainer?esc(t("relay.gate.from",{name:"\u0000"})).replace("\u0000",`<b>${esc(trainer.displayName)}</b>`)+
+      (trainer.registration?`<span>${esc(trainer.registration)}</span>`:""):"";
+    from.classList.toggle("hidden",!trainer)}
+  if(messageBox){
+    const first=trainer?trainer.displayName.trim().split(/\s+/)[0]:"";
+    const label=$("#firstRunSharedMessageLabel"),text=$("#firstRunSharedMessage");
+    if(label){label.textContent=message&&first?t("relay.message_from",{name:first}):"";label.classList.toggle("hidden",!label.textContent)}
+    if(text)text.textContent=message;
+    messageBox.classList.toggle("hidden",!message)}
+  if(body){
+    // A relay handoff names who set the starting loads only when it carries some; a share from the app carries
+    // none, so it keeps the setup link's sentence.
+    const loads=Array.isArray(relay?.startingLoads)&&relay.startingLoads.length>0;
+    body.textContent=opening?t("relay.gate.opening_note"):relay&&ready&&loads
+      ?(trainer?t("relay.gate.body",{name:trainer.displayName.trim().split(/\s+/)[0]}):t("relay.gate.body_anon")):t("landing.shared.body")}
+  const title=$("#firstRunSharedTitle"),nameLine=$("#firstRunSharedName"),start=$("#firstRunSharedStart");
+  if(opening){
+    if(title)title.textContent=t("setup.shared.view");
+    if(nameLine)nameLine.textContent=t("relay.gate.opening");
+    setSharedSetupBusy(true);
+    if(error){error.textContent="";error.classList.add("hidden")}}
+  else if(ready){
+    if(start&&start.getAttribute("aria-busy")==="true")setSharedSetupBusy(false);
     const name=sharedSetupDraft.payload.program.name;
     const n=sharedTrainingDays(sharedSetupDraft.payload.program.definition);
-    const title=$("#firstRunSharedTitle"),nameLine=$("#firstRunSharedName");
     if(title)title.textContent=t("setup.shared.view");
     if(nameLine)nameLine.textContent=t(n===1?"setup.shared.cap_one":"setup.shared.cap_many",{name,n});
     if(error){error.textContent="";error.classList.add("hidden")}}
   else if(invalid){
-    if(error){error.textContent=t(sharedSetupErrorKey(sharedSetupDraft.error,sharedSetupDraft.errorVersion));error.classList.remove("hidden")}}
-  else if(error){error.textContent="";error.classList.add("hidden")}}
+    if(error){error.textContent=relayError?t(`relay.open.${relayError}.hint`):t(sharedSetupErrorKey(sharedSetupDraft.error,sharedSetupDraft.errorVersion));error.classList.remove("hidden")}}
+  else if(error){error.textContent="";error.classList.add("hidden")}
+  const action=$("#firstRunRelayAction"),actionLabel=$("#firstRunRelayActionLabel");
+  const actionKey=relayError==="unavailable"?"relay.retry":relayError==="newer"?"relay.open.reload":"";
+  if(action){action.classList.toggle("hidden",!actionKey);action.dataset.relayAction=relayError||""}
+  if(actionLabel)actionLabel.textContent=actionKey?t(actionKey):""}
 function setSharedSetupBusy(busy){
   const button=$("#firstRunSharedStart"),busyEl=$("#firstRunSharedBusy");
   if(button){button.disabled=busy;button.setAttribute("aria-busy",busy?"true":"false")}
@@ -26144,10 +26281,10 @@ function setFirstRunOffer(offer){
  *  everyone without an activated program (owner, 2026-10-31): a return visit,
  *  a setup left half done or a dismissed install prompt does not change it. */
 function renderFirstRunHeroCopy(){
-  const shared=sharedSetupReady(),invalid=sharedSetupInvalid();
+  const shared=sharedSetupReady()||sharedSetupOpening(),invalid=sharedSetupInvalid(),relayError=relayGateError();
   const headline=$("#firstRunHeadline"),lede=$("#firstRunLede");
-  if(headline)headline.textContent=t(shared?"setup.shared.title":invalid?"landing.shared.invalid_headline":"landing.headline");
-  if(lede)lede.textContent=t(shared?"landing.shared.body":invalid?"landing.shared.invalid_body":"landing.hero.sub");
+  if(headline)headline.textContent=t(shared?"setup.shared.title":relayError?`relay.open.${relayError}.title`:invalid?"landing.shared.invalid_headline":"landing.headline");
+  if(lede)lede.textContent=t(shared?"landing.shared.body":relayError?`relay.open.${relayError}.sub`:invalid?"landing.shared.invalid_body":"landing.hero.sub");
 }
 /** Chrome accepted the install, or the app reports itself installed. Either way
  *  there is nothing left to install: the section goes, the choices stay. */
@@ -27519,7 +27656,7 @@ function renderFirstRun(){
   renderFirstRunInstall();
 }
 function currentEntryLanding(){
-  if(sharedSetupReady())return"shared";
+  if(sharedSetupReady()||sharedSetupOpening())return"shared";
   if(sharedSetupInvalid())return"shared-invalid";
   return"generic"}
 function openFirstRun(kind=currentEntryLanding()){
@@ -28326,6 +28463,7 @@ function init(){
   $("#firstRunContinue").onclick=()=>{reportLandingAction("continue_browser");recordInstallPolicyDismissal(installPresentedDecision);
     if(sharedSetupReady()){closeFirstRunInstall();renderFirstRunProgramMode();return}
     closeFirstRun();startOnboarding("first-run")};
+  const relayAction=$("#firstRunRelayAction");if(relayAction)relayAction.onclick=retryRelayHandoff;
   const sharedCreate=$("#firstRunSharedCreate");if(sharedCreate)sharedCreate.onclick=()=>{
     reportLandingAction("create");
     discardSharedSetup();
@@ -28423,6 +28561,9 @@ function init(){
   const ssCopy=$("#shareSetupCopy");if(ssCopy)ssCopy.onclick=copySetupLink;
   const ssShare=$("#shareSetupShare");if(ssShare)ssShare.onclick=shareSetupLinkNow;
   const ssFile=$("#shareSetupFile");if(ssFile)ssFile.onclick=shareProgramFile;
+  const ssWho=$("#shareSetupWho");if(ssWho)ssWho.onclick=toggleShareAttribution;
+  const ssCreate=$("#shareSetupCreate");if(ssCreate)ssCreate.onclick=createRelayShare;
+  const ssRetry=$("#shareSetupRetry");if(ssRetry)ssRetry.onclick=createRelayShare;
   const libBack=$("#libBack");
   if(libBack)libBack.onclick=()=>{
     if(libFlow?.step==="configure"){libFlow.step="browse";renderLibrary();return}
@@ -28982,12 +29123,20 @@ window.__repforgeSharedSetup={
 function captureSharedSetupSource({allowCookie=true}={}){
   if(!SharedSetup)return null;
   try{
+    // A relay link (#r=) first: a malformed one still opens its incomplete-link gate instead of nothing.
+    if(/^#r=/.test(location.hash||"")){
+      const locator=relayLocatorFrom(location.hash);
+      sharedSetupDraft={status:"opening",source:"fragment",encoded:null,payload:null,error:null,previousLang:null,relay:{locator}};
+      return{source:"fragment",relay:true,locator}}
     const fragment=SharedSetup.readSetupFragment();
     if(fragment!=null){
       sharedSetupDraft={status:"loading",source:"fragment",encoded:null,payload:null,error:null,previousLang:null};
       return{source:"fragment",encoded:fragment}}
     if(!allowCookie)return null;
     const cookie=SharedSetup.readHandoffCookie();
+    if(cookie&&SharedSetup.isRelayHandoffValue?.(cookie)){
+      sharedSetupDraft={status:"opening",source:"cookie",encoded:null,payload:null,error:null,previousLang:null,relay:{locator:cookie}};
+      return{source:"cookie",relay:true,locator:cookie}}
     if(cookie){
       sharedSetupDraft={status:"loading",source:"cookie",encoded:null,payload:null,error:null,previousLang:null};
       return{source:"cookie",encoded:cookie}}
@@ -29012,8 +29161,89 @@ function discardSharedSetup(){
   if(entryState?.route==="shared"){clearEntryAdjust();entryState=null}
   sharedSetupDraft={status:"none",source:null,encoded:null,payload:null,error:null,previousLang:null};
   syncLang()}
+function relayLocatorFrom(hash){
+  const parsed=TrainerRelay?.parseLocator?.(hash);
+  return parsed?`r=${parsed.id}.${parsed.key}`:null}
+/* The relay's errors as the gate names them. Unavailable keeps the cookie, so Try again and the installed app can
+   still open the link; expired, newer and incomplete links can never open, so their cookie goes at once. */
+function relayGateCode(code){
+  if(["network","service-unavailable","service-error","rate-limited","invalid-response","exception"].includes(code))return"relay-unavailable";
+  if(code==="unavailable")return"relay-expired";
+  if(code==="unsupported-version")return"relay-newer";
+  if(["invalid-link","invalid-key","decrypt-failed","decompress-failed","invalid-text","empty-payload","invalid-record"].includes(code))return"relay-incomplete";
+  return"relay-invalid"}
+function clearRelayHandoff(locator){
+  try{const cookie=SharedSetup?.readHandoffCookie?.();
+    if(cookie&&SharedSetup.isRelayHandoffValue?.(cookie)&&(!locator||cookie===locator))SharedSetup.clearHandoffCookie()}catch{}}
+function removeRelayFragment(){
+  try{if(/^#r=/.test(location.hash||""))history.replaceState({},"",location.pathname+location.search)}catch{}}
+/** Open a relay program handoff. Nothing is written: a received program waits at the gate like a setup link. */
+async function prepareRelayHandoff(candidate){
+  sharedSetupDecodeController?.abort();
+  const request=++sharedSetupDecodeRequest,controller=new AbortController();
+  sharedSetupDecodeController=controller;
+  const isCurrent=()=>request===sharedSetupDecodeRequest&&!controller.signal.aborted;
+  const {source,locator}=candidate;
+  const fail=code=>{
+    const keep=code==="relay-unavailable";
+    if(!keep){clearRelayHandoff(locator);removeRelayFragment()}
+    sharedSetupDraft={status:"invalid",source,encoded:null,payload:null,error:code,previousLang:null,relay:{locator:keep?locator:null}};
+    return true};
+  if(!locator)return fail("relay-incomplete");
+  if(!sharedSetupEligible()){
+    // Slice 2: a device with a program keeps the setup link's rule; the program update is slice 3.
+    clearRelayHandoff(locator);removeRelayFragment();
+    sharedSetupDraft={status:source==="fragment"?"existing":"none",source,encoded:null,payload:null,
+      error:source==="fragment"?"existing":null,previousLang:null};
+    return true}
+  if(!TrainerDocuments||!relayAvailableHere())return fail("relay-unavailable");
+  // The Home Screen app starts without the fragment; the cookie carries the locator across (ADR 0007).
+  if(source==="fragment"){try{SharedSetup.writeHandoffCookie(locator)}catch{}}
+  sharedSetupDraft={status:"opening",source,encoded:null,payload:null,error:null,previousLang:null,relay:{locator}};
+  let received;
+  try{received=await TrainerDocuments.receive(locator,TrainerDocuments.HANDOFF_KIND,sharedSetupCodecOptions(),{serviceOrigin:RELAY_SERVICE_ORIGIN})}
+  catch{received={ok:false,code:"exception"}}
+  if(!isCurrent())return false;
+  if(!received?.ok)return fail(relayGateCode(received?.code));
+  const value=received.value;
+  removeRelayFragment();
+  // The installed app has opened the program: the cookie's job is done (owner, 2026-11-26). A browser tab keeps
+  // it only while the program is an unopened proposal, so the app added to the Home Screen afterwards can still
+  // open the link; starting the program or choosing another one clears it (owner, 2026-11-27).
+  const installed=isStandalone();
+  if(installed)clearRelayHandoff(locator);
+  const previousLang=I18N?.getLang?.()||state.settings.lang||I18N?.detectLang?.()||"en";
+  sharedSetupDraft={status:"ready",source,encoded:null,error:null,previousLang,
+    payload:{kind:SharedSetup.KIND,version:SharedSetup.VERSION,program:value.program,settings:value.settings,language:value.language},
+    relay:{locator:installed?null:locator,trainer:value.trainer||null,message:value.message||"",startingLoads:value.startingLoads||[],expiresAt:received.expiresAt}};
+  I18N?.setLang(value.settings.lang);
+  return true}
+/** Open the gate's relay state after the record arrives (boot does not wait for the network). */
+async function openRelayHandoff(candidate){
+  const done=await prepareRelayHandoff(candidate);
+  if(!done)return;
+  if(sharedSetupDraft.status==="existing"){closeFirstRun();toast(t("setup.shared.existing"),{assertive:true});return}
+  applyI18n();
+  if(firstRunOpen())renderFirstRun();
+  else if(firstRunPending()&&!entryState)openFirstRun();
+  const open=$("#firstRun");if(open)open.dataset.entryLanding=currentEntryLanding()}
+function retryRelayHandoff(){
+  const action=$("#firstRunRelayAction")?.dataset.relayAction;
+  if(action==="newer"){location.reload();return}
+  const locator=sharedSetupDraft.relay?.locator;
+  if(!locator)return;
+  sharedSetupDraft={status:"opening",source:"cookie",encoded:null,payload:null,error:null,previousLang:null,relay:{locator}};
+  renderFirstRun();renderFirstRunHeroCopy();
+  void openRelayHandoff({source:"cookie",relay:true,locator})}
+let pendingRelayHandoff=null;
 async function prepareSharedSetup(candidate){
   if(!candidate||!SharedSetup)return false;
+  if(candidate.relay){
+    // Boot shows the opening gate at once; the record arrives without holding up the first render.
+    if(!candidate.locator||!sharedSetupEligible())return prepareRelayHandoff(candidate);
+    sharedSetupDraft={status:"opening",source:candidate.source,encoded:null,payload:null,error:null,previousLang:null,relay:{locator:candidate.locator}};
+    pendingRelayHandoff=candidate;
+    return true}
   sharedSetupDecodeController?.abort();
   const request=++sharedSetupDecodeRequest,controller=new AbortController();
   sharedSetupDecodeController=controller;
@@ -29057,6 +29287,12 @@ async function prepareSharedSetup(candidate){
   return true}
 async function handleSharedSetupHash(){
   const candidate=captureSharedSetupSource({allowCookie:false});
+  if(candidate?.relay){
+    if(firstRunOpen())suspendFirstRun();
+    if(candidate.locator&&sharedSetupEligible()){
+      sharedSetupDraft={status:"opening",source:"fragment",encoded:null,payload:null,error:null,previousLang:null,relay:{locator:candidate.locator}};
+      if(firstRunPending()&&!entryState)openFirstRun()}
+    await openRelayHandoff(candidate);return}
   if(!candidate||candidate.source!=="fragment"){
     cancelSharedSetupDecode();
     return}
@@ -29163,6 +29399,7 @@ async function boot(){
   if(draftBoot.status==="ready")hydrateWorkoutDraft({restoreDay:true});
   void resumeProgramEditFollowUp().catch(()=>{});
   init();
+  if(pendingRelayHandoff){const relayCandidate=pendingRelayHandoff;pendingRelayHandoff=null;void openRelayHandoff(relayCandidate)}
   restoreRest(draftBoot.status==="ready"?activeWorkoutDraft.draftId:null);
   if(transferResult.transferResult?.localOk===true){
     openIosInstallSheet(transferResult.transferResult.cleanup?.ok===true?"success":"cleanup")}

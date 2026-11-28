@@ -273,6 +273,8 @@ const DYNAMIC_FAMILIES = [
   { test: (s) => s.includes('"muscle."'), keys: (en) => Object.keys(en).filter((k) => k.startsWith("muscle.")) },
   { test: (s) => s.includes("program.share_setup_blocked.${"), keys: (en) => Object.keys(en).filter((k) => /^program\.share_setup_blocked\.(one|other)$/.test(k)) },
   { test: (s) => s.includes("program.share_setup_reason.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("program.share_setup_reason.")) },
+  // Plan 086 slice 2: the relay gate's four errors, each a title, a sub and a hint.
+  { test: (s) => s.includes("relay.open.${relayError}."), keys: (en) => Object.keys(en).filter((k) => /^relay\.open\.(unavailable|expired|newer|incomplete)\.(title|sub|hint)$/.test(k)) },
   { test: (s) => s.includes('"seed.ex."'), keys: (en) => Object.keys(en).filter((k) => k.startsWith("seed.ex.")) },
   { test: (s) => s.includes('"seed.note."'), keys: (en) => Object.keys(en).filter((k) => k.startsWith("seed.note.")) },
   { test: (s) => s.includes('"picker.equipment."'), keys: (en) => Object.keys(en).filter((k) => k.startsWith("picker.equipment.")) },

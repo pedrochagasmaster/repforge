@@ -33,7 +33,7 @@
   <link rel="apple-touch-startup-image" href="icons/splash-1640x2360.png" media="screen and (device-width: 820px) and (device-height: 1180px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
   <link rel="apple-touch-startup-image" href="icons/splash-1668x2224.png" media="screen and (device-width: 834px) and (device-height: 1112px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
   <link rel="apple-touch-startup-image" href="icons/splash-1536x2048.png" media="screen and (device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
-  <link rel="stylesheet" href="styles.css?v=804">
+  <link rel="stylesheet" href="styles.css?v=805">
   <link rel="stylesheet" href="motion-polish.css?v=643">
   <!-- Runs before the first paint, and only reads.
        Theme: app.js owns the Appearance setting, but it is the last script on the
@@ -727,11 +727,21 @@
 
             <div id="firstRunSharedCard" class="firstrun__shared-card hidden" aria-labelledby="firstRunSharedName">
               <p class="firstrun__shared-card-name" id="firstRunSharedName"></p>
-              <p class="firstrun__shared-card-body" id="firstRunSharedBody" data-i18n="landing.shared.body">This link carries a program and its settings. No history comes with it. Nothing changes until you tap Use this program.</p>
+              <!-- A relay handoff (Plan 086 slice 2): who it is from and their message, text only. -->
+              <p class="firstrun__shared-from hidden" id="firstRunSharedFrom"></p>
+              <div class="firstrun__shared-message hidden" id="firstRunSharedMessageBox">
+                <p class="firstrun__shared-quote-label" id="firstRunSharedMessageLabel"></p>
+                <p class="firstrun__shared-quote" id="firstRunSharedMessage"></p>
+              </div>
+              <p class="firstrun__shared-card-body" id="firstRunSharedBody">This link carries a program and its settings. No history comes with it. Nothing changes until you tap Use this program.</p>
             </div>
 
             <p id="firstRunSharedError" class="firstrun__error hidden" role="status"></p>
             <div id="firstRunStandardProgram" class="firstrun__actions">
+              <!-- A relay link that could not open yet: Try again, or Reload for a newer version. -->
+              <button type="button" class="firstrun__cta hidden" id="firstRunRelayAction">
+                <span class="firstrun-row__text"><span class="firstrun-row__title" id="firstRunRelayActionLabel"></span></span><span class="firstrun-row__go" aria-hidden="true"></span>
+              </button>
               <!-- Two peer routes (Packet F, revision 779): the lifter who already follows a program sees their door as
                    plainly as the one that builds a program. Same pill, same type; Track takes the band's outlined recipe. -->
               <button type="button" class="firstrun__cta" id="firstRunCreate" aria-labelledby="firstRunCreateLabel" aria-describedby="firstRunCreateCap">
@@ -941,7 +951,7 @@ Triceps pushdown 3x12-15</pre>
               <div class="firstrun-qa__a"><p data-i18n="glossary.RIR">Reps left is the number of clean reps you could still complete before failure, also called RIR. 2 means two reps left. If you are new to counting, estimate whether you could do one or two more.</p></div>
             </details>
             <details class="firstrun-qa">
-              <summary><span data-i18n="landing.faq.coach.q">Can my coach send me a program?</span><i aria-hidden="true"></i></summary>
+              <summary><span data-i18n="landing.faq.coach.q">Can my trainer send me a program?</span><i aria-hidden="true"></i></summary>
               <div class="firstrun-qa__a">
                 <p data-landing-fill="faq.coach.a1"></p>
                 <div class="firstrun-share">
@@ -951,7 +961,7 @@ Triceps pushdown 3x12-15</pre>
                     <div><span class="firstrun-label" data-i18n="landing.faq.coach.not_in_link">Not in the link</span><ul><li data-i18n="landing.faq.coach.item.sessions">Logged sessions</li><li data-i18n="landing.faq.coach.item.loads">Loads and reps you did</li></ul></div>
                   </div>
                 </div>
-                <p data-i18n="landing.faq.coach.a2">The link isn't encrypted: anyone who gets it can read your program.</p>
+                <p data-i18n="landing.faq.coach.a2">The link is encrypted on their device and works for 7 days. Anyone who gets it in that time can open your program.</p>
               </div>
             </details>
             <details class="firstrun-qa">
@@ -1110,6 +1120,11 @@ Triceps pushdown 3x12-15</pre>
           <h3 id="privacySetupTitle" data-i18n="privacy.setup.title">Program setup links</h3>
           <p data-i18n="privacy.setup.body">A setup link carries a program proposal in its #setup= fragment. It is an unencrypted bearer link, so anyone you forward it to can read and use it. For the iOS Home Screen handoff, the temporary repforge_setup_v1 cookie carries that proposal to the static host for up to seven days. It never includes workout logs or program history.</p>
         </section>
+        <section aria-labelledby="privacyTrainerTitle">
+          <h3 id="privacyTrainerTitle" data-i18n="privacy.trainer.title">Trainer links</h3>
+          <p data-i18n="privacy.trainer.handoff">A trainer can send you a program by link or QR code. It is encrypted on the trainer's device with a key that exists only in the link. Taurifer stores the encrypted copy with Cloudflare in the EU for up to seven days and then deletes it; Cloudflare's global edge can handle the request first. The relay service never receives the key, so it cannot read the program. Anyone with the link can open it until it expires.</p>
+          <p data-i18n="privacy.trainer.storage">The service stores the encrypted copy, its size, and when it was created and expires. It keeps no name, account or device identifier and does not link one copy to another. Abuse limits use keyed hashes of IP addresses that are deleted within an hour. On iPhone and iPad, to open a trainer's program in the app you added to the Home Screen, the repforge_setup_v1 cookie carries the link's record id and key. It is sent with the app's requests to the site that serves Taurifer, which Cloudflare also hosts, and is deleted as soon as the app has opened the program, or after seven days at most. It is never used for the sessions you send.</p>
+        </section>
         <section aria-labelledby="privacyTransferTitle">
           <h3 id="privacyTransferTitle" data-i18n="privacy.transfer.title">Temporary install transfer</h3>
           <p data-i18n="privacy.transfer.contents">The encrypted copy includes your program and workout state, workout history, archived programs and how they were built, active workout draft, unfinished program setup, display preferences, analytics consent, and pseudonymous telemetry ID. It excludes temporary browser locks, write logs, transaction markers, cookies, browser permissions, cached files, and provider session state.</p>
@@ -1123,7 +1138,7 @@ Triceps pushdown 3x12-15</pre>
         </section>
         <section aria-labelledby="privacyTelemetryTitle">
           <h3 id="privacyTelemetryTitle" data-i18n="privacy.telemetry.title">Telemetry and consent</h3>
-          <p data-i18n="privacy.telemetry.body">Telemetry is on by default, and you can turn it off at any time in Settings. It sends coarse product funnels with a pseudonymous installation ID, never workout values, exercise names, notes, free text, setup links, transfer tokens, or backup data.</p>
+          <p data-i18n="privacy.telemetry.body">Telemetry is on by default, and you can turn it off at any time in Settings. It sends coarse product funnels with a pseudonymous installation ID, never workout values, exercise names, notes, free text, setup links, trainer links or names, transfer tokens, or backup data.</p>
         </section>
         <section aria-labelledby="privacyControlsTitle">
           <h3 id="privacyControlsTitle" data-i18n="privacy.controls.title">Export and delete</h3>
@@ -1132,7 +1147,7 @@ Triceps pushdown 3x12-15</pre>
         </section>
         <section aria-labelledby="privacyLimitationsTitle">
           <h3 id="privacyLimitationsTitle" data-i18n="privacy.limitations.title">Limitations</h3>
-          <p data-i18n="privacy.limitations.body">Taurifer has no automatic cloud sync or server backup. Clearing browser storage or losing the device can make data unrecoverable without an export. A setup link is a bearer link, so forwarding it gives the recipient the proposal. Browser and installed-app copies do not merge.</p>
+          <p data-i18n="privacy.limitations.body">Taurifer has no automatic cloud sync or server backup. Clearing browser storage or losing the device can make data unrecoverable without an export. Setup links and links from a trainer are bearer links: forwarding one gives the recipient what it carries. Browser and installed-app copies do not merge.</p>
         </section>
       </div>
     </div>
@@ -1445,10 +1460,34 @@ Triceps pushdown 3x12-15</pre>
       <p id="shareSetupBody" class="share-setup__scope" data-i18n="program.share_setup_sub">Program, settings and app language · no workout history</p>
       <p id="shareSetupBlockerSummary" class="share-setup__blocker-summary hidden" role="status" tabindex="-1"></p>
       <div id="shareSetupBlockers" class="share-setup__blockers hidden" role="list" data-i18n-aria="program.share_setup_blockers" aria-label="Unresolved exercises"></div>
+      <!-- Plan 086 slice 2: the relay. One tap on Create link shares the program; who it's from is optional and
+           waits behind one collapsed row. The link then shows as a QR code, its expiry and the link itself. -->
+      <button type="button" class="listrow share-setup__who hidden" id="shareSetupWho" aria-expanded="false" aria-controls="shareSetupWhoFields">
+        <span class="listrow__main"><span class="listrow__title" data-i18n="relay.share.who_row">Add your name and a message</span>
+          <span class="listrow__sub" data-i18n="relay.share.who_row_sub">Optional · shown when they open the program</span></span>
+        <span class="chevron" aria-hidden="true"></span>
+      </button>
+      <div id="shareSetupWhoFields" class="share-setup__fields hidden">
+        <p class="share-setup__caption" data-i18n="relay.share.who_lede">Add who it's from. Everything here is optional.</p>
+        <label class="field share-setup__field"><span data-i18n="relay.share.name_label">Your name</span>
+          <input type="text" id="shareSetupName" maxlength="80" autocomplete="name"></label>
+        <label class="field share-setup__field"><span data-i18n="relay.share.registration_label">Registration (optional)</span>
+          <input type="text" id="shareSetupRegistration" maxlength="80" autocomplete="off" data-i18n-placeholder="relay.share.registration_placeholder" placeholder="For example, CREF 012345-G/SP"></label>
+        <label class="field share-setup__field"><span data-i18n="relay.share.message_label">Message (optional)</span>
+          <textarea id="shareSetupMessage" rows="3" maxlength="1000"></textarea></label>
+        <p class="share-setup__caption" data-i18n="relay.share.attribution_note">Shown when they open the program. Taurifer doesn't check names or registrations.</p>
+      </div>
+      <p id="shareSetupWarn" class="share-setup__warn hidden" role="status"></p>
+      <!-- The code repeats the link below it, so assistive technology reads the link once. -->
+      <div id="shareSetupQr" class="share-setup__qr hidden" aria-hidden="true"></div>
+      <p id="shareSetupQrHint" class="share-setup__caption share-setup__caption--center hidden" data-i18n="relay.share.qr_hint">They can scan this code with their device's camera.</p>
+      <p id="shareSetupExpiry" class="share-setup__caption hidden"></p>
       <p id="shareSetupLink" class="share-setup__link" tabindex="0"></p>
       <p id="shareSetupStatus" class="share-setup__status hidden" role="status" tabindex="-1"></p>
+      <button type="button" class="text-link share-setup__retry hidden" id="shareSetupRetry" data-i18n="relay.retry">Try again</button>
     </div>
     <div class="sheet__foot sheet__foot--actions">
+      <button type="button" class="btn btn--cta btn--noarrow hidden" id="shareSetupCreate" data-i18n="relay.share.create">Create link</button>
       <button type="button" class="btn btn--steel" id="shareSetupCopy" data-i18n="program.share_setup_copy">Copy link</button>
       <button type="button" class="btn btn--steel" id="shareSetupShare" data-i18n="program.share_setup_share">Share link</button>
       <button type="button" class="btn btn--steel hidden" id="shareSetupFile" data-i18n="program.share_setup_file" disabled>Share as file</button>
@@ -1616,7 +1655,7 @@ Triceps pushdown 3x12-15</pre>
   <script src="posthog-init.js"></script>
   <script src="schedule.js"></script>
   <script src="notify.js"></script>
-  <script src="i18n.js?v=804"></script>
+  <script src="i18n.js?v=805"></script>
   <script src="exercises.js?v=797"></script>
   <script src="generation-identity.js?v=459"></script>
   <script src="exercise-catalog.js?v=459"></script>
@@ -1639,7 +1678,12 @@ Triceps pushdown 3x12-15</pre>
   <script src="program-entry-adapter.js?v=560"></script>
   <script src="program-editor.js?v=789"></script>
   <script src="program-review.js?v=692"></script>
-  <script src="shared-setup.js?v=574"></script>
+  <script src="shared-setup.js?v=801"></script>
+  <!-- The trainer relay (Plan 086): encrypted program handoffs and their QR codes. -->
+  <script src="trainer-relay-contract.js?v=801"></script>
+  <script src="trainer-relay.js?v=801"></script>
+  <script src="trainer-documents.js?v=801"></script>
+  <script src="qr-code.js?v=801"></script>
   <script src="starting-loads.js?v=772"></script>
   <script src="workout-draft.js?v=772"></script>
   <script src="effort-calibration.js?v=728"></script>
@@ -1656,6 +1700,6 @@ Triceps pushdown 3x12-15</pre>
   <script src="history-ui.js?v=772"></script>
   <script src="share-cards.js?v=771"></script>
   <script src="warmup-suggestions.js?v=772"></script>
-  <script src="app.js?v=804"></script>
+  <script src="app.js?v=805"></script>
 </body>
 </html>

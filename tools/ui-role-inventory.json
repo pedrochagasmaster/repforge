@@ -318,6 +318,36 @@
       "content": "flat",
       "scenario": "An invalid setup link explains that nothing was saved and keeps safe Build and Track actions available."
     },
+    "onboarding-shared/relay-gate": {
+      "owner": "plan-086",
+      "content": "flat",
+      "scenario": "A program handoff from a trainer at the first-run gate: the program and days, who it is from with their registration, their message, and the no-history/no-change disclosure."
+    },
+    "onboarding-shared/relay-opening": {
+      "owner": "plan-086",
+      "content": "flat",
+      "scenario": "The record is downloading and decrypting; the gate says a connection is needed once."
+    },
+    "onboarding-shared/relay-unavailable": {
+      "owner": "plan-086",
+      "content": "flat",
+      "scenario": "The relay cannot be reached: nothing was saved, Try again comes first, then Build and Track."
+    },
+    "onboarding-shared/relay-expired": {
+      "owner": "plan-086",
+      "content": "flat",
+      "scenario": "The link's seven days are over: nothing was saved; ask the person who sent it for a new link."
+    },
+    "onboarding-shared/relay-newer": {
+      "owner": "plan-086",
+      "content": "flat",
+      "scenario": "The program was sent from a newer version: Reload Taurifer, then open the link again."
+    },
+    "onboarding-shared/relay-incomplete": {
+      "owner": "plan-086",
+      "content": "flat",
+      "scenario": "Part of the link is missing: nothing was saved and the relay is never asked."
+    },
     "onboarding-shared/preview": {
       "owner": "plan-072",
       "content": "flat",
@@ -902,6 +932,26 @@
       "owner": "plan-067",
       "content": "flat",
       "scenario": "An edited program generated before the last generator bump is too large for a setup link (neither its recipe nor recipe-plus-edits regenerates); the sheet offers sharing it as a program file."
+    },
+    "program/share-relay": {
+      "owner": "plan-086",
+      "content": "flat",
+      "scenario": "Plan 086 slice 2: one tap on Create link shares the program; who it's from waits behind one collapsed row."
+    },
+    "program/share-relay-who": {
+      "owner": "plan-086",
+      "content": "flat",
+      "scenario": "The collapsed row opened: an optional name, registration and message, encrypted into the handoff."
+    },
+    "program/share-relay-ready": {
+      "owner": "plan-086",
+      "content": "flat",
+      "scenario": "The encrypted relay link as a QR code, with the camera hint, its 7-day expiry and Copy and Share."
+    },
+    "program/share-relay-fallback": {
+      "owner": "plan-086",
+      "content": "flat",
+      "scenario": "The relay is unavailable: the sheet falls back to the setup link, says what it loses, and offers Try again."
     },
     "program/text-export": {
       "owner": "plan-057",
@@ -3126,6 +3176,28 @@
       ]
     },
     {
+      "id": "sharesetupmessage",
+      "selector": "#shareSetupMessage",
+      "roles": {
+        "control": "field"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "validation-error"
+      ],
+      "rationale": "An optional message to the receiver, encrypted into the handoff; never remembered.",
+      "owner": "plan-086",
+      "catalogStates": [
+        "program/share-relay-who"
+      ]
+    },
+    {
       "id": "expickreasonskip",
       "selector": "#exPickReasonSkip",
       "roles": {
@@ -3410,7 +3482,13 @@
         "onboarding-start/first-run-proof-test",
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-check",
-        "onboarding-start/first-run-ways"
+        "onboarding-start/first-run-ways",
+        "onboarding-shared/relay-gate",
+        "onboarding-shared/relay-opening",
+        "onboarding-shared/relay-unavailable",
+        "onboarding-shared/relay-expired",
+        "onboarding-shared/relay-newer",
+        "onboarding-shared/relay-incomplete"
       ]
     },
     {
@@ -3442,7 +3520,11 @@
         "onboarding-start/first-run-proof-test",
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-check",
-        "onboarding-start/first-run-ways"
+        "onboarding-start/first-run-ways",
+        "onboarding-shared/relay-unavailable",
+        "onboarding-shared/relay-expired",
+        "onboarding-shared/relay-newer",
+        "onboarding-shared/relay-incomplete"
       ]
     },
     {
@@ -3474,7 +3556,11 @@
         "onboarding-start/first-run-proof-test",
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-check",
-        "onboarding-start/first-run-ways"
+        "onboarding-start/first-run-ways",
+        "onboarding-shared/relay-unavailable",
+        "onboarding-shared/relay-expired",
+        "onboarding-shared/relay-newer",
+        "onboarding-shared/relay-incomplete"
       ]
     },
     {
@@ -3505,7 +3591,11 @@
         "onboarding-start/first-run-proof-test",
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-check",
-        "onboarding-start/first-run-ways"
+        "onboarding-start/first-run-ways",
+        "onboarding-shared/relay-unavailable",
+        "onboarding-shared/relay-expired",
+        "onboarding-shared/relay-newer",
+        "onboarding-shared/relay-incomplete"
       ]
     },
     {
@@ -3536,7 +3626,11 @@
         "onboarding-start/first-run-proof-test",
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-check",
-        "onboarding-start/first-run-ways"
+        "onboarding-start/first-run-ways",
+        "onboarding-shared/relay-unavailable",
+        "onboarding-shared/relay-expired",
+        "onboarding-shared/relay-newer",
+        "onboarding-shared/relay-incomplete"
       ]
     },
     {
@@ -3567,7 +3661,13 @@
         "onboarding-start/first-run-proof-test",
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-check",
-        "onboarding-start/first-run-ways"
+        "onboarding-start/first-run-ways",
+        "onboarding-shared/relay-gate",
+        "onboarding-shared/relay-opening",
+        "onboarding-shared/relay-unavailable",
+        "onboarding-shared/relay-expired",
+        "onboarding-shared/relay-newer",
+        "onboarding-shared/relay-incomplete"
       ]
     },
     {
@@ -3590,7 +3690,33 @@
       "rationale": "Opens the received program in B Review without committing it; the ink-pill action remains on the night band.",
       "owner": "plan-072",
       "catalogStates": [
-        "onboarding-shared/gate"
+        "onboarding-shared/gate",
+        "onboarding-shared/relay-gate",
+        "onboarding-shared/relay-opening"
+      ]
+    },
+    {
+      "id": "firstrunrelayaction",
+      "selector": "#firstRunRelayAction",
+      "roles": {
+        "control": "primary",
+        "boundary": "decorative"
+      },
+      "variant": "landing-ink-primary",
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "loading"
+      ],
+      "rationale": "A relay link that could not open yet: Try again (relay unavailable) or Reload Taurifer (a newer version). It saves nothing and leads the landing's actions, in the creation pill's recipe.",
+      "owner": "plan-086",
+      "catalogStates": [
+        "onboarding-shared/relay-unavailable",
+        "onboarding-shared/relay-newer"
       ]
     },
     {
@@ -3611,7 +3737,29 @@
       "rationale": "Leaves the received-program gate for the existing create hub; it does not commit a program.",
       "owner": "plan-072",
       "catalogStates": [
-        "onboarding-shared/gate"
+        "onboarding-shared/gate",
+        "onboarding-shared/relay-gate",
+        "onboarding-shared/relay-opening"
+      ]
+    },
+    {
+      "id": "sharesetupretry",
+      "selector": "#shareSetupRetry",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Try again: creates the relay link again after the setup-link fallback.",
+      "owner": "plan-086",
+      "catalogStates": [
+        "program/share-relay-fallback"
       ]
     },
     {
@@ -3698,7 +3846,13 @@
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
         "onboarding-start/first-run-faq-open",
-        "onboarding-start/first-run-close"
+        "onboarding-start/first-run-close",
+        "onboarding-shared/relay-gate",
+        "onboarding-shared/relay-opening",
+        "onboarding-shared/relay-unavailable",
+        "onboarding-shared/relay-expired",
+        "onboarding-shared/relay-newer",
+        "onboarding-shared/relay-incomplete"
       ]
     },
     {
@@ -3729,7 +3883,13 @@
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
         "onboarding-start/first-run-faq-open",
-        "onboarding-start/first-run-close"
+        "onboarding-start/first-run-close",
+        "onboarding-shared/relay-gate",
+        "onboarding-shared/relay-opening",
+        "onboarding-shared/relay-unavailable",
+        "onboarding-shared/relay-expired",
+        "onboarding-shared/relay-newer",
+        "onboarding-shared/relay-incomplete"
       ]
     },
     {
@@ -3763,7 +3923,13 @@
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
         "onboarding-start/first-run-faq-open",
-        "onboarding-start/first-run-close"
+        "onboarding-start/first-run-close",
+        "onboarding-shared/relay-gate",
+        "onboarding-shared/relay-opening",
+        "onboarding-shared/relay-unavailable",
+        "onboarding-shared/relay-expired",
+        "onboarding-shared/relay-newer",
+        "onboarding-shared/relay-incomplete"
       ]
     },
     {
@@ -3795,7 +3961,13 @@
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
         "onboarding-start/first-run-faq-open",
-        "onboarding-start/first-run-close"
+        "onboarding-start/first-run-close",
+        "onboarding-shared/relay-gate",
+        "onboarding-shared/relay-opening",
+        "onboarding-shared/relay-unavailable",
+        "onboarding-shared/relay-expired",
+        "onboarding-shared/relay-newer",
+        "onboarding-shared/relay-incomplete"
       ]
     },
     {
@@ -3826,7 +3998,13 @@
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
         "onboarding-start/first-run-faq-open",
-        "onboarding-start/first-run-close"
+        "onboarding-start/first-run-close",
+        "onboarding-shared/relay-gate",
+        "onboarding-shared/relay-opening",
+        "onboarding-shared/relay-unavailable",
+        "onboarding-shared/relay-expired",
+        "onboarding-shared/relay-newer",
+        "onboarding-shared/relay-incomplete"
       ]
     },
     {
@@ -4952,7 +5130,13 @@
         "onboarding-import/freeform-managed-limit",
         "onboarding-import/editor-empty-day",
         "onboarding-import/freeform-managed-gaps",
-        "onboarding-import/review-suggestions"
+        "onboarding-import/review-suggestions",
+        "onboarding-shared/relay-gate",
+        "onboarding-shared/relay-opening",
+        "onboarding-shared/relay-unavailable",
+        "onboarding-shared/relay-expired",
+        "onboarding-shared/relay-newer",
+        "onboarding-shared/relay-incomplete"
       ],
       "progressScopes": {
         "entry-route-step": "task"
@@ -5237,6 +5421,50 @@
       ]
     },
     {
+      "id": "sharesetupregistration",
+      "selector": "#shareSetupRegistration",
+      "roles": {
+        "control": "field"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "validation-error"
+      ],
+      "rationale": "The sender's optional registration text (for example CREF); Taurifer does not check it.",
+      "owner": "plan-086",
+      "catalogStates": [
+        "program/share-relay-who"
+      ]
+    },
+    {
+      "id": "sharesetupname",
+      "selector": "#shareSetupName",
+      "roles": {
+        "control": "field"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "validation-error"
+      ],
+      "rationale": "The sender's optional display name, shown at the receiver's gate; remembered on this device.",
+      "owner": "plan-086",
+      "catalogStates": [
+        "program/share-relay-who"
+      ]
+    },
+    {
       "id": "programoverview-segbar",
       "selector": "#programOverview .segbar",
       "roles": {
@@ -5271,7 +5499,11 @@
         "program/text-export",
         "workout/swap-alternates",
         "program/minibar-rest-done",
-        "workout/pain-swap"
+        "workout/pain-swap",
+        "program/share-relay",
+        "program/share-relay-who",
+        "program/share-relay-ready",
+        "program/share-relay-fallback"
       ],
       "progressScopes": {
         "active-program-week": "block"
@@ -6569,6 +6801,29 @@
       ]
     },
     {
+      "id": "sharesetupwho",
+      "selector": "#shareSetupWho",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "expanded"
+      ],
+      "rationale": "Opens or closes the optional name, registration and message; collapsed so a plain share stays one tap.",
+      "owner": "plan-086",
+      "catalogStates": [
+        "program/share-relay",
+        "program/share-relay-who"
+      ]
+    },
+    {
       "id": "sharesetupclose",
       "selector": "#shareSetupClose",
       "roles": {
@@ -6590,7 +6845,11 @@
       "catalogStates": [
         "program/share-ready",
         "program/share-setup",
-        "program/share-too-large"
+        "program/share-too-large",
+        "program/share-relay",
+        "program/share-relay-who",
+        "program/share-relay-ready",
+        "program/share-relay-fallback"
       ]
     },
     {
@@ -6613,7 +6872,11 @@
       "owner": "plan-058",
       "catalogStates": [
         "program/share-ready",
-        "program/share-setup"
+        "program/share-setup",
+        "program/share-relay",
+        "program/share-relay-who",
+        "program/share-relay-ready",
+        "program/share-relay-fallback"
       ]
     },
     {
@@ -6634,7 +6897,33 @@
       "rationale": "Advances the setup-sharing task by opening the user-mediated system Share sheet; Copy remains the reversible supporting action.",
       "owner": "plan-058",
       "catalogStates": [
-        "program/share-ready"
+        "program/share-ready",
+        "program/share-relay",
+        "program/share-relay-who",
+        "program/share-relay-ready",
+        "program/share-relay-fallback"
+      ]
+    },
+    {
+      "id": "sharesetupcreate",
+      "selector": "#shareSetupCreate",
+      "roles": {
+        "control": "primary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Create link: encrypts the program on this device and creates its relay link; nothing is sent before the tap.",
+      "owner": "plan-086",
+      "catalogStates": [
+        "program/share-relay",
+        "program/share-relay-who"
       ]
     },
     {
@@ -6674,7 +6963,11 @@
       "catalogStates": [
         "program/share-ready",
         "program/share-setup",
-        "program/share-too-large"
+        "program/share-too-large",
+        "program/share-relay",
+        "program/share-relay-who",
+        "program/share-relay-ready",
+        "program/share-relay-fallback"
       ]
     },
     {
@@ -6693,7 +6986,11 @@
       "catalogStates": [
         "program/share-ready",
         "program/share-setup",
-        "program/share-too-large"
+        "program/share-too-large",
+        "program/share-relay",
+        "program/share-relay-who",
+        "program/share-relay-ready",
+        "program/share-relay-fallback"
       ]
     },
     {
@@ -9821,7 +10118,13 @@
         "history/minibar-rest",
         "program/volume-audit",
         "onboarding-import/editor-empty-day",
-        "onboarding-import/review-suggestions"
+        "onboarding-import/review-suggestions",
+        "onboarding-shared/relay-gate",
+        "onboarding-shared/relay-opening",
+        "onboarding-shared/relay-unavailable",
+        "onboarding-shared/relay-expired",
+        "onboarding-shared/relay-newer",
+        "onboarding-shared/relay-incomplete"
       ]
     },
     {
@@ -10020,6 +10323,10 @@
         "today/estimate-info",
         "workout/past-zero-why",
         "workout/prelude-why",
+        "program/share-relay",
+        "program/share-relay-who",
+        "program/share-relay-ready",
+        "program/share-relay-fallback",
         "workout/prelude-add-disabled",
         "workout/prelude-add-limit"
       ]
@@ -16358,7 +16665,7 @@
   "contextualVariants": [
     {
       "id": "landing-ink-primary",
-      "selector": "#firstRunCreate, #firstRunCreateClose, #firstRunSharedStart",
+      "selector": "#firstRunCreate, #firstRunCreateClose, #firstRunSharedStart, #firstRunRelayAction",
       "role": "primary",
       "rationale": "Creation actions and See the program share the ink-pill recipe with an arrow and retain the band's approved contrast.",
       "owner": "plan-072",
@@ -16373,7 +16680,13 @@
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
         "onboarding-start/first-run-faq-open",
-        "onboarding-start/first-run-close"
+        "onboarding-start/first-run-close",
+        "onboarding-shared/relay-gate",
+        "onboarding-shared/relay-opening",
+        "onboarding-shared/relay-unavailable",
+        "onboarding-shared/relay-expired",
+        "onboarding-shared/relay-newer",
+        "onboarding-shared/relay-incomplete"
       ]
     },
     {
@@ -16383,7 +16696,9 @@
       "rationale": "The shared gate's create-from-scratch action is an underlined quiet navigation control with no boundary, in the ink of the band it sits on.",
       "owner": "plan-072",
       "catalogStates": [
-        "onboarding-shared/gate"
+        "onboarding-shared/gate",
+        "onboarding-shared/relay-gate",
+        "onboarding-shared/relay-opening"
       ]
     },
     {
@@ -16402,7 +16717,11 @@
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
         "onboarding-start/first-run-faq-open",
-        "onboarding-start/first-run-close"
+        "onboarding-start/first-run-close",
+        "onboarding-shared/relay-unavailable",
+        "onboarding-shared/relay-expired",
+        "onboarding-shared/relay-newer",
+        "onboarding-shared/relay-incomplete"
       ]
     },
     {
@@ -16439,7 +16758,13 @@
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
         "onboarding-start/first-run-faq-open",
-        "onboarding-start/first-run-close"
+        "onboarding-start/first-run-close",
+        "onboarding-shared/relay-gate",
+        "onboarding-shared/relay-opening",
+        "onboarding-shared/relay-unavailable",
+        "onboarding-shared/relay-expired",
+        "onboarding-shared/relay-newer",
+        "onboarding-shared/relay-incomplete"
       ],
       "radiusRecipes": [
         {
@@ -16624,7 +16949,13 @@
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
         "onboarding-start/first-run-faq-open",
-        "onboarding-start/first-run-close"
+        "onboarding-start/first-run-close",
+        "onboarding-shared/relay-gate",
+        "onboarding-shared/relay-opening",
+        "onboarding-shared/relay-unavailable",
+        "onboarding-shared/relay-expired",
+        "onboarding-shared/relay-newer",
+        "onboarding-shared/relay-incomplete"
       ]
     },
     {
@@ -16673,7 +17004,13 @@
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
         "onboarding-start/first-run-faq-open",
-        "onboarding-start/first-run-close"
+        "onboarding-start/first-run-close",
+        "onboarding-shared/relay-gate",
+        "onboarding-shared/relay-opening",
+        "onboarding-shared/relay-unavailable",
+        "onboarding-shared/relay-expired",
+        "onboarding-shared/relay-newer",
+        "onboarding-shared/relay-incomplete"
       ]
     },
     {
@@ -16817,7 +17154,13 @@
         "onboarding-start/first-run-proof-test",
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-check",
-        "onboarding-start/first-run-ways"
+        "onboarding-start/first-run-ways",
+        "onboarding-shared/relay-gate",
+        "onboarding-shared/relay-opening",
+        "onboarding-shared/relay-unavailable",
+        "onboarding-shared/relay-expired",
+        "onboarding-shared/relay-newer",
+        "onboarding-shared/relay-incomplete"
       ],
       "cssLiterals": [
         {
@@ -17105,7 +17448,11 @@
         "workout/why-calibration",
         "workout/rest-overrun-finish",
         "workout/why-standing",
-        "workout/past-zero-why"
+        "workout/past-zero-why",
+        "program/share-relay",
+        "program/share-relay-who",
+        "program/share-relay-ready",
+        "program/share-relay-fallback"
       ]
     },
     {
