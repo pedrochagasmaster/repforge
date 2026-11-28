@@ -210,6 +210,9 @@
       form: values("recipe", "full"),
       size_vs_limit: values("under_half", "under_limit", "over_limit", "over_2x", "over_4x"),
     }, "Setup link outcome: ready or refused for size, then shared, copied or sent as a file", "repeatable"),
+    // A relay link was created from the Share sheet (Plan 086, owner 2026-11-27). Only that it happened: never
+    // the payload, link, record id, key, trainer name or message.
+    relay_share_outcome: event({ action: values("link_ready") }, "Encrypted relay link created from the Share sheet", "repeatable"),
     guide_replay: event({ guideId: values("entry", "first-set", "focus-utilities", "progress", "block-transition", "backup", "install", "privacy") }, "Contextual guide replayed", "repeatable"),
     late_install_transfer: Object.freeze({
       phase: "install_transfer",

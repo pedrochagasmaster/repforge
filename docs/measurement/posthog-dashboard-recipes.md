@@ -256,6 +256,12 @@ only way that pair occurs (`generated_edited` with `form=full` is the full form)
 4. **Link completion**: Funnel, `action=link_ready` → `action` in
    (`copied`, `shared`); one-hour window, breakdown `form`. The baseline the
    refused path is compared with.
+5. **Relay links created**: Trends, `relay_share_outcome` with
+   `action=link_ready`, unique installations; weekly. Plan 086 slice 2: the
+   event says only that an encrypted relay link was created, never its
+   payload, link, record id, key, name or message. While the relay is down
+   the sheet falls back to a setup link, which reports `share_setup_outcome`
+   as above.
 
 The reopen thresholds are in the backlog item; do not lower them after
 looking at the data.

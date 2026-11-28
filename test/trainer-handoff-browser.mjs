@@ -57,8 +57,32 @@ function fakeRelay() {
   return relay;
 }
 
-async function fresh(browser, relay, { standalone = false, url = BASE } = {}) {
+/** Records what app.js emits through the real telemetry boundary, with consent on. */
+const RECORDER = () => {
+  window.__captured = [];
+  let installed;
+  Object.defineProperty(window, "RepForgeTelemetry", {
+    configurable: true,
+    get: () => installed,
+    set(next) {
+      installed = next;
+      try {
+        next.boot({
+          adapter: { capture: (name, properties) => window.__captured.push([name, { ...properties }]), setEnabled() {} },
+          appVersion: "test", crypto: window.crypto, location: window.location, now: () => new Date(),
+          releaseChannel: "preview", storage: window.localStorage,
+        });
+      } catch (error) { window.__telemetryBootError = String(error); }
+    },
+  });
+};
+
+async function fresh(browser, relay, { standalone = false, url = BASE, telemetry = false } = {}) {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  if (telemetry) {
+    await context.addInitScript(RECORDER);
+    await context.addInitScript(() => window.localStorage.setItem("repforge_telemetry_enabled_v1", "true"));
+  }
   await relay.install(context);
   await context.addInitScript(() => { window.__repforgeLocalRelay = true; });
   if (standalone) await context.addInitScript(() => Object.defineProperty(navigator, "standalone", { configurable: true, get: () => true }));
@@ -131,7 +155,7 @@ async function main() {
   const errors = [];
   try {
     // ---- Share ---------------------------------------------------------------------------------------------
-    const sender = await fresh(browser, relay);
+    const sender = await fresh(browser, relay, { telemetry: true });
     errors.push(sender.errors);
     check(await activateProgram(sender.page), "the sender has an active program");
     await openShare(sender.page);
@@ -155,6 +179,12 @@ async function main() {
     const stored = [...relay.records.values()][0];
     check(!JSON.stringify(stored).includes("Rafael") && !JSON.stringify(stored).includes(link.split(".").pop()),
       "the relay holds ciphertext only: no name and no key");
+    const captured = await sender.page.evaluate(() => window.__captured);
+    const relayEvents = captured.filter(([name]) => name === "relay_share_outcome").map(([, p]) => p);
+    check(relayEvents.length === 1 && relayEvents[0].action === "link_ready", "a relay link sends one relay_share_outcome link_ready event", relayEvents);
+    const secrets = ["Rafael", "CREF", "squat", link.split("#r=")[1].split(".")[0], link.split(".").pop()];
+    check(captured.every(([, p]) => secrets.every((secret) => !JSON.stringify(p).includes(secret))),
+      "no event carries the name, registration, message, record id or key");
     await sender.page.keyboard.press("Escape");
     await sender.page.waitForSelector("#shareSetupSheet", { state: "hidden" });
     await openShare(sender.page);
