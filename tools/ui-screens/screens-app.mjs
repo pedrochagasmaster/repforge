@@ -301,7 +301,7 @@ const D_FIXTURE_STATES = new Set([
   "workout/max-set-prompt", "workout/max-set-recheck", "workout/max-set-guess", "workout/max-set-active", "workout/max-set-result", // Plan 077 PR 3
   "workout/effort-stage-a", "workout/effort-stage-b", "workout/effort-menu", "workout/stage-tip", // Plan 077 PR 2
   "workout/reorder", "workout/skipped-actions", "workout/substituted-actions", // R3d
-  "workout/actions", "workout/exercise-actions", // R3x: the redrawn sheet, on the lifter the drawing shows
+  "workout/exercise-actions", // R3x: the redrawn sheet, on the lifter the drawing shows
   "workout/swap-alternates", // #317: the swap picker leads with the squat slot's alternates
   "workout/abandon", "workout/swap-reason", // Plan 071 §10: end-without-saving and the swap reason chips
   "history/list", "history/list-scrolled", "history/session", "history/session-share", "history/edit-dirty", "history/edit-invalid", // R3j, R3j2
@@ -2277,7 +2277,7 @@ async function rampFixture(page,{bodyweight=true,ratio=false,substitute=false}={
     await seed(page,state);
     await page.evaluate(id=>window.__repforgeGoToLogExercise(id),squat.id);
     if(substitute){
-      await page.locator("#woOverflowBtn").click();await page.locator('[data-workout-action="exercise"]').click();
+      await page.locator("#workout [data-ex-actions]").click();
       await page.locator("#exActionSubstBtn").click();await page.locator("#exPickSearch").fill("Pendulum squat");
       await page.locator(`#exPickList [data-pick="${source.id}"]`).click();
       await page.locator('[data-pick-reason="equipment"]').click();
@@ -2389,7 +2389,7 @@ export const APP_SCENARIOS = {
     await rampFixture(page,{ratio:true});
     await page.locator("#workout .exercise.is-current [data-ramp-start]").click();await rampAnswer(page,"easy",1);
     const id=await page.evaluate(()=>window.RepForgeExerciseCatalog.snapshot().exercises.find(ex=>ex.name==="Barbell bench press").id);
-    await page.locator("#woOverflowBtn").click();await page.locator('[data-workout-action="exercise"]').click();
+    await page.locator("#workout [data-ex-actions]").click();
     await page.locator("#exActionSubstBtn").click();await page.locator("#exPickSearch").fill("Barbell bench press");
     await page.locator(`#exPickList [data-pick="${id}"]`).click();await page.locator('[data-pick-reason="equipment"]').click();
     await page.locator('#workout .exercise.is-current [data-ramp-start][data-ramp-load="22.5"][data-ramp-basis="prior"]').waitFor();
@@ -2707,11 +2707,11 @@ export const APP_SCENARIOS = {
     await page.locator('#sessionAbandonReasons [data-abandon-reason="time"]').click();
     await pinSheetScrollToEnd(page, ".session-sheet__body");
   },
-  "workout/exercise-actions": async page => { await focusMode(page); await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click(); await resetSheetScroll(page, "#exActionsSheet .exactions-sheet__body"); },
+  "workout/exercise-actions": async page => { await focusMode(page); await page.locator("#workout [data-ex-actions]").click(); await resetSheetScroll(page, "#exActionsSheet .exactions-sheet__body"); },
   "workout/skipped-actions": async page => {
     await focusMode(page);
     const id=await page.locator("#workout .exercise.is-current").getAttribute("data-ex");
-    await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
+    await page.locator("#workout [data-ex-actions]").click();
     await page.locator("#exActionSkipBtn").click();
     await page.locator('[data-skip-reason="other"]').click();
     await page.locator("#skipReasonSheet").waitFor({state:"hidden"});
@@ -2723,13 +2723,13 @@ export const APP_SCENARIOS = {
   },
   "workout/substituted-actions": async page => {
     await focusMode(page);
-    await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
+    await page.locator("#workout [data-ex-actions]").click();
     await page.locator("#exActionSubstBtn").click();
     await page.locator("#exPickList .pickrow").first().click();
     await page.locator("#exPickSheet.is-reason-step").waitFor();
     await page.locator("#exPickReasonSkip").click();
     await page.locator("#exPickSheet").waitFor({state:"hidden"});
-    await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
+    await page.locator("#workout [data-ex-actions]").click();
     // The reopened sheet keeps its body's last scroll until it has opened; a reset before then was undone, and the frame
     // showed the body scrolled past its first heading (full lane, 2026-10-24). Reset once it has settled.
     await page.locator("#exActionsSheet.is-open").waitFor();
@@ -2739,14 +2739,14 @@ export const APP_SCENARIOS = {
   },
   "workout/swap-alternates": async page => {
     await focusMode(page);
-    await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
+    await page.locator("#workout [data-ex-actions]").click();
     await page.locator("#exActionSubstBtn").click();
     await page.locator("#exPickSheet.is-open .pick__section").first().waitFor();
     await sleep(page, 400);
   },
   "workout/swap-reason": async page => {
     await focusMode(page);
-    await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
+    await page.locator("#workout [data-ex-actions]").click();
     await page.locator("#exActionSubstBtn").click();
     await page.locator("#exPickSheet.is-open .pick__section").first().waitFor();
     // The reason is asked after the pick (refinement audit A4): pick the first alternate, then the sheet asks why.
@@ -2754,7 +2754,38 @@ export const APP_SCENARIOS = {
     await page.locator("#exPickSheet.is-reason-step .pick__followup").waitFor();
     await sleep(page, 400);
   },
-  "workout/warmup-actions": async page => { await focusMode(page); await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click(); await page.locator("#exActionsWarmupList [data-warm-toggle-set]").first().click(); await page.evaluate(() => window.__repforgeWorkoutDraft.flush()); await resetSheetScroll(page, "#exActionsSheet .exactions-sheet__body"); },
+  "workout/prelude-add-limit": async page => {
+    await APP_SCENARIOS["workout/prelude"](page);
+    await page.locator("[data-wu-skip]").click();
+    for(let n=0;n<6;n++){
+      await page.locator("[data-ex-actions]").click();
+      await page.locator("#exActionAddWarmup").click();
+      await page.locator("#exActionsSheet").waitFor({state:"hidden"});
+      await page.waitForFunction(()=>Object.values(window.__repforgeWorkoutDraft.current().exercises).some(ex=>ex.warmupPrelude?.steps.some(step=>step.completion==="pending")));
+      await page.evaluate(async()=>{
+        const hook=window.__repforgeWorkoutDraft,draft=hook.current();
+        const id=draft.exerciseOrder.find(id=>draft.exercises[id].warmupPrelude?.steps.some(step=>step.completion==="pending"));
+        const step=draft.exercises[id].warmupPrelude.steps.find(step=>step.completion==="pending");
+        const result=await hook.dispatch("completeWarmupStep",{exerciseInstanceId:id,stepId:step.stepId,completedAt:new Date().toISOString()});
+        if(result.status!=="applied")throw Error("warm-up completion failed");
+        renderWorkout();
+      });
+    }
+    await page.locator("[data-ex-actions]").click();
+    await page.locator("#toast").waitFor({state:"hidden"});
+    await resetSheetScroll(page,"#exActionsSheet .exactions-sheet__body");
+  },
+  // The Voice input row shows only with the setting on, in a browser that has speech recognition.
+  "workout/session-voice": async page => {
+    await focusMode(page);
+    await page.evaluate(() => { state.settings.voiceInputEnabled = true; updateVoiceBtn(); });
+    await page.click("#sessionSheetBtn");
+    await page.locator("#voiceBtn").waitFor();
+    // The row sits under Details, below the first screenful: the frame shows the end of the list.
+    await page.evaluate(() => { const body = document.querySelector(".session-sheet__body"); body.scrollTop = body.scrollHeight; });
+  },
+  "workout/prelude-add-disabled": async page => { await APP_SCENARIOS["workout/prelude"](page); await page.locator("#workout [data-ex-actions]").click(); await resetSheetScroll(page, "#exActionsSheet .exactions-sheet__body"); },
+  "workout/warmup-actions": async page => { await focusMode(page); await page.locator("#workout [data-ex-actions]").click(); await page.locator("#exActionsWarmupList [data-warm-toggle-set]").first().click(); await page.evaluate(() => window.__repforgeWorkoutDraft.flush()); await resetSheetScroll(page, "#exActionsSheet .exactions-sheet__body"); },
   // The session map reorders as the editor does: the row's menu (long-press, or its button for the keyboard) moves it.
   "workout/reorder": async page => {
     await focusMode(page);
@@ -2938,8 +2969,7 @@ export const APP_SCENARIOS = {
   // With no rest running there is no tab; the ⋯ sheet's Rest timer row opens the sheet idle, on Start.
   "workout/rest-sheet-idle": async (page) => {
     await focusMode(page);
-    await page.locator("#woOverflowBtn").click();
-    await page.locator('[data-workout-action="rest"]').click();
+    await page.locator("#workoutRestBtn").click();
     await page.waitForSelector("#restSheet.is-open", { timeout: 20000 });
     await sleep(page, 500);
   },
@@ -2969,7 +2999,7 @@ export const APP_SCENARIOS = {
   "workout/exercise-note": async (page) => {
     await focusMode(page);
     // The header's ⋯ has Exercise note directly (owner, 2026-11-05).
-    await page.locator("#woOverflowBtn").click({ timeout: 20000 }); await page.locator('[data-workout-action="note"]').click();
+    await page.locator("#workout .is-current [data-fnote]").click();
     await page.waitForSelector("#exNoteSheet.is-open", { timeout: 20000 });
     await sleep(page, 400);
   },
@@ -2977,7 +3007,7 @@ export const APP_SCENARIOS = {
   // line under the prescription, cut with an ellipsis, in place of the note icon.
   "workout/exercise-note-line": async (page) => {
     await focusMode(page);
-    await page.locator("#woOverflowBtn").click({ timeout: 20000 }); await page.locator('[data-workout-action="note"]').click();
+    await page.locator("#workout .is-current [data-fnote]").click();
     await page.waitForSelector("#exNoteSheet.is-open", { timeout: 20000 });
     const lang = await page.evaluate(() => document.documentElement.lang);
     await page.fill("#exNoteText", lifterExerciseNote(/^pt/i.test(lang) ? "pt" : "en"));
@@ -3321,21 +3351,18 @@ export const APP_SCENARIOS = {
   },
   "today/week-card": async page => {await page.locator("#todayWeekCard:not(.hidden)").waitFor();},
   "workout/pain-swap": async page => {
-    await focusMode(page);await page.locator("#woOverflowBtn").click();
-    await page.locator('[data-workout-action="exercise"]').click();
+    await focusMode(page);await page.locator("#workout [data-ex-actions]").click();
     await page.locator("#exActionDiscomfortBtn").click();
     await page.locator("#exPickSheet.is-open .pick__section").first().waitFor();
   },
   "workout/discomfort-mark": async page => {
-    await focusMode(page);await page.locator("#woOverflowBtn").click();
-    await page.locator('[data-workout-action="exercise"]').click();
+    await focusMode(page);await page.locator("#workout [data-ex-actions]").click();
     await page.locator("#exActionDiscomfortBtn").click();
     await page.locator("#exActionDiscomfortStatus:not(.hidden)").waitFor();
     await page.locator("#exActionDiscomfortStatus").scrollIntoViewIfNeeded();
   },
   "workout/skip-reason": async page => {
-    await focusMode(page);await page.locator("#woOverflowBtn").click();
-    await page.locator('[data-workout-action="exercise"]').click();
+    await focusMode(page);await page.locator("#workout [data-ex-actions]").click();
     await page.locator("#exActionSkipBtn").click();
     await page.locator("#skipReasonSheet:not([hidden])").waitFor();
   },
@@ -3825,10 +3852,6 @@ export const APP_SCENARIOS = {
     await dismissChrome(page);
     await page.locator('#todayExList [data-context-row]').first().click({ button: 'right' });
     await page.waitForSelector('#nativeContextMenu[open]');
-  },
-  "workout/actions": async page => {
-    await focusMode(page); await page.click('#woOverflowBtn');
-    await page.waitForSelector('#workoutActionSheet.is-open');
   },
   "program/editor-context-menu": async page => {
     await openProgram(page); await openEditorA(page); await editorSheetAtRest(page);

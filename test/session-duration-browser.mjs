@@ -253,15 +253,13 @@ async function main() {
     await enterWorkout(source);
     await saveFirstSet(source);
     await selectExercise(source, SEED_A);
-    await source.locator("#woOverflowBtn").click();
-    await source.locator('[data-workout-action="exercise"]').click();
+    await source.locator("#workout [data-ex-actions]").click();
     check(await source.locator("#exActionDiscomfortBtn").count()===1,"exercise actions offer a discomfort mark");
     await source.locator("#exActionDiscomfortBtn").click();
     await source.waitForFunction(()=>window.__repforgeWorkoutDraft.current()?.exercises?.["seed-ex-1"]?.discomfort?.[0]?.kind==="discomfort");
     await source.locator("#exActionsClose").click();
     await selectExercise(source, "seed-ex-2");
-    await source.locator("#woOverflowBtn").click();
-    await source.locator('[data-workout-action="exercise"]').click();
+    await source.locator("#workout [data-ex-actions]").click();
     await source.locator("#exActionSkipBtn").click();
     await source.locator('[data-skip-reason="time"]').click();
     await source.waitForFunction(()=>window.__repforgeWorkoutDraft.current()?.exercises?.["seed-ex-2"]?.skipReason==="time");

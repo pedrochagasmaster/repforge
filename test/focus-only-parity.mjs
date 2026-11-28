@@ -86,7 +86,7 @@ async function liveWellButton(page, kind) {
 }
 /** The header's three-dot button opens the session actions; Exercise actions is one of them. */
 async function openActions(page) {
-  await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
+  await page.locator("#workout [data-ex-actions]").click();
   await page.waitForSelector("#exActionsSheet.is-open", { timeout: 5000 });
 }
 async function currentCard(page) {
@@ -399,7 +399,7 @@ async function main() {
 
     /* ---- User exercise note ---- */
     phase("Exercise note: save, reload, restoration");
-    await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="note"]').click();
+    await page.locator("#workout .is-current [data-fnote]").click();
     await page.waitForSelector("#exNoteSheet.is-open", { timeout: 5000 });
     await page.fill("#exNoteText", "Seat 4, handles chest height.");
     await page.locator("#exNoteSave").click();
@@ -443,8 +443,7 @@ async function main() {
 
     /* ---- Rest timer through the actions sheet and the tab (rest timer redesign, 2026-10-23) ---- */
     phase("Rest timer: started from the actions sheet, held and let go from the sheet, ended; commit independent of timer");
-    await page.locator("#woOverflowBtn").click();
-    await page.locator('[data-workout-action="rest"]').click();
+    await page.locator("#workoutRestBtn").click();
     await page.waitForSelector("#restSheet.is-open", { timeout: 5000 });
     await page.locator("#restHold").click();
     await page.waitForSelector("#restTab", { timeout: 5000 });
@@ -519,9 +518,9 @@ async function main() {
       "resuming restores the touched value on the same exercise", JSON.stringify(resumed));
 
     phase("Capability-detected voice fills the active set");
-    await page.locator("#woOverflowBtn").click();
-    assert(await page.locator('[data-workout-action="voice"]').isVisible(), "voice remains reachable when supported and enabled");
-    await page.locator('[data-workout-action="voice"]').click();
+    await page.locator("#sessionSheetBtn").click();
+    assert(await page.locator('#voiceBtn').isVisible(), "voice remains reachable when supported and enabled");
+    await page.locator('#voiceBtn').click();
     await page.waitForFunction(() => typeof window.__voiceTest?.onresult === "function");
     await page.evaluate(() => window.__voiceTest.onresult({ results: [[{ transcript: "80 x 8 @2" }]] }));
     await flushDraft(page);

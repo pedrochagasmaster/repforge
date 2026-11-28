@@ -562,7 +562,7 @@ export async function runWeekReviewBrowser(browser) {
       await dismissChrome(page);await enterFirstWorkout(page);
       const id=await page.locator("#workout .exercise.is-current").getAttribute("data-ex");
       const replacement=appState("workout/discomfort-mark","en").program.find(exercise=>exercise.id!==id).libraryId;
-      await page.locator("#woOverflowBtn").click();await page.locator('[data-workout-action="exercise"]').click();
+      await page.locator("#workout [data-ex-actions]").click();
       await page.locator("#exActionSubstBtn").click();
       await page.locator(`#exPickList [data-pick="${replacement}"]`).click();
       await page.locator('[data-pick-reason="pain"]').click();

@@ -123,7 +123,11 @@ async function selectExercise(page, rowId) {
 async function finishEarly(page) {
   await page.locator("#sessionSheetBtn").click();
   await page.locator("#sessionEarlyFinish").click();
-  await page.locator("#sessionEarlyConfirm").click();
+  // With unlogged sets the app asks first; with every set logged the one Finish entry saves directly.
+  const outcome = await page.waitForFunction(() =>
+    !document.querySelector("#sessionEarlyPrompt").classList.contains("hidden") ? "asked"
+      : document.querySelector("#sessionSummary")?.hidden === false ? "saved" : false, undefined, { timeout: 15000 });
+  if (await outcome.jsonValue() === "asked") await page.locator("#sessionEarlyConfirm").click();
   await page.waitForFunction(() => document.querySelector("#sessionSummary")?.hidden === false, undefined, { timeout: 15000 });
   await page.locator("#sumDone").click();
   await page.waitForFunction(() => document.querySelector("#sessionSummary")?.hidden === true, undefined, { timeout: 10000 });
