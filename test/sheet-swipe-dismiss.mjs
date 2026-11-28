@@ -557,7 +557,7 @@ async function run() {
   await page.click('nav button[data-view="log"]');
   await page.evaluate(() => window.__repforgeEnterWorkout({}));
   await page.waitForSelector("#workout.is-focus .exercise.is-current", { state: "attached", timeout: 5000 });
-  await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="note"]').click();
+  await page.locator("#workout .is-current [data-fnote]").click();
   await page.waitForSelector("#exNoteSheet.is-open", { timeout: 5000 });
   await page.waitForTimeout(320);
   await page.fill("#exNoteText", "Seat 4, feet high.");
@@ -569,7 +569,7 @@ async function run() {
       ...window.__sheet("#exNoteSheet"),
       draft: JSON.parse(localStorage.getItem(d) || "{}").__exnotes || {},
       kept: [...document.querySelectorAll("[data-exnote]")].map((t) => t.value).filter(Boolean),
-      focus: document.activeElement?.id === "woOverflowBtn",
+      focus: document.activeElement?.matches("[data-fnote]"),
     }),
     DRAFT
   );
@@ -585,7 +585,7 @@ async function run() {
   // swiping the sheet — while a mouse there is selecting text and must be left
   // to it.
   phase("the note's own text area drags for a thumb, not for a mouse");
-  await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="note"]').click();
+  await page.locator("#workout .is-current [data-fnote]").click();
   await page.waitForSelector("#exNoteSheet.is-open", { timeout: 5000 });
   await page.waitForTimeout(320);
   const field = await page.evaluate(() => {

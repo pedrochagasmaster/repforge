@@ -1319,16 +1319,6 @@ article.exercise--focus.is-hero-compact.is-standing-compact .fcard__context > .f
 #leaveWorkout.is-pressed:not(:disabled),#sessionSheetBtn.is-pressed:not(:disabled){background:var(--row-pressed-bg);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
 #leaveWorkout:focus-visible,#sessionSheetBtn:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 #leaveWorkout:disabled,#sessionSheetBtn:disabled{background:var(--control-quiet-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
-#woOverflowBtn{
-  width:var(--control-target);height:var(--control-target);min-width:var(--control-target);min-height:var(--control-target);padding:0;
-  background:var(--control-quiet-bg);border:1px solid var(--control-quiet-boundary);border-radius:var(--radius-round);color:var(--control-quiet-ink);
-}
-@media (hover: hover) and (pointer: fine){
-#woOverflowBtn:hover:not(:disabled){background:var(--well);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink)}
-}
-#woOverflowBtn.is-pressed:not(:disabled){background:var(--row-pressed-bg);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
-#woOverflowBtn:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
-#woOverflowBtn:disabled{background:var(--control-quiet-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
 #leaveWorkout .icon-mask{transform:rotate(90deg)}
 /* Exercise progress: one segment per exercise, each a button into that exercise.
    The bar is drawn inside a 44px target. */
@@ -1566,7 +1556,6 @@ article.exercise--focus .fcard__context > .fx-next{margin-top:auto;min-height:52
   font-size:var(--font-size-focus-meta);line-height:var(--line-reading);cursor:pointer;
 }
 .fx-note-add .icon-mask{width:18px;height:18px}
-.fx-note-add:has(.fx-note-add__label){display:inline-flex;gap:var(--space-4);width:auto;padding:0 var(--space-8);border-radius:var(--radius-pill);background:none;color:var(--color-ink-secondary)}
 .fx-note-add__label{font-family:var(--font-language);font-size:var(--font-size-body-small);font-weight:var(--weight-medium)}
 .fx-note{
   display:flex;align-items:center;gap:var(--space-8);width:100%;min-width:0;margin:var(--space-4) 0 0;padding:0;
@@ -9821,7 +9810,6 @@ body.is-entry-editor #entryProgramName,
 .sheet--actions button{display:block;width:100%;min-height:56px;border:0;padding:var(--space-12) var(--space-16);background:var(--surface);color:var(--ink);font-size:var(--font-size-subtitle);line-height:var(--line-standard)}
 .sheet--actions button[hidden]{display:none}
 .native-actions__group button+button{border-top:1px solid var(--boundary-decorative)}
-.sheet--actions #workoutActionCancel{border-radius:var(--radius-prominent);font-weight:var(--weight-semibold);box-shadow:var(--elevation-modal-shadow)}
 .sheet--actions button.is-pressed{background:var(--row-pressed-bg)}
 .native-context{position:fixed;inset:0;width:100%;height:100%;max-width:none;max-height:none;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px);margin:0;border:0;background:transparent;color:var(--ink);overflow:hidden}
 .native-context::backdrop{background:var(--menu-backdrop);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
@@ -10119,3 +10107,145 @@ body.is-entry-editor #entryProgramName,
 .exactions__warmup-input{width:4.5em;min-height:var(--control-target);text-align:right}
 .shelf__fields--one{grid-template-columns:minmax(0,1fr)}
 .fx-cue__skip,.fx-prelude-none .text-link,.exactions__warmup-ctl .text-link{min-height:var(--control-target);display:inline-flex;align-items:center}
+
+/* Focus exercise actions and session controls. */
+#exActionsSheet .exactions__section { margin:0; padding:0; gap:0; }
+#exActionsSheet .sheetgroup__head { margin:4px 0; }
+#exActionsSheet .exactions__section > .sheetgroup__head { display:none; }
+#exActionsSheet #exActionsWarmupSection > .sheetgroup__head { display:block; margin:12px 0 4px; }
+#exActionsSheet #exActionsWarmupSection > .sheetgroup__head ~ .sheetgroup__head { font-size:var(--font-size-label); color:var(--ink-soft); }
+#exActionsSheet .exactions__act { min-height:48px; padding-block:8px; gap:12px; padding:8px 0; }
+#exActionsSheet .exactions__warmup-row { min-height:40px; padding-block:4px; }
+#exActionsSheet .exactions__warmup-role { font-size:var(--font-size-caption); }
+#sessionSheet { display:flex; flex-direction:column; max-height:min(85dvh,var(--sheet-max-height)); }
+#sessionSheet[hidden] { display:none; }
+#sessionSheet #sessionSheetBody { flex:1; min-height:0; padding-bottom:max(40px,env(safe-area-inset-bottom)); }
+#sessionEarlySection { flex:none; padding:8px 16px max(8px, env(safe-area-inset-bottom)); border-top:1px solid var(--boundary-required); max-height:48vh; overflow:visible; margin:0; position:relative; gap:12px; }
+/* An open confirmation takes the room it needs from the list above it, and scrolls only when it is taller than the sheet. */
+#sessionEarlySection:has(.session-early-prompt:not(.hidden)) { flex:0 1 auto; min-height:0; max-height:none; overflow:hidden; }
+/* The question scrolls inside the footer while its two answers stay in view. */
+#sessionEarlySection .session-early-prompt { flex:0 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain; }
+#sessionEarlySection .session-early-actions { position:sticky; bottom:0; flex:none; background:var(--color-surface); }
+/* While a question is open the list above gives it all the room it needs, down to nothing. */
+#sessionSheet:has(#sessionEarlySection .session-early-prompt:not(.hidden)) #sessionSheetBody { flex-shrink:1000; padding-bottom:0; }
+/* On a short screen the question takes the sheet: a clipped sliver of the list above it reads as a fault. */
+@media (max-height:650px) {
+  #sessionSheet:has(#sessionEarlySection .session-early-prompt:not(.hidden)) #sessionSheetBody { display:none; }
+}
+#sessionEarlySection button { display:flex; align-items:center; gap:12px; min-height:44px; }
+#sessionEarlySection button.hidden { display:none; }
+#sessionEarlySection button[hidden],#exActionsSheet [hidden] { display:none; }
+.is-destructive { color:var(--danger); }
+#sessionSheetBtn { width:auto; flex:none; padding:0 8px; font-size:var(--font-size-body-small); font-weight:var(--weight-medium); min-height:44px; border:1px solid var(--rule-on-surface); border-radius:var(--radius-pill); background:var(--control-quiet-bg); color:var(--color-ink); }
+.fx-actions { display:flex; align-items:center; justify-content:center; flex:none; width:44px; height:44px; padding:0; border:0; border-radius:var(--radius-round); background:var(--control-quiet-bg); color:var(--control-quiet-ink); }
+.fx-head__row { gap:8px; flex-wrap:nowrap; justify-content:flex-end; align-items:center; }
+#exActionsSheet .exactions__rows { border-top:0; }
+#exActionsSheet #exActionsSetupSection { padding-top:8px; }
+#exActionsSheet #exActionsSetupSection > .sheetgroup__head { display:block; margin:0 0 4px; font-size:var(--font-size-caption); color:var(--color-ink-secondary); }
+#exActionsWarmupList .exactions__warmup-row { flex-wrap:nowrap; min-height:44px; padding:0; }
+#exActionsWarmupList .exactions__warmup-info { flex:1; }
+.session-sheet__endings > #sessionEarlyFinish { justify-content:center; background:var(--control-primary-bg); color:var(--control-primary-ink); min-height:44px; }
+#sessionAbandon { justify-content:center; min-height:44px; padding:4px; border:0; background:var(--control-quiet-bg); color:var(--control-destructive-ink); }
+#sessionSheetBody > .exactions__act { min-height:44px; padding:4px 0; }
+.wo-head { display:grid; grid-template-columns:44px minmax(0,1fr) auto; gap:4px; }
+.wo-head__center { order:0; padding-top:8px; }
+.wo-head__title { font-size:var(--font-size-focus-meta); }
+#exActionRepeatHint { display:block; }
+.fx-actions:focus-visible { outline:var(--control-focus-outline); outline-offset:2px; }
+@media (max-height:650px) {
+  #sessionSheet { max-height:calc(100dvh - 8px); }
+}
+@media (max-height:650px) {
+  #sessionSheet .sheetband { padding-bottom:8px; }
+}
+@media (max-height:650px) {
+  #sessionSheet .session-map__row,
+  #sessionSheet .session-map__jump { min-height:44px; }
+}
+@media (max-height:650px) {
+  #sessionSheet .session-map__jump { padding-block:4px; column-gap:8px; }
+}
+@media (max-height:650px) {
+  #sessionSheet .session-map__name { font-size:var(--font-size-body-small); line-height:1.25; }
+}
+#workoutRestBtn { width:44px; height:44px; color:var(--color-ink); }
+/* Each chip is a full target, but only its outline is drawn, and shorter: the target's extra height is taken back
+   from the line, so the prescription line keeps its own height and the set table keeps its room (#517). */
+.fx-actions,
+.fx-note-add { display:inline-flex; gap:4px; width:auto; min-height:var(--control-target); height:var(--control-target); margin-block:calc((var(--control-target) - 1lh) / -2); padding:0 12px; border:0; border-radius:var(--radius-pill); color:var(--color-ink); background:transparent; font-size:var(--font-size-caption); line-height:var(--line-reading); flex-shrink:0; white-space:nowrap; position:relative; }
+.fx-actions::before,
+.fx-note-add::before { content:""; position:absolute; inset:6px 0; border:1px solid var(--rule-on-surface); border-radius:var(--radius-pill); pointer-events:none; }
+.fx-actions .icon-mask { width:18px; height:18px; display:inline-block; margin-right:-2px; color:var(--color-ink); margin:0; }
+.fx-actions > span:last-child { font-family:var(--font-language); font-size:var(--font-size-body-small); font-weight:var(--weight-medium); }
+#exActionsSheet .sheetgroup__cap { margin:16px 0 4px; }
+.exactions__warmup-label { margin:8px 0 4px; color:var(--color-ink-secondary); font-size:var(--font-size-body-small); }
+#exActionsWarmupList .exactions__warmup-num { font-size:var(--font-size-focus-meta); }
+#exActionsSheet .exactions-sheet__body { padding-bottom:max(32px,env(safe-area-inset-bottom)); overflow-y:auto; }
+#sessionMapLabel { margin-top:var(--space-26); }
+#sessionEarlySection.has-more::before { content:""; position:absolute; pointer-events:none; height:36px; top:-37px; left:0; right:0; background:linear-gradient(to bottom,transparent,var(--color-surface)); }
+@media (max-width:359px) {
+  .fx-head__row .focus-ex__meta { flex-basis:100%; }
+}
+@media (max-width:359px) {
+  #exActionsSheet { max-height:calc(100dvh - 8px); }
+}
+.fx-head__row .focus-ex__meta { flex-basis:auto; }
+#exActionsSheet .exactions__health { margin-top:0; }
+#exActionsSheet .exactions-sheet__body > * { flex-shrink:0; }
+#exActionsSheet .exactions-sheet__body.has-more { mask-image:linear-gradient(to bottom, var(--ink) calc(100% - 32px), transparent); }
+#exActionAddWarmup:disabled { color:var(--color-ink-secondary); cursor:default; display:grid; grid-template-columns:minmax(0,1fr) 20px; column-gap:12px; row-gap:2px; }
+#exActionAddWarmup .exactions__hint { font-size:var(--font-size-label); font-weight:var(--weight-regular); color:var(--color-ink-secondary); grid-column:1 / -1; }
+@media (max-width:374px) {
+  .fx-note-add__label { display:inline; }
+}
+@media (max-width:374px) {
+  .fx-note-add { width:auto; padding:0 8px; }
+}
+@media (max-width:374px) {
+  .fx-head__row .focus-ex__meta { font-size:var(--font-size-label); white-space:nowrap; }
+}
+#exActionAddWarmup:disabled .exactions__act-text { display:contents; }
+#exActionAddWarmup:disabled .icon-mask { grid-column:2; grid-row:1; opacity:.35; }
+@media (max-width:374px) {
+  .fx-actions { padding:0 8px; }
+}
+@media (max-width:374px) {
+  .fx-head__row { gap:4px; }
+}
+@media (max-height:650px) {
+  #exActionsSheet .exactions__act { min-height:44px; padding:4px 0; }
+}
+@media (max-height:650px) {
+  #exActionsSheet .exactions__health { margin-top:0; }
+}
+@media (max-height:650px) {
+  #exActionsSheet .sheetgroup__cap { margin:10px 0 2px; }
+}
+@media (max-height:650px) {
+  #exActionsWarmupList .exactions__warmup-row { min-height:40px; }
+}
+@media (max-height:650px) {
+  #sessionMapLabel { margin-top:12px; }
+}
+#sessionSheetBtn { padding:0 16px; border:1px solid var(--control-secondary-boundary); background:var(--control-secondary-bg); color:var(--control-secondary-ink); font-weight:var(--weight-semibold); }
+@media (max-width:374px) {
+  .fx-actions,
+  .fx-note-add { padding:0 8px; gap:2px; }
+}
+@media (max-width:374px) {
+  #sessionSheetBtn { padding:0 12px; }
+}
+#exActionsSheet #exActionsRepeatSection { margin-top:12px; }
+#exActionsSheet #exActionsSkipSection { margin-top:24px; }
+@media (max-height:650px) {
+  #exActionsSheet #exActionsRepeatSection { margin-top:8px; }
+}
+@media (max-height:650px) {
+  #exActionsSheet #exActionsSkipSection { margin-top:16px; }
+}
+.fx-actions > span:first-child { font-family:var(--font-language); font-size:var(--font-size-body-small); font-weight:var(--weight-medium); color:var(--color-ink); }
+.fx-actions__label { font-family:var(--font-language); font-size:var(--font-size-body-small); font-weight:var(--weight-medium); color:var(--color-ink); }
+#exActionsWarmupList { display:flex; flex-wrap:wrap; gap:6px; padding:4px 0 12px; border-top:0; border-bottom:1px solid var(--rule-on-surface); }
+.exactions__warm-chip { position:relative; display:flex; align-items:center; justify-content:center; gap:4px; flex:0 0 auto; min-width:var(--control-target); min-height:var(--control-target); padding:var(--space-4) var(--space-12); border:1px solid var(--boundary-required); border-radius:var(--radius-pill); background:transparent; color:var(--color-ink); font-size:var(--font-size-body); font-weight:var(--weight-medium); font-variant-numeric:tabular-nums; }
+.exactions__warm-chip .icon-mask { width:14px; height:14px; }
+.exactions__warm-chip[aria-pressed="true"] { background:var(--ink); color:var(--bg); border-color:var(--boundary-selected-quiet); font-weight:var(--weight-semibold); }
